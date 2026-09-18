@@ -86,6 +86,12 @@ export type ModelOAuthErrorCode =
   | "invalid_request"
   /** The code is unknown, expired, already redeemed, or was minted for another verifier. */
   | "code_rejected"
+  /** The user or their organization declined authorization. */
+  | "access_denied"
+  /** Refresh credentials cannot yet be stored by this integration. */
+  | "expiring_token"
+  /** The token is not a supported OAuth App bearer credential. */
+  | "unsupported_token"
   /** The provider answered, but not with a usable key. */
   | "upstream_failed"
   /** The provider could not be reached at all. */

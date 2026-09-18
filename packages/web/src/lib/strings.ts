@@ -1221,6 +1221,11 @@ export const zh = {
     oauthTimedOut: "没有等到授权结果。可以改为手动填写授权码，或重新开始。",
     oauthRetry: "重新开始",
     oauthErrors: {
+      access_denied: "GitHub 授权被拒绝。请检查账户或组织限制，然后重新开始。",
+      expiring_token:
+        "GitHub 返回了会过期的令牌。Penguin 尚不支持此连接的令牌刷新。请在 GitHub OAuth 应用设置中关闭“Expire user access tokens”，保存后重新开始。",
+      unsupported_token:
+        "GitHub 返回了不支持的令牌。请配置 OAuth App 的客户端 ID（而不是 GitHub App），然后重新开始。",
       invalid_request: "授权请求被拒绝，请重新开始。",
       code_rejected: "该授权已失效：可能已过期或被用过，请重新开始。",
       upstream_failed: "供应商没有返回可用的 key，请重新开始。",

@@ -31,6 +31,14 @@ function setup() {
 }
 
 describe("Copilot device authorization", () => {
+  it("accepts case-insensitive bearer token types", async () => {
+    const { service, fetcher, advance, apply } = setup();
+    const { flowId } = await service.start(owner);
+    advance(5000);
+    fetcher.mockResolvedValue(Response.json({ ...token, token_type: "Bearer" }));
+    expect(await service.poll({ ...owner, flowId })).toMatchObject({ status: "done", applied: 2 });
+    expect(apply).toHaveBeenCalledOnce();
+  });
   it("requires an explicitly configured app and never borrows another client's identity", async () => {
     const fetcher = vi.fn<typeof fetch>();
     const flow = new CopilotDeviceFlow(
@@ -133,12 +141,22 @@ describe("Copilot device authorization", () => {
   });
 
   it.each([
-    { error: "access_denied" },
-    { ...token, expires_in: 3600 },
-    { ...token, refresh_token: "secret" },
+    [{ error: "access_denied" }, "access_denied"],
+    [{ error: "expired_token" }, "code_rejected"],
+    [{ error: "incorrect_device_code" }, "code_rejected"],
+    [{ error: "incorrect_client_credentials" }, "invalid_request"],
+    [{ error: "device_flow_disabled" }, "invalid_request"],
+    [{ error: "unsupported_grant_type" }, "invalid_request"],
+    [{ error: "unrecognized", error_description: "secret" }, "upstream_failed"],
+    [{ ...token, expires_in: 3600 }, "expiring_token"],
+    [{ ...token, refresh_token: "secret" }, "expiring_token"],
+    [{ ...token, refresh_token_expires_in: 3600 }, "expiring_token"],
+    [{ ...token, access_token: "ghu_secret" }, "unsupported_token"],
+    [{ ...token, token_type: "unknown" }, "unsupported_token"],
+    [{}, "unsupported_token"],
   ])(
-    "rejects denial and unsupported expiring tokens without leaking the response",
-    async (reply) => {
+    "classifies rejected responses without leaking credentials: %j -> %s",
+    async (reply, error) => {
       const { service, fetcher, advance, apply } = setup();
       const { flowId } = await service.start(owner);
       advance(5000);
@@ -146,7 +164,7 @@ describe("Copilot device authorization", () => {
       expect(await service.poll({ ...owner, flowId })).toEqual({
         status: "error",
         provider: "github-copilot",
-        error: "code_rejected",
+        error,
       });
       expect(apply).not.toHaveBeenCalled();
     },

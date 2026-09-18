@@ -1215,6 +1215,12 @@ export const en: Strings = {
     oauthTimedOut: "The authorization never came back. Enter the code by hand, or start again.",
     oauthRetry: "Start again",
     oauthErrors: {
+      access_denied:
+        "GitHub authorization was denied. Check account or organization restrictions, then start again.",
+      expiring_token:
+        "GitHub issued an expiring token. Penguin does not yet support token refresh for this connection. In your GitHub OAuth App settings, disable “Expire user access tokens”, save, then start again.",
+      unsupported_token:
+        "GitHub returned an unsupported token. Configure an OAuth App client ID (not a GitHub App), then start again.",
       invalid_request: "The authorization request was rejected. Start again.",
       code_rejected:
         "That authorization is no longer valid: it expired or was already used. Start again.",

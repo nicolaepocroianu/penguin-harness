@@ -18,8 +18,8 @@ interface Flow extends Owner {
 }
 
 /** GitHub OAuth App device authorization. Tokens never pass through the browser.
- * OAuth Apps issue non-expiring tokens; revoked tokens require reconnecting. Expiring
- * GitHub App tokens are deliberately refused until refresh credentials can be stored.
+ * Only non-expiring OAuth App tokens are accepted; revoked tokens require reconnecting.
+ * Expiring credentials are refused until refresh credentials can be stored.
  */
 export class CopilotDeviceFlow {
   private readonly flows = new Map<string, Flow>();
@@ -178,12 +178,37 @@ export class CopilotDeviceFlow {
         if (body.error === "slow_down") flow.interval += 5000;
         else if (body.error === "authorization_pending") {
           /* Wait for the user. */
+        } else if (body.error !== undefined) {
+          flow.status = "error";
+          // Return only our error codes, never GitHub's response or token fields.
+          switch (body.error) {
+            case "access_denied":
+              flow.error = "access_denied";
+              break;
+            case "expired_token":
+            case "incorrect_device_code":
+              flow.error = "code_rejected";
+              break;
+            case "incorrect_client_credentials":
+            case "device_flow_disabled":
+            case "unsupported_grant_type":
+              flow.error = "invalid_request";
+              break;
+            default:
+              flow.error = "upstream_failed";
+          }
+        } else if (
+          body.expires_in !== undefined ||
+          body.refresh_token !== undefined ||
+          body.refresh_token_expires_in !== undefined
+        ) {
+          flow.status = "error";
+          flow.error = "expiring_token";
         } else if (
           typeof body.access_token === "string" &&
           body.access_token.startsWith("gho_") &&
-          body.token_type === "bearer" &&
-          body.expires_in === undefined &&
-          body.refresh_token === undefined
+          typeof body.token_type === "string" &&
+          body.token_type.toLowerCase() === "bearer"
         ) {
           flow.deviceCode = "";
           try {
@@ -202,7 +227,7 @@ export class CopilotDeviceFlow {
           }
         } else {
           flow.status = "error";
-          flow.error = "code_rejected";
+          flow.error = "unsupported_token";
         }
       } catch {
         flow.status = "error";

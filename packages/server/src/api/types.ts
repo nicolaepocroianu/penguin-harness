@@ -824,7 +824,14 @@ export interface ModelOAuthStartResponse {
 
 /** Why a flow failed, as a code the frontend phrases; never carries a code, a verifier or a key. */
 export type ModelOAuthErrorCode =
-  "invalid_request" | "code_rejected" | "upstream_failed" | "unreachable" | "apply_failed";
+  | "invalid_request"
+  | "code_rejected"
+  | "access_denied"
+  | "expiring_token"
+  | "unsupported_token"
+  | "upstream_failed"
+  | "unreachable"
+  | "apply_failed";
 
 /**
  * GET /api/projects/:p/model-oauth/:flowId (owner): where a flow stands. Unknown, expired,
