@@ -3,6 +3,7 @@
 - **Date:** 2026-09-19
 - **Type:** fix
 - **Scope:** `server`, `web`
+- **PR:** [#4](https://github.com/nicolaepocroianu/penguin-harness/pull/4)
 
 [中文版](2026-09-19-copilot-oauth-errors.zh.md)
 
