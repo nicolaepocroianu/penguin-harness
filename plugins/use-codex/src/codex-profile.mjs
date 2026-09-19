@@ -11,7 +11,11 @@ export async function createCodexClient({ projectDir, cwd }) {
   return new AcpClient({
     command: process.execPath,
     args: [createRequire(import.meta.url).resolve("@agentclientprotocol/codex-acp")],
-    env: codexEnvironment(home),
+    env: {
+      ...codexEnvironment(home),
+      // Desktop uses Electron's executable to run the packaged Node entry point.
+      ...(process.versions.electron ? { ELECTRON_RUN_AS_NODE: "1" } : {}),
+    },
     cwd,
   });
 }

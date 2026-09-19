@@ -77,6 +77,7 @@ import { draftKey, loadDraft, saveDraft } from "../chat/draft-cache";
 import { prepareNewChatDraft } from "../chat/new-chat";
 import { localizedShortText, localizedText } from "../chat/skill-use";
 import { PluginDetailModal } from "./plugin-detail";
+import { CodexConnect } from "./codex-connect";
 import { formatRelativeDate } from "../../lib/format";
 import { SkillTile } from "../skills/skill-icon-view";
 import { InfoPopover } from "../../components/ui/info-popover";
@@ -626,6 +627,18 @@ export function PluginsPage() {
                       onQuickInvoke={quickInvoke}
                       onToggleInstall={toggleInstall}
                       onUpdateOutdated={updateOutdated}
+                      onCodexReady={async () => {
+                        if (!projectId || !currentAgent) return;
+                        const [skills, hooks] = await Promise.all([
+                          api.getAgentSkills(projectId, currentAgent.agentId),
+                          api.getAgentHooks(projectId, currentAgent.agentId),
+                        ]);
+                        setAgentInstalls(
+                          currentAgent.agentId,
+                          installsOf(skills.skills, hooks.hooks),
+                        );
+                        await reloadAgents();
+                      }}
                     />
                   ) : (
                     <ModuleRow
@@ -1072,6 +1085,7 @@ function PluginCard({
   onQuickInvoke,
   onToggleInstall,
   onUpdateOutdated,
+  onCodexReady,
 }: {
   plugin: PluginItem;
   /** The library's category, shown as the row's first tag (the page has no groups). */
@@ -1080,6 +1094,7 @@ function PluginCard({
   onQuickInvoke: (skillName: string) => void;
   onToggleInstall: (agentId: string, plugin: PluginItem, on: boolean) => Promise<void>;
   onUpdateOutdated: (name: string, agentIds: string[]) => Promise<void>;
+  onCodexReady: () => Promise<void>;
 }) {
   const { locale } = useLocale();
   const { agents, currentAgent } = useProject();
@@ -1139,7 +1154,9 @@ function PluginCard({
     .filter((v): v is string => v !== null)
     .join(" · ");
   return (
-    <div className="flex items-center gap-3 rounded-md p-4 transition-colors hover:bg-gray-100/70 dark:hover:bg-gray-800/60">
+    <div
+      className={`flex gap-3 rounded-md p-4 transition-colors hover:bg-gray-100/70 dark:hover:bg-gray-800/60 ${plugin.name === "use-codex" ? "flex-col items-stretch sm:flex-row sm:items-center" : "items-center"}`}
+    >
       <button
         type="button"
         onClick={() => setDetailOpen(true)}
@@ -1191,6 +1208,9 @@ function PluginCard({
       {/* Actions: equal-square light icon buttons in a single row, vertically centered at the
           card's right edge (copy goes into aria-label and title). */}
       <div className="flex shrink-0 items-center justify-center gap-1.5">
+        {plugin.name === "use-codex" && (
+          <CodexConnect onReady={onCodexReady} onStart={() => onQuickInvoke("codex")} />
+        )}
         {/* Light (secondary): an update nudge, not the card's primary action. The last stop on
             the plugins trail, so it carries the dot itself — straddling the top-right corner of
             the button's border, the anchoring rule update-dot.tsx states for a button. The mark

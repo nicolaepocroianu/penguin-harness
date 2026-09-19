@@ -1662,6 +1662,26 @@ export const en: Strings = {
 
   /** Plugin library page (features/plugins/plugins-page.tsx): one card per library plugin, installed on agents as a whole. */
   plugins: {
+    codexConnect: "Connect ChatGPT",
+    codexTitle: "Codex · ChatGPT subscription",
+    codexDescription:
+      "Connect once for this project. Penguin installs the Codex skill and configures delegation for the selected agent.",
+    codexPolicy:
+      "All sessions in this project share this account. Delegated Codex tasks can edit workspace files; additional approval requests are shown to you.",
+    codexOwner: "The project owner can connect subscriptions.",
+    codexAgent: "Select an agent first.",
+    codexStart: "Connect and set up",
+    codexEnable: "Use with this agent",
+    codexOpen: "Open sign-in",
+    codexWaiting: "Waiting for you to sign in…",
+    codexConnected: "ChatGPT connected",
+    codexReady: "Ready. Start a new chat and ask Penguin to delegate a task to Codex.",
+    codexChat: "Start a Codex task",
+    codexDisconnect: "Disconnect account",
+    codexDisconnectConfirm:
+      "Disconnect ChatGPT for this project? All agents share this account. Finish delegated Codex tasks before disconnecting.",
+    codexFailed: "Sign-in did not complete. Try connecting again.",
+    codexDisconnected: "Not connected",
     installedTitle: "Installed plugins",
     installedDesc:
       "What this Project asks for, and which of those this process is running. A change applies without a restart where the server can re-assemble itself; re-assembling stops the agent runs in progress in every Project.",

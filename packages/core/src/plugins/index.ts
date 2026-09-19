@@ -301,6 +301,11 @@ function pluginRoots(): Map<string, string> {
   return roots;
 }
 
+/** Installed runtime package for a library plugin, using the same resolution as its skills. */
+export function libraryPluginPackagePath(name: string): string | undefined {
+  return pluginRoots().get(name);
+}
+
 /**
  * Recursively collects a directory's files as text keyed by POSIX-relative path, skipping the
  * names in `except` at the top level. Symlinks and other non-regular entries are skipped.

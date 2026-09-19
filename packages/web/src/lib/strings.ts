@@ -1659,6 +1659,25 @@ export const zh = {
 
   /** Plugin library page (features/plugins/plugins-page.tsx): one card per library plugin, installed on Agents as a whole. */
   plugins: {
+    codexConnect: "连接 ChatGPT",
+    codexTitle: "Codex · ChatGPT 订阅",
+    codexDescription: "每个项目只需连接一次。Penguin 会为所选智能体安装 Codex 技能并配置任务委托。",
+    codexPolicy:
+      "此项目中的所有会话共享该账户。委托给 Codex 的任务可以编辑工作区文件；其他审批请求会提交给您。",
+    codexOwner: "项目所有者可以连接订阅。",
+    codexAgent: "请先选择智能体。",
+    codexStart: "连接并配置",
+    codexEnable: "为此智能体启用",
+    codexOpen: "打开登录页面",
+    codexWaiting: "等待您登录…",
+    codexConnected: "ChatGPT 已连接",
+    codexReady: "已就绪。开始新对话，让 Penguin 将任务委托给 Codex。",
+    codexChat: "开始 Codex 任务",
+    codexDisconnect: "断开账户",
+    codexDisconnectConfirm:
+      "要断开此项目的 ChatGPT 连接吗？所有智能体共享该账户。请先完成委托给 Codex 的任务。",
+    codexFailed: "登录未完成，请重新连接。",
+    codexDisconnected: "未连接",
     installedTitle: "已安装的插件",
     installedDesc:
       "当前 Project 要求的插件，以及其中哪些正在被本进程运行。服务器能自行重组时，改动无需重启即可生效；重组会中止所有 Project 正在进行的 Agent 运行。",

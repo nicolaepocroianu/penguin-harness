@@ -15,7 +15,9 @@ If invoked without a task, ask whether the user wants to connect or delegate and
 
 Requires Node 24+ on the Penguin server. The plugin includes pinned `@agentclientprotocol/codex-acp` 1.12.0 and its compatible Codex runtime; no globally installed Codex executable is needed.
 
-If `mcp__codex__codex_status` is available, call it. Otherwise add an MCP entry in the Agent's **Settings → Tools → MCP**. Resolve the packaged server from the Penguin installation directory (where its core or CLI package can resolve plugin dependencies):
+If `mcp__codex__codex_status` is available, call it. Otherwise direct the project owner to **Plugins → Use Codex → Connect ChatGPT** with this agent selected. The dialog installs the skill, configures MCP and handles device sign-in. Start a new chat afterwards. For installations without that dialog, the manual setup below remains available.
+
+To configure manually, add an MCP entry in the Agent's **Settings → Tools → MCP**. Resolve the packaged server from the Penguin installation directory (where its core or CLI package can resolve plugin dependencies):
 
 ```sh
 node -p "require.resolve('@penguinharness/use-codex/server')"

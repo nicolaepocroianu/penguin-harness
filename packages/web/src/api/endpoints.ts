@@ -1242,6 +1242,16 @@ export const deleteSchedule = (projectId: string, agentId: string, name: string)
 /** Plugin library (available to any logged-in user): groups, each plugin's manifest and the metadata of its skills — never SKILL.md bodies or hook scripts. */
 export const getPluginLibrary = () => apiFetch<PluginLibraryResponse>("/api/plugins");
 
+export const codexConnection = (
+  projectId: string,
+  agentId: string,
+  method: "GET" | "POST" | "DELETE" = "GET",
+) =>
+  apiFetch<import("@prismshadow/penguin-server/api").CodexConnectionStatus>(
+    `/api/projects/${encodeURIComponent(projectId)}/agents/${encodeURIComponent(agentId)}/codex`,
+    { method },
+  );
+
 /** Everything one library plugin ships as text keyed by path (skills' files, hook scripts), for the plugin detail view's file browser. */
 export const getPluginFiles = (plugin: string) =>
   apiFetch<PluginFilesResponse>(`/api/plugins/${encodeURIComponent(plugin)}/files`);

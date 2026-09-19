@@ -1,6 +1,6 @@
 # Use Codex
 
-Install **Use Codex** from Penguin's Plugins library onto an agent, then follow the installed **codex** skill to configure the packaged MCP server and connect a ChatGPT subscription with a device code. Node 24+ is required. The package pins `@agentclientprotocol/codex-acp` 1.12.0 and ACP SDK 1.4.0; the adapter supplies its compatible Codex runtime.
+In Penguin's **Plugins** library, select an agent and click **Connect ChatGPT** on **Use Codex**. The project owner can sign in with a device code; Penguin installs the **codex** skill and configures the packaged MCP server automatically. After connection, **Start a Codex task** opens a new chat with the skill selected. Repeat **Use with this agent** for other agents sharing the project account. The same dialog shows connection status and can disconnect the account. Node 24+ is required. The package pins `@agentclientprotocol/codex-acp` 1.12.0 and ACP SDK 1.4.0; the adapter supplies its compatible Codex runtime.
 
 The execution path is Penguin MCP tools → reusable ACP client → maintained Codex adapter → Codex. Penguin retains the parent task, its own tool approvals and final review. Codex owns the delegated task's agent loop. AgentHub and Penguin's model picker are unchanged. The ACP client lives in `src/acp-client.mjs`; Codex-specific process settings and its authentication-status extension live in `src/codex-profile.mjs`.
 

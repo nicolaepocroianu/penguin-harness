@@ -22,6 +22,7 @@ import {
   listInstalledSkills,
   libraryPlugin,
   loadPluginGroups,
+  projectDir,
 } from "@prismshadow/penguin-core";
 import type {
   AgentPluginsInstallResponse,
@@ -37,6 +38,8 @@ import type { AgentConfig } from "../../mechanisms/agents.js";
 import type { Access } from "../../mechanisms/projects.js";
 import type { Sessions as ManagerIface } from "../../runtime/session-manager.js";
 import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import type { ClassCtx } from "@prismshadow/penguin-core/kernel";
+import { CodexConnections, codexServerPath } from "../../services/codex-connection.js";
 import { agentHooksRoutes } from "./hooks.js";
 import { builtinPluginRegistry } from "../../plugin/registry.js";
 import { pluginBases } from "../../plugin/loader.js";
@@ -125,6 +128,78 @@ export function agentPluginsRoutes(deps: PluginsRouteDeps): Hono<AppEnv> {
   return app;
 }
 
+/** Project-owner account setup, scoped to the agent receiving delegation tools. */
+export function codexConnectionRoutes(
+  deps: PluginsRouteDeps,
+  connections: Pick<CodexConnections, "status" | "connect" | "disconnect">,
+): Hono<AppEnv> {
+  const app = new Hono<AppEnv>();
+  app.use("*", async (c, next) => {
+    const projectId = requireValidId(c, "projectId");
+    const agentId = requireValidId(c, "agentId");
+    deps.access.requireProjectOwner(c.var.user.userId, projectId);
+    await deps.agentConfigService.requireExists(projectId, agentId);
+    await next();
+  });
+  app.get("/", async (c) => c.json(await connections.status(c.req.param("projectId")!)));
+  app.post("/", async (c) => {
+    const projectId = c.req.param("projectId")!;
+    const agentId = c.req.param("agentId")!;
+    await prepareCodexAgent(deps, projectId, agentId);
+    return c.json(await connections.connect(projectId));
+  });
+  app.delete("/", async (c) => c.json(await connections.disconnect(c.req.param("projectId")!)));
+  return app;
+}
+
+export async function prepareCodexAgent(
+  deps: PluginsRouteDeps,
+  projectId: string,
+  agentId: string,
+) {
+  const plugin = libraryPlugin("use-codex");
+  if (!plugin)
+    throw new HttpError(503, "codex_unavailable", "Codex is unavailable in this installation");
+  const server = codexServerPath();
+  const args = [server, "--project-dir", projectDir(deps.config.root, projectId)];
+  const { config } = await deps.agentConfigService.getConfig(projectId, agentId);
+  const existing = config.mcpServers.find((s) => s.name === "codex");
+  // Never overwrite an operator's custom MCP entry or locally edited skill.
+  if (
+    existing &&
+    (JSON.stringify(existing.config.args) !== JSON.stringify(args) ||
+      !["node", process.execPath].includes(String(existing.config.command)) ||
+      existing.config.permission === "r")
+  )
+    throw new HttpError(
+      409,
+      "codex_config_conflict",
+      "An existing Codex MCP configuration differs. Rename or remove it in Agent Settings before connecting.",
+    );
+  if (!existing)
+    await deps.agentConfigService.updateConfig(projectId, agentId, {
+      config: {
+        mcpServers: [
+          ...config.mcpServers,
+          {
+            name: "codex",
+            config: {
+              command: process.execPath,
+              args,
+              timeoutMs: 60000,
+              maxOutputLength: 180000,
+              ...(process.versions.electron ? { env: { ELECTRON_RUN_AS_NODE: "1" } } : {}),
+            },
+          },
+        ],
+      },
+    });
+  const skills = await listInstalledSkills(deps.config.root, projectId, agentId);
+  if (!skills.some((s) => s.name === "codex"))
+    await installPlugin(deps.config.root, projectId, agentId, plugin);
+  deps.manager.invalidateAgentRuntimes(projectId, agentId);
+}
+
 /** The plugin library and the Agent-scoped install/uninstall groups, as one route component. */
 @Component({
   contributes: {
@@ -142,6 +217,12 @@ export function agentPluginsRoutes(deps: PluginsRouteDeps): Hono<AppEnv> {
         auth: "user",
         order: 224,
       },
+      {
+        id: "PluginRoutes.codex",
+        prefix: "/api/projects/:projectId/agents/:agentId/codex",
+        auth: "user",
+        order: 225,
+      },
     ],
   },
 })
@@ -153,7 +234,8 @@ export class PluginRoutes {
   @Bind("PluginRoutes.library") libraryRoutes!: Hono<AppEnv>;
   @Bind("PluginRoutes.agent-plugins") pluginRoutes!: Hono<AppEnv>;
   @Bind("PluginRoutes.agent-hooks") hookRoutes!: Hono<AppEnv>;
-  setup() {
+  @Bind("PluginRoutes.codex") codexRoutes!: Hono<AppEnv>;
+  setup({ effect }: ClassCtx) {
     const deps = {
       config: this.config,
       access: this.access,
@@ -163,6 +245,9 @@ export class PluginRoutes {
     this.libraryRoutes = pluginLibraryRoutes();
     this.pluginRoutes = agentPluginsRoutes(deps);
     this.hookRoutes = agentHooksRoutes(deps);
+    const connections = new CodexConnections(this.config.root);
+    effect(() => connections.dispose());
+    this.codexRoutes = codexConnectionRoutes(deps, connections);
   }
 }
 

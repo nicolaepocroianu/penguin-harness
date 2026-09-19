@@ -4825,3 +4825,8 @@ export type {
   ActivityRunSummary,
   ActivityRunStatus,
 } from "../activities/domain.js";
+export interface CodexConnectionStatus {
+  state: "connected" | "disconnected" | "pending" | "failed";
+  verificationUrl?: string;
+  message?: string;
+}
