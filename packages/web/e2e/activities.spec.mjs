@@ -37,6 +37,11 @@ async function fixture(page) {
   let activityRequests = 0;
   let deletedProjects = 0;
   const prefsWrites = [];
+  const imageRequests = [];
+  let imageFailure = false;
+  let imageCandidateReads = 0;
+  let imageCandidateFailure = false;
+  let imageGenerationFailure = false;
   const errors = [];
   page.on("pageerror", (error) => {
     errors.push(error.message);
@@ -121,6 +126,18 @@ async function fixture(page) {
       return json({ activities: activity ? [activity] : [] });
     if (p === `${base}/module-setup`) return json({ wafRoot: "C:/WAF checkout" });
     if (p === `${base}/speech-setup`) return json({ voices: ["Kore", "Puck"] });
+    if (p === `${base}/act_test/media-image`) {
+      imageRequests.push(Object.fromEntries(url.searchParams));
+      if (imageFailure)
+        return json({ error: { code: "image_unavailable", message: "Missing image" } }, 404);
+      return route.fulfill({
+        contentType: "image/png",
+        body: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=",
+          "base64",
+        ),
+      });
+    }
     if (p === base && request.method() === "POST") {
       const input = request.postDataJSON();
       activity = {
@@ -166,6 +183,23 @@ async function fixture(page) {
       }
       return json({
         candidate: runs.find((run) => p.includes(`/${run.runId}/`))?.candidate ?? null,
+      });
+    }
+    if (p.startsWith(`${base}/act_test/runs/`) && p.endsWith("/image")) {
+      imageCandidateReads++;
+      if (imageCandidateFailure) {
+        imageCandidateFailure = false;
+        return json(
+          { error: { code: "unavailable", message: "Candidate temporarily unavailable." } },
+          503,
+        );
+      }
+      return route.fulfill({
+        contentType: "image/png",
+        body: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=",
+          "base64",
+        ),
       });
     }
     if (p === "/api/projects/second-project/activities") return json({ activities: [] });
@@ -228,11 +262,47 @@ async function fixture(page) {
       });
       return json(runs[0], 202);
     }
+    if (p === `${base}/act_test/generate-image`) {
+      if (imageGenerationFailure) {
+        imageGenerationFailure = false;
+        return json({ error: { code: "unavailable", message: "Image generation failed." } }, 503);
+      }
+      const body = request.postDataJSON();
+      runs.unshift({
+        kind: "image",
+        image: {
+          language: body.language,
+          assetKey: body.assetKey,
+          prompt: body.prompt,
+          model: body.model,
+        },
+        runId: `run_image_${runs.length}`,
+        inputRevision: activity.draft.contentRevision,
+        activityId: activity.id,
+        projectId,
+        sessionId: "session_test",
+        status: "running",
+        createdAt: "2026-09-19T10:00:00Z",
+        candidate: null,
+        error: null,
+      });
+      return json(runs[0], 202);
+    }
     if (p.endsWith("/accept-audio")) {
       const run = runs.find((run) => p.includes(`/${run.runId}/`));
       const asset = activity.draft.mediaPlan.manifest.assets["en-US"][0];
       asset.path = `media/generated/${run.runId}.wav`;
       asset.generatedAudio = { runId: run.runId, sha256: "test" };
+      activity.draft.contentRevision = String(++revision);
+      return json(activity.draft);
+    }
+    if (p.endsWith("/accept-image")) {
+      const run = runs.find((candidate) => p.includes(`/${candidate.runId}/`));
+      const asset = activity.draft.mediaPlan.manifest.assets[run.image.language].find(
+        (candidate) => candidate.key === run.image.assetKey,
+      );
+      asset.path = `media/generated/${run.runId}.png`;
+      asset.generatedImage = { runId: run.runId, sha256: "test-image" };
       activity.draft.contentRevision = String(++revision);
       return json(activity.draft);
     }
@@ -305,7 +375,15 @@ async function fixture(page) {
       runs[0].status = "succeeded";
       runs[0].candidate = "{}";
     },
+    completeImage() {
+      runs[0].status = "succeeded";
+      runs[0].candidate = "image";
+    },
     errors,
+    imageRequests,
+    setImageFailure(value) {
+      imageFailure = value;
+    },
     prefsWrites,
     removeProject() {
       projectAvailable = false;
@@ -328,6 +406,15 @@ async function fixture(page) {
     },
     get candidateReads() {
       return candidateReads;
+    },
+    get imageCandidateReads() {
+      return imageCandidateReads;
+    },
+    failImageCandidate() {
+      imageCandidateFailure = true;
+    },
+    failImageGeneration() {
+      imageGenerationFailure = true;
     },
     secondCandidate() {
       runs.push({
@@ -446,6 +533,60 @@ test("plans media, preserves unsaved bindings on navigation, and saves paths for
   expect(f.errors).toEqual([]);
 });
 
+test("previews only saved images and resets previews across edits, checkout changes and failures", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify(spec));
+  await page.getByRole("button", { name: "Validate and save", exact: true }).click();
+  await page.getByRole("button", { name: "Plan media", exact: true }).click();
+  await expect(page.getByText("Assign and save a media path to preview this image.")).toBeVisible();
+  const binding = page.getByRole("textbox", { name: /^Media path/ });
+  await binding.fill("media/images/cat.png");
+  await expect(page.getByRole("button", { name: "Preview image", exact: true })).toHaveCount(0);
+  expect(f.imageRequests).toHaveLength(0);
+  await page.getByRole("button", { name: "Validate and save media", exact: true }).click();
+  await page.getByRole("button", { name: "Preview image", exact: true }).click();
+  await expect(page.getByRole("img", { name: "A cat", exact: true })).toBeVisible();
+  await expect(page.getByText("1 × 1 pixels", { exact: true })).toBeVisible();
+  expect(f.imageRequests[0]).toMatchObject({
+    language: "en-US",
+    assetKey: "cat",
+    wafRoot: "C:/WAF checkout",
+  });
+  expect(f.imageRequests[0].expectedRevision).toBeTruthy();
+  await expect(page.getByRole("link", { name: "Open full-size image" })).toHaveAttribute(
+    "href",
+    /media-image\?/,
+  );
+  await binding.fill("media/images/different.png");
+  await expect(page.getByRole("img", { name: "A cat", exact: true })).toHaveCount(0);
+  await expect(
+    page.getByText("Save or reload the draft before previewing its saved image."),
+  ).toBeVisible();
+  expect(f.imageRequests).toHaveLength(1);
+  await binding.fill("media/images/cat.png");
+  await page.getByRole("textbox", { name: /^WAF checkout/ }).fill("C:/Other WAF");
+  f.setImageFailure(true);
+  await page.getByRole("button", { name: "Preview image", exact: true }).click();
+  await expect(page.getByText(/^Image unavailable\./)).toBeVisible();
+  f.setImageFailure(false);
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(page.getByText("1 × 1 pixels", { exact: true })).toBeVisible();
+  expect(f.imageRequests.at(-1).wafRoot).toBe("C:/Other WAF");
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  f.member();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Preview image", exact: true })).toHaveCount(0);
+  expect(f.errors).toEqual([]);
+});
+
 test("assembles a saved spec and links to the Harness-isolated WAF preview", async ({ page }) => {
   const f = await fixture(page);
   await create(page);
@@ -529,6 +670,119 @@ test("edits scripts and explicitly accepts speech while regeneration keeps the a
   await expect(accepted).toHaveAttribute("src", source);
   await expect(page.locator('audio[aria-label="Speech candidate"]')).toHaveCount(2);
   await expect(page.getByRole("button", { name: "Accept this audio", exact: true })).toBeEnabled();
+  expect(f.errors).toEqual([]);
+});
+
+test("edits image descriptions and explicitly accepts images while failed regeneration preserves the accepted image", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify(spec));
+  await page.getByRole("button", { name: "Validate and save", exact: true }).click();
+  await page.getByRole("button", { name: "Plan media", exact: true }).click();
+  await page.getByText("Advanced: asset manifest JSON", { exact: true }).click();
+  const manifest = {
+    productCode: "words",
+    refNum: 12,
+    assets: {
+      "en-US": [
+        {
+          key: "cat",
+          type: "image",
+          description: "A friendly orange cat",
+          usages: [{ sceneId: "intro" }],
+        },
+      ],
+    },
+  };
+  await page.getByRole("textbox", { name: /^Asset manifest/ }).fill(JSON.stringify(manifest));
+  await page.getByRole("button", { name: "Validate and save media", exact: true }).click();
+  const description = page.getByRole("textbox", { name: /^Image description/ });
+  await description.fill("A friendly orange cat wearing a blue scarf");
+  await expect(page.getByRole("button", { name: "Generate image", exact: true })).toBeDisabled();
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.getByRole("button", { name: "Reload draft", exact: true }).click();
+  await expect(description).toHaveValue("A friendly orange cat wearing a blue scarf");
+  await page.getByRole("button", { name: "Validate and save media", exact: true }).click();
+  const generated = page.waitForRequest(
+    (request) => request.url().endsWith("/generate-image") && request.method() === "POST",
+  );
+  await page.getByRole("button", { name: "Generate image", exact: true }).click();
+  expect((await generated).postDataJSON()).toMatchObject({
+    agentId: "default_agent",
+    expectedRevision: expect.any(String),
+    language: "en-US",
+    assetKey: "cat",
+  });
+  f.completeImage();
+  await page.reload();
+  const candidates = page.getByRole("region", { name: "Image candidates", exact: true });
+  await expect(candidates).toBeVisible();
+  await candidates.getByRole("button", { name: "Preview image", exact: true }).click();
+  await expect(
+    candidates.getByRole("img", { name: "A friendly orange cat wearing a blue scarf" }),
+  ).toBeVisible();
+  expect(f.imageCandidateReads).toBe(1);
+  await candidates.getByRole("button", { name: "Accept this image", exact: true }).click();
+  const acceptedPath = page.getByRole("textbox", { name: /^Media path/ });
+  await expect(acceptedPath).toHaveValue("media/generated/run_image_0.png");
+  const accepted = page.getByRole("region", { name: "Accepted image", exact: true });
+  await accepted.getByRole("button", { name: "Preview image", exact: true }).click();
+  await expect(accepted.locator("img")).toBeVisible();
+  const acceptedSource = await accepted.locator("img").getAttribute("src");
+  await expect(page.getByRole("button", { name: "Regenerate image", exact: true })).toBeVisible();
+  f.failImageGeneration();
+  await page.getByRole("button", { name: "Regenerate image", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Image generation failed.");
+  await expect(acceptedPath).toHaveValue("media/generated/run_image_0.png");
+  await expect(accepted.locator("img")).toHaveAttribute("src", acceptedSource);
+  f.member();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Regenerate image", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Accept this image", exact: true })).toHaveCount(0);
+  await accepted.getByRole("button", { name: "Preview image", exact: true }).click();
+  await expect(accepted.locator("img")).toBeVisible();
+  expect(f.errors).toEqual([]);
+});
+
+test("image candidates from a conflicting run remain view-only", async ({ page }) => {
+  const f = await fixture(page);
+  await create(page);
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify(spec));
+  await page.getByRole("button", { name: "Validate and save", exact: true }).click();
+  await page.getByRole("button", { name: "Plan media", exact: true }).click();
+  await page.getByText("Advanced: asset manifest JSON", { exact: true }).click();
+  const manifest = {
+    productCode: "words",
+    refNum: 12,
+    assets: {
+      "en-US": [
+        {
+          key: "cat",
+          type: "image",
+          description: "A cat",
+          usages: [{ sceneId: "intro" }],
+        },
+      ],
+    },
+  };
+  await page.getByRole("textbox", { name: /^Asset manifest/ }).fill(JSON.stringify(manifest));
+  await page.getByRole("button", { name: "Validate and save media", exact: true }).click();
+  await page.getByRole("button", { name: "Generate image", exact: true }).click();
+  f.conflict();
+  await page.reload();
+  const candidates = page.getByRole("region", { name: "Image candidates", exact: true });
+  await expect(candidates).toBeVisible();
+  await expect(
+    candidates.getByRole("button", { name: "Accept this image", exact: true }),
+  ).toHaveCount(0);
+  await candidates.getByRole("button", { name: "Preview image", exact: true }).click();
+  await expect(candidates.locator("img")).toBeVisible();
   expect(f.errors).toEqual([]);
 });
 

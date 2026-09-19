@@ -24,11 +24,21 @@ export type Strings = {
     speechCandidate: string;
     acceptSpeech: string;
     olderSpeech: string;
+    imageDescription: string;
+    imageDescriptionHint: string;
+    acceptedImage: string;
+    imageHelp: string;
+    generateImage: string;
+    regenerateImage: string;
+    imageCandidates: string;
+    acceptImage: string;
+    olderImage: string;
     noScenes: string;
     sceneReview: string;
     advancedSpec: string;
     advancedMedia: string;
     audioRun: string;
+    imageRun: string;
     speechReady: string;
     speechHelp: string;
     invalidMediaEditor: string;
@@ -38,6 +48,14 @@ export type Strings = {
       string
     >;
     mediaTitle: string;
+    previewImage: string;
+    loadingImage: string;
+    fullImage: string;
+    reloadImage: string;
+    imageDimensions: (dimensions: string) => string;
+    imageUnbound: string;
+    imageSaveFirst: string;
+    imageUnavailable: string;
     mediaHelp: string;
     planMedia: string;
     rebuildMedia: string;

@@ -26,11 +26,23 @@ export const en: Strings = {
     acceptSpeech: "Accept this audio",
     olderSpeech:
       "Generated from an older draft. Generate again to accept against the current draft.",
+    imageDescription: "Image description",
+    imageDescriptionHint: "1–5000 characters. Save the description before generating an image.",
+    acceptedImage: "Accepted image",
+    imageHelp:
+      "Images use Gemini through the selected Agent's normal Session and tool approvals. Add GEMINI_API_KEY to that Agent's Vault. Preview a candidate before accepting it; regeneration keeps your accepted image.",
+    generateImage: "Generate image",
+    regenerateImage: "Regenerate image",
+    imageCandidates: "Image candidates",
+    acceptImage: "Accept this image",
+    olderImage:
+      "Generated from an older draft. Generate again to accept against the current draft.",
     noScenes: "Save or generate a specification to review its scenes.",
     sceneReview: "Scenes",
     advancedSpec: "Advanced: specification JSON",
     advancedMedia: "Advanced: asset manifest JSON",
     audioRun: "Speech",
+    imageRun: "Image",
     speechReady: "Ready to review",
     speechHelp:
       "Speech uses Gemini TTS through the selected Agent’s normal Session and tool approvals. Add GEMINI_API_KEY to that Agent’s Vault. Listen to a candidate before accepting it; regeneration keeps your accepted audio.",
@@ -51,6 +63,15 @@ export const en: Strings = {
       interrupted: "Interrupted",
     },
     mediaTitle: "Media plan",
+    previewImage: "Preview image",
+    loadingImage: "Loading image…",
+    fullImage: "Open full-size image",
+    reloadImage: "Reload image",
+    imageDimensions: (dimensions: string) => `${dimensions} pixels`,
+    imageUnbound: "Assign and save a media path to preview this image.",
+    imageSaveFirst: "Save or reload the draft before previewing its saved image.",
+    imageUnavailable:
+      "Image unavailable. Check the saved path and WAF checkout, or reload the draft. Previews support PNG, JPEG, GIF and WebP files up to 8 MiB; linked files are not supported.",
     mediaHelp:
       "Build a plan from the saved specification, then assign existing media paths. Rebuild after changing the specification; unchanged requirements keep their bindings. Planning does not generate media files.",
     planMedia: "Plan media",
