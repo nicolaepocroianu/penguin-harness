@@ -13,12 +13,19 @@ import { ActivityLocks, atomicJson } from "./service.js";
 import { AUDIO_MAX_BYTES, audioTarget, audioPrompt, type AudioResult } from "./audio.js";
 import { readArtifactBytes } from "./artifact.js";
 import {
+  GENERATED_IMAGE_MAX_BYTES,
+  imageTarget,
+  imagePrompt,
+  type ImageResult,
+} from "./generated-image.js";
+import {
   findWafRoot,
   prepareModule,
   collectModule,
   modulePrompt,
   verifyMediaArtifacts,
 } from "./waf-module.js";
+import { mediaTextPrompt, mediaTextTarget, parseMediaTextCandidate } from "./media-text.js";
 import {
   newId,
   validateActivitySpec,
@@ -101,6 +108,10 @@ export class ActivityGenerationService implements ActivityGeneration {
     return path.join(this.config.root, "activity-runs", run.runId);
   }
   private kind(runId: string): ActivityRun["kind"] {
+    if (this.db.prepare("SELECT 1 FROM activity_media_text_runs WHERE run_id = ?").get(runId))
+      return "media-text";
+    if (this.db.prepare("SELECT 1 FROM activity_image_runs WHERE run_id = ?").get(runId))
+      return "image";
     if (this.db.prepare("SELECT 1 FROM activity_audio_runs WHERE run_id = ?").get(runId))
       return "audio";
     return this.db.prepare("SELECT 1 FROM activity_module_runs WHERE run_id = ?").get(runId)
@@ -191,7 +202,12 @@ export class ActivityGenerationService implements ActivityGeneration {
     activityId: string,
     agentId: string,
     expectedRevision: string,
-    module?: { wafRoot?: string; audio?: { language: string; assetKey: string; voice: string } },
+    module?: {
+      wafRoot?: string;
+      audio?: { language: string; assetKey: string; voice: string };
+      image?: { language: string; assetKey: string };
+      mediaText?: { language: string; assetKey: string };
+    },
   ): Promise<ActivityRun> {
     return this.track(
       this.projectWork.run(projectId, () =>
@@ -211,8 +227,14 @@ export class ActivityGenerationService implements ActivityGeneration {
               "Add a description before generating.",
             );
           let wafRoot: string | null = null;
+          if (module && [module.audio, module.image, module.mediaText].filter(Boolean).length > 1)
+            throw new HttpError(400, "generation_invalid", "Choose one media generation type.");
           const audio = module?.audio ? audioTarget(activity, module.audio) : undefined;
-          if (module && !audio) {
+          const image = module?.image ? imageTarget(activity, module.image) : undefined;
+          const mediaText = module?.mediaText
+            ? mediaTextTarget(activity, module.mediaText)
+            : undefined;
+          if (module && !audio && !image && !mediaText) {
             if (!activity.draft.spec || activity.draft.status !== "valid")
               throw new HttpError(
                 400,
@@ -229,15 +251,15 @@ export class ActivityGenerationService implements ActivityGeneration {
           }
           await this.agents.requireExists(projectId, agentId);
           if (
-            audio &&
+            (audio || image) &&
             !(await this.agents.getVault(projectId, agentId)).entries.some(
               (entry) => entry.key === "GEMINI_API_KEY",
             )
           )
             throw new HttpError(
               400,
-              "speech_credential_missing",
-              "Add GEMINI_API_KEY to the selected Agent's Vault before generating speech.",
+              image ? "image_credential_missing" : "speech_credential_missing",
+              `Add GEMINI_API_KEY to the selected Agent's Vault before generating ${image ? "an image" : "speech"}.`,
             );
           if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
           if (this.running().some((run) => run.activityId === activityId))
@@ -247,8 +269,18 @@ export class ActivityGenerationService implements ActivityGeneration {
               "This activity already has a running generation.",
             );
           const run: ActivityRun = {
-            kind: audio ? "audio" : module ? "module" : "spec",
+            kind: mediaText
+              ? "media-text"
+              : image
+                ? "image"
+                : audio
+                  ? "audio"
+                  : module
+                    ? "module"
+                    : "spec",
             ...(audio ? { audio } : {}),
+            ...(image ? { image } : {}),
+            ...(mediaText ? { mediaText } : {}),
             runId: newId("run"),
             activityId,
             projectId,
@@ -277,7 +309,13 @@ export class ActivityGenerationService implements ActivityGeneration {
                 run.createdAt,
                 JSON.stringify({ ...metadata, hasCandidate: false }),
               );
-            if (audio)
+            if (mediaText)
+              this.db
+                .prepare("INSERT INTO activity_media_text_runs (run_id) VALUES (?)")
+                .run(run.runId);
+            else if (image)
+              this.db.prepare("INSERT INTO activity_image_runs (run_id) VALUES (?)").run(run.runId);
+            else if (audio)
               this.db.prepare("INSERT INTO activity_audio_runs (run_id) VALUES (?)").run(run.runId);
             else if (module)
               this.db
@@ -291,7 +329,18 @@ export class ActivityGenerationService implements ActivityGeneration {
           try {
             const workspace = this.workspace(run);
             await fs.mkdir(workspace, { recursive: true });
-            await atomicJson(path.join(workspace, "input.json"), activity);
+            // Requirement hashes track editorial changes, not media file bytes. They belong
+            // to draft reconciliation; exposing them to a generator invites false checksum claims.
+            const input = {
+              ...activity,
+              draft: {
+                ...activity.draft,
+                ...(activity.draft.mediaPlan
+                  ? { mediaPlan: { manifest: activity.draft.mediaPlan.manifest } }
+                  : {}),
+              },
+            };
+            await atomicJson(path.join(workspace, "input.json"), input);
             await fs.writeFile(
               path.join(workspace, "description.md"),
               activity.draft.description,
@@ -304,28 +353,40 @@ export class ActivityGenerationService implements ActivityGeneration {
                 workspace,
                 expectedRevision,
               );
+              await this.activities.prepareImageMedia(
+                projectId,
+                activityId,
+                workspace,
+                expectedRevision,
+              );
               await prepareModule(workspace, activity, wafRoot);
             }
-            if (audio) {
+            if (audio || image) {
+              const helperName = image ? "generate-image.mjs" : "generate-speech.mjs";
               const helper = libraryPlugin("agent-development")?.skills.find(
                 (skill) => skill.name === "unified-llm-api",
-              )?.files?.["scripts/generate-speech.mjs"];
+              )?.files?.[`scripts/${helperName}`];
               if (!helper)
                 throw new HttpError(
                   500,
-                  "speech_helper_missing",
-                  "The installed speech helper is missing. Rebuild the bundled plugins.",
+                  image ? "image_helper_missing" : "speech_helper_missing",
+                  "The installed media helper is missing. Rebuild the bundled plugins.",
                 );
-              await atomicJson(path.join(workspace, "speech-input.json"), audio);
+              await atomicJson(
+                path.join(workspace, image ? "image-input.json" : "speech-input.json"),
+                image ?? audio,
+              );
               await atomicJson(path.join(workspace, "package.json"), {
                 private: true,
                 type: "module",
                 dependencies: { "@prismshadow/agenthub": "0.4.15" },
               });
-              await fs.writeFile(path.join(workspace, "generate-speech.mjs"), helper, {
+              await fs.writeFile(path.join(workspace, helperName), helper, {
                 flag: "wx",
               });
             }
+            if (mediaText)
+              await atomicJson(path.join(workspace, "media-text-input.json"), mediaText);
             if (this.stopped) {
               this.finish(run, "interrupted", "Server stopped before generation started.");
               return run;
@@ -366,7 +427,19 @@ export class ActivityGenerationService implements ActivityGeneration {
             this.observers.set(run.runId, observer);
             await this.sessions.startTask(
               session.sessionId,
-              [userText(audio ? audioPrompt : module ? modulePrompt : generationPrompt)],
+              [
+                userText(
+                  mediaText
+                    ? mediaTextPrompt(mediaText)
+                    : image
+                      ? imagePrompt
+                      : audio
+                        ? audioPrompt
+                        : module
+                          ? modulePrompt
+                          : generationPrompt,
+                ),
+              ],
               {
                 queueIfBusy: false,
               },
@@ -408,6 +481,96 @@ export class ActivityGenerationService implements ActivityGeneration {
     const result = JSON.parse(run.candidate) as AudioResult;
     return this.activities.readAudio(projectId, activityId, runId, result.sha256);
   }
+  async imageCandidateContent(
+    projectId: string,
+    activityId: string,
+    runId: string,
+  ): Promise<Uint8Array> {
+    const run = await this.getRun(projectId, activityId, runId);
+    if (run.kind !== "image" || !run.candidate || !["succeeded", "conflict"].includes(run.status))
+      throw new HttpError(404, "run_not_found", "Image candidate not available.");
+    const result = JSON.parse(run.candidate) as ImageResult;
+    if (result.runId !== runId)
+      throw new HttpError(409, "image_changed", "Image candidate metadata changed.");
+    return this.activities.readImage(projectId, activityId, runId, result.sha256);
+  }
+  acceptImage(projectId: string, activityId: string, runId: string, expectedRevision: string) {
+    return this.track(
+      this.projectWork.run(projectId, () =>
+        this.locks.run(activityId, async () => {
+          if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
+          const run = await this.getRun(projectId, activityId, runId);
+          if (run.kind !== "image" || run.status !== "succeeded" || !run.image || !run.candidate)
+            throw new HttpError(
+              409,
+              "image_changed",
+              "Only a successful image candidate can be accepted.",
+            );
+          if (run.inputRevision !== expectedRevision)
+            throw new HttpError(
+              409,
+              "draft_conflict",
+              "The draft changed since image generation. Generate a new candidate.",
+            );
+          const result = JSON.parse(run.candidate) as ImageResult;
+          if (result.runId !== runId)
+            throw new HttpError(409, "image_changed", "Image candidate metadata changed.");
+          return this.activities.applyImage(
+            projectId,
+            activityId,
+            run.image,
+            result,
+            expectedRevision,
+          );
+        }),
+      ),
+    );
+  }
+  acceptMediaText(projectId: string, activityId: string, runId: string, expectedRevision: string) {
+    return this.track(
+      this.projectWork.run(projectId, () =>
+        this.locks.run(activityId, async () => {
+          if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
+          const run = await this.getRun(projectId, activityId, runId);
+          if (
+            run.kind !== "media-text" ||
+            run.status !== "succeeded" ||
+            !run.mediaText ||
+            !run.candidate
+          )
+            throw new HttpError(
+              409,
+              "media_text_changed",
+              "Only a successful media text candidate can be accepted.",
+            );
+          if (run.inputRevision !== expectedRevision)
+            throw new HttpError(
+              409,
+              "draft_conflict",
+              "The draft changed since media text generation. Generate a new candidate.",
+            );
+          let text: string;
+          try {
+            text = parseMediaTextCandidate(run.candidate, run.mediaText);
+          } catch {
+            throw new HttpError(
+              409,
+              "media_text_changed",
+              "The media text candidate is invalid. Generate a new candidate.",
+            );
+          }
+          return this.activities.applyMediaText(
+            projectId,
+            activityId,
+            run.mediaText,
+            text,
+            expectedRevision,
+          );
+        }),
+      ),
+    );
+  }
+
   acceptAudio(projectId: string, activityId: string, runId: string, expectedRevision: string) {
     return this.track(
       this.projectWork.run(projectId, () =>
@@ -469,9 +632,42 @@ export class ActivityGenerationService implements ActivityGeneration {
           await this.sessions.atIdleBoundary(run.sessionId, async () => {
             const file = path.join(
               this.workspace(run),
-              run.kind === "module" ? "module-result.json" : "activity-spec.json",
+              run.kind === "module"
+                ? "module-result.json"
+                : run.kind === "media-text"
+                  ? "media-text.json"
+                  : "activity-spec.json",
             );
             try {
+              if (run.kind === "image") {
+                const observer = this.observers.get(run.runId);
+                if (!observer?.completed)
+                  throw new Error(observer?.error ?? "Image Session did not complete.");
+                const bytes = await readArtifactBytes(
+                  path.join(this.workspace(run), "image.png"),
+                  GENERATED_IMAGE_MAX_BYTES,
+                );
+                const result = await this.activities.storeImage(
+                  run.projectId,
+                  run.activityId,
+                  run.runId,
+                  bytes,
+                );
+                run.candidate = JSON.stringify(result);
+                this.save(run);
+                if (this.stopped) return;
+                await this.projectWork.run(run.projectId, async () => {
+                  const current = await this.activities.getActivity(run.projectId, run.activityId);
+                  if (current.draft.contentRevision !== run.inputRevision)
+                    throw new HttpError(
+                      409,
+                      "draft_conflict",
+                      "The draft changed during image generation.",
+                    );
+                  this.finish(run, "succeeded");
+                });
+                return;
+              }
               if (run.kind === "audio") {
                 const observer = this.observers.get(run.runId);
                 if (!observer?.completed)
@@ -495,6 +691,30 @@ export class ActivityGenerationService implements ActivityGeneration {
                       409,
                       "draft_conflict",
                       "The draft changed during speech generation.",
+                    );
+                  this.finish(run, "succeeded");
+                });
+                return;
+              }
+              if (run.kind === "media-text") {
+                const observer = this.observers.get(run.runId);
+                if (!observer?.completed)
+                  throw new Error(observer?.error ?? "Media text Session did not complete.");
+                if (!run.mediaText) throw new Error("Media text target is missing.");
+                const text = parseMediaTextCandidate(
+                  await readCandidate(file, 64 * 1024),
+                  run.mediaText,
+                );
+                run.candidate = JSON.stringify({ ...run.mediaText, text });
+                this.save(run);
+                if (this.stopped) return;
+                await this.projectWork.run(run.projectId, async () => {
+                  const current = await this.activities.getActivity(run.projectId, run.activityId);
+                  if (current.draft.contentRevision !== run.inputRevision)
+                    throw new HttpError(
+                      409,
+                      "draft_conflict",
+                      "The draft changed during media text generation.",
                     );
                   this.finish(run, "succeeded");
                 });
@@ -555,7 +775,17 @@ export class ActivityGenerationService implements ActivityGeneration {
               const conflict = error instanceof HttpError && error.code === "draft_conflict";
               const message =
                 (error as NodeJS.ErrnoException).code === "ENOENT"
-                  ? `The session ended without ${run.kind === "audio" ? "speech.wav" : run.kind === "module" ? "module-result.json or a required artifact" : "activity-spec.json"}.`
+                  ? `The session ended without ${
+                      run.kind === "image"
+                        ? "image.png"
+                        : run.kind === "audio"
+                          ? "speech.wav"
+                          : run.kind === "module"
+                            ? "module-result.json or a required artifact"
+                            : run.kind === "media-text"
+                              ? "media-text.json"
+                              : "activity-spec.json"
+                    }.`
                   : error instanceof Error
                     ? error.message
                     : "Could not collect generation output.";
