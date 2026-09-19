@@ -73,7 +73,8 @@
     "@prismshadow/agenthub": "0.4.15",
     "arktype": "^2.2.3",
     "smol-toml": "^1.3.0",
-    "yaml": "^2.5.0"
+    "yaml": "^2.5.0",
+    "@penguinharness/use-mini-swe-agent": "workspace:*"
   },
   "devDependencies": {
     "@modelcontextprotocol/node": "^2.0.0",

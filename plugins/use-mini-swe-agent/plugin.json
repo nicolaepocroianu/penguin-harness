@@ -1,0 +1,8 @@
+{
+  "description": "Delegate bounded coding tasks to mini-swe-agent with an explicit model, workspace, limits, and a saved trajectory.",
+  "short_description": "Run mini-swe-agent on coding tasks.",
+  "short_description_zh": "使用 mini-swe-agent 执行编码任务。",
+  "version": "2026.09.19.1",
+  "category": "software-development",
+  "preinstall": false
+}

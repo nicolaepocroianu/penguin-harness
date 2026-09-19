@@ -1,0 +1,21 @@
+{
+  "name": "@penguinharness/use-mini-swe-agent",
+  "version": "0.2.13",
+  "description": "Delegate bounded coding tasks to mini-swe-agent with saved trajectories.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Prism-Shadow/penguin-harness.git",
+    "directory": "plugins/use-mini-swe-agent"
+  },
+  "files": [
+    "plugin.json",
+    "icon.svg",
+    "skills",
+    "hooks",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
