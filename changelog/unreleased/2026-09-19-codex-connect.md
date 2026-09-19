@@ -3,6 +3,7 @@
 - **Date:** 2026-09-19
 - **Type:** feature
 - **Scope:** `core`, `server`, `web`, `skills`
+- **PR:** [#10](https://github.com/nicolaepocroianu/penguin-harness/pull/10)
 
 [中文版](2026-09-19-codex-connect.zh.md)
 
