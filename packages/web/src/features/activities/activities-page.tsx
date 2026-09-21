@@ -778,6 +778,38 @@ function ActivityEditor({
                     }
                   })
                 }
+                onGenerateAllAudio={(language, assetKeys, voice) =>
+                  void action(async () => {
+                    // One request per narration, in order: the endpoint takes a single
+                    // asset, and a failure part way through should stop rather than
+                    // leave the rest to fail the same way.
+                    const started: ActivityRunSummary[] = [];
+                    for (const assetKey of assetKeys) {
+                      const run = await apiFetch<ActivityRun>(`${endpoint}/generate-audio`, {
+                        method: "POST",
+                        body: {
+                          agentId: selectedAgent,
+                          expectedRevision: detail.draft.contentRevision,
+                          language,
+                          assetKey,
+                          voice,
+                        },
+                      });
+                      started.push(summarize(run));
+                      if (!alive.current) return;
+                    }
+                    if (alive.current) {
+                      setRuns((previous) => [
+                        ...started,
+                        ...previous.filter(
+                          (item) => !started.some((run) => run.runId === item.runId),
+                        ),
+                      ]);
+                      setRefreshVersion((value) => value + 1);
+                      setNotice(S.activities.bulkSpeechStarted(started.length));
+                    }
+                  })
+                }
                 onGenerateImage={(language, assetKey) =>
                   void action(async () => {
                     const run = await apiFetch<ActivityRun>(`${endpoint}/generate-image`, {

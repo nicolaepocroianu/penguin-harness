@@ -13,6 +13,8 @@ import { ImagePreview } from "./image-preview";
 import { MediaBinding } from "./media-binding";
 import { isUploadPath } from "./media-library";
 import { MediaPlayer } from "./media-player";
+import { SpeechCoverage } from "./speech-coverage";
+import { WaveformPlayer } from "./waveform-player";
 import { MediaTextReview } from "./media-text-review";
 import { SceneAssetTree, firstSelection, type SceneAssetSelection } from "./scene-asset-tree";
 import { buildSceneTree, filterTree, treeLeaves, type SceneAssetType } from "./scene-assets";
@@ -40,6 +42,7 @@ export function MediaWorkbench({
   onGenerateText,
   onAcceptText,
   onUpload,
+  onGenerateAllAudio,
 }: {
   manifest: AssetManifest;
   /** The saved specification owns scene order, which the tree follows. */
@@ -65,6 +68,7 @@ export function MediaWorkbench({
   onGenerateText: (language: string, assetKey: string) => void;
   onAcceptText: (runId: string) => void;
   onUpload: (file: File) => Promise<string>;
+  onGenerateAllAudio: (language: string, assetKeys: string[], voice: string) => void;
 }) {
   const [languageChoice, setLanguage] = useState("");
   const [kind, setKind] = useState<SceneAssetType | "all">("all");
@@ -150,11 +154,26 @@ export function MediaWorkbench({
         <p className="text-sm text-gray-500">{S.activities.noMediaAssets}</p>
       ) : (
         <div className="grid gap-4 xl:grid-cols-[16rem_minmax(0,1fr)]">
-          <div
-            aria-label={S.activities.sceneAssets}
-            className="max-h-96 overflow-auto rounded-lg border border-gray-200 p-2 dark:border-gray-800"
-          >
-            <SceneAssetTree tree={tree} selection={selection} onSelect={setSelected} />
+          <div className="space-y-4">
+            <div
+              aria-label={S.activities.sceneAssets}
+              className="max-h-96 overflow-auto rounded-lg border border-gray-200 p-2 dark:border-gray-800"
+            >
+              <SceneAssetTree tree={tree} selection={selection} onSelect={setSelected} />
+            </div>
+            <SpeechCoverage
+              assets={group}
+              language={language}
+              editable={editable}
+              canGenerate={canGenerate && !!voice}
+              onSelect={(key) => {
+                const usage = group
+                  .find((entry) => entry.key === key)
+                  ?.usages.map((entry) => entry.sceneId)[0];
+                setSelected({ sceneId: usage ?? "", key });
+              }}
+              onGenerateAll={(keys) => onGenerateAllAudio(language, keys, voice)}
+            />
           </div>
           <article className="min-w-0 space-y-3 rounded-lg border border-gray-200 p-4 dark:border-gray-800">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -238,6 +257,12 @@ export function MediaWorkbench({
                 })
               }
             />
+            {asset.type === "audio" && !asset.generatedAudio && isUploadPath(asset.path) && (
+              <WaveformPlayer
+                src={`${endpoint}/media-upload?path=${encodeURIComponent(asset.path!)}`}
+                label={asset.key}
+              />
+            )}
             {(asset.type === "video" || asset.type === "animation") &&
               (isUploadPath(asset.path) ? (
                 <MediaPlayer
@@ -281,13 +306,11 @@ export function MediaWorkbench({
                         {S.activities.mediaTextChanged}
                       </p>
                     )}
-                    <audio
+                    <WaveformPlayer
                       key={asset.generatedAudio.runId}
-                      aria-label={S.activities.acceptedAudio}
-                      controls
-                      preload="none"
                       src={audioUrl(asset.generatedAudio.runId)}
-                      className="w-full"
+                      label={S.activities.acceptedAudio}
+                      autoLoad
                     />
                   </div>
                 )}
@@ -335,12 +358,10 @@ export function MediaWorkbench({
                         {run.error && <p className="break-words text-xs">{run.error}</p>}
                         {run.hasCandidate &&
                           (run.status === "succeeded" || run.status === "conflict") && (
-                            <audio
-                              aria-label={S.activities.speechCandidate}
-                              controls
-                              preload="none"
+                            <WaveformPlayer
+                              key={run.runId}
                               src={audioUrl(run.runId)}
-                              className="w-full"
+                              label={S.activities.speechCandidate}
                             />
                           )}
                         {editable &&
