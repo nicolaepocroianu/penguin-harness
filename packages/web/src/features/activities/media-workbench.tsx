@@ -69,7 +69,7 @@ export function MediaWorkbench({
   onAcceptImage: (runId: string) => void;
   onGenerateText: (language: string, assetKey: string) => void;
   onAcceptText: (runId: string) => void;
-  onUpload: (file: File) => Promise<string>;
+  onUpload: (file: File) => Promise<UploadedMedia>;
 }) {
   const [languageChoice, setLanguage] = useState("");
   const [kind, setKind] = useState<SceneAssetType | "all">("all");

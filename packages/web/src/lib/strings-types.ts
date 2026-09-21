@@ -35,6 +35,7 @@ export type Strings = {
     uploadFile: string;
     uploading: string;
     uploaded: string;
+    uploadWrongKind: (kind: string) => string;
     libraryTitle: string;
     libraryHint: string;
     libraryOpen: string;

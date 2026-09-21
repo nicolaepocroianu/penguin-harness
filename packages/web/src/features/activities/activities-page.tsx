@@ -318,7 +318,7 @@ function ActivityEditor({
         body: { name: file.name, dataBase64: btoa(binary) },
       });
       await loadUploads();
-      return stored.path;
+      return stored;
     },
     [endpoint, loadUploads],
   );

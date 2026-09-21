@@ -20,6 +20,12 @@ one path and a different file never silently replaces one a scene is bound to.
 The format is read from the bytes rather than from the name the browser sent: PNG, JPEG,
 GIF and WebP images, WAV, MP3 and Ogg audio, and MP4 and WebM video, up to 32 MiB.
 Anything else is refused by format rather than stored and served as something it is not.
+An existing file is reused only after its whole digest is compared, so a name can never
+stand in for content it does not hold. Listing an activity's media reads directory
+metadata only, never the files themselves.
+
+A binding to an upload is checked against what that file actually is, both in the editor
+and again when the manifest is saved, so audio cannot be bound to an image asset.
 
 ## Endpoints
 
