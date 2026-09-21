@@ -7,7 +7,6 @@ export type Strings = {
     mediaLanguage: string;
     mediaType: string;
     noMediaAssets: string;
-    assetList: string;
     boundMedia: string;
     unboundMedia: string;
     usedInScenes: string;
