@@ -3,6 +3,7 @@
 - **Date:** 2026-09-21
 - **Type:** fix
 - **Scope:** `web`
+- **PR:** [#29](https://github.com/Prism-Shadow/penguin-harness/pull/29)
 
 Every test in the activities browser suite timed out in setup, so the suite had been
 proving nothing. Its helper opened the activities page and filled a product code straight
