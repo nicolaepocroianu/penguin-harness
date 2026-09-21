@@ -69,7 +69,9 @@ export function MediaBinding({
         value={asset.path ?? ""}
         disabled={locked}
         error={problem ? S.activities.mediaPathProblems[problem] : undefined}
-        onChange={(event) => onChange(event.target.value || undefined)}
+        // Trimmed on the way in: a surrounding space is never part of a media path,
+        // and storing it would pass the inline check and fail the save.
+        onChange={(event) => onChange(event.target.value.trim() || undefined)}
       />
       {asset.path && !generated && (
         <p className="text-xs text-gray-500">
