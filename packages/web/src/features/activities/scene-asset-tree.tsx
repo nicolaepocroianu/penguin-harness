@@ -118,7 +118,7 @@ export function SceneAssetTree({
               <Chevron open={open} size={ICON_SIZE.chevronDense} className="text-gray-500" />
               <span className="min-w-0 flex-1 break-all">{scene.sceneId}</span>
               <span className="shrink-0 font-normal text-gray-500">
-                {S.activities.mediaCounts(total, bound)}
+                {S.activities.sceneBoundCount(bound, total)}
               </span>
             </button>
             <div id={panelId} hidden={!open} className="pl-3">

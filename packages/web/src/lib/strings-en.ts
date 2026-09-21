@@ -21,6 +21,7 @@ export const en: Strings = {
     unassignedSceneHint:
       "These manifest entries name scenes the saved specification no longer has. Rebuild the media plan to drop them.",
     sceneOccurrences: (count: number) => `Used ${count} times in this scene`,
+    sceneBoundCount: (bound: number, total: number) => `${bound}/${total} bound`,
     sharedAsset: "Shared",
     sharedAssetScenes: (scenes: string) => `Changing this binding also changes: ${scenes}.`,
     generatedBinding: "Bound by an accepted generation run.",
