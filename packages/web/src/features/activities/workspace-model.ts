@@ -82,6 +82,22 @@ export function railWidthFor(stored: number, available: number): number {
 /** Below this the editor stops being able to show two previews side by side. */
 export const EDITOR_MIN_WIDTH = 480;
 
+/** The narrowest workspace that can hold the rail at its minimum and a usable editor. */
+export const WORKSPACE_TWO_PANE_WIDTH = RAIL_MIN_WIDTH + EDITOR_MIN_WIDTH;
+
+/**
+ * Whether the rail can sit beside the editor at all. Below the two-pane width the rail
+ * would leave the editor a sliver — on a 390-pixel phone, under 170 pixels — so the two
+ * take turns instead, and the caller shows one at a time.
+ *
+ * An unmeasured workspace counts as wide enough, so the first paint is the two-pane
+ * layout rather than a phone layout that flashes and then reflows.
+ */
+export function railFitsBeside(available: number): boolean {
+  if (!Number.isFinite(available) || available <= 0) return true;
+  return available >= WORKSPACE_TWO_PANE_WIDTH;
+}
+
 /** Whether the editor has room for the two-up comparison at this width. */
 export function fitsComparison(editorWidth: number): boolean {
   return Number.isFinite(editorWidth) && editorWidth >= 640;

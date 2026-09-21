@@ -590,8 +590,16 @@ async function fixture(page) {
  */
 async function openSection(page, name) {
   const button = page.getByRole("button", { name, exact: true });
-  // Clicking the section already showing re-renders the rail under the click.
-  if ((await button.getAttribute("aria-current")) === "true") return;
+  // On a workspace too narrow for both panes the rail is shut over the work, so its
+  // sections are not on the page until it is opened. Wait for one or the other, since
+  // an absent button also means the page has not rendered the rail yet.
+  const expand = page.getByRole("button", { name: "Expand the activity rail", exact: true });
+  await expect(button.or(expand).first()).toBeVisible();
+  const opened = !(await button.count());
+  if (opened) await expand.click();
+  // Clicking the section already showing re-renders the rail under the click, but a rail
+  // opened just now is covering the work and has to be dismissed by choosing anyway.
+  if (!opened && (await button.getAttribute("aria-current")) === "true") return;
   await button.click();
 }
 
@@ -1435,7 +1443,12 @@ test("member view is read-only and mobile layout does not overflow", async ({ pa
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await expect(page.getByText("Only the Project owner can edit activities.")).toBeVisible();
+  // Too narrow to hold a rail beside the work, so the rail starts shut and the editor
+  // keeps the width rather than being squeezed into a sliver beside a menu.
+  await expect(page.locator('nav[aria-label="Activity sections"]')).toHaveCount(0);
   await openSection(page, "Description");
+  // Choosing a section hands the workspace back instead of leaving the menu over it.
+  await expect(page.locator('nav[aria-label="Activity sections"]')).toHaveCount(0);
   await expect(page.getByRole("textbox", { name: "Description", exact: true })).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "Generate specification", exact: true }),

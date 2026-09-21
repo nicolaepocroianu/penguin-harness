@@ -6,6 +6,8 @@ import {
   RAIL_MIN_WIDTH,
   clampRailWidth,
   fitsComparison,
+  WORKSPACE_TWO_PANE_WIDTH,
+  railFitsBeside,
   railWidthAfterKey,
   railWidthFor,
   readRailCollapsed,
@@ -104,6 +106,18 @@ describe("rail width", () => {
     expect(fitsComparison(640)).toBe(true);
     expect(fitsComparison(500)).toBe(false);
     expect(fitsComparison(Number.NaN)).toBe(false);
+  });
+
+  it("knows when the rail cannot sit beside the editor at all", () => {
+    expect(railFitsBeside(1280)).toBe(true);
+    expect(railFitsBeside(WORKSPACE_TWO_PANE_WIDTH)).toBe(true);
+    expect(railFitsBeside(WORKSPACE_TWO_PANE_WIDTH - 1)).toBe(false);
+    // A phone: the rail beside the editor would leave it a sliver.
+    expect(railFitsBeside(390)).toBe(false);
+    expect(RAIL_MIN_WIDTH + EDITOR_MIN_WIDTH).toBe(WORKSPACE_TWO_PANE_WIDTH);
+    // Unmeasured counts as wide, so the first paint is not a phone layout.
+    expect(railFitsBeside(0)).toBe(true);
+    expect(railFitsBeside(Number.NaN)).toBe(true);
   });
 
   it("moves by keyboard, and jumps to either bound", () => {

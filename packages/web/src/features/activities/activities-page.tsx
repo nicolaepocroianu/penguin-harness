@@ -668,11 +668,14 @@ function ActivityEditor({
           )}
         </>
       }
-      rail={
+      rail={(dismiss) => (
         <ActivityRail
           sections={sections}
           section={section}
-          onSection={setSection}
+          onSection={(next) => {
+            setSection(next);
+            dismiss();
+          }}
           languages={Object.keys(editedManifest?.assets ?? {})}
           tree={tree}
           language={language}
@@ -680,9 +683,12 @@ function ActivityEditor({
           kind={kind}
           onKind={setKind}
           selection={selection}
-          onSelect={setSelected}
+          onSelect={(next) => {
+            setSelected(next);
+            dismiss();
+          }}
         />
-      }
+      )}
     >
       {section === "scenes" && editedManifest ? (
         <AssetEditor
@@ -976,6 +982,10 @@ function ActivityEditor({
                     const usage = (editedManifest.assets[language] ?? [])
                       .find((entry) => entry.key === key)
                       ?.usages.map((entry) => entry.sceneId)[0];
+                    // A narration is only in the tree while the filter admits audio, and
+                    // a filter left on images would drop the selection and open whatever
+                    // came first instead.
+                    setKind((current) => (current === "all" ? current : "audio"));
                     setSelected({ sceneId: usage ?? "", key });
                     setSection("scenes");
                   }}

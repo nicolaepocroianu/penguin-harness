@@ -54,3 +54,21 @@ primary action is never scrolled out of reach.
   file, rather than stacked full width down the pane.
 - Scene identifiers and asset keys truncate with their full text in a tooltip instead of
   breaking mid-word.
+
+## Review follow-ups
+
+- On a workspace too narrow to hold both — a phone, or a small window with the sidebar
+  open — the rail no longer sits beside the editor at its minimum width and leave it a
+  sliver. Below the rail's minimum plus the editor's minimum the two take turns: the
+  rail starts shut over the work, opens from the same toggle, and hands the workspace
+  back as soon as a section or a scene asset is chosen. That narrow state is never
+  remembered, so a phone does not decide how the rail opens on a desktop.
+- The divider's arrow keys step from the width on screen rather than the remembered one.
+  A narrow window may be showing less than was stored, and stepping from the stored
+  value moved the remembered number without moving the rail.
+- A drag that never sees its pointerup — the system claiming a touch gesture, or the
+  workspace unmounting mid-drag — released its window listeners on `pointercancel` and
+  on unmount instead of leaving them installed.
+- Opening a narration from Speech coverage clears a scene-tree filter that would hide
+  it. A filter left on images dropped the selection and opened whichever asset came
+  first.
