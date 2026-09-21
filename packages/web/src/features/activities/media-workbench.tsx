@@ -48,6 +48,8 @@ export function MediaWorkbench({
   onAcceptText,
   onUpload,
   onGenerateAllAudio,
+  speechQueue,
+  onCancelSpeechQueue,
 }: {
   manifest: AssetManifest;
   /** The saved specification owns scene order, which the tree follows. */
@@ -74,6 +76,9 @@ export function MediaWorkbench({
   onAcceptText: (runId: string) => void;
   onUpload: (file: File) => Promise<UploadedMedia>;
   onGenerateAllAudio: (language: string, assetKeys: string[], voice: string) => void;
+  /** Narration still queued, so the panel can report progress and offer to stop. */
+  speechQueue: number;
+  onCancelSpeechQueue: () => void;
 }) {
   const [languageChoice, setLanguage] = useState("");
   const [kind, setKind] = useState<SceneAssetType | "all">("all");
@@ -180,6 +185,8 @@ export function MediaWorkbench({
                 setSelected({ sceneId: usage ?? "", key });
               }}
               onGenerateAll={(keys) => onGenerateAllAudio(language, keys, voice)}
+              queued={speechQueue}
+              onCancelQueue={onCancelSpeechQueue}
             />
           </div>
           <article className="min-w-0 space-y-3 rounded-lg border border-gray-200 p-4 dark:border-gray-800">

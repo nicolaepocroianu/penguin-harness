@@ -17,6 +17,8 @@ import { clipTime, normalizePeaks, playedFraction, seekTime, waveformPeaks } fro
 
 const COLUMN_WIDTH = 3;
 const COLUMN_GAP = 1;
+/** Resolution the decoded clip is stored at, finer than any column count drawn. */
+const ENVELOPE_COLUMNS = 2000;
 
 export function WaveformPlayer({
   src,
@@ -30,6 +32,13 @@ export function WaveformPlayer({
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Always mounted, unlike the canvas, so there is something to measure before the
+  // first draw and something to watch when the workbench is resized.
+  const boxRef = useRef<HTMLDivElement>(null);
+  // The decoded envelope at a fixed resolution, re-bucketed to whatever width the
+  // canvas actually has. Keeping it means a resize never re-fetches or re-decodes.
+  const [envelope, setEnvelope] = useState<number[] | null>(null);
+  const [width, setWidth] = useState(0);
   const [peaks, setPeaks] = useState<number[] | null>(null);
   const [requested, setRequested] = useState(autoLoad);
   const [failed, setFailed] = useState(false);
@@ -38,6 +47,7 @@ export function WaveformPlayer({
   const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
+    setEnvelope(null);
     setPeaks(null);
     setFailed(false);
     setPosition(0);
@@ -45,8 +55,28 @@ export function WaveformPlayer({
     setRequested(autoLoad);
   }, [src, autoLoad]);
 
+  // Measure the box, and keep measuring it: the workbench is a resizable two-column
+  // layout, and a waveform drawn for a stale width leaves an empty remainder.
   useEffect(() => {
-    if (!requested || peaks || failed) return;
+    const box = boxRef.current;
+    if (!box) return;
+    const measure = () => setWidth(box.clientWidth);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, []);
+
+  // Re-bucket the stored envelope whenever the width changes. Cheap: no decode, no fetch.
+  useEffect(() => {
+    if (!envelope) return;
+    const columns = Math.max(1, Math.floor(width / (COLUMN_WIDTH + COLUMN_GAP)));
+    setPeaks(normalizePeaks(waveformPeaks(Float32Array.from(envelope), columns)));
+  }, [envelope, width]);
+
+  useEffect(() => {
+    if (!requested || envelope || failed) return;
     let cancelled = false;
     // decodeAudioData wants the whole clip, so this runs once per clip and never per frame.
     void (async () => {
@@ -62,11 +92,8 @@ export function WaveformPlayer({
         try {
           const decoded = await context.decodeAudioData(await response.arrayBuffer());
           if (cancelled) return;
-          const columns = Math.max(
-            1,
-            Math.floor((canvasRef.current?.clientWidth ?? 320) / (COLUMN_WIDTH + COLUMN_GAP)),
-          );
-          setPeaks(normalizePeaks(waveformPeaks(decoded.getChannelData(0), columns)));
+          // Stored at a resolution finer than any column count the layout will ask for.
+          setEnvelope(waveformPeaks(decoded.getChannelData(0), ENVELOPE_COLUMNS));
           setDuration(decoded.duration);
         } finally {
           void context.close();
@@ -78,7 +105,7 @@ export function WaveformPlayer({
     return () => {
       cancelled = true;
     };
-  }, [requested, peaks, failed, src]);
+  }, [requested, envelope, failed, src]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -112,7 +139,7 @@ export function WaveformPlayer({
   }
 
   return (
-    <div className="space-y-1">
+    <div ref={boxRef} className="space-y-1">
       {peaks?.length ? (
         <div
           role="slider"

@@ -80,6 +80,9 @@ export const en: Strings = {
     bulkSpeechConfirm: (count: number, language: string) =>
       `Start ${count} speech runs for ${language}? Each run uses the selected agent.`,
     bulkSpeechStarted: (count: number) => `Started ${count} speech runs`,
+    bulkSpeechQueued: (count: number) =>
+      `${count} narration${count === 1 ? "" : "s"} queued; each runs after the one before it`,
+    bulkSpeechStop: "Stop queue",
     speechState: {
       ready: "Bound",
       missing: "Needs speech",

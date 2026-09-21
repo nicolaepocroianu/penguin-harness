@@ -21,6 +21,8 @@ export function SpeechCoverage({
   canGenerate,
   onSelect,
   onGenerateAll,
+  queued,
+  onCancelQueue,
 }: {
   assets: readonly MediaAsset[];
   language: string;
@@ -29,6 +31,9 @@ export function SpeechCoverage({
   /** Open one narration in the workbench's detail panel. */
   onSelect: (key: string) => void;
   onGenerateAll: (keys: string[]) => void;
+  /** How many narrations are still queued; 0 when no bulk run is in flight. */
+  queued: number;
+  onCancelQueue: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const statuses = speechStatuses(assets);
@@ -73,10 +78,22 @@ export function SpeechCoverage({
           </li>
         ))}
       </ul>
-      {editable && pending.length > 0 && (
-        <Button size="sm" disabled={!canGenerate} onClick={() => setConfirming(true)}>
-          {S.activities.bulkSpeechGenerate(pending.length)}
-        </Button>
+      {editable && queued > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <p role="status" className={`text-xs ${toneInk.busy}`}>
+            {S.activities.bulkSpeechQueued(queued)}
+          </p>
+          <Button size="sm" onClick={onCancelQueue}>
+            {S.activities.bulkSpeechStop}
+          </Button>
+        </div>
+      ) : (
+        editable &&
+        pending.length > 0 && (
+          <Button size="sm" disabled={!canGenerate} onClick={() => setConfirming(true)}>
+            {S.activities.bulkSpeechGenerate(pending.length)}
+          </Button>
+        )
       )}
       {confirming && (
         <ConfirmModal

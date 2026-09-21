@@ -65,6 +65,8 @@ export type Strings = {
     bulkSpeechGenerate: (count: number) => string;
     bulkSpeechConfirm: (count: number, language: string) => string;
     bulkSpeechStarted: (count: number) => string;
+    bulkSpeechQueued: (count: number) => string;
+    bulkSpeechStop: string;
     speechState: Record<"ready" | "missing" | "scriptMissing" | "scriptTooLong", string>;
     mediaCategories: Record<"audio" | "image" | "video" | "animation", string>;
     speechScript: string;
