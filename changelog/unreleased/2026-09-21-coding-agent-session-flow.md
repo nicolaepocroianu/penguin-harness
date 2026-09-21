@@ -3,7 +3,7 @@
 - **Date:** 2026-09-21
 - **Type:** feature
 - **Scope:** `coding-agents`, `server`, `web`
-- **PR:** [#28](https://github.com/nicolaepocroianu/penguin-harness/pull/28)
+- **PR:** [#33](https://github.com/nicolaepocroianu/penguin-harness/pull/33)
 
 Starting a coding-agent session now works like starting a chat: choose the agent, optionally choose a folder, start. The agent's own settings — the model dropdown above all — appear in the session as soon as it opens.
 
