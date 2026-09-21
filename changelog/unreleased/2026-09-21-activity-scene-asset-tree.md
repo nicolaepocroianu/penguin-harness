@@ -3,6 +3,7 @@
 - **Date:** 2026-09-21
 - **Type:** feature
 - **Scope:** `web`
+- **PR:** [#28](https://github.com/Prism-Shadow/penguin-harness/pull/28)
 
 The media workbench reached its assets through a flat list of keys. It now reaches them
 through the scenes that ask for them, and the bare media-path box was replaced by a
