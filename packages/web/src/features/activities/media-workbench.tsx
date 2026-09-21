@@ -8,8 +8,13 @@ import { toneInk, toneSurface } from "../../lib/tone";
 import { ImagePreview } from "./image-preview";
 import { MediaBinding } from "./media-binding";
 import { MediaTextReview } from "./media-text-review";
-import { SceneAssetTree, firstSelection, type SceneAssetSelection } from "./scene-asset-tree";
-import { buildSceneTree, filterTree, treeLeaves, type SceneAssetType } from "./scene-assets";
+import {
+  SceneAssetTree,
+  firstSelection,
+  sameSelection,
+  type SceneAssetSelection,
+} from "./scene-asset-tree";
+import { buildSceneTree, filterTree, treeSelections, type SceneAssetType } from "./scene-assets";
 
 export function MediaWorkbench({
   manifest,
@@ -64,9 +69,11 @@ export function MediaWorkbench({
   const tree = filterTree(buildSceneTree(spec, group), kind);
   // A selection the filter or a rebuilt plan removed falls back to the first leaf,
   // so the detail panel never points at an asset the tree no longer draws.
-  const drawn = treeLeaves(tree);
+  const drawn = treeSelections(tree);
   const selection =
-    selected && drawn.some((leaf) => leaf.key === selected.key) ? selected : firstSelection(tree);
+    selected && drawn.some((entry) => sameSelection(entry, selected))
+      ? selected
+      : firstSelection(tree);
   const asset = group.find((entry) => entry.key === selection?.key);
   const voice = voices.includes(voiceChoice) ? voiceChoice : (voices[0] ?? "");
   const imageUrl = `${endpoint}/media-image?${new URLSearchParams({

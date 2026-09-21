@@ -119,6 +119,22 @@ export function treeLeaves(tree: SceneAssetTree): SceneAssetLeaf[] {
   ];
 }
 
+/**
+ * The same leaves addressed the way a selection addresses them. A row is identified by
+ * its scene as well as its key, so a selection whose key survived a rebuild under a
+ * different scene is not a selection this tree can still draw.
+ */
+export function treeSelections(tree: SceneAssetTree): { sceneId: string; key: string }[] {
+  return [
+    ...tree.scenes.flatMap((scene) =>
+      scene.categories.flatMap((category) =>
+        category.assets.map((asset) => ({ sceneId: scene.sceneId, key: asset.key })),
+      ),
+    ),
+    ...tree.unassigned.map((asset) => ({ sceneId: "", key: asset.key })),
+  ];
+}
+
 /** Hide categories the type filter excludes, dropping scenes left with nothing. */
 export function filterTree(tree: SceneAssetTree, type: SceneAssetType | "all"): SceneAssetTree {
   if (type === "all") return tree;
@@ -178,10 +194,13 @@ export type MediaPathProblem = "empty" | "prefix" | "characters" | "segment" | "
  * The same rule the server enforces on a manifest path, checked while typing so a
  * rejected save is not the first the author hears of it. Returning the reason
  * rather than a message keeps the copy in the dictionary.
+ *
+ * The exact stored string is judged, never a tidied copy of it: a check that passes
+ * on a value the server will reject is worse than no check, and the editor trims
+ * before storing so the two always see the same text.
  */
-export function mediaPathProblem(value: string): MediaPathProblem | null {
-  const path = value.trim();
-  if (!path) return "empty";
+export function mediaPathProblem(path: string): MediaPathProblem | null {
+  if (!path.trim()) return "empty";
   if (path.length > 1024) return "length";
   if (!path.startsWith("media/")) return "prefix";
   if (!/^media\/[A-Za-z0-9_./ -]+$/.test(path)) return "characters";

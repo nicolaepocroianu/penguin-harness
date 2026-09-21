@@ -9,6 +9,7 @@ import {
   reuseCandidates,
   sharedScenes,
   treeLeaves,
+  treeSelections,
 } from "../src/features/activities/scene-assets";
 
 type MediaAsset = AssetManifest["assets"][string][number];
@@ -80,6 +81,26 @@ describe("scene asset tree", () => {
     expect(chime).toMatchObject({ bound: false, shared: false, occurrences: 2 });
     const welcome = treeLeaves(tree).find((leaf) => leaf.key === "welcome")!;
     expect(welcome).toMatchObject({ bound: true, generated: true });
+  });
+
+  it("addresses a selection by scene as well as by key", () => {
+    const tree = buildSceneTree(spec, assets);
+    expect(treeSelections(tree)).toEqual([
+      { sceneId: "general", key: "logo" },
+      { sceneId: "intro", key: "intro_art" },
+      { sceneId: "intro", key: "welcome" },
+      { sceneId: "quiz", key: "logo" },
+      { sceneId: "quiz", key: "chime" },
+      { sceneId: "", key: "orphan" },
+    ]);
+  });
+
+  it("does not accept a key that only exists under another scene", () => {
+    const tree = buildSceneTree(spec, assets);
+    const drawn = treeSelections(tree);
+    // "logo" is drawn under general and quiz, never under intro.
+    expect(drawn.some((entry) => entry.sceneId === "intro" && entry.key === "logo")).toBe(false);
+    expect(drawn.some((entry) => entry.sceneId === "quiz" && entry.key === "logo")).toBe(true);
   });
 
   it("surfaces manifest entries no scene references instead of dropping them", () => {
@@ -167,7 +188,14 @@ describe("shared bindings", () => {
 describe("media path validation", () => {
   it("accepts the relative media paths the server accepts", () => {
     expect(mediaPathProblem("media/audio/welcome.wav")).toBeNull();
-    expect(mediaPathProblem("  media/images/a b-c_1.png  ")).toBeNull();
+    expect(mediaPathProblem("media/images/a b-c_1.png")).toBeNull();
+  });
+
+  it("judges the exact string, so it cannot pass what the server will reject", () => {
+    // The server's own rule anchors on "media/" and forbids a trailing space in a
+    // segment, so a surrounding space has to be reported rather than tidied away.
+    expect(mediaPathProblem(" media/images/logo.png")).toBe("prefix");
+    expect(mediaPathProblem("media/images/logo.png ")).toBe("segment");
   });
 
   it("names why a path was rejected", () => {
