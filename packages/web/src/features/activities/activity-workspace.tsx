@@ -59,10 +59,16 @@ export function ActivityWorkspace({
     if (!body) return;
     const measure = () => setAvailable(body.clientWidth);
     measure();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(body);
-    return () => observer.disconnect();
+    // Both, deliberately. The observer catches the width changing without the window
+    // doing so — a sidebar collapsing, a dock opening — and the window listener catches
+    // the window itself, which is the case a quiet or unsupported observer would miss.
+    window.addEventListener("resize", measure);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(body);
+    return () => {
+      window.removeEventListener("resize", measure);
+      observer?.disconnect();
+    };
   }, []);
 
   const beside = railFitsBeside(available);
@@ -73,9 +79,19 @@ export function ActivityWorkspace({
   // workspace unmounting mid-drag — would otherwise leave the move listener installed.
   useEffect(() => () => endDrag.current?.(), []);
 
+  // Opening the rail on a narrow workspace is a temporary answer to having no room for
+  // both. Once there is room the answer no longer applies, and keeping it would cover
+  // the editor the next time the window narrows.
+  useEffect(() => {
+    if (beside) setNarrowOpen(false);
+  }, [beside]);
+
   const onPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const body = bodyRef.current;
     if (!body) return;
+    // A second pointer on the divider before the first lets go would otherwise strand
+    // the first drag's listeners, which keep moving the rail and are never removed.
+    endDrag.current?.();
     event.preventDefault();
     setDragging(true);
     const left = body.getBoundingClientRect().left;

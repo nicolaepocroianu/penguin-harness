@@ -1456,6 +1456,21 @@ test("member view is read-only and mobile layout does not overflow", async ({ pa
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+  // Opening the rail here is a temporary answer to having no room for both, so a wider
+  // window and back must not leave it covering the editor again. The emulated viewport
+  // change does not notify the page the way a real window resize does, so the
+  // notification is sent by hand.
+  const sections = page.locator('nav[aria-label="Activity sections"]');
+  const resize = async (width) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+  };
+  await page.getByRole("button", { name: "Expand the activity rail", exact: true }).click();
+  await expect(sections).toHaveCount(1);
+  await resize(1280);
+  await expect(sections).toHaveCount(1);
+  await resize(390);
+  await expect(sections).toHaveCount(0);
   expect(f.errors).toEqual([]);
 });
 

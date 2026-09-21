@@ -72,3 +72,16 @@ primary action is never scrolled out of reach.
 - Opening a narration from Speech coverage clears a scene-tree filter that would hide
   it. A filter left on images dropped the selection and opened whichever asset came
   first.
+
+## Second review round
+
+- A second pointer landing on the divider before the first let go released the first
+  drag instead of stranding its listeners, which would have kept moving the rail with
+  nothing left to remove them.
+- Opening the rail on a narrow workspace is a temporary answer to having no room for
+  both, so it is dropped as soon as there is room. It no longer waits in the background
+  to cover the editor the next time the window narrows.
+- The workspace measures itself on a window resize as well as through its observer. The
+  observer catches a width change the window does not cause — a sidebar collapsing, a
+  dock opening — and the window listener completes the path that was already there for
+  a browser without an observer, which until now measured once and never again.
