@@ -19,6 +19,7 @@ export type Strings = {
     unassignedScene: string;
     unassignedSceneHint: string;
     sceneOccurrences: (count: number) => string;
+    sceneBoundCount: (bound: number, total: number) => string;
     sharedAsset: string;
     sharedAssetScenes: (scenes: string) => string;
     generatedBinding: string;
