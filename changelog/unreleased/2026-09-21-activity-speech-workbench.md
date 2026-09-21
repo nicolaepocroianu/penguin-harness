@@ -28,7 +28,11 @@ scenes asking for it and whether it is bound, needs speech, needs a script, or h
 script beyond the 5000-character limit. Narration counts as covered once it has any
 binding, however it got one.
 
-One action generates every narration that can be generated now. It names the count, asks
-for confirmation before starting that many agent runs, and starts them in order, stopping
-at the first failure rather than letting the rest fail the same way. The count on the
-button and the work it starts come from one shared function, so they cannot disagree.
+One action generates every narration that can be generated now. It names the count and
+asks for confirmation before starting that many agent runs. The server runs one
+generation per activity at a time, so the narrations are queued and each is asked for
+once the one before it finishes; the panel reports how many are left and can stop the
+queue. A failure stops it rather than letting the rest fail the same way. The count on
+the button and the work it starts come from one shared function, so they cannot
+disagree. The queue is held by the page, so leaving the page stops it while the runs
+already started carry on.

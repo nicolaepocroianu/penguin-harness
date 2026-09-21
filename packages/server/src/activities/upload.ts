@@ -17,6 +17,9 @@ export const UPLOAD_PREFIX = "media/uploads/";
 
 export const UPLOAD_MAX_BYTES = 32 * 1024 * 1024;
 
+/** The most entries one listing reports; the picker searches within them. */
+export const UPLOAD_LIST_LIMIT = 2000;
+
 export type UploadKind = "image" | "audio" | "video";
 
 export interface UploadedMedia {
@@ -26,7 +29,8 @@ export interface UploadedMedia {
   kind: UploadKind;
   mimeType: string;
   byteLength: number;
-  sha256: string;
+  /** Present when the bytes were just read; a listing does not read files to compute it. */
+  sha256?: string;
   updatedAt: string;
 }
 
@@ -80,6 +84,28 @@ const AUDIO_VIDEO: {
   },
 ];
 
+/** The formats a stored name can carry, keyed by the extension this module assigns. */
+const BY_EXTENSION = new Map<string, Format>(
+  [
+    ...(["png", "jpeg", "gif", "webp"] as const).map((extension) => ({
+      kind: "image" as const,
+      mimeType: `image/${extension}`,
+      extension,
+    })),
+    ...AUDIO_VIDEO.map(({ kind, mimeType, extension }) => ({ kind, mimeType, extension })),
+  ].map((format) => [format.extension, format]),
+);
+
+/**
+ * The format of a file this module stored, from the extension it chose itself. Names in
+ * the uploads directory are written only by `storeUpload`, so the extension is this
+ * server's own record rather than anything a caller supplied. Bytes are still sniffed
+ * whenever a file is actually served.
+ */
+export function storedFormat(name: string): Format | undefined {
+  return BY_EXTENSION.get(name.slice(name.lastIndexOf(".") + 1).toLowerCase());
+}
+
 /**
  * The format is read from the bytes, never from the name the browser sent, so a file
  * cannot claim a type it does not have. A WebP is a RIFF container too, so images are
@@ -122,10 +148,14 @@ export function uploadStem(name: string, kind: UploadKind): string {
  * The stored reference for these bytes. The content hash is part of the name, so the
  * same file uploaded twice lands on one path and a different file never silently
  * replaces one a scene is already bound to.
+ *
+ * `length` is how much of the digest the name carries. A short prefix keeps the name
+ * readable, and `storeUpload` compares the whole digest before reusing an existing
+ * file, falling back to the full digest on the collision the prefix cannot rule out.
  */
-export function uploadReference(name: string, bytes: Buffer, format: Format): string {
+export function uploadReference(name: string, bytes: Buffer, format: Format, length = 16): string {
   const digest = createHash("sha256").update(bytes).digest("hex");
-  return `${UPLOAD_PREFIX}${uploadStem(name, format.kind)}-${digest.slice(0, 8)}.${format.extension}`;
+  return `${UPLOAD_PREFIX}${uploadStem(name, format.kind)}-${digest.slice(0, length)}.${format.extension}`;
 }
 
 /** Whether a manifest binding points into the workspace rather than the checkout. */
@@ -149,7 +179,12 @@ export function uploadFile(workspace: string, reference: string): string {
   return path.join(workspace, "media", "uploads", rest);
 }
 
-/** Write the bytes into the workspace, or accept that they are already there. */
+/**
+ * Write the bytes into the workspace, or reuse the file already holding exactly these
+ * bytes. An existing name is never taken as proof on its own: the whole digest is
+ * compared, and a name that turns out to hold different bytes is widened to the full
+ * digest rather than silently binding the wrong content.
+ */
 export async function storeUpload(
   workspace: string,
   name: string,
@@ -159,52 +194,59 @@ export async function storeUpload(
   if (bytes.byteLength > UPLOAD_MAX_BYTES)
     throw new HttpError(413, "media_too_large", "An uploaded file may be at most 32 MiB.");
   const format = sniffUpload(bytes);
-  const reference = uploadReference(name, bytes, format);
-  const file = uploadFile(workspace, reference);
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  try {
-    await fs.writeFile(file, bytes, { flag: "wx" });
-  } catch (error) {
-    // The name carries the content hash, so an existing file is these same bytes.
-    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  await fs.mkdir(path.join(workspace, "media", "uploads"), { recursive: true });
+  for (const length of [16, sha256.length]) {
+    const reference = uploadReference(name, bytes, format, length);
+    const file = uploadFile(workspace, reference);
+    try {
+      await fs.writeFile(file, bytes, { flag: "wx" });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      const existing = createHash("sha256")
+        .update(await fs.readFile(file))
+        .digest("hex");
+      // A different file under this name: try again with the whole digest, which
+      // cannot collide with it.
+      if (existing !== sha256) continue;
+    }
+    const stat = await fs.stat(file);
+    return {
+      path: reference,
+      name: path.basename(file),
+      kind: format.kind,
+      mimeType: format.mimeType,
+      byteLength: bytes.byteLength,
+      sha256,
+      updatedAt: stat.mtime.toISOString(),
+    };
   }
-  const stat = await fs.stat(file);
-  return {
-    path: reference,
-    name: path.basename(file),
-    kind: format.kind,
-    mimeType: format.mimeType,
-    byteLength: bytes.byteLength,
-    sha256: createHash("sha256").update(bytes).digest("hex"),
-    updatedAt: stat.mtime.toISOString(),
-  };
+  throw new HttpError(500, "media_store_failed", "The uploaded file could not be stored.");
 }
 
-/** Everything uploaded into one workspace, newest first. */
+/**
+ * Everything uploaded into one workspace, newest first.
+ *
+ * Deliberately metadata only: a directory entry plus its stat. Reading and hashing
+ * every file would make one listing do gigabytes of work on a populated activity, and
+ * any member could ask for it repeatedly. The kind comes from the extension this module
+ * assigned when it stored the file, and the bytes are sniffed when one is served.
+ */
 export async function listUploads(workspace: string): Promise<UploadedMedia[]> {
   const dir = path.join(workspace, "media", "uploads");
   const names = await fs.readdir(dir).catch(() => [] as string[]);
   const entries: UploadedMedia[] = [];
-  for (const name of names.slice(0, 2000)) {
-    const file = path.join(dir, name);
-    const stat = await fs.lstat(file).catch(() => null);
+  for (const name of names.slice(0, UPLOAD_LIST_LIMIT)) {
+    const format = storedFormat(name);
+    if (!format) continue;
+    const stat = await fs.lstat(path.join(dir, name)).catch(() => null);
     if (!stat || stat.isSymbolicLink() || !stat.isFile()) continue;
-    const bytes = await fs.readFile(file).catch(() => null);
-    if (!bytes) continue;
-    let format: Format;
-    try {
-      format = sniffUpload(bytes);
-    } catch {
-      // A file whose bytes no longer name a supported format is not offered for binding.
-      continue;
-    }
     entries.push({
       path: `${UPLOAD_PREFIX}${name}`,
       name,
       kind: format.kind,
       mimeType: format.mimeType,
       byteLength: stat.size,
-      sha256: createHash("sha256").update(bytes).digest("hex"),
       updatedAt: stat.mtime.toISOString(),
     });
   }

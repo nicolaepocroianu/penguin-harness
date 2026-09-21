@@ -35,6 +35,7 @@ export type Strings = {
     uploadFile: string;
     uploading: string;
     uploaded: string;
+    uploadWrongKind: (kind: string) => string;
     libraryTitle: string;
     libraryHint: string;
     libraryOpen: string;
@@ -64,6 +65,8 @@ export type Strings = {
     bulkSpeechGenerate: (count: number) => string;
     bulkSpeechConfirm: (count: number, language: string) => string;
     bulkSpeechStarted: (count: number) => string;
+    bulkSpeechQueued: (count: number) => string;
+    bulkSpeechStop: string;
     speechState: Record<"ready" | "missing" | "scriptMissing" | "scriptTooLong", string>;
     diffShow: string;
     diffHide: string;

@@ -47,6 +47,8 @@ export const en: Strings = {
     uploadFile: "Choose a file",
     uploading: "Uploading…",
     uploaded: "Uploaded and bound",
+    uploadWrongKind: (kind: string) =>
+      `That file holds ${kind} media, which this asset cannot use. It was kept in the library.`,
     libraryTitle: "Media library",
     libraryHint: "Bind this asset to a file already uploaded for this activity.",
     libraryOpen: "Choose from media library",
@@ -78,6 +80,9 @@ export const en: Strings = {
     bulkSpeechConfirm: (count: number, language: string) =>
       `Start ${count} speech runs for ${language}? Each run uses the selected agent.`,
     bulkSpeechStarted: (count: number) => `Started ${count} speech runs`,
+    bulkSpeechQueued: (count: number) =>
+      `${count} narration${count === 1 ? "" : "s"} queued; each runs after the one before it`,
+    bulkSpeechStop: "Stop queue",
     speechState: {
       ready: "Bound",
       missing: "Needs speech",

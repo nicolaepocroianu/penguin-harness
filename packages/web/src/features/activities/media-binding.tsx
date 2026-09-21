@@ -41,8 +41,8 @@ export function MediaBinding({
   editable: boolean;
   disabled: boolean;
   onChange: (path: string | undefined) => void;
-  /** Uploads the file and resolves with its stored reference, or rejects. */
-  onUpload: (file: File) => Promise<string>;
+  /** Uploads the file and resolves with what the server stored, or rejects. */
+  onUpload: (file: File) => Promise<UploadedMedia>;
 }) {
   const [reuse, setReuse] = useState("");
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -69,7 +69,9 @@ export function MediaBinding({
         value={asset.path ?? ""}
         disabled={locked}
         error={problem ? S.activities.mediaPathProblems[problem] : undefined}
-        onChange={(event) => onChange(event.target.value || undefined)}
+        // Trimmed on the way in: a surrounding space is never part of a media path,
+        // and storing it would pass the inline check and fail the save.
+        onChange={(event) => onChange(event.target.value.trim() || undefined)}
       />
       {asset.path && !generated && (
         <p className="text-xs text-gray-500">
@@ -97,7 +99,15 @@ export function MediaBinding({
                     setUploadError("");
                     setUploading(true);
                     void onUpload(file)
-                      .then((path) => onChange(path))
+                      .then((stored) => {
+                        // `accept` only steers the file chooser, and the server reads
+                        // the real format from the bytes. Binding audio to an image
+                        // would reach the assembled module, so refuse it here and say
+                        // so; the file itself stays in the library.
+                        if (stored.kind !== kind)
+                          setUploadError(S.activities.uploadWrongKind(stored.kind));
+                        else onChange(stored.path);
+                      })
                       .catch((error: unknown) =>
                         setUploadError(error instanceof Error ? error.message : String(error)),
                       )

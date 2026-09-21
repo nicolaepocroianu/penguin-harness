@@ -16,8 +16,13 @@ import { MediaPlayer } from "./media-player";
 import { SpeechCoverage } from "./speech-coverage";
 import { WaveformPlayer } from "./waveform-player";
 import { MediaTextReview } from "./media-text-review";
-import { SceneAssetTree, firstSelection, type SceneAssetSelection } from "./scene-asset-tree";
-import { buildSceneTree, filterTree, treeLeaves, type SceneAssetType } from "./scene-assets";
+import {
+  SceneAssetTree,
+  firstSelection,
+  sameSelection,
+  type SceneAssetSelection,
+} from "./scene-asset-tree";
+import { buildSceneTree, filterTree, treeSelections, type SceneAssetType } from "./scene-assets";
 
 export function MediaWorkbench({
   manifest,
@@ -43,6 +48,8 @@ export function MediaWorkbench({
   onAcceptText,
   onUpload,
   onGenerateAllAudio,
+  speechQueue,
+  onCancelSpeechQueue,
 }: {
   manifest: AssetManifest;
   /** The saved specification owns scene order, which the tree follows. */
@@ -67,8 +74,11 @@ export function MediaWorkbench({
   onAcceptImage: (runId: string) => void;
   onGenerateText: (language: string, assetKey: string) => void;
   onAcceptText: (runId: string) => void;
-  onUpload: (file: File) => Promise<string>;
+  onUpload: (file: File) => Promise<UploadedMedia>;
   onGenerateAllAudio: (language: string, assetKeys: string[], voice: string) => void;
+  /** Narration still queued, so the panel can report progress and offer to stop. */
+  speechQueue: number;
+  onCancelSpeechQueue: () => void;
 }) {
   const [languageChoice, setLanguage] = useState("");
   const [kind, setKind] = useState<SceneAssetType | "all">("all");
@@ -81,9 +91,11 @@ export function MediaWorkbench({
   const tree = filterTree(buildSceneTree(spec, group), kind);
   // A selection the filter or a rebuilt plan removed falls back to the first leaf,
   // so the detail panel never points at an asset the tree no longer draws.
-  const drawn = treeLeaves(tree);
+  const drawn = treeSelections(tree);
   const selection =
-    selected && drawn.some((leaf) => leaf.key === selected.key) ? selected : firstSelection(tree);
+    selected && drawn.some((entry) => sameSelection(entry, selected))
+      ? selected
+      : firstSelection(tree);
   const asset = group.find((entry) => entry.key === selection?.key);
   const voice = voices.includes(voiceChoice) ? voiceChoice : (voices[0] ?? "");
   const imageUrl = `${endpoint}/media-image?${new URLSearchParams({
@@ -173,6 +185,8 @@ export function MediaWorkbench({
                 setSelected({ sceneId: usage ?? "", key });
               }}
               onGenerateAll={(keys) => onGenerateAllAudio(language, keys, voice)}
+              queued={speechQueue}
+              onCancelQueue={onCancelSpeechQueue}
             />
           </div>
           <article className="min-w-0 space-y-3 rounded-lg border border-gray-200 p-4 dark:border-gray-800">

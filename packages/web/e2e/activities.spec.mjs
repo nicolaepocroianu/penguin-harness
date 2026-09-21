@@ -288,6 +288,17 @@ async function fixture(page) {
     }
     if (p === `${base}/act_test/generate-audio`) {
       const body = request.postDataJSON();
+      // The real server refuses a second concurrent generation for one activity.
+      if (runs.some((run) => run.status === "running"))
+        return json(
+          {
+            error: {
+              code: "generation_running",
+              message: "This activity already has a running generation.",
+            },
+          },
+          409,
+        );
       audioRequests.push({ assetKey: body.assetKey, language: body.language, voice: body.voice });
       runs.unshift({
         kind: "audio",
@@ -474,6 +485,10 @@ async function fixture(page) {
     },
     errors,
     audioRequests,
+    finishAudio() {
+      for (const run of runs)
+        if (run.kind === "audio" && run.status === "running") run.status = "succeeded";
+    },
     imageRequests,
     setImageFailure(value) {
       imageFailure = value;
@@ -726,10 +741,20 @@ test("reports speech coverage and generates every missing narration at once", as
   await page.getByRole("button", { name: "Generate 2 missing", exact: true }).click();
   await expect(page.getByText(/Start 2 speech runs for en-US/)).toBeVisible();
   await page.getByRole("button", { name: "Generate 2 missing", exact: true }).last().click();
-  await expect(page.getByText("Started 2 speech runs")).toBeVisible();
-  expect(f.audioRequests.map((request) => request.assetKey)).toEqual(["welcome", "prompt"]);
+
+  // The server runs one generation per activity, so the queue waits rather than
+  // firing both at once and having the second refused.
+  await expect(page.getByText(/1 narration queued/)).toBeVisible();
+  expect(f.audioRequests.map((request) => request.assetKey)).toEqual(["welcome"]);
   expect(f.audioRequests.every((request) => request.language === "en-US")).toBe(true);
   expect(f.audioRequests.every((request) => request.voice === "Kore")).toBe(true);
+
+  // Once the first run finishes, the next narration is asked for.
+  f.finishAudio();
+  await expect
+    .poll(() => f.audioRequests.map((request) => request.assetKey))
+    .toEqual(["welcome", "prompt"]);
+  await expect(page.getByRole("button", { name: "Stop queue", exact: true })).toHaveCount(0);
   expect(f.errors).toEqual([]);
 });
 

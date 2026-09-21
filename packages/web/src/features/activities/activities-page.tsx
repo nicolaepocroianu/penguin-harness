@@ -293,6 +293,17 @@ function ActivityEditor({
   const [wafRoot, setWafRoot] = useState("");
   const [voices, setVoices] = useState<string[]>([]);
   const [uploads, setUploads] = useState<UploadedMedia[]>([]);
+  /**
+   * Narration still to ask for. The server runs one generation per activity at a time,
+   * so a bulk request is a queue this page drains as each run finishes rather than a
+   * burst of requests the server would reject. It lives in the page, so leaving the
+   * page stops the queue; the runs already started carry on.
+   */
+  const [speechQueue, setSpeechQueue] = useState<{
+    language: string;
+    voice: string;
+    keys: string[];
+  } | null>(null);
   const [uploadsLoading, setUploadsLoading] = useState(false);
   const state = useRef({ dirty: false, busy: false, revision: "", available });
   const alive = useRef(true);
@@ -320,7 +331,7 @@ function ActivityEditor({
         body: { name: file.name, dataBase64: btoa(binary) },
       });
       await loadUploads();
-      return stored.path;
+      return stored;
     },
     [endpoint, loadUploads],
   );
@@ -446,6 +457,46 @@ function ActivityEditor({
   }
   const selectedAgent = agentId || currentAgent?.agentId || agents[0]?.agentId || "";
   const running = runs.some((run) => run.status === "running");
+  useEffect(() => {
+    const next = speechQueue?.keys[0];
+    if (!next || running || busy || dirty || !selectedAgent || !detail) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const run = await apiFetch<ActivityRun>(`${endpoint}/generate-audio`, {
+          method: "POST",
+          body: {
+            agentId: selectedAgent,
+            expectedRevision: detail.draft.contentRevision,
+            language: speechQueue!.language,
+            assetKey: next,
+            voice: speechQueue!.voice,
+          },
+        });
+        if (cancelled || !alive.current) return;
+        setRuns((previous) => [
+          summarize(run),
+          ...previous.filter((item) => item.runId !== run.runId),
+        ]);
+        setRefreshVersion((value) => value + 1);
+        setSpeechQueue((queue) =>
+          queue && queue.keys[0] === next
+            ? queue.keys.length > 1
+              ? { ...queue, keys: queue.keys.slice(1) }
+              : null
+            : queue,
+        );
+      } catch (e) {
+        if (cancelled || !alive.current) return;
+        // Stop the queue rather than let every remaining narration fail the same way.
+        setSpeechQueue(null);
+        setError(apiErrorText(e));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [speechQueue, running, busy, dirty, selectedAgent, detail, endpoint]);
   let editedManifest: AssetManifest | null = null;
   try {
     const value = JSON.parse(media);
@@ -797,37 +848,10 @@ function ActivityEditor({
                   })
                 }
                 onGenerateAllAudio={(language, assetKeys, voice) =>
-                  void action(async () => {
-                    // One request per narration, in order: the endpoint takes a single
-                    // asset, and a failure part way through should stop rather than
-                    // leave the rest to fail the same way.
-                    const started: ActivityRunSummary[] = [];
-                    for (const assetKey of assetKeys) {
-                      const run = await apiFetch<ActivityRun>(`${endpoint}/generate-audio`, {
-                        method: "POST",
-                        body: {
-                          agentId: selectedAgent,
-                          expectedRevision: detail.draft.contentRevision,
-                          language,
-                          assetKey,
-                          voice,
-                        },
-                      });
-                      started.push(summarize(run));
-                      if (!alive.current) return;
-                    }
-                    if (alive.current) {
-                      setRuns((previous) => [
-                        ...started,
-                        ...previous.filter(
-                          (item) => !started.some((run) => run.runId === item.runId),
-                        ),
-                      ]);
-                      setRefreshVersion((value) => value + 1);
-                      setNotice(S.activities.bulkSpeechStarted(started.length));
-                    }
-                  })
+                  setSpeechQueue({ language, voice, keys: assetKeys })
                 }
+                speechQueue={speechQueue?.keys.length ?? 0}
+                onCancelSpeechQueue={() => setSpeechQueue(null)}
                 onGenerateImage={(language, assetKey) =>
                   void action(async () => {
                     const run = await apiFetch<ActivityRun>(`${endpoint}/generate-image`, {

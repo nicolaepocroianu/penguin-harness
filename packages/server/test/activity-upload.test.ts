@@ -7,6 +7,7 @@ import {
   listUploads,
   readUpload,
   sniffUpload,
+  storedFormat,
   storeUpload,
   uploadFile,
   uploadReference,
@@ -74,10 +75,14 @@ describe("upload naming", () => {
   it("puts the content hash in the name so the same file lands on one path", () => {
     const format = sniffUpload(png);
     const first = uploadReference("cat.png", png, format);
-    expect(first).toMatch(/^media\/uploads\/cat-[a-f0-9]{8}\.png$/);
+    expect(first).toMatch(/^media\/uploads\/cat-[a-f0-9]{16}\.png$/);
     expect(uploadReference("cat.png", png, format)).toBe(first);
     const other = Buffer.concat([png, Buffer.from([1])]);
     expect(uploadReference("cat.png", other, sniffUpload(other))).not.toBe(first);
+    // The full digest is what a prefix collision falls back to.
+    expect(uploadReference("cat.png", png, format, 64)).toMatch(
+      /^media\/uploads\/cat-[a-f0-9]{64}\.png$/,
+    );
   });
 
   it("recognises which bindings live in the workspace", () => {
@@ -119,6 +124,19 @@ describe("upload storage", () => {
     expect(await listUploads(dir)).toHaveLength(1);
   });
 
+  it("never reuses a file whose bytes turn out to be different", async () => {
+    const dir = await workspace();
+    const first = await storeUpload(dir, "cat.png", png);
+    // Stand in for a digest-prefix collision: different bytes already under that name.
+    const other = Buffer.concat([png, Buffer.from([7, 7, 7])]);
+    await fs.writeFile(path.join(dir, "media", "uploads", first.name), other);
+    const second = await storeUpload(dir, "cat.png", png);
+    expect(second.path).not.toBe(first.path);
+    expect(await readUpload(dir, second.path)).toMatchObject({ bytes: png });
+    // The colliding name still holds the bytes that were actually written there.
+    expect(await fs.readFile(path.join(dir, "media", "uploads", first.name))).toEqual(other);
+  });
+
   it("refuses an empty file and an unsupported format", async () => {
     const dir = await workspace();
     await expect(storeUpload(dir, "empty.png", Buffer.alloc(0))).rejects.toThrow(/empty/);
@@ -135,6 +153,35 @@ describe("upload storage", () => {
     const listed = await listUploads(dir);
     expect(listed.map((entry) => entry.kind).sort()).toEqual(["audio", "image"]);
     expect(listed.some((entry) => entry.name === "notes.txt")).toBe(false);
+  });
+
+  it("lists from metadata alone, without reading a single file", async () => {
+    const dir = await workspace();
+    await storeUpload(dir, "cat.png", png);
+    await storeUpload(dir, "clip.mp4", mp4);
+    const reads: string[] = [];
+    const readFile = fs.readFile;
+    // Any read here would be per-file work a member could ask for repeatedly.
+    (fs as { readFile: typeof fs.readFile }).readFile = (async (...args: unknown[]) => {
+      reads.push(String(args[0]));
+      return (readFile as (...a: unknown[]) => Promise<Buffer>)(...args);
+    }) as typeof fs.readFile;
+    try {
+      const listed = await listUploads(dir);
+      expect(listed).toHaveLength(2);
+      expect(listed.every((entry) => entry.sha256 === undefined)).toBe(true);
+    } finally {
+      (fs as { readFile: typeof fs.readFile }).readFile = readFile;
+    }
+    expect(reads).toEqual([]);
+  });
+
+  it("reads a stored file's kind from the extension it was given", () => {
+    expect(storedFormat("cat-1234abcd.png")).toMatchObject({ kind: "image" });
+    expect(storedFormat("bell-1234abcd.wav")).toMatchObject({ kind: "audio" });
+    expect(storedFormat("clip-1234abcd.mp4")).toMatchObject({ kind: "video" });
+    expect(storedFormat("notes.txt")).toBeUndefined();
+    expect(storedFormat("nodots")).toBeUndefined();
   });
 
   it("reports a binding whose file is gone instead of serving nothing", async () => {

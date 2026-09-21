@@ -576,7 +576,7 @@ export class ActivityService implements ActivityAuthoring {
     manifest: unknown,
     expectedRevision: string,
   ): Promise<ActivityDraft> {
-    return this.change(projectId, activityId, expectedRevision, (draft, activity) => {
+    return this.change(projectId, activityId, expectedRevision, async (draft, activity) => {
       if (
         !draft.mediaPlan ||
         draft.mediaPlan.specRevision !== contentRevision(draft.spec) ||
@@ -604,6 +604,21 @@ export class ActivityService implements ActivityAuthoring {
               throw new Error("Use Accept this image to bind a generated candidate.");
           }
         }
+        // An upload is bytes this server holds, so what it actually is can be checked
+        // rather than assumed. A path alone says nothing about the media it names.
+        const workspace = this.activityWorkspace(projectId, { ...activity, draft });
+        for (const assets of Object.values(parsed.assets))
+          for (const asset of assets) {
+            if (!isUploadReference(asset.path)) continue;
+            const { mimeType } = await readUpload(workspace, asset.path!);
+            const kind = mimeType.slice(0, mimeType.indexOf("/"));
+            const wanted =
+              asset.type === "image" ? "image" : asset.type === "audio" ? "audio" : "video";
+            if (kind !== wanted)
+              throw new Error(
+                `Asset ${asset.key} expects ${wanted} media, but ${asset.path} holds ${kind} media.`,
+              );
+          }
         return { ...draft, mediaPlan: { ...draft.mediaPlan, manifest: parsed } };
       } catch (error) {
         throw new HttpError(422, "media_invalid", (error as Error).message);
@@ -709,7 +724,10 @@ export class ActivityService implements ActivityAuthoring {
     projectId: string,
     activityId: string,
     expectedRevision: string | undefined,
-    edit: (draft: ActivityDraft, activity: ActivityRecord) => ActivityDraft,
+    edit: (
+      draft: ActivityDraft,
+      activity: ActivityRecord,
+    ) => ActivityDraft | Promise<ActivityDraft>,
   ): Promise<ActivityDraft> {
     return this.projectWork.run(projectId, () =>
       this.locks.run(activityId, async () => {
@@ -720,7 +738,7 @@ export class ActivityService implements ActivityAuthoring {
             "draft_conflict",
             "Draft changed. Reload it before applying your edit.",
           );
-        const draft = edit(current.draft, current);
+        const draft = await edit(current.draft, current);
         draft.contentRevision = draftRevision(draft);
         draft.updatedAt = new Date().toISOString();
         await this.writeDraft(projectId, draft, current.collectionId);

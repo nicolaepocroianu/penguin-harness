@@ -31,6 +31,7 @@ export function MediaLibraryModal({
   const [query, setQuery] = useState("");
   const [chosen, setChosen] = useState("");
   const matches = libraryMatches(media, type, query);
+  // `libraryMatches` filters to this asset's kind, so a pick can only ever match it.
   const selected = matches.find((entry) => entry.path === chosen);
   return (
     <Modal
