@@ -41,6 +41,8 @@ primary action is never scrolled out of reach.
 - `/activities` joined the browser sweep that asserts no page grows the document. That
   sweep could not run at all: it waited on a Chinese sidebar label the app stopped
   shipping when the translations were removed, so the label was brought back to English.
+  The rest of that file still drives the app through labels it no longer ships, and
+  repairing those is left to its own change.
 - The asset manifest disclosure became controlled state, like the specification's, so
   moving between sections no longer closes it.
 - Reload draft moved to the workspace header and is no longer repeated in the
