@@ -225,4 +225,39 @@ describe("AcpConnection spawn routing", () => {
     await expect(pending).rejects.toThrow(/could not be started/);
     connection.dispose();
   });
+
+  // A live agent answering the handshake with a JSON-RPC error is a refusal, not an
+  // exit — its own diagnostic is what the user needs to see.
+  it("relays the refusal when a live agent rejects the handshake", async () => {
+    const streams = {
+      stdin: new PassThrough(),
+      stdout: new PassThrough(),
+      stderr: new PassThrough(),
+    };
+    const fake = {
+      ...streams,
+      on: () => streams.stdout,
+      kill: () => true,
+    } as unknown as ChildProcess;
+    const connection = await AcpConnection.spawn(
+      "node",
+      [],
+      {},
+      CLIENT_INFO,
+      HANDLERS,
+      (() => fake) as unknown as SpawnProcess,
+    );
+    const pending = connection.initialize();
+    const raw: Buffer = await new Promise((resolve) => streams.stdin.once("data", resolve));
+    const request = JSON.parse(raw.toString()) as { id: number };
+    streams.stdout.write(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: request.id,
+        error: { code: -32601, message: "initialize not supported" },
+      }) + "\n",
+    );
+    await expect(pending).rejects.toThrow(/refused the ACP handshake: initialize not supported/);
+    connection.dispose();
+  });
 });

@@ -12,6 +12,7 @@ import {
   methods,
   ndJsonStream,
   PROTOCOL_VERSION,
+  RequestError,
   type AgentApp,
   type ClientConnection,
   type ContentBlock,
@@ -153,7 +154,12 @@ export class AcpConnection {
     }
   }
 
-  /** A dead child surfaces as a generic stream failure; lead with the spawn error it came from. */
+  /**
+   * A dead child surfaces as a generic stream failure; lead with the spawn error it came
+   * from. A RequestError is the opposite case — the live agent refusing the handshake —
+   * and its diagnostic is the useful part: initialize carries no user content, so unlike
+   * turn errors it is safe to relay.
+   */
   private startupError(error: unknown): AcpAgentError {
     if (this.spawnError !== null) {
       return new AcpAgentError(
@@ -162,6 +168,10 @@ export class AcpConnection {
           cause: this.spawnError,
         },
       );
+    }
+    if (error instanceof RequestError) {
+      const detail = error.message !== "" ? `: ${error.message}` : "";
+      return new AcpAgentError(`the agent refused the ACP handshake${detail}`, { cause: error });
     }
     return new AcpAgentError("the agent exited before the ACP handshake completed", {
       cause: error,

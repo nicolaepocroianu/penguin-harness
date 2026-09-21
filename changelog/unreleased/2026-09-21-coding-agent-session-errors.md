@@ -9,6 +9,6 @@ Starting a coding-agent session whose command cannot run — an uninstalled CLI,
 
 ## Details
 
-- The connection records the spawn's own failure (`ENOENT`, `EACCES`, ...) and the handshake leads with it: sessions now fail with 400 and a message naming the command ("the agent command could not be started: spawn ... ENOENT"); an agent that exits before the handshake says so; a refusal of `session/new` is mapped too.
+- The connection records the spawn's own failure (`ENOENT`, `EACCES`, ...) and the handshake leads with it: sessions now fail with 400 and a message naming the command ("the agent command could not be started: spawn ... ENOENT"). A live agent rejecting the handshake is distinguished from a dead one — its own refusal diagnostic is relayed ("the agent refused the ACP handshake: ...") instead of being misreported as an exit; a refusal of `session/new` is mapped too.
 - Resolution and discovery avoid fnm's per-shell multishell dirs (symlinks that die with their shell) while gaining the versioned Node roots themselves — `fnm/node-versions/<version>/installation` on every platform plus nvm's layout and nvm-windows' per-version dirs — so a definition can be saved with a command that survives the terminal it was discovered from.
 - Windows cmd.exe shim routing escapes `%` as `^%` outside a fresh quote pair, so arguments like `100%` are not eaten by percent-expansion.
