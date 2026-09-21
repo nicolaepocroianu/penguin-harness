@@ -3,6 +3,7 @@
 - **Date:** 2026-09-21
 - **Type:** feature
 - **Scope:** `web`
+- **PR:** [#31](https://github.com/Prism-Shadow/penguin-harness/pull/31)
 
 Speech was reviewed through a bare audio element, one clip at a time, and narration could
 only be generated one asset at a time. Clips now show their shape, and a language's
