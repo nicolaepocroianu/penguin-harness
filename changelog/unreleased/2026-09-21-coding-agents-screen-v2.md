@@ -3,7 +3,7 @@
 - **Date:** 2026-09-21
 - **Type:** feature
 - **Scope:** `coding-agents`, `server`, `web`
-- **PR:** [#34](https://github.com/nicolaepocroianu/penguin-harness/pull/34)
+- **PR:** [#35](https://github.com/nicolaepocroianu/penguin-harness/pull/35)
 
 The coding-agents screen now reads like a launcher: an **Installed** section of cards for the agents found on the server machine (name, `--version` line, sign-in state, command, a Model dropdown), an **Available** section of dimmed cards for known agents that are not installed (with a link to get them), and a **Rescan** button that re-runs the live checks. Detected agents are usable immediately — starting a session for one persists its definition automatically; the Add-agent form remains for custom commands only.
 
