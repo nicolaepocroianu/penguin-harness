@@ -3,6 +3,7 @@
 - **Date:** 2026-09-21
 - **Type:** feature
 - **Scope:** `web`
+- **PR:** [#32](https://github.com/Prism-Shadow/penguin-harness/pull/32)
 
 A specification was edited as raw JSON with no way to see what an edit had actually
 changed before saving it. The editor gained a review view comparing what is in the box
