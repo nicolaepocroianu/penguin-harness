@@ -130,37 +130,21 @@ function ActivityWorkspace({
   );
   const visible = useMemo(() => filterActivities(items, search), [items, search]);
   if (activityId) {
+    // The workspace fills this pane and scrolls inside itself, so nothing may wrap it
+    // in a scroller or a max-width column.
     return (
-      <div className="h-full overflow-auto">
-        <div className="mx-auto max-w-4xl space-y-5 p-4 sm:p-6">
-          <nav className="text-xs">
-            <Link className="underline" to="/activities">
-              {S.activities.backToActivities}
-            </Link>
-          </nav>
-          {/* The editor disables itself for a member or a lost Project; say why, as the list does. */}
-          {!available && (
-            <p role="status" className={`rounded-md border p-3 text-xs ${toneStrip.attention}`}>
-              {S.activities.unavailable}
-            </p>
-          )}
-          {available && !editable && (
-            <p className={`rounded-md border p-3 text-xs ${toneStrip.attention}`}>
-              {S.activities.readOnly}
-            </p>
-          )}
-          <ActivityEditor
-            key={activityId}
-            projectId={projectId}
-            activityId={activityId}
-            editable={editable}
-            available={available}
-            onDirty={(value) => {
-              dirty.current = value;
-            }}
-            onSaved={reload}
-          />
-        </div>
+      <div className="h-full min-h-0">
+        <ActivityEditor
+          key={activityId}
+          projectId={projectId}
+          activityId={activityId}
+          editable={editable}
+          available={available}
+          onDirty={(value) => {
+            dirty.current = value;
+          }}
+          onSaved={reload}
+        />
       </div>
     );
   }
@@ -617,6 +601,12 @@ function ActivityEditor({
     <WorkspaceShell
       header={
         <>
+          <Link
+            to="/activities"
+            className="shrink-0 text-xs text-gray-500 underline hover:text-gray-700 dark:hover:text-gray-300"
+          >
+            {S.activities.backToActivities}
+          </Link>
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-sm font-semibold" title={detail.title}>
               {detail.title}
@@ -646,6 +636,16 @@ function ActivityEditor({
       }
       notices={
         <>
+          {!available && (
+            <p role="status" className={`rounded-md border p-3 text-xs ${toneStrip.attention}`}>
+              {S.activities.unavailable}
+            </p>
+          )}
+          {available && !editable && (
+            <p className={`rounded-md border p-3 text-xs ${toneStrip.attention}`}>
+              {S.activities.readOnly}
+            </p>
+          )}
           {error && (
             <p role="alert" className={`rounded-md border p-3 text-xs ${toneStrip.danger}`}>
               {error}

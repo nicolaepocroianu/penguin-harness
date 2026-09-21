@@ -45,3 +45,10 @@ primary action is never scrolled out of reach.
   moving between sections no longer closes it.
 - Reload draft moved to the workspace header and is no longer repeated in the
   description block.
+- The detail route no longer wraps the workspace in a centred, maximum-width, separately
+  scrolling column, which had left it inset on both sides with a second scroller around
+  a full-height child.
+- Upload, media library and reuse sit in one row as three ways of choosing the same
+  file, rather than stacked full width down the pane.
+- Scene identifiers and asset keys truncate with their full text in a tooltip instead of
+  breaking mid-word.
