@@ -3,6 +3,7 @@
 - **Date:** 2026-09-21
 - **Type:** refactor
 - **Scope:** `web`
+- **PR:** [#34](https://github.com/Prism-Shadow/penguin-harness/pull/34)
 
 The activity editor was one long page: description, generation, scenes, media, module
 preview and history stacked down a single scroll, with the scene tree squeezed into a
