@@ -19,8 +19,16 @@ export interface DiffRow {
   text: string;
 }
 
-/** Beyond this the quadratic match is abandoned; see `diffLines`. */
-export const DIFF_LINE_LIMIT = 4000;
+/**
+ * The most table cells the match may build. The cost is the product of the two line
+ * counts, not either one, and this recomputes on every keystroke while the review is
+ * open, so the guard has to be on the product rather than on either length.
+ *
+ * A million cells covers a thousand lines against a thousand, which is far longer than
+ * an activity specification, and costs a few milliseconds per keystroke. The sixteen
+ * million a pair of four-thousand-line texts would need does not, and is refused.
+ */
+export const DIFF_CELL_LIMIT = 1_000_000;
 
 function splitLines(text: string): string[] {
   return text.length ? text.replace(/\r\n/g, "\n").split("\n") : [];
@@ -30,14 +38,14 @@ function splitLines(text: string): string[] {
  * A longest-common-subsequence diff, which is what makes a moved block read as
  * unchanged context rather than as a delete and an insert.
  *
- * The table is quadratic, so a specification past `DIFF_LINE_LIMIT` lines falls back to
- * reporting the whole text as replaced. That is honest and bounded: the alternative is a
- * table of millions of cells built during typing.
+ * The table is quadratic, so a pair of texts whose product of line counts passes
+ * `DIFF_CELL_LIMIT` falls back to reporting the whole text as replaced. That is honest
+ * and bounded: the alternative is a table of millions of cells built during typing.
  */
 export function diffLines(saved: string, edited: string): DiffRow[] {
   const before = splitLines(saved);
   const after = splitLines(edited);
-  if (before.length > DIFF_LINE_LIMIT || after.length > DIFF_LINE_LIMIT)
+  if (before.length * after.length > DIFF_CELL_LIMIT)
     return [
       ...before.map((text, index) => ({ kind: "removed" as const, before: index + 1, text })),
       ...after.map((text, index) => ({ kind: "added" as const, after: index + 1, text })),
@@ -174,8 +182,20 @@ export function changedScenes(
   return changes;
 }
 
-/** The first row belonging to a scene, so a chip can jump to it. */
+/**
+ * Where a chip should jump. The scene's `id` line is often unchanged and therefore
+ * folded away, so a chip resolves to the nearest rendered row: the first changed row at
+ * or after the scene's own line, falling back to the last change before it. Returning a
+ * folded index would make the chip silently do nothing.
+ */
 export function sceneRowIndex(rows: readonly DiffRow[], sceneId: string): number {
   const needle = `"id": ${JSON.stringify(sceneId)}`;
-  return rows.findIndex((row) => row.text.includes(needle));
+  const line = rows.findIndex((row) => row.text.includes(needle));
+  const rendered = new Set(visibleRows(rows).map((entry) => entry.index));
+  if (line >= 0 && rendered.has(line)) return line;
+  const after = rows.findIndex((row, index) => index >= line && row.kind !== "same");
+  if (line >= 0 && after >= 0) return after;
+  const changes = [...rendered].filter((index) => rows[index]!.kind !== "same");
+  if (line < 0) return changes[0] ?? -1;
+  return changes.filter((index) => index < line).pop() ?? changes[0] ?? -1;
 }

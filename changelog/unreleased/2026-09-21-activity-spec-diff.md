@@ -31,5 +31,10 @@ confirmed before it discards anything.
 - A draft specification has no version history, so the only base offered is the saved
   specification, which is the one a save decision is about.
 - The comparison is a longest-common-subsequence match, so a moved block reads as context
-  rather than as a deletion and an insertion. Past 4000 lines it reports every line as
-  replaced rather than building a table of millions of cells while an author types.
+  rather than as a deletion and an insertion. Its cost is the product of the two line
+  counts, and past a million table cells it reports every line as replaced rather than
+  building that table on every keystroke.
+- A scene chip resolves to a row the view actually renders, since a scene's own
+  identifier line is usually unchanged and folded away.
+- The change position is clamped to the regions that currently exist, so an edit that
+  removes regions cannot leave an impossible position on screen.

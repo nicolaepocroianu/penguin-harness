@@ -12,7 +12,7 @@ import { Segmented } from "../../components/ui/segmented";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import {
-  DIFF_LINE_LIMIT,
+  DIFF_CELL_LIMIT,
   changedScenes,
   diffLines,
   diffRegions,
@@ -65,8 +65,11 @@ export function SpecDiffView({
   const stats = useMemo(() => diffStats(rows), [rows]);
   const scenes = useMemo(() => changedScenes(saved, edited), [saved, edited]);
   const shown = useMemo(() => visibleRows(rows), [rows]);
-  const truncated =
-    saved.split("\n").length > DIFF_LINE_LIMIT || edited.split("\n").length > DIFF_LINE_LIMIT;
+  const truncated = saved.split("\n").length * edited.split("\n").length > DIFF_CELL_LIMIT;
+  // The regions array is rebuilt on every edit, so an index taken before the edit can
+  // outlive the region it named. Clamp on the way out rather than carry an impossible
+  // position like "3 / 1" until the next click.
+  const current = region < regions.length ? region : -1;
 
   function jumpTo(rowIndex: number) {
     const container = scrollRef.current;
@@ -76,7 +79,7 @@ export function SpecDiffView({
   }
 
   function step(direction: 1 | -1) {
-    const next = stepRegion(region, regions.length, direction);
+    const next = stepRegion(current, regions.length, direction);
     setRegion(next);
     if (next >= 0) jumpTo(regions[next]!.start);
   }
@@ -104,7 +107,7 @@ export function SpecDiffView({
           {S.activities.diffNext}
         </Button>
         <span className="text-xs text-gray-500">
-          {S.activities.diffPosition(region + 1, regions.length)}
+          {S.activities.diffPosition(current + 1, regions.length)}
         </span>
         <div className="w-44">
           <Segmented

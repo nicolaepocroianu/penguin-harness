@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DIFF_CONTEXT,
-  DIFF_LINE_LIMIT,
+  DIFF_CELL_LIMIT,
   changedScenes,
   diffLines,
   diffRegions,
@@ -50,13 +50,29 @@ describe("line diff", () => {
     expect(diffStats(diffLines("a\r\nb", "a\nb"))).toEqual({ added: 0, removed: 0, regions: 0 });
   });
 
-  it("falls back to a whole-text replacement past the line limit", () => {
-    const long = Array.from({ length: DIFF_LINE_LIMIT + 1 }, (_, index) => `line ${index}`).join(
-      "\n",
-    );
-    const rows = diffLines(long, long);
+  it("is bounded by the table's cell count, not by either side's length", () => {
+    const lines = (count: number) =>
+      Array.from({ length: count }, (_, index) => `line ${index}`).join("\n");
+
+    // A long text against a short one is cheap, so it is still compared properly.
+    const long = lines(4000);
+    expect(diffStats(diffLines("alpha\nbeta", long)).added).toBe(4000);
+
+    // A thousand lines against a thousand is a million cells: inside the bound, and a
+    // one-line edit reads as one line, not as the whole text.
+    const thousand = lines(1000);
+    expect(diffStats(diffLines(thousand, thousand.replace("line 10\n", "line ten\n")))).toEqual({
+      added: 1,
+      removed: 1,
+      regions: 1,
+    });
+
+    // Past the bound, every line is reported replaced rather than a table being built.
+    const side = Math.ceil(Math.sqrt(DIFF_CELL_LIMIT)) + 1;
+    const big = lines(side);
+    const rows = diffLines(big, big);
     expect(rows.every((row) => row.kind !== "same")).toBe(true);
-    expect(diffStats(rows).added).toBe(DIFF_LINE_LIMIT + 1);
+    expect(diffStats(rows).added).toBe(side);
   });
 });
 
@@ -75,6 +91,18 @@ describe("change regions", () => {
   it("counts a change running to the end of the text", () => {
     expect(diffRegions(diffLines("a\nb", "a\nB"))).toEqual([{ start: 1, end: 3 }]);
     expect(diffRegions(diffLines("a", "a"))).toEqual([]);
+  });
+
+  it("treats an index past the end as no position at all", () => {
+    // Live edits rebuild the regions array, so an index taken before an edit can name a
+    // region that no longer exists. Stepping from it must land on a real one.
+    expect(stepRegion(-1, 1, 1)).toBe(0);
+    expect(stepRegion(-1, 1, -1)).toBe(0);
+    // The view clamps an out-of-range index to -1 before stepping, so this is what a
+    // stale "3 of 1" becomes.
+    const stale = 3;
+    const clamped = stale < 1 ? stale : -1;
+    expect(stepRegion(clamped, 1, 1)).toBe(0);
   });
 
   it("steps through regions and wraps at both ends", () => {
@@ -147,11 +175,31 @@ describe("changed scenes", () => {
     expect(changedScenes("{ not json", "{ also not json")).toEqual([]);
   });
 
-  it("finds the line a scene starts on, so a chip can jump to it", () => {
+  it("resolves a chip to a row the view actually renders", () => {
+    // A scene's own id line is usually unchanged, and far enough from the edit to be
+    // folded away. A chip that resolved to a folded row would silently do nothing.
+    const padded = (description: string) =>
+      Array.from({ length: 12 }, (_, index) => ({
+        id: `scene-${index}`,
+        description: index === 8 ? description : `body ${index}`,
+      }));
+    const rows = diffLines(spec(padded("before")), spec(padded("after")));
+    const rendered = new Set(visibleRows(rows).map((entry) => entry.index));
+    const target = sceneRowIndex(rows, "scene-8");
+    expect(target).toBeGreaterThanOrEqual(0);
+    expect(rendered.has(target)).toBe(true);
+  });
+
+  it("jumps to the scene's own line when that line is rendered", () => {
     const before = spec([scene("intro", "a"), scene("quiz", "q")]);
     const after = spec([scene("intro", "a"), scene("quiz", "changed")]);
     const rows = diffLines(before, after);
-    expect(sceneRowIndex(rows, "quiz")).toBeGreaterThan(0);
-    expect(sceneRowIndex(rows, "absent")).toBe(-1);
+    const target = sceneRowIndex(rows, "quiz");
+    expect(rows[target]!.text).toContain("quiz");
+  });
+
+  it("has nowhere to jump when the scene is not in either text", () => {
+    const text = spec([scene("intro", "a")]);
+    expect(sceneRowIndex(diffLines(text, text), "absent")).toBe(-1);
   });
 });
