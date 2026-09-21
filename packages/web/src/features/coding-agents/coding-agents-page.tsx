@@ -248,7 +248,10 @@ function SessionsSection({
 }
 
 /** Fold the event log into render state: merged text blocks + tool calls at latest state. */
-function buildTranscript(events: CodingAgentEvent[]): {
+function buildTranscript(
+  events: CodingAgentEvent[],
+  seedConfigOptions: CodingAgentConfigOption[] = [],
+): {
   blocks: TextBlock[];
   toolList: ToolCallSnapshot[];
   notices: string[];
@@ -264,7 +267,9 @@ function buildTranscript(events: CodingAgentEvent[]): {
   const stops: { label: "turnEnded" | "turnCancelled" | "turnFailed"; tone: Tone }[] = [];
   let modes: { id: string; name: string }[] = [];
   let currentMode: string | null = null;
-  let configOptions: CodingAgentConfigOption[] = [];
+  // Seeded from the session's authoritative set: the bounded log may have evicted its
+  // original config_options event, so an empty log must not mean "no controls".
+  let configOptions: CodingAgentConfigOption[] = seedConfigOptions;
   let permission: PermissionRequest | null = null;
   const resolved = new Set<string>();
   let current: TextBlock | null = null;
@@ -312,8 +317,15 @@ function buildTranscript(events: CodingAgentEvent[]): {
 }
 
 function SessionView({ sessionId, onSettled }: { sessionId: string; onSettled: () => void }) {
-  const { events, connected, missing } = useCodingAgentStream(sessionId, onSettled);
-  const transcript = useMemo(() => buildTranscript(events), [events]);
+  const {
+    events,
+    configOptions: seedOptions,
+    connected,
+    missing,
+  } = useCodingAgentStream(sessionId, onSettled);
+  // The seed is the session's authoritative set (the log can have evicted its config
+  // event); config_options events in the log override it as they arrive.
+  const transcript = useMemo(() => buildTranscript(events, seedOptions), [events, seedOptions]);
   const [draft, setDraft] = useState("");
   const [awaitingTurn, setAwaitingTurn] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);

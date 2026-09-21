@@ -2507,8 +2507,15 @@ export type ServerEvent =
   /**
    * The transcript snapshot of a coding-agent session, sent as the private initial event of
    * its stream (the live events that follow ride the `coding_agent` SSE event name).
+   * `configOptions` is the session's authoritative current set — the retained event log
+   * may have evicted its original config_options entry.
    */
-  | { type: "coding_agent_snapshot"; sessionId: string; events: CodingAgentEvent[] }
+  | {
+      type: "coding_agent_snapshot";
+      sessionId: string;
+      events: CodingAgentEvent[];
+      configOptions: CodingAgentConfigOption[];
+    }
   /**
    * The Project's model credentials changed (PUT /models): cached runtimes have been
    * invalidated server-side, so an auth-dead Session can continue — the frontend clears

@@ -138,9 +138,17 @@ export function codingAgentsRoutes(deps: CodingAgentsRouteDeps): Hono<AppEnv> {
       throw new HttpError(404, "not_found", "Coding-agent session does not exist.");
     }
     // The snapshot rides the `server_event` name (sseEndpoint's initialEvents); the live
-    // kernel events follow as `coding_agent` events, bridged in CodingAgentService.
+    // kernel events follow as `coding_agent` events, bridged in CodingAgentService. The
+    // authoritative config set rides along: the log may have evicted its config event.
     return sseEndpoint(c, channel, {
-      initialEvents: [{ type: "coding_agent_snapshot", sessionId, events: detail.events }],
+      initialEvents: [
+        {
+          type: "coding_agent_snapshot",
+          sessionId,
+          events: detail.events,
+          configOptions: detail.configOptions,
+        },
+      ],
     });
   });
 

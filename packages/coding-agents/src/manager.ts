@@ -96,6 +96,7 @@ export class CodingAgentManager {
   private readonly pendingConnections = new Map<string, Promise<AcpConnection>>();
   private readonly sessions = new Map<string, SessionRecord>();
   private readonly liveListeners = new Map<string, Set<(event: AgentSessionEvent) => void>>();
+  private readonly configSets = new Map<string, Promise<void>>();
   private permissionSeq = 0;
 
   private readonly clientInfo: AcpClientInfo;
@@ -230,14 +231,27 @@ export class CodingAgentManager {
     value: boolean | string,
   ): Promise<void> {
     const record = this.requireSession(sessionId);
-    const connection = this.connections.get(record.definitionId);
-    if (connection === undefined) throw new AcpAgentError("agent connection is closed");
-    record.configOptions = await connection.setSessionConfigOption(sessionId, configId, value);
-    this.append(record, {
-      type: "config_options",
-      sessionId,
-      options: cloneConfigOptions(record.configOptions),
-    });
+    // Serialized per session: a slower earlier request must not overwrite the state a
+    // later change (or a live agent push) already established.
+    const previous = this.configSets.get(sessionId) ?? Promise.resolve();
+    const operation = previous
+      .catch(() => undefined)
+      .then(async () => {
+        const connection = this.connections.get(record.definitionId);
+        if (connection === undefined) throw new AcpAgentError("agent connection is closed");
+        record.configOptions = await connection.setSessionConfigOption(sessionId, configId, value);
+        this.append(record, {
+          type: "config_options",
+          sessionId,
+          options: cloneConfigOptions(record.configOptions),
+        });
+      });
+    this.configSets.set(sessionId, operation);
+    try {
+      await operation;
+    } finally {
+      if (this.configSets.get(sessionId) === operation) this.configSets.delete(sessionId);
+    }
   }
 
   /** One turn; resolves after the turn's `turn_end` has been logged. */
@@ -321,6 +335,7 @@ export class CodingAgentManager {
     if (record === undefined) return;
     this.sessions.delete(sessionId);
     this.liveListeners.delete(sessionId);
+    this.configSets.delete(sessionId);
     for (const [requestId, waiter] of record.permissions) {
       clearTimeout(waiter.timer);
       waiter.resolve({ outcome: "cancelled" });
@@ -344,6 +359,7 @@ export class CodingAgentManager {
     this.pendingConnections.clear();
     this.sessions.clear();
     this.liveListeners.clear();
+    this.configSets.clear();
   }
 
   // --- internals ---------------------------------------------------------------------------

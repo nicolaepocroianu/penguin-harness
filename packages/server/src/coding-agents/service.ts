@@ -130,16 +130,23 @@ export class CodingAgentService implements CodingAgents {
     // No explicit folder: the session gets its own temporary workspace, the same
     // auto-create contract core Sessions have (the Web App's pickers treat empty as
     // exactly this).
-    const dir =
-      workspaceDir.trim() === "" ? await this.createTempWorkspace(home) : workspaceDir.trim();
-    const view = await manager.createSession(agentId, dir);
-    const channel = this.channels.get(`coding-agent:${view.sessionId}`);
-    // Bridge kernel events into the channel hub: replay/resync then belong to the hub.
-    const unbridge = manager.subscribe(view.sessionId, (event: AgentSessionEvent) => {
-      channel.publish(event, "coding_agent");
-    });
-    this.unbridges.set(view.sessionId, unbridge);
-    return this.toInfo(view);
+    const auto = workspaceDir.trim() === "";
+    const dir = auto ? await this.createTempWorkspace(home) : workspaceDir.trim();
+    try {
+      const view = await manager.createSession(agentId, dir);
+      const channel = this.channels.get(`coding-agent:${view.sessionId}`);
+      // Bridge kernel events into the channel hub: replay/resync then belong to the hub.
+      const unbridge = manager.subscribe(view.sessionId, (event: AgentSessionEvent) => {
+        channel.publish(event, "coding_agent");
+      });
+      this.unbridges.set(view.sessionId, unbridge);
+      return this.toInfo(view);
+    } catch (error) {
+      // A failed start (agent won't spawn, handshake refused) must not litter the
+      // agent home with the workspace it would have used.
+      if (auto) await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
+      throw error;
+    }
   }
 
   sessionDetail(sessionId: string): CodingAgentSessionDetailResponse | undefined {
