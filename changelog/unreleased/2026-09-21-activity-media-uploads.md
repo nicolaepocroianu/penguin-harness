@@ -3,6 +3,7 @@
 - **Date:** 2026-09-21
 - **Type:** feature
 - **Scope:** `server`, `web`
+- **PR:** [#30](https://github.com/Prism-Shadow/penguin-harness/pull/30)
 
 Media could only enter an activity two ways: an agent generated it, or an author typed
 the path of a file that already existed in the shared WAF checkout. An author can now
