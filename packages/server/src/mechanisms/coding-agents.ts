@@ -15,11 +15,22 @@ import type {
 
 export abstract class CodingAgents extends Interface<{
   listAgents(): CodingAgentServerInfo[];
-  /** Probe the server machine for known agents (admin: host reconnaissance). */
-  discoverAgents(): Promise<CodingAgentDiscoveryCandidate[]>;
+  /**
+   * Probe the server machine for known agents. Cached: `refresh` re-runs the live
+   * probes (versions, auth, advertised models). Admin-only: host reconnaissance.
+   */
+  discoverAgents(
+    refresh?: boolean,
+    probeTimeoutMs?: number,
+  ): Promise<CodingAgentDiscoveryCandidate[]>;
   /** Validate and persist a custom agent definition (admin-managed, server-global). */
   saveAgent(input: unknown): CodingAgentServerInfo;
   removeAgent(agentId: string): boolean;
+  /** Remember the model a card picked for this agent; auto-applied to its new sessions. */
+  setAgentModel(
+    agentId: string,
+    model: { configId: string; value: boolean | string; name?: string },
+  ): void;
   listSessions(): CodingAgentSessionInfo[];
   createSession(agentId: string, workspaceDir: string): Promise<CodingAgentSessionInfo>;
   sessionDetail(sessionId: string): CodingAgentSessionDetailResponse | undefined;

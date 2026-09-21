@@ -113,6 +113,49 @@ describe("coding agents api", () => {
     expect(byRecipe.get("codex")?.alreadyAdded).toBe(false);
   });
 
+  it("gates the probed rescan to admins", async () => {
+    expect((await member.post("/api/coding-agents/discover/refresh?timeoutMs=500")).status).toBe(
+      403,
+    );
+    // Admin refresh runs the live probes; bounded so the test stays quick.
+    const res = await admin.post("/api/coding-agents/discover/refresh?timeoutMs=1500");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as CodingAgentDiscoveryResponse;
+    expect(body.candidates.length).toBeGreaterThan(0);
+  }, 60_000);
+
+  // The auto-add contract: starting a session for a known, detected-but-unsaved agent
+  // persists the recipe-derived definition first — even when the session itself then
+  // fails (this shim is not a real agent).
+  it("auto-adds a known agent definition on session start", async () => {
+    const shimDir = path.join(workspace, "bin");
+    await fs.mkdir(shimDir, { recursive: true });
+    const shim = path.join(
+      shimDir,
+      process.platform === "win32" ? "claude-agent-acp.cmd" : "claude-agent-acp",
+    );
+    await fs.writeFile(
+      shim,
+      process.platform === "win32" ? "@rem not an agent\r\n" : "#!/bin/sh\n",
+      {
+        mode: 0o755,
+      },
+    );
+    const previousPath = process.env.PATH;
+    process.env.PATH = `${shimDir}${path.delimiter}${previousPath ?? ""}`;
+    try {
+      const res = await admin.post("/api/coding-agents/sessions", { agentId: "claude" });
+      expect([201, 400]).toContain(res.status);
+    } finally {
+      process.env.PATH = previousPath;
+    }
+    const agents = (await (
+      await admin.get("/api/coding-agents/agents")
+    ).json()) as CodingAgentsResponse;
+    const claude = agents.agents.find((a) => a.id === "claude");
+    expect(claude?.command).toContain(shimDir);
+  });
+
   it("rejects unknown agents and workspaces at session creation", async () => {
     expect(
       (
@@ -176,6 +219,43 @@ describe("coding agents api", () => {
         })
       ).status,
     ).toBe(404);
+  });
+
+  // The card's Model pick persists per agent and rides the agents list back out.
+  it("remembers the model an agent was set to", async () => {
+    const created = await admin.post("/api/coding-agents/sessions", {
+      agentId: "fake",
+      workspaceDir: workspace,
+    });
+    const { session } = (await created.json()) as { session: CodingAgentSessionInfo };
+    expect(
+      (
+        await admin.put(`/api/coding-agents/agents/fake/model`, {
+          configId: "model",
+          value: "fast",
+          name: "Fast",
+        })
+      ).status,
+    ).toBe(204);
+    const agents = (await (
+      await admin.get("/api/coding-agents/agents")
+    ).json()) as CodingAgentsResponse;
+    expect(agents.agents.find((a) => a.id === "fake")?.rememberedModel).toEqual({
+      configId: "model",
+      value: "fast",
+      name: "Fast",
+    });
+    // A model pick made inside a session is remembered the same way.
+    await admin.post(`/api/coding-agents/sessions/${session.sessionId}/config`, {
+      configId: "model",
+      value: "balanced",
+    });
+    const agentsAgain = (await (
+      await admin.get("/api/coding-agents/agents")
+    ).json()) as CodingAgentsResponse;
+    expect(agentsAgain.agents.find((a) => a.id === "fake")?.rememberedModel?.value).toBe(
+      "balanced",
+    );
   });
 
   it("drives a full turn against a spawned agent and exposes the transcript", async () => {

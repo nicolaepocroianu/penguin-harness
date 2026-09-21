@@ -1,8 +1,10 @@
 /**
  * Known-agent discovery: a recipe table of the agents people actually have installed,
  * probed against the server machine's PATH (plus the version-manager homes a server
- * process's PATH usually misses — volta, asdf, mise, bun, npm/pnpm globals). Detection is
- * filesystem-only; nothing is executed here.
+ * process's PATH usually misses — volta, asdf, mise, bun, npm/pnpm globals). Detection
+ * itself is filesystem-only and spawns nothing; callers may additionally ask for live
+ * probes (`probe: true`), which execute the found CLI for a `--version` line and an
+ * auth-status check — callers cache those results, they are not free.
  *
  * The table is data on purpose, and it splits what orca-style TUI hosts can conflate:
  * `detect` names the CLI whose presence proves the agent is installed, while `launch`
@@ -12,7 +14,12 @@
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
+import { spawn, type ChildProcess } from "node:child_process";
 import { resolveCommandPath } from "./resolve.js";
+import { spawnTarget } from "./connection.js";
+import type { AgentSessionConfigOption } from "./types.js";
+
+export type AgentAuthStatus = "ok" | "missing" | "unknown";
 
 export interface AgentLaunch {
   command: string;
@@ -32,6 +39,11 @@ interface AgentRecipe {
   authHint: string;
   /** Shown when the agent is installed but none of the launch candidates are. */
   adapterHint: string;
+  /**
+   * The CLI's own status check, run only on explicit probe: args against the detected
+   * binary, exit 0 meaning signed in unless a pattern says otherwise.
+   */
+  authProbe?: { args: string[] };
 }
 
 export interface AgentDiscoveryCandidate {
@@ -49,6 +61,15 @@ export interface AgentDiscoveryCandidate {
   launch: AgentLaunch | null;
   authHint: string;
   setupHint: string | null;
+  /** The CLI's own `--version` line; present only when the discovery call probed. */
+  version?: string;
+  /** Login status of the agent's own CLI; present only when the discovery call probed. */
+  authStatus?: AgentAuthStatus;
+  /**
+   * The config options a live probe session observed (model choices, toggles); present
+   * only when the caller probed the launch and the agent answered.
+   */
+  models?: AgentSessionConfigOption[];
 }
 
 const AGENT_RECIPES: AgentRecipe[] = [
@@ -76,6 +97,7 @@ const AGENT_RECIPES: AgentRecipe[] = [
     authHint: "Uses your Claude subscription login or ANTHROPIC_API_KEY on the server machine.",
     adapterHint:
       "Claude Code is installed; add its ACP adapter with: npm install -g claude-agent-acp",
+    authProbe: { args: ["auth", "status"] },
   },
   {
     id: "codex",
@@ -89,6 +111,7 @@ const AGENT_RECIPES: AgentRecipe[] = [
     authHint: "Run `codex login` once on the server machine; a login URL is printed.",
     adapterHint:
       "Codex is installed; add its ACP adapter with: npm install -g @zed-industries/codex-acp",
+    authProbe: { args: ["login", "status"] },
   },
 ];
 
@@ -164,10 +187,12 @@ async function versionedToolchainDirs(home: string, env: NodeJS.ProcessEnv): Pro
 
 /**
  * Probe the machine for each known agent. `env` and `home` are injectable for tests;
- * the result is cheap enough to compute per request and always fresh.
+ * the filesystem pass is cheap enough to compute per request and always fresh. With
+ * `probe: true` each detected agent's CLI is additionally executed once for a
+ * `--version` line and its auth status — callers cache those results.
  */
 export async function discoverAgents(
-  options: { env?: NodeJS.ProcessEnv; home?: string } = {},
+  options: { env?: NodeJS.ProcessEnv; home?: string; probe?: boolean } = {},
 ): Promise<AgentDiscoveryCandidate[]> {
   const env = options.env ?? process.env;
   const extraDirs = await installDirCandidates(options.home ?? os.homedir(), env);
@@ -181,7 +206,8 @@ export async function discoverAgents(
   return Promise.all(
     AGENT_RECIPES.map(async (recipe): Promise<AgentDiscoveryCandidate> => {
       const detections = await Promise.all(recipe.detect.map(find));
-      const detected = detections.some((found) => found !== undefined);
+      const detectedPath = detections.find((found) => found !== undefined);
+      const detected = detectedPath !== undefined;
       let launch: AgentLaunch | null = null;
       for (const candidate of recipe.launch) {
         const resolved = await find(candidate.command);
@@ -190,6 +216,10 @@ export async function discoverAgents(
           break;
         }
       }
+      const probed =
+        options.probe === true && detectedPath !== undefined
+          ? await probeCli(detectedPath, recipe)
+          : {};
       return {
         recipeId: recipe.id,
         title: recipe.title,
@@ -203,7 +233,96 @@ export async function discoverAgents(
             : detected
               ? recipe.adapterHint
               : "Not found on the server machine.",
+        ...probed,
       };
     }),
   );
+}
+
+/**
+ * Run the detected CLI's `--version` and its auth status check. Version reads the first
+ * output line; auth classifies by explicit pattern first, then by exit code. Every
+ * failure degrades to "absent"/"unknown" — a probe must never fail the discovery.
+ */
+async function probeCli(
+  file: string,
+  recipe: AgentRecipe,
+): Promise<Pick<AgentDiscoveryCandidate, "version" | "authStatus">> {
+  const [version, authStatus] = await Promise.all([
+    firstOutputLine(file, ["--version"]),
+    recipe.authProbe
+      ? authStatusOf(file, recipe.authProbe.args)
+      : Promise.resolve("unknown" as const),
+  ]);
+  return {
+    ...(version !== undefined ? { version } : {}),
+    ...(recipe.authProbe ? { authStatus } : {}),
+  };
+}
+
+/** First non-empty output line of a quick run; undefined when it cannot run at all. */
+function firstOutputLine(
+  file: string,
+  args: string[],
+  timeoutMs = 3_000,
+): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const [command, routedArgs] = spawnTarget(file, args);
+    let child: ChildProcess;
+    try {
+      child = spawn(command, routedArgs, {
+        windowsHide: true,
+        shell: false,
+        ...(command !== file ? { windowsVerbatimArguments: true } : {}),
+      });
+    } catch {
+      resolve(undefined);
+      return;
+    }
+    let output = "";
+    child.stdout?.on("data", (chunk: Buffer) => {
+      if (output === "") output = chunk.toString();
+    });
+    const timer = setTimeout(() => child.kill(), timeoutMs);
+    timer.unref();
+    child.on("error", () => {
+      clearTimeout(timer);
+      resolve(undefined);
+    });
+    child.on("close", () => {
+      clearTimeout(timer);
+      const line = output
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .find((l) => l !== "");
+      resolve(line);
+    });
+  });
+}
+
+function authStatusOf(file: string, args: string[], timeoutMs = 5_000): Promise<AgentAuthStatus> {
+  return new Promise((resolve) => {
+    const [command, routedArgs] = spawnTarget(file, args);
+    let child: ChildProcess;
+    try {
+      child = spawn(command, routedArgs, {
+        windowsHide: true,
+        shell: false,
+        ...(command !== file ? { windowsVerbatimArguments: true } : {}),
+      });
+    } catch {
+      resolve("unknown");
+      return;
+    }
+    const timer = setTimeout(() => child.kill(), timeoutMs);
+    timer.unref();
+    child.on("error", () => {
+      clearTimeout(timer);
+      resolve("unknown");
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve(code === 0 ? "ok" : "missing");
+    });
+  });
 }

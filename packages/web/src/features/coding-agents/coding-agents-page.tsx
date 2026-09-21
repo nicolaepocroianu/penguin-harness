@@ -18,9 +18,11 @@ import {
   createCodingAgentSession,
   discoverCodingAgents,
   promptCodingAgentSession,
+  refreshCodingAgents,
   removeCodingAgent,
   saveCodingAgent,
   setCodingAgentMode,
+  setCodingAgentModel,
   setCodingAgentSessionConfig,
 } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
@@ -69,6 +71,21 @@ interface TextBlock {
   text: string;
 }
 
+/** One card on the screen: a known recipe probed on the server, or a saved custom agent. */
+interface AgentCardModel {
+  key: string;
+  agentId: string;
+  title: string;
+  commandLine: string;
+  saved: boolean;
+  version?: string;
+  authStatus?: "ok" | "missing" | "unknown";
+  setupHint?: string | null;
+  homepageUrl?: string;
+  models?: CodingAgentConfigOption[];
+  rememberedModel?: { configId: string; value: boolean | string; name?: string } | null;
+}
+
 export function CodingAgentsPage() {
   const { user } = useAuth();
   const isAdmin = user?.isAdmin === true;
@@ -77,6 +94,66 @@ export function CodingAgentsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [launchFor, setLaunchFor] = useState<string | null>(null);
   const [removing, setRemoving] = useState<CodingAgentServerInfo | null>(null);
+  const [candidates, setCandidates] = useState<CodingAgentDiscoveryCandidate[] | null>(null);
+  const [scanning, setScanning] = useState(false);
+
+  const loadCandidates = useCallback(() => {
+    discoverCodingAgents()
+      .then((res) => setCandidates(res.candidates))
+      .catch(() => setCandidates(null));
+  }, []);
+  useEffect(() => {
+    loadCandidates();
+  }, [loadCandidates]);
+
+  const rescan = () => {
+    setScanning(true);
+    refreshCodingAgents()
+      .then((res) => setCandidates(res.candidates))
+      .catch((e: unknown) => toastError(apiErrorText(e)))
+      .finally(() => setScanning(false));
+  };
+
+  // Merge probed recipes with saved definitions: a definition's command is authoritative
+  // over the recipe's suggestion, custom definitions become their own cards.
+  const installed: AgentCardModel[] = [];
+  const available: AgentCardModel[] = [];
+  const seenRecipes = new Set<string>();
+  for (const candidate of candidates ?? []) {
+    seenRecipes.add(candidate.recipeId);
+    const definition = agents.find((a) => a.id === candidate.recipeId);
+    const usable = candidate.detected || candidate.launch !== null || definition !== undefined;
+    const card: AgentCardModel = {
+      key: `recipe:${candidate.recipeId}`,
+      agentId: candidate.recipeId,
+      title: definition?.title ?? candidate.title,
+      commandLine: definition
+        ? [definition.command, ...definition.args].join(" ")
+        : candidate.launch !== null
+          ? [candidate.launch.command, ...candidate.launch.args].join(" ")
+          : "",
+      saved: definition !== undefined || candidate.alreadyAdded,
+      version: candidate.version,
+      authStatus: candidate.authStatus,
+      setupHint:
+        candidate.launch === null ? (candidate.setupHint ?? S.codingAgents.setupRequired) : null,
+      homepageUrl: candidate.homepageUrl,
+      models: candidate.models,
+      rememberedModel: definition?.rememberedModel ?? candidate.rememberedModel ?? null,
+    };
+    (usable ? installed : available).push(card);
+  }
+  for (const agent of agents) {
+    if (seenRecipes.has(agent.id)) continue;
+    installed.push({
+      key: `def:${agent.id}`,
+      agentId: agent.id,
+      title: agent.title ?? agent.id,
+      commandLine: [agent.command, ...agent.args].join(" "),
+      saved: true,
+      rememberedModel: agent.rememberedModel ?? null,
+    });
+  }
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6">
@@ -101,22 +178,56 @@ export function CodingAgentsPage() {
       <section className="mb-8">
         <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-            {S.codingAgents.agentsTitle}
+            {S.codingAgents.installedTitle}
+            {candidates !== null ? ` (${installed.length})` : ""}
           </h2>
-          {isAdmin ? (
-            <Button size="sm" onClick={() => setAddOpen(true)}>
-              {S.codingAgents.addAgent}
-            </Button>
-          ) : null}
+          <div className="flex shrink-0 gap-2">
+            {isAdmin ? (
+              <Button size="sm" onClick={() => setAddOpen(true)}>
+                {S.codingAgents.addAgent}
+              </Button>
+            ) : null}
+            {isAdmin ? (
+              <Button size="sm" onClick={rescan} disabled={scanning}>
+                {scanning ? S.codingAgents.scanning : S.codingAgents.rescan}
+              </Button>
+            ) : null}
+          </div>
         </div>
-        {agents.length === 0 && !loading ? (
+        {installed.length === 0 && !loading ? (
           <p className="whitespace-pre-line rounded-md border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
-            {S.codingAgents.noAgents}
+            {candidates === null ? S.codingAgents.scanFailed : S.codingAgents.noAgents}
           </p>
         ) : (
-          <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-            {agents.map((agent) => (
-              <li key={agent.id} className="flex min-w-0 items-center gap-2 py-2">
+          <ul className="space-y-2">
+            {installed.map((card) => (
+              <AgentCard
+                key={card.key}
+                card={card}
+                isAdmin={isAdmin}
+                onNewSession={() => setLaunchFor(card.agentId)}
+                onRemove={() => {
+                  const agent = agents.find((a) => a.id === card.agentId);
+                  if (agent !== undefined) setRemoving(agent);
+                }}
+                onModelChanged={loadCandidates}
+              />
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {available.length > 0 ? (
+        <section className="mb-8">
+          <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+            {S.codingAgents.availableTitle} ({available.length})
+          </h2>
+          <ul className="space-y-2">
+            {available.map((card) => (
+              <li
+                key={card.key}
+                className="flex min-w-0 items-center gap-2.5 rounded-md border border-gray-200 px-3 py-2.5 opacity-70 dark:border-gray-800"
+              >
                 <GlyphIcon
                   d={BOT_PATH}
                   size={ICON_SIZE.rowLead}
@@ -124,25 +235,27 @@ export function CodingAgentsPage() {
                 />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm text-gray-900 dark:text-gray-100">
-                    {agent.title ?? agent.id}
+                    {card.title}
                   </div>
-                  <div className="truncate font-mono text-xs text-gray-500 dark:text-gray-400">
-                    {[agent.command, ...agent.args].join(" ")}
+                  <div className="truncate text-xs text-gray-500 dark:text-gray-400">
+                    {card.setupHint ?? S.codingAgents.setupRequired}
                   </div>
                 </div>
-                <Button size="sm" onClick={() => setLaunchFor(agent.id)}>
-                  {S.codingAgents.newSession}
-                </Button>
-                {isAdmin ? (
-                  <Button size="sm" variant="danger" onClick={() => setRemoving(agent)}>
-                    {S.codingAgents.removeAgent}
-                  </Button>
+                {card.homepageUrl ? (
+                  <a
+                    href={card.homepageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 text-xs text-[var(--accent-fg)] underline-offset-2 hover:underline"
+                  >
+                    {S.codingAgents.installLink}
+                  </a>
                 ) : null}
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       <SessionsSection
         sessions={sessions}
@@ -169,6 +282,7 @@ export function CodingAgentsPage() {
               .then(() => {
                 toastSuccess(S.codingAgents.removeAgent);
                 reload();
+                loadCandidates();
               })
               .catch((e: unknown) => toastError(apiErrorText(e)));
           }
@@ -178,6 +292,112 @@ export function CodingAgentsPage() {
         {removing !== null ? S.codingAgents.removeConfirmBody(removing.title ?? removing.id) : ""}
       </ConfirmModal>
     </div>
+  );
+}
+
+/**
+ * One installed agent: name, version and sign-in state (when a scan has run), the
+ * command, the model remembered for it, and its actions. A Model pick on the card is
+ * remembered for the agent and auto-applied to its new sessions.
+ */
+function AgentCard({
+  card,
+  isAdmin,
+  onNewSession,
+  onRemove,
+  onModelChanged,
+}: {
+  card: AgentCardModel;
+  isAdmin: boolean;
+  onNewSession: () => void;
+  onRemove: () => void;
+  onModelChanged: () => void;
+}) {
+  const modelOption =
+    card.models?.find((o) => o.category === "model" && o.type === "select") ??
+    card.models?.find((o) => o.type === "select");
+  const rememberedFits = card.rememberedModel?.configId === modelOption?.id;
+  const modelValue = String(
+    rememberedFits && card.rememberedModel != null
+      ? card.rememberedModel.value
+      : (modelOption?.currentValue ?? ""),
+  );
+  const setModel = (value: string) => {
+    if (modelOption === undefined) return;
+    const choice = modelOption.options.find((v) => v.value === value);
+    void setCodingAgentModel(card.agentId, {
+      configId: modelOption.id,
+      value,
+      ...(choice !== undefined ? { name: choice.name } : {}),
+    })
+      .then(onModelChanged)
+      .catch((e: unknown) => toastError(apiErrorText(e)));
+  };
+  return (
+    <li className="rounded-md border border-gray-200 px-3 py-2.5 dark:border-gray-800">
+      <div className="flex items-start gap-2.5">
+        <GlyphIcon
+          d={BOT_PATH}
+          size={ICON_SIZE.rowLead}
+          className="mt-0.5 shrink-0 text-gray-400 dark:text-gray-500"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+              {card.title}
+            </span>
+            {card.version !== undefined ? (
+              <span className="truncate font-mono text-xs text-gray-500 dark:text-gray-400">
+                {card.version}
+              </span>
+            ) : null}
+            {card.authStatus === "ok" ? (
+              <span className={`text-xs ${toneInk.success}`}>{S.codingAgents.authOk}</span>
+            ) : card.authStatus === "missing" ? (
+              <span className={`text-xs ${toneInk.attention}`}>{S.codingAgents.authMissing}</span>
+            ) : null}
+          </div>
+          {card.commandLine !== "" ? (
+            <div className="truncate font-mono text-xs text-gray-500 dark:text-gray-400">
+              {card.commandLine}
+            </div>
+          ) : null}
+          {card.setupHint !== null && card.setupHint !== undefined ? (
+            <div className={`text-xs ${toneInk.attention}`}>{card.setupHint}</div>
+          ) : null}
+          {modelOption !== undefined && modelOption.options.length > 0 ? (
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                {S.codingAgents.modelLabel}
+              </span>
+              <Select
+                size="sm"
+                aria-label={`${card.title} ${S.codingAgents.modelLabel}`}
+                value={modelValue}
+                disabled={!isAdmin}
+                onChange={(e) => setModel(e.target.value)}
+              >
+                {modelOption.options.map((value) => (
+                  <option key={value.value} value={value.value}>
+                    {value.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <Button size="sm" onClick={onNewSession}>
+            {S.codingAgents.newSession}
+          </Button>
+          {card.saved && isAdmin ? (
+            <Button size="sm" variant="danger" onClick={onRemove}>
+              {S.codingAgents.removeAgent}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </li>
   );
 }
 
@@ -614,24 +834,6 @@ function AddAgentModal({
   const [command, setCommand] = useState("");
   const [args, setArgs] = useState("");
   const [env, setEnv] = useState("");
-  const [discovered, setDiscovered] = useState<CodingAgentDiscoveryCandidate[] | null>(null);
-
-  // Admin-only endpoint; on failure the section simply stays hidden and the manual form
-  // remains the whole dialog. Refetched on every open, so an install lands on next open.
-  useEffect(() => {
-    if (!open) return;
-    let live = true;
-    discoverCodingAgents()
-      .then((res) => {
-        if (live) setDiscovered(res.candidates);
-      })
-      .catch(() => {
-        if (live) setDiscovered(null);
-      });
-    return () => {
-      live = false;
-    };
-  }, [open]);
 
   const reset = () => {
     setId("");
@@ -639,16 +841,6 @@ function AddAgentModal({
     setCommand("");
     setArgs("");
     setEnv("");
-  };
-
-  /** Pre-fill from a discovered recipe; the fields below stay the review step. */
-  const useCandidate = (candidate: CodingAgentDiscoveryCandidate) => {
-    setId(candidate.recipeId);
-    setTitle(candidate.title);
-    if (candidate.launch !== null) {
-      setCommand(candidate.launch.command);
-      setArgs(candidate.launch.args.join("\n"));
-    }
   };
 
   const save = () => {
@@ -699,106 +891,23 @@ function AddAgentModal({
       }
     >
       <div className="space-y-3">
-        {discovered !== null && discovered.length > 0 ? (
-          <DiscoveryList candidates={discovered} onUse={useCandidate} />
-        ) : discovered === null ? (
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {S.codingAgents.discoveredLoading}
-          </p>
-        ) : null}
-        <div className="border-t border-gray-100 pt-3 dark:border-gray-800">
-          <div className="space-y-3">
-            <Field label={S.codingAgents.idLabel} hint={S.codingAgents.idHint} required>
-              <Input size="sm" value={id} onChange={(e) => setId(e.target.value)} />
-            </Field>
-            <Field label={S.codingAgents.titleLabel}>
-              <Input size="sm" value={title} onChange={(e) => setTitle(e.target.value)} />
-            </Field>
-            <Field label={S.codingAgents.commandLabel} hint={S.codingAgents.commandHint} required>
-              <Input size="sm" value={command} onChange={(e) => setCommand(e.target.value)} />
-            </Field>
-            <Field label={S.codingAgents.argsLabel} hint={S.codingAgents.argsHint}>
-              <Textarea size="sm" value={args} onChange={(e) => setArgs(e.target.value)} />
-            </Field>
-            <Field label={S.codingAgents.envLabel} hint={S.codingAgents.envHint}>
-              <Textarea size="sm" value={env} onChange={(e) => setEnv(e.target.value)} />
-            </Field>
-          </div>
-        </div>
+        <Field label={S.codingAgents.idLabel} hint={S.codingAgents.idHint} required>
+          <Input size="sm" value={id} onChange={(e) => setId(e.target.value)} />
+        </Field>
+        <Field label={S.codingAgents.titleLabel}>
+          <Input size="sm" value={title} onChange={(e) => setTitle(e.target.value)} />
+        </Field>
+        <Field label={S.codingAgents.commandLabel} hint={S.codingAgents.commandHint} required>
+          <Input size="sm" value={command} onChange={(e) => setCommand(e.target.value)} />
+        </Field>
+        <Field label={S.codingAgents.argsLabel} hint={S.codingAgents.argsHint}>
+          <Textarea size="sm" value={args} onChange={(e) => setArgs(e.target.value)} />
+        </Field>
+        <Field label={S.codingAgents.envLabel} hint={S.codingAgents.envHint}>
+          <Textarea size="sm" value={env} onChange={(e) => setEnv(e.target.value)} />
+        </Field>
       </div>
     </Modal>
-  );
-}
-
-/**
- * Known-agent recipes probed on the server, detected first. A candidate with a launch
- * offers one-click pre-fill; an installed-but-adapter-less one names what to install; a
- * missing one dims and links its homepage.
- */
-function DiscoveryList({
-  candidates,
-  onUse,
-}: {
-  candidates: CodingAgentDiscoveryCandidate[];
-  onUse: (candidate: CodingAgentDiscoveryCandidate) => void;
-}) {
-  const ordered = [...candidates].sort((a, b) => Number(b.detected) - Number(a.detected));
-  return (
-    <div>
-      <div className="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">
-        {S.codingAgents.discoveredTitle}
-      </div>
-      <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-        {ordered.map((candidate) => (
-          <li
-            key={candidate.recipeId}
-            className={`flex min-w-0 items-center gap-2 py-2 ${candidate.detected ? "" : "opacity-70"}`}
-          >
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm text-gray-900 dark:text-gray-100">
-                {candidate.title}
-                <span className="sr-only">
-                  {". "}
-                  {candidate.detected
-                    ? S.codingAgents.discoveredInstalled
-                    : S.codingAgents.discoveredMissing}
-                </span>
-              </div>
-              <div className="truncate font-mono text-xs text-gray-500 dark:text-gray-400">
-                {candidate.launch !== null
-                  ? [candidate.launch.command, ...candidate.launch.args].join(" ")
-                  : (candidate.setupHint ?? "")}
-              </div>
-              <div className="truncate text-xs text-gray-500 dark:text-gray-400">
-                {candidate.authHint}
-              </div>
-            </div>
-            {/* Use follows `detected`, not `launch`: an npx runner resolves even when
-                the agent itself is absent, and that row belongs to the install link. */}
-            {candidate.detected && candidate.launch !== null ? (
-              candidate.alreadyAdded ? (
-                <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
-                  {S.codingAgents.discoveredAdded}
-                </span>
-              ) : (
-                <Button size="sm" onClick={() => onUse(candidate)}>
-                  {S.codingAgents.discoveredUse}
-                </Button>
-              )
-            ) : (
-              <a
-                href={candidate.homepageUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="shrink-0 text-xs text-[var(--accent-fg)] underline-offset-2 hover:underline"
-              >
-                {S.codingAgents.discoveredInstall}
-              </a>
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
 

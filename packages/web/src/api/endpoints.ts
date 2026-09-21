@@ -35,6 +35,7 @@ import type {
   CodingAgentCreateRequest,
   CodingAgentDiscoveryResponse,
   CodingAgentModeRequest,
+  CodingAgentModelRequest,
   CodingAgentPermissionRequest,
   CodingAgentPromptRequest,
   CodingAgentSaveRequest,
@@ -1813,6 +1814,19 @@ export const listCodingAgents = () => apiFetch<CodingAgentsResponse>("/api/codin
 
 export const discoverCodingAgents = () =>
   apiFetch<CodingAgentDiscoveryResponse>("/api/coding-agents/discover");
+
+/** Re-runs the live probes (versions, auth, advertised models); admin-only. */
+export const refreshCodingAgents = () =>
+  apiFetch<CodingAgentDiscoveryResponse>("/api/coding-agents/discover/refresh", {
+    method: "POST",
+  });
+
+/** Remember the model an agent's card picked; auto-applied to its new sessions. */
+export const setCodingAgentModel = (agentId: string, body: CodingAgentModelRequest) =>
+  apiFetch<void>(`/api/coding-agents/agents/${encodeURIComponent(agentId)}/model`, {
+    method: "PUT",
+    body,
+  });
 
 export const saveCodingAgent = (body: CodingAgentSaveRequest) =>
   apiFetch<{ agent: CodingAgentServerInfo }>("/api/coding-agents/agents", {

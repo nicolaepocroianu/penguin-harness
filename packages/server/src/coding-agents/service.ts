@@ -20,7 +20,9 @@ import {
   CodingAgentManager,
   discoverAgents as discoverKnownAgents,
   parseDefinition,
+  probeAgentOptions,
   sandboxedAgentEnv,
+  type AgentDiscoveryCandidate,
   type AgentPermissionOutcome,
   type AgentServerDefinition,
   type AgentSessionEvent,
@@ -30,6 +32,7 @@ import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import type {
+  CodingAgentConfigOption,
   CodingAgentDiscoveryCandidate,
   CodingAgentServerInfo,
   CodingAgentSessionDetailResponse,
@@ -42,6 +45,12 @@ import { AcpAgentError } from "@prismshadow/penguin-coding-agents";
 
 /** The settings key holding the custom definitions as a JSON array. */
 const DEFINITIONS_KEY = "coding_agent_servers";
+
+/** The settings key holding the model remembered per agent id: { configId, value, name? }. */
+const MODELS_KEY = "coding_agent_models";
+
+/** How long a probed discovery answer is reused before the next read re-runs the fs pass. */
+const DISCOVERY_CACHE_TTL_MS = 5 * 60_000;
 
 /** Agent credential/state homes live under the data root, keyed by definition id. */
 function agentHome(root: string, agentId: string): string {
@@ -56,6 +65,7 @@ export class CodingAgentService implements CodingAgents {
 
   private manager: CodingAgentManager | null = null;
   private readonly unbridges = new Map<string, () => void>();
+  private discoveryCache: { at: number; candidates: AgentDiscoveryCandidate[] } | null = null;
 
   private getManager(): CodingAgentManager {
     if (this.manager === null) {
@@ -69,6 +79,7 @@ export class CodingAgentService implements CodingAgents {
   }
 
   listAgents(): CodingAgentServerInfo[] {
+    const models = this.loadRememberedModels();
     return this.getManager()
       .listDefinitions()
       .map((d) => ({
@@ -76,26 +87,59 @@ export class CodingAgentService implements CodingAgents {
         command: d.command,
         args: d.args ?? [],
         ...(d.title !== undefined ? { title: d.title } : {}),
+        ...(models[d.id] !== undefined ? { rememberedModel: models[d.id] } : {}),
       }));
   }
 
-  async discoverAgents(): Promise<CodingAgentDiscoveryCandidate[]> {
-    // The server process's own machine is what sessions spawn on, so discovery probes
-    // it, not the browser's host.
-    const candidates = await discoverKnownAgents({ env: process.env, home: os.homedir() });
-    const addedIds = new Set(this.loadDefinitions().map((d) => d.id));
-    return candidates.map((candidate) => ({
-      ...candidate,
-      alreadyAdded: addedIds.has(candidate.recipeId),
-    }));
+  async discoverAgents(
+    refresh = false,
+    probeTimeoutMs?: number,
+  ): Promise<CodingAgentDiscoveryCandidate[]> {
+    const cached = this.discoveryCache;
+    if (!refresh && cached !== null && Date.now() - cached.at < DISCOVERY_CACHE_TTL_MS) {
+      return this.annotate(cached.candidates);
+    }
+    const candidates = await discoverKnownAgents({
+      env: process.env,
+      home: os.homedir(),
+      // Live probes (versions, auth) only on refresh: they execute the found CLIs.
+      probe: refresh,
+    });
+    if (refresh) {
+      // The card's Model dropdown needs each runnable agent's advertised options:
+      // one throwaway session per candidate, best-effort.
+      await Promise.all(
+        candidates.map(async (candidate) => {
+          if (candidate.launch === null) return;
+          try {
+            const models = await probeAgentOptions({
+              command: candidate.launch.command,
+              args: candidate.launch.args,
+              env: this.envFor({
+                id: candidate.recipeId,
+                command: candidate.launch.command,
+                args: candidate.launch.args,
+              }),
+              clientInfo: { name: "penguin", version: VERSION },
+              ...(probeTimeoutMs !== undefined ? { timeoutMs: probeTimeoutMs } : {}),
+            });
+            if (models.length > 0) candidate.models = models;
+          } catch {
+            // An agent that will not answer a probe is not broken; its session will
+            // surface what went wrong.
+          }
+        }),
+      );
+      this.discoveryCache = { at: Date.now(), candidates };
+    }
+    return this.annotate(candidates);
   }
 
   saveAgent(input: unknown): CodingAgentServerInfo {
     const definition: AgentServerDefinition = parseDefinition(input);
     const definitions = this.loadDefinitions().filter((d) => d.id !== definition.id);
     definitions.push(definition);
-    this.settings.set(DEFINITIONS_KEY, JSON.stringify(definitions));
-    this.getManager().setDefinitions([...definitions]);
+    this.persistDefinitions(definitions);
     return {
       id: definition.id,
       command: definition.command,
@@ -108,9 +152,21 @@ export class CodingAgentService implements CodingAgents {
     const definitions = this.loadDefinitions();
     const remaining = definitions.filter((d) => d.id !== agentId);
     if (remaining.length === definitions.length) return false;
-    this.settings.set(DEFINITIONS_KEY, JSON.stringify(remaining));
-    this.getManager().setDefinitions([...remaining]);
+    this.persistDefinitions(remaining);
     return true;
+  }
+
+  setAgentModel(
+    agentId: string,
+    model: { configId: string; value: boolean | string; name?: string },
+  ): void {
+    const models = this.loadRememberedModels();
+    models[agentId] = {
+      configId: model.configId,
+      value: model.value,
+      ...(model.name !== undefined ? { name: model.name } : {}),
+    };
+    this.settings.set(MODELS_KEY, JSON.stringify(models));
   }
 
   listSessions(): CodingAgentSessionInfo[] {
@@ -121,9 +177,17 @@ export class CodingAgentService implements CodingAgents {
 
   async createSession(agentId: string, workspaceDir: string): Promise<CodingAgentSessionInfo> {
     const manager = this.getManager();
-    const definition = manager.listDefinitions().find((d) => d.id === agentId);
+    let definition = manager.listDefinitions().find((d) => d.id === agentId);
     if (definition === undefined) {
-      throw new AcpAgentError(`unknown agent: ${agentId}`);
+      // A detected-but-unsaved known agent is usable directly: the definition is
+      // derived entirely from the built-in recipe plus the machine's own probe results
+      // (no user-supplied fields), so this adds no authority the discover endpoint
+      // did not already expose.
+      definition = await this.definitionForKnownAgent(agentId);
+      if (definition === undefined) {
+        throw new AcpAgentError(`unknown agent: ${agentId}`);
+      }
+      this.persistDefinitions([...this.loadDefinitions(), definition]);
     }
     const home = agentHome(this.config.root, agentId);
     await fs.mkdir(home, { recursive: true, mode: 0o700 });
@@ -140,6 +204,7 @@ export class CodingAgentService implements CodingAgents {
         channel.publish(event, "coding_agent");
       });
       this.unbridges.set(view.sessionId, unbridge);
+      await this.applyRememberedModel(manager, agentId, view.sessionId);
       return this.toInfo(view);
     } catch (error) {
       // A failed start (agent won't spawn, handshake refused) must not litter the
@@ -183,6 +248,29 @@ export class CodingAgentService implements CodingAgents {
     value: boolean | string,
   ): Promise<void> {
     await this.getManager().setConfigOption(sessionId, configId, value);
+    // What the user picked in a session becomes the agent's remembered model, applied
+    // to its future sessions.
+    const view = this.getManager().sessionView(sessionId);
+    if (view === undefined) return;
+    const option = view.configOptions.find((o) => o.id === configId);
+    this.setAgentModel(view.definitionId, {
+      configId,
+      value,
+      ...(option !== undefined ? { name: option.name } : {}),
+    });
+  }
+
+  /** Right after session/new: the agent's remembered model, best-effort. */
+  private async applyRememberedModel(
+    manager: CodingAgentManager,
+    agentId: string,
+    sessionId: string,
+  ): Promise<void> {
+    const remembered = this.loadRememberedModels()[agentId];
+    if (remembered === undefined) return;
+    await manager
+      .setConfigOption(sessionId, remembered.configId, remembered.value)
+      .catch(() => undefined);
   }
 
   respondPermission(requestId: string, outcome: AgentPermissionOutcome): boolean {
@@ -197,11 +285,62 @@ export class CodingAgentService implements CodingAgents {
 
   // --- internals ---------------------------------------------------------------------------
 
+  /** Merge the per-request facts (saved state, remembered model) into a discovery answer. */
+  private annotate(candidates: AgentDiscoveryCandidate[]): CodingAgentDiscoveryCandidate[] {
+    const definitions = this.loadDefinitions();
+    const models = this.loadRememberedModels();
+    return candidates.map((candidate) => ({
+      ...candidate,
+      alreadyAdded: definitions.some((d) => d.id === candidate.recipeId),
+      rememberedModel: models[candidate.recipeId] ?? null,
+    }));
+  }
+
   /**
-   * `agentHome/workspaces/tmp-<8hex>`, the same auto-create contract core Sessions have
-   * (that helper is project/agent-keyed, which coding-agent sessions deliberately are
-   * not). The final mkdir is non-recursive on purpose: recursive mkdir succeeds silently
-   * on an existing directory, which would put two sessions into one workspace.
+   * The definition a known recipe would auto-save, from the recipe's own launch plus
+   * the machine probe — never from user input. Undefined when discovery has not seen
+   * a runnable entrypoint for it.
+   */
+  private async definitionForKnownAgent(
+    agentId: string,
+  ): Promise<AgentServerDefinition | undefined> {
+    const candidates = await discoverKnownAgents({ env: process.env, home: os.homedir() });
+    const candidate = candidates.find((c) => c.recipeId === agentId);
+    if (candidate?.launch === undefined || candidate.launch === null) return undefined;
+    return parseDefinition({
+      id: candidate.recipeId,
+      title: candidate.title,
+      command: candidate.launch.command,
+      args: candidate.launch.args,
+    });
+  }
+
+  private persistDefinitions(definitions: AgentServerDefinition[]): void {
+    this.settings.set(DEFINITIONS_KEY, JSON.stringify(definitions));
+    this.getManager().setDefinitions([...definitions]);
+  }
+
+  private loadRememberedModels(): Record<
+    string,
+    { configId: string; value: boolean | string; name?: string }
+  > {
+    const raw = this.settings.get(MODELS_KEY);
+    if (raw === null) return {};
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+      return parsed as Record<string, { configId: string; value: boolean | string; name?: string }>;
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Create a temporary workspace under the agent's home: `workspaces/tmp-<8hex>`, the
+   * same auto-create contract core Sessions have (that helper is project/agent-keyed,
+   * which coding-agent sessions deliberately are not). The final mkdir is non-recursive
+   * on purpose: recursive mkdir succeeds silently on an existing directory, which would
+   * put two sessions into one workspace.
    */
   private async createTempWorkspace(home: string): Promise<string> {
     const base = path.join(home, "workspaces");

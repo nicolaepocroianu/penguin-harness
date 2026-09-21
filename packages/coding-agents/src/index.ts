@@ -14,7 +14,13 @@ export {
   type AgentSessionView,
   type CodingAgentManagerOptions,
 } from "./manager.js";
-export { discoverAgents, type AgentDiscoveryCandidate, type AgentLaunch } from "./discovery.js";
+export {
+  discoverAgents,
+  type AgentAuthStatus,
+  type AgentDiscoveryCandidate,
+  type AgentLaunch,
+} from "./discovery.js";
+export { probeAgentOptions, type AgentProbeRequest } from "./probe.js";
 export { resolveCommandPath } from "./resolve.js";
 export { sandboxedAgentEnv } from "./env.js";
 export {

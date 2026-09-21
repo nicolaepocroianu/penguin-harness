@@ -1,7 +1,9 @@
 /**
  * Coding-agent routes (Agent Client Protocol agents driven as server subprocesses):
  *   GET    /api/coding-agents/agents                                   (any user)
- *   GET    /api/coding-agents/discover                                 (admin: probe the server for known agents)
+ *   GET    /api/coding-agents/discover                                 (any user: cached; cheap tier)
+ *   POST   /api/coding-agents/discover/refresh                         (admin: live probes — versions, auth, models)
+ *   PUT    /api/coding-agents/agents/:agentId/model                    (admin: remember an agent's model)
  *   POST   /api/coding-agents/agents                                   (admin: save a custom definition)
  *   DELETE /api/coding-agents/agents/:agentId                          (admin)
  *   GET    /api/coding-agents/sessions                                 (any user)
@@ -67,13 +69,53 @@ export function codingAgentsRoutes(deps: CodingAgentsRouteDeps): Hono<AppEnv> {
   app.get("/agents", (c) => c.json({ agents: deps.codingAgents.listAgents() }));
 
   // Discovery names what is installed on the server machine — host reconnaissance the
-  // definitions themselves never reveal — so it stays behind the same admin gate as
-  // writing them.
+  // definitions themselves never reveal — so writes behind it (refresh, model choice)
+  // stay behind the same admin gate as the definitions. GET answers from the cache
+  // (cheap fs tier on a miss); Rescan runs the live probes.
   app.get("/discover", async (c) => {
     if (!c.var.user.isAdmin) {
       throw new HttpError(403, "forbidden", "Admin access is required.");
     }
-    return c.json({ candidates: await deps.codingAgents.discoverAgents() });
+    return c.json({ candidates: await deps.codingAgents.discoverAgents(false) });
+  });
+
+  app.post("/discover/refresh", async (c) => {
+    if (!c.var.user.isAdmin) {
+      throw new HttpError(403, "forbidden", "Admin access is required.");
+    }
+    // Optional bounded probe timeout (ms): tests shrink it; production uses the default.
+    const raw = c.req.query("timeoutMs");
+    let probeTimeoutMs: number | undefined;
+    if (raw !== undefined) {
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed) || parsed < 500 || parsed > 60_000) {
+        throw badRequest("timeoutMs must be a number between 500 and 60000.");
+      }
+      probeTimeoutMs = parsed;
+    }
+    return c.json({
+      candidates: await deps.codingAgents.discoverAgents(true, probeTimeoutMs),
+    });
+  });
+
+  app.put("/agents/:agentId/model", async (c) => {
+    if (!c.var.user.isAdmin) {
+      throw new HttpError(403, "forbidden", "Admin access is required.");
+    }
+    const agentId = pathParam(c, "agentId");
+    const body = await readJson(c);
+    const configId = requireString(body, "configId", { maxLen: 200, label: "configId" });
+    const value = (body as { value?: unknown }).value;
+    if (typeof value !== "boolean" && !(typeof value === "string" && value !== "")) {
+      throw badRequest("value must be a boolean or a non-empty string.");
+    }
+    const name = optionalString(body, "name", { maxLen: 200, label: "name" });
+    deps.codingAgents.setAgentModel(agentId, {
+      configId,
+      value,
+      ...(name !== undefined ? { name } : {}),
+    });
+    return c.body(null, 204);
   });
 
   app.post("/agents", async (c) => {
