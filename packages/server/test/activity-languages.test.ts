@@ -9,6 +9,7 @@ import {
   mediaTargetPath,
   translationTargets,
 } from "../src/activities/languages.js";
+import { scaffoldLanguage } from "../src/activities/waf-module.js";
 
 const codes = (languages: { code: string }[]) => languages.map((language) => language.code);
 
@@ -160,5 +161,30 @@ describe("whether a manifest's languages are coherent", () => {
 
   it("reports every problem rather than the first", () => {
     expect(languageProblems(["fr-FR", "fr-FR"]).length).toBeGreaterThan(2);
+  });
+});
+
+describe("the language a built module starts in", () => {
+  const activity = (assets: Record<string, unknown[]>) =>
+    ({
+      draft: { mediaPlan: { manifest: { assets } } },
+    }) as never;
+
+  it("is the default when the manifest has it", () => {
+    expect(scaffoldLanguage(activity({ "en-US": [], "es-MX": [] }))).toBe("en-US");
+  });
+
+  it("is the one language present when the default is not there", () => {
+    expect(scaffoldLanguage(activity({ "es-MX": [] }))).toBe("es-MX");
+  });
+
+  it("falls back to the default for groups this build does not recognise", () => {
+    // Building in a language nothing has assets for produces an activity that loads and
+    // then plays nothing.
+    expect(scaffoldLanguage(activity({ "fr-FR": [], "de-DE": [] }))).toBe("en-US");
+  });
+
+  it("is the default when there is no media plan at all", () => {
+    expect(scaffoldLanguage({ draft: {} } as never)).toBe("en-US");
   });
 });

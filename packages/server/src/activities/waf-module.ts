@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import templates from "./waf-templates.json" with { type: "json" };
 import type { ActivityDetail } from "./domain.js";
 import { contentRevision, validateActivitySpec } from "./domain.js";
+import { DEFAULT_LANGUAGE_CODE, findLanguage } from "./languages.js";
 import {
   mediaConfiguration,
   validateManifest,
@@ -48,6 +49,22 @@ export async function findWafRoot(
 }
 
 /** Source templates are vendored from Loom's html_module, compiled into every deployment. */
+/**
+ * The language a built module starts in.
+ *
+ * The manifest's default group when it has one, because that is what the activity was
+ * authored in. An import from Loom can carry a manifest whose groups this build does not
+ * recognise, and building such a module in a language nothing has assets for would produce
+ * an activity that loads and then plays nothing — so an unrecognised set falls back to the
+ * default rather than to whichever group happened to be first.
+ */
+export function scaffoldLanguage(activity: ActivityDetail): string {
+  const groups = Object.keys(activity.draft.mediaPlan?.manifest.assets ?? {});
+  if (groups.includes(DEFAULT_LANGUAGE_CODE)) return DEFAULT_LANGUAGE_CODE;
+  const known = groups.find((code) => findLanguage(code));
+  return known ?? DEFAULT_LANGUAGE_CODE;
+}
+
 export function scaffoldModule(
   activity: ActivityDetail,
   bookMode?: BookMode,
@@ -69,7 +86,10 @@ export function scaffoldModule(
   const replacements: Record<string, string> = {
     __ROOT_ID__: rootId,
     __MODULE_ID__: String(spec.id),
-    __DEFAULT_LANGUAGE_CODE__: "'en-US'",
+    // Taken from the manifest rather than fixed. A module built with the default hard
+    // coded ignores every other language group it was given: the clips are there, the
+    // configuration names them, and the runtime never asks for them.
+    __DEFAULT_LANGUAGE_CODE__: `'${scaffoldLanguage(activity)}'`,
     __ASSESSMENT_IMPORT__: runtime.usesAssessment
       ? "import { initializeAssessmentRuntime } from '../runtime/assessment.js';"
       : "",
