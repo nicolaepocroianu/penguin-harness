@@ -1576,6 +1576,16 @@ export const en: Strings = {
     cliNone: "No coding agents found on the server machine yet. Install one, then Rescan.",
     cliScanFailed: "Could not scan the server machine.",
     cliModelSummary: (name: string) => `Model ${name}`,
+    cliTest: "Test",
+    cliTesting: "Testing…",
+    cliRetest: "Test again",
+    cliTestOk: (name: string, ms: number, reply: string) =>
+      `${name} answered in ${ms} ms: “${reply}”`,
+    cliTestStart: (name: string, message: string) => `Could not start ${name}: ${message}`,
+    cliTestTimeout: (name: string) => `${name} did not answer in time.`,
+    cliTestFailed: (name: string, message: string) => `${name} did not finish: ${message}`,
+    cliTestReply: (name: string, reply: string) =>
+      reply ? `${name} answered “${reply}” instead of ok.` : `${name} answered nothing.`,
     accessAll: "All",
     accessApiKey: "API keys",
     accessSubscription: "Subscriptions",

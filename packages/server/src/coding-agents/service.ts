@@ -49,6 +49,7 @@ import type {
   CodingAgentServerInfo,
   CodingAgentSessionDetailResponse,
   CodingAgentSessionInfo,
+  CodingAgentTestResult,
 } from "../api/types.js";
 import { Channels, Config, type ChannelApi } from "../hmr/capabilities.js";
 import { Settings } from "../mechanisms/settings.js";
@@ -94,6 +95,37 @@ function newSessionId(date = new Date()): string {
   const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   const time = `${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
   return `session-${day}-${time}-${randomUUID().replace(/-/g, "").slice(0, 8)}`;
+}
+
+/** What a connection test asks: an answer anyone can check, which costs next to nothing. */
+const SMOKE_PROMPT = "Reply with only the word: ok";
+
+/** A reply counts as ok regardless of case and closing punctuation ("OK.", "ok!"). */
+function isOk(reply: string): boolean {
+  return (
+    reply
+      .trim()
+      .toLowerCase()
+      .replace(/[.!\s]+$/u, "") === "ok"
+  );
+}
+
+/** Resolves with `work`'s value, or with `onTimeout` once `ms` has passed, whichever is first. */
+function within<T>(work: Promise<T>, ms: number, onTimeout: T): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => resolve(onTimeout), Math.max(0, ms));
+    timer.unref();
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }
 
 const REOPEN_FRESH_NOTICE =
@@ -227,6 +259,85 @@ export class CodingAgentService implements CodingAgents {
     const all = this.loadRememberedOptions();
     all[agentId] = { ...all[agentId], [option.configId]: option.value };
     this.settings.set(OPTIONS_KEY, JSON.stringify(all));
+  }
+
+  async testAgent(agentId: string, timeoutMs = 60_000): Promise<CodingAgentTestResult> {
+    const started = Date.now();
+    const deadline = started + timeoutMs;
+    const left = () => deadline - Date.now();
+    const result = (fields: Omit<CodingAgentTestResult, "ms">): CodingAgentTestResult => ({
+      ...fields,
+      ms: Date.now() - started,
+    });
+    const manager = this.getManager();
+    let dir: string | null = null;
+    let sessionId: string | null = null;
+    try {
+      await this.ensureDefinition(agentId);
+      const home = agentHome(this.config.root, agentId);
+      await fs.mkdir(home, { recursive: true, mode: 0o700 });
+      dir = await this.createTempWorkspace(home);
+      const workspace = dir;
+      let opened: { sessionId: string } | "timeout";
+      try {
+        opened = await within<{ sessionId: string } | "timeout">(
+          manager.createSession(agentId, workspace),
+          left(),
+          "timeout",
+        );
+      } catch (error) {
+        return result({
+          ok: false,
+          reply: "",
+          failure: "start",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      if (opened === "timeout") return result({ ok: false, reply: "", failure: "timeout" });
+      sessionId = opened.sessionId;
+      const session = sessionId;
+      await this.applyRememberedModel(manager, agentId, session);
+      let reply = "";
+      let stop: string | null = null;
+      const unsubscribe = manager.subscribe(session, (event: AgentSessionEvent) => {
+        if (event.type === "message_chunk") reply += event.delta;
+        if (event.type === "turn_end") stop = event.stopReason;
+        // Nobody is there to answer: a test must not wait on a person, nor let the agent act.
+        if (event.type === "permission_request") {
+          manager.respondPermission(event.request.requestId, { outcome: "cancelled" });
+        }
+      });
+      try {
+        const turn = await within(
+          manager.prompt(session, SMOKE_PROMPT).then(() => "done" as const),
+          left(),
+          "timeout" as const,
+        ).catch(() => "done" as const);
+        if (turn === "timeout") {
+          void manager.cancel(session).catch(() => undefined);
+          return result({ ok: false, reply: reply.trim(), failure: "timeout" });
+        }
+      } finally {
+        unsubscribe();
+      }
+      if (stop !== "end_turn") {
+        return result({
+          ok: false,
+          reply: reply.trim(),
+          failure: "failed",
+          message: `The agent ended its turn: ${stop ?? "failed"}.`,
+        });
+      }
+      return isOk(reply)
+        ? result({ ok: true, reply: reply.trim() })
+        : result({ ok: false, reply: reply.trim(), failure: "reply" });
+    } finally {
+      // A hung agent must not hang the answer: closing gets a moment, then the result goes.
+      if (sessionId !== null) {
+        await within(manager.disposeSession(sessionId), 3_000, undefined).catch(() => undefined);
+      }
+      if (dir !== null) await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
+    }
   }
 
   listSessions(): CodingAgentSessionInfo[] {

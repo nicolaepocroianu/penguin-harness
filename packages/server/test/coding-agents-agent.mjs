@@ -49,6 +49,32 @@ const app = agent({ name: "fake-agent-test" })
     const text = ctx.params.prompt
       .map((block) => (typeof block.text === "string" ? block.text : ""))
       .join("");
+    // The connection test's smoke prompt: FAKE_TEST_REPLY says what to answer (default ok),
+    // and "ask" makes the agent ask for permission first, which a test must refuse.
+    if (text === "Reply with only the word: ok") {
+      if (process.env.FAKE_TEST_REPLY === "ask") {
+        await connection.client.request(methods.client.session.requestPermission, {
+          sessionId: ctx.params.sessionId,
+          toolCall: { toolCallId: "t-test", title: "Run something", kind: "execute" },
+          options: [{ optionId: "yes", name: "Allow", kind: "allow_once" }],
+        });
+      }
+      if (process.env.FAKE_TEST_REPLY === "hang") await new Promise(() => {});
+      await connection.client.notify(methods.client.session.update, {
+        sessionId: ctx.params.sessionId,
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: {
+            type: "text",
+            text:
+              process.env.FAKE_TEST_REPLY && process.env.FAKE_TEST_REPLY !== "ask"
+                ? process.env.FAKE_TEST_REPLY
+                : "ok",
+          },
+        },
+      });
+      return { stopReason: "end_turn" };
+    }
     // A marker prompt exercises permission: the agent asks before writing, and says what
     // it was told.
     if (text === "ask permission") {

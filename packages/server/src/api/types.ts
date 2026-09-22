@@ -4901,6 +4901,24 @@ export interface CodingAgentDiscoveryCandidate {
   rememberedOptions?: Record<string, boolean | string>;
 }
 
+/**
+ * POST /coding-agents/agents/:agentId/test: the agent started with its remembered settings,
+ * asked to answer "ok", and what came of it. `failure` names why a test did not pass:
+ * `start` the agent could not be started or would not open a session, `timeout` it did not
+ * finish in time, `failed` its turn ended in error or refusal, `reply` it answered something
+ * other than ok (quoted in `reply`).
+ */
+export interface CodingAgentTestResult {
+  ok: boolean;
+  /** Milliseconds from starting the agent to its answer (or to giving up). */
+  ms: number;
+  /** What the agent answered, trimmed; empty when it said nothing. */
+  reply: string;
+  failure?: "start" | "timeout" | "failed" | "reply";
+  /** Why it could not start or failed, safe to show. */
+  message?: string;
+}
+
 /** PUT /coding-agents/agents/:agentId/model body: the model remembered for an agent. */
 export interface CodingAgentModelRequest {
   configId: string;

@@ -42,6 +42,7 @@ import type {
   CodingAgentSessionConfigRequest,
   CodingAgentSessionDetailResponse,
   CodingAgentSessionInfo,
+  CodingAgentTestResult,
   CodingAgentSessionRenameRequest,
   CodingAgentSessionsResponse,
   CodingAgentServerInfo,
@@ -1828,6 +1829,13 @@ export const setCodingAgentModel = (agentId: string, body: CodingAgentModelReque
   apiFetch<void>(`/api/coding-agents/agents/${encodeURIComponent(agentId)}/model`, {
     method: "PUT",
     body,
+  });
+
+/** Run the agent's connection test (a one-word smoke prompt); admin-only. */
+export const testCodingAgent = (agentId: string) =>
+  apiFetch<CodingAgentTestResult>(`/api/coding-agents/agents/${encodeURIComponent(agentId)}/test`, {
+    method: "POST",
+    body: {},
   });
 
 /** Remember one other session setting (a reasoning effort) for an agent; admin-only. */

@@ -16,6 +16,7 @@ import type {
   CodingAgentServerInfo,
   CodingAgentSessionDetailResponse,
   CodingAgentSessionInfo,
+  CodingAgentTestResult,
 } from "../api/types.js";
 
 export abstract class CodingAgents extends Interface<{
@@ -39,6 +40,12 @@ export abstract class CodingAgents extends Interface<{
    * its new sessions after the model. The model itself goes through `setAgentModel`.
    */
   setAgentOption(agentId: string, option: { configId: string; value: boolean | string }): void;
+  /**
+   * Start the agent with its remembered settings in a throwaway workspace, ask it to answer
+   * "ok", and report how that went; the session and workspace are gone afterwards. Anything
+   * the agent asks permission for is refused. Admin-only at the route: it runs the agent.
+   */
+  testAgent(agentId: string, timeoutMs?: number): Promise<CodingAgentTestResult>;
   listSessions(): CodingAgentSessionInfo[];
   /**
    * `options.protectedRoots` names folders the agent may read but not change: permission

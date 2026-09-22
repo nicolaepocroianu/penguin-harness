@@ -1037,6 +1037,14 @@ export type Strings = {
     cliNone: string;
     cliScanFailed: string;
     cliModelSummary: (name: string) => string;
+    cliTest: string;
+    cliTesting: string;
+    cliRetest: string;
+    cliTestOk: (name: string, ms: number, reply: string) => string;
+    cliTestStart: (name: string, message: string) => string;
+    cliTestTimeout: (name: string) => string;
+    cliTestFailed: (name: string, message: string) => string;
+    cliTestReply: (name: string, reply: string) => string;
     accessAll: string;
     accessApiKey: string;
     accessSubscription: string;

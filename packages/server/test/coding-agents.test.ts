@@ -15,6 +15,7 @@ import type {
   CodingAgentDiscoveryResponse,
   CodingAgentSessionDetailResponse,
   CodingAgentSessionInfo,
+  CodingAgentTestResult,
   CodingAgentsResponse,
 } from "../src/api/types.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser } from "./helpers.js";
@@ -340,6 +341,59 @@ describe("coding agents api", () => {
       await admin.get(`/api/coding-agents/sessions/${session.sessionId}`)
     ).json()) as CodingAgentSessionDetailResponse;
     expect(detail.configOptions.find((o) => o.id === "plan")?.currentValue).toBe(true);
+  });
+
+  describe("connection test", () => {
+    async function testAgent(env: Record<string, string>) {
+      await admin.post("/api/coding-agents/agents", {
+        id: "probe",
+        command: process.execPath,
+        args: [AGENT_MAIN],
+        env,
+      });
+      const res = await admin.post("/api/coding-agents/agents/probe/test?timeoutMs=2000", {});
+      expect(res.status, await res.clone().text()).toBe(200);
+      return (await res.json()) as CodingAgentTestResult;
+    }
+
+    it("passes when the agent answers the smoke prompt with ok, and leaves nothing behind", async () => {
+      const result = await testAgent({});
+      expect(result).toMatchObject({ ok: true, reply: "ok" });
+      expect(result.ms).toBeGreaterThanOrEqual(0);
+      const { sessions } = (await (await admin.get("/api/coding-agents/sessions")).json()) as {
+        sessions: unknown[];
+      };
+      expect(sessions).toEqual([]);
+    });
+
+    it("fails, quoting the reply, when the agent answers something else", async () => {
+      expect(await testAgent({ FAKE_TEST_REPLY: "I cannot do that" })).toMatchObject({
+        ok: false,
+        failure: "reply",
+        reply: "I cannot do that",
+      });
+    });
+
+    it("refuses a permission ask rather than waiting on it", async () => {
+      expect(await testAgent({ FAKE_TEST_REPLY: "ask" })).toMatchObject({ ok: true });
+    });
+
+    it("gives up after the time limit", async () => {
+      expect(await testAgent({ FAKE_TEST_REPLY: "hang" })).toMatchObject({
+        ok: false,
+        failure: "timeout",
+      });
+    }, 20_000);
+
+    it("says the agent could not start when its command does not run", async () => {
+      await admin.post("/api/coding-agents/agents", { id: "broken", command: "no-such-agent-cli" });
+      const res = await admin.post("/api/coding-agents/agents/broken/test", {});
+      expect(await res.json()).toMatchObject({ ok: false, failure: "start" });
+    });
+
+    it("is for admins only", async () => {
+      expect((await member.post("/api/coding-agents/agents/fake/test", {})).status).toBe(403);
+    });
   });
 
   it("remembers the model an agent was set to", async () => {

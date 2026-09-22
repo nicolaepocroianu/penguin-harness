@@ -116,6 +116,24 @@ export function codingAgentsRoutes(deps: CodingAgentsRouteDeps): Hono<AppEnv> {
     return c.body(null, 204);
   });
 
+  // Runs the agent: admin-only, like everything that executes a configured command.
+  app.post("/agents/:agentId/test", async (c) => {
+    if (!c.var.user.isAdmin) {
+      throw new HttpError(403, "forbidden", "Admin access is required.");
+    }
+    const agentId = pathParam(c, "agentId");
+    let timeoutMs: number | undefined;
+    const raw = c.req.query("timeoutMs");
+    if (raw !== undefined) {
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed) || parsed < 500 || parsed > 120_000) {
+        throw badRequest("timeoutMs must be a number between 500 and 120000.");
+      }
+      timeoutMs = parsed;
+    }
+    return c.json(await deps.codingAgents.testAgent(agentId, timeoutMs));
+  });
+
   app.put("/agents/:agentId/options", async (c) => {
     if (!c.var.user.isAdmin) {
       throw new HttpError(403, "forbidden", "Admin access is required.");

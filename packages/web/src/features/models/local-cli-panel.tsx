@@ -12,6 +12,7 @@ import type {
   CodingAgentConfigOption,
   CodingAgentDiscoveryResponse,
   CodingAgentServerInfo,
+  CodingAgentTestResult,
 } from "@prismshadow/penguin-server/api";
 import {
   discoverCodingAgents,
@@ -20,6 +21,7 @@ import {
   removeCodingAgent,
   setCodingAgentModel,
   setCodingAgentOption,
+  testCodingAgent,
 } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
@@ -228,6 +230,16 @@ function CliCard({
 }) {
   const model = currentModel(card);
   const modelOption = modelOptionOf(card.options);
+  const [testing, setTesting] = useState(false);
+  const [tested, setTested] = useState<CodingAgentTestResult | null>(null);
+  const runTest = () => {
+    setTesting(true);
+    setTested(null);
+    testCodingAgent(card.agentId)
+      .then(setTested)
+      .catch((e: unknown) => toastError(apiErrorText(e)))
+      .finally(() => setTesting(false));
+  };
   const effortOption = effortOptionOf(card.options);
   const remember = (option: CodingAgentConfigOption, value: string, isModel: boolean) => {
     const name = option.options.find((o) => o.value === value)?.name;
@@ -342,10 +354,18 @@ function CliCard({
             </div>
           )}
           {card.setupHint && <p className={`text-xs ${toneInk.attention}`}>{card.setupHint}</p>}
+          {(testing || tested !== null) && (
+            <TestResultRow card={card} testing={testing} result={tested} />
+          )}
           <div className="flex flex-wrap gap-2">
             {card.startable && (
               <Button size="sm" variant="primary" onClick={onStartChat}>
                 {S.models.cliStartChat}
+              </Button>
+            )}
+            {card.startable && isAdmin && (
+              <Button size="sm" onClick={runTest} disabled={testing}>
+                {testing ? S.models.cliTesting : tested ? S.models.cliRetest : S.models.cliTest}
               </Button>
             )}
             {card.saved && isAdmin && (
@@ -357,5 +377,41 @@ function CliCard({
         </div>
       )}
     </li>
+  );
+}
+
+/** A connection test's outcome, under the card it ran for: what the agent answered, or why not. */
+function TestResultRow({
+  card,
+  testing,
+  result,
+}: {
+  card: AgentCardModel;
+  testing: boolean;
+  result: CodingAgentTestResult | null;
+}) {
+  if (testing || result === null) {
+    return (
+      <p role="status" className="text-xs text-gray-500 dark:text-gray-400">
+        {S.models.cliTesting}
+      </p>
+    );
+  }
+  const text = result.ok
+    ? S.models.cliTestOk(card.title, result.ms, result.reply)
+    : result.failure === "start"
+      ? S.models.cliTestStart(card.title, result.message ?? "")
+      : result.failure === "timeout"
+        ? S.models.cliTestTimeout(card.title)
+        : result.failure === "failed"
+          ? S.models.cliTestFailed(card.title, result.message ?? "")
+          : S.models.cliTestReply(card.title, result.reply);
+  return (
+    <p
+      role="status"
+      className={`rounded-md border px-3 py-2 text-xs ${result.ok ? toneStrip.success : toneStrip.danger}`}
+    >
+      {text}
+    </p>
   );
 }
