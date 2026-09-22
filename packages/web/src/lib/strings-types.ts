@@ -180,6 +180,12 @@ export type Strings = {
     olderModule: string;
     previewTitle: string;
     previewHelp: string;
+    sandboxTitle: string;
+    sandboxHelp: string;
+    sandboxBuild: string;
+    sandboxBuilding: string;
+    sandboxRefresh: string;
+    sandboxLog: string;
     previewScene: string;
     previewSceneDefault: string;
     previewLanguageDefault: string;

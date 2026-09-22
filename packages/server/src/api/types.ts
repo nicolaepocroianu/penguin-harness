@@ -4830,6 +4830,7 @@ export type {
   ActivityRunSummary,
   ActivityRunStatus,
 } from "../activities/domain.js";
+export type { SandboxStatus, SandboxBuildReport } from "../activities/sandbox-paths.js";
 
 // ---------------------------------------------------------------------------
 // Coding agents (Agent Client Protocol)

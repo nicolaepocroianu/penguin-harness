@@ -30,6 +30,7 @@ import { buildSceneTree, filterTree, treeSelections, type SceneAssetType } from 
 import { firstSelection, sameSelection, type SceneAssetSelection } from "./scene-asset-tree";
 import { resolveSection, workspaceSections, type WorkspaceSection } from "./workspace-model";
 import { ModulePreview } from "./module-preview";
+import { SandboxPanel } from "./sandbox-panel";
 import { SceneReview } from "./scene-review";
 import { SpecDiffView } from "./spec-diff-view";
 import { activityInitials, filterActivities, latestModuleRun } from "./preview";
@@ -1030,6 +1031,7 @@ function ActivityEditor({
               )}
               {section === "module" && (
                 <>
+                  <SandboxPanel projectId={projectId} activityId={detail.id} />
                   {available && (
                     <ModulePreview
                       runs={runs}
