@@ -4,6 +4,7 @@
  * text and thinking streams, tool-call cards, permission asks, mode switches.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigationType } from "react-router";
 import type {
   CodingAgentConfigOption,
   CodingAgentDiscoveryCandidate,
@@ -17,9 +18,11 @@ import {
   cancelCodingAgentSession,
   createCodingAgentSession,
   discoverCodingAgents,
+  downloadCodingAgentTranscript,
   promptCodingAgentSession,
   refreshCodingAgents,
   removeCodingAgent,
+  renameCodingAgentSession,
   saveCodingAgent,
   setCodingAgentMode,
   setCodingAgentModel,
@@ -46,6 +49,12 @@ import { useCodingAgents, useCodingAgentStream } from "./use-coding-agents";
 const BOT_PATH =
   "M12 2.6v2.9M6.5 21h11M6 10.5h12V19a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-8.5ZM9.2 14.6h.01M14.8 14.6h.01M6 10.5a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3";
 
+/** The transcript-export affordance's download tray (the icon module's DownloadIcon path). */
+const DOWNLOAD_PATH = "M12 4v11m0 0l-5-5m5 5l5-5M4 20h16";
+
+/** The rename affordance's pencil. */
+const PENCIL_PATH = "M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z";
+
 /** Tool-call status → tone, by meaning (a pending ask reads as waiting on the user). */
 const TOOL_TONE: Record<string, Tone> = {
   pending: "attention",
@@ -71,26 +80,37 @@ interface TextBlock {
   text: string;
 }
 
-/** One card on the screen: a known recipe probed on the server, or a saved custom agent. */
-interface AgentCardModel {
-  key: string;
-  agentId: string;
-  title: string;
-  commandLine: string;
-  saved: boolean;
-  version?: string;
-  authStatus?: "ok" | "missing" | "unknown";
-  setupHint?: string | null;
-  homepageUrl?: string;
-  models?: CodingAgentConfigOption[];
-  rememberedModel?: { configId: string; value: boolean | string; name?: string } | null;
+/**
+ * The session id a route visit should select, if any. A pushed (or replaced) location
+ * naming a session wins even when the page is already mounted — that is how a Quick
+ * Switcher pick reaches an open page, whose useState initializer never re-runs.
+ * Back/forward pops return null so history navigation does not yank the selection.
+ */
+export function selectSessionFromRoute(
+  requested: unknown,
+  navigationType: "PUSH" | "REPLACE" | "POP",
+): string | null {
+  if (navigationType === "POP") return null;
+  return typeof requested === "string" && requested !== "" ? requested : null;
 }
 
 export function CodingAgentsPage() {
   const { user } = useAuth();
   const isAdmin = user?.isAdmin === true;
   const { agents, sessions, loading, loadError, reload } = useCodingAgents();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Route state names a session to open (the Quick Switcher's session entries navigate
+  // here with one). The initializer covers a first mount; the effect below re-applies
+  // fresh navigations while the page is already open. Back/forward pops never re-select.
+  const location = useLocation();
+  const navigationType = useNavigationType();
+  const requestedSessionId = (location.state as { sessionId?: unknown } | null)?.sessionId ?? null;
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    typeof requestedSessionId === "string" && requestedSessionId !== "" ? requestedSessionId : null,
+  );
+  useEffect(() => {
+    const next = selectSessionFromRoute(requestedSessionId, navigationType);
+    if (next !== null) setSelectedId(next);
+  }, [navigationType, requestedSessionId]);
   const [addOpen, setAddOpen] = useState(false);
   const [launchFor, setLaunchFor] = useState<string | null>(null);
   const [removing, setRemoving] = useState<CodingAgentServerInfo | null>(null);
@@ -463,7 +483,7 @@ function SessionsSection({
                     aria-hidden
                   />
                   <span className="min-w-0 flex-1 truncate text-sm text-gray-900 dark:text-gray-100">
-                    {session.agentId} — {session.workspaceDir}
+                    {session.title ?? `${session.agentId} — ${session.workspaceDir}`}
                     <span className="sr-only">
                       {". "}
                       {session.busy ? S.codingAgents.busy : S.codingAgents.idle}
@@ -478,7 +498,11 @@ function SessionsSection({
           </ul>
           <div className="lg:col-span-3">
             {selectedId !== null ? (
-              <SessionView sessionId={selectedId} onSettled={onSettled} />
+              <SessionView
+                sessionId={selectedId}
+                session={sessions.find((s) => s.sessionId === selectedId) ?? null}
+                onSettled={onSettled}
+              />
             ) : null}
           </div>
         </div>
@@ -556,7 +580,16 @@ function buildTranscript(
   };
 }
 
-function SessionView({ sessionId, onSettled }: { sessionId: string; onSettled: () => void }) {
+function SessionView({
+  sessionId,
+  session,
+  onSettled,
+}: {
+  sessionId: string;
+  /** The session's list entry; null when the list has not caught up (or the session is gone). */
+  session: CodingAgentSessionInfo | null;
+  onSettled: () => void;
+}) {
   const {
     events,
     configOptions: seedOptions,
@@ -568,6 +601,7 @@ function SessionView({ sessionId, onSettled }: { sessionId: string; onSettled: (
   const transcript = useMemo(() => buildTranscript(events, seedOptions), [events, seedOptions]);
   const [draft, setDraft] = useState("");
   const [awaitingTurn, setAwaitingTurn] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -600,8 +634,38 @@ function SessionView({ sessionId, onSettled }: { sessionId: string; onSettled: (
 
   const busy = awaitingTurn;
 
+  const exportTranscript = () => {
+    void downloadCodingAgentTranscript(sessionId).catch((e: unknown) =>
+      toastError(apiErrorText(e)),
+    );
+  };
+
+  const defaultTitle =
+    session !== null ? `${session.agentId} — ${session.workspaceDir}` : sessionId;
+  const sessionTitle = session?.title ?? defaultTitle;
+
   return (
     <div className="flex max-h-[70vh] flex-col rounded-md border border-gray-200 dark:border-gray-800">
+      <div className="flex min-w-0 items-center gap-1.5 border-b border-gray-100 px-3 py-2 dark:border-gray-800">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+          {sessionTitle}
+        </span>
+        {session !== null ? (
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label={S.codingAgents.renameSession}
+            title={S.codingAgents.renameSession}
+            onClick={() => setRenameOpen(true)}
+          >
+            <GlyphIcon d={PENCIL_PATH} size={ICON_SIZE.iconButton} />
+          </Button>
+        ) : null}
+        <Button size="sm" variant="secondary" onClick={exportTranscript}>
+          <GlyphIcon d={DOWNLOAD_PATH} size={ICON_SIZE.inlineGlyph} />
+          {S.codingAgents.exportTranscript}
+        </Button>
+      </div>
       <div className="flex-1 space-y-2 overflow-y-auto px-3 py-2">
         {transcript.blocks.map((block, i) =>
           block.kind === "assistant" ? (
@@ -725,7 +789,66 @@ function SessionView({ sessionId, onSettled }: { sessionId: string; onSettled: (
           </div>
         </div>
       </div>
+      <RenameSessionModal
+        open={renameOpen}
+        session={session}
+        onClose={() => setRenameOpen(false)}
+        onRenamed={onSettled}
+      />
     </div>
+  );
+}
+
+/**
+ * Rename one session. The server trims and caps the title; an empty field clears it back
+ * to the default (agent — workspace). `onRenamed` refreshes the sessions list so the row
+ * and this header pick the new name up.
+ */
+function RenameSessionModal({
+  open,
+  session,
+  onClose,
+  onRenamed,
+}: {
+  open: boolean;
+  session: CodingAgentSessionInfo | null;
+  onClose: () => void;
+  onRenamed: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  useEffect(() => {
+    if (open && session !== null) setTitle(session.title ?? "");
+  }, [open, session]);
+  const save = () => {
+    if (session === null) return;
+    renameCodingAgentSession(session.sessionId, { title })
+      .then(() => {
+        toastSuccess(S.codingAgents.renameTitle);
+        onRenamed();
+        onClose();
+      })
+      .catch((e: unknown) => toastError(apiErrorText(e)));
+  };
+  return (
+    <Modal
+      open={open && session !== null}
+      title={S.codingAgents.renameTitle}
+      onClose={onClose}
+      footer={
+        <>
+          <Button size="sm" onClick={onClose}>
+            {S.codingAgents.cancel}
+          </Button>
+          <Button size="sm" variant="primary" onClick={save}>
+            {S.codingAgents.save}
+          </Button>
+        </>
+      }
+    >
+      <Field label={S.codingAgents.renameLabel} hint={S.codingAgents.renameHint}>
+        <Input size="sm" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} />
+      </Field>
+    </Modal>
   );
 }
 

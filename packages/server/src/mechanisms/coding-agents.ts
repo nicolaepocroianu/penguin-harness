@@ -31,7 +31,14 @@ export abstract class CodingAgents extends Interface<{
   ): void;
   listSessions(): CodingAgentSessionInfo[];
   createSession(agentId: string, workspaceDir: string): Promise<CodingAgentSessionInfo>;
+  /** Set the session's display title (trimmed, max 120); empty clears it back to the default. */
+  renameSession(sessionId: string, title: string): CodingAgentSessionInfo;
   sessionDetail(sessionId: string): CodingAgentSessionDetailResponse | undefined;
+  /**
+   * The session's transcript as a Markdown download document (undefined: unknown session).
+   * Built from the same in-memory state + bounded event log the detail route serves.
+   */
+  sessionTranscript(sessionId: string): { markdown: string; filename: string } | undefined;
   /** The SSE channel a session's events are published to (created with the session). */
   channelFor(sessionId: string): ChannelApi | undefined;
   prompt(sessionId: string, text: string): void;

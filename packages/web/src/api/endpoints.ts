@@ -42,6 +42,7 @@ import type {
   CodingAgentSessionConfigRequest,
   CodingAgentSessionDetailResponse,
   CodingAgentSessionInfo,
+  CodingAgentSessionRenameRequest,
   CodingAgentSessionsResponse,
   CodingAgentServerInfo,
   CodingAgentsResponse,
@@ -218,7 +219,8 @@ import type {
   ContributionsResponse,
 } from "@prismshadow/penguin-server/api";
 import type { MCPServerConfig } from "@prismshadow/penguin-core/interfaces";
-import { apiFetch, apiFetchWithMeta } from "./client";
+import { ApiError, apiFetch, apiFetchWithMeta } from "./client";
+import { S } from "../lib/strings";
 
 // Auth & user -----------------------------------------------------------------
 
@@ -1851,6 +1853,16 @@ export const getCodingAgentSession = (sessionId: string) =>
     `/api/coding-agents/sessions/${encodeURIComponent(sessionId)}`,
   );
 
+/** Sets the session's display title; the server trims and caps it, empty clears it. */
+export const renameCodingAgentSession = (
+  sessionId: string,
+  body: CodingAgentSessionRenameRequest,
+) =>
+  apiFetch<{ session: CodingAgentSessionInfo }>(
+    `/api/coding-agents/sessions/${encodeURIComponent(sessionId)}`,
+    { method: "PATCH", body },
+  );
+
 /** 202: the turn streams over the session's SSE channel, not this response. */
 export const promptCodingAgentSession = (sessionId: string, body: CodingAgentPromptRequest) =>
   apiFetch<void>(`/api/coding-agents/sessions/${encodeURIComponent(sessionId)}/prompt`, {
@@ -1894,3 +1906,43 @@ export const endCodingAgentSession = (sessionId: string) =>
   apiFetch<void>(`/api/coding-agents/sessions/${encodeURIComponent(sessionId)}`, {
     method: "DELETE",
   });
+
+/**
+ * Fetches one session's Markdown transcript and saves it through a Blob + object-URL
+ * anchor. Raw fetch because the JSON apiFetch cannot hand back the document, and fetching
+ * (rather than a bare `<a download>`) lets a failure surface as an ApiError toast instead
+ * of saving the error body as a file. The server's Content-Disposition names the file; the
+ * fallback mirrors it.
+ */
+export const downloadCodingAgentTranscript = async (sessionId: string): Promise<void> => {
+  const res = await fetch(
+    `/api/coding-agents/sessions/${encodeURIComponent(sessionId)}/transcript`,
+    { credentials: "same-origin" },
+  );
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as {
+      error?: { code?: string; message?: string };
+    } | null;
+    throw new ApiError(
+      res.status,
+      body?.error?.code ?? "unknown",
+      body?.error?.message ?? S.common.unknownError,
+    );
+  }
+  const disposition = res.headers.get("content-disposition") ?? "";
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+  const plain = /filename="?([^";]+)"?/i.exec(disposition)?.[1];
+  const filename =
+    utf8 !== undefined
+      ? decodeURIComponent(utf8)
+      : (plain ?? `penguin-coding-agent-${sessionId}.md`);
+  const blob = new Blob([await res.text()], { type: "text/markdown; charset=utf-8" });
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
+};

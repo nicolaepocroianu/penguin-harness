@@ -83,7 +83,13 @@ describe("use-portal-panel consumers", () => {
 
   it("each attaches the hook's triggerRef, so the ownership test has an element to read", () => {
     const missing = consumers
-      .filter((path) => !readFileSync(path, "utf8").includes("ref={triggerRef}"))
+      .filter((path) => {
+        const src = readFileSync(path, "utf8");
+        // Directly on an element, or — for a triggerless panel whose anchor is not a
+        // <button> (the quick switcher's is its input) — through a callback ref that
+        // assigns it. Either way the rule must be answered with a real element, never null.
+        return !src.includes("ref={triggerRef}") && !src.includes("triggerRef.current =");
+      })
       .map((path) => path.slice(SRC.length + 1));
     expect(missing).toEqual([]);
   });

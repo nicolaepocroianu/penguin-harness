@@ -426,6 +426,11 @@ describe("coding agents api", () => {
     expect(detail.events[0]).toMatchObject({ type: "config_options" });
     expect(detail.events.slice(1)).toEqual([
       {
+        type: "user_message",
+        sessionId: session.sessionId,
+        text: "hi",
+      },
+      {
         type: "message_chunk",
         sessionId: session.sessionId,
         delta: "hello from subprocess",
@@ -434,12 +439,61 @@ describe("coding agents api", () => {
     ]);
     // The transcript survives a fresh read (the log, not a live subscription).
     const reread = await admin.get(`/api/coding-agents/sessions/${session.sessionId}`);
-    expect(((await reread.json()) as CodingAgentSessionDetailResponse).events).toHaveLength(3);
+    expect(((await reread.json()) as CodingAgentSessionDetailResponse).events).toHaveLength(4);
+  });
+
+  it("downloads the transcript as a Markdown attachment in conversation order", async () => {
+    const created = await admin.post("/api/coding-agents/sessions", {
+      agentId: "fake",
+      workspaceDir: workspace,
+    });
+    const { session } = (await created.json()) as { session: CodingAgentSessionInfo };
+    await admin.post(`/api/coding-agents/sessions/${session.sessionId}/prompt`, {
+      text: "run a tool",
+    });
+    await waitForTurnEnd(admin, session.sessionId);
+
+    const res = await admin.get(`/api/coding-agents/sessions/${session.sessionId}/transcript`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+    expect(res.headers.get("content-disposition")).toMatch(
+      /^attachment; filename="penguin-coding-agent-[A-Za-z0-9._-]+\.md"$/,
+    );
+    const doc = await res.text();
+    // H1 names the agent (the definition's title), then the metadata block.
+    expect(doc.startsWith("# Fake Agent\n")).toBe(true);
+    expect(doc).toContain("- Agent: Fake Agent");
+    expect(doc).toContain(`- Session: ${session.sessionId}`);
+    expect(doc).toMatch(/- Created: \d{4}-\d{2}-\d{2}T/);
+    expect(doc).toContain(`- Workspace: ${workspace}`);
+    expect(doc).toContain("- Model: Balanced");
+    // The user prompt comes first, the agent's turn after it; the tool call renders as a
+    // list item with its latest status, the streamed text as a paragraph.
+    const userAt = doc.indexOf("## User");
+    const agentAt = doc.indexOf("## Agent");
+    expect(userAt).toBeGreaterThan("# Fake Agent".length);
+    expect(agentAt).toBeGreaterThan(userAt);
+    expect(doc).toContain("run a tool");
+    expect(doc).toContain("- Read package.json — completed");
+    expect(doc.indexOf("- Read package.json — completed")).toBeLessThan(
+      doc.indexOf("hello from subprocess"),
+    );
+    // Connection noise does not render.
+    expect(doc).not.toContain("config_options");
+    expect(doc).not.toContain("turn_end");
+  });
+
+  it("answers 404 for an unknown session's transcript", async () => {
+    const res = await admin.get("/api/coding-agents/sessions/does-not-exist/transcript");
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error?: { code?: string } };
+    expect(body.error?.code).toBe("not_found");
   });
 
   it("answers 404 for unknown sessions across every session route", async () => {
     const base = "/api/coding-agents/sessions/does-not-exist";
     expect((await admin.get(base)).status).toBe(404);
+    expect((await admin.patch(base, { title: "x" })).status).toBe(404);
     expect((await admin.post(`${base}/prompt`, { text: "x" })).status).toBe(404);
     expect((await admin.post(`${base}/cancel`)).status).toBe(404);
     expect((await admin.post(`${base}/mode`, { modeId: "m" })).status).toBe(404);
@@ -448,6 +502,44 @@ describe("coding agents api", () => {
         .status,
     ).toBe(404);
     expect((await admin.delete(base)).status).toBe(204);
+  });
+
+  it("renames a session, clears the rename, and validates the title", async () => {
+    const created = await admin.post("/api/coding-agents/sessions", {
+      agentId: "fake",
+      workspaceDir: workspace,
+    });
+    const { session } = (await created.json()) as { session: CodingAgentSessionInfo };
+    const base = `/api/coding-agents/sessions/${session.sessionId}`;
+
+    const renamed = await admin.patch(base, { title: "  My session  " });
+    expect(renamed.status).toBe(200);
+    const renamedSession = ((await renamed.json()) as { session: CodingAgentSessionInfo }).session;
+    expect(renamedSession.title).toBe("My session");
+
+    // The title rides the list and names the transcript's H1.
+    const listed = (await (await admin.get("/api/coding-agents/sessions")).json()) as {
+      sessions: CodingAgentSessionInfo[];
+    };
+    expect(listed.sessions.find((s) => s.sessionId === session.sessionId)?.title).toBe(
+      "My session",
+    );
+    const transcript = await admin.get(`${base}/transcript`);
+    expect((await transcript.text()).startsWith("# My session\n")).toBe(true);
+
+    // Empty clears back to the default (no title at all).
+    const cleared = await admin.patch(base, { title: "" });
+    expect(cleared.status).toBe(200);
+    expect(((await cleared.json()) as { session: CodingAgentSessionInfo }).session.title).toBe(
+      undefined,
+    );
+    const clearedTranscript = await admin.get(`${base}/transcript`);
+    expect((await clearedTranscript.text()).startsWith("# Fake Agent\n")).toBe(true);
+
+    // Validation: over the cap and non-string titles are caller errors.
+    expect((await admin.patch(base, { title: "x".repeat(121) })).status).toBe(400);
+    expect((await admin.patch(base, { title: 42 })).status).toBe(400);
+    expect((await admin.patch(base, {})).status).toBe(400);
   });
 
   it("lists and disposes sessions", async () => {

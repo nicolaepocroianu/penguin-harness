@@ -43,6 +43,7 @@ import { Channels, Config, type ChannelApi } from "../hmr/capabilities.js";
 import { Settings } from "../mechanisms/settings.js";
 import { CodingAgents } from "../mechanisms/coding-agents.js";
 import { AcpAgentError } from "@prismshadow/penguin-coding-agents";
+import { renderTranscriptMarkdown, transcriptFilename } from "./transcript.js";
 
 /** The settings key holding the custom definitions as a JSON array. */
 const DEFINITIONS_KEY = "coding_agent_servers";
@@ -66,11 +67,8 @@ export class CodingAgentService implements CodingAgents {
 
   private manager: CodingAgentManager | null = null;
   private readonly unbridges = new Map<string, () => void>();
-  private discoveryCache: {
-    at: number;
-    candidates: AgentDiscoveryCandidate[];
-    agentModels: Record<string, CodingAgentConfigOption[]>;
-  } | null = null;
+  /** User-set display names, keyed by session id; in-memory like the sessions themselves. */
+  private readonly titles = new Map<string, string>();
 
   private getManager(): CodingAgentManager {
     if (this.manager === null) {
@@ -235,6 +233,33 @@ export class CodingAgentService implements CodingAgents {
     return { ...this.toInfo(view), configOptions: view.configOptions, events: view.events };
   }
 
+  renameSession(sessionId: string, title: string): CodingAgentSessionInfo {
+    const view = this.getManager().sessionView(sessionId);
+    if (view === undefined) {
+      throw new AcpAgentError(`unknown session: ${sessionId}`);
+    }
+    if (title === "") this.titles.delete(sessionId);
+    else this.titles.set(sessionId, title);
+    return this.toInfo(view);
+  }
+
+  sessionTranscript(sessionId: string): { markdown: string; filename: string } | undefined {
+    const detail = this.sessionDetail(sessionId);
+    if (detail === undefined) return undefined;
+    const agentTitle = this.getManager()
+      .listDefinitions()
+      .find((d) => d.id === detail.agentId)?.title;
+    const sessionTitle = this.titles.get(sessionId);
+    return {
+      markdown: renderTranscriptMarkdown({
+        detail,
+        ...(sessionTitle !== undefined ? { sessionTitle } : {}),
+        ...(agentTitle !== undefined ? { agentTitle } : {}),
+      }),
+      filename: transcriptFilename(sessionId),
+    };
+  }
+
   channelFor(sessionId: string): ChannelApi | undefined {
     if (this.getManager().sessionView(sessionId) === undefined) return undefined;
     return this.channels.get(`coding-agent:${sessionId}`);
@@ -295,6 +320,7 @@ export class CodingAgentService implements CodingAgents {
   async disposeSession(sessionId: string): Promise<void> {
     this.unbridges.get(sessionId)?.();
     this.unbridges.delete(sessionId);
+    this.titles.delete(sessionId);
     await this.getManager().disposeSession(sessionId);
   }
 
@@ -437,12 +463,14 @@ export class CodingAgentService implements CodingAgents {
     busy: boolean;
     createdAt: number;
   }): CodingAgentSessionInfo {
+    const title = this.titles.get(view.sessionId);
     return {
       sessionId: view.sessionId,
       agentId: view.definitionId,
       workspaceDir: view.workspaceDir,
       busy: view.busy,
       createdAt: view.createdAt,
+      ...(title !== undefined ? { title } : {}),
     };
   }
 }

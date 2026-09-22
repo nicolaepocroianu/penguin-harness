@@ -372,6 +372,11 @@ export const en: Strings = {
     turnFailed: "Turn failed",
     loadFailed: "Could not load coding agents.",
     sessionGone: "This session has ended; its agent process is no longer running.",
+    exportTranscript: "Export transcript",
+    renameSession: "Rename",
+    renameTitle: "Rename session",
+    renameLabel: "Title",
+    renameHint: "Up to 120 characters; empty restores the agent and workspace name.",
   },
   nav: {
     activities: "Activities",
@@ -404,6 +409,20 @@ export const en: Strings = {
       finance: "Finance",
       handbook: "Handbook",
     },
+  },
+
+  /** Quick Switcher (Ctrl/Cmd+K): the keyboard palette for jumping to pages, coding agents and their sessions. */
+  quickSwitcher: {
+    title: "Quick switcher",
+    placeholder: "Search pages, agents, and sessions…",
+    recentsSection: "Recent",
+    pagesSection: "Pages",
+    loading: "Loading agents and sessions…",
+    noMatches: "No matches.",
+    // Footer key hints: the word follows its key.
+    navigateHint: "Navigate",
+    openHint: "Open",
+    closeHint: "Close",
   },
 
   /** Machines page: the server's own ssh hosts, and installing this build on one. */

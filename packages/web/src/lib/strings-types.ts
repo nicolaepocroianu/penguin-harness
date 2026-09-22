@@ -298,6 +298,11 @@ export type Strings = {
     turnFailed: string;
     loadFailed: string;
     sessionGone: string;
+    exportTranscript: string;
+    renameSession: string;
+    renameTitle: string;
+    renameLabel: string;
+    renameHint: string;
   };
   nav: {
     activities: string;
@@ -327,6 +332,17 @@ export type Strings = {
       finance: string;
       handbook: string;
     };
+  };
+  quickSwitcher: {
+    title: string;
+    placeholder: string;
+    recentsSection: string;
+    pagesSection: string;
+    loading: string;
+    noMatches: string;
+    navigateHint: string;
+    openHint: string;
+    closeHint: string;
   };
   machines: {
     pageTitle: string;

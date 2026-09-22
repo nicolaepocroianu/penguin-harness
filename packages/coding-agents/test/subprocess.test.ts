@@ -43,6 +43,7 @@ describe("CodingAgentManager over a real subprocess", () => {
     await manager.prompt(session.sessionId, "hi");
     const view = manager.sessionView(session.sessionId);
     expect(view?.events).toEqual([
+      { type: "user_message", sessionId: session.sessionId, text: "hi" },
       {
         type: "message_chunk",
         sessionId: session.sessionId,

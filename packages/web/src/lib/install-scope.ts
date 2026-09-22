@@ -205,6 +205,12 @@ export const KEY_RULES: readonly KeyRule[] = [
   },
   {
     kind: "exact",
+    key: "penguin.quickSwitcher.recents",
+    scope: "browser",
+    why: "The Quick Switcher's recently-selected entry ids; a convenience ordering, names nothing the server holds.",
+  },
+  {
+    kind: "exact",
     key: "penguin.steerMode",
     scope: "browser",
     why: "Steer vs queue-as-follow-up when sending mid-run; a per-user input habit.",

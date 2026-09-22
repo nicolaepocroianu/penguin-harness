@@ -262,6 +262,9 @@ export class CodingAgentManager {
     if (connection === undefined) throw new AcpAgentError("agent connection is closed");
     record.busy = true;
     const seq = ++record.turnSeq;
+    // The prompt is part of the transcript: logged before the turn streams so the log
+    // order is the conversation order, whether or not the turn succeeds.
+    this.append(record, { type: "user_message", sessionId, text });
     try {
       const stopReason = await connection.prompt(sessionId, text);
       this.finishTurn(record, seq, stopReason);
