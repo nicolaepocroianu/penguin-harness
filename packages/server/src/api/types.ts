@@ -4917,6 +4917,11 @@ export interface CodingAgentSessionInfo {
   workspaceDir: string;
   busy: boolean;
   createdAt: number;
+  /**
+   * How a later server process could reopen this session: `resume` or `load` (the agent
+   * replays its history), or `none` when the session ends with the agent's process.
+   */
+  resumeSupport: import("@prismshadow/penguin-coding-agents").AgentResumeSupport;
   /** A user-set display name; absent, the session is named by its agent and workspace. */
   title?: string;
 }
@@ -4934,6 +4939,14 @@ export interface CodingAgentCreateRequest {
   agentId: string;
   /** Omitted or empty: the server auto-creates a temporary workspace for the session. */
   workspaceDir?: string;
+}
+
+/** POST /coding-agents/sessions/resume body: the session the agent gave an earlier run. */
+export interface CodingAgentResumeRequest {
+  agentId: string;
+  /** The workspace the session ran in; required, since the agent resolves paths from it. */
+  workspaceDir: string;
+  sessionId: string;
 }
 
 /** PATCH /coding-agents/sessions/:id body: trimmed server-side; empty clears the title. */

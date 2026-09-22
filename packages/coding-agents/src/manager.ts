@@ -7,6 +7,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type {
+  LoadSessionResponse,
   NewSessionResponse,
   RequestPermissionRequest,
   RequestPermissionResponse,
@@ -23,6 +24,7 @@ import {
   AcpAgentError,
   type AgentPermissionOutcome,
   type AgentPermissionRequest,
+  type AgentResumeSupport,
   type AgentServerDefinition,
   type AgentSessionConfigOption,
   type AgentSessionEvent,
@@ -67,6 +69,8 @@ export interface AgentSessionView {
   workspaceDir: string;
   busy: boolean;
   createdAt: number;
+  /** Whether a later process can reopen this session, and how; see `resumeSession`. */
+  resumeSupport: AgentResumeSupport;
   /** Model choice and other session settings, as the agent advertised them. */
   configOptions: AgentSessionConfigOption[];
   /** The bounded event log, oldest first — enough to rebuild the transcript. */
@@ -79,6 +83,7 @@ interface SessionRecord {
   workspaceDir: string;
   busy: boolean;
   createdAt: number;
+  resumeSupport: AgentResumeSupport;
   /** Increments per turn; stale turn endings (a cancelled turn's grace timer) drop out. */
   turnSeq: number;
   modes: AgentModes | null;
@@ -158,29 +163,7 @@ export class CodingAgentManager {
   }
 
   async createSession(definitionId: string, workspaceDir: string): Promise<AgentSessionView> {
-    const definition = this.definitions.get(definitionId);
-    if (definition === undefined) {
-      throw new AcpAgentError(`unknown agent: ${definitionId}`);
-    }
-    if (!path.isAbsolute(workspaceDir)) {
-      throw new AcpAgentError("workspaceDir must be an absolute path.");
-    }
-    const stat = await fs.stat(workspaceDir).catch(() => undefined);
-    if (stat === undefined || !stat.isDirectory()) {
-      throw new AcpAgentError(`workspaceDir does not exist or is not a directory: ${workspaceDir}`);
-    }
-    // Spawn and handshake failures arrive as generic stream errors; the kernel's own
-    // vocabulary keeps them from surfacing as bare 500s, naming the command instead.
-    let connection: AcpConnection;
-    try {
-      connection = await this.connectionFor(definition);
-    } catch (error) {
-      throw error instanceof AcpAgentError
-        ? error
-        : new AcpAgentError(`the agent command could not be started: ${definition.command}`, {
-            cause: error,
-          });
-    }
+    const connection = await this.openConnection(definitionId, workspaceDir);
     let response: NewSessionResponse;
     try {
       response = await connection.newSession(workspaceDir);
@@ -189,35 +172,71 @@ export class CodingAgentManager {
         ? error
         : new AcpAgentError("the agent refused to open a session", { cause: error });
     }
-    const record: SessionRecord = {
-      sessionId: response.sessionId,
+    const record = this.newRecord(
+      response.sessionId,
       definitionId,
       workspaceDir,
-      busy: false,
-      createdAt: Date.now(),
-      turnSeq: 0,
-      modes:
-        response.modes !== undefined && response.modes !== null
-          ? {
-              currentModeId: response.modes.currentModeId,
-              modes: response.modes.availableModes.map((m) => ({ id: m.id, name: m.name })),
-            }
-          : null,
-      configOptions: configOptionsFromAcp(response.configOptions),
-      permissions: new Map(),
-      log: [],
-    };
+      connection.resumeSupport(),
+    );
     this.sessions.set(record.sessionId, record);
-    if (record.modes !== null) {
-      this.append(record, { type: "modes", sessionId: record.sessionId, modes: record.modes });
+    this.adoptSessionState(record, response);
+    return this.viewOf(record);
+  }
+
+  /**
+   * Reopen a session an earlier process started, by the id the agent gave it. The agent
+   * decides whether it can: `session/resume` is used when advertised, `session/load`
+   * otherwise, and an agent offering neither is refused rather than silently handed a
+   * fresh session that has forgotten everything. A session still open here is returned
+   * as it is.
+   */
+  async resumeSession(
+    definitionId: string,
+    workspaceDir: string,
+    sessionId: string,
+  ): Promise<AgentSessionView> {
+    const open = this.sessions.get(sessionId);
+    if (open !== undefined) {
+      if (open.definitionId !== definitionId) {
+        throw new AcpAgentError(`session ${sessionId} belongs to another agent`);
+      }
+      return this.viewOf(open);
     }
-    if (record.configOptions.length > 0) {
+    const connection = await this.openConnection(definitionId, workspaceDir);
+    const support = connection.resumeSupport();
+    if (support === "none") {
+      throw new AcpAgentError(
+        "this agent cannot reopen an earlier session; start a new session instead",
+      );
+    }
+    // Registered before the request: session/load replays the conversation as updates,
+    // which are routed by session id and would otherwise be dropped as unknown.
+    const record = this.newRecord(sessionId, definitionId, workspaceDir, support);
+    record.busy = true;
+    this.sessions.set(sessionId, record);
+    let response: LoadSessionResponse;
+    try {
+      response =
+        support === "resume"
+          ? await connection.resumeSession(sessionId, workspaceDir)
+          : await connection.loadSession(sessionId, workspaceDir);
+    } catch (error) {
+      this.sessions.delete(sessionId);
+      throw error instanceof AcpAgentError
+        ? error
+        : new AcpAgentError("the agent could not reopen that session", { cause: error });
+    } finally {
+      record.busy = false;
+    }
+    if (support === "resume") {
       this.append(record, {
-        type: "config_options",
-        sessionId: record.sessionId,
-        options: cloneConfigOptions(record.configOptions),
+        type: "notice",
+        sessionId,
+        message:
+          "Reopened an earlier session. Its earlier turns are not shown here, but the agent still has them.",
       });
     }
+    this.adoptSessionState(record, response);
     return this.viewOf(record);
   }
 
@@ -254,12 +273,26 @@ export class CodingAgentManager {
     }
   }
 
-  /** One turn; resolves after the turn's `turn_end` has been logged. */
-  async prompt(sessionId: string, text: string): Promise<void> {
+  /**
+   * One turn; resolves after the turn's `turn_end` has been logged. Aborting `signal`
+   * cancels the turn exactly as `cancel` does — the agent is asked to stop and the turn
+   * ends when it says so, or when the grace period runs out.
+   */
+  async prompt(
+    sessionId: string,
+    text: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<void> {
     const record = this.requireSession(sessionId);
     if (record.busy) throw new AcpAgentError("session busy");
     const connection = this.connections.get(record.definitionId);
     if (connection === undefined) throw new AcpAgentError("agent connection is closed");
+    const signal = options.signal;
+    if (signal?.aborted === true) {
+      throw new AcpAgentError("the turn was cancelled before it started");
+    }
+    const onAbort = () => void this.cancel(sessionId);
+    signal?.addEventListener("abort", onAbort, { once: true });
     record.busy = true;
     const seq = ++record.turnSeq;
     // The prompt is part of the transcript: logged before the turn streams so the log
@@ -277,6 +310,7 @@ export class CodingAgentManager {
           new AcpAgentError("the agent connection failed during the turn", { cause: error });
     } finally {
       record.busy = false;
+      signal?.removeEventListener("abort", onAbort);
     }
   }
 
@@ -389,6 +423,75 @@ export class CodingAgentManager {
     );
   }
 
+  /** Validate the definition and workspace, then reach (or start) its connection. */
+  private async openConnection(
+    definitionId: string,
+    workspaceDir: string,
+  ): Promise<AcpConnection> {
+    const definition = this.definitions.get(definitionId);
+    if (definition === undefined) {
+      throw new AcpAgentError(`unknown agent: ${definitionId}`);
+    }
+    if (!path.isAbsolute(workspaceDir)) {
+      throw new AcpAgentError("workspaceDir must be an absolute path.");
+    }
+    const stat = await fs.stat(workspaceDir).catch(() => undefined);
+    if (stat === undefined || !stat.isDirectory()) {
+      throw new AcpAgentError(`workspaceDir does not exist or is not a directory: ${workspaceDir}`);
+    }
+    // Spawn and handshake failures arrive as generic stream errors; the kernel's own
+    // vocabulary keeps them from surfacing as bare 500s, naming the command instead.
+    try {
+      return await this.connectionFor(definition);
+    } catch (error) {
+      throw error instanceof AcpAgentError
+        ? error
+        : new AcpAgentError(`the agent command could not be started: ${definition.command}`, {
+            cause: error,
+          });
+    }
+  }
+
+  private newRecord(
+    sessionId: string,
+    definitionId: string,
+    workspaceDir: string,
+    resumeSupport: AgentResumeSupport,
+  ): SessionRecord {
+    return {
+      sessionId,
+      definitionId,
+      workspaceDir,
+      busy: false,
+      createdAt: Date.now(),
+      resumeSupport,
+      turnSeq: 0,
+      modes: null,
+      configOptions: [],
+      permissions: new Map(),
+      log: [],
+    };
+  }
+
+  /** The modes and config options a session/new, load or resume answered with. */
+  private adoptSessionState(record: SessionRecord, response: LoadSessionResponse): void {
+    if (response.modes !== undefined && response.modes !== null) {
+      record.modes = {
+        currentModeId: response.modes.currentModeId,
+        modes: response.modes.availableModes.map((m) => ({ id: m.id, name: m.name })),
+      };
+      this.append(record, { type: "modes", sessionId: record.sessionId, modes: record.modes });
+    }
+    record.configOptions = configOptionsFromAcp(response.configOptions);
+    if (record.configOptions.length > 0) {
+      this.append(record, {
+        type: "config_options",
+        sessionId: record.sessionId,
+        options: cloneConfigOptions(record.configOptions),
+      });
+    }
+  }
+
   private requireSession(sessionId: string): SessionRecord {
     const record = this.sessions.get(sessionId);
     if (record === undefined) throw new AcpAgentError(`unknown session: ${sessionId}`);
@@ -402,6 +505,7 @@ export class CodingAgentManager {
       workspaceDir: record.workspaceDir,
       busy: record.busy,
       createdAt: record.createdAt,
+      resumeSupport: record.resumeSupport,
       configOptions: cloneConfigOptions(record.configOptions),
       events: [...record.log],
     };

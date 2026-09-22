@@ -21,6 +21,7 @@ export {
   type AgentLaunch,
 } from "./discovery.js";
 export { probeAgentOptions, type AgentProbeRequest } from "./probe.js";
+export { killProcessTree } from "./process-tree.js";
 export { resolveCommandPath } from "./resolve.js";
 export { sandboxedAgentEnv } from "./env.js";
 export {
@@ -30,6 +31,7 @@ export {
   type AgentPermissionOption,
   type AgentPermissionOutcome,
   type AgentPermissionRequest,
+  type AgentResumeSupport,
   type AgentServerDefinition,
   type AgentSessionConfigOption,
   type AgentSessionEvent,

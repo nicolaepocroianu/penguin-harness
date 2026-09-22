@@ -38,18 +38,53 @@ export class FakeCodingAgent {
   readonly cancelNotifications: string[] = [];
   readonly answeredPermissions: RequestPermissionResponse[] = [];
   readonly setConfigRequests: { configId: string; value: boolean | string }[] = [];
+  readonly reopenRequests: { method: "load" | "resume"; sessionId: string; cwd: string }[] = [];
   private configOptions: SessionConfigOption[] = [];
   setConfigOptionHandler: FakeSetConfigHandler | null = null;
 
-  constructor(options: { modes?: SessionModeState; configOptions?: SessionConfigOption[] } = {}) {
+  constructor(
+    options: {
+      modes?: SessionModeState;
+      configOptions?: SessionConfigOption[];
+      /** Which reopen method to advertise; `load` replays `history` before answering. */
+      reopen?: "resume" | "load" | "none";
+      history?: string[];
+    } = {},
+  ) {
     this.configOptions = options.configOptions ?? [];
+    const reopen = options.reopen ?? "none";
     this.app = agent({ name: "fake-agent" })
       .onConnect((conn) => {
         this.connection = conn;
       })
       .onRequest(methods.agent.initialize, () => ({
         protocolVersion: this.protocolVersionOverride ?? PROTOCOL_VERSION,
+        agentCapabilities: {
+          loadSession: reopen === "load",
+          ...(reopen === "resume" ? { sessionCapabilities: { resume: {} } } : {}),
+        },
       }))
+      .onRequest(methods.agent.session.load, async (ctx) => {
+        this.reopenRequests.push({
+          method: "load",
+          sessionId: ctx.params.sessionId,
+          cwd: ctx.params.cwd,
+        });
+        for (const text of options.history ?? []) await this.say(ctx.params.sessionId, text);
+        return {
+          ...(options.configOptions !== undefined ? { configOptions: options.configOptions } : {}),
+        };
+      })
+      .onRequest(methods.agent.session.resume, (ctx) => {
+        this.reopenRequests.push({
+          method: "resume",
+          sessionId: ctx.params.sessionId,
+          cwd: ctx.params.cwd,
+        });
+        return {
+          ...(options.configOptions !== undefined ? { configOptions: options.configOptions } : {}),
+        };
+      })
       .onRequest(methods.agent.session.new, () => ({
         sessionId: `sess-${++this.sessionSeq}`,
         ...(options.modes !== undefined ? { modes: options.modes } : {}),

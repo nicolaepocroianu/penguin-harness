@@ -442,6 +442,33 @@ describe("coding agents api", () => {
     expect(((await reread.json()) as CodingAgentSessionDetailResponse).events).toHaveLength(4);
   });
 
+  it("reopens an earlier session by id and continues it", async () => {
+    const res = await admin.post("/api/coding-agents/sessions/resume", {
+      agentId: "fake",
+      workspaceDir: workspace,
+      sessionId: "sess-from-an-earlier-run",
+    });
+    expect(res.status).toBe(201);
+    const { session } = (await res.json()) as { session: CodingAgentSessionInfo };
+    expect(session).toMatchObject({
+      sessionId: "sess-from-an-earlier-run",
+      agentId: "fake",
+      resumeSupport: "resume",
+    });
+    await admin.post(`/api/coding-agents/sessions/${session.sessionId}/prompt`, { text: "hi" });
+    const detail = await waitForTurnEnd(admin, session.sessionId);
+    expect(detail.events[0]).toMatchObject({ type: "notice" });
+    expect(detail.events.at(-1)).toMatchObject({ type: "turn_end", stopReason: "end_turn" });
+  });
+
+  it("requires the earlier session's own workspace to reopen it", async () => {
+    const res = await admin.post("/api/coding-agents/sessions/resume", {
+      agentId: "fake",
+      sessionId: "sess-from-an-earlier-run",
+    });
+    expect(res.status).toBe(400);
+  });
+
   it("downloads the transcript as a Markdown attachment in conversation order", async () => {
     const created = await admin.post("/api/coding-agents/sessions", {
       agentId: "fake",

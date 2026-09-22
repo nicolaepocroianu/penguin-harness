@@ -84,6 +84,13 @@ export interface AgentSessionConfigOption {
   options: { value: string; name: string }[];
 }
 
+/**
+ * How an agent can reopen an earlier session, as it advertised at `initialize`: `resume`
+ * continues without replaying history, `load` replays the conversation first, `none`
+ * means a session ends with its process.
+ */
+export type AgentResumeSupport = "resume" | "load" | "none";
+
 export type AgentStopReason =
   "end_turn" | "max_tokens" | "max_turn_requests" | "refusal" | "cancelled" | "failed";
 

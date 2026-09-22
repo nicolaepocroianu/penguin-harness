@@ -161,6 +161,25 @@ export function codingAgentsRoutes(deps: CodingAgentsRouteDeps): Hono<AppEnv> {
     return c.json({ session }, 201);
   });
 
+  // Reopen a session an earlier server process started. The workspace is required: the
+  // agent resolves the session's paths against it, and a temporary one would be empty.
+  app.post("/sessions/resume", async (c) => {
+    const body = await readJson(c);
+    const agentId = requireString(body, "agentId", { maxLen: 64, label: "agentId" });
+    const workspaceDir = requireString(body, "workspaceDir", {
+      maxLen: 1024,
+      label: "workspaceDir",
+    }).trim();
+    const sessionId = requireString(body, "sessionId", { maxLen: 200, label: "sessionId" });
+    let session;
+    try {
+      session = await deps.codingAgents.resumeSession(agentId, workspaceDir, sessionId);
+    } catch (error) {
+      rethrowKernelError(error);
+    }
+    return c.json({ session }, 201);
+  });
+
   app.get("/sessions/:sessionId", (c) => {
     const sessionId = requireSessionId(c);
     const detail = deps.codingAgents.sessionDetail(sessionId);

@@ -52,6 +52,30 @@ describe("agent discovery", () => {
     );
   });
 
+  it.each([
+    ["opencode", "opencode", ["acp"]],
+    ["copilot", "copilot", ["--acp"]],
+    ["cline", "cline", ["--acp"]],
+  ])("launches %s through its own ACP mode, with no adapter to install", async (id, cli, args) => {
+    await install(bin, cli);
+    const candidates = await discoverAgents({ env: env(), home });
+    expect(candidates.find((c) => c.recipeId === id)).toMatchObject({
+      detected: true,
+      setupHint: null,
+      launch: { args },
+    });
+  });
+
+  it("finds OpenCode in the directory its own installer uses, off PATH", async () => {
+    await install(path.join(home, ".opencode", "bin"), "opencode");
+    const candidates = await discoverAgents({ env: env(), home });
+    const opencode = candidates.find((c) => c.recipeId === "opencode");
+    expect(opencode?.detected).toBe(true);
+    expect(opencode?.launch?.command.toLowerCase()).toBe(
+      path.join(home, ".opencode", "bin", WIN ? "opencode.cmd" : "opencode").toLowerCase(),
+    );
+  });
+
   it("falls back to npx for an installed agent whose adapter is missing", async () => {
     await install(bin, "claude");
     await install(bin, "npx");

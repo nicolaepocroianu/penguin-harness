@@ -33,7 +33,12 @@ const app = agent({ name: "fake-agent-test" })
   .onConnect((conn) => {
     connection = conn;
   })
-  .onRequest(methods.agent.initialize, () => ({ protocolVersion: PROTOCOL_VERSION }))
+  .onRequest(methods.agent.initialize, () => ({
+    protocolVersion: PROTOCOL_VERSION,
+    agentCapabilities: { sessionCapabilities: { resume: {} } },
+  }))
+  // Any id reopens: the fixture keeps no history, which is what session/resume allows.
+  .onRequest(methods.agent.session.resume, () => ({ configOptions }))
   .onRequest(methods.agent.session.new, () => ({
     sessionId: `sess-${Date.now()}`,
     configOptions,

@@ -24,6 +24,7 @@ import {
   sandboxedAgentEnv,
   type AgentDiscoveryCandidate,
   type AgentPermissionOutcome,
+  type AgentResumeSupport,
   type AgentServerDefinition,
   type AgentSessionEvent,
 } from "@prismshadow/penguin-coding-agents";
@@ -189,6 +190,57 @@ export class CodingAgentService implements CodingAgents {
 
   async createSession(agentId: string, workspaceDir: string): Promise<CodingAgentSessionInfo> {
     const manager = this.getManager();
+    await this.ensureDefinition(agentId);
+    const home = agentHome(this.config.root, agentId);
+    await fs.mkdir(home, { recursive: true, mode: 0o700 });
+    // No explicit folder: the session gets its own temporary workspace, the same
+    // auto-create contract core Sessions have (the Web App's pickers treat empty as
+    // exactly this).
+    const auto = workspaceDir.trim() === "";
+    const dir = auto ? await this.createTempWorkspace(home) : workspaceDir.trim();
+    try {
+      const view = await manager.createSession(agentId, dir);
+      this.bridge(view.sessionId);
+      await this.applyRememberedModel(manager, agentId, view.sessionId);
+      return this.toInfo(view);
+    } catch (error) {
+      // A failed start (agent won't spawn, handshake refused) must not litter the
+      // agent home with the workspace it would have used.
+      if (auto) await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async resumeSession(
+    agentId: string,
+    workspaceDir: string,
+    sessionId: string,
+  ): Promise<CodingAgentSessionInfo> {
+    const manager = this.getManager();
+    await this.ensureDefinition(agentId);
+    await fs.mkdir(agentHome(this.config.root, agentId), { recursive: true, mode: 0o700 });
+    const alreadyOpen = manager.sessionView(sessionId) !== undefined;
+    const view = await manager.resumeSession(agentId, workspaceDir.trim(), sessionId);
+    // A reopened session keeps whatever model it had; the remembered one is for new ones.
+    if (!alreadyOpen) this.bridge(view.sessionId);
+    return this.toInfo(view);
+  }
+
+  /** Publish a session's kernel events to its channel; replay/resync belong to the hub. */
+  private bridge(sessionId: string): void {
+    const channel = this.channels.get(`coding-agent:${sessionId}`);
+    const unbridge = this.getManager().subscribe(sessionId, (event: AgentSessionEvent) => {
+      channel.publish(event, "coding_agent");
+    });
+    this.unbridges.set(sessionId, unbridge);
+  }
+
+  /**
+   * The definition a session start needs, auto-saving a detected-but-unsaved known agent
+   * on first use.
+   */
+  private async ensureDefinition(agentId: string): Promise<void> {
+    const manager = this.getManager();
     let definition = manager.listDefinitions().find((d) => d.id === agentId);
     if (definition === undefined) {
       // A detected-but-unsaved known agent is usable directly: the definition is
@@ -206,29 +258,6 @@ export class CodingAgentService implements CodingAgents {
         derived,
       ]);
       definition = derived;
-    }
-    const home = agentHome(this.config.root, agentId);
-    await fs.mkdir(home, { recursive: true, mode: 0o700 });
-    // No explicit folder: the session gets its own temporary workspace, the same
-    // auto-create contract core Sessions have (the Web App's pickers treat empty as
-    // exactly this).
-    const auto = workspaceDir.trim() === "";
-    const dir = auto ? await this.createTempWorkspace(home) : workspaceDir.trim();
-    try {
-      const view = await manager.createSession(agentId, dir);
-      const channel = this.channels.get(`coding-agent:${view.sessionId}`);
-      // Bridge kernel events into the channel hub: replay/resync then belong to the hub.
-      const unbridge = manager.subscribe(view.sessionId, (event: AgentSessionEvent) => {
-        channel.publish(event, "coding_agent");
-      });
-      this.unbridges.set(view.sessionId, unbridge);
-      await this.applyRememberedModel(manager, agentId, view.sessionId);
-      return this.toInfo(view);
-    } catch (error) {
-      // A failed start (agent won't spawn, handshake refused) must not litter the
-      // agent home with the workspace it would have used.
-      if (auto) await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
-      throw error;
     }
   }
 
@@ -467,6 +496,7 @@ export class CodingAgentService implements CodingAgents {
     workspaceDir: string;
     busy: boolean;
     createdAt: number;
+    resumeSupport: AgentResumeSupport;
   }): CodingAgentSessionInfo {
     const title = this.titles.get(view.sessionId);
     return {
@@ -475,6 +505,7 @@ export class CodingAgentService implements CodingAgents {
       workspaceDir: view.workspaceDir,
       busy: view.busy,
       createdAt: view.createdAt,
+      resumeSupport: view.resumeSupport,
       ...(title !== undefined ? { title } : {}),
     };
   }

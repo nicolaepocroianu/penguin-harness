@@ -20,10 +20,14 @@ function harness(options: {
   modes?: { currentModeId: string; availableModes: { id: string; name: string }[] };
   configOptions?: import("@agentclientprotocol/sdk").SessionConfigOption[];
   permissionTimeoutMs?: number;
+  reopen?: "resume" | "load" | "none";
+  history?: string[];
 }): Harness {
   const fake = new FakeCodingAgent({
     modes: options.modes,
     configOptions: options.configOptions,
+    reopen: options.reopen,
+    history: options.history,
   });
   const events: AgentSessionEvent[] = [];
   const manager = new CodingAgentManager({
@@ -258,6 +262,93 @@ describe("CodingAgentManager", () => {
       stopReason: "cancelled",
     });
     expect(view?.busy).toBe(false);
+  });
+
+  it("stops a turn when the caller's AbortSignal fires", async () => {
+    const { manager, fake } = harness({});
+    fake.promptHandler = async (_ctx, sessionId) => {
+      while (!fake.cancelNotifications.includes(sessionId)) {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      return "cancelled" as const;
+    };
+    const session = await manager.createSession("fake", workspace);
+    const controller = new AbortController();
+    const turn = manager.prompt(session.sessionId, "hi", { signal: controller.signal });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    controller.abort();
+    await turn;
+    expect(fake.cancelNotifications).toEqual([session.sessionId]);
+    expect(manager.sessionView(session.sessionId)?.events.at(-1)).toMatchObject({
+      type: "turn_end",
+      stopReason: "cancelled",
+    });
+  });
+
+  it("refuses to start a turn whose signal has already fired", async () => {
+    const { manager } = harness({});
+    const session = await manager.createSession("fake", workspace);
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      manager.prompt(session.sessionId, "hi", { signal: controller.signal }),
+    ).rejects.toBeInstanceOf(AcpAgentError);
+    // Nothing reached the transcript: the turn never began.
+    const events = manager.sessionView(session.sessionId)!.events;
+    expect(events.some((e) => e.type === "user_message")).toBe(false);
+    expect(manager.sessionView(session.sessionId)?.busy).toBe(false);
+  });
+
+  it("reopens an earlier session with session/resume and says its history is not shown", async () => {
+    const { manager } = harness({ reopen: "resume" });
+    const created = await manager.createSession("fake", workspace);
+    expect(created.resumeSupport).toBe("resume");
+    // A later process: a fresh manager knows nothing of the session but its id.
+    const later = harness({ reopen: "resume" });
+    const view = await later.manager.resumeSession("fake", workspace, "sess-old");
+    expect(later.fake.reopenRequests).toEqual([
+      { method: "resume", sessionId: "sess-old", cwd: workspace },
+    ]);
+    expect(view.sessionId).toBe("sess-old");
+    expect(view.events[0]).toMatchObject({ type: "notice", sessionId: "sess-old" });
+    await later.manager.prompt("sess-old", "carry on");
+    expect(later.manager.sessionView("sess-old")?.events.at(-1)).toEqual({
+      type: "turn_end",
+      sessionId: "sess-old",
+      stopReason: "end_turn",
+    });
+  });
+
+  it("reopens through session/load, keeping the replayed history in the transcript", async () => {
+    const { manager, fake } = harness({ reopen: "load", history: ["earlier answer"] });
+    const view = await manager.resumeSession("fake", workspace, "sess-old");
+    expect(fake.reopenRequests).toEqual([
+      { method: "load", sessionId: "sess-old", cwd: workspace },
+    ]);
+    expect(view.resumeSupport).toBe("load");
+    expect(view.events).toContainEqual({
+      type: "message_chunk",
+      sessionId: "sess-old",
+      delta: "earlier answer",
+    });
+    expect(view.events.some((e) => e.type === "notice")).toBe(false);
+  });
+
+  it("refuses to reopen a session with an agent that advertises neither method", async () => {
+    const { manager, fake } = harness({});
+    await expect(manager.resumeSession("fake", workspace, "sess-old")).rejects.toThrow(
+      /cannot reopen/,
+    );
+    expect(fake.reopenRequests).toEqual([]);
+    expect(manager.listSessions()).toEqual([]);
+  });
+
+  it("answers a reopen of a session that is still open without asking the agent again", async () => {
+    const { manager, fake } = harness({ reopen: "resume" });
+    const session = await manager.createSession("fake", workspace);
+    const view = await manager.resumeSession("fake", workspace, session.sessionId);
+    expect(view.sessionId).toBe(session.sessionId);
+    expect(fake.reopenRequests).toEqual([]);
   });
 
   it("keeps the definition's connection open across sessions and closes it with the last one", async () => {

@@ -113,6 +113,35 @@ const AGENT_RECIPES: AgentRecipe[] = [
       "Codex is installed; add its ACP adapter with: npm install -g @zed-industries/codex-acp",
     authProbe: { args: ["login", "status"] },
   },
+  // The three below speak ACP natively, so the CLI itself is the launch: an installed
+  // agent is always runnable and the adapter hint never applies.
+  {
+    id: "opencode",
+    title: "OpenCode",
+    homepageUrl: "https://github.com/sst/opencode",
+    detect: ["opencode"],
+    launch: [{ command: "opencode", args: ["acp"] }],
+    authHint: "Run `opencode auth login` once on the server machine for the provider you use.",
+    adapterHint: "Re-run this check after installing OpenCode.",
+  },
+  {
+    id: "copilot",
+    title: "GitHub Copilot CLI",
+    homepageUrl: "https://github.com/github/copilot-cli",
+    detect: ["copilot"],
+    launch: [{ command: "copilot", args: ["--acp"] }],
+    authHint: "Sign in once on the server machine with `copilot` and its /login command.",
+    adapterHint: "Re-run this check after installing the Copilot CLI.",
+  },
+  {
+    id: "cline",
+    title: "Cline",
+    homepageUrl: "https://github.com/cline/cline",
+    detect: ["cline"],
+    launch: [{ command: "cline", args: ["--acp"] }],
+    authHint: "Run `cline auth` once on the server machine.",
+    adapterHint: "Re-run this check after installing the Cline CLI.",
+  },
 ];
 
 /**
@@ -129,6 +158,9 @@ async function installDirCandidates(home: string, env: NodeJS.ProcessEnv): Promi
     ".asdf/shims",
     ".local/share/mise/shims",
     ".npm-global/bin",
+    // OpenCode's own installer puts its binary here and only edits shell profiles,
+    // which a server process never reads.
+    ".opencode/bin",
   ].map((p) => path.join(home, p));
   if (process.platform === "win32") {
     dirs.push(path.join(home, "AppData", "Roaming", "npm"));

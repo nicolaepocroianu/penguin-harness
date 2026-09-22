@@ -16,6 +16,7 @@ function detail(events: AgentSessionEvent[]): CodingAgentSessionDetailResponse {
     workspaceDir: "/tmp/ws",
     busy: false,
     createdAt: 1758500000000,
+    resumeSupport: "none",
     configOptions: [
       {
         id: "model",

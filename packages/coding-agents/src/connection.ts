@@ -17,9 +17,12 @@ import {
   type ClientConnection,
   type ContentBlock,
   type CreateElicitationResponse,
+  type InitializeResponse,
+  type LoadSessionResponse,
   type NewSessionResponse,
   type RequestPermissionRequest,
   type RequestPermissionResponse,
+  type ResumeSessionResponse,
   type SessionConfigOption,
   type SessionNotification,
   type StopReason,
@@ -28,8 +31,10 @@ import {
   type ToolCallStatus,
   type ToolKind,
 } from "@agentclientprotocol/sdk";
+import { killProcessTree } from "./process-tree.js";
 import {
   AcpAgentError,
+  type AgentResumeSupport,
   type AgentSessionConfigOption,
   type AgentSessionEvent,
   type AgentToolCall,
@@ -74,6 +79,8 @@ export class AcpConnection {
   private killTimerArmed = false;
   /** The spawn's own failure (ENOENT, EACCES, ...): the handshake then dies with a generic stream error that hides it. */
   private spawnError: Error | null = null;
+  /** What the agent advertised at `initialize`; null until the handshake completes. */
+  private capabilities: InitializeResponse["agentCapabilities"] | null = null;
 
   private constructor(
     private readonly conn: ClientConnection,
@@ -159,6 +166,18 @@ export class AcpConnection {
         `agent speaks ACP protocol ${info.protocolVersion}, not the supported ${PROTOCOL_VERSION}`,
       );
     }
+    this.capabilities = info.agentCapabilities ?? null;
+  }
+
+  /**
+   * How this agent can reopen an earlier session, from what it advertised. `session/resume`
+   * is preferred over `session/load`: both continue the conversation, but load replays the
+   * whole history as updates first, which costs a long transcript's worth of events.
+   */
+  resumeSupport(): AgentResumeSupport {
+    if (this.capabilities?.sessionCapabilities?.resume) return "resume";
+    if (this.capabilities?.loadSession === true) return "load";
+    return "none";
   }
 
   /**
@@ -187,6 +206,24 @@ export class AcpConnection {
 
   async newSession(cwd: string): Promise<NewSessionResponse> {
     return await this.conn.agent.request(methods.agent.session.new, {
+      cwd,
+      mcpServers: [],
+    });
+  }
+
+  /** Reopen an earlier session without its history replayed (`session/resume`). */
+  async resumeSession(sessionId: string, cwd: string): Promise<ResumeSessionResponse> {
+    return await this.conn.agent.request(methods.agent.session.resume, { sessionId, cwd });
+  }
+
+  /**
+   * Reopen an earlier session through `session/load`. The agent replays the conversation as
+   * ordinary `session/update` notifications before answering, so the caller must already
+   * route that session's events when it calls this.
+   */
+  async loadSession(sessionId: string, cwd: string): Promise<LoadSessionResponse> {
+    return await this.conn.agent.request(methods.agent.session.load, {
+      sessionId,
       cwd,
       mcpServers: [],
     });
@@ -250,21 +287,7 @@ export class AcpConnection {
   }
 
   private killTree(): void {
-    const proc = this.proc;
-    if (proc === undefined || proc.pid === undefined || proc.exitCode !== null) return;
-    if (process.platform === "win32") {
-      const killer = spawn("taskkill.exe", ["/PID", String(proc.pid), "/T", "/F"], {
-        windowsHide: true,
-        stdio: "ignore",
-      });
-      killer.on("error", () => proc.kill());
-    } else {
-      try {
-        process.kill(-proc.pid, "SIGKILL");
-      } catch {
-        // Already exited.
-      }
-    }
+    if (this.proc !== undefined) killProcessTree(this.proc);
   }
 }
 

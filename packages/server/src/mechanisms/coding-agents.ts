@@ -31,6 +31,15 @@ export abstract class CodingAgents extends Interface<{
   ): void;
   listSessions(): CodingAgentSessionInfo[];
   createSession(agentId: string, workspaceDir: string): Promise<CodingAgentSessionInfo>;
+  /**
+   * Reopen a session an earlier process started, in the workspace it ran in. Refused when
+   * the agent advertises no way to reopen one; a session still open is returned as is.
+   */
+  resumeSession(
+    agentId: string,
+    workspaceDir: string,
+    sessionId: string,
+  ): Promise<CodingAgentSessionInfo>;
   /** Set the session's display title (trimmed, max 120); empty clears it back to the default. */
   renameSession(sessionId: string, title: string): CodingAgentSessionInfo;
   sessionDetail(sessionId: string): CodingAgentSessionDetailResponse | undefined;
