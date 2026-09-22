@@ -29,3 +29,22 @@ reach the interface unexplained.
 A failed build's output travels with the reply even when a preview from an earlier build is
 still on disk. Reporting `ready` because stale output happens to exist is the quiet success
 this port is not allowed to produce.
+
+## The endpoints
+
+`GET .../sandbox/status` reports the preview state, and `GET .../sandbox/media/*` serves one
+file from the draft with range handling. The media route is a wildcard because a media path
+is nested — `images/en-US/cat.png` — and the path is validated by shape and then by where it
+lands, never trusted.
+
+A partial response reads exactly the planned window out of the file. Reading the whole file
+and slicing would put a multi-megabyte video in memory to answer a request for ten
+kilobytes of it.
+
+## Two more kernel rules, found by the generator
+
+- `@Use()` must name an **interface**, not a component. A sandbox that was only a component
+  is rejected: the interface is declared with `Interface<…>()` and the component
+  `implements` it.
+- A response carrying bytes needs `Opaque<"Uint8Array", Uint8Array>`, since the contract is
+  compared by name across the push boundary rather than expanded structurally.

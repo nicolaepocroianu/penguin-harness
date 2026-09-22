@@ -4,6 +4,7 @@ import { Hono as HonoApp } from "hono";
 import type { AppEnv } from "../auth/middleware.js";
 import type { Access } from "../mechanisms/projects.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
+import type { ActivitySandbox } from "./sandbox-service.js";
 import { findWafRoot } from "./waf-module.js";
 import { SPEECH_MODEL, SPEECH_VOICES } from "./audio.js";
 import { IMAGE_MODEL } from "./generated-image.js";
@@ -28,6 +29,7 @@ export class ActivityRoutes {
   @Use() private readonly access!: Access;
   @Use() private readonly activities!: ActivityAuthoring;
   @Use() private readonly generation!: ActivityGeneration;
+  @Use() private readonly sandbox!: ActivitySandbox;
   @Bind("activities") routes!: Hono<AppEnv>;
 
   setup() {
@@ -152,6 +154,33 @@ export class ActivityRoutes {
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
         ),
       );
+    });
+    app.get("/:activityId/sandbox/status", async (c) => {
+      return c.json(
+        await this.sandbox.status(requireValidId(c, "projectId"), pathParam(c, "activityId")),
+      );
+    });
+    // A wildcard, because a media path is nested: images/en-US/cat.png. The path is
+    // validated by shape and then by where it lands, never trusted as a path.
+    app.get("/:activityId/sandbox/media/*", async (c) => {
+      const prefix = `/${pathParam(c, "activityId")}/sandbox/media/`;
+      const url = new URL(c.req.url);
+      const at = url.pathname.indexOf(prefix);
+      const raw = at < 0 ? "" : url.pathname.slice(at + prefix.length);
+      const result = await this.sandbox.media(
+        requireValidId(c, "projectId"),
+        pathParam(c, "activityId"),
+        raw,
+        {
+          range: c.req.header("range") ?? null,
+          ifRange: c.req.header("if-range") ?? null,
+          ifNoneMatch: c.req.header("if-none-match") ?? null,
+        },
+      );
+      return new Response(result.body ?? null, {
+        status: result.status,
+        headers: result.headers,
+      });
     });
     app.get("/:activityId/media-image", async (c) => {
       const projectId = requireValidId(c, "projectId");
