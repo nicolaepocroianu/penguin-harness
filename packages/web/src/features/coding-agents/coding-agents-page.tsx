@@ -4,7 +4,7 @@
  * text and thinking streams, tool-call cards, permission asks, mode switches.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigationType } from "react-router";
 import type {
   CodingAgentConfigOption,
   CodingAgentDiscoveryCandidate,
@@ -78,17 +78,37 @@ interface TextBlock {
   text: string;
 }
 
+/**
+ * The session id a route visit should select, if any. A pushed (or replaced) location
+ * naming a session wins even when the page is already mounted — that is how a Quick
+ * Switcher pick reaches an open page, whose useState initializer never re-runs.
+ * Back/forward pops return null so history navigation does not yank the selection.
+ */
+export function selectSessionFromRoute(
+  requested: unknown,
+  navigationType: "PUSH" | "REPLACE" | "POP",
+): string | null {
+  if (navigationType === "POP") return null;
+  return typeof requested === "string" && requested !== "" ? requested : null;
+}
+
 export function CodingAgentsPage() {
   const { user } = useAuth();
   const isAdmin = user?.isAdmin === true;
   const { agents, sessions, loading, loadError, reload } = useCodingAgents();
   // Route state names a session to open (the Quick Switcher's session entries navigate
-  // here with one): read once as the initial selection, so back/forward does not re-select.
+  // here with one). The initializer covers a first mount; the effect below re-applies
+  // fresh navigations while the page is already open. Back/forward pops never re-select.
   const location = useLocation();
+  const navigationType = useNavigationType();
   const requestedSessionId = (location.state as { sessionId?: unknown } | null)?.sessionId ?? null;
   const [selectedId, setSelectedId] = useState<string | null>(() =>
     typeof requestedSessionId === "string" && requestedSessionId !== "" ? requestedSessionId : null,
   );
+  useEffect(() => {
+    const next = selectSessionFromRoute(requestedSessionId, navigationType);
+    if (next !== null) setSelectedId(next);
+  }, [navigationType, requestedSessionId]);
   const [addOpen, setAddOpen] = useState(false);
   const [launchFor, setLaunchFor] = useState<string | null>(null);
   const [removing, setRemoving] = useState<CodingAgentServerInfo | null>(null);
