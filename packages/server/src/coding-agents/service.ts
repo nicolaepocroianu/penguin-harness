@@ -67,6 +67,11 @@ export class CodingAgentService implements CodingAgents {
 
   private manager: CodingAgentManager | null = null;
   private readonly unbridges = new Map<string, () => void>();
+  private discoveryCache: {
+    at: number;
+    candidates: AgentDiscoveryCandidate[];
+    agentModels: Record<string, CodingAgentConfigOption[]>;
+  } | null = null;
   /** User-set display names, keyed by session id; in-memory like the sessions themselves. */
   private readonly titles = new Map<string, string>();
 
