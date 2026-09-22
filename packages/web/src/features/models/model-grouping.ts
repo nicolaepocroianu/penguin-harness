@@ -128,6 +128,27 @@ export function groupModelRows<T extends ModelRowLike>(
 }
 
 /**
+ * How a group's models are paid for: a subscription is a signed-in account (the catalog marks
+ * these with a device sign-in flow — ChatGPT/Codex, GitHub Copilot); everything else, custom
+ * and user-defined groups included, is billed against an API key.
+ */
+export type ModelAccessFilter = "all" | "apiKey" | "subscription";
+
+export function isSubscriptionProvider(provider: ModelProviderInfo): boolean {
+  return provider.deviceOAuth === true;
+}
+
+/** Narrows an already-grouped list to one billing kind; "all" is the identity. */
+export function filterGroupsByAccess<T extends ModelRowLike>(
+  groups: ProviderGroup<T>[],
+  access: ModelAccessFilter,
+): ProviderGroup<T>[] {
+  if (access === "all") return groups;
+  const wantSubscription = access === "subscription";
+  return groups.filter((g) => isSubscriptionProvider(g.provider) === wantSubscription);
+}
+
+/**
  * Flattens the library grouping into one ordered list (the chat model dropdown uses this):
  * rows ordered exactly as the model page shows them — built-in provider groups in
  * MODEL_PROVIDERS order (custom last), then user-defined groups, with `groupOrder` applied

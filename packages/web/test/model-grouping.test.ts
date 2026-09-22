@@ -22,6 +22,7 @@ import {
 } from "@prismshadow/penguin-core/model-catalog";
 import {
   discountedPrice,
+  filterGroupsByAccess,
   groupModelRows,
   hasConfiguredKey,
   isFreeModel,
@@ -559,5 +560,33 @@ describe("promotedPricing", () => {
     expect(promotedPricing(list, undefined)).toBe(list);
     expect(promotedPricing(list, 1)).toBe(list);
     expect(promotedPricing(undefined, 0.25)).toBeUndefined();
+  });
+});
+
+describe("filterGroupsByAccess", () => {
+  const mixed: ModelRowLike[] = [
+    { provider: "anthropic", modelId: "claude-sonnet-4-6" },
+    { provider: "chatgpt-codex", modelId: "gpt-5-codex" },
+    { provider: "github-copilot", modelId: "gpt-4.1" },
+    { provider: "my-gateway", modelId: "llama" },
+  ];
+  const ids = (access: "all" | "apiKey" | "subscription") =>
+    filterGroupsByAccess(groupModelRows(mixed, ""), access).map((g) => g.provider.id);
+
+  it("keeps every group for all", () => {
+    expect(ids("all")).toEqual(groupModelRows(mixed, "").map((g) => g.provider.id));
+  });
+
+  it("keeps only device sign-in providers for subscription", () => {
+    expect(ids("subscription").sort()).toEqual(["chatgpt-codex", "github-copilot"]);
+  });
+
+  it("keeps key-billed, custom and user-defined groups for apiKey", () => {
+    const apiKey = ids("apiKey");
+    expect(apiKey).toContain("anthropic");
+    expect(apiKey).toContain("custom");
+    expect(apiKey).toContain("my-gateway");
+    expect(apiKey).not.toContain("chatgpt-codex");
+    expect(apiKey).not.toContain("github-copilot");
   });
 });

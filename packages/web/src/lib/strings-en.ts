@@ -1566,6 +1566,10 @@ export const en: Strings = {
     getModelIds: "Get model IDs",
     groupKeyApplied: (n: number): string => `API key set for ${n} models`,
     oauthKey: "Authorize key",
+    accessAll: "All",
+    accessApiKey: "API keys",
+    accessSubscription: "Subscriptions",
+    noAccessResults: "No models of this kind yet",
     copilotConnect: "Connect Copilot",
     chatgptConnect: "Connect ChatGPT",
     chatgptDisconnect: "Disconnect ChatGPT",
@@ -1579,6 +1583,8 @@ export const en: Strings = {
       "ChatGPT models could not be discovered or the credentials could not be saved. Reconnect and try again.",
     chatgptApplied: (count: number) => `Connected ChatGPT and imported ${count} models.`,
     copilotDisconnect: "Disconnect Copilot",
+    copilotDisconnectBody:
+      "Remove the saved Copilot credentials for this project. Environment credentials, if configured, still apply.",
     copilotDisconnected:
       "Stored Copilot credentials cleared. Environment credentials, if configured, still apply.",
     copilotIntro:

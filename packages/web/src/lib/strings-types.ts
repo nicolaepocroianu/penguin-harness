@@ -1027,6 +1027,10 @@ export type Strings = {
     getModelIds: string;
     groupKeyApplied: (n: number) => string;
     oauthKey: string;
+    accessAll: string;
+    accessApiKey: string;
+    accessSubscription: string;
+    noAccessResults: string;
     copilotConnect: string;
     chatgptConnect: string;
     chatgptDisconnect: string;
@@ -1037,6 +1041,7 @@ export type Strings = {
     chatgptApplyFailed: string;
     chatgptApplied: (count: number) => string;
     copilotDisconnect: string;
+    copilotDisconnectBody: string;
     copilotDisconnected: string;
     copilotIntro: string;
     copilotCode: string;

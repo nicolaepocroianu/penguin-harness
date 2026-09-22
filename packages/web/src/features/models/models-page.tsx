@@ -60,6 +60,7 @@ import { useAuth } from "../../state/auth";
 import { USD_TO_CNY, useTheme } from "../../state/theme";
 import type { Currency } from "../../state/theme";
 import { Button } from "../../components/ui/button";
+import { Tabs } from "../../components/ui/tabs";
 import { Input } from "../../components/ui/input";
 import { FieldError, FieldLabel } from "../../components/ui/field";
 import { PasswordInput } from "../../components/ui/password-input";
@@ -93,6 +94,8 @@ import type { FastModeProtocol, ModelProviderInfo } from "@prismshadow/penguin-c
 import {
   allGroupKeys,
   discountedPrice,
+  filterGroupsByAccess,
+  isSubscriptionProvider,
   fractionOff,
   groupModelRows,
   hasConfiguredKey,
@@ -100,6 +103,7 @@ import {
   sameModelRef,
   userProviderInfo,
 } from "./model-grouping";
+import type { ModelAccessFilter } from "./model-grouping";
 import {
   commitModelGroupOrder,
   loadModelGroupOrder,
@@ -701,6 +705,8 @@ export function ModelsPage() {
   /** Target group (provider id) for adding a model: taken from the group header entry point, falling back to custom when empty. */
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  /** Billing-kind filter: API-key groups vs signed-in subscriptions (Codex, Copilot). */
+  const [access, setAccess] = useState<ModelAccessFilter>("all");
   /**
    * Expanded vendor groups — hydrated from this Project's persisted set (DeepSeek-only
    * on a first visit; every other group, including user-defined ones arriving with the
@@ -843,8 +849,8 @@ export function ModelsPage() {
   };
 
   const groups = useMemo(
-    () => (rows ? groupModelRows(rows, query, groupOrder) : []),
-    [rows, query, groupOrder],
+    () => (rows ? filterGroupsByAccess(groupModelRows(rows, query, groupOrder), access) : []),
+    [rows, query, groupOrder, access],
   );
   /**
    * Every group the library could show, empty built-ins included — the sequence a drop is
@@ -1177,6 +1183,19 @@ export function ModelsPage() {
               onDismiss={() => dismissTodo(projectId, "models", todo.signature)}
             />
           )}
+          {rows !== null && rows.length > 0 && (
+            <div className="mt-3">
+              <Tabs
+                items={[
+                  { key: "all", label: S.models.accessAll },
+                  { key: "apiKey", label: S.models.accessApiKey },
+                  { key: "subscription", label: S.models.accessSubscription },
+                ]}
+                active={access}
+                onChange={setAccess}
+              />
+            </div>
+          )}
         </div>
 
         {rows === null ? (
@@ -1189,7 +1208,7 @@ export function ModelsPage() {
             }
           />
         ) : groups.length === 0 ? (
-          <EmptyState title={S.models.noSearchResults} />
+          <EmptyState title={searching ? S.models.noSearchResults : S.models.noAccessResults} />
         ) : (
           <div className="space-y-3">
             {groups.map((group) => {
@@ -1198,6 +1217,15 @@ export function ModelsPage() {
               const platformAuthorized =
                 group.provider.id === PENGUIN_GO_PROVIDER_ID &&
                 group.rows.some((row) => Boolean(row.credential?.apiKeyMasked));
+              // A signed-in subscription stores its credential on the rows like a key does, so
+              // the same masked value says it is connected: offer Disconnect, not Connect again.
+              const subscriptionConnected =
+                isSubscriptionProvider(group.provider) &&
+                group.rows.some((row) => Boolean(row.credential?.apiKeyMasked));
+              const disconnectLabel =
+                group.provider.id === "chatgpt-codex"
+                  ? S.models.chatgptDisconnect
+                  : S.models.copilotDisconnect;
               return (
                 // The drop indicator is drawn against the WHOLE group, so "below" reads as
                 // after this group and its model cards rather than between the header and
@@ -1314,6 +1342,7 @@ export function ModelsPage() {
                         </Button>
                       )}
                       {isOwner &&
+                        !subscriptionConnected &&
                         (group.provider.oauth ||
                           group.provider.deviceOAuth ||
                           group.provider.id === PENGUIN_GO_PROVIDER_ID) && (
@@ -1347,31 +1376,42 @@ export function ModelsPage() {
                             </span>
                           </Button>
                         )}
-                      {isOwner && group.provider.id !== "custom" && (
-                        // Bulk key action: icon-only while this row is narrow, labeled from
-                        // @3xl up. The button itself never disappears — aria-label + title
-                        // carry the name while the visible label is dropped.
+                      {isOwner && subscriptionConnected && (
                         <Button
                           size="sm"
                           variant="ghost"
                           className="shrink-0"
                           disabled={busy}
-                          aria-label={`${group.provider.id === "chatgpt-codex" ? S.models.chatgptDisconnect : S.models.groupApiKey} ${group.provider.label}`}
-                          title={
-                            group.provider.id === "chatgpt-codex"
-                              ? S.models.chatgptDisconnect
-                              : S.models.groupApiKey
-                          }
+                          aria-label={`${disconnectLabel} ${group.provider.label}`}
+                          title={disconnectLabel}
                           onClick={() => setGroupKeyFor(group.provider.id)}
                         >
                           <GlyphIcon d={KEY_ICON} size={ICON_SIZE.groupHeaderAction} />
-                          <span className="hidden @3xl:inline">
-                            {group.provider.id === "chatgpt-codex"
-                              ? S.models.chatgptDisconnect
-                              : S.models.groupApiKey}
-                          </span>
+                          <span className="hidden @3xl:inline">{disconnectLabel}</span>
                         </Button>
                       )}
+                      {isOwner &&
+                        group.provider.id !== "custom" &&
+                        !subscriptionConnected &&
+                        group.provider.id !== "chatgpt-codex" && (
+                          // Bulk key action: icon-only while this row is narrow, labeled from
+                          // @3xl up. The button itself never disappears — aria-label + title
+                          // carry the name while the visible label is dropped. A connected
+                          // subscription swaps it for Disconnect above; ChatGPT takes no
+                          // pasted key at all, only its sign-in.
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="shrink-0"
+                            disabled={busy}
+                            aria-label={`${S.models.groupApiKey} ${group.provider.label}`}
+                            title={S.models.groupApiKey}
+                            onClick={() => setGroupKeyFor(group.provider.id)}
+                          >
+                            <GlyphIcon d={KEY_ICON} size={ICON_SIZE.groupHeaderAction} />
+                            <span className="hidden @3xl:inline">{S.models.groupApiKey}</span>
+                          </Button>
+                        )}
                       {isOwner && (
                         <Button
                           size="sm"
@@ -1502,6 +1542,9 @@ export function ModelsPage() {
             MODEL_PROVIDERS.find((p) => p.id === groupKeyFor) ?? userProviderInfo(groupKeyFor)
           }
           count={rows.filter((r) => r.provider === groupKeyFor).length}
+          connected={rows.some(
+            (r) => r.provider === groupKeyFor && Boolean(r.credential?.apiKeyMasked),
+          )}
           detectedEnvKeys={envKeysDetected}
           onClose={() => setGroupKeyFor(null)}
           onSubmit={(key) => {
@@ -3713,23 +3756,28 @@ function ModelDialog({
 function GroupKeyDialog({
   provider,
   count,
+  connected,
   detectedEnvKeys,
   onClose,
   onSubmit,
 }: {
   provider: ModelProviderInfo;
   count: number;
+  /** A signed-in subscription: the dialog only confirms the disconnect. */
+  connected: boolean;
   /** Env-fallback variables the server reported a value for (see detectedEnvKeys). */
   detectedEnvKeys: ReadonlySet<string>;
   onClose: () => void;
   onSubmit: (apiKey: string) => void;
 }) {
   const [key, setKey] = useState("");
-  if (provider.id === "chatgpt-codex")
+  if (provider.id === "chatgpt-codex" || (provider.deviceOAuth && connected)) {
+    const chatgpt = provider.id === "chatgpt-codex";
+    const label = chatgpt ? S.models.chatgptDisconnect : S.models.copilotDisconnect;
     return (
       <Modal
         open
-        title={S.models.chatgptDisconnect}
+        title={label}
         onClose={onClose}
         footer={
           <>
@@ -3737,14 +3785,17 @@ function GroupKeyDialog({
               {S.common.cancel}
             </Button>
             <Button size="sm" onClick={() => onSubmit("")}>
-              {S.models.chatgptDisconnect}
+              {label}
             </Button>
           </>
         }
       >
-        <p className="text-sm text-gray-600 dark:text-gray-400">{S.models.chatgptDisconnectBody}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          {chatgpt ? S.models.chatgptDisconnectBody : S.models.copilotDisconnectBody}
+        </p>
       </Modal>
     );
+  }
   return (
     <Modal
       open
