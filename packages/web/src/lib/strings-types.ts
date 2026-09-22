@@ -313,6 +313,17 @@ export type Strings = {
       handbook: string;
     };
   };
+  quickSwitcher: {
+    title: string;
+    placeholder: string;
+    recentsSection: string;
+    pagesSection: string;
+    loading: string;
+    noMatches: string;
+    navigateHint: string;
+    openHint: string;
+    closeHint: string;
+  };
   machines: {
     pageTitle: string;
     pageDesc: string;

@@ -33,6 +33,7 @@ import {
   parseOrgKey,
 } from "../../features/company/company-nav";
 import { NEW_CHAT_ICON, Sidebar } from "./sidebar";
+import { QuickSwitcherPalette } from "./quick-switcher";
 import { UserMenu } from "./user-menu";
 import { DRAFT_SESSION_ID } from "../../features/chat/chat-page";
 import { prepareNewChatDraft } from "../../features/chat/new-chat";
@@ -353,6 +354,30 @@ function CollapsedRail({ onExpand }: { onExpand: () => void }) {
 
 export function AppLayout() {
   const { user, desktopMode } = useAuth();
+  // Quick Switcher (Ctrl/Cmd+K): one document-level listener for the whole shell; the
+  // palette itself captures keys while open, so typing into its input is not a repeat
+  // toggle. Repeats ignored — holding the chord must not flicker it. The docked terminal
+  // keeps Ctrl+K for the shell (^K, kill line): xterm's helper textarea sits inside the
+  // widget's own DOM, and a palette popping out of a keystroke sent to a shell is worse
+  // than no palette there.
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        !e.altKey &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === "k" &&
+        !(e.target instanceof Element && e.target.closest(".xterm"))
+      ) {
+        e.preventDefault();
+        setSwitcherOpen((v) => !v);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
   // The docks belong to the conversation they were arranged in, so switching Sessions
   // switches the arrangement with it (dock-state.ts). The draft page's route id ("new" /
   // a parked draft id) is a scope of its own, handed to the Session the first send
@@ -523,6 +548,9 @@ export function AppLayout() {
       {/* The software-update modal, opened from the sidebar's update row and the draft
           page's version badge alike; mounted here so it outlives both. */}
       <UpdateModal />
+      {/* Quick Switcher: mounted only while open, so its agents/sessions fetch fires on
+          open rather than on app boot. */}
+      {switcherOpen && <QuickSwitcherPalette onClose={() => setSwitcherOpen(false)} />}
       <ChangePasswordDialog
         open={changePasswordOpen}
         onClose={() => setChangePasswordOpen(false)}

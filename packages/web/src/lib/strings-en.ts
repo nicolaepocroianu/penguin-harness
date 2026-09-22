@@ -384,6 +384,20 @@ export const en: Strings = {
     },
   },
 
+  /** Quick Switcher (Ctrl/Cmd+K): the keyboard palette for jumping to pages, coding agents and their sessions. */
+  quickSwitcher: {
+    title: "Quick switcher",
+    placeholder: "Search pages, agents, and sessions…",
+    recentsSection: "Recent",
+    pagesSection: "Pages",
+    loading: "Loading agents and sessions…",
+    noMatches: "No matches.",
+    // Footer key hints: the word follows its key.
+    navigateHint: "Navigate",
+    openHint: "Open",
+    closeHint: "Close",
+  },
+
   /** Machines page: the server's own ssh hosts, and installing this build on one. */
   machines: {
     pageTitle: "Machines",

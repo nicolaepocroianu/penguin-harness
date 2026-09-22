@@ -4,6 +4,7 @@
  * text and thinking streams, tool-call cards, permission asks, mode switches.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router";
 import type {
   CodingAgentConfigOption,
   CodingAgentDiscoveryCandidate,
@@ -81,7 +82,13 @@ export function CodingAgentsPage() {
   const { user } = useAuth();
   const isAdmin = user?.isAdmin === true;
   const { agents, sessions, loading, loadError, reload } = useCodingAgents();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Route state names a session to open (the Quick Switcher's session entries navigate
+  // here with one): read once as the initial selection, so back/forward does not re-select.
+  const location = useLocation();
+  const requestedSessionId = (location.state as { sessionId?: unknown } | null)?.sessionId ?? null;
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    typeof requestedSessionId === "string" && requestedSessionId !== "" ? requestedSessionId : null,
+  );
   const [addOpen, setAddOpen] = useState(false);
   const [launchFor, setLaunchFor] = useState<string | null>(null);
   const [removing, setRemoving] = useState<CodingAgentServerInfo | null>(null);
@@ -394,12 +401,8 @@ function SessionView({
 
   return (
     <div className="flex max-h-[70vh] flex-col rounded-md border border-gray-200 dark:border-gray-800">
-      <div
-        className="flex min-w-0 items-center gap-1.5 border-b border-gray-100 px-3 py-2 dark:border-gray-800"
-      >
-        <span
-          className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-gray-100"
-        >
+      <div className="flex min-w-0 items-center gap-1.5 border-b border-gray-100 px-3 py-2 dark:border-gray-800">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
           {sessionTitle}
         </span>
         {session !== null ? (
@@ -598,12 +601,7 @@ function RenameSessionModal({
       }
     >
       <Field label={S.codingAgents.renameLabel} hint={S.codingAgents.renameHint}>
-        <Input
-          size="sm"
-          maxLength={120}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
+        <Input size="sm" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} />
       </Field>
     </Modal>
   );
