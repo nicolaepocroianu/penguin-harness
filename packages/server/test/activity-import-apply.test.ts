@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { activitySpec } from "./activity-fixtures.js";
 import { mapImport, type SourceProduct, type SourceRef } from "../src/activities/import-mapping.js";
 import {
   applyImport,
@@ -22,7 +23,7 @@ const ref = (refNum: number, overrides: Partial<SourceRef> = {}): SourceRef => (
   title: `Sight Words ${refNum}`,
   displayName: null,
   stable: false,
-  spec: { id: "sight-words", scenes: [] },
+  spec: { ...activitySpec },
   manifest: { assets: { "en-US": [] } },
   description: "Practice sight words.",
   languages: ["en-US"],
@@ -210,6 +211,23 @@ describe("when something refuses", () => {
     const outcome = await applyImport(mapImport(product(), [ref(1), ref(2)]), target);
     expect(outcome.abandoned).toBe(false);
     expect(outcome.created).toEqual([2]);
+  });
+});
+
+describe("a ref that exists but could not be finished", () => {
+  it("is created, reported apart from a failure, and not called complete", async () => {
+    const { target } = fakeTarget();
+    const failing = {
+      ...target,
+      setSpec: async () => {
+        throw new Error("spec_invalid");
+      },
+    };
+    const outcome = await applyImport(mapImport(product(), [ref(1)]), failing);
+    expect(outcome.created).toEqual([1]);
+    expect(outcome.failed).toEqual([]);
+    expect(outcome.partial).toEqual([{ refNum: 1, reason: "spec_invalid" }]);
+    expect(describeOutcome(outcome, "sight-words")).toContain("exists but was not finished");
   });
 });
 

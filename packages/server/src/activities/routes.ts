@@ -49,6 +49,21 @@ export class ActivityRoutes {
       );
       return c.json({ collectionId: activities[0]?.collectionId ?? null, activities });
     });
+    app.get("/import-sources", async (c) => {
+      this.access.requireProjectOwner(c.var.user.userId, requireValidId(c, "projectId"));
+      return c.json(await this.activities.availableImports());
+    });
+    app.post("/import", async (c) => {
+      const body = await readJson(c);
+      return c.json(
+        await this.activities.importFromLoom(
+          requireValidId(c, "projectId"),
+          requireString(body, "moduleFolder"),
+          requireString(body, "productCode"),
+          optionalString(body, "collectionId"),
+        ),
+      );
+    });
     app.get("/module-setup", async (c) => {
       this.access.requireProjectOwner(c.var.user.userId, requireValidId(c, "projectId"));
       return c.json({ wafRoot: await findWafRoot() });
