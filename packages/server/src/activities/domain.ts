@@ -18,14 +18,61 @@ export interface CollectionManifest {
   updatedAt: string;
 }
 
+/**
+ * A product owns the module code; its refs are variations that share it.
+ *
+ * Loom expresses this as a directory holding many refs, one of them canonical and the
+ * only one allowed to change the shared module. Three generation stages are gated on that
+ * rule, so the canonical ref has to be answerable, which a flat (productCode, refNum) row
+ * could not do.
+ */
+export interface ActivityProduct {
+  productId: string;
+  projectId: string;
+  collectionId: string;
+  productCode: string;
+  /** Defaults to `waf-module-<productCode>`; one folder may host several products. */
+  moduleFolder: string;
+  /** The ref that owns the module code; null only before the product has any ref. */
+  canonicalRefNum: number | null;
+  activityType: "standard" | "book";
+  bookMode: "decodable" | "readAlong" | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ActivityRecord extends ActivityAddress {
   id: string;
   collectionId: string;
+  /** The product this ref belongs to; null only for rows predating the product level. */
+  productId: string | null;
   title: string;
+  /** What an author calls this ref. The product code and number stay the address. */
+  displayName: string | null;
+  /** A stable ref is one others may build against, so renumbering it is refused. */
+  stable: boolean;
   activityType: "standard" | "book";
   createdAt: string;
   updatedAt: string;
   archived: boolean;
+}
+
+/** The module folder a product uses unless one was chosen for it. */
+export function defaultModuleFolder(productCode: string): string {
+  return `waf-module-${productCode}`;
+}
+
+export const MODULE_FOLDER_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?$/;
+
+export function normalizeModuleFolder(value: unknown, productCode: string): string {
+  const folder = String(value ?? "").trim();
+  if (!folder) return defaultModuleFolder(productCode);
+  if (!MODULE_FOLDER_PATTERN.test(folder)) {
+    throw new Error(
+      "moduleFolder must be a safe path segment containing only letters, numbers, dots, underscores, or hyphens.",
+    );
+  }
+  return folder;
 }
 
 export interface ActivityDraft {
