@@ -132,7 +132,7 @@ export function renderTranscriptMarkdown(input: {
 function lastModes(events: CodingAgentEvent[]): AgentModes | null {
   for (let i = events.length - 1; i >= 0; i--) {
     const event = events[i];
-    if (event.type === "modes") return event.modes;
+    if (event !== undefined && event.type === "modes") return event.modes;
   }
   return null;
 }

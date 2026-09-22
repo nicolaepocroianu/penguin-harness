@@ -93,13 +93,12 @@ describe("renderTranscriptMarkdown", () => {
         },
       ]),
     });
-    const toolAt = doc.indexOf("- Read a.ts — in_progress");
+    const toolAt = doc.indexOf("- Read a.ts — completed");
     const textAt = doc.indexOf("reading");
     expect(toolAt).toBeGreaterThan(0);
     expect(textAt).toBeGreaterThan(toolAt);
-    expect(doc).toContain("- Read a.ts — completed");
     expect(doc).not.toContain("in_progress");
-    expect(doc.indexOf("- Read a.ts — completed")).toBeLessThan(textAt);
+    expect(doc.match(/Read a\.ts/g)).toHaveLength(1);
   });
 
   it("names the model's display value and skips mode bookkeeping when no modes exist", () => {
