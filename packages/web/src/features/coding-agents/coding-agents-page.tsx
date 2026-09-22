@@ -80,6 +80,21 @@ interface TextBlock {
   text: string;
 }
 
+/** One card on the screen: a known recipe probed on the server, or a saved custom agent. */
+interface AgentCardModel {
+  key: string;
+  agentId: string;
+  title: string;
+  commandLine: string;
+  saved: boolean;
+  version?: string;
+  authStatus?: "ok" | "missing" | "unknown";
+  setupHint?: string | null;
+  homepageUrl?: string;
+  models?: CodingAgentConfigOption[];
+  rememberedModel?: { configId: string; value: boolean | string; name?: string } | null;
+}
+
 /**
  * The session id a route visit should select, if any. A pushed (or replaced) location
  * naming a session wins even when the page is already mounted — that is how a Quick
