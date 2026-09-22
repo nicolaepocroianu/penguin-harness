@@ -10,7 +10,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   CodingAgentDiscoveryResponse,
   CodingAgentSessionDetailResponse,
@@ -83,14 +83,18 @@ describe("coding agents api", () => {
   });
 
   // Shape-only assertions: what the machine really has installed must not decide the test.
-  it("probes the server machine for known agents (admin-only)", async () => {
-    expect((await member.get("/api/coding-agents/discover")).status).toBe(403);
+  // The cached read is what the card view is built from, so it is any-user; the live
+  // refresh below stays admin-only.
+  it("probes the server machine for known agents (any user, cached)", async () => {
+    expect((await member.get("/api/coding-agents/discover")).status).toBe(200);
     const res = await admin.get("/api/coding-agents/discover");
     expect(res.status).toBe(200);
     const body = (await res.json()) as CodingAgentDiscoveryResponse;
     expect(body.candidates.map((c) => c.recipeId)).toEqual(
       expect.arrayContaining(["gemini", "claude", "codex"]),
     );
+    // The cheap read executes nothing, so it carries no probed options.
+    expect(body.agentModels).toEqual({});
     for (const candidate of body.candidates) {
       expect(candidate.homepageUrl).toMatch(/^https:\/\//);
       expect(candidate.authHint).not.toBe("");
@@ -111,6 +115,137 @@ describe("coding agents api", () => {
     const byRecipe = new Map(body.candidates.map((c) => [c.recipeId, c]));
     expect(byRecipe.get("gemini")?.alreadyAdded).toBe(true);
     expect(byRecipe.get("codex")?.alreadyAdded).toBe(false);
+  });
+
+  it("gates the probed rescan to admins", async () => {
+    expect((await member.post("/api/coding-agents/discover/refresh?timeoutMs=500")).status).toBe(
+      403,
+    );
+    // Admin refresh runs the live probes; bounded so the test stays quick.
+    const res = await admin.post("/api/coding-agents/discover/refresh?timeoutMs=1500");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as CodingAgentDiscoveryResponse;
+    expect(body.candidates.length).toBeGreaterThan(0);
+  }, 60_000);
+
+  // A saved definition is authoritative for its id: the refresh probes it at its own
+  // command (the one its sessions actually run), and the shadowed recipe's launch goes
+  // unprobed.
+  it("probes saved definitions at their own command on refresh", async () => {
+    await admin.post("/api/coding-agents/agents", {
+      id: "gemini",
+      title: "Fake Gemini",
+      command: process.execPath,
+      args: [AGENT_MAIN],
+    });
+    const res = await admin.post("/api/coding-agents/discover/refresh?timeoutMs=5000");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as CodingAgentDiscoveryResponse;
+    // Both saved definitions — the beforeEach "fake" and this recipe-shadowing one —
+    // report the fake agent's own config options.
+    for (const id of ["fake", "gemini"]) {
+      expect((body.agentModels[id] ?? []).map((o) => o.id)).toEqual(["model", "plan"]);
+    }
+    const gemini = body.candidates.find((c) => c.recipeId === "gemini");
+    expect(gemini?.models).toBeUndefined();
+  }, 60_000);
+
+  // The refresh must not run an agent's npx-fallback launch when the agent itself is
+  // absent: probing it would install-and-execute a package nobody on this machine chose.
+  it("does not execute an npx fallback launch for an agent the machine lacks", async () => {
+    const WIN = process.platform === "win32";
+    const isolated = await fs.mkdtemp(path.join(os.tmpdir(), "coding-agents-iso-"));
+    const bin = path.join(isolated, "bin");
+    const appData = path.join(isolated, "appdata");
+    await fs.mkdir(bin, { recursive: true });
+    await fs.mkdir(appData, { recursive: true });
+    // Marker shims: each leaves a file behind the moment it is executed.
+    const shim = (marker: string) =>
+      WIN ? `@echo ran>"${marker}"\r\n` : `#!/bin/sh\necho ran > "${marker}"\n`;
+    const geminiRan = path.join(isolated, "gemini-ran");
+    const npxRan = path.join(isolated, "npx-ran");
+    await fs.writeFile(path.join(bin, WIN ? "gemini.cmd" : "gemini"), shim(geminiRan), {
+      mode: 0o755,
+    });
+    await fs.writeFile(path.join(bin, WIN ? "npx.cmd" : "npx"), shim(npxRan), { mode: 0o755 });
+    // Full machine isolation: PATH plus every home discovery derives install dirs from,
+    // so only these shims exist and gemini is the sole detected agent. The OS's own
+    // tool dirs stay on PATH — the probes spawn cmd.exe for .cmd shims, and a PATH of
+    // only the shim dir would make every probe fail to launch and prove nothing.
+    const homedir = vi.spyOn(os, "homedir").mockReturnValue(isolated);
+    const envKeys = ["PATH", "APPDATA", "LOCALAPPDATA", "FNM_DIR", "NVM_DIR"];
+    const savedEnv = envKeys.map((k) => [k, process.env[k]] as const);
+    const osDirs = (savedEnv[0]?.[1] ?? "")
+      .split(path.delimiter)
+      .filter((d) => (WIN ? /\\windows\\/i.test(d) : /^\/(usr|bin|sbin)/.test(d)));
+    process.env.PATH = [bin, ...osDirs].join(path.delimiter);
+    process.env.APPDATA = appData;
+    process.env.LOCALAPPDATA = appData;
+    delete process.env.FNM_DIR;
+    delete process.env.NVM_DIR;
+    try {
+      const res = await admin.post("/api/coding-agents/discover/refresh?timeoutMs=500");
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as CodingAgentDiscoveryResponse;
+      const gemini = body.candidates.find((c) => c.recipeId === "gemini");
+      const claude = body.candidates.find((c) => c.recipeId === "claude");
+      expect(gemini?.detected).toBe(true);
+      expect(claude?.detected).toBe(false);
+      // The npx fallback still resolves as the suggested launch — it is just never run.
+      expect(claude?.launch?.args).toEqual(["-y", "claude-agent-acp"]);
+    } finally {
+      homedir.mockRestore();
+      for (const [key, value] of savedEnv) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+    // The refresh answers only after every probe settled, so a marker now proves an
+    // execution happened: gemini was detected (its probe ran); npx never may.
+    expect(
+      await fs.stat(geminiRan).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(true);
+    expect(
+      await fs.stat(npxRan).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(false);
+  });
+
+  // The auto-add contract: starting a session for a known, detected-but-unsaved agent
+  // persists the recipe-derived definition first — even when the session itself then
+  // fails (this shim is not a real agent).
+  it("auto-adds a known agent definition on session start", async () => {
+    const shimDir = path.join(workspace, "bin");
+    await fs.mkdir(shimDir, { recursive: true });
+    const shim = path.join(
+      shimDir,
+      process.platform === "win32" ? "claude-agent-acp.cmd" : "claude-agent-acp",
+    );
+    await fs.writeFile(
+      shim,
+      process.platform === "win32" ? "@rem not an agent\r\n" : "#!/bin/sh\n",
+      {
+        mode: 0o755,
+      },
+    );
+    const previousPath = process.env.PATH;
+    process.env.PATH = `${shimDir}${path.delimiter}${previousPath ?? ""}`;
+    try {
+      const res = await admin.post("/api/coding-agents/sessions", { agentId: "claude" });
+      expect([201, 400]).toContain(res.status);
+    } finally {
+      process.env.PATH = previousPath;
+    }
+    const agents = (await (
+      await admin.get("/api/coding-agents/agents")
+    ).json()) as CodingAgentsResponse;
+    const claude = agents.agents.find((a) => a.id === "claude");
+    expect(claude?.command).toContain(shimDir);
   });
 
   it("rejects unknown agents and workspaces at session creation", async () => {
@@ -150,7 +285,7 @@ describe("coding agents api", () => {
     const detail = (await (
       await admin.get(`/api/coding-agents/sessions/${session.sessionId}`)
     ).json()) as CodingAgentSessionDetailResponse;
-    expect(detail.configOptions.map((o) => o.id)).toEqual(["model"]);
+    expect(detail.configOptions.map((o) => o.id)).toEqual(["model", "plan"]);
     expect(detail.configOptions[0]?.currentValue).toBe("balanced");
 
     const set = await admin.post(`/api/coding-agents/sessions/${session.sessionId}/config`, {
@@ -176,6 +311,100 @@ describe("coding agents api", () => {
         })
       ).status,
     ).toBe(404);
+  });
+
+  // The card's Model pick persists per agent and rides the agents list back out.
+  it("remembers the model an agent was set to", async () => {
+    const created = await admin.post("/api/coding-agents/sessions", {
+      agentId: "fake",
+      workspaceDir: workspace,
+    });
+    const { session } = (await created.json()) as { session: CodingAgentSessionInfo };
+    expect(
+      (
+        await admin.put(`/api/coding-agents/agents/fake/model`, {
+          configId: "model",
+          value: "fast",
+          name: "Fast",
+        })
+      ).status,
+    ).toBe(204);
+    const agents = (await (
+      await admin.get("/api/coding-agents/agents")
+    ).json()) as CodingAgentsResponse;
+    expect(agents.agents.find((a) => a.id === "fake")?.rememberedModel).toEqual({
+      configId: "model",
+      value: "fast",
+      name: "Fast",
+    });
+    // A model pick made inside a session is remembered the same way.
+    await admin.post(`/api/coding-agents/sessions/${session.sessionId}/config`, {
+      configId: "model",
+      value: "balanced",
+    });
+    const agentsAgain = (await (
+      await admin.get("/api/coding-agents/agents")
+    ).json()) as CodingAgentsResponse;
+    expect(agentsAgain.agents.find((a) => a.id === "fake")?.rememberedModel?.value).toBe(
+      "balanced",
+    );
+  });
+
+  // Only the option the card would render as the Model is remembered: a session change
+  // to any other config option must not clobber the agent's remembered model.
+  it("remembers a session's Model change but not other config changes", async () => {
+    const created = await admin.post("/api/coding-agents/sessions", {
+      agentId: "fake",
+      workspaceDir: workspace,
+    });
+    const { session } = (await created.json()) as { session: CodingAgentSessionInfo };
+    // Flip the agent's non-model boolean option.
+    expect(
+      (
+        await admin.post(`/api/coding-agents/sessions/${session.sessionId}/config`, {
+          configId: "plan",
+          value: true,
+        })
+      ).status,
+    ).toBe(200);
+    let agents = (await (
+      await admin.get("/api/coding-agents/agents")
+    ).json()) as CodingAgentsResponse;
+    expect(agents.agents.find((a) => a.id === "fake")?.rememberedModel).toBeUndefined();
+    // Changing the Model itself is still remembered.
+    await admin.post(`/api/coding-agents/sessions/${session.sessionId}/config`, {
+      configId: "model",
+      value: "fast",
+    });
+    agents = (await (await admin.get("/api/coding-agents/agents")).json()) as CodingAgentsResponse;
+    expect(agents.agents.find((a) => a.id === "fake")?.rememberedModel).toMatchObject({
+      configId: "model",
+      value: "fast",
+    });
+  });
+
+  // The remembered model rides into the agent's NEXT session as its initial
+  // configuration (applyRememberedModel right after session/new).
+  it("starts a new session with the remembered model", async () => {
+    expect(
+      (
+        await admin.put(`/api/coding-agents/agents/fake/model`, {
+          configId: "model",
+          value: "fast",
+        })
+      ).status,
+    ).toBe(204);
+    const created = await admin.post("/api/coding-agents/sessions", {
+      agentId: "fake",
+      workspaceDir: workspace,
+    });
+    expect(created.status).toBe(201);
+    const { session } = (await created.json()) as { session: CodingAgentSessionInfo };
+    const detail = (await (
+      await admin.get(`/api/coding-agents/sessions/${session.sessionId}`)
+    ).json()) as CodingAgentSessionDetailResponse;
+    // The agent itself reports the remembered choice, not the factory default.
+    expect(detail.configOptions.find((o) => o.id === "model")?.currentValue).toBe("fast");
   });
 
   it("drives a full turn against a spawned agent and exposes the transcript", async () => {

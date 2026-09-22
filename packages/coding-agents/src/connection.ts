@@ -41,9 +41,10 @@ export type SpawnProcess = typeof spawn;
  * npm-global CLIs are `.cmd`/`.bat` shims on Windows, which Node refuses to spawn
  * directly (EINVAL without a shell) — route just those through cmd.exe as one pre-quoted
  * command line. Definitions are admin-authored, the same trust as typing the command
- * into a shell, so cmd metacharacters in args stay the admin's own intent.
+ * into a shell, so cmd metacharacters in args stay the admin's own intent. Shared with
+ * the discovery probes, which execute the same shims for `--version`/auth checks.
  */
-function spawnTarget(command: string, args: string[]): [string, string[]] {
+export function spawnTarget(command: string, args: string[]): [string, string[]] {
   if (process.platform !== "win32" || !/\.(cmd|bat)$/i.test(command)) return [command, args];
   // Tokens with spaces (an npm dir under "C:\Program Files") carry their own quotes;
   // with /s, cmd strips only the outer pair before executing the rest.
