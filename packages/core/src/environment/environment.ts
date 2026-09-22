@@ -27,6 +27,7 @@
  *   never empty under any circumstance**.
  * Docs: /docs/tools § "Execution contract".
  */
+import type { ProtectedRoot } from "./tools/path-guard.js";
 import path from "node:path";
 import { partialToolCallOutput, toolCallOutput, userText } from "../omnimessage/index.js";
 import type { McpServerConnectResult, OmniMessage, StopReason } from "../omnimessage/index.js";
@@ -140,6 +141,7 @@ function boundVisible(
 
 export class Environment implements EnvironmentInterface {
   private readonly workspaceDir: string;
+  private readonly protectedRoots: readonly ProtectedRoot[];
   /** The running model context's tool configuration; replaced as a whole by `reconfigure`. */
   private toolConfig!: ToolConfig;
   /**
@@ -162,6 +164,7 @@ export class Environment implements EnvironmentInterface {
 
   constructor(config: EnvironmentConfig) {
     this.workspaceDir = config.workspaceDir;
+    this.protectedRoots = config.protectedRoots ?? [];
     this.truncatedToolOutputArchive = config.sessionScratchpadDir
       ? new TruncatedToolOutputArchive({
           rootDir: path.join(config.sessionScratchpadDir, "truncated-tool-output"),
@@ -637,6 +640,7 @@ export class Environment implements EnvironmentInterface {
     let archiveCapture: TruncatedToolOutputCapture | null = null;
     const gen = tool.execute(args, {
       workspaceDir: this.workspaceDir,
+      ...(this.protectedRoots.length ? { protectedRoots: this.protectedRoots } : {}),
       toolCallId,
       signal: ac.signal,
       detachSignal: detachCtrl.signal,
