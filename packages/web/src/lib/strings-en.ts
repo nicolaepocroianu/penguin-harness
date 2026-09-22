@@ -346,6 +346,10 @@ export const en: Strings = {
     loadFailed: "Could not load coding agents.",
     sessionGone: "This session has ended; its agent process is no longer running.",
     exportTranscript: "Export transcript",
+    renameSession: "Rename",
+    renameTitle: "Rename session",
+    renameLabel: "Title",
+    renameHint: "Up to 120 characters; empty restores the agent and workspace name.",
   },
   nav: {
     activities: "Activities",

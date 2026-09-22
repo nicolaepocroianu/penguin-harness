@@ -4894,6 +4894,8 @@ export interface CodingAgentSessionInfo {
   workspaceDir: string;
   busy: boolean;
   createdAt: number;
+  /** A user-set display name; absent, the session is named by its agent and workspace. */
+  title?: string;
 }
 
 export interface CodingAgentSessionsResponse {
@@ -4909,6 +4911,11 @@ export interface CodingAgentCreateRequest {
   agentId: string;
   /** Omitted or empty: the server auto-creates a temporary workspace for the session. */
   workspaceDir?: string;
+}
+
+/** PATCH /coding-agents/sessions/:id body: trimmed server-side; empty clears the title. */
+export interface CodingAgentSessionRenameRequest {
+  title: string;
 }
 
 export interface CodingAgentSessionConfigRequest {

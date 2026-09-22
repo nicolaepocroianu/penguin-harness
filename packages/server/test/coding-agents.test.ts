@@ -264,6 +264,7 @@ describe("coding agents api", () => {
   it("answers 404 for unknown sessions across every session route", async () => {
     const base = "/api/coding-agents/sessions/does-not-exist";
     expect((await admin.get(base)).status).toBe(404);
+    expect((await admin.patch(base, { title: "x" })).status).toBe(404);
     expect((await admin.post(`${base}/prompt`, { text: "x" })).status).toBe(404);
     expect((await admin.post(`${base}/cancel`)).status).toBe(404);
     expect((await admin.post(`${base}/mode`, { modeId: "m" })).status).toBe(404);
@@ -272,6 +273,44 @@ describe("coding agents api", () => {
         .status,
     ).toBe(404);
     expect((await admin.delete(base)).status).toBe(204);
+  });
+
+  it("renames a session, clears the rename, and validates the title", async () => {
+    const created = await admin.post("/api/coding-agents/sessions", {
+      agentId: "fake",
+      workspaceDir: workspace,
+    });
+    const { session } = (await created.json()) as { session: CodingAgentSessionInfo };
+    const base = `/api/coding-agents/sessions/${session.sessionId}`;
+
+    const renamed = await admin.patch(base, { title: "  My session  " });
+    expect(renamed.status).toBe(200);
+    const renamedSession = ((await renamed.json()) as { session: CodingAgentSessionInfo }).session;
+    expect(renamedSession.title).toBe("My session");
+
+    // The title rides the list and names the transcript's H1.
+    const listed = (await (await admin.get("/api/coding-agents/sessions")).json()) as {
+      sessions: CodingAgentSessionInfo[];
+    };
+    expect(listed.sessions.find((s) => s.sessionId === session.sessionId)?.title).toBe(
+      "My session",
+    );
+    const transcript = await admin.get(`${base}/transcript`);
+    expect((await transcript.text()).startsWith("# My session\n")).toBe(true);
+
+    // Empty clears back to the default (no title at all).
+    const cleared = await admin.patch(base, { title: "" });
+    expect(cleared.status).toBe(200);
+    expect(((await cleared.json()) as { session: CodingAgentSessionInfo }).session.title).toBe(
+      undefined,
+    );
+    const clearedTranscript = await admin.get(`${base}/transcript`);
+    expect((await clearedTranscript.text()).startsWith("# Fake Agent\n")).toBe(true);
+
+    // Validation: over the cap and non-string titles are caller errors.
+    expect((await admin.patch(base, { title: "x".repeat(121) })).status).toBe(400);
+    expect((await admin.patch(base, { title: 42 })).status).toBe(400);
+    expect((await admin.patch(base, {})).status).toBe(400);
   });
 
   it("lists and disposes sessions", async () => {

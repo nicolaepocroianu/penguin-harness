@@ -41,6 +41,7 @@ import type {
   CodingAgentSessionConfigRequest,
   CodingAgentSessionDetailResponse,
   CodingAgentSessionInfo,
+  CodingAgentSessionRenameRequest,
   CodingAgentSessionsResponse,
   CodingAgentServerInfo,
   CodingAgentsResponse,
@@ -1836,6 +1837,16 @@ export const createCodingAgentSession = (body: CodingAgentCreateRequest) =>
 export const getCodingAgentSession = (sessionId: string) =>
   apiFetch<CodingAgentSessionDetailResponse>(
     `/api/coding-agents/sessions/${encodeURIComponent(sessionId)}`,
+  );
+
+/** Sets the session's display title; the server trims and caps it, empty clears it. */
+export const renameCodingAgentSession = (
+  sessionId: string,
+  body: CodingAgentSessionRenameRequest,
+) =>
+  apiFetch<{ session: CodingAgentSessionInfo }>(
+    `/api/coding-agents/sessions/${encodeURIComponent(sessionId)}`,
+    { method: "PATCH", body },
   );
 
 /** 202: the turn streams over the session's SSE channel, not this response. */

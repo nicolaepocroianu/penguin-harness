@@ -20,6 +20,7 @@ import {
   downloadCodingAgentTranscript,
   promptCodingAgentSession,
   removeCodingAgent,
+  renameCodingAgentSession,
   saveCodingAgent,
   setCodingAgentMode,
   setCodingAgentSessionConfig,
@@ -47,6 +48,9 @@ const BOT_PATH =
 
 /** The transcript-export affordance's download tray (the icon module's DownloadIcon path). */
 const DOWNLOAD_PATH = "M12 4v11m0 0l-5-5m5 5l5-5M4 20h16";
+
+/** The rename affordance's pencil. */
+const PENCIL_PATH = "M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z";
 
 /** Tool-call status → tone, by meaning (a pending ask reads as waiting on the user). */
 const TOOL_TONE: Record<string, Tone> = {
@@ -227,7 +231,7 @@ function SessionsSection({
                     aria-hidden
                   />
                   <span className="min-w-0 flex-1 truncate text-sm text-gray-900 dark:text-gray-100">
-                    {session.agentId} — {session.workspaceDir}
+                    {session.title ?? `${session.agentId} — ${session.workspaceDir}`}
                     <span className="sr-only">
                       {". "}
                       {session.busy ? S.codingAgents.busy : S.codingAgents.idle}
@@ -242,7 +246,11 @@ function SessionsSection({
           </ul>
           <div className="lg:col-span-3">
             {selectedId !== null ? (
-              <SessionView sessionId={selectedId} onSettled={onSettled} />
+              <SessionView
+                sessionId={selectedId}
+                session={sessions.find((s) => s.sessionId === selectedId) ?? null}
+                onSettled={onSettled}
+              />
             ) : null}
           </div>
         </div>
@@ -320,7 +328,16 @@ function buildTranscript(
   };
 }
 
-function SessionView({ sessionId, onSettled }: { sessionId: string; onSettled: () => void }) {
+function SessionView({
+  sessionId,
+  session,
+  onSettled,
+}: {
+  sessionId: string;
+  /** The session's list entry; null when the list has not caught up (or the session is gone). */
+  session: CodingAgentSessionInfo | null;
+  onSettled: () => void;
+}) {
   const {
     events,
     configOptions: seedOptions,
@@ -332,6 +349,7 @@ function SessionView({ sessionId, onSettled }: { sessionId: string; onSettled: (
   const transcript = useMemo(() => buildTranscript(events, seedOptions), [events, seedOptions]);
   const [draft, setDraft] = useState("");
   const [awaitingTurn, setAwaitingTurn] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -370,9 +388,31 @@ function SessionView({ sessionId, onSettled }: { sessionId: string; onSettled: (
     );
   };
 
+  const defaultTitle =
+    session !== null ? `${session.agentId} — ${session.workspaceDir}` : sessionId;
+  const sessionTitle = session?.title ?? defaultTitle;
+
   return (
     <div className="flex max-h-[70vh] flex-col rounded-md border border-gray-200 dark:border-gray-800">
-      <div className="flex min-w-0 items-center justify-end gap-2 border-b border-gray-100 px-3 py-2 dark:border-gray-800">
+      <div
+        className="flex min-w-0 items-center gap-1.5 border-b border-gray-100 px-3 py-2 dark:border-gray-800"
+      >
+        <span
+          className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-gray-100"
+        >
+          {sessionTitle}
+        </span>
+        {session !== null ? (
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label={S.codingAgents.renameSession}
+            title={S.codingAgents.renameSession}
+            onClick={() => setRenameOpen(true)}
+          >
+            <GlyphIcon d={PENCIL_PATH} size={ICON_SIZE.iconButton} />
+          </Button>
+        ) : null}
         <Button size="sm" variant="secondary" onClick={exportTranscript}>
           <GlyphIcon d={DOWNLOAD_PATH} size={ICON_SIZE.inlineGlyph} />
           {S.codingAgents.exportTranscript}
@@ -501,7 +541,71 @@ function SessionView({ sessionId, onSettled }: { sessionId: string; onSettled: (
           </div>
         </div>
       </div>
+      <RenameSessionModal
+        open={renameOpen}
+        session={session}
+        onClose={() => setRenameOpen(false)}
+        onRenamed={onSettled}
+      />
     </div>
+  );
+}
+
+/**
+ * Rename one session. The server trims and caps the title; an empty field clears it back
+ * to the default (agent — workspace). `onRenamed` refreshes the sessions list so the row
+ * and this header pick the new name up.
+ */
+function RenameSessionModal({
+  open,
+  session,
+  onClose,
+  onRenamed,
+}: {
+  open: boolean;
+  session: CodingAgentSessionInfo | null;
+  onClose: () => void;
+  onRenamed: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  useEffect(() => {
+    if (open && session !== null) setTitle(session.title ?? "");
+  }, [open, session]);
+  const save = () => {
+    if (session === null) return;
+    renameCodingAgentSession(session.sessionId, { title })
+      .then(() => {
+        toastSuccess(S.codingAgents.renameTitle);
+        onRenamed();
+        onClose();
+      })
+      .catch((e: unknown) => toastError(apiErrorText(e)));
+  };
+  return (
+    <Modal
+      open={open && session !== null}
+      title={S.codingAgents.renameTitle}
+      onClose={onClose}
+      footer={
+        <>
+          <Button size="sm" onClick={onClose}>
+            {S.codingAgents.cancel}
+          </Button>
+          <Button size="sm" variant="primary" onClick={save}>
+            {S.codingAgents.save}
+          </Button>
+        </>
+      }
+    >
+      <Field label={S.codingAgents.renameLabel} hint={S.codingAgents.renameHint}>
+        <Input
+          size="sm"
+          maxLength={120}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </Field>
+    </Modal>
   );
 }
 

@@ -22,6 +22,8 @@ export abstract class CodingAgents extends Interface<{
   removeAgent(agentId: string): boolean;
   listSessions(): CodingAgentSessionInfo[];
   createSession(agentId: string, workspaceDir: string): Promise<CodingAgentSessionInfo>;
+  /** Set the session's display title (trimmed, max 120); empty clears it back to the default. */
+  renameSession(sessionId: string, title: string): CodingAgentSessionInfo;
   sessionDetail(sessionId: string): CodingAgentSessionDetailResponse | undefined;
   /**
    * The session's transcript as a Markdown download document (undefined: unknown session).

@@ -279,6 +279,10 @@ export type Strings = {
     loadFailed: string;
     sessionGone: string;
     exportTranscript: string;
+    renameSession: string;
+    renameTitle: string;
+    renameLabel: string;
+    renameHint: string;
   };
   nav: {
     activities: string;
