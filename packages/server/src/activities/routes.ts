@@ -185,6 +185,18 @@ export class ActivityRoutes {
         }),
       );
     });
+    app.get("/:activityId/sandbox/module/*", async (c) => {
+      const prefix = `/${pathParam(c, "activityId")}/sandbox/module/`;
+      const url = new URL(c.req.url);
+      const at = url.pathname.indexOf(prefix);
+      const raw = at < 0 ? "" : url.pathname.slice(at + prefix.length);
+      const served = await this.sandbox.moduleFile(
+        requireValidId(c, "projectId"),
+        pathParam(c, "activityId"),
+        raw,
+      );
+      return new Response(served.body ?? null, { status: served.status, headers: served.headers });
+    });
     app.get("/:activityId/sandbox/media/*", async (c) => {
       const prefix = `/${pathParam(c, "activityId")}/sandbox/media/`;
       const url = new URL(c.req.url);

@@ -216,6 +216,43 @@ describe("the payload a preview serves", () => {
     );
   });
 
+  it("serves a file the payload's URLs point at", async () => {
+    const { service, root } = await build({});
+    await fs.writeFile(
+      path.join(root, "activity-runs", "run_new", "module", "entry.js"),
+      "export const x = 1;",
+      "utf8",
+    );
+    const served = await service.moduleFile(PROJECT, ACTIVITY, "entry.js");
+    expect(served.status).toBe(200);
+    expect(served.headers["content-type"]).toBe("text/javascript; charset=utf-8");
+    expect(served.headers["cache-control"]).toBe("no-store");
+    expect(new TextDecoder().decode(served.body)).toBe("export const x = 1;");
+  });
+
+  it("reports a module file that is not there", async () => {
+    const { service } = await build({});
+    await expect(service.moduleFile(PROJECT, ACTIVITY, "missing.js")).rejects.toThrow(
+      "No file at missing.js",
+    );
+  });
+
+  it("refuses a module path that climbs out of the build", async () => {
+    const { service } = await build({});
+    await expect(service.moduleFile(PROJECT, ACTIVITY, "../../secrets.js")).rejects.toThrow(
+      "not a module file",
+    );
+  });
+
+  it("refuses a module file before checking whether a build exists", async () => {
+    // A bad path is a bad path either way, and answering it differently would tell a
+    // caller which activities have been built.
+    const { service } = await build({ runs: [] });
+    await expect(service.moduleFile(PROJECT, ACTIVITY, "build.log")).rejects.toThrow(
+      "not a module file",
+    );
+  });
+
   it("refuses when nothing has been built, rather than serving an empty preview", async () => {
     const { service } = await build({ runs: [] });
     await expect(service.payload(PROJECT, ACTIVITY, {})).rejects.toThrow(HttpError);
