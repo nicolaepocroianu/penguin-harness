@@ -82,6 +82,7 @@ describe("CodingAgentManager", () => {
     const view = manager.sessionView(session.sessionId);
     expect(view?.busy).toBe(false);
     expect(view?.events).toEqual([
+      { type: "user_message", sessionId: session.sessionId, text: "hi" },
       { type: "message_chunk", sessionId: session.sessionId, delta: "one " },
       { type: "message_chunk", sessionId: session.sessionId, delta: "two" },
       { type: "turn_end", sessionId: session.sessionId, stopReason: "end_turn" },

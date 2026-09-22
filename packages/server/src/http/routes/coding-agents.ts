@@ -7,6 +7,7 @@
  *   GET    /api/coding-agents/sessions                                 (any user)
  *   POST   /api/coding-agents/sessions                                 (any user: { agentId, workspaceDir? })
  *   GET    /api/coding-agents/sessions/:sessionId                      (detail + event log)
+ *   GET    /api/coding-agents/sessions/:sessionId/transcript           (Markdown download)
  *   GET    /api/coding-agents/sessions/:sessionId/stream               (SSE)
  *   POST   /api/coding-agents/sessions/:sessionId/prompt               ({ text } -> 202; turn streams)
  *   POST   /api/coding-agents/sessions/:sessionId/permissions/:requestId ({ outcome } -> 204)
@@ -128,6 +129,17 @@ export function codingAgentsRoutes(deps: CodingAgentsRouteDeps): Hono<AppEnv> {
       throw new HttpError(404, "not_found", "Coding-agent session does not exist.");
     }
     return c.json(detail);
+  });
+
+  app.get("/sessions/:sessionId/transcript", (c) => {
+    const sessionId = requireSessionId(c);
+    const transcript = deps.codingAgents.sessionTranscript(sessionId);
+    if (transcript === undefined) {
+      throw new HttpError(404, "not_found", "Coding-agent session does not exist.");
+    }
+    c.header("Content-Type", "text/markdown; charset=utf-8");
+    c.header("Content-Disposition", `attachment; filename="${transcript.filename}"`);
+    return c.body(transcript.markdown, 200);
   });
 
   app.get("/sessions/:sessionId/stream", (c) => {

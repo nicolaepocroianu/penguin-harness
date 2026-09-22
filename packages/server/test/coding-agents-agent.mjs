@@ -33,6 +33,30 @@ const app = agent({ name: "fake-agent-test" })
     configOptions,
   }))
   .onRequest(methods.agent.session.prompt, async (ctx) => {
+    const text = ctx.params.prompt
+      .map((block) => (typeof block.text === "string" ? block.text : ""))
+      .join("");
+    // A marker prompt exercises the tool-call projection: one call, then its completion.
+    if (text === "run a tool") {
+      await connection.client.notify(methods.client.session.update, {
+        sessionId: ctx.params.sessionId,
+        update: {
+          sessionUpdate: "tool_call",
+          toolCallId: "tool-1",
+          title: "Read package.json",
+          kind: "read",
+          status: "pending",
+        },
+      });
+      await connection.client.notify(methods.client.session.update, {
+        sessionId: ctx.params.sessionId,
+        update: {
+          sessionUpdate: "tool_call_update",
+          toolCallId: "tool-1",
+          status: "completed",
+        },
+      });
+    }
     await connection.client.notify(methods.client.session.update, {
       sessionId: ctx.params.sessionId,
       update: {

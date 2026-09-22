@@ -93,6 +93,8 @@ export type AgentStopReason =
  * `CodingAgentManager.sessionView`.
  */
 export type AgentSessionEvent =
+  /** The user's prompt, logged when a turn starts so a transcript can show both sides. */
+  | { type: "user_message"; sessionId: string; text: string }
   | { type: "message_chunk"; sessionId: string; delta: string }
   | { type: "thought_chunk"; sessionId: string; delta: string }
   | { type: "tool_call"; sessionId: string; call: AgentToolCall }

@@ -17,6 +17,7 @@ import {
   cancelCodingAgentSession,
   createCodingAgentSession,
   discoverCodingAgents,
+  downloadCodingAgentTranscript,
   promptCodingAgentSession,
   removeCodingAgent,
   saveCodingAgent,
@@ -43,6 +44,9 @@ import { useCodingAgents, useCodingAgentStream } from "./use-coding-agents";
 /** The page's own mark, shared by the nav icon and the section rows. */
 const BOT_PATH =
   "M12 2.6v2.9M6.5 21h11M6 10.5h12V19a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-8.5ZM9.2 14.6h.01M14.8 14.6h.01M6 10.5a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3";
+
+/** The transcript-export affordance's download tray (the icon module's DownloadIcon path). */
+const DOWNLOAD_PATH = "M12 4v11m0 0l-5-5m5 5l5-5M4 20h16";
 
 /** Tool-call status → tone, by meaning (a pending ask reads as waiting on the user). */
 const TOOL_TONE: Record<string, Tone> = {
@@ -360,8 +364,20 @@ function SessionView({ sessionId, onSettled }: { sessionId: string; onSettled: (
 
   const busy = awaitingTurn;
 
+  const exportTranscript = () => {
+    void downloadCodingAgentTranscript(sessionId).catch((e: unknown) =>
+      toastError(apiErrorText(e)),
+    );
+  };
+
   return (
     <div className="flex max-h-[70vh] flex-col rounded-md border border-gray-200 dark:border-gray-800">
+      <div className="flex min-w-0 items-center justify-end gap-2 border-b border-gray-100 px-3 py-2 dark:border-gray-800">
+        <Button size="sm" variant="secondary" onClick={exportTranscript}>
+          <GlyphIcon d={DOWNLOAD_PATH} size={ICON_SIZE.inlineGlyph} />
+          {S.codingAgents.exportTranscript}
+        </Button>
+      </div>
       <div className="flex-1 space-y-2 overflow-y-auto px-3 py-2">
         {transcript.blocks.map((block, i) =>
           block.kind === "assistant" ? (

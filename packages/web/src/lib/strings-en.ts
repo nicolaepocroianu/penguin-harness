@@ -345,6 +345,7 @@ export const en: Strings = {
     turnFailed: "Turn failed",
     loadFailed: "Could not load coding agents.",
     sessionGone: "This session has ended; its agent process is no longer running.",
+    exportTranscript: "Export transcript",
   },
   nav: {
     activities: "Activities",

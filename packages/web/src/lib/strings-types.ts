@@ -278,6 +278,7 @@ export type Strings = {
     turnFailed: string;
     loadFailed: string;
     sessionGone: string;
+    exportTranscript: string;
   };
   nav: {
     activities: string;

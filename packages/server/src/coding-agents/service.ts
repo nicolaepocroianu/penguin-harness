@@ -39,6 +39,7 @@ import { Channels, Config, type ChannelApi } from "../hmr/capabilities.js";
 import { Settings } from "../mechanisms/settings.js";
 import { CodingAgents } from "../mechanisms/coding-agents.js";
 import { AcpAgentError } from "@prismshadow/penguin-coding-agents";
+import { renderTranscriptMarkdown, transcriptFilename } from "./transcript.js";
 
 /** The settings key holding the custom definitions as a JSON array. */
 const DEFINITIONS_KEY = "coding_agent_servers";
@@ -153,6 +154,21 @@ export class CodingAgentService implements CodingAgents {
     const view = this.getManager().sessionView(sessionId);
     if (view === undefined) return undefined;
     return { ...this.toInfo(view), configOptions: view.configOptions, events: view.events };
+  }
+
+  sessionTranscript(sessionId: string): { markdown: string; filename: string } | undefined {
+    const detail = this.sessionDetail(sessionId);
+    if (detail === undefined) return undefined;
+    const agentTitle = this.getManager()
+      .listDefinitions()
+      .find((d) => d.id === detail.agentId)?.title;
+    return {
+      markdown: renderTranscriptMarkdown({
+        detail,
+        ...(agentTitle !== undefined ? { agentTitle } : {}),
+      }),
+      filename: transcriptFilename(sessionId),
+    };
   }
 
   channelFor(sessionId: string): ChannelApi | undefined {
