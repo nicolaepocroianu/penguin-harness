@@ -601,7 +601,9 @@ describe("activity candidate storage", () => {
     const db = new sqlite.DatabaseSync(":memory:");
     try {
       db.exec(SCHEMA_SQL);
-      db.exec("DROP TABLE activity_audio_runs; PRAGMA user_version = 13");
+      // The per-kind tables are gone at head; roll back to the shape that had them.
+      db.exec(`PRAGMA user_version = ${LATEST_VERSION}`);
+      rollbackTo(db, 13);
       expect(() => migrate(db, { swapPath: true })).toThrow(RestartRequiredError);
       expect(schemaVersion(db)).toBe(13);
       migrate(db);
@@ -609,7 +611,7 @@ describe("activity candidate storage", () => {
         "INSERT INTO users (user_id, password_hash, is_admin, created_at) VALUES ('u', 'h', 0, 'now'); INSERT INTO projects VALUES ('p', 'u', 'now'); INSERT INTO activities VALUES ('a', 'c', 'p', 0, 'Title', 'standard', 'now', 'now', 0)",
       );
       db.exec(
-        "INSERT INTO activity_runs VALUES ('run', 'p', 'a', 'succeeded', 'now', '{}'); INSERT INTO activity_audio_runs VALUES ('run')",
+        "INSERT INTO activity_runs (run_id, project_id, activity_id, status, created_at, kind, record_json) VALUES ('run', 'p', 'a', 'succeeded', 'now', 'audio', '{}')",
       );
       expect(() => rollbackTo(db, 13)).toThrow("speech attempts exist");
       expect(schemaVersion(db)).toBe(14);
@@ -624,7 +626,9 @@ describe("activity candidate storage", () => {
     const db = new sqlite.DatabaseSync(":memory:");
     try {
       db.exec(SCHEMA_SQL);
-      db.exec("DROP TABLE activity_image_runs; PRAGMA user_version = 14");
+      // The per-kind tables are gone at head; roll back to the shape that had them.
+      db.exec(`PRAGMA user_version = ${LATEST_VERSION}`);
+      rollbackTo(db, 14);
       expect(() => migrate(db, { swapPath: true })).toThrow(RestartRequiredError);
       expect(schemaVersion(db)).toBe(14);
       migrate(db);
@@ -632,7 +636,7 @@ describe("activity candidate storage", () => {
         "INSERT INTO users (user_id, password_hash, is_admin, created_at) VALUES ('u', 'h', 0, 'now'); INSERT INTO projects VALUES ('p', 'u', 'now'); INSERT INTO activities VALUES ('a', 'c', 'p', 0, 'Title', 'standard', 'now', 'now', 0)",
       );
       db.exec(
-        "INSERT INTO activity_runs VALUES ('run', 'p', 'a', 'succeeded', 'now', '{}'); INSERT INTO activity_image_runs VALUES ('run')",
+        "INSERT INTO activity_runs (run_id, project_id, activity_id, status, created_at, kind, record_json) VALUES ('run', 'p', 'a', 'succeeded', 'now', 'image', '{}')",
       );
       expect(() => rollbackTo(db, 14)).toThrow("image attempts exist");
       expect(schemaVersion(db)).toBe(15);
@@ -647,7 +651,9 @@ describe("activity candidate storage", () => {
     const db = new sqlite.DatabaseSync(":memory:");
     try {
       db.exec(SCHEMA_SQL);
-      db.exec("DROP TABLE activity_media_text_runs; PRAGMA user_version = 15");
+      // The per-kind tables are gone at head; roll back to the shape that had them.
+      db.exec(`PRAGMA user_version = ${LATEST_VERSION}`);
+      rollbackTo(db, 15);
       expect(() => migrate(db, { swapPath: true })).toThrow(RestartRequiredError);
       expect(schemaVersion(db)).toBe(15);
       migrate(db);
@@ -655,7 +661,7 @@ describe("activity candidate storage", () => {
         "INSERT INTO users (user_id, password_hash, is_admin, created_at) VALUES ('u', 'h', 0, 'now'); INSERT INTO projects VALUES ('p', 'u', 'now'); INSERT INTO activities VALUES ('a', 'c', 'p', 0, 'Title', 'standard', 'now', 'now', 0)",
       );
       db.exec(
-        "INSERT INTO activity_runs VALUES ('run', 'p', 'a', 'succeeded', 'now', '{}'); INSERT INTO activity_media_text_runs VALUES ('run')",
+        "INSERT INTO activity_runs (run_id, project_id, activity_id, status, created_at, kind, record_json) VALUES ('run', 'p', 'a', 'succeeded', 'now', 'media-text', '{}')",
       );
       expect(() => rollbackTo(db, 15)).toThrow("media text attempts exist");
       expect(schemaVersion(db)).toBe(16);
@@ -670,7 +676,9 @@ describe("activity candidate storage", () => {
     const db = new sqlite.DatabaseSync(":memory:");
     try {
       db.exec(SCHEMA_SQL);
-      db.exec("DROP TABLE activity_module_runs; PRAGMA user_version = 12");
+      // The per-kind tables are gone at head; roll back to the shape that had them.
+      db.exec(`PRAGMA user_version = ${LATEST_VERSION}`);
+      rollbackTo(db, 12);
       expect(() => migrate(db, { swapPath: true })).toThrow(RestartRequiredError);
       expect(schemaVersion(db)).toBe(12);
       migrate(db);
@@ -678,7 +686,7 @@ describe("activity candidate storage", () => {
         "INSERT INTO users (user_id, password_hash, is_admin, created_at) VALUES ('u', 'h', 0, 'now'); INSERT INTO projects VALUES ('p', 'u', 'now'); INSERT INTO activities VALUES ('a', 'c', 'p', 0, 'Title', 'standard', 'now', 'now', 0)",
       );
       db.exec(
-        "INSERT INTO activity_runs VALUES ('run', 'p', 'a', 'succeeded', 'now', '{}'); INSERT INTO activity_module_runs VALUES ('run')",
+        "INSERT INTO activity_runs (run_id, project_id, activity_id, status, created_at, kind, record_json) VALUES ('run', 'p', 'a', 'succeeded', 'now', 'module', '{}')",
       );
       expect(() => rollbackTo(db, 12)).toThrow("assembly attempts exist");
       expect(schemaVersion(db)).toBe(13);
@@ -705,11 +713,9 @@ describe("activity candidate storage", () => {
         { runId: "two", candidate: null, status: "cancelled" },
       ];
       for (const record of records)
-        db.prepare("INSERT INTO activity_runs VALUES (?, 'p', 'a', ?, 'now', ?)").run(
-          record.runId,
-          record.status,
-          JSON.stringify(record),
-        );
+        db.prepare(
+          "INSERT INTO activity_runs (run_id, project_id, activity_id, status, created_at, kind, record_json) VALUES (?, 'p', 'a', ?, 'now', 'spec', ?)",
+        ).run(record.runId, record.status, JSON.stringify(record));
       expect(() => migrate(db, { swapPath: true })).toThrow(RestartRequiredError);
       expect(schemaVersion(db)).toBe(11);
       migrate(db);
