@@ -43,6 +43,9 @@ describe("activity image preview binding", () => {
     return {
       id: "activity-1",
       productCode: "sight-words",
+      productId: null,
+      displayName: null,
+      stable: false,
       refNum: 1,
       collectionId: "collection-1",
       title: "Sight words",

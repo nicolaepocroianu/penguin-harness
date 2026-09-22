@@ -12,6 +12,7 @@
  * `assembleContext`). The Agent object's own `state` is the load-time snapshot, used for
  * identity and initialization; no Session runs on it.
  */
+import type { ProtectedRoot } from "./environment/tools/path-guard.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
@@ -190,6 +191,14 @@ export interface CreateSessionOptions {
   /** Workspace for this run; if unspecified, a temporary Workspace is created under the Agent directory. */
   workspaceDir?: string;
   /**
+   * Trees this Session's file tools may read but must never write — a shared checkout it
+   * compiles against, a media library it resolves references in. Absent = unrestricted,
+   * which is what every Session did before. A RESUMED Session does not carry these: the
+   * spec is rebuilt from disk and this is not persisted, so a caller that needs them
+   * after a resume must pass them again.
+   */
+  protectedRoots?: readonly ProtectedRoot[];
+  /**
    * Model used for this Session (upstream model_id); must be given together with `provider`.
    * Omit both to use the Project's default Model.
    */
@@ -239,6 +248,8 @@ export interface ResumeSessionOptions {
 interface SessionSpec {
   sessionId: string;
   workspaceDir: string;
+  /** See {@link CreateSessionOptions.protectedRoots}; absent on a resumed Session. */
+  protectedRoots?: readonly ProtectedRoot[];
   /** The Session's model entry as resolved from the Project config at creation (or recorded at resume): reference, credentials, window and per-model annotations. */
   modelEntry: ModelEntry;
   apiKey: string | undefined;
@@ -624,6 +635,7 @@ export class Agent {
     const spec: SessionSpec = {
       sessionId,
       workspaceDir,
+      ...(opts.protectedRoots?.length ? { protectedRoots: opts.protectedRoots } : {}),
       modelEntry,
       apiKey,
       baseUrl,
@@ -917,6 +929,7 @@ export class Agent {
    */
   private buildRuntime(spec: SessionSpec, initial: AssembledContext): SessionRuntime {
     const { sessionId, workspaceDir, modelEntry, apiKey, baseUrl, subagentDepth } = spec;
+    const protectedRoots = spec.protectedRoots;
     // The context the Session is running: the initial one, then whatever `openNextContext` last
     // assembled.
     let current = initial;
@@ -1161,6 +1174,7 @@ export class Agent {
     // parent's.
     const environment = new Environment({
       workspaceDir,
+      ...(protectedRoots?.length ? { protectedRoots } : {}),
       toolConfig: initial.toolConfig,
       // The Session's generic scratchpad root; Environment derives its truncated-tool-output
       // recovery directory from it.

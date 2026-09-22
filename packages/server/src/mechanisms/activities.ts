@@ -4,8 +4,12 @@ import type { ImageRequest } from "../activities/image.js";
 import type { ImageTarget, ImageResult } from "../activities/generated-image.js";
 import type { MediaTextTarget } from "../activities/media-text.js";
 import type { UploadedMedia } from "../activities/upload.js";
+import type { ImportOutcome } from "../activities/import-apply.js";
+import type { ImportedActivity } from "../activities/loom-import.js";
+import type { ImportMapping } from "../activities/import-mapping.js";
 import type {
   ActivityDraft,
+  ActivityProduct,
   ActivityRecord,
   ActivityRun,
   ActivityRunSummary,
@@ -161,6 +165,43 @@ export abstract class ActivityAuthoring extends Interface<{
     projectId: string,
     activityId: string,
   ): Promise<ActivityRecord & { draft: ActivityDraft }>;
+  /** The product a ref belongs to, or null for a row predating the product level. */
+  productOf(activity: ActivityRecord): ActivityProduct | null;
+  /** Whether this ref owns the module code; only the canonical ref may change it. */
+  isCanonicalRef(activity: ActivityRecord): boolean;
+  /** What an author calls a ref, and whether others may build against it. */
+  setRefIdentity(
+    projectId: string,
+    activityId: string,
+    identity: { displayName?: unknown; stable?: boolean },
+  ): Promise<ActivityRecord>;
+  /** A book product's reading mode; it belongs to the product, not to a ref. */
+  setProductBookMode(
+    projectId: string,
+    collectionId: string,
+    productCode: string,
+    mode: "decodable" | "readAlong",
+  ): Promise<ActivityProduct>;
+  /** Create everything a Loom product's mapping describes, and report what happened. */
+  importProduct(
+    projectId: string,
+    collectionId: string | undefined,
+    mapping: ImportMapping,
+  ): Promise<ImportOutcome>;
+  /** The Loom products a checkout offers. Reading only; nothing is imported by looking. */
+  availableImports(): Promise<{ modulesDir: string | null; products: ImportedActivity[] }>;
+  /** Read one Loom product, decide what Penguin would make of it, and make it. */
+  importFromLoom(
+    projectId: string,
+    moduleFolder: string,
+    productCode: string,
+    collectionId?: string,
+  ): Promise<{
+    mapping: ImportMapping;
+    outcome: ImportOutcome;
+    message: string;
+    problems: string[];
+  }>;
   updateDescription(
     projectId: string,
     activityId: string,

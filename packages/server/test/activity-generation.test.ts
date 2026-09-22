@@ -1114,7 +1114,9 @@ describe("activity generation through Harness sessions", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ error: { code: "module_spec_required" } });
     expect(
-      f.t.deps.db.prepare("SELECT COUNT(*) AS count FROM activity_module_runs").get(),
+      f.t.deps.db
+        .prepare("SELECT COUNT(*) AS count FROM activity_runs WHERE kind = 'module'")
+        .get(),
     ).toMatchObject({ count: 0 });
   });
 

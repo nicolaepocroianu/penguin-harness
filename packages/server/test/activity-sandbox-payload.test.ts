@@ -1,0 +1,370 @@
+/**
+ * The payload a preview serves, composed from files on disk.
+ *
+ * The decisions are unit-tested in `activity-sandbox-configuration`,
+ * `activity-sandbox-declaration` and `activity-sandbox-ref-assets`. What this covers is the
+ * part that can only go wrong once they are put together: reading the right files, finding
+ * the right build, and refusing clearly when there is nothing to serve.
+ */
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { SandboxBuilder } from "../src/activities/sandbox-builder.js";
+import { ActivitySandboxService } from "../src/activities/sandbox-service.js";
+import { HttpError } from "../src/http/errors.js";
+
+const PROJECT = "proj";
+const ACTIVITY = "act_1";
+
+const definition = {
+  id: "sightWords",
+  schemaVersion: "2.0.0",
+  engine: "html",
+  require: { entry: { type: "javascript", url: "entry.js" } },
+  themes: { park: { assets: {}, properties: { key: "park" } } },
+};
+
+const spec = {
+  id: "sight-words",
+  title: "Sight Words",
+  activityDescription: "Practice",
+  runtime: {
+    engine: "html",
+    layout: "mainOnly",
+    theme: "park",
+    resolution: "640x480",
+    usesAssessment: false,
+  },
+  scenes: [{ id: "intro", description: "Choose a word" }],
+};
+
+interface Built {
+  runId: string;
+  status: string;
+  kind: string;
+  createdAt: string;
+}
+
+/** A sandbox service with its two dependencies stood in for, over a real temp root. */
+async function sandbox(options: {
+  runs?: Built[];
+  configuration?: unknown;
+  manifest?: unknown;
+  contentRevision?: string;
+  spec?: unknown;
+}) {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-sandbox-"));
+  const runs = options.runs ?? [
+    { runId: "run_new", status: "succeeded", kind: "module", createdAt: "2026-09-02" },
+  ];
+  for (const run of runs) {
+    const moduleDir = path.join(root, "activity-runs", run.runId, "module");
+    await fs.mkdir(path.join(moduleDir, "configurations"), { recursive: true });
+    await fs.writeFile(
+      path.join(moduleDir, "definition.json"),
+      JSON.stringify({
+        ...definition,
+        themes: { park: { assets: {}, properties: { run: run.runId } } },
+      }),
+      "utf8",
+    );
+    await fs.writeFile(
+      path.join(moduleDir, "package.json"),
+      JSON.stringify({ version: "3.0.0" }),
+      "utf8",
+    );
+    await fs.writeFile(
+      path.join(moduleDir, "configurations", "sight-words-1.json"),
+      JSON.stringify(options.configuration ?? { sightWords: { intro: "Hello" } }),
+      "utf8",
+    );
+  }
+
+  const activity = {
+    id: ACTIVITY,
+    collectionId: "col",
+    productCode: "sight-words",
+    refNum: 1,
+    title: "Sight Words 1",
+    draft: {
+      draftId: "draft_1",
+      status: "valid",
+      spec: options.spec === undefined ? spec : options.spec,
+      contentRevision: options.contentRevision ?? "revision0123456789",
+      ...(options.manifest ? { mediaPlan: { manifest: options.manifest } } : {}),
+    },
+  };
+
+  const service = new ActivitySandboxService();
+  Object.assign(service, {
+    activities: {
+      getActivity: async () => activity,
+      isCanonicalRef: () => true,
+      draftWorkspace: () => path.join(root, "draft"),
+    },
+    generation: { list: async () => runs },
+    config: { root },
+  });
+  return { service, root, cleanup: () => fs.rm(root, { recursive: true, force: true }) };
+}
+
+describe("the payload a preview serves", () => {
+  const cleanups: (() => Promise<unknown>)[] = [];
+  afterEach(async () => {
+    for (const cleanup of cleanups.splice(0)) await cleanup();
+  });
+
+  async function build(options: Parameters<typeof sandbox>[0] = {}) {
+    const made = await sandbox(options);
+    cleanups.push(made.cleanup);
+    return made;
+  }
+
+  it("carries the module's declaration, its configuration and the layout", async () => {
+    const { service } = await build({});
+    const payload = await service.payload(PROJECT, ACTIVITY, {});
+    expect(payload.id).toBe("preview:sightWords");
+    expect(payload.layout.name).toBe("mainOnly");
+    expect(payload.configuration.resolution).toBe("640x480");
+    expect(payload.configuration.sightWords).toEqual({ intro: "Hello" });
+  });
+
+  it("points the module's own files at a route the preview serves", async () => {
+    // A definition names its files relative to itself; left alone they resolve against the
+    // harness and fetch nothing.
+    const { service } = await build({});
+    const payload = await service.payload(PROJECT, ACTIVITY, {});
+    const required = payload.layout.compartments.main.require as Record<string, { url: string }>;
+    expect(required.entry!.url).toBe(
+      `/api/projects/${PROJECT}/activities/${ACTIVITY}/sandbox/module/entry.js`,
+    );
+  });
+
+  it("serves the newest succeeded build, not the newest build", async () => {
+    // A failed build leaves a half-written workspace; serving it would preview code that
+    // did not compile.
+    const { service } = await build({
+      runs: [
+        { runId: "run_old", status: "succeeded", kind: "module", createdAt: "2026-09-01" },
+        { runId: "run_broken", status: "failed", kind: "module", createdAt: "2026-09-09" },
+      ],
+    });
+    const payload = await service.payload(PROJECT, ACTIVITY, {});
+    expect(payload.layout.compartments.main.properties).toEqual({ run: "run_old" });
+  });
+
+  it("ignores runs that are not module builds", async () => {
+    const { service } = await build({
+      runs: [
+        { runId: "run_module", status: "succeeded", kind: "module", createdAt: "2026-09-01" },
+        { runId: "run_audio", status: "succeeded", kind: "audio", createdAt: "2026-09-09" },
+      ],
+    });
+    const payload = await service.payload(PROJECT, ACTIVITY, {});
+    expect(payload.layout.compartments.main.properties).toEqual({ run: "run_module" });
+  });
+
+  it("scopes the configuration to the requested language", async () => {
+    const { service } = await build({
+      configuration: {
+        sightWords: { "en-US": { intro: "Hello", outro: "Bye" }, "es-MX": { intro: "Hola" } },
+      },
+    });
+    const payload = await service.payload(PROJECT, ACTIVITY, { languageCode: "es-MX" });
+    expect(payload.configuration.sightWords).toEqual({
+      "en-US": { intro: "Hello", outro: "Bye" },
+      "es-MX": { intro: "Hola", outro: "Bye" },
+    });
+  });
+
+  it("starts on the scene the preview asked for", async () => {
+    const { service } = await build({});
+    const payload = await service.payload(PROJECT, ACTIVITY, { startSceneId: "scene-4" });
+    expect((payload.configuration.sightWords as Record<string, unknown>).__loomPreview).toEqual({
+      startSceneId: "scene-4",
+    });
+  });
+
+  it("overlays this ref's media, versioned so a regenerated clip is not cached", async () => {
+    const { service } = await build({
+      manifest: { assets: { "en-US": [{ key: "intro", type: "audio", path: "media/a.mp3" }] } },
+      contentRevision: "abcdefghijklmnopqrstuvwxyz",
+    });
+    const payload = await service.payload(PROJECT, ACTIVITY, {});
+    const assets = payload.layout.compartments.main.assets as Record<string, { url: string }>;
+    expect(assets.intro!.url).toBe("{{MEDIA}}/a.mp3?v=abcdefghijklmnop");
+  });
+
+  it("declares the navbar compartment even with nothing in it", async () => {
+    // The runtime expects the compartment to exist; an absent one is a different failure
+    // from an empty one.
+    const { service } = await build({});
+    const payload = await service.payload(PROJECT, ACTIVITY, {});
+    expect(payload.layout.compartments.navBar).toEqual({ id: "navBar" });
+    expect(payload.configuration.navBar).toEqual({});
+  });
+
+  it("names the assessment only when the activity uses one", async () => {
+    const { service } = await build({});
+    expect("assessmentKey" in (await service.payload(PROJECT, ACTIVITY, {}))).toBe(false);
+
+    const withAssessment = await build({
+      spec: { ...spec, runtime: { ...spec.runtime, usesAssessment: true } },
+    });
+    expect((await withAssessment.service.payload(PROJECT, ACTIVITY, {})).assessmentKey).toBe(
+      "sightWords",
+    );
+  });
+
+  it("serves a file the payload's URLs point at", async () => {
+    const { service, root } = await build({});
+    await fs.writeFile(
+      path.join(root, "activity-runs", "run_new", "module", "entry.js"),
+      "export const x = 1;",
+      "utf8",
+    );
+    const served = await service.moduleFile(PROJECT, ACTIVITY, "entry.js");
+    expect(served.status).toBe(200);
+    expect(served.headers["content-type"]).toBe("text/javascript; charset=utf-8");
+    expect(served.headers["cache-control"]).toBe("no-store");
+    expect(new TextDecoder().decode(served.body)).toBe("export const x = 1;");
+  });
+
+  it("reports a module file that is not there", async () => {
+    const { service } = await build({});
+    await expect(service.moduleFile(PROJECT, ACTIVITY, "missing.js")).rejects.toThrow(
+      "No file at missing.js",
+    );
+  });
+
+  it("refuses a module path that climbs out of the build", async () => {
+    const { service } = await build({});
+    await expect(service.moduleFile(PROJECT, ACTIVITY, "../../secrets.js")).rejects.toThrow(
+      "not a module file",
+    );
+  });
+
+  it("refuses a module file before checking whether a build exists", async () => {
+    // A bad path is a bad path either way, and answering it differently would tell a
+    // caller which activities have been built.
+    const { service } = await build({ runs: [] });
+    await expect(service.moduleFile(PROJECT, ACTIVITY, "build.log")).rejects.toThrow(
+      "not a module file",
+    );
+  });
+
+  it("builds on demand and reports it in an author's words", async () => {
+    const { service } = await build({});
+    let builds = 0;
+    Object.assign(service, {
+      builder: new SandboxBuilder({
+        build: async () => {
+          builds += 1;
+          return { ok: true, log: "compiled" };
+        },
+        sources: async () => [Date.now()],
+        now: () => Date.now(),
+      }),
+    });
+    const report = await service.build(PROJECT, ACTIVITY);
+    expect(report.ok).toBe(true);
+    expect(report.message).toBe("Built.");
+    expect(report.log).toBe("compiled");
+    expect(builds).toBe(1);
+  });
+
+  it("coalesces concurrent requests into one build", async () => {
+    // Four scene edits in a row must not start four webpack builds.
+    const { service } = await build({});
+    let builds = 0;
+    let release: (() => void) | null = null;
+    Object.assign(service, {
+      builder: new SandboxBuilder({
+        build: async () => {
+          builds += 1;
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return { ok: true, log: "compiled" };
+        },
+        sources: async () => [Date.now()],
+        now: () => Date.now(),
+      }),
+    });
+    const requests = [1, 2, 3, 4].map(() => service.build(PROJECT, ACTIVITY, true));
+    await vi.waitFor(() => expect(release).not.toBeNull());
+    release!();
+    const reports = await Promise.all(requests);
+    expect(builds).toBe(1);
+    expect(reports.filter((report) => report.joined)).toHaveLength(3);
+  });
+
+  it("reports a failed build as failed, with its output", async () => {
+    // Never as a preview that simply never appears.
+    const { service } = await build({});
+    Object.assign(service, {
+      builder: new SandboxBuilder({
+        build: async () => ({ ok: false, log: "Module not found: ./missing" }),
+        sources: async () => [Date.now()],
+        now: () => Date.now(),
+      }),
+    });
+    const report = await service.build(PROJECT, ACTIVITY, true);
+    expect(report.ok).toBe(false);
+    expect(report.message).toBe("The build failed; see its output.");
+    expect(report.log).toContain("Module not found");
+  });
+
+  it("refuses to build from a ref that does not own the module", async () => {
+    // A build writes into the shared module, and only the canonical ref owns it.
+    const { service } = await build({});
+    Object.assign(service, {
+      activities: {
+        ...(service as unknown as { activities: Record<string, unknown> }).activities,
+        isCanonicalRef: () => false,
+        productOf: () => ({ canonicalRefNum: 4 }),
+      },
+    });
+    await expect(service.build(PROJECT, ACTIVITY)).rejects.toThrow("Build it from that ref");
+  });
+
+  it("refuses to build when there is no module workspace", async () => {
+    const { service } = await build({ runs: [] });
+    await expect(service.build(PROJECT, ACTIVITY)).rejects.toThrow("No module has been built");
+  });
+
+  it("refuses when nothing has been built, rather than serving an empty preview", async () => {
+    const { service } = await build({ runs: [] });
+    await expect(service.payload(PROJECT, ACTIVITY, {})).rejects.toThrow(HttpError);
+    await expect(service.payload(PROJECT, ACTIVITY, {})).rejects.toThrow(
+      "No module has been built",
+    );
+  });
+
+  it("refuses when there is no specification", async () => {
+    const { service } = await build({ spec: null });
+    await expect(service.payload(PROJECT, ACTIVITY, {})).rejects.toThrow(
+      "Save a specification before previewing",
+    );
+  });
+
+  it("refuses a theme the built module does not have, and says which it has", async () => {
+    const { service } = await build({
+      spec: { ...spec, runtime: { ...spec.runtime, theme: "space" } },
+    });
+    await expect(service.payload(PROJECT, ACTIVITY, {})).rejects.toThrow('has no theme "space"');
+  });
+
+  it("serves an empty configuration when the build has none for this ref", async () => {
+    // Reported as an activity with nothing configured, not as a missing build: the module
+    // is there and an author can see that its configuration is not.
+    const { service, root } = await build({});
+    await fs.rm(path.join(root, "activity-runs", "run_new", "module", "configurations"), {
+      recursive: true,
+      force: true,
+    });
+    const payload = await service.payload(PROJECT, ACTIVITY, {});
+    expect(payload.configuration.sightWords).toEqual({});
+  });
+});

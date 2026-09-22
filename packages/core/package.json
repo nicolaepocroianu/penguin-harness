@@ -71,6 +71,7 @@
     "@penguinharness/use-firecrawl": "workspace:*",
     "@penguinharness/use-claude-code": "workspace:*",
     "@penguinharness/use-codex": "workspace:*",
+    "@penguinharness/waf-authoring": "workspace:*",
     "@prismshadow/agenthub": "0.4.15",
     "arktype": "^2.2.3",
     "smol-toml": "^1.3.0",

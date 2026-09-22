@@ -13,6 +13,7 @@
  *
  * Docs: packages/docs/content/interfaces.{zh,en}.md (site path /docs/interfaces).
  */
+import type { ProtectedRoot } from "../environment/tools/path-guard.js";
 import type { OmniMessage, ToolCallPayload, ToolDefinition } from "../omnimessage/types.js";
 import type { ApproveFn, RunCutoff, ThinkingLevelName } from "./shared.js";
 import type { LLMInterface } from "./llm.js";
@@ -278,6 +279,12 @@ export interface BackgroundTaskDoneEvent {
 /** Docs: /docs/interfaces § "ToolExecutionRequest and EnvironmentConfig". */
 export interface EnvironmentConfig {
   workspaceDir: string;
+  /**
+   * Trees the file tools may read but must never write — a shared checkout the agent
+   * compiles against, a media library it resolves references in. Absent = the only limit
+   * is the user's own file permissions, which is what every tool did before.
+   */
+  protectedRoots?: readonly ProtectedRoot[];
   toolConfig: ToolConfig;
   /**
    * This Session's private scratchpad directory (`scratchpad/<sessionId>`), the generic

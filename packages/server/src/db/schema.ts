@@ -283,12 +283,37 @@ created_at TEXT NOT NULL,
 updated_at TEXT NOT NULL,
 PRIMARY KEY (project_id, collection_id)
 );
+-- A product owns the module code; its refs are variations that share it. One ref is
+-- canonical and is the only one allowed to change the shared module -- the rule three
+-- generation stages are gated on. Loom keeps this in a directory layout; here it is a row.
+CREATE TABLE IF NOT EXISTS activity_products (
+product_id TEXT PRIMARY KEY,
+project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+collection_id TEXT NOT NULL,
+product_code TEXT NOT NULL,
+-- Defaults to waf-module-<product_code>; one folder may host several products.
+module_folder TEXT NOT NULL,
+-- The ref that owns the module code. Null only between creating a product and its
+-- first ref, which the service never leaves observable.
+canonical_ref_num INTEGER,
+activity_type TEXT NOT NULL CHECK (activity_type IN ('standard', 'book')),
+book_mode TEXT CHECK (book_mode IN ('decodable', 'readAlong')),
+created_at TEXT NOT NULL,
+updated_at TEXT NOT NULL,
+UNIQUE (collection_id, product_code)
+);
+CREATE INDEX IF NOT EXISTS idx_activity_products_collection ON activity_products(collection_id, product_code);
 CREATE TABLE IF NOT EXISTS activities (
 id TEXT PRIMARY KEY,
 collection_id TEXT NOT NULL,
+product_id TEXT REFERENCES activity_products(product_id) ON DELETE CASCADE,
 product_code TEXT NOT NULL,
 ref_num INTEGER NOT NULL CHECK (ref_num >= 0),
 title TEXT NOT NULL,
+-- What an author calls this ref; the product code and number stay the address.
+display_name TEXT,
+-- A stable ref is one others may build against, so renumbering it is refused.
+stable INTEGER NOT NULL DEFAULT 0 CHECK (stable IN (0, 1)),
 activity_type TEXT NOT NULL CHECK (activity_type IN ('standard', 'book')),
 created_at TEXT NOT NULL,
 updated_at TEXT NOT NULL,
@@ -296,6 +321,7 @@ archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),
 UNIQUE (collection_id, product_code, ref_num)
 );
 CREATE INDEX IF NOT EXISTS idx_activities_collection ON activities(collection_id, archived, updated_at);
+CREATE INDEX IF NOT EXISTS idx_activities_product ON activities(product_id, ref_num);
 CREATE TABLE IF NOT EXISTS activity_drafts (
 draft_id TEXT PRIMARY KEY,
 activity_id TEXT NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
@@ -311,23 +337,16 @@ project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
 activity_id TEXT NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
 status TEXT NOT NULL,
 created_at TEXT NOT NULL,
+-- What produced this run. A column rather than a table per kind: the generation
+-- pipeline adds a run kind per stage, and one table per answer does not scale past
+-- the five that existed when this was first written.
+kind TEXT NOT NULL DEFAULT 'spec',
 record_json TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_activity_runs_activity ON activity_runs(project_id, activity_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_activity_runs_kind ON activity_runs(activity_id, kind);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_activity_runs_active ON activity_runs(activity_id) WHERE status = 'running';
 
-CREATE TABLE IF NOT EXISTS activity_module_runs (
-  run_id TEXT PRIMARY KEY REFERENCES activity_runs(run_id) ON DELETE CASCADE
-);
-CREATE TABLE IF NOT EXISTS activity_audio_runs (
-  run_id TEXT PRIMARY KEY REFERENCES activity_runs(run_id) ON DELETE CASCADE
-);
-CREATE TABLE IF NOT EXISTS activity_image_runs (
-  run_id TEXT PRIMARY KEY REFERENCES activity_runs(run_id) ON DELETE CASCADE
-);
-CREATE TABLE IF NOT EXISTS activity_media_text_runs (
-  run_id TEXT PRIMARY KEY REFERENCES activity_runs(run_id) ON DELETE CASCADE
-);
 CREATE TABLE IF NOT EXISTS activity_run_candidates (
 run_id TEXT PRIMARY KEY REFERENCES activity_runs(run_id) ON DELETE CASCADE,
 candidate TEXT NOT NULL

@@ -13,6 +13,7 @@
  * Project's default reference, 400 if there is none); the new Session is
  * added to session-manager's active table (state idle).
  */
+import type { ProtectedRoot } from "@prismshadow/penguin-core";
 import fs from "node:fs/promises";
 import { agentsDir, createAgent, isSessionMeta } from "@prismshadow/penguin-core";
 import type { ControlEnvContext, ProxyEnvPolicy, SpawnConfiner } from "@prismshadow/penguin-core";
@@ -380,6 +381,12 @@ export class SessionService {
     /** The provider group for `modelId`; always paired with modelId, never inferred. */
     provider?: string;
     workspace?: string;
+    /**
+     * Trees this Session's file tools may read but must never write. The activities
+     * feature passes the shared WAF checkout, which an assembly Session reads from and
+     * must not change. Not carried across a resume — see core's CreateSessionOptions.
+     */
+    protectedRoots?: readonly ProtectedRoot[];
     approvalMode?: ApprovalMode;
     /**
      * Session source marker: `schedule` when triggered by a scheduled task, `benchmark` when
@@ -433,6 +440,7 @@ export class SessionService {
         modelId,
         provider,
         ...(args.workspace !== undefined ? { workspaceDir: args.workspace } : {}),
+        ...(args.protectedRoots?.length ? { protectedRoots: args.protectedRoots } : {}),
         // The origin is also recorded in core session_meta (Trace), not just the index row.
         ...(args.source !== undefined ? { source: args.source } : {}),
       });

@@ -57,6 +57,16 @@ export function openDatabase(dbPath: string): DatabaseSync {
   // lock rather than failing SQLITE_BUSY at once.
   db.exec("PRAGMA busy_timeout = 5000;");
   db.exec("PRAGMA foreign_keys = ON;");
+  // BEFORE SCHEMA_SQL, unlike every other column fix-up below, because SCHEMA_SQL itself
+  // depends on these: it declares indexes over them, and `CREATE INDEX` fails outright with
+  // "no such column" on a table that predates the column. `CREATE TABLE IF NOT EXISTS` does
+  // nothing to a table that exists, so the column never arrives on its own, and the
+  // migration that would add it has not run yet — openDatabase migrates only further down.
+  // A server with a database older than these columns could not start at all.
+  ensureColumnOfExistingTable(db, "activity_runs", "kind", "TEXT NOT NULL DEFAULT 'spec'");
+  ensureColumnOfExistingTable(db, "activities", "product_id", "TEXT");
+  ensureColumnOfExistingTable(db, "activities", "display_name", "TEXT");
+  ensureColumnOfExistingTable(db, "activities", "stable", "INTEGER NOT NULL DEFAULT 0");
   db.exec(SCHEMA_SQL);
   // Columns added to the schema after a web.db was formed: CREATE TABLE IF NOT EXISTS never
   // touches an existing table, so they are ALTERed in here. Keep the list in sync with
@@ -131,6 +141,26 @@ function upgradeLastActiveAt(db: DatabaseSync): void {
  * Returns whether this call actually ALTERed the table (false = the column was already
  * there), so a caller can gate one-time backfill work on it.
  */
+/**
+ * Add a column, but only to a table that is already there.
+ *
+ * The plain `ensureColumn` runs after SCHEMA_SQL, when every table exists. This one runs
+ * BEFORE it, where a fresh database has no tables at all and an ALTER would fail — so a
+ * missing table means "SCHEMA_SQL is about to create it with the column already in it",
+ * which is nothing to do rather than an error.
+ */
+function ensureColumnOfExistingTable(
+  db: DatabaseSync,
+  table: string,
+  column: string,
+  ddl: string,
+): void {
+  const exists = db
+    .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .get(table);
+  if (exists) ensureColumn(db, table, column, ddl);
+}
+
 export function ensureColumn(
   db: DatabaseSync,
   table: string,

@@ -4837,6 +4837,7 @@ export type {
   ActivityRunSummary,
   ActivityRunStatus,
 } from "../activities/domain.js";
+export type { SandboxStatus, SandboxBuildReport } from "../activities/sandbox-paths.js";
 
 // ---------------------------------------------------------------------------
 // Coding agents (Agent Client Protocol)
@@ -4848,6 +4849,8 @@ export interface CodingAgentServerInfo {
   title?: string;
   command: string;
   args: string[];
+  /** The model remembered for this agent, auto-applied to its new sessions. */
+  rememberedModel?: { configId: string; value: boolean | string; name?: string } | null;
 }
 
 export interface CodingAgentsResponse {
@@ -4873,10 +4876,30 @@ export interface CodingAgentDiscoveryCandidate {
   setupHint: string | null;
   /** A definition with this recipe's id is already saved. */
   alreadyAdded: boolean;
+  /** The CLI's own `--version` line; present only after a probed refresh. */
+  version?: string;
+  /** Login status of the agent's own CLI; present only after a probed refresh. */
+  authStatus?: "ok" | "missing" | "unknown";
+  /** The ACP config options a probe session observed (model choices, toggles); probed refresh only. */
+  models?: CodingAgentConfigOption[];
+  /** The model remembered for this recipe, auto-applied to its new sessions. */
+  rememberedModel?: { configId: string; value: boolean | string; name?: string } | null;
+}
+
+/** PUT /coding-agents/agents/:agentId/model body: the model remembered for an agent. */
+export interface CodingAgentModelRequest {
+  configId: string;
+  value: boolean | string;
+  name?: string;
 }
 
 export interface CodingAgentDiscoveryResponse {
   candidates: CodingAgentDiscoveryCandidate[];
+  /**
+   * Probed config options keyed by agent id, for saved definitions probed at their own
+   * command (refresh only — a recipe's probe rides the candidate's own `models`).
+   */
+  agentModels: Record<string, CodingAgentConfigOption[]>;
 }
 
 /** POST /coding-agents/agents body: a full definition; `env` is write-only (never listed back). */

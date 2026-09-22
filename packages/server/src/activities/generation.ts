@@ -110,17 +110,6 @@ export class ActivityGenerationService implements ActivityGeneration {
   private workspace(run: ActivityRun): string {
     return path.join(this.config.root, "activity-runs", run.runId);
   }
-  private kind(runId: string): ActivityRun["kind"] {
-    if (this.db.prepare("SELECT 1 FROM activity_media_text_runs WHERE run_id = ?").get(runId))
-      return "media-text";
-    if (this.db.prepare("SELECT 1 FROM activity_image_runs WHERE run_id = ?").get(runId))
-      return "image";
-    if (this.db.prepare("SELECT 1 FROM activity_audio_runs WHERE run_id = ?").get(runId))
-      return "audio";
-    return this.db.prepare("SELECT 1 FROM activity_module_runs WHERE run_id = ?").get(runId)
-      ? "module"
-      : "spec";
-  }
   private save(run: ActivityRun) {
     const { candidate, kind: _kind, ...metadata } = run;
     this.db.exec("BEGIN");
@@ -145,12 +134,15 @@ export class ActivityGenerationService implements ActivityGeneration {
   }
   private running(): ActivityRun[] {
     return (
-      this.db.prepare("SELECT record_json FROM activity_runs WHERE status = 'running'").all() as {
+      this.db
+        .prepare("SELECT kind, record_json FROM activity_runs WHERE status = 'running'")
+        .all() as {
+        kind: ActivityRun["kind"];
         record_json: string;
       }[]
     ).map((row) => {
       const metadata = JSON.parse(row.record_json) as ActivityRunSummary;
-      return { ...metadata, kind: this.kind(metadata.runId), candidate: null };
+      return { ...metadata, kind: row.kind, candidate: null };
     });
   }
   private finish(run: ActivityRun, status: ActivityRun["status"], error: string | null = null) {
@@ -172,12 +164,12 @@ export class ActivityGenerationService implements ActivityGeneration {
     return (
       this.db
         .prepare(
-          "SELECT record_json FROM activity_runs WHERE project_id = ? AND activity_id = ? ORDER BY created_at DESC, run_id DESC LIMIT 50",
+          "SELECT kind, record_json FROM activity_runs WHERE project_id = ? AND activity_id = ? ORDER BY created_at DESC, run_id DESC LIMIT 50",
         )
-        .all(projectId, activityId) as { record_json: string }[]
+        .all(projectId, activityId) as { kind: ActivityRun["kind"]; record_json: string }[]
     ).map((row) => {
       const metadata = JSON.parse(row.record_json) as ActivityRunSummary;
-      return { ...metadata, kind: this.kind(metadata.runId) };
+      return { ...metadata, kind: row.kind };
     });
   }
 
@@ -185,15 +177,16 @@ export class ActivityGenerationService implements ActivityGeneration {
     await this.activities.getActivity(projectId, activityId);
     const row = this.db
       .prepare(
-        "SELECT record_json FROM activity_runs WHERE project_id = ? AND activity_id = ? AND run_id = ?",
+        "SELECT kind, record_json FROM activity_runs WHERE project_id = ? AND activity_id = ? AND run_id = ?",
       )
-      .get(projectId, activityId, runId) as { record_json: string } | undefined;
+      .get(projectId, activityId, runId) as
+      { kind: ActivityRun["kind"]; record_json: string } | undefined;
     if (!row) throw new HttpError(404, "run_not_found", "Generation not found.");
     const payload = this.db
       .prepare("SELECT candidate FROM activity_run_candidates WHERE run_id = ?")
       .get(runId) as { candidate: string } | undefined;
     const { hasCandidate: _, ...metadata } = JSON.parse(row.record_json) as ActivityRunSummary;
-    return { ...metadata, kind: this.kind(runId), candidate: payload?.candidate ?? null };
+    return { ...metadata, kind: row.kind, candidate: payload?.candidate ?? null };
   }
 
   async candidate(projectId: string, activityId: string, runId: string): Promise<string | null> {
@@ -264,6 +257,17 @@ export class ActivityGenerationService implements ActivityGeneration {
             }
             if (activity.activityType !== "book" && module.bookMode !== undefined)
               throw new HttpError(400, "book_mode_invalid", "Reading mode only applies to books.");
+            // Module code belongs to the product, and only its canonical ref may change it.
+            // A non-canonical ref is configuration on top of a module someone else owns, so
+            // assembling from it would quietly rewrite that shared module.
+            if (!this.activities.isCanonicalRef(activity)) {
+              const product = this.activities.productOf(activity);
+              throw new HttpError(
+                409,
+                "ref_not_canonical",
+                `This activity shares its module with ref ${product?.canonicalRefNum}, which owns the module code. Assemble from that ref instead.`,
+              );
+            }
             wafRoot = await findWafRoot(process.cwd(), module.wafRoot ?? process.env.WAF_ROOT_DIR);
             if (!wafRoot)
               throw new HttpError(
@@ -323,7 +327,7 @@ export class ActivityGenerationService implements ActivityGeneration {
           try {
             this.db
               .prepare(
-                "INSERT INTO activity_runs (run_id, project_id, activity_id, status, created_at, record_json) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO activity_runs (run_id, project_id, activity_id, status, created_at, kind, record_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
               )
               .run(
                 run.runId,
@@ -331,20 +335,9 @@ export class ActivityGenerationService implements ActivityGeneration {
                 activityId,
                 run.status,
                 run.createdAt,
+                run.kind,
                 JSON.stringify({ ...metadata, hasCandidate: false }),
               );
-            if (mediaText)
-              this.db
-                .prepare("INSERT INTO activity_media_text_runs (run_id) VALUES (?)")
-                .run(run.runId);
-            else if (image)
-              this.db.prepare("INSERT INTO activity_image_runs (run_id) VALUES (?)").run(run.runId);
-            else if (audio)
-              this.db.prepare("INSERT INTO activity_audio_runs (run_id) VALUES (?)").run(run.runId);
-            else if (module)
-              this.db
-                .prepare("INSERT INTO activity_module_runs (run_id) VALUES (?)")
-                .run(run.runId);
             this.db.exec("COMMIT");
           } catch (error) {
             this.db.exec("ROLLBACK");
@@ -426,6 +419,14 @@ export class ActivityGenerationService implements ActivityGeneration {
               projectId,
               agentId,
               workspace,
+              // The shared checkout is the module's source of truth and belongs to whoever
+              // cloned it. An assembly Session reads the framework, navbar and media out of
+              // it and must leave it exactly as it found it — a refusal rather than an
+              // instruction, because an instruction is not a permission system and the
+              // people approving these Sessions are not all engineers.
+              ...(wafRoot
+                ? { protectedRoots: [{ root: wafRoot, label: "the shared WAF checkout" }] }
+                : {}),
               approvalMode: "always-ask",
             });
             run.sessionId = session.sessionId;

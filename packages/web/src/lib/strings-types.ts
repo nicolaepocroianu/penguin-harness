@@ -14,6 +14,17 @@ export type Strings = {
     assetPath: string;
     assetPathHint: string;
     sceneAssets: string;
+    workspaceRail: string;
+    workspaceSections: string;
+    railCollapse: string;
+    railExpand: string;
+    railWidth: string;
+    sectionNames: Record<
+      "description" | "specification" | "scenes" | "speech" | "library" | "module" | "history",
+      string
+    >;
+    libraryCount: (count: number) => string;
+    librarySectionEmpty: string;
     sceneAssetTree: string;
     chooseSceneAsset: string;
     unassignedScene: string;
@@ -169,6 +180,12 @@ export type Strings = {
     olderModule: string;
     previewTitle: string;
     previewHelp: string;
+    sandboxTitle: string;
+    sandboxHelp: string;
+    sandboxBuild: string;
+    sandboxBuilding: string;
+    sandboxRefresh: string;
+    sandboxLog: string;
     previewScene: string;
     previewSceneDefault: string;
     previewLanguageDefault: string;
@@ -241,13 +258,16 @@ export type Strings = {
     argsHint: string;
     envLabel: string;
     envHint: string;
-    discoveredTitle: string;
-    discoveredLoading: string;
-    discoveredUse: string;
-    discoveredAdded: string;
-    discoveredInstall: string;
-    discoveredInstalled: string;
-    discoveredMissing: string;
+    installedTitle: string;
+    availableTitle: string;
+    rescan: string;
+    scanning: string;
+    modelLabel: string;
+    authOk: string;
+    authMissing: string;
+    setupRequired: string;
+    installLink: string;
+    scanFailed: string;
     save: string;
     cancel: string;
     newSession: string;
