@@ -1830,6 +1830,16 @@ export const setCodingAgentModel = (agentId: string, body: CodingAgentModelReque
     body,
   });
 
+/** Remember one other session setting (a reasoning effort) for an agent; admin-only. */
+export const setCodingAgentOption = (
+  agentId: string,
+  body: { configId: string; value: boolean | string },
+) =>
+  apiFetch<void>(`/api/coding-agents/agents/${encodeURIComponent(agentId)}/options`, {
+    method: "PUT",
+    body,
+  });
+
 export const saveCodingAgent = (body: CodingAgentSaveRequest) =>
   apiFetch<{ agent: CodingAgentServerInfo }>("/api/coding-agents/agents", {
     method: "POST",

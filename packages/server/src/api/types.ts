@@ -4859,6 +4859,11 @@ export interface CodingAgentServerInfo {
   args: string[];
   /** The model remembered for this agent, auto-applied to its new sessions. */
   rememberedModel?: { configId: string; value: boolean | string; name?: string } | null;
+  /**
+   * Other session settings remembered for this agent (a reasoning effort, say), by config
+   * option id; applied to its new sessions after the model.
+   */
+  rememberedOptions?: Record<string, boolean | string>;
 }
 
 export interface CodingAgentsResponse {
@@ -4892,6 +4897,8 @@ export interface CodingAgentDiscoveryCandidate {
   models?: CodingAgentConfigOption[];
   /** The model remembered for this recipe, auto-applied to its new sessions. */
   rememberedModel?: { configId: string; value: boolean | string; name?: string } | null;
+  /** Other settings remembered for this recipe, by config option id. */
+  rememberedOptions?: Record<string, boolean | string>;
 }
 
 /** PUT /coding-agents/agents/:agentId/model body: the model remembered for an agent. */

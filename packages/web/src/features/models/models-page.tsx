@@ -49,6 +49,7 @@ import type {
   ModelUpdateEntry,
   ModelVisionDetectRequest,
 } from "@prismshadow/penguin-server/api";
+import { useSearchParams } from "react-router";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";
@@ -61,6 +62,7 @@ import { USD_TO_CNY, useTheme } from "../../state/theme";
 import type { Currency } from "../../state/theme";
 import { Button } from "../../components/ui/button";
 import { Tabs } from "../../components/ui/tabs";
+import { LocalCliPanel } from "./local-cli-panel";
 import { Input } from "../../components/ui/input";
 import { FieldError, FieldLabel } from "../../components/ui/field";
 import { PasswordInput } from "../../components/ui/password-input";
@@ -708,6 +710,35 @@ export function ModelsPage() {
   /** Billing-kind filter: API-key groups vs signed-in subscriptions (Codex, Copilot). */
   const [access, setAccess] = useState<ModelAccessFilter>("all");
   /**
+   * Which kind of model source the page shows: the coding agents installed on the server
+   * (Local CLI) or the API providers the Project calls itself. In the URL, so a link can land
+   * on either and a reload keeps the choice.
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view: "local" | "api" = searchParams.get("view") === "local" ? "local" : "api";
+  const viewSwitch = (
+    <div className="mb-4 max-w-md">
+      <Segmented
+        cols={2}
+        options={[
+          { value: "local", label: S.models.viewLocalCli },
+          { value: "api", label: S.models.viewApiProviders },
+        ]}
+        value={view}
+        onChange={(next) =>
+          setSearchParams(
+            (params) => {
+              if (next === "local") params.set("view", "local");
+              else params.delete("view");
+              return params;
+            },
+            { replace: true },
+          )
+        }
+      />
+    </div>
+  );
+  /**
    * Expanded vendor groups — hydrated from this Project's persisted set (DeepSeek-only
    * on a first visit; every other group, including user-defined ones arriving with the
    * async row load, starts collapsed), written back on every toggle so the user's
@@ -1084,10 +1115,23 @@ export function ModelsPage() {
     };
   };
 
+  if (view === "local") {
+    return (
+      <div className="h-full overflow-y-auto p-4 md:p-6">
+        <div className="mx-auto max-w-5xl">
+          {viewSwitch}
+          <h1 className="mb-2 text-xl font-semibold">{S.models.title}</h1>
+          <LocalCliPanel />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full overflow-y-auto p-4 md:p-6">
       <div className="mx-auto max-w-5xl">
         <div className="mb-4">
+          {viewSwitch}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h1 className="flex items-center gap-1.5 text-xl font-semibold">
               {S.models.title}

@@ -1576,6 +1576,12 @@ export function ChatPage() {
   // list price, so a promotion the models response reports for the Model comes off it here, as
   // it does on the recorded cost.
   const activeModel = models?.models.find((m) => sameModelRef(m, activeModelRef));
+  // Every model a Session can run on, a coding agent included: what its label and the
+  // /model switch pick from.
+  const pickableModels = useMemo(
+    () => [...(models?.models ?? []), ...(models?.codingAgentModels ?? [])],
+    [models],
+  );
   const modelPricing = promotedPricing(activeModel?.pricing, activeModel?.discount);
   const ctx: StreamRenderContext = {
     pendingApprovals: stream.pendingApprovals,
@@ -1678,7 +1684,7 @@ export function ChatPage() {
             focusRequest={subagentFocus}
             taskScope={subagentTaskScope}
             subagents={stream.subagents}
-            models={models?.models ?? []}
+            models={pickableModels}
             approvalMode={selected.approvalMode}
             onChangeApprovalMode={onChangeApprovalMode}
             modeSaving={modeSaving}
@@ -1815,7 +1821,9 @@ export function ChatPage() {
       onStop={onStop}
       onCompact={onCompact}
       modelRef={activeModelRef}
-      {...(models !== null ? { models: models.models } : {})}
+      {...(models !== null
+        ? { models: [...models.models, ...(models.codingAgentModels ?? [])] }
+        : {})}
       {...(models?.defaultModel !== undefined ? { defaultModel: models.defaultModel } : {})}
       onSwitchModel={onSwitchModel}
       // Display value: the level pinned on this Session, else the Agent config's level

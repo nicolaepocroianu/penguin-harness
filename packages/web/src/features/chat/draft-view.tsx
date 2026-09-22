@@ -93,7 +93,7 @@ import { newChatAgentId } from "./new-chat";
 import { effectiveThinkingLevel } from "./thinking-level";
 import { WorkspaceSelect, pillClass } from "./workspace-select";
 import { sameModelRef } from "../models/model-grouping";
-import { codingAgentModelRows, isCodingAgentRow, parseCodingAgentRef } from "./coding-agent-models";
+import { isCodingAgentRow, parseCodingAgentRef } from "./coding-agent-models";
 import { ICON_GAP } from "../../lib/icon-scale";
 
 /** Coalescing window for writing body text to the cache: keystrokes are frequent, so a short batch accumulates before persisting (option changes are still written immediately). */
@@ -332,23 +332,11 @@ export function DraftView({
     setModelRef(stateModelRef);
   }, [location.key, stateModelRef]);
 
-  // External coding agents, offered in the same dropdown as models (coding-agent-models.ts).
-  // Best-effort: a server without any leaves the dropdown exactly as it was.
-  const [codingAgentRows, setCodingAgentRows] = useState<ModelInfo[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    void Promise.all([api.listCodingAgents(), api.discoverCodingAgents()])
-      .then(([saved, discovered]) => {
-        if (!cancelled) setCodingAgentRows(codingAgentModelRows(saved.agents, discovered));
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Coding agents come with the model list, apart from the Project's own models
+  // (ModelsResponse.codingAgentModels); the dropdown offers both.
   const pickableModels = useMemo(
-    () => [...(models?.models ?? []), ...codingAgentRows],
-    [models, codingAgentRows],
+    () => [...(models?.models ?? []), ...(models?.codingAgentModels ?? [])],
+    [models],
   );
   const codingAgent = parseCodingAgentRef(modelRef);
 
@@ -682,49 +670,6 @@ export function DraftView({
     setApprovalMode(mode);
   }, []);
 
-  /**
-   * The first message to a coding agent: its session opens in the chosen Workspace (empty is
-   * a temporary one, as for a model), takes the picked model if any, and gets the text; the
-   * conversation then continues on the coding-agents screen, which renders its transcript,
-   * tool calls and permission asks. Images are not sent — the text is.
-   */
-  const sendToCodingAgent = useCallback(
-    async (
-      target: NonNullable<ReturnType<typeof parseCodingAgentRef>>,
-      input: TaskInputPart[],
-    ): Promise<boolean> => {
-      const text = input
-        .flatMap((part) => (part.type === "text" ? [part.text] : []))
-        .join("\n")
-        .trim();
-      if (!text) {
-        toastError(S.chat.codingAgentTextOnly);
-        return false;
-      }
-      try {
-        const { session } = await api.createCodingAgentSession({
-          agentId: target.agentId,
-          ...(workspace.trim() ? { workspaceDir: workspace.trim() } : {}),
-        });
-        if (target.model)
-          await api
-            .setCodingAgentSessionConfig(session.sessionId, {
-              configId: target.model.configId,
-              value: target.model.value,
-            })
-            .catch(() => undefined);
-        await api.promptCodingAgentSession(session.sessionId, { text });
-        discardDraft();
-        navigate("/coding-agents", { state: { sessionId: session.sessionId } });
-        return true;
-      } catch (e) {
-        toastError(apiErrorText(e));
-        return false;
-      }
-    },
-    [workspace, discardDraft, navigate],
-  );
-
   // Synchronous in-flight guard for the one send entry point (the composer): a second
   // submission while one is running would create a second Session with its own first task and
   // a racing navigation. A ref rather than state — the composer disables its own send button
@@ -737,13 +682,10 @@ export function DraftView({
   const onSend = useCallback(
     async (input: TaskInputPart[], goal: { budget: number } | null = null): Promise<boolean> => {
       if (sendingRef.current) return false;
-      if (codingAgent) {
-        sendingRef.current = true;
-        try {
-          return await sendToCodingAgent(codingAgent, input);
-        } finally {
-          sendingRef.current = false;
-        }
+      // A coding agent is sent text; an image-only message would reach it empty.
+      if (codingAgent && !input.some((part) => part.type === "text" && part.text.trim())) {
+        toastError(S.chat.codingAgentTextOnly);
+        return false;
       }
       if (!agentId) return false;
       sendingRef.current = true;
@@ -899,10 +841,8 @@ export function DraftView({
 
         {/* Ownership selection right below the card (small pill dropdowns, styled after ChatGPT's project picker button) */}
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          {/* A coding agent is its own agent: the Penguin Agent picker has nothing to say to it. */}
-          {!codingAgent && (
-            <AgentSelect agents={agents} selected={selectedAgent} onSelect={selectAgent} />
-          )}
+          {/* A coding agent's Session is filed under this Agent too, like any other. */}
+          <AgentSelect agents={agents} selected={selectedAgent} onSelect={selectAgent} />
           <WorkspaceSelect projectId={projectId} workspace={workspace} onChange={changeWorkspace} />
         </div>
 

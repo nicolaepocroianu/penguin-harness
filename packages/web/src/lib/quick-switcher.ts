@@ -61,7 +61,7 @@ export function buildPageEntries(
   }));
 }
 
-/** Configured coding agents; the command line is the row's secondary text (the page's own convention). */
+/** Configured coding agents, opening where they are configured (Models, Local CLI); the command line is the row's secondary text. */
 export function buildAgentEntries(
   agents: ReadonlyArray<{ id: string; title: string; command: string }>,
 ): SwitcherEntry[] {
@@ -70,7 +70,7 @@ export function buildAgentEntries(
     section: "agents",
     title: agent.title,
     detail: agent.command,
-    to: "/coding-agents",
+    to: "/models?view=local",
     routeState: null,
     busy: null,
   }));

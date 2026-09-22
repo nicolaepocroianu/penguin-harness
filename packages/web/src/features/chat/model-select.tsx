@@ -27,6 +27,14 @@ import {
   sameModelRef,
   visibleChatModels,
 } from "../models/model-grouping";
+import { codingAgentLogo, isCodingAgentRow, parseCodingAgentRef } from "./coding-agent-models";
+
+/** The logo a row shows: a coding agent's vendor (or its own letter tile), else the provider's. */
+function rowLogo(m: ModelInfo): string {
+  if (!isCodingAgentRow(m)) return m.provider;
+  const agentId = parseCodingAgentRef(m)?.agentId ?? m.modelId;
+  return codingAgentLogo(agentId, m.displayName?.split(" · ")[0] ?? agentId);
+}
 import { loadModelGroupOrder } from "../models/model-group-order";
 import { useProject } from "../../state/project";
 
@@ -225,7 +233,7 @@ export function ModelMenuList({
       onPick={onPick}
       renderRow={(m) => (
         <>
-          <ProviderLogo provider={m.provider} className="h-4 w-4 shrink-0" />
+          <ProviderLogo provider={rowLogo(m)} className="h-4 w-4 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{modelLabel(m)}</span>
           {/* Zero-cost rows (all three price buckets 0): same light-yellow "Free" badge as
               the model library card, so free models stand out while picking. */}
@@ -236,7 +244,8 @@ export function ModelMenuList({
           )}
           {/* Key-less rows (visible via show-all / selected / default / no-key-at-all) carry a
               struck-through key icon (the "no key" text lives in the title/aria-label). */}
-          {!hasConfiguredKey(m) && (
+          {/* A coding agent signs in on the server machine; it never has a key here. */}
+          {!hasConfiguredKey(m) && !isCodingAgentRow(m) && (
             <span
               role="img"
               title={S.models.noKey}
@@ -324,7 +333,7 @@ export function ModelSelect({
   const label = current ? modelLabel(current) : (value?.modelId ?? emptyLabel ?? "…");
   const logo = unset ? null : (
     <ProviderLogo
-      provider={current?.provider ?? value?.provider ?? "custom"}
+      provider={current ? rowLogo(current) : (value?.provider ?? "custom")}
       className="h-4 w-4 shrink-0"
     />
   );

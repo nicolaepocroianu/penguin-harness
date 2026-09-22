@@ -1,40 +1,31 @@
 /**
- * Coding agents: drive external ACP-speaking agents (Claude Code, Codex, Gemini CLI, or any
- * custom command) against a folder on the server machine, and watch their sessions live —
- * text and thinking streams, tool-call cards, permission asks, mode switches.
+ * Coding-agent runs: the agent sessions activity stages start (spec generation, module
+ * assembly, media text), watched live — text and thinking streams, tool-call cards, permission
+ * asks, mode switches. Coding agents are configured on Models → Local CLI, and a chat with one
+ * is an ordinary Session in the sidebar; this page is where a stage's run is followed.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate, useNavigationType } from "react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigationType } from "react-router";
 import type {
   CodingAgentConfigOption,
-  CodingAgentDiscoveryCandidate,
   CodingAgentEvent,
-  CodingAgentSaveRequest,
-  CodingAgentServerInfo,
   CodingAgentSessionInfo,
 } from "@prismshadow/penguin-server/api";
 import {
   answerCodingAgentPermission,
   cancelCodingAgentSession,
-  discoverCodingAgents,
   downloadCodingAgentTranscript,
   promptCodingAgentSession,
-  refreshCodingAgents,
-  removeCodingAgent,
   renameCodingAgentSession,
   saveCodingAgent,
   setCodingAgentMode,
-  setCodingAgentModel,
   setCodingAgentSessionConfig,
 } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
-import { CODING_AGENT_PROVIDER } from "../chat/coding-agent-models";
 import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneStrip, type Tone } from "../../lib/tone";
-import { useAuth } from "../../state/auth";
 import { Button } from "../../components/ui/button";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { Field } from "../../components/ui/field";
 import { GlyphIcon } from "../../components/ui/glyph-icon";
 import { Input, Textarea } from "../../components/ui/input";
@@ -108,9 +99,7 @@ export function selectSessionFromRoute(
 }
 
 export function CodingAgentsPage() {
-  const { user } = useAuth();
-  const isAdmin = user?.isAdmin === true;
-  const { agents, sessions, loading, loadError, reload } = useCodingAgents();
+  const { sessions, loading, loadError, reload } = useCodingAgents();
   // Route state names a session to open (the Quick Switcher's session entries navigate
   // here with one). The initializer covers a first mount; the effect below re-applies
   // fresh navigations while the page is already open. Back/forward pops never re-select.
@@ -124,84 +113,6 @@ export function CodingAgentsPage() {
     const next = selectSessionFromRoute(requestedSessionId, navigationType);
     if (next !== null) setSelectedId(next);
   }, [navigationType, requestedSessionId]);
-  const [addOpen, setAddOpen] = useState(false);
-  const navigate = useNavigate();
-  const [removing, setRemoving] = useState<CodingAgentServerInfo | null>(null);
-  const [candidates, setCandidates] = useState<CodingAgentDiscoveryCandidate[] | null>(null);
-  const [agentModels, setAgentModels] = useState<Record<string, CodingAgentConfigOption[]>>({});
-  const [scanning, setScanning] = useState(false);
-
-  const loadCandidates = useCallback(() => {
-    discoverCodingAgents()
-      .then((res) => {
-        setCandidates(res.candidates);
-        setAgentModels(res.agentModels);
-      })
-      .catch(() => {
-        setCandidates(null);
-        setAgentModels({});
-      });
-  }, []);
-  useEffect(() => {
-    loadCandidates();
-  }, [loadCandidates]);
-
-  const rescan = () => {
-    setScanning(true);
-    refreshCodingAgents()
-      .then((res) => {
-        setCandidates(res.candidates);
-        setAgentModels(res.agentModels);
-      })
-      .catch((e: unknown) => toastError(apiErrorText(e)))
-      .finally(() => setScanning(false));
-  };
-
-  // Merge probed recipes with saved definitions: a definition's command is authoritative
-  // over the recipe's suggestion, custom definitions become their own cards. "Usable"
-  // gates on `detected` — an npx-run adapter can resolve while the agent itself is
-  // absent, and a launch alone never proves the agent is installed.
-  const installed: AgentCardModel[] = [];
-  const available: AgentCardModel[] = [];
-  const seenRecipes = new Set<string>();
-  for (const candidate of candidates ?? []) {
-    seenRecipes.add(candidate.recipeId);
-    const definition = agents.find((a) => a.id === candidate.recipeId);
-    const usable = candidate.detected || definition !== undefined;
-    const card: AgentCardModel = {
-      key: `recipe:${candidate.recipeId}`,
-      agentId: candidate.recipeId,
-      title: definition?.title ?? candidate.title,
-      commandLine: definition
-        ? [definition.command, ...definition.args].join(" ")
-        : candidate.launch !== null
-          ? [candidate.launch.command, ...candidate.launch.args].join(" ")
-          : "",
-      saved: definition !== undefined || candidate.alreadyAdded,
-      version: candidate.version,
-      authStatus: candidate.authStatus,
-      setupHint:
-        candidate.launch === null ? (candidate.setupHint ?? S.codingAgents.setupRequired) : null,
-      homepageUrl: candidate.homepageUrl,
-      // A saved definition's own probe wins over the recipe's: its sessions run the
-      // saved command, so its dropdown shows what that command advertises.
-      models: agentModels[candidate.recipeId] ?? candidate.models,
-      rememberedModel: definition?.rememberedModel ?? candidate.rememberedModel ?? null,
-    };
-    (usable ? installed : available).push(card);
-  }
-  for (const agent of agents) {
-    if (seenRecipes.has(agent.id)) continue;
-    installed.push({
-      key: `def:${agent.id}`,
-      agentId: agent.id,
-      title: agent.title ?? agent.id,
-      commandLine: [agent.command, ...agent.args].join(" "),
-      saved: true,
-      models: agentModels[agent.id],
-      rememberedModel: agent.rememberedModel ?? null,
-    });
-  }
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6">
@@ -212,10 +123,15 @@ export function CodingAgentsPage() {
           className="text-gray-500 dark:text-gray-400"
         />
         <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          {S.codingAgents.title}
+          {S.codingAgents.runsTitle}
         </h1>
       </div>
-      <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">{S.codingAgents.description}</p>
+      <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+        {S.codingAgents.runsDescription}{" "}
+        <Link className="underline underline-offset-2" to="/models?view=local">
+          {S.codingAgents.runsManageLink}
+        </Link>
+      </p>
 
       {loadError ? (
         <div className={`mb-4 rounded-md border px-3 py-2 text-sm ${toneStrip.danger}`}>
@@ -223,234 +139,15 @@ export function CodingAgentsPage() {
         </div>
       ) : null}
 
-      <section className="mb-8">
-        <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-            {S.codingAgents.installedTitle}
-            {candidates !== null ? ` (${installed.length})` : ""}
-          </h2>
-          <div className="flex shrink-0 gap-2">
-            {isAdmin ? (
-              <Button size="sm" onClick={() => setAddOpen(true)}>
-                {S.codingAgents.addAgent}
-              </Button>
-            ) : null}
-            {isAdmin ? (
-              <Button size="sm" onClick={rescan} disabled={scanning}>
-                {scanning ? S.codingAgents.scanning : S.codingAgents.rescan}
-              </Button>
-            ) : null}
-          </div>
-        </div>
-        {installed.length === 0 && !loading ? (
-          <p className="whitespace-pre-line rounded-md border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
-            {candidates === null ? S.codingAgents.scanFailed : S.codingAgents.noAgents}
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {installed.map((card) => (
-              <AgentCard
-                key={card.key}
-                card={card}
-                isAdmin={isAdmin}
-                // A session starts where every conversation does: a new chat, with this agent
-                // already picked in the model dropdown and the folder optional.
-                onNewSession={() =>
-                  navigate("/chat/new", {
-                    state: { modelRef: { provider: CODING_AGENT_PROVIDER, modelId: card.agentId } },
-                  })
-                }
-                onRemove={() => {
-                  const agent = agents.find((a) => a.id === card.agentId);
-                  if (agent !== undefined) setRemoving(agent);
-                }}
-                onModelChanged={loadCandidates}
-              />
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {available.length > 0 ? (
-        <section className="mb-8">
-          <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-            {S.codingAgents.availableTitle} ({available.length})
-          </h2>
-          <ul className="space-y-2">
-            {available.map((card) => (
-              <li
-                key={card.key}
-                className="flex min-w-0 items-center gap-2.5 rounded-md border border-gray-200 px-3 py-2.5 opacity-70 dark:border-gray-800"
-              >
-                <GlyphIcon
-                  d={BOT_PATH}
-                  size={ICON_SIZE.rowLead}
-                  className="shrink-0 text-gray-400 dark:text-gray-500"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm text-gray-900 dark:text-gray-100">
-                    {card.title}
-                  </div>
-                  <div className="truncate text-xs text-gray-500 dark:text-gray-400">
-                    {card.setupHint ?? S.codingAgents.setupRequired}
-                  </div>
-                </div>
-                {card.homepageUrl ? (
-                  <a
-                    href={card.homepageUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="shrink-0 text-xs text-[var(--accent-fg)] underline-offset-2 hover:underline"
-                  >
-                    {S.codingAgents.installLink}
-                  </a>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      <SessionsSection
-        sessions={sessions}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-        onSettled={reload}
-      />
-
-      <AddAgentModal open={addOpen} onClose={() => setAddOpen(false)} onSaved={reload} />
-      <ConfirmModal
-        open={removing !== null}
-        title={S.codingAgents.removeConfirmTitle}
-        confirmLabel={S.codingAgents.removeAgent}
-        onClose={() => setRemoving(null)}
-        onConfirm={() => {
-          if (removing !== null) {
-            void removeCodingAgent(removing.id)
-              .then(() => {
-                toastSuccess(S.codingAgents.removeAgent);
-                reload();
-                loadCandidates();
-              })
-              .catch((e: unknown) => toastError(apiErrorText(e)));
-          }
-          setRemoving(null);
-        }}
-      >
-        {removing !== null ? S.codingAgents.removeConfirmBody(removing.title ?? removing.id) : ""}
-      </ConfirmModal>
-    </div>
-  );
-}
-
-/**
- * One installed agent: name, version and sign-in state (when a scan has run), the
- * command, the model remembered for it, and its actions. A Model pick on the card is
- * remembered for the agent and auto-applied to its new sessions.
- */
-function AgentCard({
-  card,
-  isAdmin,
-  onNewSession,
-  onRemove,
-  onModelChanged,
-}: {
-  card: AgentCardModel;
-  isAdmin: boolean;
-  onNewSession: () => void;
-  onRemove: () => void;
-  onModelChanged: () => void;
-}) {
-  const modelOption =
-    card.models?.find((o) => o.category === "model" && o.type === "select") ??
-    card.models?.find((o) => o.type === "select");
-  const rememberedFits = card.rememberedModel?.configId === modelOption?.id;
-  const modelValue = String(
-    rememberedFits && card.rememberedModel != null
-      ? card.rememberedModel.value
-      : (modelOption?.currentValue ?? ""),
-  );
-  const setModel = (value: string) => {
-    if (modelOption === undefined) return;
-    const choice = modelOption.options.find((v) => v.value === value);
-    void setCodingAgentModel(card.agentId, {
-      configId: modelOption.id,
-      value,
-      ...(choice !== undefined ? { name: choice.name } : {}),
-    })
-      .then(onModelChanged)
-      .catch((e: unknown) => toastError(apiErrorText(e)));
-  };
-  return (
-    <li className="rounded-md border border-gray-200 px-3 py-2.5 dark:border-gray-800">
-      <div className="flex items-start gap-2.5">
-        <GlyphIcon
-          d={BOT_PATH}
-          size={ICON_SIZE.rowLead}
-          className="mt-0.5 shrink-0 text-gray-400 dark:text-gray-500"
+      {!loading || sessions.length > 0 ? (
+        <SessionsSection
+          sessions={sessions}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onSettled={reload}
         />
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-              {card.title}
-            </span>
-            {card.version !== undefined ? (
-              <span className="truncate font-mono text-xs text-gray-500 dark:text-gray-400">
-                {card.version}
-              </span>
-            ) : null}
-            {card.authStatus === "ok" ? (
-              <span className={`text-xs ${toneInk.success}`}>{S.codingAgents.authOk}</span>
-            ) : card.authStatus === "missing" ? (
-              <span className={`text-xs ${toneInk.attention}`}>{S.codingAgents.authMissing}</span>
-            ) : null}
-          </div>
-          {card.commandLine !== "" ? (
-            <div className="truncate font-mono text-xs text-gray-500 dark:text-gray-400">
-              {card.commandLine}
-            </div>
-          ) : null}
-          {card.setupHint !== null && card.setupHint !== undefined ? (
-            <div className={`text-xs ${toneInk.attention}`}>{card.setupHint}</div>
-          ) : null}
-          {modelOption !== undefined && modelOption.options.length > 0 ? (
-            <div className="mt-1.5 flex items-center gap-1.5">
-              <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
-                {S.codingAgents.modelLabel}
-              </span>
-              <Select
-                size="sm"
-                aria-label={`${card.title} ${S.codingAgents.modelLabel}`}
-                value={modelValue}
-                disabled={!isAdmin}
-                onChange={(e) => setModel(e.target.value)}
-              >
-                {modelOption.options.map((value) => (
-                  <option key={value.value} value={value.value}>
-                    {value.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 gap-2">
-          {/* Startable needs a runnable entrypoint: a saved definition always has its
-              own command; a recipe needs its launch (an installed-but-adapterless agent
-              would only 400 at start). */}
-          {card.saved || card.commandLine !== "" ? (
-            <Button size="sm" onClick={onNewSession}>
-              {S.codingAgents.newSession}
-            </Button>
-          ) : null}
-          {card.saved && isAdmin ? (
-            <Button size="sm" variant="danger" onClick={onRemove}>
-              {S.codingAgents.removeAgent}
-            </Button>
-          ) : null}
-        </div>
-      </div>
-    </li>
+      ) : null}
+    </div>
   );
 }
 
@@ -976,7 +673,7 @@ function ToolCallCard({ call }: { call: ToolCallSnapshot }) {
   );
 }
 
-function AddAgentModal({
+export function AddAgentModal({
   open,
   onClose,
   onSaved,

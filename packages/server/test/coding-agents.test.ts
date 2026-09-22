@@ -314,6 +314,34 @@ describe("coding agents api", () => {
   });
 
   // The card's Model pick persists per agent and rides the agents list back out.
+  it("remembers other settings for an agent and applies them to its next session", async () => {
+    expect(
+      (
+        await member.put("/api/coding-agents/agents/fake/options", {
+          configId: "plan",
+          value: true,
+        })
+      ).status,
+    ).toBe(403);
+    expect(
+      (await admin.put("/api/coding-agents/agents/fake/options", { configId: "plan", value: true }))
+        .status,
+    ).toBe(204);
+    const agents = (await (
+      await admin.get("/api/coding-agents/agents")
+    ).json()) as CodingAgentsResponse;
+    expect(agents.agents.find((a) => a.id === "fake")?.rememberedOptions).toEqual({ plan: true });
+    const created = await admin.post("/api/coding-agents/sessions", {
+      agentId: "fake",
+      workspaceDir: workspace,
+    });
+    const { session } = (await created.json()) as { session: CodingAgentSessionInfo };
+    const detail = (await (
+      await admin.get(`/api/coding-agents/sessions/${session.sessionId}`)
+    ).json()) as CodingAgentSessionDetailResponse;
+    expect(detail.configOptions.find((o) => o.id === "plan")?.currentValue).toBe(true);
+  });
+
   it("remembers the model an agent was set to", async () => {
     const created = await admin.post("/api/coding-agents/sessions", {
       agentId: "fake",

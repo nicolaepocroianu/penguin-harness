@@ -116,6 +116,21 @@ export function codingAgentsRoutes(deps: CodingAgentsRouteDeps): Hono<AppEnv> {
     return c.body(null, 204);
   });
 
+  app.put("/agents/:agentId/options", async (c) => {
+    if (!c.var.user.isAdmin) {
+      throw new HttpError(403, "forbidden", "Admin access is required.");
+    }
+    const agentId = pathParam(c, "agentId");
+    const body = await readJson(c);
+    const configId = requireString(body, "configId", { maxLen: 200, label: "configId" });
+    const value = (body as { value?: unknown }).value;
+    if (typeof value !== "boolean" && !(typeof value === "string" && value !== "")) {
+      throw badRequest("value must be a boolean or a non-empty string.");
+    }
+    deps.codingAgents.setAgentOption(agentId, { configId, value });
+    return c.body(null, 204);
+  });
+
   app.post("/agents", async (c) => {
     if (!c.var.user.isAdmin) {
       throw new HttpError(403, "forbidden", "Admin access is required.");

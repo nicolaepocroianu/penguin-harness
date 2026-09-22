@@ -67,6 +67,9 @@ const DEFINITIONS_KEY = "coding_agent_servers";
 /** The settings key holding the model remembered per agent id: { configId, value, name? }. */
 const MODELS_KEY = "coding_agent_models";
 
+/** The settings key holding other remembered session settings: { [agentId]: { [configId]: value } }. */
+const OPTIONS_KEY = "coding_agent_options";
+
 /** How long a probed discovery answer is reused before the next read re-runs the fs pass. */
 const DISCOVERY_CACHE_TTL_MS = 5 * 60_000;
 
@@ -123,6 +126,7 @@ export class CodingAgentService implements CodingAgents {
 
   listAgents(): CodingAgentServerInfo[] {
     const models = this.loadRememberedModels();
+    const options = this.loadRememberedOptions();
     return this.getManager()
       .listDefinitions()
       .map((d) => ({
@@ -131,6 +135,7 @@ export class CodingAgentService implements CodingAgents {
         args: d.args ?? [],
         ...(d.title !== undefined ? { title: d.title } : {}),
         ...(models[d.id] !== undefined ? { rememberedModel: models[d.id] } : {}),
+        ...(options[d.id] !== undefined ? { rememberedOptions: options[d.id] } : {}),
       }));
   }
 
@@ -214,6 +219,12 @@ export class CodingAgentService implements CodingAgents {
       ...(model.name !== undefined ? { name: model.name } : {}),
     };
     this.settings.set(MODELS_KEY, JSON.stringify(models));
+  }
+
+  setAgentOption(agentId: string, option: { configId: string; value: boolean | string }): void {
+    const all = this.loadRememberedOptions();
+    all[agentId] = { ...all[agentId], [option.configId]: option.value };
+    this.settings.set(OPTIONS_KEY, JSON.stringify(all));
   }
 
   listSessions(): CodingAgentSessionInfo[] {
@@ -379,10 +390,27 @@ export class CodingAgentService implements CodingAgents {
     sessionId: string,
   ): Promise<void> {
     const remembered = this.loadRememberedModels()[agentId];
-    if (remembered === undefined) return;
-    await manager
-      .setConfigOption(sessionId, remembered.configId, remembered.value)
-      .catch(() => undefined);
+    if (remembered !== undefined) {
+      await manager
+        .setConfigOption(sessionId, remembered.configId, remembered.value)
+        .catch(() => undefined);
+    }
+    // After the model: an effort a model does not offer is refused, and dropped here.
+    for (const [configId, value] of Object.entries(this.loadRememberedOptions()[agentId] ?? {})) {
+      await manager.setConfigOption(sessionId, configId, value).catch(() => undefined);
+    }
+  }
+
+  private loadRememberedOptions(): Record<string, Record<string, boolean | string>> {
+    const raw = this.settings.get(OPTIONS_KEY);
+    if (raw === null) return {};
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+      return parsed as Record<string, Record<string, boolean | string>>;
+    } catch {
+      return {};
+    }
   }
 
   respondPermission(requestId: string, outcome: AgentPermissionOutcome): boolean {
@@ -574,10 +602,14 @@ export class CodingAgentService implements CodingAgents {
   private annotate(candidates: AgentDiscoveryCandidate[]): CodingAgentDiscoveryCandidate[] {
     const definitions = this.loadDefinitions();
     const models = this.loadRememberedModels();
+    const options = this.loadRememberedOptions();
     return candidates.map((candidate) => ({
       ...candidate,
       alreadyAdded: definitions.some((d) => d.id === candidate.recipeId),
       rememberedModel: models[candidate.recipeId] ?? null,
+      ...(options[candidate.recipeId] !== undefined
+        ? { rememberedOptions: options[candidate.recipeId] }
+        : {}),
     }));
   }
 

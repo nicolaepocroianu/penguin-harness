@@ -40,7 +40,6 @@ describe("NAV_GROUP_KEYS", () => {
     // switcher (features/dock), and /traces stays reachable through its deep links only.
     expect([...NAV_GROUP_KEYS]).toEqual([
       "agents",
-      "coding-agents",
       "activities",
       "plugins",
       "models",
@@ -76,7 +75,6 @@ describe("navKeysFor", () => {
     // keys), so offering a member the row would only ever produce a 403.
     expect([...navKeysFor(false)]).toEqual([
       "agents",
-      "coding-agents",
       "activities",
       "plugins",
       "models",
@@ -88,7 +86,6 @@ describe("navKeysFor", () => {
     // carries the built-in library and the deployment's registry both, under one key.
     expect([...navKeysFor(true)]).toEqual([
       "agents",
-      "coding-agents",
       "activities",
       "plugins",
       "models",

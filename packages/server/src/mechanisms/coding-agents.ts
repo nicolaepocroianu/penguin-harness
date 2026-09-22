@@ -34,6 +34,11 @@ export abstract class CodingAgents extends Interface<{
     agentId: string,
     model: { configId: string; value: boolean | string; name?: string },
   ): void;
+  /**
+   * Remember one other session setting for this agent (a reasoning effort, say); applied to
+   * its new sessions after the model. The model itself goes through `setAgentModel`.
+   */
+  setAgentOption(agentId: string, option: { configId: string; value: boolean | string }): void;
   listSessions(): CodingAgentSessionInfo[];
   /**
    * `options.protectedRoots` names folders the agent may read but not change: permission
