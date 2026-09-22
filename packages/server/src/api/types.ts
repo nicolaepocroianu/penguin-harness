@@ -2507,8 +2507,15 @@ export type ServerEvent =
   /**
    * The transcript snapshot of a coding-agent session, sent as the private initial event of
    * its stream (the live events that follow ride the `coding_agent` SSE event name).
+   * `configOptions` is the session's authoritative current set — the retained event log
+   * may have evicted its original config_options entry.
    */
-  | { type: "coding_agent_snapshot"; sessionId: string; events: CodingAgentEvent[] }
+  | {
+      type: "coding_agent_snapshot";
+      sessionId: string;
+      events: CodingAgentEvent[];
+      configOptions: CodingAgentConfigOption[];
+    }
   /**
    * The Project's model credentials changed (PUT /models): cached runtimes have been
    * invalidated server-side, so an auth-dead Session can continue — the frontend clears
@@ -4895,12 +4902,19 @@ export interface CodingAgentSessionsResponse {
 }
 
 export interface CodingAgentSessionDetailResponse extends CodingAgentSessionInfo {
+  configOptions: import("@prismshadow/penguin-coding-agents").AgentSessionConfigOption[];
   events: CodingAgentEvent[];
 }
 
 export interface CodingAgentCreateRequest {
   agentId: string;
-  workspaceDir: string;
+  /** Omitted or empty: the server auto-creates a temporary workspace for the session. */
+  workspaceDir?: string;
+}
+
+export interface CodingAgentSessionConfigRequest {
+  configId: string;
+  value: boolean | string;
 }
 
 export interface CodingAgentPromptRequest {
@@ -4917,6 +4931,8 @@ export interface CodingAgentModeRequest {
 
 /** The kernel's protocol-neutral event vocabulary, re-exported for API consumers. */
 export type CodingAgentEvent = import("@prismshadow/penguin-coding-agents").AgentSessionEvent;
+export type CodingAgentConfigOption =
+  import("@prismshadow/penguin-coding-agents").AgentSessionConfigOption;
 export type { AudioTarget, AudioResult } from "../activities/audio.js";
 export type { MediaAsset, AssetManifest } from "../activities/media.js";
 export type { UploadedMedia, UploadKind } from "../activities/upload.js";

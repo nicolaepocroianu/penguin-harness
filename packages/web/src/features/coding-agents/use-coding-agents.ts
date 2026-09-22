@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
+  CodingAgentConfigOption,
   CodingAgentEvent,
   CodingAgentServerInfo,
   CodingAgentSessionInfo,
@@ -73,6 +74,12 @@ export function useCodingAgents(): CodingAgentsData {
 
 export interface SessionStreamState {
   events: CodingAgentEvent[];
+  /**
+   * The session's authoritative config-option set, seeded from the snapshot (and the
+   * detail endpoint on resync): the retained event log may have evicted the original
+   * config_options event, so the transcript rebuilds from this and events override.
+   */
+  configOptions: CodingAgentConfigOption[];
   connected: boolean;
   /** The server does not know this session (it ended, or the server restarted). */
   missing: boolean;
@@ -84,6 +91,7 @@ export function useCodingAgentStream(
   onSettled?: () => void,
 ): SessionStreamState {
   const [events, setEvents] = useState<CodingAgentEvent[]>([]);
+  const [configOptions, setConfigOptions] = useState<CodingAgentConfigOption[]>([]);
   const [connected, setConnected] = useState(false);
   const [missing, setMissing] = useState(false);
   const settledRef = useRef(onSettled);
@@ -92,12 +100,14 @@ export function useCodingAgentStream(
   useEffect(() => {
     if (sessionId === null) {
       setEvents([]);
+      setConfigOptions([]);
       setConnected(false);
       setMissing(false);
       return;
     }
     let connection: StreamConnection | null = null;
     setEvents([]);
+    setConfigOptions([]);
     setConnected(false);
     setMissing(false);
 
@@ -106,10 +116,14 @@ export function useCodingAgentStream(
       onServerEvent: (event: ServerEvent) => {
         if (event.type === "coding_agent_snapshot") {
           setEvents(event.events);
+          setConfigOptions(event.configOptions);
           setConnected(true);
         } else if (event.type === "resync_required") {
           // The buffer evicted our position: rebuild from the detail endpoint.
-          void getCodingAgentSession(sessionId).then((d) => setEvents(d.events));
+          void getCodingAgentSession(sessionId).then((d) => {
+            setEvents(d.events);
+            setConfigOptions(d.configOptions);
+          });
         }
       },
       onOpen: () => setConnected(true),
@@ -125,5 +139,5 @@ export function useCodingAgentStream(
     if (events.some((e) => e.type === "turn_end")) settledRef.current?.();
   }, [events]);
 
-  return { events, connected, missing };
+  return { events, configOptions, connected, missing };
 }
