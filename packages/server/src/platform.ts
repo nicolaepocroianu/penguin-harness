@@ -102,6 +102,7 @@ import { MemoryService } from "./services/memory-service.js";
 import { BenchmarkService } from "./services/benchmark-service.js";
 import { ActivityService } from "./activities/service.js";
 import { ActivityRoutes } from "./activities/routes.js";
+import { ActivitySandboxService } from "./activities/sandbox-service.js";
 import { ActivityGenerationService } from "./activities/generation.js";
 import { ActivityAuthoring, ActivityGeneration } from "./mechanisms/activities.js";
 import { ProjectsRoutes } from "./http/routes/dirs.js";
@@ -358,7 +359,7 @@ export class AgentsModule {}
 export class CodingAgentsModule {}
 
 @Module({
-  children: [ActivityService, ActivityGenerationService, ActivityRoutes],
+  children: [ActivityService, ActivityGenerationService, ActivitySandboxService, ActivityRoutes],
   exports: [ActivityAuthoring, ActivityGeneration],
 })
 export class ActivitiesModule {}
