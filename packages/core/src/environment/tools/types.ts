@@ -9,6 +9,7 @@
  */
 import type { OmniMessage, StopReason } from "../../omnimessage/index.js";
 import type { ApproveFn, ToolDefinitionConfig } from "../../interfaces/index.js";
+import type { ProtectedRoot } from "./path-guard.js";
 
 /**
  * Tool execution context: runtime information needed to execute one tool call.
@@ -32,6 +33,13 @@ export interface ToolExecutionContext {
   detachSignal?: AbortSignal;
   /** The parent Agent's approval callback; run_subagent passes it through to the child Session so it inherits the parent's approval mode (unused by most tools). */
   approve?: ApproveFn;
+  /**
+   * Trees the agent may read but must never write — a shared framework checkout it
+   * compiles against, a media library it resolves references in. Absent means the only
+   * limit is the user's own file permissions, which is what every tool did before.
+   * Honoured by the in-process file tools; spawned commands are the sandbox's business.
+   */
+  protectedRoots?: readonly ProtectedRoot[];
 }
 
 /**

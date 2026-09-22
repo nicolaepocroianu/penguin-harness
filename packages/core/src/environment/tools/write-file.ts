@@ -30,6 +30,7 @@ import path from "node:path";
 import { mkdir, readFile, stat } from "node:fs/promises";
 import { atomicWriteFile, resolveWriteTarget } from "../../internal/atomic-write.js";
 import { fileLockKey, withFileLock } from "../../internal/file-lock.js";
+import { protectedWrite, protectedWriteMessage } from "./path-guard.js";
 import { buildLineDiffHunks, renderHunk } from "./diff.js";
 import { partialToolCallOutput } from "../../omnimessage/index.js";
 import type { OmniMessage } from "../../omnimessage/index.js";
@@ -156,6 +157,13 @@ export function createWriteFileTool(definition: ToolDefinitionConfig): BuiltinTo
       }
 
       const resolved = path.resolve(ctx.workspaceDir, filePath);
+      // A tree the agent reads but may not change refuses the write here, before any of
+      // it happens: a prompt asking it not to is not a permission system.
+      const blocked = await protectedWrite(resolved, ctx.protectedRoots);
+      if (blocked) {
+        yield delta(protectedWriteMessage(filePath, blocked));
+        return { stopReason: "fatal" };
+      }
       // One file, one writer at a time: the previous content this call reads back and the
       // content it writes are a single critical section, so a concurrent edit of the same
       // file is applied either before this write or on top of it.

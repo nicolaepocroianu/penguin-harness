@@ -426,6 +426,14 @@ export class ActivityGenerationService implements ActivityGeneration {
               projectId,
               agentId,
               workspace,
+              // The shared checkout is the module's source of truth and belongs to whoever
+              // cloned it. An assembly Session reads the framework, navbar and media out of
+              // it and must leave it exactly as it found it — a refusal rather than an
+              // instruction, because an instruction is not a permission system and the
+              // people approving these Sessions are not all engineers.
+              ...(wafRoot
+                ? { protectedRoots: [{ root: wafRoot, label: "the shared WAF checkout" }] }
+                : {}),
               approvalMode: "always-ask",
             });
             run.sessionId = session.sessionId;

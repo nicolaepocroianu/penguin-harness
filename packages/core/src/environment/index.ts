@@ -3,6 +3,8 @@
  */
 export { Environment } from "./environment.js";
 export type { BuiltinTool, ToolExecutionContext } from "./tools/types.js";
+export type { ProtectedRoot } from "./tools/path-guard.js";
+export { protectedWrite, protectedWriteMessage } from "./tools/path-guard.js";
 export { BUILTIN_TOOL_FACTORIES } from "./tools/registry.js";
 export type { BuiltinToolFactory } from "./tools/registry.js";
 export { createReadFileTool, READ_FILE_NAME } from "./tools/read-file.js";

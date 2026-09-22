@@ -31,6 +31,7 @@ import type { ToolDefinitionConfig } from "../../interfaces/index.js";
 import type { BuiltinTool, ToolExecutionContext, ToolResult } from "./types.js";
 import { atomicWriteFile } from "../../internal/atomic-write.js";
 import { fileLockKey, withFileLock } from "../../internal/file-lock.js";
+import { protectedWrite, protectedWriteMessage } from "./path-guard.js";
 import { buildReplacementHunks, renderHunk } from "./diff.js";
 import { missingPathHint } from "./path-hint.js";
 import { describeArgumentError } from "./tool-arguments.js";
@@ -204,6 +205,13 @@ export function createEditFileTool(definition: ToolDefinitionConfig): BuiltinToo
       const replaceAll = args["replace_all"] === true;
 
       const resolved = path.resolve(ctx.workspaceDir, filePath);
+      // A tree the agent reads but may not change refuses the write here, before any of
+      // it happens: a prompt asking it not to is not a permission system.
+      const blocked = await protectedWrite(resolved, ctx.protectedRoots);
+      if (blocked) {
+        yield delta(protectedWriteMessage(filePath, blocked));
+        return { stopReason: "fatal" };
+      }
       // One file, one writer at a time: the read and the write that follows it are a single
       // critical section, so a concurrent edit lands entirely before or entirely after this
       // one instead of being overwritten by it.
