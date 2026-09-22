@@ -21,6 +21,8 @@ import {
 } from "./sandbox-configuration.js";
 import { moduleDeclaration, ModuleDeclarationError } from "./sandbox-declaration.js";
 import { moduleFileHeaders, moduleFilePath } from "./sandbox-module-files.js";
+import { describeBuild, SandboxBuilder, type BuildResult } from "./sandbox-builder.js";
+import { spawnModuleBuild } from "./sandbox-build-runner.js";
 import {
   aliasesByRefKey,
   applyAliasesToLanguageGroups,
@@ -38,6 +40,17 @@ import {
   withinRoot,
   type SandboxStatus,
 } from "./sandbox-paths.js";
+
+/** A build result as a caller sees it, with the sentence already written. */
+function report(result: BuildResult): SandboxBuildReport {
+  return {
+    ok: result.ok,
+    joined: result.joined,
+    skipped: result.skipped,
+    message: describeBuild(result),
+    log: result.log,
+  };
+}
 
 /** Reads a JSON file, or null when it is absent or unreadable. Never throws. */
 async function readJsonFile(file: string): Promise<Record<string, unknown> | null> {
@@ -73,6 +86,18 @@ export interface SandboxMediaResponse {
   body?: Opaque<"Uint8Array", Uint8Array>;
 }
 
+export interface SandboxBuildReport {
+  ok: boolean;
+  /** True when this request joined a build already running. */
+  joined: boolean;
+  /** True when nothing was built because the module was already current. */
+  skipped: boolean;
+  /** One line an author can act on. */
+  message: string;
+  /** The build's own output, kept whole. */
+  log: string;
+}
+
 export interface PayloadOptions {
   languageCode?: string | null;
   startSceneId?: string | null;
@@ -83,6 +108,7 @@ export abstract class ActivitySandbox extends Interface<{
   status(projectId: string, activityId: string): Promise<SandboxStatus>;
   payload(projectId: string, activityId: string, options: PayloadOptions): Promise<ActivityPayload>;
   moduleFile(projectId: string, activityId: string, rawPath: string): Promise<SandboxMediaResponse>;
+  build(projectId: string, activityId: string, force?: boolean): Promise<SandboxBuildReport>;
   media(
     projectId: string,
     activityId: string,
@@ -96,6 +122,19 @@ export class ActivitySandboxService implements ActivitySandbox {
   @Use() private readonly activities!: ActivityAuthoring;
   @Use() private readonly generation!: ActivityGeneration;
   @Use() private readonly config!: Config;
+
+  /**
+   * One build per workspace, shared by everyone waiting on it.
+   *
+   * Held on the service rather than created per request: coalescing four concurrent
+   * requests into one build is the whole point, and a builder made per request coalesces
+   * nothing.
+   */
+  private readonly builder = new SandboxBuilder({
+    build: (workspace) => spawnModuleBuild(workspace),
+    sources: (workspace) => this.sourceMtimes(path.dirname(workspace)),
+    now: () => Date.now(),
+  });
 
   /**
    * The workspace of the most recent module build, or null when nothing has been built.
@@ -128,7 +167,9 @@ export class ActivitySandboxService implements ActivitySandbox {
       builtAtMs: definition?.mtimeMs ?? null,
       sourceMtimesMs: workspace ? await this.sourceMtimes(path.dirname(workspace)) : [],
     });
-    return sandboxStatus(state, null);
+    // The last build's output, so a failed build is visible rather than showing as a
+    // preview that simply never appears.
+    return sandboxStatus(state, workspace ? this.builder.lastLog(workspace) : null);
   }
 
   /**
@@ -214,6 +255,30 @@ export class ActivitySandboxService implements ActivitySandbox {
       configuration,
       hasAssessment: runtime.usesAssessment === true,
     });
+  }
+
+  /**
+   * Build this activity's module if it needs it, and say what happened.
+   *
+   * `force` rebuilds regardless — what a Play button does, because an author pressing it
+   * after a build they believe failed is asking for a build, not a freshness opinion.
+   */
+  async build(projectId: string, activityId: string, force = false): Promise<SandboxBuildReport> {
+    const activity = await this.activities.getActivity(projectId, activityId);
+    // Only the canonical ref owns the module code, and a build writes into it. A
+    // non-canonical ref asking to build would rewrite a module someone else owns.
+    if (!this.activities.isCanonicalRef(activity)) {
+      const product = this.activities.productOf(activity);
+      throw new HttpError(
+        409,
+        "ref_not_canonical",
+        `This activity shares its module with ref ${product?.canonicalRefNum}, which owns the module code. Build it from that ref.`,
+      );
+    }
+    const workspace = await this.builtModule(projectId, activity.id);
+    if (!workspace)
+      throw new HttpError(409, "preview_not_built", "No module has been built for this activity.");
+    return report(await this.builder.ensure(workspace, force));
   }
 
   /**

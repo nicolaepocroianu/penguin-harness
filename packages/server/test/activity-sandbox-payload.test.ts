@@ -9,7 +9,8 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { SandboxBuilder } from "../src/activities/sandbox-builder.js";
 import { ActivitySandboxService } from "../src/activities/sandbox-service.js";
 import { HttpError } from "../src/http/errors.js";
 
@@ -251,6 +252,86 @@ describe("the payload a preview serves", () => {
     await expect(service.moduleFile(PROJECT, ACTIVITY, "build.log")).rejects.toThrow(
       "not a module file",
     );
+  });
+
+  it("builds on demand and reports it in an author's words", async () => {
+    const { service } = await build({});
+    let builds = 0;
+    Object.assign(service, {
+      builder: new SandboxBuilder({
+        build: async () => {
+          builds += 1;
+          return { ok: true, log: "compiled" };
+        },
+        sources: async () => [Date.now()],
+        now: () => Date.now(),
+      }),
+    });
+    const report = await service.build(PROJECT, ACTIVITY);
+    expect(report.ok).toBe(true);
+    expect(report.message).toBe("Built.");
+    expect(report.log).toBe("compiled");
+    expect(builds).toBe(1);
+  });
+
+  it("coalesces concurrent requests into one build", async () => {
+    // Four scene edits in a row must not start four webpack builds.
+    const { service } = await build({});
+    let builds = 0;
+    let release: (() => void) | null = null;
+    Object.assign(service, {
+      builder: new SandboxBuilder({
+        build: async () => {
+          builds += 1;
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return { ok: true, log: "compiled" };
+        },
+        sources: async () => [Date.now()],
+        now: () => Date.now(),
+      }),
+    });
+    const requests = [1, 2, 3, 4].map(() => service.build(PROJECT, ACTIVITY, true));
+    await vi.waitFor(() => expect(release).not.toBeNull());
+    release!();
+    const reports = await Promise.all(requests);
+    expect(builds).toBe(1);
+    expect(reports.filter((report) => report.joined)).toHaveLength(3);
+  });
+
+  it("reports a failed build as failed, with its output", async () => {
+    // Never as a preview that simply never appears.
+    const { service } = await build({});
+    Object.assign(service, {
+      builder: new SandboxBuilder({
+        build: async () => ({ ok: false, log: "Module not found: ./missing" }),
+        sources: async () => [Date.now()],
+        now: () => Date.now(),
+      }),
+    });
+    const report = await service.build(PROJECT, ACTIVITY, true);
+    expect(report.ok).toBe(false);
+    expect(report.message).toBe("The build failed; see its output.");
+    expect(report.log).toContain("Module not found");
+  });
+
+  it("refuses to build from a ref that does not own the module", async () => {
+    // A build writes into the shared module, and only the canonical ref owns it.
+    const { service } = await build({});
+    Object.assign(service, {
+      activities: {
+        ...(service as unknown as { activities: Record<string, unknown> }).activities,
+        isCanonicalRef: () => false,
+        productOf: () => ({ canonicalRefNum: 4 }),
+      },
+    });
+    await expect(service.build(PROJECT, ACTIVITY)).rejects.toThrow("Build it from that ref");
+  });
+
+  it("refuses to build when there is no module workspace", async () => {
+    const { service } = await build({ runs: [] });
+    await expect(service.build(PROJECT, ACTIVITY)).rejects.toThrow("No module has been built");
   });
 
   it("refuses when nothing has been built, rather than serving an empty preview", async () => {
