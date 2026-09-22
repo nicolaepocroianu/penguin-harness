@@ -22,6 +22,7 @@ import { Input, Textarea } from "../../components/ui/input";
 import { Select } from "../../components/ui/select";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { CreateActivityDialog } from "./create-activity-dialog";
+import { ImportDialog } from "./import-dialog";
 import { ActivityRail } from "./activity-rail";
 import { ActivityWorkspace as WorkspaceShell } from "./activity-workspace";
 import { AssetEditor } from "./asset-editor";
@@ -32,6 +33,7 @@ import { firstSelection, sameSelection, type SceneAssetSelection } from "./scene
 import { resolveSection, workspaceSections, type WorkspaceSection } from "./workspace-model";
 import { ModulePreview } from "./module-preview";
 import { SandboxPanel } from "./sandbox-panel";
+import { sandboxHasModule, type SandboxStatusLike } from "./sandbox";
 import { SceneReview } from "./scene-review";
 import { SpecDiffView } from "./spec-diff-view";
 import { activityInitials, filterActivities, latestModuleRun } from "./preview";
@@ -84,6 +86,7 @@ function ActivityWorkspace({
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const dirty = useRef(false);
   const mounted = useRef(true);
   const accessible = useRef(available);
@@ -159,6 +162,11 @@ function ActivityWorkspace({
             <Button size="sm" disabled={!available} onClick={() => void reload()}>
               {S.activities.refresh}
             </Button>
+            {editable && (
+              <Button size="sm" disabled={!available} onClick={() => setImportOpen(true)}>
+                {S.activities.importFromLoom}
+              </Button>
+            )}
             {editable && (
               <Button
                 size="sm"
@@ -237,6 +245,13 @@ function ActivityWorkspace({
           </ul>
         )}
       </div>
+      {importOpen && (
+        <ImportDialog
+          projectId={projectId}
+          onClose={() => setImportOpen(false)}
+          onImported={() => void reload()}
+        />
+      )}
       {createOpen && (
         <CreateActivityDialog
           projectId={projectId}
@@ -281,6 +296,7 @@ function ActivityEditor({
   const [mediaOpen, setMediaOpen] = useState(false);
   const [media, setMedia] = useState("");
   const [runs, setRuns] = useState<ActivityRunSummary[]>([]);
+  const [sandboxModule, setSandboxModule] = useState(false);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -407,13 +423,17 @@ function ActivityEditor({
       const revisionAtStart = state.current.revision;
       let active = false;
       try {
-        const [value, history] = await Promise.all([
+        const [value, history, sandbox] = await Promise.all([
           apiFetch<ActivityDetail>(endpoint),
           apiFetch<{ runs: ActivityRunSummary[] }>(`${endpoint}/runs`),
+          // A module this project never assembled -- one Loom generated -- still has a
+          // Module section; only the sandbox knows it is there.
+          apiFetch<SandboxStatusLike>(`${endpoint}/sandbox/status`).catch(() => null),
         ]);
         if (cancelled) return;
         setLoadError("");
         setRuns(history.runs);
+        setSandboxModule(sandboxHasModule(sandbox));
         active = history.runs.some((run) => run.status === "running");
         if (!state.current.busy && state.current.revision === revisionAtStart) {
           if (!state.current.dirty) accept(value);
@@ -593,12 +613,12 @@ function ActivityEditor({
   const sections = workspaceSections({
     hasSpec: !!detail?.draft.spec,
     hasPlan: !!detail?.draft.mediaPlan,
-    hasModule: !!latestModuleRun(runs),
+    hasModule: !!latestModuleRun(runs) || sandboxModule,
   });
   const section = resolveSection(sectionChoice, {
     hasSpec: !!detail?.draft.spec,
     hasPlan: !!detail?.draft.mediaPlan,
-    hasModule: !!latestModuleRun(runs),
+    hasModule: !!latestModuleRun(runs) || sandboxModule,
   });
   const language = editedManifest?.assets[languageChoice]
     ? languageChoice
@@ -1085,7 +1105,12 @@ function ActivityEditor({
               )}
               {section === "module" && (
                 <>
-                  <SandboxPanel projectId={projectId} activityId={detail.id} />
+                  <SandboxPanel
+                    projectId={projectId}
+                    activityId={detail.id}
+                    spec={detail.draft.spec}
+                    languages={Object.keys(detail.draft.mediaPlan?.manifest.assets ?? {})}
+                  />
                   {available && (
                     <ModulePreview
                       runs={runs}

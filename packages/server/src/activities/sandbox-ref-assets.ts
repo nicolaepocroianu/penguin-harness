@@ -207,3 +207,20 @@ export function applyAliasesToLanguageGroups(
   }
   return next;
 }
+
+/**
+ * Every `{{MEDIA}}` in a composed payload, pointed at where this preview serves media.
+ *
+ * Loom resolved the token to `/media` because its sandbox owned the whole origin. A preview
+ * here lives under a per-activity path, so the token becomes that path: a URL the module
+ * puts straight into an `<img>` has to work without the framework's help.
+ */
+export function resolveMediaToken(value: unknown, mediaBase: string): unknown {
+  if (typeof value === "string")
+    return value.includes(MEDIA_TOKEN) ? value.replaceAll(MEDIA_TOKEN, mediaBase) : value;
+  if (Array.isArray(value)) return value.map((child) => resolveMediaToken(child, mediaBase));
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, child]) => [key, resolveMediaToken(child, mediaBase)]),
+  );
+}

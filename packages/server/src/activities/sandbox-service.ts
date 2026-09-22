@@ -1,17 +1,25 @@
 /**
  * The dev sandbox, assembled.
  *
- * Reports what state a preview is in, builds the module on demand, and serves the draft's
- * media. Everything it decides lives in `sandbox-model`, `sandbox-paths`, `media-origin`
- * and `sandbox-builder`; this is the part that touches the filesystem and the activity
- * record, kept thin on purpose.
+ * Reports what state a preview is in, builds the module on demand, serves the draft's
+ * media, and plays the activity in a learner runtime of its own. Everything it decides
+ * lives in `sandbox-model`, `sandbox-paths`, `sandbox-source`, `media-origin` and
+ * `sandbox-builder`; this is the part that touches the filesystem and the activity record,
+ * kept thin on purpose.
+ *
+ * A module comes from one of two places -- a run workspace Penguin assembled it in, or the
+ * WAF checkout, where Loom left the modules it generated (see `sandbox-source`). Media
+ * likewise: the draft's own files first, then the checkout's media root, which is where
+ * every manifest path that is not an upload points.
  */
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Component, Interface, Use, type Opaque } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import type { Config } from "../hmr/capabilities.js";
+import type { ActivityRecord } from "./domain.js";
 import {
   activityPayload,
   scopeConfigurationToLanguage,
@@ -20,19 +28,22 @@ import {
   type ActivityPayload,
 } from "./sandbox-configuration.js";
 import { moduleDeclaration, ModuleDeclarationError } from "./sandbox-declaration.js";
-import { moduleFileHeaders, moduleFilePath } from "./sandbox-module-files.js";
+import { moduleContentType, moduleFileHeaders, moduleFilePath } from "./sandbox-module-files.js";
 import { describeBuild, SandboxBuilder, type BuildResult } from "./sandbox-builder.js";
-import { spawnModuleBuild } from "./sandbox-build-runner.js";
+import { spawnModuleBuild, spawnNodeScript } from "./sandbox-build-runner.js";
+import { spawnCheckoutBuild } from "./sandbox-checkout-build.js";
+import { PLAYER_BUILD_SCRIPT, PLAYER_SOURCE, playerPage, playerStamp } from "./sandbox-player.js";
 import {
   aliasesByRefKey,
   applyAliasesToLanguageGroups,
   mediaUrlVersions,
   overlayRefAssets,
+  resolveMediaToken,
   versionMediaUrls,
   type ManifestAsset,
 } from "./sandbox-ref-assets.js";
-import { planMediaResponse } from "./media-origin.js";
-import { previewMediaPath, previewState } from "./sandbox-model.js";
+import { mediaContentType, planMediaResponse } from "./media-origin.js";
+import { moduleStale, previewMediaPath, previewState } from "./sandbox-model.js";
 import {
   sandboxMediaRoot,
   sandboxModuleRoot,
@@ -41,6 +52,20 @@ import {
   type SandboxBuildReport,
   type SandboxStatus,
 } from "./sandbox-paths.js";
+import {
+  checkoutOutputRoot,
+  checkoutServable,
+  moduleFileRoots,
+  moduleSourceDirs,
+  type ModuleSource,
+} from "./sandbox-source.js";
+import { findWafRoot } from "./waf-module.js";
+import {
+  isAssessmentData,
+  nextAssessmentPart,
+  startAssessment,
+  type AssessmentSession,
+} from "./sandbox-assessment.js";
 
 /** A build result as a caller sees it, with the sentence already written. */
 function report(result: BuildResult): SandboxBuildReport {
@@ -77,8 +102,41 @@ function manifestAssets(manifest: unknown): ManifestAsset[] {
   );
 }
 
-/** Files whose modification times decide whether a built module is current. */
-const SOURCE_DIRS = ["module/src", "module/res", "module/generated"];
+/** The framework's shared resources a player page asks for, by the path it asks under. */
+const FRAMEWORK_RESOURCES = {
+  layouts: "res/layouts",
+  css: "res/common/css",
+  images: "res/common/images",
+  audio: "res/common/audio",
+} as const;
+
+export type FrameworkResource = keyof typeof FRAMEWORK_RESOURCES;
+
+/**
+ * The navigation bar every layout carries, as Loom declared it: the checkout's own navbar
+ * module, in its park theme, with its empty configuration.
+ */
+const NAVBAR_FOLDER = "navbar";
+const NAVBAR_THEME = "park";
+const NAVBAR_CONFIGURATION = "none_navBar.json";
+
+/** How long an idle assessment session is kept, and how many at most, as in Loom. */
+const ASSESSMENT_SESSION_TTL_MS = 30 * 60 * 1000;
+const MAX_ASSESSMENT_SESSIONS = 500;
+
+/** How long a play link works. Long enough to play an activity through, not a session. */
+export const PLAY_TOKEN_TTL_MS = 2 * 60 * 60 * 1000;
+
+/** What a play token grants: one activity's preview, on one host, until it expires. */
+export interface PlayTarget {
+  projectId: string;
+  activityId: string;
+  /** Host (no port) the preview must be served from; anything else is refused. */
+  host: string;
+  /** True when that host is the App's own, so the page must be sandboxed off its origin. */
+  shared: boolean;
+  expiresAt: number;
+}
 
 export interface SandboxMediaResponse {
   status: number;
@@ -92,20 +150,67 @@ export type { SandboxBuildReport };
 export interface PayloadOptions {
   languageCode?: string | null;
   startSceneId?: string | null;
+  /**
+   * The path every sandbox route of this activity hangs off, ending in a slash. Defaults to
+   * the authenticated API's; a played preview passes its own token-bearing path.
+   */
+  base?: string | null;
 }
+
+/** A player page, or the reason there is not one to show. */
+export interface PlayerPageResult {
+  status: number;
+  html: string;
+}
+
+type RangeRequest = { range?: string | null; ifRange?: string | null; ifNoneMatch?: string | null };
 
 /** The sandbox as its callers see it. */
 export abstract class ActivitySandbox extends Interface<{
   status(projectId: string, activityId: string): Promise<SandboxStatus>;
   payload(projectId: string, activityId: string, options: PayloadOptions): Promise<ActivityPayload>;
   moduleFile(projectId: string, activityId: string, rawPath: string): Promise<SandboxMediaResponse>;
+  /** One file of the checkout's navigation bar module, which every played layout carries. */
+  navbarFile(rawPath: string): Promise<SandboxMediaResponse>;
   build(projectId: string, activityId: string, force?: boolean): Promise<SandboxBuildReport>;
   media(
     projectId: string,
     activityId: string,
     rawPath: string,
-    request: { range?: string | null; ifRange?: string | null; ifNoneMatch?: string | null },
+    request: RangeRequest,
   ): Promise<SandboxMediaResponse>;
+  /** Signs a link that plays this activity on `host`, for a caller already authorised. */
+  play(
+    projectId: string,
+    activityId: string,
+    host: string,
+    shared: boolean,
+  ): Promise<{ token: string; expiresAt: number }>;
+  /** What a play token grants, or null when it is forged, expired or for another host. */
+  verifyPlay(token: string, host: string): PlayTarget | null;
+  playerPage(
+    projectId: string,
+    activityId: string,
+    base: string,
+    options: PayloadOptions,
+  ): Promise<PlayerPageResult>;
+  playerFile(rawPath: string): Promise<SandboxMediaResponse>;
+  frameworkFile(
+    resource: FrameworkResource,
+    rawPath: string,
+    request: RangeRequest,
+  ): Promise<SandboxMediaResponse>;
+  /**
+   * The next part of a played activity's assessment: a new session when `scoreId` is null,
+   * otherwise the one it names, taking the learner's answers to the last part.
+   */
+  assess(
+    projectId: string,
+    activityId: string,
+    base: string,
+    scoreId: string | null,
+    responses: unknown[],
+  ): Promise<Record<string, unknown>>;
 }>() {}
 
 @Component({})
@@ -113,6 +218,9 @@ export class ActivitySandboxService implements ActivitySandbox {
   @Use() private readonly activities!: ActivityAuthoring;
   @Use() private readonly generation!: ActivityGeneration;
   @Use() private readonly config!: Config;
+
+  /** The WAF checkout, or null when there is none. A field so a test can point it. */
+  private readonly locateWafRoot: () => Promise<string | null> = () => findWafRoot();
 
   /**
    * One build per workspace, shared by everyone waiting on it.
@@ -126,6 +234,25 @@ export class ActivitySandboxService implements ActivitySandbox {
     sources: (workspace) => this.sourceMtimes(path.dirname(workspace)),
     now: () => Date.now(),
   });
+
+  /** The same, for modules in the checkout; keyed by the module folder, built elsewhere. */
+  private readonly checkoutBuilder = new SandboxBuilder({
+    build: (moduleRoot) => this.buildCheckout(moduleRoot),
+    sources: (moduleRoot) => this.mtimes(["src", "res"].map((dir) => path.join(moduleRoot, dir))),
+    now: () => Date.now(),
+  });
+
+  /** A build of the player already under way, joined by anyone who asks meanwhile. */
+  private playerBuilding: Promise<{ ok: boolean; log: string; dir: string }> | null = null;
+
+  /** Signs play links. Per process: a restart ends every open preview, which is fine. */
+  private readonly playSecret = randomBytes(32);
+
+  /** Assessment sessions of played previews, keyed by activity and score id. */
+  private readonly assessments = new Map<
+    string,
+    { session: AssessmentSession; lastUsedAt: number }
+  >();
 
   /**
    * The workspace of the most recent module build, or null when nothing has been built.
@@ -143,24 +270,136 @@ export class ActivitySandboxService implements ActivitySandbox {
       : null;
   }
 
+  /**
+   * Where this activity's module comes from: Penguin's own build if there is one, else the
+   * product's folder in the WAF checkout if it holds a module, else nowhere.
+   */
+  private async moduleSource(
+    projectId: string,
+    activity: ActivityRecord,
+  ): Promise<ModuleSource | null> {
+    const run = await this.builtModule(projectId, activity.id);
+    if (run) return { kind: "run", root: run };
+    const product = this.activities.productOf(activity);
+    if (!product) return null;
+    const wafRoot = await this.locateWafRoot();
+    if (!wafRoot) return null;
+    // The folder was validated when the product was made; containment is checked anyway,
+    // because this is a path chosen by stored data and read by a URL.
+    const root = withinRoot(path.join(wafRoot, "modules"), product.moduleFolder);
+    if (!root) return null;
+    const definition = await fs.stat(path.join(root, "definition.json")).catch(() => null);
+    if (!definition?.isFile()) return null;
+    return {
+      kind: "checkout",
+      root,
+      output: checkoutOutputRoot(this.config.root, product.moduleFolder),
+      moduleFolder: product.moduleFolder,
+    };
+  }
+
+  /** The checkout's navigation bar module, or null when the checkout has none. */
+  private async navbarSource(): Promise<ModuleSource | null> {
+    const wafRoot = await this.locateWafRoot();
+    if (!wafRoot) return null;
+    const root = path.join(wafRoot, "modules", NAVBAR_FOLDER);
+    const definition = await fs.stat(path.join(root, "definition.json")).catch(() => null);
+    if (!definition?.isFile()) return null;
+    return {
+      kind: "checkout",
+      root,
+      output: checkoutOutputRoot(this.config.root, NAVBAR_FOLDER),
+      moduleFolder: NAVBAR_FOLDER,
+    };
+  }
+
+  /**
+   * The navbar compartment of a payload. Loom's, when the checkout has one; otherwise
+   * declared empty -- the runtime expects the compartment to exist, and an absent one is a
+   * different failure from an empty one.
+   */
+  private async navbarCompartment(
+    base: string,
+  ): Promise<{ declaration: { id: string }; configuration: Record<string, unknown> }> {
+    const empty = { declaration: { id: "navBar" }, configuration: {} };
+    const source = await this.navbarSource();
+    if (!source) return empty;
+    const definition = await readJsonFile(path.join(source.root, "definition.json"));
+    if (!definition) return empty;
+    const packageJson = await readJsonFile(path.join(source.root, "package.json"));
+    let declaration;
+    try {
+      declaration = moduleDeclaration({
+        definition,
+        packageVersion: packageJson?.version,
+        theme: NAVBAR_THEME,
+        routePrefix: `${base}navbar/`,
+      });
+    } catch (error) {
+      if (error instanceof ModuleDeclarationError) return empty;
+      throw error;
+    }
+    const configuration =
+      (await readJsonFile(path.join(source.root, "configurations", NAVBAR_CONFIGURATION))) ?? {};
+    return {
+      declaration: resolveMediaToken(declaration, `${base}media`) as { id: string },
+      configuration: resolveMediaToken(configuration, `${base}media`) as Record<string, unknown>,
+    };
+  }
+
+  private builderFor(source: ModuleSource): SandboxBuilder {
+    return source.kind === "run" ? this.builder : this.checkoutBuilder;
+  }
+
+  /** When a source was last built, from disk, so a restart does not forget it. */
+  private async builtAtMs(source: ModuleSource): Promise<number | null> {
+    const marker =
+      source.kind === "run"
+        ? path.join(source.root, "definition.json")
+        : path.join(source.output, "entry.js");
+    const stat = await fs.stat(marker).catch(() => null);
+    return stat?.isFile() ? stat.mtimeMs : null;
+  }
+
+  private async buildCheckout(moduleRoot: string) {
+    const moduleFolder = path.basename(moduleRoot);
+    const definition = await readJsonFile(path.join(moduleRoot, "definition.json"));
+    return spawnCheckoutBuild({
+      moduleRoot,
+      outputRoot: checkoutOutputRoot(this.config.root, moduleFolder),
+      // A checkout module sits at <waf>/modules/<folder>; the framework beside `modules`.
+      frameworkRoot: path.join(path.dirname(path.dirname(moduleRoot)), "framework"),
+      moduleId: typeof definition?.id === "string" ? definition.id : moduleFolder,
+    });
+  }
+
+  /** Builds a source if its build is older than what it is built from. */
+  private async ensureCurrent(source: ModuleSource): Promise<SandboxBuildReport | null> {
+    const builtAt = await this.builtAtMs(source);
+    const sources = await this.mtimes(moduleSourceDirs(source));
+    if (!moduleStale(builtAt, sources)) return null;
+    return report(await this.builderFor(source).ensure(source.root, true));
+  }
+
   /** What the client is told about a preview. Never claims more than it can show. */
   async status(projectId: string, activityId: string): Promise<SandboxStatus> {
     const activity = await this.activities.getActivity(projectId, activityId);
-    const canonical = this.activities.isCanonicalRef(activity);
-    const workspace = await this.builtModule(projectId, activity.id);
-    const definition = workspace
-      ? await fs.stat(path.join(workspace, "definition.json")).catch(() => null)
+    const source = await this.moduleSource(projectId, activity);
+    const definition = source
+      ? await fs.stat(path.join(source.root, "definition.json")).catch(() => null)
       : null;
     const state = previewState({
       hasSpec: activity.draft.status === "valid" && activity.draft.spec !== null,
       hasModule: Boolean(definition?.isFile()),
-      canonicalRef: canonical,
-      builtAtMs: definition?.mtimeMs ?? null,
-      sourceMtimesMs: workspace ? await this.sourceMtimes(path.dirname(workspace)) : [],
+      // A checkout module is shared by every ref and never written by a build, so any ref
+      // may play it and build it.
+      canonicalRef: source?.kind === "checkout" || this.activities.isCanonicalRef(activity),
+      builtAtMs: source ? await this.builtAtMs(source) : null,
+      sourceMtimesMs: source ? await this.mtimes(moduleSourceDirs(source)) : [],
     });
     // The last build's output, so a failed build is visible rather than showing as a
     // preview that simply never appears.
-    return sandboxStatus(state, workspace ? this.builder.lastLog(workspace) : null);
+    return sandboxStatus(state, source ? this.builderFor(source).lastLog(source.root) : null);
   }
 
   /**
@@ -180,9 +419,11 @@ export class ActivitySandboxService implements ActivitySandbox {
     const spec = activity.draft.spec;
     if (!spec)
       throw new HttpError(409, "preview_not_ready", "Save a specification before previewing.");
-    const workspace = await this.builtModule(projectId, activity.id);
-    if (!workspace)
+    const source = await this.moduleSource(projectId, activity);
+    if (!source)
       throw new HttpError(409, "preview_not_built", "No module has been built for this activity.");
+    const workspace = source.root;
+    const base = options.base ?? `/api/projects/${projectId}/activities/${activity.id}/sandbox/`;
 
     const runtime = (spec.runtime ?? {}) as Record<string, unknown>;
     const definition = await readJsonFile(path.join(workspace, "definition.json"));
@@ -196,7 +437,7 @@ export class ActivitySandboxService implements ActivitySandbox {
         definition,
         packageVersion: packageJson?.version,
         theme: String(runtime.theme ?? ""),
-        routePrefix: `/api/projects/${projectId}/activities/${activity.id}/sandbox/module/`,
+        routePrefix: `${base}module/`,
       });
     } catch (error) {
       if (error instanceof ModuleDeclarationError)
@@ -232,18 +473,18 @@ export class ActivitySandboxService implements ActivitySandbox {
     configuration = scopeConfigurationToLanguage(configuration, options.languageCode);
     configuration = withPreviewStartScene(configuration, options.startSceneId);
 
+    // Last, once every media URL is in its final form: versioning matches on the token.
+    const mediaBase = `${base}media`;
+    const navbar = await this.navbarCompartment(base);
     return activityPayload({
       moduleId: declaration.id,
       title: String(spec.title ?? activity.title),
       layout: String(runtime.layout ?? "mainOnly"),
       resolution: String(runtime.resolution ?? "640x480"),
-      declaration: overlaid as unknown as { id: string },
-      // The navbar compartment every layout carries. The preview has no navbar module to
-      // build, so it is declared empty rather than omitted: the runtime expects the
-      // compartment to exist, and an absent one is a different failure from an empty one.
-      navBarDeclaration: { id: "navBar" },
-      navBarConfiguration: {},
-      configuration,
+      declaration: resolveMediaToken(overlaid, mediaBase) as { id: string },
+      navBarDeclaration: navbar.declaration,
+      navBarConfiguration: navbar.configuration,
+      configuration: resolveMediaToken(configuration, mediaBase) as Record<string, unknown>,
       hasAssessment: runtime.usesAssessment === true,
     });
   }
@@ -256,9 +497,10 @@ export class ActivitySandboxService implements ActivitySandbox {
    */
   async build(projectId: string, activityId: string, force = false): Promise<SandboxBuildReport> {
     const activity = await this.activities.getActivity(projectId, activityId);
-    // Only the canonical ref owns the module code, and a build writes into it. A
-    // non-canonical ref asking to build would rewrite a module someone else owns.
-    if (!this.activities.isCanonicalRef(activity)) {
+    const source = await this.moduleSource(projectId, activity);
+    // Only the canonical ref owns a module Penguin assembled, and a build writes into it. A
+    // checkout module's build writes only Penguin's own copy, so any ref may ask for one.
+    if (source?.kind !== "checkout" && !this.activities.isCanonicalRef(activity)) {
       const product = this.activities.productOf(activity);
       throw new HttpError(
         409,
@@ -266,10 +508,9 @@ export class ActivitySandboxService implements ActivitySandbox {
         `This activity shares its module with ref ${product?.canonicalRefNum}, which owns the module code. Build it from that ref.`,
       );
     }
-    const workspace = await this.builtModule(projectId, activity.id);
-    if (!workspace)
+    if (!source)
       throw new HttpError(409, "preview_not_built", "No module has been built for this activity.");
-    return report(await this.builder.ensure(workspace, force));
+    return report(await this.builderFor(source).ensure(source.root, force));
   }
 
   /**
@@ -283,67 +524,103 @@ export class ActivitySandboxService implements ActivitySandbox {
     activityId: string,
     rawPath: string,
   ): Promise<SandboxMediaResponse> {
+    const invalid = () =>
+      new HttpError(400, "module_path_invalid", "That is not a module file this preview serves.");
     const relative = moduleFilePath(rawPath);
-    if (!relative)
-      throw new HttpError(
-        400,
-        "module_path_invalid",
-        "That is not a module file this preview serves.",
-      );
+    if (!relative) throw invalid();
     const activity = await this.activities.getActivity(projectId, activityId);
-    const workspace = await this.builtModule(projectId, activity.id);
-    if (!workspace)
+    const source = await this.moduleSource(projectId, activity);
+    if (!source)
       throw new HttpError(409, "preview_not_built", "No module has been built for this activity.");
-    const file = withinRoot(workspace, relative);
-    if (!file)
-      throw new HttpError(
-        400,
-        "module_path_invalid",
-        "That is not a module file this preview serves.",
-      );
+    if (source.kind === "checkout" && !checkoutServable(relative)) throw invalid();
 
-    const bytes = await fs.readFile(file).catch(() => null);
-    if (!bytes) throw new HttpError(404, "module_file_not_found", `No file at ${relative}.`);
-    return {
-      status: 200,
-      headers: { ...moduleFileHeaders(relative), "content-length": String(bytes.byteLength) },
-      body: new Uint8Array(bytes),
-    };
+    for (const root of moduleFileRoots(source)) {
+      const file = withinRoot(root, relative);
+      if (!file) throw invalid();
+      const bytes = await fs.readFile(file).catch(() => null);
+      if (!bytes) continue;
+      return {
+        status: 200,
+        headers: { ...moduleFileHeaders(relative), "content-length": String(bytes.byteLength) },
+        body: new Uint8Array(bytes),
+      };
+    }
+    throw new HttpError(404, "module_file_not_found", `No file at ${relative}.`);
+  }
+
+  async navbarFile(rawPath: string): Promise<SandboxMediaResponse> {
+    const invalid = () =>
+      new HttpError(400, "module_path_invalid", "That is not a module file this preview serves.");
+    const relative = moduleFilePath(rawPath);
+    if (!relative || !checkoutServable(relative)) throw invalid();
+    const source = await this.navbarSource();
+    if (!source) throw new HttpError(404, "navbar_not_found", "The checkout has no navbar module.");
+    for (const root of moduleFileRoots(source)) {
+      const file = withinRoot(root, relative);
+      if (!file) throw invalid();
+      const bytes = await fs.readFile(file).catch(() => null);
+      if (!bytes) continue;
+      return {
+        status: 200,
+        headers: { ...moduleFileHeaders(relative), "content-length": String(bytes.byteLength) },
+        body: new Uint8Array(bytes),
+      };
+    }
+    throw new HttpError(404, "module_file_not_found", `No file at ${relative}.`);
   }
 
   /**
-   * One media file from the draft, with range handling.
+   * One media file, with range handling: the draft's own first, then the checkout's.
    *
-   * The path is checked twice — by shape, then by where it lands — and the file is read
-   * only after both pass.
+   * The path is checked twice — by shape, then by where it lands in each root — and a file
+   * is read only after both pass.
    */
   async media(
     projectId: string,
     activityId: string,
     rawPath: string,
-    request: { range?: string | null; ifRange?: string | null; ifNoneMatch?: string | null },
+    request: RangeRequest,
   ): Promise<SandboxMediaResponse> {
     const relative = previewMediaPath(rawPath);
     if (!relative) throw new HttpError(400, "media_path_invalid", "That is not a media path.");
     const activity = await this.activities.getActivity(projectId, activityId);
-    const root = sandboxMediaRoot({
-      draftWorkspace: this.activities.draftWorkspace(
-        projectId,
-        activity.collectionId,
-        activity.id,
-        activity.draft.draftId,
-      ),
-    });
-    const file = withinRoot(root, relative);
-    if (!file) throw new HttpError(400, "media_path_invalid", "That is not a media path.");
+    const roots = [
+      sandboxMediaRoot({
+        draftWorkspace: this.activities.draftWorkspace(
+          projectId,
+          activity.collectionId,
+          activity.id,
+          activity.draft.draftId,
+        ),
+      }),
+    ];
+    // A manifest path is relative to the WAF root unless it is an upload, so a file the
+    // draft does not hold is the checkout's -- which is where every Loom asset lives.
+    const wafRoot = await this.locateWafRoot();
+    if (wafRoot) roots.push(path.join(wafRoot, "media"));
 
+    for (const root of roots) {
+      const file = withinRoot(root, relative);
+      if (!file) throw new HttpError(400, "media_path_invalid", "That is not a media path.");
+      const served = await this.serveFile(file, relative, request);
+      if (served) return served;
+    }
+    throw new HttpError(404, "media_not_found", `No media file at ${relative}.`);
+  }
+
+  /** A file with range handling, or null when there is no file there. */
+  private async serveFile(
+    file: string,
+    relative: string,
+    request: RangeRequest,
+    contentType?: string,
+  ): Promise<SandboxMediaResponse | null> {
     const stat = await fs.stat(file).catch(() => null);
-    if (!stat?.isFile())
-      throw new HttpError(404, "media_not_found", `No media file at ${relative}.`);
+    if (!stat?.isFile()) return null;
 
     const plan = planMediaResponse(relative, { size: stat.size, mtimeMs: stat.mtimeMs }, request);
-    if (plan.status === 304 || plan.status === 416)
-      return { status: plan.status, headers: plan.headers };
+    const headers = contentType ? { ...plan.headers, "Content-Type": contentType } : plan.headers;
+    if (plan.status === 304 || plan.status === 416) return { status: plan.status, headers };
 
     const handle = await fs.open(file, "r");
     try {
@@ -354,7 +631,7 @@ export class ActivitySandboxService implements ActivitySandbox {
       const { bytesRead } = await handle.read(buffer, 0, length, plan.range ? plan.range.start : 0);
       return {
         status: plan.status,
-        headers: plan.headers,
+        headers,
         body: bytesRead === length ? buffer : buffer.subarray(0, bytesRead),
       };
     } finally {
@@ -362,8 +639,276 @@ export class ActivitySandboxService implements ActivitySandbox {
     }
   }
 
+  /** Signs a play link. The caller has already been authorised for this activity. */
+  async play(
+    projectId: string,
+    activityId: string,
+    host: string,
+    shared: boolean,
+  ): Promise<{ token: string; expiresAt: number }> {
+    // Refuses a link to an activity that does not exist while the caller can still be told.
+    const activity = await this.activities.getActivity(projectId, activityId);
+    const target: PlayTarget = {
+      projectId,
+      activityId: activity.id,
+      host: host.toLowerCase(),
+      shared,
+      expiresAt: Date.now() + PLAY_TOKEN_TTL_MS,
+    };
+    const body = Buffer.from(JSON.stringify(target), "utf8").toString("base64url");
+    return {
+      token: `${body}.${this.mac(body).toString("base64url")}`,
+      expiresAt: target.expiresAt,
+    };
+  }
+
+  private mac(body: string): Buffer {
+    return createHmac("sha256", this.playSecret).update(body).digest();
+  }
+
+  verifyPlay(token: string, host: string): PlayTarget | null {
+    const dot = token.indexOf(".");
+    if (dot <= 0 || dot === token.length - 1) return null;
+    const body = token.slice(0, dot);
+    const provided = Buffer.from(token.slice(dot + 1), "base64url");
+    const expected = this.mac(body);
+    if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) return null;
+    let target: PlayTarget;
+    try {
+      target = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as PlayTarget;
+    } catch {
+      return null;
+    }
+    if (
+      typeof target?.projectId !== "string" ||
+      typeof target.activityId !== "string" ||
+      typeof target.host !== "string" ||
+      typeof target.expiresAt !== "number"
+    )
+      return null;
+    if (Date.now() >= target.expiresAt) return null;
+    // The host binding is what keeps a preview on the origin it was issued for.
+    if (target.host !== host.toLowerCase()) return null;
+    return target;
+  }
+
+  /**
+   * The page that plays this activity.
+   *
+   * Builds what is stale first -- the module, then the player -- so an author pressing Play
+   * sees their activity, or the build output that explains why not, rather than a page
+   * that loads and then fails somewhere inside the framework.
+   */
+  async playerPage(
+    projectId: string,
+    activityId: string,
+    base: string,
+    options: PayloadOptions,
+  ): Promise<PlayerPageResult> {
+    const activity = await this.activities.getActivity(projectId, activityId);
+    const spec = activity.draft.spec;
+    if (!spec) return failurePage(409, "Save a specification before previewing.");
+    const source = await this.moduleSource(projectId, activity);
+    if (!source) return failurePage(409, "No module has been built for this activity yet.");
+    // A module Penguin assembled may be played before its configuration exists, and plays
+    // empty. A Loom module without one was never finished -- Loom's own sandbox refused to
+    // play it -- so saying so beats a blank activity.
+    const configurationName = `${activity.productCode}-${activity.refNum}.json`;
+    if (
+      source.kind === "checkout" &&
+      !(await fs
+        .stat(path.join(source.root, "configurations", configurationName))
+        .catch(() => null))
+    )
+      return failurePage(
+        409,
+        `${source.moduleFolder} has no configurations/${configurationName}, so there is nothing for this ref to play. Loom generates it in its assets configuration stage.`,
+      );
+
+    const built = await this.ensureCurrent(source);
+    if (built && !built.ok) return failurePage(500, "The module did not build.", built.log);
+    const navbar = await this.navbarSource();
+    const navbarBuilt = navbar ? await this.ensureCurrent(navbar) : null;
+    if (navbarBuilt && !navbarBuilt.ok)
+      return failurePage(500, "The navigation bar did not build.", navbarBuilt.log);
+    const player = await this.ensurePlayer();
+    if (!player.ok) return failurePage(500, "The player did not build.", player.log);
+
+    const definition = await readJsonFile(path.join(source.root, "definition.json"));
+    const runtime = (spec.runtime ?? {}) as Record<string, unknown>;
+    return {
+      status: 200,
+      html: playerPage({
+        base,
+        title: String(spec.title ?? activity.title),
+        moduleId: typeof definition?.id === "string" ? definition.id : activity.productCode,
+        productCode: activity.productCode,
+        refNum: activity.refNum,
+        hasAssessment: runtime.usesAssessment === true,
+        resolution: typeof runtime.resolution === "string" ? runtime.resolution : null,
+        languageCode: options.languageCode ?? null,
+        startSceneId: options.startSceneId ?? null,
+      }),
+    };
+  }
+
+  /**
+   * The player bundle, built from the checkout's framework once per framework version.
+   *
+   * The stamp records what it was built from; a missing or different stamp rebuilds.
+   * Concurrent callers share one build.
+   */
+  private async ensurePlayer(): Promise<{ ok: boolean; log: string; dir: string }> {
+    const dir = path.join(this.config.root, "activity-sandbox", "player");
+    const wafRoot = await this.locateWafRoot();
+    if (!wafRoot) return { ok: false, log: "No WAF checkout was found.", dir };
+    const frameworkRoot = path.join(wafRoot, "framework");
+    const framework = await readJsonFile(path.join(frameworkRoot, "package.json"));
+    const stamp = playerStamp(String(framework?.version ?? ""));
+    const stampFile = path.join(dir, "stamp.txt");
+    const [current, bundle] = await Promise.all([
+      fs.readFile(stampFile, "utf8").catch(() => null),
+      fs.stat(path.join(dir, "player.js")).catch(() => null),
+    ]);
+    if (current === stamp && bundle?.isFile()) return { ok: true, log: "", dir };
+
+    if (!this.playerBuilding) {
+      this.playerBuilding = spawnNodeScript(PLAYER_BUILD_SCRIPT, {
+        cwd: frameworkRoot,
+        env: {
+          PENGUIN_PLAYER_BUILD: JSON.stringify({
+            frameworkRoot,
+            outputRoot: dir,
+            source: PLAYER_SOURCE,
+          }),
+        },
+      })
+        .then(async (outcome) => {
+          if (outcome.ok) await fs.writeFile(stampFile, stamp, "utf8");
+          return { ...outcome, dir };
+        })
+        .finally(() => {
+          this.playerBuilding = null;
+        });
+    }
+    return this.playerBuilding;
+  }
+
+  /** One file of the player bundle: its script, its lazily loaded chunks and their maps. */
+  async playerFile(rawPath: string): Promise<SandboxMediaResponse> {
+    const relative = previewMediaPath(rawPath);
+    if (!relative || !/\.(js|map)$/.test(relative) || relative.includes("/"))
+      throw new HttpError(400, "player_path_invalid", "That is not a player file.");
+    const player = await this.ensurePlayer();
+    if (!player.ok) throw new HttpError(500, "player_build_failed", player.log);
+    const file = withinRoot(player.dir, relative);
+    const bytes = file ? await fs.readFile(file).catch(() => null) : null;
+    if (!bytes) throw new HttpError(404, "player_file_not_found", `No player file ${relative}.`);
+    return {
+      status: 200,
+      headers: { ...moduleFileHeaders(relative), "content-length": String(bytes.byteLength) },
+      body: new Uint8Array(bytes),
+    };
+  }
+
+  /** One of the framework's shared layouts, stylesheets, images or sounds. */
+  async frameworkFile(
+    resource: FrameworkResource,
+    rawPath: string,
+    request: RangeRequest,
+  ): Promise<SandboxMediaResponse> {
+    const relative = previewMediaPath(rawPath);
+    const dir = FRAMEWORK_RESOURCES[resource];
+    if (!relative || !dir)
+      throw new HttpError(400, "framework_path_invalid", "That is not a framework file.");
+    const wafRoot = await this.locateWafRoot();
+    if (!wafRoot) throw new HttpError(404, "framework_not_found", "No WAF checkout was found.");
+    const file = withinRoot(path.join(wafRoot, "framework", dir), relative);
+    if (!file) throw new HttpError(400, "framework_path_invalid", "That is not a framework file.");
+    // Layouts are HTML, which the media types do not name; the module file types do.
+    const byMedia = mediaContentType(relative);
+    const contentType =
+      byMedia === "application/octet-stream" ? moduleContentType(relative) : byMedia;
+    const served = await this.serveFile(file, relative, request, contentType);
+    if (!served) throw new HttpError(404, "framework_file_not_found", `No file at ${relative}.`);
+    return served;
+  }
+
+  async assess(
+    projectId: string,
+    activityId: string,
+    base: string,
+    scoreId: string | null,
+    responses: unknown[],
+  ): Promise<Record<string, unknown>> {
+    const activity = await this.activities.getActivity(projectId, activityId);
+    const nextId = () => randomBytes(6).readUIntBE(0, 6) % 999_999_999_999;
+    this.expireAssessments();
+    if (scoreId !== null) {
+      const key = `${activity.id}:${scoreId}`;
+      const held = this.assessments.get(key);
+      if (!held) throw new HttpError(404, "assessment_not_found", "Unknown assessment session.");
+      held.lastUsedAt = Date.now();
+      const part = nextAssessmentPart(held.session, responses, nextId);
+      if (part.status === "FINISHED") this.assessments.delete(key);
+      return part;
+    }
+
+    const source = await this.moduleSource(projectId, activity);
+    if (!source)
+      throw new HttpError(409, "preview_not_built", "No module has been built for this activity.");
+    // This ref's assessment, or the canonical ref's when this ref has none of its own.
+    const product = this.activities.productOf(activity);
+    const names = [`${activity.productCode}-${activity.refNum}.json`];
+    if (product?.canonicalRefNum != null && product.canonicalRefNum !== activity.refNum)
+      names.push(`${activity.productCode}-${product.canonicalRefNum}.json`);
+    let data: unknown = null;
+    for (const name of names) {
+      data = await readJsonFile(path.join(source.root, "assessments", name));
+      if (data) break;
+    }
+    if (!isAssessmentData(data))
+      throw new HttpError(
+        404,
+        "assessment_not_found",
+        `The module has no assessments/${names[0]} for this activity to ask from.`,
+      );
+    const session = startAssessment(
+      activity.productCode,
+      // The same token resolution as the configuration: an item's pictures and sounds are
+      // media like any other.
+      resolveMediaToken(data, `${base}media`) as typeof data,
+      nextId,
+    );
+    const part = nextAssessmentPart(session, responses, nextId);
+    this.assessments.set(`${activity.id}:${session.assessmentScoreId}`, {
+      session,
+      lastUsedAt: Date.now(),
+    });
+    this.expireAssessments();
+    return part;
+  }
+
+  /** Drops idle sessions, then the oldest while there are too many. */
+  private expireAssessments(): void {
+    const now = Date.now();
+    for (const [key, held] of this.assessments)
+      if (now - held.lastUsedAt > ASSESSMENT_SESSION_TTL_MS) this.assessments.delete(key);
+    if (this.assessments.size <= MAX_ASSESSMENT_SESSIONS) return;
+    const byAge = [...this.assessments.entries()].sort((a, b) => a[1].lastUsedAt - b[1].lastUsedAt);
+    for (const [key] of byAge) {
+      if (this.assessments.size <= MAX_ASSESSMENT_SESSIONS) break;
+      this.assessments.delete(key);
+    }
+  }
+
   /** Modification times of everything a module build reads, for the freshness check. */
   async sourceMtimes(workspace: string): Promise<number[]> {
+    return this.mtimes(moduleSourceDirs({ kind: "run", root: sandboxModuleRoot(workspace) }));
+  }
+
+  /** Modification times of every file under these directories. */
+  private async mtimes(dirs: string[]): Promise<number[]> {
     const found: number[] = [];
     const walk = async (dir: string): Promise<void> => {
       const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
@@ -376,7 +921,24 @@ export class ActivitySandboxService implements ActivitySandbox {
         }
       }
     };
-    for (const relative of SOURCE_DIRS) await walk(path.join(workspace, relative));
+    for (const dir of dirs) await walk(dir);
     return found;
   }
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!,
+  );
+}
+
+/** A plain page saying why there is nothing to play, with the build output when there is one. */
+function failurePage(status: number, message: string, log?: string): PlayerPageResult {
+  return {
+    status,
+    html: `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Preview unavailable</title>
+<style>body{font:14px/1.5 system-ui,sans-serif;margin:24px;color:#1f2933}pre{white-space:pre-wrap;background:#f3f4f6;padding:12px;border-radius:6px;font-size:12px}</style>
+</head><body><p>${escapeHtml(message)}</p>${log ? `<pre>${escapeHtml(log)}</pre>` : ""}</body></html>`,
+  };
 }

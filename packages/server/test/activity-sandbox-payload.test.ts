@@ -53,6 +53,11 @@ async function sandbox(options: {
   manifest?: unknown;
   contentRevision?: string;
   spec?: unknown;
+  /** A WAF checkout the service may fall back on; none by default. */
+  wafRoot?: string | null;
+  /** The product the activity belongs to, for finding its folder in the checkout. */
+  moduleFolder?: string | null;
+  canonical?: boolean;
 }) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-sandbox-"));
   const runs = options.runs ?? [
@@ -100,11 +105,14 @@ async function sandbox(options: {
   Object.assign(service, {
     activities: {
       getActivity: async () => activity,
-      isCanonicalRef: () => true,
+      isCanonicalRef: () => options.canonical ?? true,
+      productOf: () =>
+        options.moduleFolder ? { moduleFolder: options.moduleFolder, canonicalRefNum: 1 } : null,
       draftWorkspace: () => path.join(root, "draft"),
     },
     generation: { list: async () => runs },
     config: { root },
+    locateWafRoot: async () => options.wafRoot ?? null,
   });
   return { service, root, cleanup: () => fs.rm(root, { recursive: true, force: true }) };
 }
@@ -193,7 +201,10 @@ describe("the payload a preview serves", () => {
     });
     const payload = await service.payload(PROJECT, ACTIVITY, {});
     const assets = payload.layout.compartments.main.assets as Record<string, { url: string }>;
-    expect(assets.intro!.url).toBe("{{MEDIA}}/a.mp3?v=abcdefghijklmnop");
+    // The token is resolved to where this preview serves media, versioned all the same.
+    expect(assets.intro!.url).toBe(
+      "/api/projects/proj/activities/act_1/sandbox/media/a.mp3?v=abcdefghijklmnop",
+    );
   });
 
   it("declares the navbar compartment even with nothing in it", async () => {

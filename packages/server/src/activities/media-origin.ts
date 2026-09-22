@@ -25,6 +25,13 @@ const MEDIA_TYPES: Record<string, string> = {
   ".mp4": "video/mp4",
   ".webm": "video/webm",
   ".json": "application/json",
+  // The WAF media root carries its fonts as a stylesheet beside the font files, and a
+  // module's definition requires that stylesheet from there.
+  ".css": "text/css; charset=utf-8",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".otf": "font/otf",
 };
 
 /**

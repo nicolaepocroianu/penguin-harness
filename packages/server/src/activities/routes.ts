@@ -5,6 +5,9 @@ import type { AppEnv } from "../auth/middleware.js";
 import type { Access } from "../mechanisms/projects.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import type { ActivitySandbox } from "./sandbox-service.js";
+import type { Config } from "../hmr/capabilities.js";
+import { hostOnly, requestAuthority, resolvePreviewTarget } from "../services/preview-token.js";
+import { playBase } from "./play-routes.js";
 import { findWafRoot } from "./waf-module.js";
 import { SPEECH_MODEL, SPEECH_VOICES } from "./audio.js";
 import { IMAGE_MODEL } from "./generated-image.js";
@@ -44,6 +47,7 @@ export class ActivityRoutes {
   @Use() private readonly activities!: ActivityAuthoring;
   @Use() private readonly generation!: ActivityGeneration;
   @Use() private readonly sandbox!: ActivitySandbox;
+  @Use() private readonly config!: Config;
   @Bind("activities") routes!: Hono<AppEnv>;
 
   setup() {
@@ -186,6 +190,36 @@ export class ActivityRoutes {
           pathParam(c, "runId"),
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
         ),
+      );
+    });
+    // Plays the activity. The page itself is served on the preview origin behind a signed,
+    // short-lived link (see play-routes.ts), so the module's code never runs with the
+    // author's session; this route is where an authorised author is handed that link.
+    app.get("/:activityId/sandbox/play", async (c) => {
+      const projectId = requireValidId(c, "projectId");
+      const target = resolvePreviewTarget(
+        c.req.url,
+        c.req.header("host"),
+        this.config.previewOrigin,
+        this.config,
+      );
+      // No separate preview origin: the page is served on the App's host, sandboxed.
+      const host = target?.host ?? hostOnly(requestAuthority(c.req.url, c.req.header("host")));
+      const { token } = await this.sandbox.play(
+        projectId,
+        pathParam(c, "activityId"),
+        host,
+        target === null,
+      );
+      const query = new URLSearchParams();
+      const language = c.req.query("language");
+      const scene = c.req.query("scene");
+      if (language) query.set("language", language);
+      if (scene) query.set("scene", scene);
+      const search = query.toString();
+      return c.redirect(
+        `${target?.origin ?? ""}${playBase(token)}play${search ? `?${search}` : ""}`,
+        302,
       );
     });
     app.get("/:activityId/sandbox/status", async (c) => {

@@ -10,8 +10,12 @@
  * per-activity route, so a URL left alone resolves against the harness and fetches nothing.
  */
 
-/** Absolute or already-routed URLs, which the preview must not touch. */
-const ROUTED_PREFIXES = ["http://", "https://", "/media", "/layouts"];
+/**
+ * Absolute or already-routed URLs, which the preview must not touch. `{{MEDIA}}` is the
+ * media root, resolved once the payload is composed; prefixing it with the module's route
+ * would send a font or a cover image to the module's files, where it is not.
+ */
+const ROUTED_PREFIXES = ["http://", "https://", "/media", "/layouts", "{{MEDIA}}"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);

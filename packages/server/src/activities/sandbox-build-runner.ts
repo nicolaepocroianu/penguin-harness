@@ -54,20 +54,22 @@ function stopTree(child: { pid?: number; kill(signal?: NodeJS.Signals): boolean 
   setTimeout(() => child.kill("SIGKILL"), 10_000).unref();
 }
 
+/** How a build's child process is started. */
+interface ChildSpec {
+  command: string;
+  args: string[];
+  cwd: string;
+  env?: NodeJS.ProcessEnv;
+  /** Written to the child's stdin, which is then closed. */
+  stdin?: string;
+  shell?: boolean;
+}
+
 /**
- * Runs `npm run build` in a module workspace and reports how it went.
- *
- * Never throws. A build that could not start is a failed build with a reason — the author
- * asked to see their activity, and "npm is not installed" is an answer to that, while an
- * exception thrown at whoever happened to request the preview is not.
- *
- * `npm_config_ignore_scripts` is not set here: the module's `.npmrc` already sets
- * `ignore-scripts`, and the build itself is a script.
+ * Runs one build child and reports how it went. Never throws: a build that could not start
+ * is a failed build with a reason.
  */
-export function spawnModuleBuild(
-  workspace: string,
-  options: { timeoutMs?: number } = {},
-): Promise<BuildOutcome> {
+function runBuildChild(spec: ChildSpec, options: { timeoutMs?: number }): Promise<BuildOutcome> {
   return new Promise((resolve) => {
     const chunks: string[] = [];
     let size = 0;
@@ -80,15 +82,24 @@ export function spawnModuleBuild(
       while (size > BUILD_LOG_MAX * 2 && chunks.length > 1) size -= chunks.shift()!.length;
     };
     const finish = (ok: boolean, trailer?: string) =>
-      resolve({ ok, log: clampLog(chunks.join("") + (trailer ? `\n${trailer}` : "")) });
+      resolve({
+        ok,
+        log: clampLog(
+          chunks.join("") +
+            (trailer
+              ? `
+${trailer}`
+              : ""),
+        ),
+      });
 
     let child;
     try {
-      child = spawn("npm", ["run", "build"], {
-        cwd: workspace,
-        stdio: ["ignore", "pipe", "pipe"],
-        // Windows resolves npm through its shell wrapper.
-        shell: process.platform === "win32",
+      child = spawn(spec.command, spec.args, {
+        cwd: spec.cwd,
+        env: spec.env,
+        stdio: [spec.stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
+        shell: spec.shell ?? false,
       });
     } catch (error) {
       finish(false, `The build could not be started: ${(error as Error).message}`);
@@ -97,6 +108,12 @@ export function spawnModuleBuild(
 
     child.stdout?.on("data", collect);
     child.stderr?.on("data", collect);
+    if (spec.stdin !== undefined) {
+      // A child that dies before reading its script closes the pipe; that failure is the
+      // exit code's to report, not an unhandled stream error.
+      child.stdin?.on("error", () => {});
+      child.stdin?.end(spec.stdin);
+    }
 
     let timedOut = false;
     const timer = setTimeout(() => {
@@ -115,4 +132,53 @@ export function spawnModuleBuild(
       else finish(code === 0, code === 0 ? undefined : `The build exited with code ${code}.`);
     });
   });
+}
+
+/**
+ * Runs `npm run build` in a module workspace and reports how it went.
+ *
+ * Never throws. A build that could not start is a failed build with a reason — the author
+ * asked to see their activity, and "npm is not installed" is an answer to that, while an
+ * exception thrown at whoever happened to request the preview is not.
+ *
+ * `npm_config_ignore_scripts` is not set here: the module's `.npmrc` already sets
+ * `ignore-scripts`, and the build itself is a script.
+ */
+export function spawnModuleBuild(
+  workspace: string,
+  options: { timeoutMs?: number } = {},
+): Promise<BuildOutcome> {
+  return runBuildChild(
+    {
+      command: "npm",
+      args: ["run", "build"],
+      cwd: workspace,
+      // Windows resolves npm through its shell wrapper.
+      shell: process.platform === "win32",
+    },
+    options,
+  );
+}
+
+/**
+ * Runs a build script with this process's own Node, the script arriving on stdin.
+ *
+ * On stdin rather than as `-e`: a script long enough to be useful is past what a Windows
+ * command line holds, and nothing on stdin needs quoting.
+ */
+export function spawnNodeScript(
+  script: string,
+  input: { cwd: string; env: Record<string, string> },
+  options: { timeoutMs?: number } = {},
+): Promise<BuildOutcome> {
+  return runBuildChild(
+    {
+      command: process.execPath,
+      args: ["-"],
+      cwd: input.cwd,
+      env: { ...process.env, ...input.env },
+      stdin: script,
+    },
+    options,
+  );
 }
