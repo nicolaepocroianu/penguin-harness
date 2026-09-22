@@ -19,6 +19,12 @@ const EXPECTED = [
   "waf-audio-patterns",
   "waf-book-generation",
   "waf-element-ids",
+  // Loom labels these two legacy, and this port dropped them on that basis. Measuring the
+  // real module corpus corrected that: 299 of the 303 implemented modules are built on
+  // `src/sequence.js` and only 4 on the state machine. Opening an activity Loom already
+  // authored needs the path almost all of them actually use.
+  "waf-sequence-from-prose",
+  "waf-sequence-implementation-patterns",
   "waf-state-machine",
   "waf-style-guardrails",
   "waf-video-patterns",
@@ -44,12 +50,17 @@ describe("the waf-authoring plugin", () => {
 
   it("leaves behind what the port deliberately dropped", () => {
     const names = libraryPlugin("waf-authoring")!.skills.map((skill) => skill.name);
-    // Loom's two sequence skills are marked legacy there -- they implement src/sequence.js,
-    // which the state-machine path replaced.
-    expect(names).not.toContain("waf-sequence-from-prose");
-    expect(names).not.toContain("waf-sequence-implementation-patterns");
     // test_activity is out of scope, so its test-writing skill has no reader.
     expect(names).not.toContain("waf-playwright-test-writing");
+  });
+
+  it("keeps the sequence path, which almost every real module is built on", () => {
+    // Counted against the checkout: 299 modules ship src/sequence.js, 4 have a state
+    // machine. Calling the sequence path legacy is true of new work and false of the
+    // corpus that has to be imported.
+    const names = libraryPlugin("waf-authoring")!.skills.map((skill) => skill.name);
+    expect(names).toContain("waf-sequence-from-prose");
+    expect(names).toContain("waf-sequence-implementation-patterns");
   });
 
   it("gives every skill a description, since that line is all the model sees first", () => {
