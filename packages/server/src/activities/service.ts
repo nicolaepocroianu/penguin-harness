@@ -20,6 +20,16 @@ import {
 } from "./upload.js";
 import { readBoundImage, type ImageRequest } from "./image.js";
 import {
+  applyImport,
+  describeOutcome,
+  type ExistingProduct,
+  type ImportOutcome,
+  type ImportTarget,
+} from "./import-apply.js";
+import { describeImport, mapImport, type ImportMapping } from "./import-mapping.js";
+import { discoverLoomProducts, readLoomProduct, type ImportedActivity } from "./loom-import.js";
+import { findWafRoot } from "./waf-module.js";
+import {
   GENERATED_IMAGE_MAX_BYTES,
   inspectPng,
   type ImageResult,
@@ -30,6 +40,7 @@ import {
   draftRevision,
   newCollectionManifest,
   newId,
+  normalizeDisplayName,
   normalizeModuleFolder,
   normalizeProductCode,
   normalizeRefNum,
@@ -903,5 +914,193 @@ export class ActivityService implements ActivityAuthoring {
     const product = this.productOf(activity);
     if (!product) return true;
     return product.canonicalRefNum === null || product.canonicalRefNum === activity.refNum;
+  }
+
+  /** What a product code already holds in this collection, or null if nothing does. */
+  existingProduct(collectionId: string, productCode: string): ExistingProduct | null {
+    const product = this.db
+      .prepare("SELECT * FROM activity_products WHERE collection_id = ? AND product_code = ?")
+      .get(collectionId, productCode) as Record<string, unknown> | undefined;
+    if (!product) return null;
+    const refs = this.db
+      .prepare(
+        "SELECT ref_num AS refNum FROM activities WHERE collection_id = ? AND product_code = ? ORDER BY ref_num",
+      )
+      .all(collectionId, productCode) as { refNum: number }[];
+    return {
+      refNums: refs.map((ref) => ref.refNum),
+      canonicalRefNum: this.mapProduct(product).canonicalRefNum,
+    };
+  }
+
+  /**
+   * What an author calls a ref, and whether others may build against it.
+   *
+   * Neither belongs to the draft: renaming a ref does not change its content, so putting
+   * them through the draft revision would make a label edit conflict with an unsaved
+   * specification.
+   */
+  async setRefIdentity(
+    projectId: string,
+    activityId: string,
+    identity: { displayName?: unknown; stable?: boolean },
+  ): Promise<ActivityRecord> {
+    let displayName: string | null | undefined;
+    try {
+      if (identity.displayName !== undefined)
+        displayName = normalizeDisplayName(identity.displayName);
+    } catch (error) {
+      throw new HttpError(400, "activity_invalid", (error as Error).message);
+    }
+    return this.projectWork.run(projectId, () =>
+      this.locks.run(activityId, async () => {
+        const activity = await this.getActivity(projectId, activityId);
+        const now = new Date().toISOString();
+        const next: ActivityRecord = {
+          ...activity,
+          displayName: displayName === undefined ? activity.displayName : displayName,
+          stable: identity.stable === undefined ? activity.stable : identity.stable,
+          updatedAt: now,
+        };
+        this.db
+          .prepare(
+            "UPDATE activities SET display_name = ?, stable = ?, updated_at = ? WHERE id = ?",
+          )
+          .run(next.displayName, next.stable ? 1 : 0, now, activityId);
+        return next;
+      }),
+    );
+  }
+
+  /**
+   * A book product's reading mode.
+   *
+   * It belongs to the product rather than to a ref: every ref of a book shares one module,
+   * and a module is built either read-along or decodable, never both.
+   */
+  async setProductBookMode(
+    projectId: string,
+    collectionId: string,
+    productCode: string,
+    mode: "decodable" | "readAlong",
+  ): Promise<ActivityProduct> {
+    return this.projectWork.run(projectId, async () => {
+      const row = this.db
+        .prepare(
+          "SELECT * FROM activity_products WHERE collection_id = ? AND product_code = ? AND project_id = ?",
+        )
+        .get(collectionId, productCode, projectId) as Record<string, unknown> | undefined;
+      if (!row) throw new HttpError(404, "product_not_found", "No such product.");
+      const product = this.mapProduct(row);
+      if (product.activityType !== "book")
+        throw new HttpError(400, "book_mode_invalid", "Reading mode only applies to books.");
+      const now = new Date().toISOString();
+      this.db
+        .prepare("UPDATE activity_products SET book_mode = ?, updated_at = ? WHERE product_id = ?")
+        .run(mode, now, product.productId);
+      return { ...product, bookMode: mode, updatedAt: now };
+    });
+  }
+
+  /**
+   * The Loom products a checkout offers, read only.
+   *
+   * Nothing is imported by looking; this is the list an author chooses from, and a product
+   * that could not be read fully arrives with its problems attached rather than hidden.
+   */
+  async availableImports(): Promise<{ modulesDir: string | null; products: ImportedActivity[] }> {
+    const wafRoot = await findWafRoot();
+    if (!wafRoot) return { modulesDir: null, products: [] };
+    const modulesDir = path.join(wafRoot, "modules");
+    return { modulesDir, products: await discoverLoomProducts(modulesDir) };
+  }
+
+  /**
+   * Read one Loom product, decide what Penguin would make of it, and make it.
+   *
+   * The three steps stay separate on purpose: the reader never writes, the mapping never
+   * touches the store, and this reports all of it together so an author sees what was
+   * repaired and what was lost beside what was created.
+   */
+  async importFromLoom(
+    projectId: string,
+    moduleFolder: string,
+    productCode: string,
+    collectionId?: string,
+  ): Promise<{
+    mapping: ImportMapping;
+    outcome: ImportOutcome;
+    message: string;
+    problems: string[];
+  }> {
+    const wafRoot = await findWafRoot();
+    if (!wafRoot)
+      throw new HttpError(
+        400,
+        "waf_checkout_missing",
+        "WAF checkout not found. Select a root containing framework, modules and media.",
+      );
+    let source: ImportedActivity;
+    try {
+      source = await readLoomProduct(
+        path.join(wafRoot, "modules"),
+        normalizeModuleFolder(moduleFolder, "module"),
+        normalizeProductCode(productCode),
+      );
+    } catch (error) {
+      throw new HttpError(400, "activity_invalid", (error as Error).message);
+    }
+    if (!source.refs.length)
+      throw new HttpError(404, "loom_product_not_found", "No such product in the checkout.");
+    const mapping = mapImport(source.product, source.refs);
+    const outcome = await this.importProduct(projectId, collectionId, mapping);
+    return {
+      mapping,
+      outcome,
+      message: `${describeImport(mapping)} ${describeOutcome(outcome, mapping.product.productCode)}`,
+      problems: [...source.problems, ...source.refs.flatMap((ref) => ref.problems)],
+    };
+  }
+
+  /**
+   * Import one Loom product into a collection.
+   *
+   * The ordering and failure policy live in `applyImport`; this only supplies the store.
+   * Every call it makes is an ordinary authoring call, so an imported activity is
+   * indistinguishable from one an author made here — which is the point of the trial.
+   */
+  async importProduct(
+    projectId: string,
+    collectionId: string | undefined,
+    mapping: ImportMapping,
+  ): Promise<ImportOutcome> {
+    const collection = await this.ensureCollection(projectId, collectionId);
+    const target: ImportTarget = {
+      existingProduct: async (productCode) =>
+        this.existingProduct(collection.collectionId, productCode),
+      createRef: async (input) => {
+        const created = await this.createActivity(projectId, {
+          collectionId: collection.collectionId,
+          productCode: input.productCode,
+          refNum: input.refNum,
+          title: input.title,
+          activityType: input.activityType,
+          moduleFolder: input.moduleFolder,
+        });
+        return { activityId: created.id, revision: created.draft.contentRevision };
+      },
+      setRefIdentity: async (activityId, identity) => {
+        await this.setRefIdentity(projectId, activityId, identity);
+      },
+      setDescription: async (activityId, description, revision) =>
+        (await this.updateDescription(projectId, activityId, description, revision))
+          .contentRevision,
+      setSpec: async (activityId, spec, revision) =>
+        (await this.applySpec(projectId, activityId, spec, revision)).contentRevision,
+      setBookMode: async (productCode, mode) => {
+        await this.setProductBookMode(projectId, collection.collectionId, productCode, mode);
+      },
+    };
+    return applyImport(mapping, target);
   }
 }

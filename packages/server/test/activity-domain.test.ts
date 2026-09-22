@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   contentRevision,
+  DISPLAY_NAME_MAX,
+  normalizeDisplayName,
   normalizeProductCode,
   normalizeRefNum,
   validateActivitySpec,
@@ -32,6 +34,16 @@ describe("native activity domain", () => {
       }).title,
     ).toBe("Sight words");
     expect(() => validateActivitySpec({ title: "incomplete" })).toThrow();
+  });
+
+  it("treats a ref's display name as a label, absent rather than invalid when empty", () => {
+    // The product code and ref number stay the address; a ref with no name shows that.
+    expect(normalizeDisplayName("  Round one  ")).toBe("Round one");
+    expect(normalizeDisplayName("   ")).toBeNull();
+    expect(normalizeDisplayName(null)).toBeNull();
+    expect(normalizeDisplayName(undefined)).toBeNull();
+    expect(() => normalizeDisplayName("a".repeat(DISPLAY_NAME_MAX + 1))).toThrow("characters");
+    expect(() => normalizeDisplayName("line\nbreak")).toThrow("control characters");
   });
 
   it("changes the content revision when draft content changes", () => {

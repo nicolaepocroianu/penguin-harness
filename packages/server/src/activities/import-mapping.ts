@@ -10,6 +10,7 @@
  * is named, so the round-trip trial in this phase compares like with like rather than
  * discovering the gaps by eye.
  */
+import { validateActivitySpec } from "./domain.js";
 import { DEFAULT_LANGUAGE_CODE, findLanguage } from "./languages.js";
 
 /** A Loom product, as the reader found it. */
@@ -112,7 +113,20 @@ export function mapImport(product: SourceProduct, refs: readonly SourceRef[]): I
       dropped.push(
         `Ref ${ref.refNum} has no ${DEFAULT_LANGUAGE_CODE} group, so there is nothing to translate from.`,
       );
-    if (!ref.spec) dropped.push(`Ref ${ref.refNum} has no specification to import.`);
+    // Checked here rather than on the way in, so a specification Penguin will not accept
+    // is a reported loss instead of a ref that gets created and then cannot be finished.
+    // A half-written ref is worse than a missing one: it looks imported and does nothing.
+    let spec = ref.spec;
+    if (!spec) dropped.push(`Ref ${ref.refNum} has no specification to import.`);
+    else
+      try {
+        validateActivitySpec(spec);
+      } catch (error) {
+        dropped.push(
+          `Ref ${ref.refNum} has a specification Penguin will not accept, so it was not carried: ${(error as Error).message}`,
+        );
+        spec = null;
+      }
     if (!ref.manifest) dropped.push(`Ref ${ref.refNum} has no asset manifest to import.`);
     if (!ref.description.trim())
       dropped.push(`Ref ${ref.refNum} has no description, so nothing records what it is for.`);
@@ -127,7 +141,7 @@ export function mapImport(product: SourceProduct, refs: readonly SourceRef[]): I
       displayName: ref.displayName,
       stable: ref.stable,
       description: ref.description,
-      spec: ref.spec,
+      spec,
       languages,
     });
   }

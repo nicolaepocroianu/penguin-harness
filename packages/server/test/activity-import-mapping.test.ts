@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { activitySpec } from "./activity-fixtures.js";
 import {
   assemblyBlockers,
   describeImport,
@@ -23,7 +24,7 @@ const ref = (overrides: Partial<SourceRef> = {}): SourceRef => ({
   title: "Sight Words 1",
   displayName: null,
   stable: false,
-  spec: { id: "sight-words", scenes: [] },
+  spec: { ...activitySpec },
   manifest: { assets: { "en-US": [] } },
   description: "Practice sight words.",
   languages: ["en-US"],
@@ -51,7 +52,7 @@ describe("a clean import", () => {
         displayName: null,
         stable: false,
         description: "Practice sight words.",
-        spec: { id: "sight-words", scenes: [] },
+        spec: { ...activitySpec },
         languages: ["en-US"],
       },
     ]);
@@ -128,6 +129,15 @@ describe("what cannot be carried", () => {
     expect(mapping.dropped.join(" ")).toContain("no specification");
     expect(mapping.dropped.join(" ")).toContain("no asset manifest");
     expect(mapping.dropped.join(" ")).toContain("no description");
+  });
+
+  it("names a specification Penguin will not accept, and carries none", () => {
+    // Caught here rather than at write time: a ref created and then left without a spec
+    // looks imported and does nothing, and a re-run skips it.
+    const mapping = mapImport(product(), [ref({ spec: { id: "sight-words", scenes: [] } })]);
+    expect(mapping.activities[0]!.spec).toBeNull();
+    expect(mapping.dropped[0]).toContain("will not accept");
+    expect(importIsFaithful(mapping)).toBe(false);
   });
 
   it("does not complain about a missing default group when there is no manifest at all", () => {

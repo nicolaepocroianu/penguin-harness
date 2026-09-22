@@ -55,6 +55,12 @@ export interface ImportOutcome {
   skipped: number[];
   /** Refs that could not be imported, and why. Named, never swallowed. */
   failed: { refNum: number; reason: string }[];
+  /**
+   * Refs that exist but whose draft could not be finished. They are NOT failures — the ref
+   * is there, and a later run will skip it — so an author has to be told which ones are
+   * empty rather than left to find an activity that loads and does nothing.
+   */
+  partial: { refNum: number; reason: string }[];
   /** True when the canonical ref could not be created and the rest were not attempted. */
   abandoned: boolean;
   /**
@@ -93,6 +99,7 @@ export async function applyImport(
     created: [],
     skipped: [],
     failed: [],
+    partial: [],
     abandoned: false,
     canonicalConflict: null,
   };
@@ -118,8 +125,9 @@ export async function applyImport(
       continue;
     }
     try {
-      await importRef(mapping, ref, target);
+      const incomplete = await importRef(mapping, ref, target);
       outcome.created.push(ref.refNum);
+      if (incomplete) outcome.partial.push({ refNum: ref.refNum, reason: incomplete });
     } catch (error) {
       outcome.failed.push({ refNum: ref.refNum, reason: reason(error) });
       // Only the canonical ref of a brand-new product stops the run: without it the next
@@ -147,7 +155,7 @@ async function importRef(
   mapping: ImportMapping,
   ref: MappedActivity,
   target: ImportTarget,
-): Promise<void> {
+): Promise<string | null> {
   const created = await target.createRef({
     productCode: mapping.product.productCode,
     refNum: ref.refNum,
@@ -155,17 +163,24 @@ async function importRef(
     activityType: mapping.product.activityType,
     moduleFolder: mapping.product.moduleFolder,
   });
-  if (ref.displayName !== null || ref.stable)
-    await target.setRefIdentity(created.activityId, {
-      displayName: ref.displayName,
-      stable: ref.stable,
-    });
-  let revision = created.revision;
-  if (ref.description.trim())
-    revision = await target.setDescription(created.activityId, ref.description, revision);
-  // A ref with no specification was already reported as a loss by the mapping; there is
-  // nothing here to write, and inventing an empty one would make it look imported.
-  if (ref.spec) await target.setSpec(created.activityId, ref.spec, revision);
+  // Past this point the ref EXISTS. A later failure cannot be reported as if nothing
+  // happened, and a re-run will skip it, so it is reported as an unfinished ref instead.
+  try {
+    if (ref.displayName !== null || ref.stable)
+      await target.setRefIdentity(created.activityId, {
+        displayName: ref.displayName,
+        stable: ref.stable,
+      });
+    let revision = created.revision;
+    if (ref.description.trim())
+      revision = await target.setDescription(created.activityId, ref.description, revision);
+    // A ref with no specification was already reported as a loss by the mapping; there is
+    // nothing here to write, and inventing an empty one would make it look imported.
+    if (ref.spec) await target.setSpec(created.activityId, ref.spec, revision);
+    return null;
+  } catch (error) {
+    return reason(error);
+  }
 }
 
 /** One line about what an import run did. */
@@ -185,6 +200,10 @@ export function describeOutcome(outcome: ImportOutcome, productCode: string): st
   if (outcome.failed.length)
     parts.push(
       `${outcome.failed.length} failed: ${outcome.failed.map((failure) => `ref ${failure.refNum} (${failure.reason})`).join(", ")}.`,
+    );
+  if (outcome.partial.length)
+    parts.push(
+      `${outcome.partial.length} ${outcome.partial.length === 1 ? "ref exists but was" : "refs exist but were"} not finished: ${outcome.partial.map((entry) => `ref ${entry.refNum} (${entry.reason})`).join(", ")}.`,
     );
   if (outcome.canonicalConflict)
     parts.push(
