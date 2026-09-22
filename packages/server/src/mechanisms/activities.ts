@@ -6,6 +6,7 @@ import type { MediaTextTarget } from "../activities/media-text.js";
 import type { UploadedMedia } from "../activities/upload.js";
 import type {
   ActivityDraft,
+  ActivityProduct,
   ActivityRecord,
   ActivityRun,
   ActivityRunSummary,
@@ -161,6 +162,10 @@ export abstract class ActivityAuthoring extends Interface<{
     projectId: string,
     activityId: string,
   ): Promise<ActivityRecord & { draft: ActivityDraft }>;
+  /** The product a ref belongs to, or null for a row predating the product level. */
+  productOf(activity: ActivityRecord): ActivityProduct | null;
+  /** Whether this ref owns the module code; only the canonical ref may change it. */
+  isCanonicalRef(activity: ActivityRecord): boolean;
   updateDescription(
     projectId: string,
     activityId: string,

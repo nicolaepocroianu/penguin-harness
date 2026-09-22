@@ -30,9 +30,11 @@ import {
   draftRevision,
   newCollectionManifest,
   newId,
+  normalizeModuleFolder,
   normalizeProductCode,
   normalizeRefNum,
   type ActivityDraft,
+  type ActivityProduct,
   type ActivityRecord,
   type CollectionManifest,
   validateActivitySpec,
@@ -367,6 +369,8 @@ export class ActivityService implements ActivityAuthoring {
       refNum: unknown;
       title: string;
       activityType?: "standard" | "book";
+      /** Only read when this is the product's first ref; later refs join what exists. */
+      moduleFolder?: unknown;
     },
   ): Promise<ActivityRecord & { draft: ActivityDraft }> {
     let productCode: string, refNum: number;
@@ -394,13 +398,28 @@ export class ActivityService implements ActivityAuthoring {
             "This productCode/refNum is already reserved.",
           );
         const now = new Date().toISOString();
+        const activityType = input.activityType ?? "standard";
+        // A ref belongs to a product, and the first ref of a product creates it and is its
+        // canonical one: the module code has to belong to some ref, and the only ref there
+        // is at that moment is this one.
+        const product = this.ensureProduct({
+          projectId,
+          collectionId: collection.collectionId,
+          productCode,
+          activityType,
+          moduleFolder: input.moduleFolder,
+          now,
+        });
         const activity: ActivityRecord = {
           id: newId("act"),
           collectionId: collection.collectionId,
+          productId: product.productId,
           productCode,
           refNum,
           title,
-          activityType: input.activityType ?? "standard",
+          displayName: null,
+          stable: false,
+          activityType,
           createdAt: now,
           updatedAt: now,
           archived: false,
@@ -420,11 +439,12 @@ export class ActivityService implements ActivityAuthoring {
         try {
           this.db
             .prepare(
-              "INSERT INTO activities (id, collection_id, product_code, ref_num, title, activity_type, created_at, updated_at, archived) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)",
+              "INSERT INTO activities (id, collection_id, product_id, product_code, ref_num, title, display_name, stable, activity_type, created_at, updated_at, archived) VALUES (?, ?, ?, ?, ?, ?, NULL, 0, ?, ?, ?, 0)",
             )
             .run(
               activity.id,
               activity.collectionId,
+              activity.productId,
               productCode,
               refNum,
               title,
@@ -432,6 +452,13 @@ export class ActivityService implements ActivityAuthoring {
               now,
               now,
             );
+          // The product's canonical ref is whichever ref existed first; a product created
+          // by this very activity has none yet.
+          this.db
+            .prepare(
+              "UPDATE activity_products SET canonical_ref_num = ?, updated_at = ? WHERE product_id = ? AND canonical_ref_num IS NULL",
+            )
+            .run(refNum, now, activity.productId);
           this.db
             .prepare(
               "INSERT INTO activity_drafts (draft_id, activity_id, base_version_id, content_revision, status, updated_at) VALUES (?, ?, NULL, ?, ?, ?)",
@@ -776,13 +803,105 @@ export class ActivityService implements ActivityAuthoring {
     return {
       id: row.id as string,
       collectionId: row.collection_id as string,
+      productId: (row.product_id as string | null) ?? null,
       productCode: row.product_code as string,
       refNum: row.ref_num as number,
       title: row.title as string,
+      displayName: (row.display_name as string | null) ?? null,
+      stable: Boolean(row.stable),
       activityType: row.activity_type as ActivityRecord["activityType"],
       createdAt: row.created_at as string,
       updatedAt: row.updated_at as string,
       archived: Boolean(row.archived),
     };
+  }
+
+  private mapProduct(row: Record<string, unknown>): ActivityProduct {
+    return {
+      productId: row.product_id as string,
+      projectId: row.project_id as string,
+      collectionId: row.collection_id as string,
+      productCode: row.product_code as string,
+      moduleFolder: row.module_folder as string,
+      canonicalRefNum: (row.canonical_ref_num as number | null) ?? null,
+      activityType: row.activity_type as ActivityProduct["activityType"],
+      bookMode: (row.book_mode as ActivityProduct["bookMode"]) ?? null,
+      createdAt: row.created_at as string,
+      updatedAt: row.updated_at as string,
+    };
+  }
+
+  /**
+   * The product a ref belongs to, created on first use.
+   *
+   * A product is not something an author makes on purpose: it appears the moment the
+   * first ref of a product code does, and every later ref of that code joins it. Its type
+   * comes from the ref that created it, because that ref is also its canonical one.
+   */
+  private ensureProduct(input: {
+    projectId: string;
+    collectionId: string;
+    productCode: string;
+    activityType: ActivityRecord["activityType"];
+    moduleFolder?: unknown;
+    now: string;
+  }): ActivityProduct {
+    const existing = this.db
+      .prepare("SELECT * FROM activity_products WHERE collection_id = ? AND product_code = ?")
+      .get(input.collectionId, input.productCode) as Record<string, unknown> | undefined;
+    if (existing) return this.mapProduct(existing);
+    const product: ActivityProduct = {
+      productId: newId("prd"),
+      projectId: input.projectId,
+      collectionId: input.collectionId,
+      productCode: input.productCode,
+      moduleFolder: normalizeModuleFolder(input.moduleFolder, input.productCode),
+      canonicalRefNum: null,
+      activityType: input.activityType,
+      bookMode: null,
+      createdAt: input.now,
+      updatedAt: input.now,
+    };
+    this.db
+      .prepare(
+        `INSERT INTO activity_products
+           (product_id, project_id, collection_id, product_code, module_folder,
+            canonical_ref_num, activity_type, book_mode, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, NULL, ?, NULL, ?, ?)`,
+      )
+      .run(
+        product.productId,
+        product.projectId,
+        product.collectionId,
+        product.productCode,
+        product.moduleFolder,
+        product.activityType,
+        product.createdAt,
+        product.updatedAt,
+      );
+    return product;
+  }
+
+  /** The product a ref belongs to, or null for a row predating the product level. */
+  productOf(activity: ActivityRecord): ActivityProduct | null {
+    if (!activity.productId) return null;
+    const row = this.db
+      .prepare("SELECT * FROM activity_products WHERE product_id = ?")
+      .get(activity.productId) as Record<string, unknown> | undefined;
+    return row ? this.mapProduct(row) : null;
+  }
+
+  /**
+   * Whether this ref owns the module code.
+   *
+   * Only the canonical ref may change the shared module; the others are configuration on
+   * top of it. Three generation stages are gated on this. A ref with no product at all
+   * predates the product level and is treated as canonical, because it is the only ref
+   * anyone could have been building against.
+   */
+  isCanonicalRef(activity: ActivityRecord): boolean {
+    const product = this.productOf(activity);
+    if (!product) return true;
+    return product.canonicalRefNum === null || product.canonicalRefNum === activity.refNum;
   }
 }

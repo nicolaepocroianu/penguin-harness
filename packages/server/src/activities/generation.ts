@@ -257,6 +257,17 @@ export class ActivityGenerationService implements ActivityGeneration {
             }
             if (activity.activityType !== "book" && module.bookMode !== undefined)
               throw new HttpError(400, "book_mode_invalid", "Reading mode only applies to books.");
+            // Module code belongs to the product, and only its canonical ref may change it.
+            // A non-canonical ref is configuration on top of a module someone else owns, so
+            // assembling from it would quietly rewrite that shared module.
+            if (!this.activities.isCanonicalRef(activity)) {
+              const product = this.activities.productOf(activity);
+              throw new HttpError(
+                409,
+                "ref_not_canonical",
+                `This activity shares its module with ref ${product?.canonicalRefNum}, which owns the module code. Assemble from that ref instead.`,
+              );
+            }
             wafRoot = await findWafRoot(process.cwd(), module.wafRoot ?? process.env.WAF_ROOT_DIR);
             if (!wafRoot)
               throw new HttpError(
