@@ -509,6 +509,7 @@ export class SessionService {
     provider: string;
     modelId: string;
     workspace?: string;
+    protectedRoots?: readonly ProtectedRoot[];
     approvalMode?: ApprovalMode;
     client?: "web" | "cli" | "org";
   }): Promise<SessionInfo> {
@@ -522,6 +523,7 @@ export class SessionService {
         agentId: args.agentId,
         modelId: args.modelId,
         ...(args.workspace !== undefined ? { workspace: args.workspace } : {}),
+        ...(args.protectedRoots?.length ? { protectedRoots: [...args.protectedRoots] } : {}),
       });
     } catch (err) {
       throw new HttpError(

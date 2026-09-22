@@ -28,17 +28,6 @@
         }
       },
       {
-        "id": "web.coding-agents",
-        "key": "coding-agents",
-        "path": "/coding-agents",
-        "nav": "none",
-        "admin": false,
-        "released": true,
-        "renderer": {
-          "builtin": "CodingAgentsPage"
-        }
-      },
-      {
         "id": "web.activities",
         "key": "activities",
         "path": "/activities/:activityId?",

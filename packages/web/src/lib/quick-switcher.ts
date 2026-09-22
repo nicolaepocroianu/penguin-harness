@@ -11,7 +11,7 @@
  * (Array#sort is stable), so each section keeps its manifest/list order.
  */
 
-export type SwitcherEntrySection = "pages" | "agents" | "sessions";
+export type SwitcherEntrySection = "pages" | "agents";
 
 /** One palette row as data. Rendering (labels, glyphs, status marks) lives in the component. */
 export interface SwitcherEntry {
@@ -44,7 +44,7 @@ export interface SwitcherSectionMatches {
 }
 
 /** Fixed section order of the palette; `recents` is prepended only by the empty-query path. */
-export const SWITCHER_SECTIONS: readonly SwitcherEntrySection[] = ["pages", "agents", "sessions"];
+export const SWITCHER_SECTIONS: readonly SwitcherEntrySection[] = ["pages", "agents"];
 
 /** Main-nav pages, in nav order (lib/nav-group-collapse.ts already applies released + admin visibility). */
 export function buildPageEntries(
@@ -73,31 +73,6 @@ export function buildAgentEntries(
     to: "/models?view=local",
     routeState: null,
     busy: null,
-  }));
-}
-
-/**
- * Coding-agent sessions, named by their set title or their id (never by workspace — the
- * agent's name is the secondary line), navigating to the coding-agents page with the
- * session preselected via route state.
- */
-export function buildSessionEntries(
-  sessions: ReadonlyArray<{
-    sessionId: string;
-    agentId: string;
-    title: string | null;
-    agentTitle: string | null;
-    busy: boolean;
-  }>,
-): SwitcherEntry[] {
-  return sessions.map((session) => ({
-    id: `session:${session.sessionId}`,
-    section: "sessions",
-    title: session.title ?? session.sessionId,
-    detail: session.agentTitle ?? session.agentId,
-    to: "/coding-agents",
-    routeState: { sessionId: session.sessionId },
-    busy: session.busy,
   }));
 }
 

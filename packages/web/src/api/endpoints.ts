@@ -32,19 +32,10 @@ import type {
   BenchmarksResponse,
   CaseMaterial,
   ChatDefaultsDto,
-  CodingAgentCreateRequest,
   CodingAgentDiscoveryResponse,
-  CodingAgentModeRequest,
   CodingAgentModelRequest,
-  CodingAgentPermissionRequest,
-  CodingAgentPromptRequest,
   CodingAgentSaveRequest,
-  CodingAgentSessionConfigRequest,
-  CodingAgentSessionDetailResponse,
-  CodingAgentSessionInfo,
   CodingAgentTestResult,
-  CodingAgentSessionRenameRequest,
-  CodingAgentSessionsResponse,
   CodingAgentServerInfo,
   CodingAgentsResponse,
   CommandPolicyDto,
@@ -217,7 +208,6 @@ import type {
   WeChatTestResponse,
   WorkspaceFilesResponse,
   WorkspaceSearchResponse,
-  ContributionsResponse,
 } from "@prismshadow/penguin-server/api";
 import type { MCPServerConfig } from "@prismshadow/penguin-core/interfaces";
 import { ApiError, apiFetch, apiFetchWithMeta } from "./client";
@@ -1856,111 +1846,3 @@ export const saveCodingAgent = (body: CodingAgentSaveRequest) =>
 
 export const removeCodingAgent = (agentId: string) =>
   apiFetch<void>(`/api/coding-agents/agents/${encodeURIComponent(agentId)}`, { method: "DELETE" });
-
-export const listCodingAgentSessions = () =>
-  apiFetch<CodingAgentSessionsResponse>("/api/coding-agents/sessions");
-
-export const createCodingAgentSession = (body: CodingAgentCreateRequest) =>
-  apiFetch<{ session: CodingAgentSessionInfo }>("/api/coding-agents/sessions", {
-    method: "POST",
-    body,
-  });
-
-export const getCodingAgentSession = (sessionId: string) =>
-  apiFetch<CodingAgentSessionDetailResponse>(
-    `/api/coding-agents/sessions/${encodeURIComponent(sessionId)}`,
-  );
-
-/** Sets the session's display title; the server trims and caps it, empty clears it. */
-export const renameCodingAgentSession = (
-  sessionId: string,
-  body: CodingAgentSessionRenameRequest,
-) =>
-  apiFetch<{ session: CodingAgentSessionInfo }>(
-    `/api/coding-agents/sessions/${encodeURIComponent(sessionId)}`,
-    { method: "PATCH", body },
-  );
-
-/** 202: the turn streams over the session's SSE channel, not this response. */
-export const promptCodingAgentSession = (sessionId: string, body: CodingAgentPromptRequest) =>
-  apiFetch<void>(`/api/coding-agents/sessions/${encodeURIComponent(sessionId)}/prompt`, {
-    method: "POST",
-    body,
-  });
-
-export const answerCodingAgentPermission = (
-  sessionId: string,
-  requestId: string,
-  body: CodingAgentPermissionRequest,
-) =>
-  apiFetch<void>(
-    `/api/coding-agents/sessions/${encodeURIComponent(sessionId)}` +
-      `/permissions/${encodeURIComponent(requestId)}`,
-    { method: "POST", body },
-  );
-
-export const cancelCodingAgentSession = (sessionId: string) =>
-  apiFetch<void>(`/api/coding-agents/sessions/${encodeURIComponent(sessionId)}/cancel`, {
-    method: "POST",
-  });
-
-export const setCodingAgentMode = (sessionId: string, body: CodingAgentModeRequest) =>
-  apiFetch<void>(`/api/coding-agents/sessions/${encodeURIComponent(sessionId)}/mode`, {
-    method: "POST",
-    body,
-  });
-
-/** The reply carries the agent's full updated config-option set; the SSE log also delivers it. */
-export const setCodingAgentSessionConfig = (
-  sessionId: string,
-  body: CodingAgentSessionConfigRequest,
-) =>
-  apiFetch<{ configOptions: CodingAgentSessionDetailResponse["configOptions"] }>(
-    `/api/coding-agents/sessions/${encodeURIComponent(sessionId)}/config`,
-    { method: "POST", body },
-  );
-
-export const endCodingAgentSession = (sessionId: string) =>
-  apiFetch<void>(`/api/coding-agents/sessions/${encodeURIComponent(sessionId)}`, {
-    method: "DELETE",
-  });
-
-/**
- * Fetches one session's Markdown transcript and saves it through a Blob + object-URL
- * anchor. Raw fetch because the JSON apiFetch cannot hand back the document, and fetching
- * (rather than a bare `<a download>`) lets a failure surface as an ApiError toast instead
- * of saving the error body as a file. The server's Content-Disposition names the file; the
- * fallback mirrors it.
- */
-export const downloadCodingAgentTranscript = async (sessionId: string): Promise<void> => {
-  const res = await fetch(
-    `/api/coding-agents/sessions/${encodeURIComponent(sessionId)}/transcript`,
-    { credentials: "same-origin" },
-  );
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as {
-      error?: { code?: string; message?: string };
-    } | null;
-    throw new ApiError(
-      res.status,
-      body?.error?.code ?? "unknown",
-      body?.error?.message ?? S.common.unknownError,
-    );
-  }
-  const disposition = res.headers.get("content-disposition") ?? "";
-  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
-  const plain = /filename="?([^";]+)"?/i.exec(disposition)?.[1];
-  const filename =
-    utf8 !== undefined
-      ? decodeURIComponent(utf8)
-      : (plain ?? `penguin-coding-agent-${sessionId}.md`);
-  const blob = new Blob([await res.text()], { type: "text/markdown; charset=utf-8" });
-  const objectUrl = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = objectUrl;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(objectUrl);
-};

@@ -12,7 +12,6 @@ import {
   SWITCHER_SECTIONS,
   buildAgentEntries,
   buildPageEntries,
-  buildSessionEntries,
   filterSwitcherEntries,
   isSubsequence,
   nextSwitcherCursor,
@@ -90,31 +89,6 @@ describe("entry builders", () => {
       },
     ]);
   });
-
-  it("sessions are named by set title or id, carry the agent name as detail, and preselect themselves via route state", () => {
-    const entries = buildSessionEntries([
-      {
-        sessionId: "s-1",
-        agentId: "claude",
-        title: "Fix the login flow",
-        agentTitle: "Claude Code",
-        busy: true,
-      },
-      {
-        sessionId: "s-2",
-        agentId: "gemini",
-        title: null,
-        agentTitle: null,
-        busy: false,
-      },
-    ]);
-    expect(entries.map((e) => e.title)).toEqual(["Fix the login flow", "s-2"]);
-    expect(entries.map((e) => e.detail)).toEqual(["Claude Code", "gemini"]);
-    expect(entries.map((e) => e.busy)).toEqual([true, false]);
-    expect(entries[0]!.to).toBe("/coding-agents");
-    expect(entries[0]!.routeState).toEqual({ sessionId: "s-1" });
-    expect(entries[0]!.id).toBe("session:s-1");
-  });
 });
 
 describe("switcherMatchScore", () => {
@@ -161,70 +135,50 @@ describe("filterSwitcherEntries", () => {
       { key: "models", title: "Models" },
     ]),
     ...buildAgentEntries([
-      { id: "claude", title: "Claude Code", command: "claude --experimental-acp" },
-    ]),
-    ...buildSessionEntries([
-      {
-        sessionId: "s-1",
-        agentId: "claude",
-        title: "Fix login",
-        agentTitle: "Claude",
-        busy: false,
-      },
+      { id: "claude", title: "Claude Code", command: "claude-agent-acp" },
+      { id: "gemini", title: "Gemini CLI", command: "gemini --experimental-acp" },
     ]),
   ];
 
   it("with no query, recents come first in recents order, then the sections in fixed order", () => {
     const groups = filterSwitcherEntries("", entries, ["agent:claude", "page:models"]);
     // The agents section is fully consumed by recents, so it drops out entirely.
-    expect(groups.map((g) => g.section)).toEqual(["recents", "pages", "sessions"]);
+    expect(groups.map((g) => g.section)).toEqual(["recents", "pages", "agents"]);
     expect(groups[0]!.entries.map((e) => e.id)).toEqual(["agent:claude", "page:models"]);
     // The rest of the sections leave their recent members out (no double rows).
     expect(groups[1]!.entries.map((e) => e.id)).toEqual(["page:agents"]);
-    expect(groups[2]!.entries.map((e) => e.id)).toEqual(["session:s-1"]);
+    expect(groups[2]!.entries.map((e) => e.id)).toEqual(["agent:gemini"]);
   });
 
   it("ignores stale recents and duplicates, and caps the recents group", () => {
     const groups = filterSwitcherEntries("", entries, [
-      "session:s-1",
-      "session:s-1",
+      "agent:gemini",
+      "agent:gemini",
       "page:gone",
       "agent:claude",
     ]);
-    expect(groups[0]!.entries.map((e) => e.id)).toEqual(["session:s-1", "agent:claude"]);
+    expect(groups[0]!.entries.map((e) => e.id)).toEqual(["agent:gemini", "agent:claude"]);
     // "page:gone" matches nothing today, so the pages section keeps both its entries.
     expect(groups[1]!.entries.map((e) => e.id)).toEqual(["page:agents", "page:models"]);
   });
 
   it("caps the recents group at five even when the stored list is longer", () => {
-    const stored = [
-      "session:s-1",
-      "session:s-2",
-      "session:s-3",
-      "session:s-4",
-      "session:s-5",
-      "session:s-6",
-    ];
-    const many = buildSessionEntries(
-      stored.map((id) => ({
-        sessionId: id.slice("session:".length),
-        agentId: "a",
-        title: null,
-        agentTitle: null,
-        busy: false,
-      })),
+    const stored = ["agent:a1", "agent:a2", "agent:a3", "agent:a4", "agent:a5", "agent:a6"];
+    const many = buildAgentEntries(
+      stored.map((id) => ({ id: id.slice("agent:".length), title: id, command: "acp" })),
     );
     const groups = filterSwitcherEntries("", [...entries, ...many], stored);
     expect(groups[0]!.entries).toHaveLength(5);
   });
 
   it("with a query, sections stay grouped, ranked within each, and empty ones drop out", () => {
-    // "cl" prefix-matches the Claude agent (agents section) and substring-matches the
-    // session's agent detail (sessions section); both pages drop out.
-    const groups = filterSwitcherEntries("cl", entries, []);
-    expect(groups.map((g) => g.section)).toEqual(["agents", "sessions"]);
-    expect(groups[0]!.entries.map((e) => e.id)).toEqual(["agent:claude"]);
-    expect(groups[1]!.entries.map((e) => e.id)).toEqual(["session:s-1"]);
+    // "ge" prefix-matches the Gemini agent and only reaches Claude through its command
+    // (claude-agent-acp), so Gemini ranks first within the agents section; the Agents page
+    // matches by substring and the Models page drops out.
+    const groups = filterSwitcherEntries("ge", entries, []);
+    expect(groups.map((g) => g.section)).toEqual(["pages", "agents"]);
+    expect(groups[0]!.entries.map((e) => e.id)).toEqual(["page:agents"]);
+    expect(groups[1]!.entries.map((e) => e.id)).toEqual(["agent:gemini", "agent:claude"]);
   });
 
   it("ranks a title prefix above a detail hit inside the same section", () => {
@@ -238,7 +192,7 @@ describe("filterSwitcherEntries", () => {
   });
 
   it("never reorders the fixed section sequence", () => {
-    expect(SWITCHER_SECTIONS).toEqual(["pages", "agents", "sessions"]);
+    expect(SWITCHER_SECTIONS).toEqual(["pages", "agents"]);
   });
 });
 

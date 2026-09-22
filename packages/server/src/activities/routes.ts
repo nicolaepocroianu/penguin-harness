@@ -19,16 +19,19 @@ import {
 } from "../http/validate.js";
 
 /**
- * Who runs an agent-driven stage: a Penguin agent (`agentId`) or, instead, an external
- * coding agent (`codingAgentId`, one of the ACP runtimes in /api/coding-agents). Exactly
- * one is required.
+ * Who runs an agent-driven stage: a Penguin agent's own model (`agentId`), or an external
+ * coding agent (`codingAgentId`, one of the ACP runtimes in /api/coding-agents) as the model
+ * of a Session that `agentId`, when given, owns. One of the two is required.
  */
 function stageRunner(body: Record<string, unknown>): {
   agentId: string;
   runtime?: { codingAgentId: string };
 } {
   const codingAgentId = optionalString(body, "codingAgentId", { maxLen: 64 }) || undefined;
-  if (codingAgentId) return { agentId: "", runtime: { codingAgentId } };
+  if (codingAgentId) {
+    const owner = optionalString(body, "agentId", { maxLen: 128 }) ?? "";
+    return { agentId: owner, runtime: { codingAgentId } };
+  }
   return { agentId: requireString(body, "agentId", { minLen: 1, maxLen: 128 }) };
 }
 

@@ -35,7 +35,7 @@ import { ProviderLogo } from "../../components/ui/provider-logo";
 import { Select } from "../../components/ui/select";
 import { SkeletonList } from "../../components/ui/skeleton";
 import { toastError } from "../../components/ui/toast";
-import { AddAgentModal } from "../coding-agents/coding-agents-page";
+import { AddAgentModal } from "./add-agent-modal";
 import {
   buildAgentCards,
   currentModel,

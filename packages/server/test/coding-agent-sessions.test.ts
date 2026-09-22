@@ -5,6 +5,7 @@
  * Penguin's own approvals, and the Session reopened by its runtime once its entry is gone.
  */
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -249,6 +250,38 @@ describe("coding-agent Sessions", () => {
     expect(row).toMatchObject({ cost: 0.5, hasUncosted: false });
     expect(usage.summary.total.cost).toBeCloseTo(0.5);
     expect(usage.summary.total.total).toBe(260);
+  });
+
+  it("keeps a protected folder out of the agent's reach even when the Session allows everything", async () => {
+    const guarded = await fs.mkdtemp(path.join(os.tmpdir(), "guarded-checkout-"));
+    try {
+      expect(
+        (
+          await admin.post("/api/coding-agents/agents", {
+            id: "writer",
+            command: process.execPath,
+            args: [AGENT_MAIN],
+            env: { FAKE_ASK_PATH: path.join(guarded, "framework", "index.ts") },
+          })
+        ).status,
+      ).toBe(201);
+      // The activity stages' own path: a Session created in-process with protected roots.
+      const session = await t.deps.sessionService.createSession({
+        projectId,
+        agentId: "default_agent",
+        provider: "coding-agent",
+        modelId: "writer",
+        approvalMode: "allow-all",
+        protectedRoots: [{ root: guarded, label: "the shared WAF checkout" }],
+      });
+      await send(session.sessionId, "ask permission");
+      await waitFor(() => idle(session.sessionId), 10_000);
+      const recorded = await trace(session.sessionId);
+      expect(recorded).toContainEqual(expect.objectContaining({ text: "did not write it" }));
+      expect(recorded.some((p) => p.text?.includes("the shared WAF checkout"))).toBe(true);
+    } finally {
+      await fs.rm(guarded, { recursive: true, force: true });
+    }
   });
 
   it("refuses a coding agent that does not exist, as it would an unknown model", async () => {

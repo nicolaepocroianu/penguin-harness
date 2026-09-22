@@ -80,7 +80,15 @@ const app = agent({ name: "fake-agent-test" })
     if (text === "ask permission") {
       const answer = await connection.client.request(methods.client.session.requestPermission, {
         sessionId: ctx.params.sessionId,
-        toolCall: { toolCallId: "perm-tool", title: "Write notes.txt", kind: "edit" },
+        toolCall: {
+          toolCallId: "perm-tool",
+          title: "Write notes.txt",
+          kind: "edit",
+          // FAKE_ASK_PATH names where the write would land, as a real agent's ask does.
+          ...(process.env.FAKE_ASK_PATH
+            ? { locations: [{ path: process.env.FAKE_ASK_PATH }] }
+            : {}),
+        },
         options: [
           { optionId: "yes", name: "Allow", kind: "allow_once" },
           { optionId: "no", name: "Reject", kind: "reject_once" },

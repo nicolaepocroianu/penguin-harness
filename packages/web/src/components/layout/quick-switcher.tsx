@@ -1,8 +1,7 @@
 /**
- * Quick Switcher (Ctrl/Cmd+K): a keyboard-first palette for jumping to a page, a coding
- * agent or one of its sessions. Mounted only while open by the app shell, so the
- * agents/sessions fetch fires on open rather than on app boot, and every other surface
- * pays nothing for it.
+ * Quick Switcher (Ctrl/Cmd+K): a keyboard-first palette for jumping to a page or a coding
+ * agent. Mounted only while open by the app shell, so the agents fetch fires on open rather
+ * than on app boot, and every other surface pays nothing for it.
  *
  * Overlay follows the portal-panel pattern (components/ui/use-portal-panel.ts): portaled
  * to body at z-[60] so it clears an open dialog's z-50 overlay; outside mousedown closes,
@@ -23,12 +22,12 @@ import { createPortal } from "react-dom";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../../state/auth";
-import { useCodingAgents } from "../../features/coding-agents/use-coding-agents";
+import type { CodingAgentServerInfo } from "@prismshadow/penguin-server/api";
+import { listCodingAgents } from "../../api/endpoints";
 import { navKeysFor } from "../../lib/nav-group-collapse";
 import {
   buildAgentEntries,
   buildPageEntries,
-  buildSessionEntries,
   filterSwitcherEntries,
   nextSwitcherCursor,
 } from "../../lib/quick-switcher";
@@ -59,15 +58,14 @@ const rowClass = (active: boolean) =>
 const kbdClass =
   "rounded border border-gray-200 bg-gray-50 px-1 font-mono text-[11px] leading-4 text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400";
 
-/** Section titles: pages/recents name themselves; agents/sessions reuse the coding-agents page's own headings. */
+/** Section titles: pages/recents name themselves; agents reuse the coding agents' own heading. */
 function sectionTitle(section: SwitcherEntry["section"] | "recents"): string {
   if (section === "recents") return S.quickSwitcher.recentsSection;
   if (section === "pages") return S.quickSwitcher.pagesSection;
-  if (section === "agents") return S.codingAgents.agentsTitle;
-  return S.codingAgents.sessionsTitle;
+  return S.codingAgents.agentsTitle;
 }
 
-/** Row glyph: pages wear their nav icon; agents share the coding-agents mark; sessions carry a status dot instead. */
+/** Row glyph: pages wear their nav icon; agents share the coding-agents mark. */
 function rowGlyph(entry: SwitcherEntry): string | null {
   if (entry.section === "pages") {
     // The id was built from a nav key (lib/nav-group-collapse.ts), whose set NAV_ICONS covers.
@@ -82,7 +80,25 @@ export function QuickSwitcherPalette({ onClose }: { onClose: () => void }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   // Fetches on mount — and this component mounts only while the palette is open.
-  const { agents, sessions, loading, loadError } = useCodingAgents();
+  const [agents, setAgents] = useState<CodingAgentServerInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    listCodingAgents()
+      .then((res) => {
+        if (!cancelled) setAgents(res.agents);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
@@ -120,17 +136,8 @@ export function QuickSwitcherPalette({ onClose }: { onClose: () => void }) {
           command: [agent.command, ...agent.args].join(" "),
         })),
       ),
-      ...buildSessionEntries(
-        sessions.map((session) => ({
-          sessionId: session.sessionId,
-          agentId: session.agentId,
-          title: session.title ?? null,
-          agentTitle: agents.find((a) => a.id === session.agentId)?.title ?? null,
-          busy: session.busy,
-        })),
-      ),
     ],
-    [user?.isAdmin, agents, sessions],
+    [user?.isAdmin, agents],
   );
 
   // Recents are read once per open; a selection made this session is pushed straight through.

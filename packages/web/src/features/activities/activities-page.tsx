@@ -477,7 +477,11 @@ function ActivityEditor({
   const selectedAgent = agentId || currentAgent?.agentId || agents[0]?.agentId || "";
   const codingAgentId = selectedAgent.startsWith("coding:") ? selectedAgent.slice(7) : null;
   /** Who runs a stage, as the stage routes take it. */
-  const runner = codingAgentId ? { codingAgentId } : { agentId: selectedAgent };
+  // A coding agent's run is a Session too, owned by the Penguin agent the Project would use.
+  const penguinAgent = currentAgent?.agentId ?? agents[0]?.agentId;
+  const runner = codingAgentId
+    ? { codingAgentId, ...(penguinAgent !== undefined ? { agentId: penguinAgent } : {}) }
+    : { agentId: selectedAgent };
   const running = runs.some((run) => run.status === "running");
   useEffect(() => {
     const next = speechQueue?.keys[0];
@@ -1164,9 +1168,7 @@ function ActivityEditor({
                           {run.sessionId && (
                             <Link
                               className="text-xs underline"
-                              {...(run.codingAgentId
-                                ? { to: "/coding-agents", state: { sessionId: run.sessionId } }
-                                : { to: `/chat/${encodeURIComponent(run.sessionId)}` })}
+                              to={`/chat/${encodeURIComponent(run.sessionId)}`}
                             >
                               {S.activities.openSession}
                             </Link>

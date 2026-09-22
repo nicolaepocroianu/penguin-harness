@@ -9,11 +9,11 @@
  * - events: every session gets a Channel (`coding-agent:<id>`); kernel events publish
  *   there as `coding_agent` SSE events, so replay/resync come for free from the hub.
  *
- * Coding-agent sessions are deliberately NOT core Sessions: they have no Trace, no model
- * config and no usage accounting, and they live in memory for the App's lifetime (the
- * agent process dies with it). An agent that advertises `session/resume` or `session/load`
- * can reopen one in a later process by id (`resumeSession`); making them first-class — a
- * session `source`, Trace adoption — is the registered follow-up.
+ * Two ways in. A Penguin Session whose model is a coding agent (chats, activity stages) goes
+ * through `openSessionRuntime`/`loadSessionRuntime`: an AcpRuntimeSession the session manager
+ * drives, with a Trace, approvals, usage and reopening like any Session. The bare
+ * `/api/coding-agents/sessions` routes still open agent sessions directly — kept for API
+ * clients, in memory for the App's lifetime, with no Trace; no screen uses them.
  */
 import { Component, Use } from "@prismshadow/penguin-core/kernel";
 import {
@@ -542,11 +542,16 @@ export class CodingAgentService implements CodingAgents {
     agentId: string;
     modelId: string;
     workspace?: string;
+    protectedRoots?: { root: string; label: string }[];
   }): Promise<{ sessionId: string; workspace: string; runtime: RuntimeSession }> {
     const { agentId: codingAgentId, model } = parseCodingAgentModel(args.modelId);
     const workspace =
       args.workspace?.trim() || (await this.penguinTempWorkspace(args.projectId, args.agentId));
-    const view = await this.createSession(codingAgentId, workspace);
+    const view = await this.createSession(
+      codingAgentId,
+      workspace,
+      args.protectedRoots?.length ? { protectedRoots: args.protectedRoots } : {},
+    );
     try {
       // A model picked in the dropdown is the one this Session asked for: a refusal is an
       // error, not a silent fall back to whatever the agent would otherwise use.

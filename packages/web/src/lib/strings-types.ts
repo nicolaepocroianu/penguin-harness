@@ -244,9 +244,6 @@ export type Strings = {
     draftStatus: { draft: string; valid: string; invalid: string };
   };
   codingAgents: {
-    runsTitle: string;
-    runsDescription: string;
-    runsManageLink: string;
     agentsTitle: string;
     addAgent: string;
     removeConfirmTitle: string;
@@ -263,34 +260,9 @@ export type Strings = {
     setupRequired: string;
     save: string;
     cancel: string;
-    configOn: string;
-    configOff: string;
-    sessionsTitle: string;
-    noSessions: string;
-    endSession: string;
     busy: string;
     idle: string;
-    composerPlaceholder: string;
-    send: string;
-    stop: string;
-    modeLabel: string;
-    permissionTitle: string;
-    allow: string;
-    reject: string;
-    noticeTitle: string;
-    toolOutput: string;
-    toolInput: string;
-    thinking: string;
-    turnEnded: string;
-    turnCancelled: string;
-    turnFailed: string;
     loadFailed: string;
-    sessionGone: string;
-    exportTranscript: string;
-    renameSession: string;
-    renameTitle: string;
-    renameLabel: string;
-    renameHint: string;
   };
   nav: {
     activities: string;

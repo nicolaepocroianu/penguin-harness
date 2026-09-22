@@ -91,6 +91,12 @@ export abstract class CodingAgents extends Interface<{
     agentId: string;
     modelId: string;
     workspace?: string;
+    /**
+     * Folders the agent may read but not change: its permission asks touching them are
+     * refused. Held for this process's life; a reopened Session does not carry them, as a
+     * resumed core Session does not.
+     */
+    protectedRoots?: { root: string; label: string }[];
   }): Promise<
     Opaque<
       "CodingAgentSessionRuntime",
