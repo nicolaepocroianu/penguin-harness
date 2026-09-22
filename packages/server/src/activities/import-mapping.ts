@@ -118,7 +118,18 @@ export function mapImport(product: SourceProduct, refs: readonly SourceRef[]): I
     // A half-written ref is worse than a missing one: it looks imported and does nothing.
     let spec = ref.spec;
     if (!spec) dropped.push(`Ref ${ref.refNum} has no specification to import.`);
-    else
+    else {
+      // The folder in a specification is a redundant copy of where the product actually
+      // lives, and five real refs carry an old misspelling of it. Losing a whole activity
+      // over a stale copy of a fact the directory already states would be absurd, so it is
+      // corrected from disk and the correction is recorded.
+      const declared = spec["moduleFolder"];
+      if (typeof declared === "string" && declared !== product.moduleFolder) {
+        spec = { ...spec, moduleFolder: product.moduleFolder };
+        repaired.push(
+          `Ref ${ref.refNum} named module folder "${declared}", but the product is in "${product.moduleFolder}"; the folder on disk was used.`,
+        );
+      }
       try {
         validateActivitySpec(spec);
       } catch (error) {
@@ -127,6 +138,7 @@ export function mapImport(product: SourceProduct, refs: readonly SourceRef[]): I
         );
         spec = null;
       }
+    }
     if (!ref.manifest) dropped.push(`Ref ${ref.refNum} has no asset manifest to import.`);
     if (!ref.description.trim())
       dropped.push(`Ref ${ref.refNum} has no description, so nothing records what it is for.`);

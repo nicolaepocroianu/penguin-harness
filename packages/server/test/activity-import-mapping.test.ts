@@ -103,6 +103,18 @@ describe("repairs, which are recorded rather than silent", () => {
     expect(mapping.repaired).toEqual([]);
   });
 
+  it("corrects a specification naming the wrong module folder, rather than losing it", () => {
+    // Five real refs carry an old misspelling of the folder they are in. The folder in a
+    // specification is a redundant copy of where the product actually lives, so losing a
+    // whole activity over a stale copy would be absurd.
+    const mapping = mapImport(product(), [
+      ref({ spec: { ...activitySpec, moduleFolder: "wafmodule-sight-words" } }),
+    ]);
+    expect(mapping.activities[0]!.spec!.moduleFolder).toBe("waf-module-sight-words");
+    expect(mapping.repaired[0]).toContain("the folder on disk was used");
+    expect(importIsFaithful(mapping)).toBe(true);
+  });
+
   it("still counts as faithful, because nothing was lost", () => {
     const mapping = mapImport(product({ canonicalRefNum: null }), [ref({ refNum: 2 })]);
     expect(importIsFaithful(mapping)).toBe(true);
