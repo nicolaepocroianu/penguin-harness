@@ -8,6 +8,7 @@ import { agent, methods, PROTOCOL_VERSION, ndJsonStream } from "@agentclientprot
 
 /** @type {import("@agentclientprotocol/sdk").AgentConnection | undefined} */
 let connection;
+let turns = 0;
 
 const configOptions = [
   {
@@ -97,6 +98,24 @@ const app = agent({ name: "fake-agent-test" })
         content: { type: "text", text: "hello from subprocess" },
       },
     });
+    // FAKE_USAGE plays an agent that reports what each turn used and prices its own work:
+    // tokens on the prompt response, and a running cost of 0.25 USD more per turn.
+    if (process.env.FAKE_USAGE) {
+      turns += 1;
+      await connection.client.notify(methods.client.session.update, {
+        sessionId: ctx.params.sessionId,
+        update: {
+          sessionUpdate: "usage_update",
+          used: 130 * turns,
+          size: 200000,
+          cost: { amount: 0.25 * turns, currency: "USD" },
+        },
+      });
+      return {
+        stopReason: "end_turn",
+        usage: { inputTokens: 100, outputTokens: 20, totalTokens: 130, cachedReadTokens: 10 },
+      };
+    }
     return { stopReason: "end_turn" };
   })
   .onRequest(methods.agent.session.setConfigOption, (ctx) => {

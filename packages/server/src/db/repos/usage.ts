@@ -27,6 +27,8 @@ export interface UsageRecordInsert {
   total: number;
   /** Request outcome; defaults to completed (success, carries tokens). Failed requests are stored with 0 tokens + status, for success-rate calculations. */
   status?: string;
+  /** What the runner itself said this request cost, in USD (a coding agent); absent = none reported. */
+  reportedCostUsd?: number;
 }
 
 /** Generic filter: date range + agent / model dimensions (cost center top bar switches by agent/model). */
@@ -53,6 +55,10 @@ export interface UsageModelSums {
   output: number;
   total: number;
   requests: number;
+  /** The cost runners reported for these records (USD), or null when none reported any. */
+  reportedCostUsd: number | null;
+  /** Completed requests among them that reported no cost: > 0 makes a reported total partial. */
+  unreported: number;
   /**
    * Which tier of a time-based price these Tokens ran in, decided from each record's own `ts`.
    *
@@ -170,7 +176,10 @@ const SUM_COLUMNS = `COALESCE(SUM(cache_read), 0) AS cache_read,
                 COALESCE(SUM(cache_write), 0) AS cache_write,
                 COALESCE(SUM(output), 0) AS output,
                 COALESCE(SUM(total), 0) AS total,
-                COUNT(*) AS requests`;
+                COUNT(*) AS requests,
+                SUM(reported_cost_usd) AS reported_cost,
+                COALESCE(SUM(CASE WHEN status = 'completed' AND reported_cost_usd IS NULL
+                                  THEN 1 ELSE 0 END), 0) AS unreported`;
 
 function toSums(r: Record<string, unknown>): UsageModelSums {
   return {
@@ -182,6 +191,8 @@ function toSums(r: Record<string, unknown>): UsageModelSums {
     output: r.output as number,
     total: r.total as number,
     requests: r.requests as number,
+    reportedCostUsd: (r.reported_cost as number | null) ?? null,
+    unreported: r.unreported as number,
   };
 }
 
@@ -194,8 +205,8 @@ export class UsageRepo implements UsageStore {
       .prepare(
         `INSERT INTO usage_records
            (ts, date, project_id, agent_id, session_id, origin_session_id, provider, model_id,
-            cache_read, cache_write, output, total, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            cache_read, cache_write, output, total, status, reported_cost_usd)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         r.ts,
@@ -211,6 +222,7 @@ export class UsageRepo implements UsageStore {
         r.output,
         r.total,
         r.status ?? "completed",
+        r.reportedCostUsd ?? null,
       );
   }
 

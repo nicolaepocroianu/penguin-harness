@@ -209,6 +209,48 @@ describe("coding-agent Sessions", () => {
     expect(models.models.some((m) => m.provider === "coding-agent")).toBe(false);
   });
 
+  it("records what the agent said each turn used and cost, and counts it in the Project's usage", async () => {
+    expect(
+      (
+        await admin.post("/api/coding-agents/agents", {
+          id: "priced",
+          command: process.execPath,
+          args: [AGENT_MAIN],
+          env: { FAKE_USAGE: "1" },
+        })
+      ).status,
+    ).toBe(201);
+    const session = await createSession({ modelId: "priced" });
+    for (const text of ["one", "two"]) {
+      await send(session.sessionId, text);
+      await waitFor(() => idle(session.sessionId), 10_000);
+    }
+    const usages = (await trace(session.sessionId)).filter((p) => p.type === "token_usage") as {
+      request: { total: number; output: number };
+      reported_cost?: { amount: number; currency: string };
+    }[];
+    expect(usages.map((u) => u.request)).toEqual([
+      { cache_read: 10, cache_write: 0, output: 20, total: 130 },
+      { cache_read: 10, cache_write: 0, output: 20, total: 130 },
+    ]);
+    // The agent's running total was 0.25 then 0.50: each turn is charged what it added.
+    expect(usages.map((u) => u.reported_cost)).toEqual([
+      { amount: 0.25, currency: "USD" },
+      { amount: 0.25, currency: "USD" },
+    ]);
+
+    const usage = (await (
+      await admin.get(`/api/projects/${projectId}/usage?groupBy=model`)
+    ).json()) as {
+      summary: { total: { cost: number | null; hasUncosted: boolean; total: number } };
+      groups: { key: string; provider?: string; cost: number | null; hasUncosted: boolean }[];
+    };
+    const row = usage.groups.find((g) => g.provider === "coding-agent" && g.key === "priced");
+    expect(row).toMatchObject({ cost: 0.5, hasUncosted: false });
+    expect(usage.summary.total.cost).toBeCloseTo(0.5);
+    expect(usage.summary.total.total).toBe(260);
+  });
+
   it("refuses a coding agent that does not exist, as it would an unknown model", async () => {
     const res = await admin.post(`/api/projects/${projectId}/agents/default_agent/sessions`, {
       provider: "coding-agent",

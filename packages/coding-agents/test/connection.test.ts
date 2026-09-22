@@ -31,7 +31,7 @@ describe("AcpConnection", () => {
     await connection.initialize();
     const session = await connection.newSession("/tmp/ws");
     const stop = await connection.prompt(session.sessionId, "hi");
-    expect(stop).toBe("end_turn");
+    expect(stop).toEqual({ stopReason: "end_turn" });
     expect(events).toEqual([
       { type: "message_chunk", sessionId: session.sessionId, delta: "hello " },
       { type: "message_chunk", sessionId: session.sessionId, delta: "world" },

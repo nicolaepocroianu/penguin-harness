@@ -183,6 +183,21 @@ function costOf(sums: UsageModelSums, tiered: TieredRates): number {
   return requestCostUsd(sums, sums.peak ? tiered.peak : tiered.offPeak);
 }
 
+/**
+ * What these records cost, and whether that figure is short. Project pricing decides where the
+ * model has it. Where it has none — a coding agent — the cost its runner reported is used
+ * instead, short by whatever requests reported none; with neither, the records are uncosted.
+ */
+function costFor(
+  sums: UsageModelSums,
+  tiered: TieredRates | undefined,
+): { cost: number | null; uncosted: boolean } {
+  if (tiered) return { cost: costOf(sums, tiered), uncosted: false };
+  if (sums.reportedCostUsd !== null)
+    return { cost: sums.reportedCostUsd, uncosted: sums.unreported > 0 };
+  return { cost: null, uncosted: true };
+}
+
 /** In-process Map key for a paired reference (\0-separated, the same style as session-manager's agentKey; never persisted). */
 function refKey(provider: string, modelId: string): string {
   return `${provider}\0${modelId}`;
@@ -241,12 +256,9 @@ export class UsageService implements UsageQueries {
       if (!rates.has(key)) {
         rates.set(key, await this.lookupPricing(projectId, r.provider, r.modelId));
       }
-      const rate = rates.get(key);
-      if (!rate) {
-        unpriced = true;
-        continue;
-      }
-      bySession.set(r.key, (bySession.get(r.key) ?? 0) + costOf(r, rate));
+      const { cost, uncosted } = costFor(r, rates.get(key));
+      if (uncosted) unpriced = true;
+      if (cost !== null) bySession.set(r.key, (bySession.get(r.key) ?? 0) + cost);
     }
     return { bySession, unpriced };
   }
@@ -272,9 +284,8 @@ export class UsageService implements UsageQueries {
       if (!rates.has(key)) {
         rates.set(key, await this.lookupPricing(projectId, r.provider, r.modelId));
       }
-      const rate = rates.get(key);
-      if (!rate) continue;
-      byDate.set(r.key, (byDate.get(r.key) ?? 0) + costOf(r, rate));
+      const { cost } = costFor(r, rates.get(key));
+      if (cost !== null) byDate.set(r.key, (byDate.get(r.key) ?? 0) + cost);
     }
     return [...byDate.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
@@ -506,9 +517,9 @@ export class UsageService implements UsageQueries {
     for (const r of rows) {
       total += r.total;
       requests += r.requests;
-      const rate = rates.get(refKey(r.provider, r.modelId));
-      if (rate) cost = (cost ?? 0) + costOf(r, rate);
-      else hasUncosted = true;
+      const priced = costFor(r, rates.get(refKey(r.provider, r.modelId)));
+      if (priced.cost !== null) cost = (cost ?? 0) + priced.cost;
+      if (priced.uncosted) hasUncosted = true;
     }
     return { total, requests, cost, hasUncosted };
   }
@@ -539,9 +550,9 @@ export class UsageService implements UsageQueries {
       acc.output += r.output;
       acc.total += r.total;
       acc.requests += r.requests;
-      const rate = rates.get(refKey(r.provider, r.modelId));
-      if (rate) acc.cost = (acc.cost ?? 0) + costOf(r, rate);
-      else acc.hasUncosted = true;
+      const priced = costFor(r, rates.get(refKey(r.provider, r.modelId)));
+      if (priced.cost !== null) acc.cost = (acc.cost ?? 0) + priced.cost;
+      if (priced.uncosted) acc.hasUncosted = true;
       byKey.set(keyOf(r), acc);
     }
     const out = [...byKey.values()];
@@ -591,8 +602,8 @@ export class UsageService implements UsageQueries {
       acc.requests += r.requests;
       acc.completed += r.completed;
       acc.denominator += r.denominator;
-      const rate = rates.get(refKey(r.provider, r.modelId));
-      if (rate) acc.cost = (acc.cost ?? 0) + costOf(r, rate);
+      const { cost } = costFor(r, rates.get(refKey(r.provider, r.modelId)));
+      if (cost !== null) acc.cost = (acc.cost ?? 0) + cost;
     }
     return keys.map((k) => byKey.get(k)!);
   }

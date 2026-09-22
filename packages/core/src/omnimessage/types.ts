@@ -345,6 +345,12 @@ export interface TokenUsagePayload {
   session: TokenCounts;
   /** Token usage for the most recent Request. */
   request: TokenCounts;
+  /**
+   * What the most recent Request cost, as the model runner itself reported it — an external
+   * coding agent that prices its own work. Absent for core Sessions, whose cost is computed
+   * from the Project's pricing instead.
+   */
+  reported_cost?: { amount: number; currency: string };
 }
 
 /**

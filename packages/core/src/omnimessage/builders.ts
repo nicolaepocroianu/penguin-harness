@@ -363,8 +363,14 @@ export function emptyTokenCounts(): TokenCounts {
 export function tokenUsage(
   session: TokenCounts,
   request: TokenCounts,
+  reportedCost?: { amount: number; currency: string },
 ): OmniMessage<TokenUsagePayload> {
-  return event({ type: "token_usage", session, request });
+  return event({
+    type: "token_usage",
+    session,
+    request,
+    ...(reportedCost !== undefined ? { reported_cost: reportedCost } : {}),
+  });
 }
 
 /** tool_list_ready event: the Session's full tool definitions, emitted once the toolset is known (first run, after MCP discovery). */

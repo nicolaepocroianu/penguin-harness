@@ -12,13 +12,18 @@
  * - everything complete is written to the Session's Trace with core's own Writer, in the
  *   same place and format as any other Session's (the manager never writes Traces itself).
  *
- * What an ACP agent does not report, this cannot invent: there is no per-request token
- * usage, so these Sessions carry no cost, and no title model, so the title stays the
- * first message's fallback.
+ * - each turn's tokens, as the agent reported them, become the turn's `token_usage`, carrying
+ *   the cost the agent itself charged for it when it prices its own work — so these Sessions
+ *   count in usage and cost like any other.
+ *
+ * What an ACP agent does not report, this cannot invent: an agent that reports no usage
+ * records none, and no title model runs, so the title stays the first message's fallback.
  */
 import {
   Writer,
   abortEvent,
+  addTokenCounts,
+  emptyTokenCounts,
   approvalDecision,
   partialText,
   partialThinking,
@@ -27,11 +32,13 @@ import {
   sessionMeta,
   textMessage,
   thinkingMessage,
+  tokenUsage,
   toolCall,
   toolCallOutput,
   type ApproveFn,
   type ApprovalDecision,
   type OmniMessage,
+  type TokenCounts,
   type ToolCallPayload,
 } from "@prismshadow/penguin-core";
 import type {
@@ -40,6 +47,7 @@ import type {
   AgentSessionEvent,
   AgentStopReason,
   AgentToolCall,
+  AgentTurnUsage,
   CodingAgentManager,
 } from "@prismshadow/penguin-coding-agents";
 import type { RuntimeSession } from "../runtime/session-manager.js";
@@ -199,6 +207,82 @@ export function permissionOutcome(
   return { outcome: "cancelled" };
 }
 
+type Money = { amount: number; currency: string };
+
+/**
+ * Turns what an agent reports about usage into `token_usage`. Tokens come per turn (the
+ * prompt response) and add up to the Session's total. Cost comes as the agent's running total
+ * for its own session, so a turn is charged what that total grew by since the last charge; a
+ * reopened Session starts from what its Trace already charged, when the agent resumed the same
+ * session and its total therefore carried on.
+ */
+export class UsageLedger {
+  private session: TokenCounts;
+  private charged: Money | null;
+  private latest: Money | null;
+
+  constructor(start: { session?: TokenCounts; cost?: Money } = {}) {
+    this.session = start.session ?? emptyTokenCounts();
+    this.charged = start.cost ?? null;
+    this.latest = this.charged;
+  }
+
+  observeCost(cost: Money): void {
+    this.latest = cost;
+  }
+
+  /** The turn's `token_usage`, or null when the agent said nothing about what it used. */
+  turn(usage: AgentTurnUsage | undefined): OmniMessage | null {
+    if (usage === undefined) return null;
+    const request: TokenCounts = {
+      cache_read: usage.cachedReadTokens,
+      cache_write: usage.cachedWriteTokens,
+      // Thinking is output the model produced, as a core Session's usage counts it.
+      output: usage.outputTokens + usage.thoughtTokens,
+      total: usage.totalTokens,
+    };
+    this.session = addTokenCounts(this.session, request);
+    let cost: Money | undefined;
+    const latest = this.latest;
+    if (latest !== null && (this.charged === null || this.charged.currency === latest.currency)) {
+      const amount = latest.amount - (this.charged?.amount ?? 0);
+      // A total that went down is an agent restarting its count, not a refund.
+      if (amount >= 0) cost = { amount, currency: latest.currency };
+      this.charged = latest;
+    }
+    return tokenUsage(this.session, request, cost);
+  }
+}
+
+/**
+ * Where a reopened Session's usage left off, read from its Trace: the last running token
+ * total, and — only when the agent resumed the same session, whose own cost total therefore
+ * carried on — the sum of what earlier turns were charged. A cost reported in more than one
+ * currency is not summed.
+ */
+export function usageSoFar(
+  trace: OmniMessage[],
+  sameAgentSession: boolean,
+): { session?: TokenCounts; cost?: Money } {
+  let session: TokenCounts | undefined;
+  let cost: Money | undefined;
+  let mixed = false;
+  for (const message of trace) {
+    const payload = message.payload;
+    if (!("type" in payload) || payload.type !== "token_usage") continue;
+    session = payload.session;
+    const charged = payload.reported_cost;
+    if (charged === undefined) continue;
+    if (cost === undefined) cost = { ...charged };
+    else if (cost.currency === charged.currency) cost.amount += charged.amount;
+    else mixed = true;
+  }
+  return {
+    ...(session !== undefined ? { session } : {}),
+    ...(sameAgentSession && cost !== undefined && !mixed ? { cost } : {}),
+  };
+}
+
 /** A queue a subscriber pushes into and the turn loop awaits. */
 class EventQueue {
   private readonly items: AgentSessionEvent[] = [];
@@ -235,6 +319,8 @@ export interface AcpRuntimeOptions {
   metaWritten: boolean;
   /** Said once, before the next turn: how this Session was reopened, when that matters. */
   notice?: string;
+  /** Where a reopened Session's usage left off (see UsageLedger). */
+  usageStart?: { session?: TokenCounts; cost?: Money };
 }
 
 export class AcpRuntimeSession implements RuntimeSession {
@@ -246,11 +332,13 @@ export class AcpRuntimeSession implements RuntimeSession {
   private readonly translator = new AcpTurnTranslator();
   private metaWritten: boolean;
   private notice: string | undefined;
+  private readonly usage: UsageLedger;
 
   constructor(private readonly options: AcpRuntimeOptions) {
     this.sessionId = options.sessionId;
     this.metaWritten = options.metaWritten;
     this.notice = options.notice;
+    this.usage = new UsageLedger(options.usageStart);
   }
 
   async *run(
@@ -300,12 +388,15 @@ export class AcpRuntimeSession implements RuntimeSession {
           continue;
         }
         if (event.type === "turn_end") {
+          const used = this.usage.turn(event.usage);
           yield* this.emit([
             ...translator.finish(),
+            ...(used !== null ? [used] : []),
             ...turnEndMessages(event.stopReason, opts.signal.aborted),
           ]);
           break;
         }
+        if (event.type === "usage" && event.cost !== undefined) this.usage.observeCost(event.cost);
         yield* this.emit(translator.translate(event));
       }
       await turn;

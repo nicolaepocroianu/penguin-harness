@@ -38,6 +38,7 @@ import {
   type AgentSessionConfigOption,
   type AgentSessionEvent,
   type AgentToolCall,
+  type AgentTurnUsage,
 } from "./types.js";
 
 export type SpawnProcess = typeof spawn;
@@ -233,12 +234,30 @@ export class AcpConnection {
    * One turn. Resolves with the agent's stop reason; a long turn simply keeps the request
    * open, so no timeout applies here.
    */
-  async prompt(sessionId: string, text: string): Promise<StopReason> {
+  async prompt(
+    sessionId: string,
+    text: string,
+  ): Promise<{ stopReason: StopReason; usage?: AgentTurnUsage }> {
     const response = await this.conn.agent.request(methods.agent.session.prompt, {
       sessionId,
       prompt: [{ type: "text", text }],
     });
-    return response.stopReason;
+    const usage = response.usage;
+    return {
+      stopReason: response.stopReason,
+      ...(usage !== undefined && usage !== null
+        ? {
+            usage: {
+              inputTokens: usage.inputTokens,
+              outputTokens: usage.outputTokens,
+              totalTokens: usage.totalTokens,
+              cachedReadTokens: usage.cachedReadTokens ?? 0,
+              cachedWriteTokens: usage.cachedWriteTokens ?? 0,
+              thoughtTokens: usage.thoughtTokens ?? 0,
+            },
+          }
+        : {}),
+    };
   }
 
   async cancel(sessionId: string): Promise<void> {
@@ -402,6 +421,9 @@ function emitUpdate(
         sessionId,
         used: update.used,
         ...(update.size !== null ? { size: update.size } : {}),
+        ...(update.cost !== undefined && update.cost !== null
+          ? { cost: { amount: update.cost.amount, currency: update.cost.currency } }
+          : {}),
       });
       return;
     default:

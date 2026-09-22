@@ -43,4 +43,5 @@ export {
   type AgentToolKind,
   type AgentToolLocation,
   type AgentToolStatus,
+  type AgentTurnUsage,
 } from "./types.js";

@@ -821,6 +821,26 @@ export const MIGRATIONS: readonly Migration[] = [
       `);
     },
   },
+  {
+    version: 19,
+    name: "usage-reported-cost",
+    // Swap-safe: the column is nullable, so an older writer's inserts simply leave it empty,
+    // and an older reader never selects it.
+    swapSafe: true,
+    up(db) {
+      // Cost is computed from the Project's pricing at read time and never stored. A coding
+      // agent is the exception: it prices its own work and reports what a turn cost, and no
+      // Project pricing exists for it, so that figure is kept on the record. NULL means the
+      // runner reported no cost, which is every core Session's record.
+      const columns = db.prepare("PRAGMA table_info(usage_records)").all() as { name: string }[];
+      if (!columns.some((column) => column.name === "reported_cost_usd"))
+        db.exec("ALTER TABLE usage_records ADD COLUMN reported_cost_usd REAL");
+    },
+    down(db) {
+      // Loses only the costs coding agents reported; their tokens stay.
+      db.exec("ALTER TABLE usage_records DROP COLUMN reported_cost_usd");
+    },
+  },
 ];
 
 /** The highest version this build knows how to reach. */

@@ -12,6 +12,7 @@ import {
   type AgentRequestContext,
   type CreateElicitationResponse,
   type PromptRequest,
+  type PromptResponse,
   type RequestPermissionRequest,
   type RequestPermissionResponse,
   type SessionConfigOption,
@@ -35,6 +36,8 @@ export class FakeCodingAgent {
   private sessionSeq = 0;
 
   promptHandler: FakePromptHandler | null = null;
+  /** Token usage the next prompt responses report, as ACP's PromptResponse.usage. */
+  promptUsage: PromptResponse["usage"] = null;
   protocolVersionOverride: number | null = null;
   readonly cancelNotifications: string[] = [];
   readonly answeredPermissions: RequestPermissionResponse[] = [];
@@ -99,12 +102,12 @@ export class FakeCodingAgent {
         else this.applyConfigValue(ctx.params.configId, ctx.params.value);
         return { configOptions: this.configOptions };
       })
-      .onRequest(methods.agent.session.prompt, async (ctx): Promise<{ stopReason: StopReason }> => {
+      .onRequest(methods.agent.session.prompt, async (ctx): Promise<PromptResponse> => {
         const stopReason =
           this.promptHandler === null
             ? "end_turn"
             : await this.promptHandler(ctx, ctx.params.sessionId);
-        return { stopReason };
+        return { stopReason, ...(this.promptUsage ? { usage: this.promptUsage } : {}) };
       })
       .onRequest(methods.agent.session.setMode, () => ({}))
       .onRequest(methods.agent.session.close, (ctx) => {
@@ -121,6 +124,19 @@ export class FakeCodingAgent {
     await this.requireConnection().client.notify(methods.client.session.update, {
       sessionId,
       update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text } },
+    });
+  }
+
+  /** Report context occupancy and the session's running cost, as ACP's usage_update. */
+  async reportUsage(
+    sessionId: string,
+    used: number,
+    size: number,
+    cost?: { amount: number; currency: string },
+  ): Promise<void> {
+    await this.requireConnection().client.notify(methods.client.session.update, {
+      sessionId,
+      update: { sessionUpdate: "usage_update", used, size, ...(cost ? { cost } : {}) },
     });
   }
 

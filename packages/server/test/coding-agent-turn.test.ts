@@ -5,7 +5,13 @@
  */
 import { describe, expect, it } from "vitest";
 import type { AgentSessionEvent, AgentToolCall } from "@prismshadow/penguin-coding-agents";
-import { AcpTurnTranslator, turnEndMessages } from "../src/coding-agents/session-runtime.js";
+import { tokenUsage, userText } from "@prismshadow/penguin-core";
+import {
+  AcpTurnTranslator,
+  UsageLedger,
+  turnEndMessages,
+  usageSoFar,
+} from "../src/coding-agents/session-runtime.js";
 
 const S = "acp-1";
 const call = (over: Partial<AgentToolCall>): AgentToolCall => ({
@@ -142,5 +148,86 @@ describe("turnEndMessages", () => {
       status: "fatal",
       error_message: "The coding agent refused the task.",
     });
+  });
+});
+
+describe("UsageLedger", () => {
+  const usage = {
+    inputTokens: 100,
+    outputTokens: 20,
+    totalTokens: 130,
+    cachedReadTokens: 10,
+    cachedWriteTokens: 0,
+    thoughtTokens: 5,
+  };
+
+  it("records a turn's tokens, and the session's running total", () => {
+    const ledger = new UsageLedger();
+    const first = ledger.turn(usage);
+    ledger.turn(usage);
+    const second = ledger.turn(usage);
+    expect(typed(first!).request).toEqual({
+      cache_read: 10,
+      cache_write: 0,
+      output: 25,
+      total: 130,
+    });
+    expect(typed(second!).session).toEqual({
+      cache_read: 30,
+      cache_write: 0,
+      output: 75,
+      total: 390,
+    });
+  });
+
+  it("charges each turn what the agent's running cost grew by during it", () => {
+    const ledger = new UsageLedger();
+    ledger.observeCost({ amount: 0.1, currency: "USD" });
+    ledger.observeCost({ amount: 0.25, currency: "USD" });
+    expect(typed(ledger.turn(usage)!).reported_cost).toEqual({ amount: 0.25, currency: "USD" });
+    ledger.observeCost({ amount: 0.4, currency: "USD" });
+    expect((typed(ledger.turn(usage)!).reported_cost as { amount: number }).amount).toBeCloseTo(
+      0.15,
+    );
+  });
+
+  it("carries on from what the Trace already charged when the agent session was resumed", () => {
+    const ledger = new UsageLedger({ cost: { amount: 1, currency: "USD" } });
+    ledger.observeCost({ amount: 1.5, currency: "USD" });
+    expect(typed(ledger.turn(usage)!).reported_cost).toEqual({ amount: 0.5, currency: "USD" });
+  });
+
+  it("records no cost when the agent reported none, and nothing at all without usage", () => {
+    const ledger = new UsageLedger();
+    expect(typed(ledger.turn(usage)!).reported_cost).toBeUndefined();
+    expect(ledger.turn(undefined)).toBeNull();
+  });
+});
+
+describe("usageSoFar", () => {
+  const counts = (total: number) => ({ cache_read: 0, cache_write: 0, output: 1, total });
+
+  it("takes the Session's last token total and what its Trace has charged", () => {
+    const trace = [
+      userText("hi"),
+      tokenUsage(counts(10), counts(10), { amount: 0.1, currency: "USD" }),
+      tokenUsage(counts(30), counts(20), { amount: 0.2, currency: "USD" }),
+    ];
+    const start = usageSoFar(trace, true);
+    expect(start.session).toEqual(counts(30));
+    expect(start.cost?.amount).toBeCloseTo(0.3);
+  });
+
+  it("starts the cost again when the agent could not resume its own session", () => {
+    const trace = [tokenUsage(counts(10), counts(10), { amount: 0.1, currency: "USD" })];
+    expect(usageSoFar(trace, false)).toEqual({ session: counts(10) });
+  });
+
+  it("gives up on a cost reported in more than one currency", () => {
+    const trace = [
+      tokenUsage(counts(10), counts(10), { amount: 0.1, currency: "USD" }),
+      tokenUsage(counts(20), counts(10), { amount: 1, currency: "EUR" }),
+    ];
+    expect(usageSoFar(trace, true).cost).toBeUndefined();
   });
 });

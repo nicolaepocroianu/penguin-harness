@@ -396,6 +396,44 @@ describe("CodingAgentManager", () => {
     expect(fake.reopenRequests).toEqual([]);
   });
 
+  it("carries the tokens a turn used on its end, and the running cost on usage", async () => {
+    const { manager, fake } = harness({});
+    fake.promptUsage = {
+      inputTokens: 100,
+      outputTokens: 20,
+      totalTokens: 130,
+      cachedReadTokens: 10,
+      thoughtTokens: 5,
+    };
+    fake.promptHandler = async (_ctx, sessionId) => {
+      await fake.reportUsage(sessionId, 130, 200_000, { amount: 0.25, currency: "USD" });
+      return "end_turn" as const;
+    };
+    const session = await manager.createSession("fake", workspace);
+    await manager.prompt(session.sessionId, "hi");
+    const events = manager.sessionView(session.sessionId)!.events;
+    expect(events).toContainEqual({
+      type: "usage",
+      sessionId: session.sessionId,
+      used: 130,
+      size: 200_000,
+      cost: { amount: 0.25, currency: "USD" },
+    });
+    expect(events.at(-1)).toEqual({
+      type: "turn_end",
+      sessionId: session.sessionId,
+      stopReason: "end_turn",
+      usage: {
+        inputTokens: 100,
+        outputTokens: 20,
+        totalTokens: 130,
+        cachedReadTokens: 10,
+        cachedWriteTokens: 0,
+        thoughtTokens: 5,
+      },
+    });
+  });
+
   it("closes a disposed session on the agent unless the host will reopen it later", async () => {
     const { manager, fake } = harness({});
     const kept = await manager.createSession("fake", workspace);

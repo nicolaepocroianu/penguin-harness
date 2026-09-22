@@ -73,6 +73,7 @@ function dropCompanyModeTables(db: DatabaseSync): void {
 function open024(): DatabaseSync {
   const db = new sqlite.DatabaseSync(":memory:");
   db.exec(SCHEMA_SQL);
+  dropReportedCost(db);
   db.exec("DROP TABLE IF EXISTS model_promotions");
   db.exec(
     "DROP TABLE IF EXISTS activity_media_text_runs; DROP TABLE IF EXISTS activity_image_runs; DROP TABLE IF EXISTS activity_audio_runs; DROP TABLE IF EXISTS activity_module_runs; DROP TABLE IF EXISTS activity_run_candidates; DROP TABLE IF EXISTS activity_runs; DROP TABLE IF EXISTS activity_drafts; DROP TABLE IF EXISTS activities; DROP TABLE IF EXISTS activity_products; DROP TABLE IF EXISTS activity_collections;",
@@ -117,6 +118,7 @@ const PRE_CHANNEL_CHAT_DDL = `
 function open6(): DatabaseSync {
   const db = new sqlite.DatabaseSync(":memory:");
   db.exec(SCHEMA_SQL);
+  dropReportedCost(db);
   db.exec("DROP TABLE IF EXISTS model_promotions");
   db.exec(
     "DROP TABLE IF EXISTS activity_media_text_runs; DROP TABLE IF EXISTS activity_image_runs; DROP TABLE IF EXISTS activity_audio_runs; DROP TABLE IF EXISTS activity_module_runs; DROP TABLE IF EXISTS activity_run_candidates; DROP TABLE IF EXISTS activity_runs; DROP TABLE IF EXISTS activity_drafts; DROP TABLE IF EXISTS activities; DROP TABLE IF EXISTS activity_products; DROP TABLE IF EXISTS activity_collections;",
@@ -132,6 +134,7 @@ function open6(): DatabaseSync {
 function open7(): DatabaseSync {
   const db = new sqlite.DatabaseSync(":memory:");
   db.exec(SCHEMA_SQL);
+  dropReportedCost(db);
   db.exec("DROP TABLE IF EXISTS org_desk_notices");
   db.exec("DROP TABLE IF EXISTS model_promotions");
   db.exec(
@@ -145,6 +148,7 @@ function open7(): DatabaseSync {
 function open8(): DatabaseSync {
   const db = new sqlite.DatabaseSync(":memory:");
   db.exec(SCHEMA_SQL);
+  dropReportedCost(db);
   db.exec("DROP TABLE IF EXISTS model_promotions");
   db.exec(
     "DROP TABLE IF EXISTS activity_media_text_runs; DROP TABLE IF EXISTS activity_image_runs; DROP TABLE IF EXISTS activity_audio_runs; DROP TABLE IF EXISTS activity_module_runs; DROP TABLE IF EXISTS activity_run_candidates; DROP TABLE IF EXISTS activity_runs; DROP TABLE IF EXISTS activity_drafts; DROP TABLE IF EXISTS activities; DROP TABLE IF EXISTS activity_products; DROP TABLE IF EXISTS activity_collections;",
@@ -157,6 +161,7 @@ function open8(): DatabaseSync {
 function open029(): DatabaseSync {
   const db = new sqlite.DatabaseSync(":memory:");
   db.exec(SCHEMA_SQL);
+  dropReportedCost(db);
   db.exec("DROP TABLE IF EXISTS model_promotions");
   db.exec(
     "DROP TABLE IF EXISTS activity_media_text_runs; DROP TABLE IF EXISTS activity_image_runs; DROP TABLE IF EXISTS activity_audio_runs; DROP TABLE IF EXISTS activity_module_runs; DROP TABLE IF EXISTS activity_run_candidates; DROP TABLE IF EXISTS activity_runs; DROP TABLE IF EXISTS activity_drafts; DROP TABLE IF EXISTS activities; DROP TABLE IF EXISTS activity_products; DROP TABLE IF EXISTS activity_collections;",
@@ -180,6 +185,7 @@ function open029(): DatabaseSync {
 function openPreProfile(): DatabaseSync {
   const db = new sqlite.DatabaseSync(":memory:");
   db.exec(SCHEMA_SQL);
+  dropReportedCost(db);
   db.exec("DROP TABLE IF EXISTS model_promotions");
   db.exec(
     "DROP TABLE IF EXISTS activity_media_text_runs; DROP TABLE IF EXISTS activity_image_runs; DROP TABLE IF EXISTS activity_audio_runs; DROP TABLE IF EXISTS activity_module_runs; DROP TABLE IF EXISTS activity_run_candidates; DROP TABLE IF EXISTS activity_runs; DROP TABLE IF EXISTS activity_drafts; DROP TABLE IF EXISTS activities; DROP TABLE IF EXISTS activity_products; DROP TABLE IF EXISTS activity_collections;",
@@ -213,6 +219,14 @@ function dropCompanyTables(db: DatabaseSync): void {
 function dropProfileColumns(db: DatabaseSync): void {
   db.exec("ALTER TABLE users DROP COLUMN avatar");
   db.exec("ALTER TABLE users DROP COLUMN display_name");
+}
+
+/**
+ * Migration 19's column, which every database stamped before it lacks: SCHEMA_SQL declares
+ * the current `usage_records`, so a fixture for an older version takes it off again.
+ */
+function dropReportedCost(db: DatabaseSync): void {
+  db.exec("ALTER TABLE usage_records DROP COLUMN reported_cost_usd");
 }
 
 /** Column names of `users`, for the two cases that are about columns rather than whole shapes. */
@@ -708,6 +722,7 @@ describe("activity candidate storage", () => {
     const db = new sqlite.DatabaseSync(":memory:");
     try {
       db.exec(SCHEMA_SQL);
+      dropReportedCost(db);
       db.exec("DROP TABLE activity_run_candidates; PRAGMA user_version = 11");
       db.exec(
         "INSERT INTO users (user_id, password_hash, is_admin, created_at) VALUES ('u', 'h', 0, 'now'); INSERT INTO projects VALUES ('p', 'u', 'now'); INSERT INTO activities (id, collection_id, product_code, ref_num, title, activity_type, created_at, updated_at, archived) VALUES ('a', 'c', 'p', 0, 'Title', 'standard', 'now', 'now', 0)",
@@ -789,6 +804,56 @@ describe("0.2.4 → current", () => {
       );
       migrate(db);
       expect(db.prepare("SELECT user_id FROM users").all()).toEqual([{ user_id: "admin" }]);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe("migration 18 → current: usage-reported-cost", () => {
+  function open18(): DatabaseSync {
+    const db = new sqlite.DatabaseSync(":memory:");
+    db.exec(SCHEMA_SQL);
+    dropReportedCost(db);
+    db.exec("PRAGMA user_version = 18");
+    return db;
+  }
+  const usageColumns = (db: DatabaseSync) =>
+    (db.prepare("PRAGMA table_info(usage_records)").all() as { name: string }[]).map((c) => c.name);
+
+  it("adds the column, keeping the usage already recorded, and the result is a fresh database", () => {
+    const db = open18();
+    const fresh = new sqlite.DatabaseSync(":memory:");
+    try {
+      db.exec(
+        "INSERT INTO usage_records (ts, date, project_id, agent_id, session_id, provider, model_id, cache_read, cache_write, output, total)" +
+          " VALUES ('2026-09-23T00:00:00Z', '2026-09-23', 'p', 'a', 's', 'openai', 'gpt-5', 1, 2, 3, 6)",
+      );
+      expect(migrate(db).applied).toEqual(["usage-reported-cost"]);
+      expect(usageColumns(db)).toContain("reported_cost_usd");
+      expect(db.prepare("SELECT total, reported_cost_usd FROM usage_records").all()).toEqual([
+        { total: 6, reported_cost_usd: null },
+      ]);
+      fresh.exec(SCHEMA_SQL);
+      expect(shape(db)).toBe(shape(fresh));
+    } finally {
+      db.close();
+      fresh.close();
+    }
+  });
+
+  it("down takes the column off and leaves the tokens", () => {
+    const db = open18();
+    try {
+      const before = shape(db);
+      migrate(db);
+      db.exec(
+        "INSERT INTO usage_records (ts, date, project_id, agent_id, session_id, provider, model_id, cache_read, cache_write, output, total, reported_cost_usd)" +
+          " VALUES ('2026-09-23T00:00:00Z', '2026-09-23', 'p', 'a', 's', 'coding-agent', 'codex', 0, 0, 3, 6, 0.25)",
+      );
+      rollbackTo(db, 18);
+      expect(shape(db)).toBe(before);
+      expect(db.prepare("SELECT total FROM usage_records").all()).toEqual([{ total: 6 }]);
     } finally {
       db.close();
     }

@@ -64,6 +64,7 @@ export class UsageRecorder implements UsageRecording {
       type?: string;
       request?: { cache_read: number; cache_write: number; output: number; total: number };
       status?: string;
+      reported_cost?: { amount: number; currency: string };
     };
 
     const originSessionId =
@@ -97,6 +98,10 @@ export class UsageRecorder implements UsageRecording {
         cacheWrite: r.cache_write,
         output: r.output,
         total: r.total,
+        // Costs are summed in USD; one reported in another currency is not converted.
+        ...(payload.reported_cost?.currency === "USD"
+          ? { reportedCostUsd: payload.reported_cost.amount }
+          : {}),
       });
       return;
     }

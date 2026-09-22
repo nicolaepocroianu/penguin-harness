@@ -21,6 +21,7 @@ import {
   Writer,
   agentStateDir,
   findLatestTraceFile,
+  readTraceTolerant,
   tracesDir,
   workspacesDir,
 } from "@prismshadow/penguin-core";
@@ -59,6 +60,7 @@ import {
   AcpRuntimeSession,
   CODING_AGENT_PROVIDER,
   parseCodingAgentModel,
+  usageSoFar,
 } from "./session-runtime.js";
 
 /** The settings key holding the custom definitions as a JSON array. */
@@ -490,6 +492,7 @@ export class CodingAgentService implements CodingAgents {
       tracesDir(this.config.root, row.projectId, row.agentId),
       row.sessionId,
     );
+    const trace = located === null ? [] : await readTraceTolerant(located.path);
     return this.runtimeFor({
       sessionId: row.sessionId,
       acpSessionId,
@@ -499,6 +502,7 @@ export class CodingAgentService implements CodingAgents {
       workspace: row.workspace,
       located,
       ...(notice !== undefined ? { notice } : {}),
+      usageStart: usageSoFar(trace, notice === undefined),
     });
   }
 
@@ -513,6 +517,7 @@ export class CodingAgentService implements CodingAgents {
     workspace: string;
     located: { dateDir: string; index: number } | null;
     notice?: string;
+    usageStart?: ReturnType<typeof usageSoFar>;
   }): AcpRuntimeSession {
     const dir = tracesDir(this.config.root, args.projectId, args.agentId);
     return new AcpRuntimeSession({
@@ -534,6 +539,7 @@ export class CodingAgentService implements CodingAgents {
             }),
       metaWritten: args.located !== null,
       ...(args.notice !== undefined ? { notice: args.notice } : {}),
+      ...(args.usageStart !== undefined ? { usageStart: args.usageStart } : {}),
     });
   }
 

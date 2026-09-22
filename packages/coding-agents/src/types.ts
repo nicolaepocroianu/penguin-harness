@@ -91,6 +91,16 @@ export interface AgentSessionConfigOption {
  */
 export type AgentResumeSupport = "resume" | "load" | "none";
 
+/** Tokens one turn consumed, as the agent reported them (ACP PromptResponse.usage). */
+export interface AgentTurnUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  cachedReadTokens: number;
+  cachedWriteTokens: number;
+  thoughtTokens: number;
+}
+
 export type AgentStopReason =
   "end_turn" | "max_tokens" | "max_turn_requests" | "refusal" | "cancelled" | "failed";
 
@@ -112,7 +122,17 @@ export type AgentSessionEvent =
       sessionId: string;
       options: AgentSessionConfigOption[];
     }
-  | { type: "usage"; sessionId: string; used: number; size?: number }
+  /**
+   * Context occupancy, and the session's running cost when the agent prices its own work
+   * (cumulative over the session, in the agent's currency).
+   */
+  | {
+      type: "usage";
+      sessionId: string;
+      used: number;
+      size?: number;
+      cost?: { amount: number; currency: string };
+    }
   | { type: "permission_request"; sessionId: string; request: AgentPermissionRequest }
   | {
       type: "permission_resolved";
@@ -121,7 +141,8 @@ export type AgentSessionEvent =
       outcome: AgentPermissionOutcome;
     }
   | { type: "notice"; sessionId: string | null; message: string }
-  | { type: "turn_end"; sessionId: string; stopReason: AgentStopReason }
+  /** A turn's end; `usage` is what the agent said the turn consumed, when it said. */
+  | { type: "turn_end"; sessionId: string; stopReason: AgentStopReason; usage?: AgentTurnUsage }
   | { type: "state"; state: "connecting" | "ready" | "closed"; message?: string };
 
 /** Error shape thrown by the kernel; `message` is safe to show, never a raw upstream payload. */

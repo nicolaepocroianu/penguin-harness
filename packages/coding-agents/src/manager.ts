@@ -32,6 +32,7 @@ import {
   type AgentModes,
   type AgentStopReason,
   type AgentToolCall,
+  type AgentTurnUsage,
 } from "./types.js";
 
 const DEFAULT_PERMISSION_TIMEOUT_MS = 5 * 60_000;
@@ -323,8 +324,8 @@ export class CodingAgentManager {
     // order is the conversation order, whether or not the turn succeeds.
     this.append(record, { type: "user_message", sessionId, text });
     try {
-      const stopReason = await connection.prompt(sessionId, text);
-      this.finishTurn(record, seq, stopReason);
+      const { stopReason, usage } = await connection.prompt(sessionId, text);
+      this.finishTurn(record, seq, stopReason, usage);
     } catch (error) {
       this.finishTurn(record, seq, "failed");
       throw error instanceof AcpAgentError
@@ -537,9 +538,19 @@ export class CodingAgentManager {
     };
   }
 
-  private finishTurn(record: SessionRecord, seq: number, stopReason: AgentStopReason): void {
+  private finishTurn(
+    record: SessionRecord,
+    seq: number,
+    stopReason: AgentStopReason,
+    usage?: AgentTurnUsage,
+  ): void {
     if (record.turnSeq !== seq) return; // a stale grace timer or an already-reported turn
-    this.append(record, { type: "turn_end", sessionId: record.sessionId, stopReason });
+    this.append(record, {
+      type: "turn_end",
+      sessionId: record.sessionId,
+      stopReason,
+      ...(usage !== undefined ? { usage } : {}),
+    });
   }
 
   private append(record: SessionRecord, event: AgentSessionEvent): void {
