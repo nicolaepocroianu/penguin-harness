@@ -3,7 +3,7 @@
 - **Date:** 2026-09-22
 - **Type:** feature
 - **Scope:** `coding-agents`, `server`, `web`
-- **PR:** pending
+- **PR:** #38
 
 Coding-agent sessions carried only their opaque agent-issued ids. They now take a display title: a rename action in the session view's header opens a small dialog, and the title replaces the default "agent — workspace" label in the sessions list, the session view header, and the transcript export's H1.
 

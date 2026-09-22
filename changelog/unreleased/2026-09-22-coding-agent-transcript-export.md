@@ -3,7 +3,7 @@
 - **Date:** 2026-09-22
 - **Type:** feature
 - **Scope:** `coding-agents`, `server`, `web`
-- **PR:** pending
+- **PR:** #38
 
 The coding-agent session view gained an Export transcript action that downloads the session as a Markdown document: an H1 naming the agent, a metadata block (agent, session id, created time, workspace, model), then the conversation in order — prompts as `## User` sections, the agent's text and thinking as `## Agent` sections, tool calls as list items carrying their latest status.
 

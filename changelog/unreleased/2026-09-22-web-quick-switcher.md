@@ -3,7 +3,7 @@
 - **Date:** 2026-09-22
 - **Type:** feature
 - **Scope:** `web`
-- **PR:** pending
+- **PR:** #38
 
 The Web App gained a keyboard-first command palette: Ctrl/Cmd+K opens a search overlay
 from anywhere in the app shell, listing the main-nav pages, the configured coding agents,
