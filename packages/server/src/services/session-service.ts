@@ -35,6 +35,8 @@ import { matchesWorkspaceGroup } from "./workspace-group.js";
 import type { TraceIndex, TraceIndexStore } from "../mechanisms/traces.js";
 import type { SessionIndex, SessionOrigins } from "../mechanisms/sessions.js";
 import type { ProjectConfigStore } from "../mechanisms/projects.js";
+import type { CodingAgents } from "../mechanisms/coding-agents.js";
+import { CODING_AGENT_PROVIDER } from "../coding-agents/session-runtime.js";
 
 const SESSION_ID_TS_RE = /^session-(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-[0-9a-f]{8}$/;
 
@@ -52,6 +54,12 @@ export function sessionIdCreatedAt(sessionId: string): string | null {
 
 export interface SessionServiceDeps {
   root: string;
+  /**
+   * Coding agents run as Sessions: a (provider, modelId) pair in the `coding-agent` group is
+   * opened here instead of through core. Absent (tests that do not need them), such a pair
+   * is refused like any unknown model.
+   */
+  codingAgents?: Pick<CodingAgents, "openSessionRuntime">;
   sessions: SessionIndex;
   manager: SessionManager;
   projectConfig: ProjectConfigStore;
@@ -425,6 +433,9 @@ export class SessionService {
       modelId = def.model_id;
       provider = def.provider;
     }
+    if (provider === CODING_AGENT_PROVIDER) {
+      return this.createCodingAgentSession({ ...args, provider, modelId });
+    }
     const agent = await createAgent({
       root: this.deps.root,
       projectId: args.projectId,
@@ -483,6 +494,59 @@ export class SessionService {
     };
     this.deps.sessions.insert(row);
     this.deps.manager.adopt(row, session);
+    return this.toInfo(row, false);
+  }
+
+  /**
+   * A Session a coding agent runs: the same row, sidebar entry, approvals and Trace as any
+   * other, with the agent's own session behind it instead of a core Session. The owning
+   * Penguin Agent files it (listing, Trace directory, temporary workspace); the agent does
+   * the work.
+   */
+  private async createCodingAgentSession(args: {
+    projectId: string;
+    agentId: string;
+    provider: string;
+    modelId: string;
+    workspace?: string;
+    approvalMode?: ApprovalMode;
+    client?: "web" | "cli" | "org";
+  }): Promise<SessionInfo> {
+    if (this.deps.codingAgents === undefined) {
+      throw new HttpError(400, "session_create_failed", "Coding agents are not available here.");
+    }
+    let opened;
+    try {
+      opened = await this.deps.codingAgents.openSessionRuntime({
+        projectId: args.projectId,
+        agentId: args.agentId,
+        modelId: args.modelId,
+        ...(args.workspace !== undefined ? { workspace: args.workspace } : {}),
+      });
+    } catch (err) {
+      throw new HttpError(
+        400,
+        "session_create_failed",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+    this.deps.sources.set(opened.sessionId, null);
+    const createdAt = new Date().toISOString();
+    const row: SessionRow = {
+      sessionId: opened.sessionId,
+      projectId: args.projectId,
+      agentId: args.agentId,
+      provider: args.provider,
+      modelId: args.modelId,
+      workspace: opened.workspace,
+      approvalMode: args.approvalMode ?? "allow-all",
+      title: null,
+      client: args.client ?? "web",
+      lastActiveAt: createdAt,
+      createdAt,
+    };
+    this.deps.sessions.insert(row);
+    this.deps.manager.adopt(row, opened.runtime);
     return this.toInfo(row, false);
   }
 

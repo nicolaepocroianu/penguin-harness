@@ -35,7 +35,8 @@ const app = agent({ name: "fake-agent-test" })
   })
   .onRequest(methods.agent.initialize, () => ({
     protocolVersion: PROTOCOL_VERSION,
-    agentCapabilities: { sessionCapabilities: { resume: {} } },
+    // FAKE_NO_RESUME plays an agent that cannot reopen a session at all.
+    agentCapabilities: process.env.FAKE_NO_RESUME ? {} : { sessionCapabilities: { resume: {} } },
   }))
   // Any id reopens: the fixture keeps no history, which is what session/resume allows.
   .onRequest(methods.agent.session.resume, () => ({ configOptions }))
@@ -47,6 +48,27 @@ const app = agent({ name: "fake-agent-test" })
     const text = ctx.params.prompt
       .map((block) => (typeof block.text === "string" ? block.text : ""))
       .join("");
+    // A marker prompt exercises permission: the agent asks before writing, and says what
+    // it was told.
+    if (text === "ask permission") {
+      const answer = await connection.client.request(methods.client.session.requestPermission, {
+        sessionId: ctx.params.sessionId,
+        toolCall: { toolCallId: "perm-tool", title: "Write notes.txt", kind: "edit" },
+        options: [
+          { optionId: "yes", name: "Allow", kind: "allow_once" },
+          { optionId: "no", name: "Reject", kind: "reject_once" },
+        ],
+      });
+      const allowed = answer.outcome.outcome === "selected" && answer.outcome.optionId === "yes";
+      await connection.client.notify(methods.client.session.update, {
+        sessionId: ctx.params.sessionId,
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: { type: "text", text: allowed ? "wrote it" : "did not write it" },
+        },
+      });
+      return { stopReason: "end_turn" };
+    }
     // A marker prompt exercises the tool-call projection: one call, then its completion.
     if (text === "run a tool") {
       await connection.client.notify(methods.client.session.update, {

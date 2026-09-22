@@ -3,13 +3,14 @@
  * implements it (the service in coding-agents/service.ts over the
  * @prismshadow/penguin-coding-agents kernel).
  */
-import { Interface } from "@prismshadow/penguin-core/kernel";
+import { Interface, type Opaque } from "@prismshadow/penguin-core/kernel";
 import type {
   AgentPermissionOutcome,
   AgentSessionEvent,
   AgentSessionOptions,
 } from "@prismshadow/penguin-coding-agents";
 import type { ChannelApi } from "../hmr/capabilities.js";
+import type { RuntimeSession } from "../runtime/session-manager.js";
 import type {
   CodingAgentDiscoveryResponse,
   CodingAgentServerInfo,
@@ -67,5 +68,35 @@ export abstract class CodingAgents extends Interface<{
   setMode(sessionId: string, modeId: string): Promise<void>;
   setConfigOption(sessionId: string, configId: string, value: boolean | string): Promise<void>;
   respondPermission(requestId: string, outcome: AgentPermissionOutcome): boolean;
+  /**
+   * A new Penguin Session run by a coding agent: `modelId` names the agent, optionally with
+   * one of its models (`<agent>::<configId>::<value>`). The agent's session opens in
+   * `workspace`, or in a new temporary one under the owning Penguin Agent. The runtime is
+   * what the session manager drives; it writes the Session's Trace.
+   */
+  openSessionRuntime(args: {
+    projectId: string;
+    agentId: string;
+    modelId: string;
+    workspace?: string;
+  }): Promise<
+    Opaque<
+      "CodingAgentSessionRuntime",
+      { sessionId: string; workspace: string; runtime: RuntimeSession }
+    >
+  >;
+  /**
+   * Reopen a coding-agent Session an earlier process started: the agent's own session is
+   * resumed where the agent can, otherwise a fresh one continues it with a note saying so;
+   * either way the Trace carries on where it stopped.
+   */
+  loadSessionRuntime(row: {
+    sessionId: string;
+    projectId: string;
+    agentId: string;
+    provider: string;
+    modelId: string;
+    workspace: string;
+  }): Promise<Opaque<"RuntimeSession", RuntimeSession>>;
   disposeSession(sessionId: string): Promise<void>;
 }>() {}

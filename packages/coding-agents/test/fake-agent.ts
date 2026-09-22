@@ -39,6 +39,7 @@ export class FakeCodingAgent {
   readonly cancelNotifications: string[] = [];
   readonly answeredPermissions: RequestPermissionResponse[] = [];
   readonly setConfigRequests: { configId: string; value: boolean | string }[] = [];
+  readonly closeRequests: string[] = [];
   readonly reopenRequests: { method: "load" | "resume"; sessionId: string; cwd: string }[] = [];
   private configOptions: SessionConfigOption[] = [];
   setConfigOptionHandler: FakeSetConfigHandler | null = null;
@@ -106,7 +107,10 @@ export class FakeCodingAgent {
         return { stopReason };
       })
       .onRequest(methods.agent.session.setMode, () => ({}))
-      .onRequest(methods.agent.session.close, () => ({}))
+      .onRequest(methods.agent.session.close, (ctx) => {
+        this.closeRequests.push(ctx.params.sessionId);
+        return {};
+      })
       .onNotification(methods.agent.session.cancel, (ctx) => {
         this.cancelNotifications.push(ctx.params.sessionId);
       });

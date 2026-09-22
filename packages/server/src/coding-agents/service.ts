@@ -16,7 +16,14 @@
  * session `source`, Trace adoption — is the registered follow-up.
  */
 import { Component, Use } from "@prismshadow/penguin-core/kernel";
-import { VERSION } from "@prismshadow/penguin-core";
+import {
+  VERSION,
+  Writer,
+  agentStateDir,
+  findLatestTraceFile,
+  tracesDir,
+  workspacesDir,
+} from "@prismshadow/penguin-core";
 import {
   CodingAgentManager,
   discoverAgents as discoverKnownAgents,
@@ -47,6 +54,12 @@ import { Settings } from "../mechanisms/settings.js";
 import { CodingAgents } from "../mechanisms/coding-agents.js";
 import { AcpAgentError } from "@prismshadow/penguin-coding-agents";
 import { renderTranscriptMarkdown, transcriptFilename } from "./transcript.js";
+import type { RuntimeSession } from "../runtime/session-manager.js";
+import {
+  AcpRuntimeSession,
+  CODING_AGENT_PROVIDER,
+  parseCodingAgentModel,
+} from "./session-runtime.js";
 
 /** The settings key holding the custom definitions as a JSON array. */
 const DEFINITIONS_KEY = "coding_agent_servers";
@@ -61,6 +74,25 @@ const DISCOVERY_CACHE_TTL_MS = 5 * 60_000;
 function agentHome(root: string, agentId: string): string {
   return path.join(root, "coding-agents", agentId);
 }
+
+/**
+ * Where a Penguin Session records which of the agent's own sessions it is: one small file
+ * per Session in the agent's home, read back when the Session is reopened after a restart.
+ */
+function sessionLinkPath(root: string, codingAgentId: string, sessionId: string): string {
+  return path.join(agentHome(root, codingAgentId), "sessions", `${sessionId}.json`);
+}
+
+/** A Session id in the shape every Penguin Session has (core's formatSessionId). */
+function newSessionId(date = new Date()): string {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const time = `${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
+  return `session-${day}-${time}-${randomUUID().replace(/-/g, "").slice(0, 8)}`;
+}
+
+const REOPEN_FRESH_NOTICE =
+  "The coding agent could not reopen its earlier conversation, so this Session continues in a fresh agent session. Everything above is still in this Session's Trace.";
 
 @Component()
 export class CodingAgentService implements CodingAgents {
@@ -364,7 +396,157 @@ export class CodingAgentService implements CodingAgents {
     await this.getManager().disposeSession(sessionId);
   }
 
+  async openSessionRuntime(args: {
+    projectId: string;
+    agentId: string;
+    modelId: string;
+    workspace?: string;
+  }): Promise<{ sessionId: string; workspace: string; runtime: RuntimeSession }> {
+    const { agentId: codingAgentId, model } = parseCodingAgentModel(args.modelId);
+    const workspace =
+      args.workspace?.trim() || (await this.penguinTempWorkspace(args.projectId, args.agentId));
+    const view = await this.createSession(codingAgentId, workspace);
+    try {
+      // A model picked in the dropdown is the one this Session asked for: a refusal is an
+      // error, not a silent fall back to whatever the agent would otherwise use.
+      if (model !== null) {
+        await this.getManager().setConfigOption(view.sessionId, model.configId, model.value);
+      }
+      const sessionId = newSessionId();
+      await this.writeSessionLink(codingAgentId, sessionId, view.sessionId);
+      const runtime = this.runtimeFor({
+        sessionId,
+        acpSessionId: view.sessionId,
+        projectId: args.projectId,
+        agentId: args.agentId,
+        modelId: args.modelId,
+        workspace,
+        located: null,
+      });
+      return { sessionId, workspace, runtime };
+    } catch (error) {
+      await this.disposeSession(view.sessionId).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async loadSessionRuntime(row: {
+    sessionId: string;
+    projectId: string;
+    agentId: string;
+    provider: string;
+    modelId: string;
+    workspace: string;
+  }): Promise<RuntimeSession> {
+    const { agentId: codingAgentId, model } = parseCodingAgentModel(row.modelId);
+    const linked = await this.readSessionLink(codingAgentId, row.sessionId);
+    let acpSessionId: string;
+    let notice: string | undefined;
+    try {
+      if (linked === null) throw new AcpAgentError("no agent session is recorded for this Session");
+      acpSessionId = (await this.resumeSession(codingAgentId, row.workspace, linked)).sessionId;
+    } catch {
+      // Not every agent can reopen a session, and one that can may have lost it. The
+      // Session goes on in a fresh agent session rather than refusing to open, and says so.
+      const view = await this.createSession(codingAgentId, row.workspace);
+      if (model !== null) {
+        await this.getManager()
+          .setConfigOption(view.sessionId, model.configId, model.value)
+          .catch(() => undefined);
+      }
+      acpSessionId = view.sessionId;
+      notice = REOPEN_FRESH_NOTICE;
+      await this.writeSessionLink(codingAgentId, row.sessionId, acpSessionId);
+    }
+    const located = await findLatestTraceFile(
+      tracesDir(this.config.root, row.projectId, row.agentId),
+      row.sessionId,
+    );
+    return this.runtimeFor({
+      sessionId: row.sessionId,
+      acpSessionId,
+      projectId: row.projectId,
+      agentId: row.agentId,
+      modelId: row.modelId,
+      workspace: row.workspace,
+      located,
+      ...(notice !== undefined ? { notice } : {}),
+    });
+  }
+
   // --- internals ---------------------------------------------------------------------------
+
+  private runtimeFor(args: {
+    sessionId: string;
+    acpSessionId: string;
+    projectId: string;
+    agentId: string;
+    modelId: string;
+    workspace: string;
+    located: { dateDir: string; index: number } | null;
+    notice?: string;
+  }): AcpRuntimeSession {
+    const dir = tracesDir(this.config.root, args.projectId, args.agentId);
+    return new AcpRuntimeSession({
+      manager: this.getManager(),
+      sessionId: args.sessionId,
+      acpSessionId: args.acpSessionId,
+      provider: CODING_AGENT_PROVIDER,
+      modelId: args.modelId,
+      workspace: args.workspace,
+      agentState: agentStateDir(this.config.root, args.projectId, args.agentId),
+      writer:
+        args.located === null
+          ? new Writer({ tracesDir: dir, sessionId: args.sessionId })
+          : new Writer({
+              tracesDir: dir,
+              sessionId: args.sessionId,
+              dateDir: args.located.dateDir,
+              startIndex: args.located.index,
+            }),
+      metaWritten: args.located !== null,
+      ...(args.notice !== undefined ? { notice: args.notice } : {}),
+    });
+  }
+
+  /** A temporary workspace laid out exactly like core's, under the owning Penguin Agent. */
+  private async penguinTempWorkspace(projectId: string, agentId: string): Promise<string> {
+    const base = workspacesDir(this.config.root, projectId, agentId);
+    await fs.mkdir(base, { recursive: true });
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const dir = path.join(base, `tmp-${randomUUID().slice(0, 8)}`);
+      try {
+        await fs.mkdir(dir);
+        return dir;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      }
+    }
+    throw new AcpAgentError("could not allocate a unique temporary workspace directory");
+  }
+
+  private async writeSessionLink(
+    codingAgentId: string,
+    sessionId: string,
+    acpSessionId: string,
+  ): Promise<void> {
+    const file = sessionLinkPath(this.config.root, codingAgentId, sessionId);
+    await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
+    await fs.writeFile(file, JSON.stringify({ acpSessionId }), { mode: 0o600 });
+  }
+
+  private async readSessionLink(codingAgentId: string, sessionId: string): Promise<string | null> {
+    try {
+      const raw = await fs.readFile(
+        sessionLinkPath(this.config.root, codingAgentId, sessionId),
+        "utf8",
+      );
+      const parsed = JSON.parse(raw) as { acpSessionId?: unknown };
+      return typeof parsed.acpSessionId === "string" ? parsed.acpSessionId : null;
+    } catch {
+      return null;
+    }
+  }
 
   /**
    * One throwaway probe session at the definition's own command; empty when the agent

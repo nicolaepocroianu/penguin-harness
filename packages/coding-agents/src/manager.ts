@@ -390,8 +390,12 @@ export class CodingAgentManager {
     return false;
   }
 
-  /** Drop a session; tears the definition's process down with its last session. */
-  async disposeSession(sessionId: string): Promise<void> {
+  /**
+   * Drop a session; tears the definition's process down with its last session. The agent is
+   * asked to close it too, unless `keepOnAgent` — a host that will reopen the session later
+   * (after a restart, or once it is used again) must leave it on the agent to resume.
+   */
+  async disposeSession(sessionId: string, options: { keepOnAgent?: boolean } = {}): Promise<void> {
     const record = this.sessions.get(sessionId);
     if (record === undefined) return;
     this.sessions.delete(sessionId);
@@ -404,7 +408,7 @@ export class CodingAgentManager {
     }
     const connection = this.connections.get(record.definitionId);
     if (connection === undefined) return;
-    await connection.closeSession(sessionId);
+    if (options.keepOnAgent !== true) await connection.closeSession(sessionId);
     const remaining = [...this.sessions.values()].some(
       (r) => r.definitionId === record.definitionId,
     );

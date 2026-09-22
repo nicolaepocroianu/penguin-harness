@@ -27,6 +27,8 @@ import type { SessionManager } from "../../runtime/session-manager.js";
 import type { SessionIndex } from "../../mechanisms/sessions.js";
 import type { Access, ProjectConfigStore } from "../../mechanisms/projects.js";
 import type { Machines } from "../../machines/service.js";
+import type { CodingAgents } from "../../mechanisms/coding-agents.js";
+import { codingAgentModelRows } from "../../coding-agents/model-rows.js";
 
 /** What this route group reaches — bound by its module (src/modules). */
 export interface ModelsRouteDeps {
@@ -37,6 +39,8 @@ export interface ModelsRouteDeps {
   projectConfigService: ProjectConfigStore;
   access: Access;
   sessionsRepo: SessionIndex;
+  /** Coding agents offered as models alongside the Project's own (see codingAgentModels). */
+  codingAgents?: Pick<CodingAgents, "listAgents" | "discoverAgents">;
 }
 
 /**
@@ -210,7 +214,15 @@ export function modelsRoutes(deps: ModelsRouteDeps): Hono<AppEnv> {
     // Defensive id validation.
     const projectId = requireValidId(c, "projectId");
     deps.access.requireProjectAccess(c.var.user.userId, projectId);
-    return c.json(await deps.projectConfigService.getModels(projectId));
+    const models = await deps.projectConfigService.getModels(projectId);
+    if (deps.codingAgents === undefined) return c.json(models);
+    // The cached discovery read: filesystem-only, never executes an agent.
+    const discovery = await deps.codingAgents.discoverAgents(false).catch(() => null);
+    return c.json({
+      ...models,
+      codingAgentModels:
+        discovery === null ? [] : codingAgentModelRows(deps.codingAgents.listAgents(), discovery),
+    });
   });
 
   app.put("/", async (c) => {

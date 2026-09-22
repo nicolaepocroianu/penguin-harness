@@ -30,6 +30,8 @@
  * `SessionLoader`: production uses the core SDK (createCoreSessionLoader), tests inject
  * a fake Session (issuing no real LLM requests).
  */
+import type { CodingAgents } from "../mechanisms/coding-agents.js";
+import { CODING_AGENT_PROVIDER } from "../coding-agents/session-runtime.js";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -2320,6 +2322,8 @@ export class SessionsModule {
   @Use() private readonly messagingRepo!: MessagingBindings;
   /** Company-mode caches: which organization owns a Session (read at every command spawn). */
   @Use() private readonly orgCache!: OrgCache;
+  /** Coding agents run as Sessions: created and reopened through their own runtime. */
+  @Use() private readonly codingAgents!: CodingAgents;
   @Provide() manager!: Sessions;
   @Provide() sessionService!: SessionServiceIface;
   @Provide() env!: SessionEnv;
@@ -2394,12 +2398,15 @@ export class SessionsModule {
     const manager = new SessionManager({
       sessions: sessionsRepo,
       channels,
-      loader: this.sessionLoaders.create(config.root, sources, {
-        proxyEnv: env.proxyEnv,
-        controlEnv: env.controlEnv,
-        pathPrepend: env.pathPrepend,
-        confineSpawn: env.confineSpawn,
-      }),
+      loader: withCodingAgents(
+        this.sessionLoaders.create(config.root, sources, {
+          proxyEnv: env.proxyEnv,
+          controlEnv: env.controlEnv,
+          pathPrepend: env.pathPrepend,
+          confineSpawn: env.confineSpawn,
+        }),
+        this.codingAgents,
+      ),
       sources,
       recorder,
       errors,
@@ -2415,6 +2422,7 @@ export class SessionsModule {
     });
     const sessionService = new SessionService({
       root: config.root,
+      codingAgents: this.codingAgents,
       sessions: sessionsRepo,
       manager,
       projectConfig,
@@ -2438,6 +2446,22 @@ export class SessionsModule {
     this.sessionService = sessionService;
     this.env = env;
   }
+}
+
+/**
+ * A coding agent's Session is reopened by its own runtime; core cannot resume its Trace (the
+ * model is not a Project model) and must never be asked to.
+ */
+function withCodingAgents(
+  core: SessionLoader,
+  codingAgents: Pick<CodingAgents, "loadSessionRuntime">,
+): SessionLoader {
+  return {
+    load: (row) =>
+      row.provider === CODING_AGENT_PROVIDER
+        ? codingAgents.loadSessionRuntime(row)
+        : core.load(row),
+  };
 }
 
 /** Builds the loader a manager runs sessions through; a test stands in a fake session. */

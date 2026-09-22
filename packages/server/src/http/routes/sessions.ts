@@ -6,6 +6,7 @@
  *   - Session-level: /api/sessions/:sessionId/* (no projectId; looks up project_id via the
  *     sessions index, then goes through requireProjectAccess; 404 if the index has no such Session).
  */
+import type { CodingAgents } from "../../mechanisms/coding-agents.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Hono } from "hono";
@@ -1691,6 +1692,7 @@ export class SessionApiRoutes {
   @Use() private readonly sources!: SessionOrigins;
   @Use() private readonly errorsRepo!: ErrorLog;
   @Use() private readonly usage!: UsageQueries;
+  @Use() private readonly codingAgents!: CodingAgents;
   @Bind("session-api.model-oauth-callback") modelOauthCallbackRoutes!: Hono<AppEnv>;
   @Bind("session-api.models") modelsRoutes!: Hono<AppEnv>;
   @Bind("session-api.model-oauth") modelOauthRoutes!: Hono<AppEnv>;
@@ -1748,6 +1750,7 @@ export class SessionApiRoutes {
       projectConfigService,
       access,
       sessionsRepo,
+      codingAgents: this.codingAgents,
     };
     this.modelOauthCallbackRoutes = modelOAuthCallbackRoutes(modelOAuthDeps);
     this.modelsRoutes = modelsRoutes(modelDeps);

@@ -548,6 +548,14 @@ export interface ModelsResponse {
    */
   updatedAt?: string;
   models: ModelInfo[];
+  /**
+   * External coding agents offered as models (provider `coding-agent`): one row per agent
+   * that can start a Session, plus one per model it advertised. Listed apart from `models`
+   * on purpose: they are not the Project's models, so a client never saves them into the
+   * model table, and they can be neither the default nor the vision model. Only the read
+   * carries them.
+   */
+  codingAgentModels?: ModelInfo[];
 }
 
 /** PUT full-table replace semantics: models not present are deleted; omitting apiKey = keep existing value. Key = (provider, modelId). */

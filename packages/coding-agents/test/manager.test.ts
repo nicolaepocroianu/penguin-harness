@@ -396,6 +396,15 @@ describe("CodingAgentManager", () => {
     expect(fake.reopenRequests).toEqual([]);
   });
 
+  it("closes a disposed session on the agent unless the host will reopen it later", async () => {
+    const { manager, fake } = harness({});
+    const kept = await manager.createSession("fake", workspace);
+    const closed = await manager.createSession("fake", workspace);
+    await manager.disposeSession(kept.sessionId, { keepOnAgent: true });
+    await manager.disposeSession(closed.sessionId);
+    expect(fake.closeRequests).toEqual([closed.sessionId]);
+  });
+
   it("keeps the definition's connection open across sessions and closes it with the last one", async () => {
     const { manager, fake } = harness({});
     const sessionA = await manager.createSession("fake", workspace);
