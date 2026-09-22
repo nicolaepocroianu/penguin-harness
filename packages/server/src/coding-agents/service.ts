@@ -11,8 +11,9 @@
  *
  * Coding-agent sessions are deliberately NOT core Sessions: they have no Trace, no model
  * config and no usage accounting, and they live in memory for the App's lifetime (the
- * agent process dies with it). Making them first-class — a session `source`, Trace
- * adoption, resume — is the registered follow-up.
+ * agent process dies with it). An agent that advertises `session/resume` or `session/load`
+ * can reopen one in a later process by id (`resumeSession`); making them first-class — a
+ * session `source`, Trace adoption — is the registered follow-up.
  */
 import { Component, Use } from "@prismshadow/penguin-core/kernel";
 import { VERSION } from "@prismshadow/penguin-core";
@@ -26,6 +27,7 @@ import {
   type AgentPermissionOutcome,
   type AgentResumeSupport,
   type AgentServerDefinition,
+  type AgentSessionOptions,
   type AgentSessionEvent,
 } from "@prismshadow/penguin-coding-agents";
 import fs from "node:fs/promises";
@@ -188,7 +190,11 @@ export class CodingAgentService implements CodingAgents {
       .map((s) => this.toInfo(s));
   }
 
-  async createSession(agentId: string, workspaceDir: string): Promise<CodingAgentSessionInfo> {
+  async createSession(
+    agentId: string,
+    workspaceDir: string,
+    options: AgentSessionOptions = {},
+  ): Promise<CodingAgentSessionInfo> {
     const manager = this.getManager();
     await this.ensureDefinition(agentId);
     const home = agentHome(this.config.root, agentId);
@@ -199,7 +205,7 @@ export class CodingAgentService implements CodingAgents {
     const auto = workspaceDir.trim() === "";
     const dir = auto ? await this.createTempWorkspace(home) : workspaceDir.trim();
     try {
-      const view = await manager.createSession(agentId, dir);
+      const view = await manager.createSession(agentId, dir, options);
       this.bridge(view.sessionId);
       await this.applyRememberedModel(manager, agentId, view.sessionId);
       return this.toInfo(view);

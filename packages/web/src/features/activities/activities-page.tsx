@@ -10,6 +10,7 @@ import type {
   UploadedMedia,
 } from "@prismshadow/penguin-server/api";
 import { apiFetch } from "../../api/client";
+import { discoverCodingAgents, listCodingAgents } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, toneSurface, toneStrip, type Tone } from "../../lib/tone";
@@ -286,7 +287,27 @@ function ActivityEditor({
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [changed, setChanged] = useState(false);
+  /** A Penguin agent id, or `coding:<id>` for an external coding agent. */
   const [agentId, setAgentId] = useState("");
+  const [codingAgents, setCodingAgents] = useState<{ id: string; title: string }[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    // Saved coding agents plus the ones detected as runnable on the server; either can run a
+    // stage. Unavailable coding agents simply leave the list with Penguin agents only.
+    void Promise.all([listCodingAgents(), discoverCodingAgents()])
+      .then(([saved, discovered]) => {
+        if (cancelled) return;
+        const byId = new Map(saved.agents.map((a) => [a.id, a.title ?? a.id]));
+        for (const candidate of discovered.candidates)
+          if (candidate.detected && candidate.launch && !byId.has(candidate.recipeId))
+            byId.set(candidate.recipeId, candidate.title);
+        setCodingAgents([...byId].map(([id, title]) => ({ id, title })));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [bookMode, setBookMode] = useState<"" | "readAlong" | "decodable">("");
   const [wafRoot, setWafRoot] = useState("");
   const [voices, setVoices] = useState<string[]>([]);
@@ -454,10 +475,13 @@ function ActivityEditor({
     });
   }
   const selectedAgent = agentId || currentAgent?.agentId || agents[0]?.agentId || "";
+  const codingAgentId = selectedAgent.startsWith("coding:") ? selectedAgent.slice(7) : null;
+  /** Who runs a stage, as the stage routes take it. */
+  const runner = codingAgentId ? { codingAgentId } : { agentId: selectedAgent };
   const running = runs.some((run) => run.status === "running");
   useEffect(() => {
     const next = speechQueue?.keys[0];
-    if (!next || running || busy || dirty || !selectedAgent || !detail) return;
+    if (!next || running || busy || dirty || !selectedAgent || codingAgentId || !detail) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -494,7 +518,7 @@ function ActivityEditor({
     return () => {
       cancelled = true;
     };
-  }, [speechQueue, running, busy, dirty, selectedAgent, detail, endpoint]);
+  }, [speechQueue, running, busy, dirty, selectedAgent, codingAgentId, detail, endpoint]);
   let editedManifest: AssetManifest | null = null;
   try {
     const value = JSON.parse(media);
@@ -540,7 +564,7 @@ function ActivityEditor({
     void action(async () => {
       const run = await apiFetch<ActivityRun>(`${endpoint}/${path}`, {
         method: "POST",
-        body: { agentId: selectedAgent, expectedRevision: detail!.draft.contentRevision, ...body },
+        body: { ...runner, expectedRevision: detail!.draft.contentRevision, ...body },
       });
       if (alive.current) {
         setRuns((previous) => [
@@ -714,6 +738,16 @@ function ActivityEditor({
             !dirty &&
             !!selectedAgent
           }
+          canGenerateMedia={
+            editable &&
+            available &&
+            detail.draft.status === "valid" &&
+            !busy &&
+            !running &&
+            !dirty &&
+            !!selectedAgent &&
+            !codingAgentId
+          }
           revision={detail.draft.contentRevision}
           canAccept={editable && available && !busy && !running && !dirty}
           canPreview={editable && available && !busy && !dirty}
@@ -771,12 +805,26 @@ function ActivityEditor({
                         onChange={(e) => setAgentId(e.target.value)}
                         disabled={busy || running}
                       >
-                        {agents.map((agent) => (
-                          <option key={agent.agentId} value={agent.agentId}>
-                            {agent.name ?? agent.agentId}
-                          </option>
-                        ))}
+                        <optgroup label={S.activities.penguinAgents}>
+                          {agents.map((agent) => (
+                            <option key={agent.agentId} value={agent.agentId}>
+                              {agent.name ?? agent.agentId}
+                            </option>
+                          ))}
+                        </optgroup>
+                        {codingAgents.length > 0 && (
+                          <optgroup label={S.activities.codingAgents}>
+                            {codingAgents.map((agent) => (
+                              <option key={agent.id} value={`coding:${agent.id}`}>
+                                {agent.title}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
                       </Select>
+                      {codingAgentId && (
+                        <p className="text-xs text-gray-500">{S.activities.codingAgentMedia}</p>
+                      )}
                       {detail.activityType === "book" && (
                         <>
                           <h3 className="flex items-center gap-2 text-xs font-semibold">
@@ -811,7 +859,7 @@ function ActivityEditor({
                             const run = await apiFetch<ActivityRun>(`${endpoint}/generate-spec`, {
                               method: "POST",
                               body: {
-                                agentId: selectedAgent,
+                                ...runner,
                                 expectedRevision: detail.draft.contentRevision,
                               },
                             });
@@ -851,7 +899,7 @@ function ActivityEditor({
                             const run = await apiFetch<ActivityRun>(`${endpoint}/assemble-module`, {
                               method: "POST",
                               body: {
-                                agentId: selectedAgent,
+                                ...runner,
                                 expectedRevision: detail.draft.contentRevision,
                                 wafRoot: wafRoot.trim() || undefined,
                                 ...(detail.activityType === "book" ? { bookMode } : {}),
@@ -977,7 +1025,13 @@ function ActivityEditor({
                   language={language}
                   editable={editable}
                   canGenerate={
-                    editable && available && !busy && !running && !dirty && !!selectedAgent
+                    editable &&
+                    available &&
+                    !busy &&
+                    !running &&
+                    !dirty &&
+                    !!selectedAgent &&
+                    !codingAgentId
                   }
                   onSelect={(key) => {
                     const usage = (editedManifest.assets[language] ?? [])
@@ -1110,7 +1164,9 @@ function ActivityEditor({
                           {run.sessionId && (
                             <Link
                               className="text-xs underline"
-                              to={`/chat/${encodeURIComponent(run.sessionId)}`}
+                              {...(run.codingAgentId
+                                ? { to: "/coding-agents", state: { sessionId: run.sessionId } }
+                                : { to: `/chat/${encodeURIComponent(run.sessionId)}` })}
                             >
                               {S.activities.openSession}
                             </Link>

@@ -8,6 +8,8 @@ import { Component, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel"
 import type { Config, Db, Channels, Log } from "../hmr/capabilities.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import type { AgentConfig } from "../mechanisms/agents.js";
+import type { CodingAgents } from "../mechanisms/coding-agents.js";
+import type { AgentSessionEvent } from "@prismshadow/penguin-coding-agents";
 import type { ProjectActivityWork } from "../mechanisms/projects.js";
 import type { Sessions, SessionServiceIface } from "../runtime/session-manager.js";
 import { HttpError } from "../http/errors.js";
@@ -41,6 +43,25 @@ interface Observer {
   unsubscribe: () => void;
   completed: boolean;
   error: string | null;
+  /**
+   * External coding-agent runs only: the agent reported its turn's end. Penguin Sessions
+   * are asked for their idle state instead, which a coding agent does not have.
+   */
+  finished?: boolean;
+}
+
+/** What a coding agent's turn ending other than `end_turn` means for a run. */
+const TURN_END_ERRORS: Record<string, string> = {
+  cancelled: "The coding agent stopped before finishing.",
+  failed: "The coding agent's connection failed during the run.",
+  refusal: "The coding agent refused the task.",
+  max_tokens: "The coding agent ran out of output before finishing.",
+  max_turn_requests: "The coding agent hit its request limit before finishing.",
+};
+
+/** The shared WAF checkout, as an assembly may read it but never change it. */
+function checkoutRoot(wafRoot: string) {
+  return { root: wafRoot, label: "the shared WAF checkout" };
 }
 
 @Component()
@@ -52,6 +73,7 @@ export class ActivityGenerationService implements ActivityGeneration {
   @Use() private readonly agents!: AgentConfig;
   @Use() private readonly sessions!: Sessions;
   @Use() private readonly sessionService!: SessionServiceIface;
+  @Use() private readonly codingAgents!: CodingAgents;
   @Use() private readonly channels!: Channels;
   @Use() private readonly log!: Log;
   private readonly locks = new ActivityLocks();
@@ -205,7 +227,9 @@ export class ActivityGenerationService implements ActivityGeneration {
       image?: { language: string; assetKey: string };
       mediaText?: { language: string; assetKey: string };
     },
+    runtime?: { codingAgentId?: string },
   ): Promise<ActivityRun> {
+    const codingAgentId = runtime?.codingAgentId;
     return this.track(
       this.projectWork.run(projectId, () =>
         this.locks.run(activityId, async () => {
@@ -276,8 +300,17 @@ export class ActivityGenerationService implements ActivityGeneration {
                 "WAF checkout not found. Select a root containing framework, modules and media.",
               );
           }
-          await this.agents.requireExists(projectId, agentId);
+          if (codingAgentId && (audio || image))
+            // Both call Gemini through a helper that reads the key from a Penguin agent's
+            // Vault, which an external agent's process never sees.
+            throw new HttpError(
+              400,
+              "runtime_unsupported",
+              `${image ? "Image" : "Speech"} generation runs on a Penguin agent. Choose one instead of a coding agent.`,
+            );
+          if (!codingAgentId) await this.agents.requireExists(projectId, agentId);
           if (
+            !codingAgentId &&
             (audio || image) &&
             !(await this.agents.getVault(projectId, agentId)).entries.some(
               (entry) => entry.key === "GEMINI_API_KEY",
@@ -314,7 +347,8 @@ export class ActivityGenerationService implements ActivityGeneration {
             projectId,
             draftId: activity.draft.draftId,
             inputRevision: activity.draft.contentRevision,
-            agentId,
+            agentId: codingAgentId ? "" : agentId,
+            ...(codingAgentId ? { codingAgentId } : {}),
             sessionId: null,
             status: "running",
             createdAt: new Date().toISOString(),
@@ -415,6 +449,19 @@ export class ActivityGenerationService implements ActivityGeneration {
               this.finish(run, "interrupted", "Server stopped before generation started.");
               return run;
             }
+            const prompt = mediaText
+              ? mediaTextPrompt(mediaText)
+              : image
+                ? imagePrompt
+                : audio
+                  ? audioPrompt
+                  : module
+                    ? modulePrompt
+                    : generationPrompt;
+            if (codingAgentId) {
+              await this.startOnCodingAgent(run, codingAgentId, workspace, prompt, wafRoot);
+              return run;
+            }
             const session = await this.sessionService.createSession({
               projectId,
               agentId,
@@ -424,9 +471,7 @@ export class ActivityGenerationService implements ActivityGeneration {
               // it and must leave it exactly as it found it — a refusal rather than an
               // instruction, because an instruction is not a permission system and the
               // people approving these Sessions are not all engineers.
-              ...(wafRoot
-                ? { protectedRoots: [{ root: wafRoot, label: "the shared WAF checkout" }] }
-                : {}),
+              ...(wafRoot ? { protectedRoots: [checkoutRoot(wafRoot)] } : {}),
               approvalMode: "always-ask",
             });
             run.sessionId = session.sessionId;
@@ -457,25 +502,9 @@ export class ActivityGenerationService implements ActivityGeneration {
               }
             });
             this.observers.set(run.runId, observer);
-            await this.sessions.startTask(
-              session.sessionId,
-              [
-                userText(
-                  mediaText
-                    ? mediaTextPrompt(mediaText)
-                    : image
-                      ? imagePrompt
-                      : audio
-                        ? audioPrompt
-                        : module
-                          ? modulePrompt
-                          : generationPrompt,
-                ),
-              ],
-              {
-                queueIfBusy: false,
-              },
-            );
+            await this.sessions.startTask(session.sessionId, [userText(prompt)], {
+              queueIfBusy: false,
+            });
           } catch (error) {
             this.finish(
               run,
@@ -499,11 +528,63 @@ export class ActivityGenerationService implements ActivityGeneration {
         if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
         if (run.status === "running") {
           this.finish(run, "cancelled", "Generation cancelled.");
-          if (run.sessionId) this.sessions.abortTask(run.sessionId);
+          if (run.sessionId && run.codingAgentId)
+            await this.codingAgents.cancel(run.sessionId).catch(() => undefined);
+          else if (run.sessionId) this.sessions.abortTask(run.sessionId);
         }
         return run;
       }),
     );
+  }
+
+  /**
+   * The same run on an external coding agent: an ACP session in the run's workspace, the
+   * same prompt, and the turn's end standing in for the idle Session that collection waits
+   * for. The session stays open afterwards, so its transcript can be read and, where the
+   * agent supports it, reopened.
+   */
+  private async startOnCodingAgent(
+    run: ActivityRun,
+    codingAgentId: string,
+    workspace: string,
+    prompt: string,
+    wafRoot: string | null,
+  ): Promise<void> {
+    const session = await this.codingAgents.createSession(
+      codingAgentId,
+      workspace,
+      wafRoot ? { protectedRoots: [checkoutRoot(wafRoot)] } : {},
+    );
+    run.sessionId = session.sessionId;
+    this.save(run);
+    if (this.stopped) {
+      this.finish(run, "interrupted", "Server stopped before generation started.");
+      return;
+    }
+    const channel = this.codingAgents.channelFor(session.sessionId);
+    if (!channel) throw new Error("The coding agent session closed before it started.");
+    const observer: Observer = {
+      unsubscribe: () => {},
+      completed: false,
+      error: null,
+      finished: false,
+    };
+    observer.unsubscribe = channel.subscribe((message) => {
+      if (message.event !== "coding_agent") return;
+      const event = JSON.parse(message.data) as AgentSessionEvent;
+      if (event.type === "state" && event.state === "closed" && !observer.finished) {
+        observer.finished = true;
+        observer.error = TURN_END_ERRORS.failed!;
+      }
+      if (event.type !== "turn_end") return;
+      observer.finished = true;
+      observer.completed = event.stopReason === "end_turn";
+      observer.error = observer.completed
+        ? null
+        : (TURN_END_ERRORS[event.stopReason] ?? "The coding agent did not finish.");
+    });
+    this.observers.set(run.runId, observer);
+    this.codingAgents.prompt(session.sessionId, prompt);
   }
 
   async audioContent(projectId: string, activityId: string, runId: string): Promise<Uint8Array> {
@@ -653,15 +734,27 @@ export class ActivityGenerationService implements ActivityGeneration {
       await this.locks.run(initial.activityId, async () => {
         if (this.stopped) return;
         const run = this.running().find((item) => item.runId === initial.runId);
+        if (!run || !run.sessionId || this.stopped) return;
+        const sessionId = run.sessionId;
+        // A coding agent has no idle boundary to wait on; its reported turn end is the
+        // whole signal, and nothing else can start a turn in a run's session.
+        const external = run.codingAgentId !== undefined;
         if (
-          !run ||
-          !run.sessionId ||
-          this.stopped ||
-          this.sessions.statusOf(run.sessionId) !== "idle"
+          external
+            ? !this.observers.get(run.runId)?.finished
+            : this.sessions.statusOf(sessionId) !== "idle"
         )
           return;
+        const atBoundary = (work: () => Promise<void>) =>
+          external ? work() : this.sessions.atIdleBoundary(sessionId, work);
         try {
-          await this.sessions.atIdleBoundary(run.sessionId, async () => {
+          await atBoundary(async () => {
+            // An agent that stopped short said why; that beats naming the file it never wrote.
+            const stoppedShort = external ? this.observers.get(run.runId) : undefined;
+            if (stoppedShort && !stoppedShort.completed) {
+              this.finish(run, "failed", stoppedShort.error ?? "The coding agent did not finish.");
+              return;
+            }
             const file = path.join(
               this.workspace(run),
               run.kind === "module"

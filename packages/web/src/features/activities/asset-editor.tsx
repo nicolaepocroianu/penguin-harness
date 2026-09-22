@@ -33,6 +33,7 @@ export function AssetEditor({
   editable,
   disabled,
   canGenerate,
+  canGenerateMedia = canGenerate,
   canAccept,
   canPreview,
   wafRoot,
@@ -61,6 +62,8 @@ export function AssetEditor({
   editable: boolean;
   disabled: boolean;
   canGenerate: boolean;
+  /** Speech and image runs, which only a Penguin agent can make; defaults to `canGenerate`. */
+  canGenerateMedia?: boolean;
   canAccept: boolean;
   canPreview: boolean;
   wafRoot: string;
@@ -291,7 +294,7 @@ export function AssetEditor({
                     <Button
                       size="sm"
                       disabled={
-                        !canGenerate ||
+                        !canGenerateMedia ||
                         !voice ||
                         !asset.script?.trim() ||
                         asset.script.length > 5000
@@ -350,7 +353,9 @@ export function AssetEditor({
                   <Button
                     size="sm"
                     disabled={
-                      !canGenerate || !asset.description.trim() || asset.description.length > 5000
+                      !canGenerateMedia ||
+                      !asset.description.trim() ||
+                      asset.description.length > 5000
                     }
                     onClick={() => onGenerateImage(language, asset.key)}
                   >

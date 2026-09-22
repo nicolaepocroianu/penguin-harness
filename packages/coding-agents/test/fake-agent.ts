@@ -12,6 +12,7 @@ import {
   type AgentRequestContext,
   type CreateElicitationResponse,
   type PromptRequest,
+  type RequestPermissionRequest,
   type RequestPermissionResponse,
   type SessionConfigOption,
   type SessionModeState,
@@ -145,12 +146,27 @@ export class FakeCodingAgent {
   }
 
   /** Ask the human for permission and wait for their answer. */
-  async askPermission(sessionId: string): Promise<RequestPermissionResponse> {
+  async askPermission(
+    sessionId: string,
+    toolCall: {
+      title?: string;
+      kind?: "edit" | "execute";
+      locations?: { path: string }[];
+      rawInput?: unknown;
+    } = {},
+  ): Promise<RequestPermissionResponse> {
+    const call: RequestPermissionRequest["toolCall"] = {
+      toolCallId: "tool-1",
+      title: toolCall.title ?? "Run tests",
+      kind: toolCall.kind ?? "execute",
+      locations: toolCall.locations ?? null,
+      rawInput: toolCall.rawInput,
+    };
     const response = await this.requireConnection().client.request(
       methods.client.session.requestPermission,
       {
         sessionId,
-        toolCall: { toolCallId: "tool-1", title: "Run tests", kind: "execute" },
+        toolCall: call,
         options: [
           { optionId: "allow", name: "Allow", kind: "allow_once" },
           { optionId: "reject", name: "Reject", kind: "reject_once" },

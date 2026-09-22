@@ -4,7 +4,11 @@
  * @prismshadow/penguin-coding-agents kernel).
  */
 import { Interface } from "@prismshadow/penguin-core/kernel";
-import type { AgentPermissionOutcome, AgentSessionEvent } from "@prismshadow/penguin-coding-agents";
+import type {
+  AgentPermissionOutcome,
+  AgentSessionEvent,
+  AgentSessionOptions,
+} from "@prismshadow/penguin-coding-agents";
 import type { ChannelApi } from "../hmr/capabilities.js";
 import type {
   CodingAgentDiscoveryResponse,
@@ -30,7 +34,15 @@ export abstract class CodingAgents extends Interface<{
     model: { configId: string; value: boolean | string; name?: string },
   ): void;
   listSessions(): CodingAgentSessionInfo[];
-  createSession(agentId: string, workspaceDir: string): Promise<CodingAgentSessionInfo>;
+  /**
+   * `options.protectedRoots` names folders the agent may read but not change: permission
+   * asks touching them are refused before anyone sees them.
+   */
+  createSession(
+    agentId: string,
+    workspaceDir: string,
+    options?: AgentSessionOptions,
+  ): Promise<CodingAgentSessionInfo>;
   /**
    * Reopen a session an earlier process started, in the workspace it ran in. Refused when
    * the agent advertises no way to reopen one; a session still open is returned as is.

@@ -11,7 +11,9 @@ export {
 } from "./connection.js";
 export {
   CodingAgentManager,
+  type AgentSessionOptions,
   type AgentSessionView,
+  type ProtectedRoot,
   type CodingAgentManagerOptions,
 } from "./manager.js";
 export {
@@ -22,6 +24,7 @@ export {
 } from "./discovery.js";
 export { probeAgentOptions, type AgentProbeRequest } from "./probe.js";
 export { killProcessTree } from "./process-tree.js";
+export { protectedPathIn, type GuardedToolCall } from "./path-guard.js";
 export { resolveCommandPath } from "./resolve.js";
 export { sandboxedAgentEnv } from "./env.js";
 export {

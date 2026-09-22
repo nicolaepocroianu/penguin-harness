@@ -212,6 +212,9 @@ export type Strings = {
     saveSpec: string;
     generate: string;
     agent: string;
+    penguinAgents: string;
+    codingAgents: string;
+    codingAgentMedia: string;
     runs: string;
     noRuns: string;
     openSession: string;

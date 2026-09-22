@@ -30,6 +30,8 @@ export abstract class ActivityGeneration extends Interface<{
       image?: { language: string; assetKey: string };
       mediaText?: { language: string; assetKey: string };
     },
+    /** Run on an external coding agent instead of the Penguin agent `agentId` names. */
+    runtime?: { codingAgentId?: string },
   ): Promise<ActivityRun>;
   list(projectId: string, activityId: string): Promise<ActivityRunSummary[]>;
   candidate(projectId: string, activityId: string, runId: string): Promise<string | null>;

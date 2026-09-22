@@ -19,6 +19,7 @@ import {
   type AcpConnectionHandlers,
   type SpawnProcess,
 } from "./connection.js";
+import { protectedPathIn } from "./path-guard.js";
 import { resolveCommandPath } from "./resolve.js";
 import {
   AcpAgentError,
@@ -63,6 +64,21 @@ export interface CodingAgentManagerOptions {
   maxLoggedEvents?: number;
 }
 
+/**
+ * A folder a session's agent may read but must not be allowed to change. Asks that name a
+ * path inside it are refused before anyone sees them; see path-guard.ts for what that can
+ * and cannot catch.
+ */
+export interface ProtectedRoot {
+  root: string;
+  /** How the refusal names the folder to a person ("the shared WAF checkout"). */
+  label: string;
+}
+
+export interface AgentSessionOptions {
+  protectedRoots?: ProtectedRoot[];
+}
+
 export interface AgentSessionView {
   sessionId: string;
   definitionId: string;
@@ -84,6 +100,7 @@ interface SessionRecord {
   busy: boolean;
   createdAt: number;
   resumeSupport: AgentResumeSupport;
+  protectedRoots: ProtectedRoot[];
   /** Increments per turn; stale turn endings (a cancelled turn's grace timer) drop out. */
   turnSeq: number;
   modes: AgentModes | null;
@@ -162,7 +179,11 @@ export class CodingAgentManager {
     };
   }
 
-  async createSession(definitionId: string, workspaceDir: string): Promise<AgentSessionView> {
+  async createSession(
+    definitionId: string,
+    workspaceDir: string,
+    options: AgentSessionOptions = {},
+  ): Promise<AgentSessionView> {
     const connection = await this.openConnection(definitionId, workspaceDir);
     let response: NewSessionResponse;
     try {
@@ -178,6 +199,7 @@ export class CodingAgentManager {
       workspaceDir,
       connection.resumeSupport(),
     );
+    record.protectedRoots = [...(options.protectedRoots ?? [])];
     this.sessions.set(record.sessionId, record);
     this.adoptSessionState(record, response);
     return this.viewOf(record);
@@ -194,6 +216,7 @@ export class CodingAgentManager {
     definitionId: string,
     workspaceDir: string,
     sessionId: string,
+    options: AgentSessionOptions = {},
   ): Promise<AgentSessionView> {
     const open = this.sessions.get(sessionId);
     if (open !== undefined) {
@@ -212,6 +235,7 @@ export class CodingAgentManager {
     // Registered before the request: session/load replays the conversation as updates,
     // which are routed by session id and would otherwise be dropped as unknown.
     const record = this.newRecord(sessionId, definitionId, workspaceDir, support);
+    record.protectedRoots = [...(options.protectedRoots ?? [])];
     record.busy = true;
     this.sessions.set(sessionId, record);
     let response: LoadSessionResponse;
@@ -424,10 +448,7 @@ export class CodingAgentManager {
   }
 
   /** Validate the definition and workspace, then reach (or start) its connection. */
-  private async openConnection(
-    definitionId: string,
-    workspaceDir: string,
-  ): Promise<AcpConnection> {
+  private async openConnection(definitionId: string, workspaceDir: string): Promise<AcpConnection> {
     const definition = this.definitions.get(definitionId);
     if (definition === undefined) {
       throw new AcpAgentError(`unknown agent: ${definitionId}`);
@@ -465,6 +486,7 @@ export class CodingAgentManager {
       busy: false,
       createdAt: Date.now(),
       resumeSupport,
+      protectedRoots: [],
       turnSeq: 0,
       modes: null,
       configOptions: [],
@@ -610,6 +632,32 @@ export class CodingAgentManager {
     const record = this.sessions.get(params.sessionId);
     if (record === undefined) {
       return Promise.resolve({ outcome: { outcome: "cancelled" } });
+    }
+    const touched = protectedPathIn(
+      params.toolCall,
+      record.protectedRoots.map((p) => p.root),
+      record.workspaceDir,
+    );
+    if (touched !== null) {
+      const label =
+        record.protectedRoots.find((p) =>
+          protectedPathIn({ locations: [{ path: touched }] }, [p.root], record.workspaceDir),
+        )?.label ?? "a protected folder";
+      const title = params.toolCall.title ?? params.toolCall.toolCallId;
+      this.append(record, {
+        type: "notice",
+        sessionId: record.sessionId,
+        message: `Refused "${title}": it would touch ${touched}, inside ${label}, which this session may not change.`,
+      });
+      const reject =
+        params.options.find((o) => o.kind === "reject_once") ??
+        params.options.find((o) => o.kind === "reject_always");
+      return Promise.resolve({
+        outcome:
+          reject !== undefined
+            ? { outcome: "selected", optionId: reject.optionId }
+            : { outcome: "cancelled" },
+      });
     }
     this.permissionSeq += 1;
     const requestId = `perm-${this.permissionSeq}`;

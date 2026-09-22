@@ -210,6 +210,51 @@ describe("CodingAgentManager", () => {
     ).toBe(true);
   });
 
+  it("refuses, without asking anyone, a permission ask that touches a protected folder", async () => {
+    const { manager, fake } = harness({});
+    const guarded = path.join(workspace, "checkout");
+    const target = path.join(guarded, "framework", "index.ts");
+    fake.promptHandler = async (_ctx, sessionId) => {
+      await fake.askPermission(sessionId, {
+        title: "Edit index.ts",
+        kind: "edit",
+        locations: [{ path: target }],
+      });
+      // An ask elsewhere still goes to the human.
+      await fake.askPermission(sessionId, {
+        locations: [{ path: path.join(workspace, "a.json") }],
+      });
+      return "end_turn" as const;
+    };
+    const session = await manager.createSession("fake", workspace, {
+      protectedRoots: [{ root: guarded, label: "the shared WAF checkout" }],
+    });
+    const turn = manager.prompt(session.sessionId, "hi");
+    await vi.waitFor(() => {
+      expect(
+        manager.sessionView(session.sessionId)?.events.some((e) => e.type === "permission_request"),
+      ).toBe(true);
+    });
+    expect(fake.answeredPermissions).toEqual([
+      { outcome: { outcome: "selected", optionId: "reject" } },
+    ]);
+    const events = manager.sessionView(session.sessionId)!.events;
+    const notice = events.find((e) => e.type === "notice");
+    expect(notice).toMatchObject({ type: "notice", sessionId: session.sessionId });
+    expect((notice as { message: string }).message).toContain("the shared WAF checkout");
+    // Only the second ask was surfaced.
+    expect(events.filter((e) => e.type === "permission_request")).toHaveLength(1);
+    const pending = events.find(
+      (e): e is Extract<AgentSessionEvent, { type: "permission_request" }> =>
+        e.type === "permission_request",
+    )!;
+    manager.respondPermission(pending.request.requestId, {
+      outcome: "selected",
+      optionId: "allow",
+    });
+    await turn;
+  });
+
   it("auto-cancels an unanswered permission ask after the timeout", async () => {
     const { manager, fake } = harness({ permissionTimeoutMs: 30 });
     fake.promptHandler = async (_ctx, sessionId) => {

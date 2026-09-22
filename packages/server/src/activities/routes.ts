@@ -18,6 +18,20 @@ import {
   requireValidId,
 } from "../http/validate.js";
 
+/**
+ * Who runs an agent-driven stage: a Penguin agent (`agentId`) or, instead, an external
+ * coding agent (`codingAgentId`, one of the ACP runtimes in /api/coding-agents). Exactly
+ * one is required.
+ */
+function stageRunner(body: Record<string, unknown>): {
+  agentId: string;
+  runtime?: { codingAgentId: string };
+} {
+  const codingAgentId = optionalString(body, "codingAgentId", { maxLen: 64 }) || undefined;
+  if (codingAgentId) return { agentId: "", runtime: { codingAgentId } };
+  return { agentId: requireString(body, "agentId", { minLen: 1, maxLen: 128 }) };
+}
+
 @Component({
   contributes: {
     "HttpModule.routes": [
@@ -70,16 +84,18 @@ export class ActivityRoutes {
     });
     app.post("/:activityId/assemble-module", async (c) => {
       const body = await readJson(c);
+      const runner = stageRunner(body);
       return c.json(
         await this.generation.start(
           requireValidId(c, "projectId"),
           pathParam(c, "activityId"),
-          requireString(body, "agentId", { minLen: 1, maxLen: 128 }),
+          runner.agentId,
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
           {
             wafRoot: optionalString(body, "wafRoot", { maxLen: 4096 }) || undefined,
             bookMode: optionalString(body, "bookMode", { maxLen: 32 }) || undefined,
           },
+          runner.runtime,
         ),
         202,
       );
@@ -115,11 +131,12 @@ export class ActivityRoutes {
     });
     app.post("/:activityId/generate-media-text", async (c) => {
       const body = await readJson(c);
+      const runner = stageRunner(body);
       return c.json(
         await this.generation.start(
           requireValidId(c, "projectId"),
           pathParam(c, "activityId"),
-          requireString(body, "agentId", { minLen: 1, maxLen: 128 }),
+          runner.agentId,
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
           {
             mediaText: {
@@ -127,6 +144,7 @@ export class ActivityRoutes {
               assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
             },
           },
+          runner.runtime,
         ),
         202,
       );
@@ -384,12 +402,15 @@ export class ActivityRoutes {
     });
     app.post("/:activityId/generate-spec", async (c) => {
       const body = await readJson(c);
+      const runner = stageRunner(body);
       return c.json(
         await this.generation.start(
           requireValidId(c, "projectId"),
           pathParam(c, "activityId"),
-          requireString(body, "agentId", { minLen: 1, maxLen: 128 }),
+          runner.agentId,
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
+          undefined,
+          runner.runtime,
         ),
         202,
       );
