@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
-  ActivityStageModule,
+  ActivityStagesModule,
   type StageContext,
   type StageOutcome,
   type StageRunner,
 } from "../src/activities/stage-registry.js";
 import type { ClassCtx } from "@prismshadow/penguin-core/kernel";
 import { describePreparedMedia } from "../src/activities/prepare-media-stage.js";
+import {
+  describeAssetsConfiguration,
+  describeScaffold,
+} from "../src/activities/scaffold-stages.js";
 
 /** A runner that records it was called, since the registry only has to hand it back. */
 function runner(summary: string): StageRunner & { calls: StageContext[] } {
@@ -28,10 +32,13 @@ interface Contribution {
 
 /** Assembles the module the way the kernel does, with the contributions given. */
 function assemble(stages: Contribution[]) {
-  const module = new ActivityStageModule();
+  const module = new ActivityStagesModule();
   module.setup({ contributions: { stages } } as unknown as ClassCtx);
   return module.stages;
 }
+
+/** The interface hands back an opaque handle; a caller casts it to run the stage. */
+const asRunner = (handle: unknown): StageRunner => handle as StageRunner;
 
 const one = { id: "one", data: { order: 10, execution: "agent", dependsOn: [] } };
 const two = { id: "two", data: { order: 20, execution: "deterministic", dependsOn: ["one"] } };
@@ -91,7 +98,9 @@ describe("assembling the registry", () => {
       inputRevision: "r1",
       workspace: "/tmp/run",
     };
-    await expect(stages.runner("one")!.run(context)).resolves.toEqual({ summary: "did one" });
+    await expect(asRunner(stages.runner("one")).run(context)).resolves.toEqual({
+      summary: "did one",
+    });
     expect(first.calls).toEqual([context]);
     expect(stages.runner("absent")).toBeUndefined();
   });
@@ -193,5 +202,62 @@ describe("what prepare_media_assets reports", () => {
   it("reports an unbound asset rather than calling the manifest complete", () => {
     // The rule this stage inherits: a missing file is named, never passed off as success.
     expect(describePreparedMedia([{ key: "only" }]).problems).toHaveLength(1);
+  });
+});
+
+describe("what scaffold_module reports", () => {
+  it("names the file count and the module kind", () => {
+    expect(describeScaffold(14, undefined).summary).toBe("Wrote 14 module files.");
+    expect(describeScaffold(1, undefined).summary).toBe("Wrote 1 module file.");
+    expect(describeScaffold(9, "readAlong").summary).toBe("Wrote 9 readAlong book module files.");
+  });
+
+  it("treats an empty scaffold as a problem, not a quiet success", () => {
+    const outcome = describeScaffold(0, undefined);
+    expect(outcome.summary).toBe("Wrote no module files.");
+    expect(outcome.problems).toEqual([
+      "The scaffold produced nothing, so there is no module to implement.",
+    ]);
+  });
+});
+
+describe("what assets_configuration reports", () => {
+  const manifest = (assets: Record<string, { key: string; type: "image"; path?: string }[]>) =>
+    ({ productCode: "code", refNum: 1, assets }) as never;
+
+  it("counts bound assets across the languages it configured", () => {
+    const outcome = describeAssetsConfiguration(
+      manifest({
+        "en-US": [{ key: "a", type: "image", path: "media/images/a.png" }],
+        "es-MX": [{ key: "a", type: "image", path: "media/images/a-es.png" }],
+      }),
+    );
+    expect(outcome).toEqual({ summary: "Configured 2 bound assets across 2 languages." });
+  });
+
+  it("uses the singular for one of each", () => {
+    expect(
+      describeAssetsConfiguration(
+        manifest({ "en-US": [{ key: "a", type: "image", path: "media/images/a.png" }] }),
+      ).summary,
+    ).toBe("Configured 1 bound asset across 1 language.");
+  });
+
+  it("names a language with nothing bound, because silence does not fail", () => {
+    const outcome = describeAssetsConfiguration(
+      manifest({
+        "en-US": [{ key: "a", type: "image", path: "media/images/a.png" }],
+        "ro-RO": [{ key: "a", type: "image" }],
+      }),
+    );
+    expect(outcome.problems).toEqual([
+      "Language with nothing bound: ro-RO. An unbound language plays silence rather than failing.",
+    ]);
+  });
+
+  it("treats a manifest with no languages as a problem", () => {
+    expect(describeAssetsConfiguration(manifest({})).problems).toEqual([
+      "The manifest holds no languages, so there is nothing to configure.",
+    ]);
   });
 });

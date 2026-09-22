@@ -12,7 +12,7 @@
  * matters, because most of the people driving this pipeline are not engineers and should
  * not be approving tool calls to get a manifest.
  */
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
 import type { ActivityAuthoring } from "../mechanisms/activities.js";
 import { PREPARE_MEDIA_STAGE } from "./pipeline.js";
 import type { StageContext, StageOutcome, StageRunner } from "./stage-registry.js";
@@ -47,9 +47,11 @@ export function describePreparedMedia(assets: { key: string; path?: string }[]):
 
 @Component({
   contributes: {
-    "ActivityStageModule.stages": [
+    // Literals only. The interface generator reads this decorator's object as source and
+    // cannot evaluate an identifier, so a constant here leaves it holding an AST node.
+    "ActivityStagesModule.stages": [
       {
-        id: PREPARE_MEDIA_STAGE,
+        id: "prepare_media_assets",
         order: 30,
         execution: "deterministic",
         dependsOn: ["generate_media_spec"],
@@ -57,19 +59,24 @@ export function describePreparedMedia(assets: { key: string; path?: string }[]):
     ],
   },
 })
-export class PrepareMediaStage implements StageRunner {
+export class PrepareMediaStage {
   @Use() private readonly activities!: ActivityAuthoring;
+  @Bind(PREPARE_MEDIA_STAGE) runner!: StageRunner;
 
-  async run(context: StageContext): Promise<StageOutcome> {
-    // The plan is derived from the specification every time rather than read back, so a
-    // stage that runs twice on the same specification produces the same manifest. The
-    // revision is passed through: a draft that moved since this run started is a conflict,
-    // not something to plan against.
-    const draft = await this.activities.planMedia(
-      context.projectId,
-      context.activityId,
-      context.inputRevision,
-    );
-    return describePreparedMedia(draft.mediaPlan?.manifest.assets["en-US"] ?? []);
+  setup() {
+    this.runner = {
+      run: async (context: StageContext): Promise<StageOutcome> => {
+        // The plan is derived from the specification every time rather than read back, so
+        // a stage that runs twice on the same specification produces the same manifest.
+        // The revision is passed through: a draft that moved since this run started is a
+        // conflict, not something to plan against.
+        const draft = await this.activities.planMedia(
+          context.projectId,
+          context.activityId,
+          context.inputRevision,
+        );
+        return describePreparedMedia(draft.mediaPlan?.manifest.assets["en-US"] ?? []);
+      },
+    };
   }
 }
