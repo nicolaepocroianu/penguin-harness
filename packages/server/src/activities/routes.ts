@@ -177,6 +177,14 @@ export class ActivityRoutes {
     });
     // A wildcard, because a media path is nested: images/en-US/cat.png. The path is
     // validated by shape and then by where it lands, never trusted as a path.
+    app.get("/:activityId/sandbox/payload", async (c) => {
+      return c.json(
+        await this.sandbox.payload(requireValidId(c, "projectId"), pathParam(c, "activityId"), {
+          languageCode: c.req.query("language") ?? null,
+          startSceneId: c.req.query("scene") ?? null,
+        }),
+      );
+    });
     app.get("/:activityId/sandbox/media/*", async (c) => {
       const prefix = `/${pathParam(c, "activityId")}/sandbox/media/`;
       const url = new URL(c.req.url);

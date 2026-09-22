@@ -10,15 +10,57 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { Component, Interface, Use, type Opaque } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
-import type { ActivityAuthoring } from "../mechanisms/activities.js";
+import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
+import type { Config } from "../hmr/capabilities.js";
+import {
+  activityPayload,
+  scopeConfigurationToLanguage,
+  unwrapModuleConfiguration,
+  withPreviewStartScene,
+  type ActivityPayload,
+} from "./sandbox-configuration.js";
+import { moduleDeclaration, ModuleDeclarationError } from "./sandbox-declaration.js";
+import {
+  aliasesByRefKey,
+  applyAliasesToLanguageGroups,
+  mediaUrlVersions,
+  overlayRefAssets,
+  versionMediaUrls,
+  type ManifestAsset,
+} from "./sandbox-ref-assets.js";
 import { planMediaResponse } from "./media-origin.js";
 import { previewMediaPath, previewState } from "./sandbox-model.js";
 import {
   sandboxMediaRoot,
+  sandboxModuleRoot,
   sandboxStatus,
   withinRoot,
   type SandboxStatus,
 } from "./sandbox-paths.js";
+
+/** Reads a JSON file, or null when it is absent or unreadable. Never throws. */
+async function readJsonFile(file: string): Promise<Record<string, unknown> | null> {
+  try {
+    const parsed: unknown = JSON.parse(await fs.readFile(file, "utf8"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Every asset in a plan's manifest, whatever language group it sits in. */
+function manifestAssets(manifest: unknown): ManifestAsset[] {
+  const assets = (manifest as { assets?: unknown } | null | undefined)?.assets;
+  if (Array.isArray(assets)) return assets as ManifestAsset[];
+  if (!assets || typeof assets !== "object") return [];
+  return Object.entries(assets as Record<string, unknown>).flatMap(([languageCode, group]) =>
+    Array.isArray(group)
+      ? (group as ManifestAsset[]).map((asset) => ({ languageCode, ...asset }))
+      : [],
+  );
+}
 
 /** Files whose modification times decide whether a built module is current. */
 const SOURCE_DIRS = ["module/src", "module/res", "module/generated"];
@@ -30,9 +72,15 @@ export interface SandboxMediaResponse {
   body?: Opaque<"Uint8Array", Uint8Array>;
 }
 
+export interface PayloadOptions {
+  languageCode?: string | null;
+  startSceneId?: string | null;
+}
+
 /** The sandbox as its callers see it. */
 export abstract class ActivitySandbox extends Interface<{
   status(projectId: string, activityId: string): Promise<SandboxStatus>;
+  payload(projectId: string, activityId: string, options: PayloadOptions): Promise<ActivityPayload>;
   media(
     projectId: string,
     activityId: string,
@@ -44,21 +92,126 @@ export abstract class ActivitySandbox extends Interface<{
 @Component({})
 export class ActivitySandboxService implements ActivitySandbox {
   @Use() private readonly activities!: ActivityAuthoring;
+  @Use() private readonly generation!: ActivityGeneration;
+  @Use() private readonly config!: Config;
+
+  /**
+   * The workspace of the most recent module build, or null when nothing has been built.
+   *
+   * Only a succeeded run counts. A failed build leaves a half-written workspace behind, and
+   * serving from it would give an author a preview of code that did not compile.
+   */
+  private async builtModule(projectId: string, activityId: string): Promise<string | null> {
+    const runs = await this.generation.list(projectId, activityId);
+    const built = runs
+      .filter((run) => run.kind === "module" && run.status === "succeeded")
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
+    return built
+      ? sandboxModuleRoot(path.join(this.config.root, "activity-runs", built.runId))
+      : null;
+  }
 
   /** What the client is told about a preview. Never claims more than it can show. */
   async status(projectId: string, activityId: string): Promise<SandboxStatus> {
     const activity = await this.activities.getActivity(projectId, activityId);
     const canonical = this.activities.isCanonicalRef(activity);
-    // No module run means nothing has been built; the run's workspace is where a build
-    // would land, and its absence is the honest answer rather than a guess.
+    const workspace = await this.builtModule(projectId, activity.id);
+    const definition = workspace
+      ? await fs.stat(path.join(workspace, "definition.json")).catch(() => null)
+      : null;
     const state = previewState({
       hasSpec: activity.draft.status === "valid" && activity.draft.spec !== null,
-      hasModule: false,
+      hasModule: Boolean(definition?.isFile()),
       canonicalRef: canonical,
-      builtAtMs: null,
-      sourceMtimesMs: [],
+      builtAtMs: definition?.mtimeMs ?? null,
+      sourceMtimesMs: workspace ? await this.sourceMtimes(path.dirname(workspace)) : [],
     });
     return sandboxStatus(state, null);
+  }
+
+  /**
+   * The payload the learner runtime fetches for this preview.
+   *
+   * Reads the built module's declaration and configuration, overlays this ref's media onto
+   * them, scopes the configuration to the requested language and points the preview at a
+   * scene. Every decision lives in `sandbox-declaration`, `sandbox-ref-assets` and
+   * `sandbox-configuration`; this reads the files and puts them together.
+   */
+  async payload(
+    projectId: string,
+    activityId: string,
+    options: PayloadOptions,
+  ): Promise<ActivityPayload> {
+    const activity = await this.activities.getActivity(projectId, activityId);
+    const spec = activity.draft.spec;
+    if (!spec)
+      throw new HttpError(409, "preview_not_ready", "Save a specification before previewing.");
+    const workspace = await this.builtModule(projectId, activity.id);
+    if (!workspace)
+      throw new HttpError(409, "preview_not_built", "No module has been built for this activity.");
+
+    const runtime = (spec.runtime ?? {}) as Record<string, unknown>;
+    const definition = await readJsonFile(path.join(workspace, "definition.json"));
+    if (!definition)
+      throw new HttpError(409, "preview_not_built", "The built module has no definition.");
+    const packageJson = await readJsonFile(path.join(workspace, "package.json"));
+
+    let declaration;
+    try {
+      declaration = moduleDeclaration({
+        definition,
+        packageVersion: packageJson?.version,
+        theme: String(runtime.theme ?? ""),
+        routePrefix: `/api/projects/${projectId}/activities/${activity.id}/sandbox/module/`,
+      });
+    } catch (error) {
+      if (error instanceof ModuleDeclarationError)
+        throw new HttpError(409, "preview_not_built", error.message);
+      throw error;
+    }
+
+    // The ref's own media, or the shared module's if this ref has planned none yet.
+    const assets = manifestAssets(activity.draft.mediaPlan?.manifest);
+    const aliases = aliasesByRefKey(assets);
+    // The draft revision is the version token: it changes exactly when the media plan does,
+    // which is the only time a cached URL would be wrong.
+    const versionToken = activity.draft.contentRevision.slice(0, 16);
+    const overlaid = overlayRefAssets(
+      declaration as unknown as Record<string, unknown>,
+      assets,
+      aliases,
+      versionToken,
+    );
+
+    const configurationFile = path.join(
+      workspace,
+      "configurations",
+      `${activity.productCode}-${activity.refNum}.json`,
+    );
+    const raw = (await readJsonFile(configurationFile)) ?? {};
+    let configuration = unwrapModuleConfiguration(raw, declaration.id);
+    configuration = applyAliasesToLanguageGroups(configuration, assets, aliases);
+    configuration = versionMediaUrls(
+      configuration,
+      mediaUrlVersions(assets, versionToken),
+    ) as Record<string, unknown>;
+    configuration = scopeConfigurationToLanguage(configuration, options.languageCode);
+    configuration = withPreviewStartScene(configuration, options.startSceneId);
+
+    return activityPayload({
+      moduleId: declaration.id,
+      title: String(spec.title ?? activity.title),
+      layout: String(runtime.layout ?? "mainOnly"),
+      resolution: String(runtime.resolution ?? "640x480"),
+      declaration: overlaid as unknown as { id: string },
+      // The navbar compartment every layout carries. The preview has no navbar module to
+      // build, so it is declared empty rather than omitted: the runtime expects the
+      // compartment to exist, and an absent one is a different failure from an empty one.
+      navBarDeclaration: { id: "navBar" },
+      navBarConfiguration: {},
+      configuration,
+      hasAssessment: runtime.usesAssessment === true,
+    });
   }
 
   /**
