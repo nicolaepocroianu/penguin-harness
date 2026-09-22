@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { activitySpec } from "./activity-fixtures.js";
 import {
   contentRevision,
   DISPLAY_NAME_MAX,
@@ -34,6 +35,27 @@ describe("native activity domain", () => {
       }).title,
     ).toBe("Sight words");
     expect(() => validateActivitySpec({ title: "incomplete" })).toThrow();
+  });
+
+  it("accepts an asset that has not been produced yet", () => {
+    // Loom writes null for every asset a generation stage has not filled in, which is most
+    // of them for most of a project's life. Refusing null refuses the ordinary state of an
+    // unfinished activity; measured on the real checkout, it lost two whole specifications.
+    const withAssets = (targetPath: unknown) => ({
+      ...activitySpec,
+      scenes: [
+        {
+          id: "intro",
+          description: "Choose a word",
+          media: { images: [{ key: "k", description: "d", targetPath }] },
+          audio: { tracks: [{ key: "a", description: "d", targetPath, script: "hello" }] },
+        },
+      ],
+    });
+    expect(validateActivitySpec(withAssets(null))).toBeTruthy();
+    expect(validateActivitySpec(withAssets(undefined))).toBeTruthy();
+    expect(validateActivitySpec(withAssets("images/k.png"))).toBeTruthy();
+    expect(() => validateActivitySpec(withAssets(7))).toThrow("targetPath must be a string");
   });
 
   it("treats a ref's display name as a label, absent rather than invalid when empty", () => {
