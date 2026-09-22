@@ -17,6 +17,7 @@ import {
   Module,
   Provide,
   type ClassCtx,
+  type Opaque,
   type Slot,
 } from "@prismshadow/penguin-core/kernel";
 import {
@@ -35,6 +36,13 @@ export interface StageContext {
   inputRevision: string;
   /** The run's own directory, the only place a deterministic stage may write. */
   workspace: string;
+  /**
+   * The shared WAF checkout, when one was resolved for this run. Read-only: the module
+   * scaffold compiles against the framework in it and must leave it unchanged.
+   */
+  wafRoot?: string;
+  /** Which reading mode a book activity was started for; absent for a standard one. */
+  bookMode?: "decodable" | "readAlong";
 }
 
 export interface StageOutcome {
@@ -57,21 +65,34 @@ export abstract class ActivityStages extends Interface<{
   all(): readonly ActivityStage[];
   /** One stage's declaration, or undefined when nothing provides it. */
   get(id: string): ActivityStage | undefined;
-  /** The code half for a stage, or undefined when only its declaration exists. */
-  runner(id: string): StageRunner | undefined;
+  /**
+   * The code half for a stage, or undefined when only its declaration exists.
+   *
+   * Opaque because a runner is an object with a method, and the interface contract is
+   * compared by name across the push boundary rather than expanded structurally.
+   */
+  runner(id: string): Opaque<"StageRunner"> | undefined;
 }>() {}
 
-export interface ActivityStageSlots {
+export interface ActivityStagesSlots {
   /**
    * One generation stage. The data half is its declaration — where it sits, whether it
    * needs an agent, what it reads, whether it writes the shared module — and the code half
    * is what runs it.
    */
-  stages: Slot<ActivityStageConfig, StageRunner>;
+  stages: Slot<
+    {
+      order: number;
+      execution: "agent" | "deterministic";
+      dependsOn: string[];
+      sharedModule?: boolean;
+    },
+    Opaque<"StageRunner">
+  >;
 }
 
 @Module()
-export class ActivityStageModule {
+export class ActivityStagesModule {
   @Provide() stages!: ActivityStages;
 
   setup({ contributions }: ClassCtx) {
@@ -95,7 +116,9 @@ export class ActivityStageModule {
     this.stages = {
       all: () => all,
       get: (id) => byId.get(id),
-      runner: (id) => runners.get(id),
+      // The interface hands out an opaque handle -- compared by name across the push
+      // boundary, never expanded -- so the caller casts it back to a runner.
+      runner: (id) => runners.get(id) as Opaque<"StageRunner"> | undefined,
     };
   }
 }
