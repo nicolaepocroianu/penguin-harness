@@ -20,6 +20,7 @@ import {
   type ActivityPayload,
 } from "./sandbox-configuration.js";
 import { moduleDeclaration, ModuleDeclarationError } from "./sandbox-declaration.js";
+import { moduleFileHeaders, moduleFilePath } from "./sandbox-module-files.js";
 import {
   aliasesByRefKey,
   applyAliasesToLanguageGroups,
@@ -81,6 +82,7 @@ export interface PayloadOptions {
 export abstract class ActivitySandbox extends Interface<{
   status(projectId: string, activityId: string): Promise<SandboxStatus>;
   payload(projectId: string, activityId: string, options: PayloadOptions): Promise<ActivityPayload>;
+  moduleFile(projectId: string, activityId: string, rawPath: string): Promise<SandboxMediaResponse>;
   media(
     projectId: string,
     activityId: string,
@@ -212,6 +214,45 @@ export class ActivitySandboxService implements ActivitySandbox {
       configuration,
       hasAssessment: runtime.usesAssessment === true,
     });
+  }
+
+  /**
+   * One file from the built module, which is what the payload's URLs point at.
+   *
+   * Read whole rather than ranged: these are the module's code, styles and layout, fetched
+   * once at load. The media route handles the large files that need ranges.
+   */
+  async moduleFile(
+    projectId: string,
+    activityId: string,
+    rawPath: string,
+  ): Promise<SandboxMediaResponse> {
+    const relative = moduleFilePath(rawPath);
+    if (!relative)
+      throw new HttpError(
+        400,
+        "module_path_invalid",
+        "That is not a module file this preview serves.",
+      );
+    const activity = await this.activities.getActivity(projectId, activityId);
+    const workspace = await this.builtModule(projectId, activity.id);
+    if (!workspace)
+      throw new HttpError(409, "preview_not_built", "No module has been built for this activity.");
+    const file = withinRoot(workspace, relative);
+    if (!file)
+      throw new HttpError(
+        400,
+        "module_path_invalid",
+        "That is not a module file this preview serves.",
+      );
+
+    const bytes = await fs.readFile(file).catch(() => null);
+    if (!bytes) throw new HttpError(404, "module_file_not_found", `No file at ${relative}.`);
+    return {
+      status: 200,
+      headers: { ...moduleFileHeaders(relative), "content-length": String(bytes.byteLength) },
+      body: new Uint8Array(bytes),
+    };
   }
 
   /**
