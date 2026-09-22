@@ -10,7 +10,7 @@ The coding-agents screen now reads like a launcher: an **Installed** section of 
 ## Details
 
 - Discovery can now execute what it finds, opt-in per call: a `--version` run (first output line, 3 s limit) and an auth-status check (`claude auth status`, `codex login status`; exit-code classified) for each detected agent. The screen answers from a cached probe (5 minutes) and the Rescan button refreshes it; the plain read stays cheap.
-- A refresh also opens one throwaway session per runnable candidate to enumerate its advertised ACP config options — the Model dropdown on each card is populated from what the agent itself reports, bounded by a probe timeout.
+- A refresh also opens one throwaway session per agent to enumerate its advertised ACP config options — the Model dropdown on each card is populated from what the agent itself reports, bounded by a probe timeout. Saved definitions are probed at their own command (that is what their sessions actually run); a recipe launch is probed only for a detected agent with nothing saved over it, so a rescan never executes an adapter for an agent that is not installed.
 - The model picked on a card (or inside a session) is remembered per agent and auto-applied to that agent's future sessions; a non-admin sees the model but cannot change it.
 - Starting a session for a detected-but-unsaved agent auto-persists the definition derived from the built-in recipe and the machine's own probe — no user-supplied fields — while the admin gate still guards arbitrary definitions.
 

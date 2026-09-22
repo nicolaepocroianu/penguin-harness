@@ -21,6 +21,12 @@ const configOptions = [
       { value: "fast", name: "Fast" },
     ],
   },
+  {
+    id: "plan",
+    name: "Planning",
+    type: "boolean",
+    currentValue: false,
+  },
 ];
 
 const app = agent({ name: "fake-agent-test" })

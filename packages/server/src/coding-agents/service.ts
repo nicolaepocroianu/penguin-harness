@@ -34,6 +34,7 @@ import path from "node:path";
 import type {
   CodingAgentConfigOption,
   CodingAgentDiscoveryCandidate,
+  CodingAgentDiscoveryResponse,
   CodingAgentServerInfo,
   CodingAgentSessionDetailResponse,
   CodingAgentSessionInfo,
@@ -65,7 +66,11 @@ export class CodingAgentService implements CodingAgents {
 
   private manager: CodingAgentManager | null = null;
   private readonly unbridges = new Map<string, () => void>();
-  private discoveryCache: { at: number; candidates: AgentDiscoveryCandidate[] } | null = null;
+  private discoveryCache: {
+    at: number;
+    candidates: AgentDiscoveryCandidate[];
+    agentModels: Record<string, CodingAgentConfigOption[]>;
+  } | null = null;
 
   private getManager(): CodingAgentManager {
     if (this.manager === null) {
@@ -94,10 +99,10 @@ export class CodingAgentService implements CodingAgents {
   async discoverAgents(
     refresh = false,
     probeTimeoutMs?: number,
-  ): Promise<CodingAgentDiscoveryCandidate[]> {
+  ): Promise<CodingAgentDiscoveryResponse> {
     const cached = this.discoveryCache;
     if (!refresh && cached !== null && Date.now() - cached.at < DISCOVERY_CACHE_TTL_MS) {
-      return this.annotate(cached.candidates);
+      return { candidates: this.annotate(cached.candidates), agentModels: cached.agentModels };
     }
     const candidates = await discoverKnownAgents({
       env: process.env,
@@ -105,34 +110,38 @@ export class CodingAgentService implements CodingAgents {
       // Live probes (versions, auth) only on refresh: they execute the found CLIs.
       probe: refresh,
     });
+    let agentModels: Record<string, CodingAgentConfigOption[]> = {};
     if (refresh) {
-      // The card's Model dropdown needs each runnable agent's advertised options:
-      // one throwaway session per candidate, best-effort.
-      await Promise.all(
-        candidates.map(async (candidate) => {
-          if (candidate.launch === null) return;
-          try {
-            const models = await probeAgentOptions({
+      // The card's Model dropdown needs each runnable agent's advertised options: one
+      // throwaway session per agent, best-effort. A saved definition is authoritative
+      // for its id and is probed at its own command — its sessions run that command,
+      // not the recipe's suggestion. A recipe launch is probed only for a detected
+      // candidate with nothing saved over it: probing an npx fallback otherwise
+      // installs-and-runs an adapter for an agent that is not even installed.
+      const definitions = this.loadDefinitions();
+      const saved = new Set(definitions.map((d) => d.id));
+      await Promise.all([
+        ...definitions.map(async (definition) => {
+          const models = await this.probeOptions(definition, probeTimeoutMs);
+          if (models.length > 0) agentModels[definition.id] = models;
+        }),
+        ...candidates.map(async (candidate) => {
+          if (saved.has(candidate.recipeId)) return;
+          if (!candidate.detected || candidate.launch === null) return;
+          const models = await this.probeOptions(
+            {
+              id: candidate.recipeId,
               command: candidate.launch.command,
               args: candidate.launch.args,
-              env: this.envFor({
-                id: candidate.recipeId,
-                command: candidate.launch.command,
-                args: candidate.launch.args,
-              }),
-              clientInfo: { name: "penguin", version: VERSION },
-              ...(probeTimeoutMs !== undefined ? { timeoutMs: probeTimeoutMs } : {}),
-            });
-            if (models.length > 0) candidate.models = models;
-          } catch {
-            // An agent that will not answer a probe is not broken; its session will
-            // surface what went wrong.
-          }
+            },
+            probeTimeoutMs,
+          );
+          if (models.length > 0) candidate.models = models;
         }),
-      );
-      this.discoveryCache = { at: Date.now(), candidates };
+      ]);
+      this.discoveryCache = { at: Date.now(), candidates, agentModels };
     }
-    return this.annotate(candidates);
+    return { candidates: this.annotate(candidates), agentModels };
   }
 
   saveAgent(input: unknown): CodingAgentServerInfo {
@@ -183,11 +192,17 @@ export class CodingAgentService implements CodingAgents {
       // derived entirely from the built-in recipe plus the machine's own probe results
       // (no user-supplied fields), so this adds no authority the discover endpoint
       // did not already expose.
-      definition = await this.definitionForKnownAgent(agentId);
-      if (definition === undefined) {
+      const derived = await this.definitionForKnownAgent(agentId);
+      if (derived === undefined) {
         throw new AcpAgentError(`unknown agent: ${agentId}`);
       }
-      this.persistDefinitions([...this.loadDefinitions(), definition]);
+      // Filter by id first (saveAgent does the same): interleaved starts of the same
+      // detected-but-unsaved agent must not append the definition twice.
+      this.persistDefinitions([
+        ...this.loadDefinitions().filter((d) => d.id !== derived.id),
+        derived,
+      ]);
+      definition = derived;
     }
     const home = agentHome(this.config.root, agentId);
     await fs.mkdir(home, { recursive: true, mode: 0o700 });
@@ -248,16 +263,16 @@ export class CodingAgentService implements CodingAgents {
     value: boolean | string,
   ): Promise<void> {
     await this.getManager().setConfigOption(sessionId, configId, value);
-    // What the user picked in a session becomes the agent's remembered model, applied
-    // to its future sessions.
+    // What the user picked for the option the card would render as the Model becomes
+    // the agent's remembered model — any other session setting must not clobber it.
+    // The option is computed exactly as the card computes its Model dropdown.
     const view = this.getManager().sessionView(sessionId);
     if (view === undefined) return;
-    const option = view.configOptions.find((o) => o.id === configId);
-    this.setAgentModel(view.definitionId, {
-      configId,
-      value,
-      ...(option !== undefined ? { name: option.name } : {}),
-    });
+    const modelOption =
+      view.configOptions.find((o) => o.category === "model" && o.type === "select") ??
+      view.configOptions.find((o) => o.type === "select");
+    if (modelOption === undefined || modelOption.id !== configId) return;
+    this.setAgentModel(view.definitionId, { configId, value, name: modelOption.name });
   }
 
   /** Right after session/new: the agent's remembered model, best-effort. */
@@ -284,6 +299,28 @@ export class CodingAgentService implements CodingAgents {
   }
 
   // --- internals ---------------------------------------------------------------------------
+
+  /**
+   * One throwaway probe session at the definition's own command; empty when the agent
+   * will not answer — a failed probe is not a broken agent, its session will surface
+   * what went wrong.
+   */
+  private async probeOptions(
+    definition: AgentServerDefinition,
+    probeTimeoutMs: number | undefined,
+  ): Promise<CodingAgentConfigOption[]> {
+    try {
+      return await probeAgentOptions({
+        command: definition.command,
+        args: definition.args ?? [],
+        env: this.envFor(definition),
+        clientInfo: { name: "penguin", version: VERSION },
+        ...(probeTimeoutMs !== undefined ? { timeoutMs: probeTimeoutMs } : {}),
+      });
+    } catch {
+      return [];
+    }
+  }
 
   /** Merge the per-request facts (saved state, remembered model) into a discovery answer. */
   private annotate(candidates: AgentDiscoveryCandidate[]): CodingAgentDiscoveryCandidate[] {

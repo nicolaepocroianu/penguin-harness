@@ -68,15 +68,13 @@ export function codingAgentsRoutes(deps: CodingAgentsRouteDeps): Hono<AppEnv> {
 
   app.get("/agents", (c) => c.json({ agents: deps.codingAgents.listAgents() }));
 
-  // Discovery names what is installed on the server machine — host reconnaissance the
-  // definitions themselves never reveal — so writes behind it (refresh, model choice)
-  // stay behind the same admin gate as the definitions. GET answers from the cache
-  // (cheap fs tier on a miss); Rescan runs the live probes.
+  // The cached discovery read backs the card view every authenticated user already gets
+  // (GET /agents and POST /sessions are any-user routes): it executes nothing, answering
+  // from the last refresh's cache (cheap fs tier on a miss). Everything that executes an
+  // agent or writes — the live refresh, model choice, the definitions themselves — stays
+  // behind the admin gate.
   app.get("/discover", async (c) => {
-    if (!c.var.user.isAdmin) {
-      throw new HttpError(403, "forbidden", "Admin access is required.");
-    }
-    return c.json({ candidates: await deps.codingAgents.discoverAgents(false) });
+    return c.json(await deps.codingAgents.discoverAgents(false));
   });
 
   app.post("/discover/refresh", async (c) => {
@@ -93,9 +91,7 @@ export function codingAgentsRoutes(deps: CodingAgentsRouteDeps): Hono<AppEnv> {
       }
       probeTimeoutMs = parsed;
     }
-    return c.json({
-      candidates: await deps.codingAgents.discoverAgents(true, probeTimeoutMs),
-    });
+    return c.json(await deps.codingAgents.discoverAgents(true, probeTimeoutMs));
   });
 
   app.put("/agents/:agentId/model", async (c) => {

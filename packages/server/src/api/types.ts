@@ -4894,6 +4894,11 @@ export interface CodingAgentModelRequest {
 
 export interface CodingAgentDiscoveryResponse {
   candidates: CodingAgentDiscoveryCandidate[];
+  /**
+   * Probed config options keyed by agent id, for saved definitions probed at their own
+   * command (refresh only — a recipe's probe rides the candidate's own `models`).
+   */
+  agentModels: Record<string, CodingAgentConfigOption[]>;
 }
 
 /** POST /coding-agents/agents body: a full definition; `env` is write-only (never listed back). */

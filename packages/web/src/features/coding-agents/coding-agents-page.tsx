@@ -95,12 +95,19 @@ export function CodingAgentsPage() {
   const [launchFor, setLaunchFor] = useState<string | null>(null);
   const [removing, setRemoving] = useState<CodingAgentServerInfo | null>(null);
   const [candidates, setCandidates] = useState<CodingAgentDiscoveryCandidate[] | null>(null);
+  const [agentModels, setAgentModels] = useState<Record<string, CodingAgentConfigOption[]>>({});
   const [scanning, setScanning] = useState(false);
 
   const loadCandidates = useCallback(() => {
     discoverCodingAgents()
-      .then((res) => setCandidates(res.candidates))
-      .catch(() => setCandidates(null));
+      .then((res) => {
+        setCandidates(res.candidates);
+        setAgentModels(res.agentModels);
+      })
+      .catch(() => {
+        setCandidates(null);
+        setAgentModels({});
+      });
   }, []);
   useEffect(() => {
     loadCandidates();
@@ -109,20 +116,25 @@ export function CodingAgentsPage() {
   const rescan = () => {
     setScanning(true);
     refreshCodingAgents()
-      .then((res) => setCandidates(res.candidates))
+      .then((res) => {
+        setCandidates(res.candidates);
+        setAgentModels(res.agentModels);
+      })
       .catch((e: unknown) => toastError(apiErrorText(e)))
       .finally(() => setScanning(false));
   };
 
   // Merge probed recipes with saved definitions: a definition's command is authoritative
-  // over the recipe's suggestion, custom definitions become their own cards.
+  // over the recipe's suggestion, custom definitions become their own cards. "Usable"
+  // gates on `detected` — an npx-run adapter can resolve while the agent itself is
+  // absent, and a launch alone never proves the agent is installed.
   const installed: AgentCardModel[] = [];
   const available: AgentCardModel[] = [];
   const seenRecipes = new Set<string>();
   for (const candidate of candidates ?? []) {
     seenRecipes.add(candidate.recipeId);
     const definition = agents.find((a) => a.id === candidate.recipeId);
-    const usable = candidate.detected || candidate.launch !== null || definition !== undefined;
+    const usable = candidate.detected || definition !== undefined;
     const card: AgentCardModel = {
       key: `recipe:${candidate.recipeId}`,
       agentId: candidate.recipeId,
@@ -138,7 +150,9 @@ export function CodingAgentsPage() {
       setupHint:
         candidate.launch === null ? (candidate.setupHint ?? S.codingAgents.setupRequired) : null,
       homepageUrl: candidate.homepageUrl,
-      models: candidate.models,
+      // A saved definition's own probe wins over the recipe's: its sessions run the
+      // saved command, so its dropdown shows what that command advertises.
+      models: agentModels[candidate.recipeId] ?? candidate.models,
       rememberedModel: definition?.rememberedModel ?? candidate.rememberedModel ?? null,
     };
     (usable ? installed : available).push(card);
@@ -151,6 +165,7 @@ export function CodingAgentsPage() {
       title: agent.title ?? agent.id,
       commandLine: [agent.command, ...agent.args].join(" "),
       saved: true,
+      models: agentModels[agent.id],
       rememberedModel: agent.rememberedModel ?? null,
     });
   }
@@ -266,7 +281,7 @@ export function CodingAgentsPage() {
 
       <AddAgentModal open={addOpen} onClose={() => setAddOpen(false)} onSaved={reload} />
       <LaunchModal
-        agents={agents}
+        cards={installed}
         initialAgentId={launchFor}
         onClose={() => setLaunchFor(null)}
         onCreated={reload}
@@ -387,9 +402,14 @@ function AgentCard({
           ) : null}
         </div>
         <div className="flex shrink-0 gap-2">
-          <Button size="sm" onClick={onNewSession}>
-            {S.codingAgents.newSession}
-          </Button>
+          {/* Startable needs a runnable entrypoint: a saved definition always has its
+              own command; a recipe needs its launch (an installed-but-adapterless agent
+              would only 400 at start). */}
+          {card.saved || card.commandLine !== "" ? (
+            <Button size="sm" onClick={onNewSession}>
+              {S.codingAgents.newSession}
+            </Button>
+          ) : null}
           {card.saved && isAdmin ? (
             <Button size="sm" variant="danger" onClick={onRemove}>
               {S.codingAgents.removeAgent}
@@ -912,17 +932,19 @@ function AddAgentModal({
 }
 
 /**
- * Start a session: pick a saved agent, optionally pick a folder. An empty folder is the
- * same contract chat has — the server auto-creates a temporary workspace — so starting
- * is one click, and the folder browser is there for when a specific checkout matters.
+ * Start a session: pick one of the page's installed agents — a saved definition, or a
+ * detected-but-unsaved recipe (the server persists the recipe-derived definition on
+ * start) — and optionally pick a folder. An empty folder is the same contract chat has
+ * — the server auto-creates a temporary workspace — so starting is one click, and the
+ * folder browser is there for when a specific checkout matters.
  */
 function LaunchModal({
-  agents,
+  cards,
   initialAgentId,
   onClose,
   onCreated,
 }: {
-  agents: CodingAgentServerInfo[];
+  cards: AgentCardModel[];
   initialAgentId: string | null;
   onClose: () => void;
   onCreated: () => void;
@@ -937,11 +959,19 @@ function LaunchModal({
       setWorkspace("");
     }
   }, [initialAgentId]);
-  const agent = agents.find((a) => a.id === agentId) ?? null;
+  // Only startable cards are offered: a saved definition always has its own command, a
+  // recipe needs its launch (an installed-but-adapterless agent would only 400 at start).
+  const startable = useMemo(
+    () => cards.filter((c) => c.saved || c.commandLine !== ""),
+    [cards],
+  );
+  // The preselected id is always the id of one of the startable cards (a card's own New
+  // session opened the modal), so the Select's value always matches a rendered option.
+  const card = startable.find((c) => c.agentId === agentId) ?? null;
   const create = () => {
-    if (agent === null) return;
+    if (card === null) return;
     createCodingAgentSession({
-      agentId: agent.id,
+      agentId: card.agentId,
       ...(workspace.trim() === "" ? {} : { workspaceDir: workspace.trim() }),
     })
       .then(() => {
@@ -961,7 +991,7 @@ function LaunchModal({
           <Button size="sm" onClick={onClose}>
             {S.codingAgents.cancel}
           </Button>
-          <Button size="sm" variant="primary" disabled={agent === null} onClick={create}>
+          <Button size="sm" variant="primary" disabled={card === null} onClick={create}>
             {S.codingAgents.startSession}
           </Button>
         </>
@@ -970,20 +1000,20 @@ function LaunchModal({
       <div className="space-y-3">
         <Field label={S.codingAgents.agentLabel} required>
           <Select size="sm" value={agentId} onChange={(e) => setAgentId(e.target.value)}>
-            {agents.length === 0 ? (
+            {startable.length === 0 ? (
               <option value="">{S.codingAgents.noAgents}</option>
             ) : (
-              agents.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.title ?? a.id}
+              startable.map((c) => (
+                <option key={c.key} value={c.agentId}>
+                  {c.title}
                 </option>
               ))
             )}
           </Select>
         </Field>
-        {agent !== null ? (
+        {card !== null && card.commandLine !== "" ? (
           <div className="truncate font-mono text-xs text-gray-500 dark:text-gray-400">
-            {[agent.command, ...agent.args].join(" ")}
+            {card.commandLine}
           </div>
         ) : null}
         {currentProject !== null ? (
