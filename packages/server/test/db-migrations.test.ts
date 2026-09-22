@@ -21,6 +21,10 @@ import {
   schemaVersion,
 } from "../src/db/migrations.js";
 import { SCHEMA_SQL } from "../src/db/schema.js";
+import { openDatabase } from "../src/db/database.js";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 const sqlite = process.getBuiltinModule("node:sqlite");
 
@@ -920,6 +924,91 @@ describe("rollbackTo", () => {
       expect(() => rollbackTo(db, -1)).toThrow(/negative/);
     } finally {
       db.close();
+    }
+  });
+});
+
+/**
+ * Opening a database that was formed before a migration added a column.
+ *
+ * `openDatabase` runs SCHEMA_SQL and only then migrates, so every statement in SCHEMA_SQL
+ * has to be legal against the OLDEST shape still in the wild — not just the newest.
+ * `CREATE TABLE IF NOT EXISTS` silently does nothing to a table that exists, so a new
+ * column declared inside one never appears, and an index in SCHEMA_SQL covering that
+ * column fails with "no such column" before a single migration has run.
+ *
+ * The rest of this file builds old databases from SCHEMA_SQL and strips what came later,
+ * which is right for testing the migrations but cannot catch this: the tables it builds
+ * always have the CURRENT columns. This one rolls a real database back instead, so the
+ * table shapes are the ones a released build actually wrote.
+ */
+describe("opening a database older than the newest columns", () => {
+  /** A file database left at `version`, the way a server that stopped upgrading left it. */
+  function databaseAt(version: number): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-oldschema-"));
+    const file = path.join(dir, "web.db");
+    const db = new sqlite.DatabaseSync(file);
+    try {
+      db.exec(SCHEMA_SQL);
+      migrate(db);
+      rollbackTo(db, version);
+      expect(schemaVersion(db)).toBe(version);
+    } finally {
+      db.close();
+    }
+    return file;
+  }
+
+  const columns = (db: DatabaseSync, table: string): string[] =>
+    (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name);
+
+  it("opens a database predating the run kind and the product level, and migrates it", () => {
+    // Version 16 is what a build from before this work left behind; it has neither
+    // activity_runs.kind (17) nor activities.product_id (18).
+    const file = databaseAt(16);
+    const db = openDatabase(file);
+    try {
+      expect(schemaVersion(db)).toBe(LATEST_VERSION);
+      expect(columns(db, "activity_runs")).toContain("kind");
+      expect(columns(db, "activities")).toEqual(
+        expect.arrayContaining(["product_id", "display_name", "stable"]),
+      );
+    } finally {
+      db.close();
+      fs.rmSync(path.dirname(file), { recursive: true, force: true });
+    }
+  });
+
+  it("creates the indexes over those columns, which SCHEMA_SQL must not", () => {
+    const file = databaseAt(16);
+    const db = openDatabase(file);
+    try {
+      const indexes = (
+        db.prepare("SELECT name FROM sqlite_master WHERE type = 'index'").all() as {
+          name: string;
+        }[]
+      ).map((row) => row.name);
+      expect(indexes).toContain("idx_activity_runs_kind");
+      expect(indexes).toContain("idx_activities_product");
+    } finally {
+      db.close();
+      fs.rmSync(path.dirname(file), { recursive: true, force: true });
+    }
+  });
+
+  it("opens every version a migration has ever left behind", () => {
+    // The guard generalises: one index added to SCHEMA_SQL over a migration-added column
+    // breaks exactly one of these, and only at the version before that migration.
+    for (const version of MIGRATIONS.map((m) => m.version - 1)) {
+      const file = databaseAt(version);
+      let db;
+      try {
+        db = openDatabase(file);
+        expect(schemaVersion(db), `opening a version ${version} database`).toBe(LATEST_VERSION);
+      } finally {
+        db?.close();
+        fs.rmSync(path.dirname(file), { recursive: true, force: true });
+      }
     }
   });
 });
