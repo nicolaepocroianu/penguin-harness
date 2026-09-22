@@ -37,13 +37,14 @@
  * component state (see onDefaultsChanged) — typed-but-unsent text and staged skills
  * always survive.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import type {
   AgentModelConfigDto,
   AgentSummary,
   ApprovalMode,
   ChatDefaultsDto,
+  ModelInfo,
   ModelRefDto,
   ModelsResponse,
   SessionCreateRequest,
@@ -92,6 +93,7 @@ import { newChatAgentId } from "./new-chat";
 import { effectiveThinkingLevel } from "./thinking-level";
 import { WorkspaceSelect, pillClass } from "./workspace-select";
 import { sameModelRef } from "../models/model-grouping";
+import { codingAgentModelRows, isCodingAgentRow, parseCodingAgentRef } from "./coding-agent-models";
 import { ICON_GAP } from "../../lib/icon-scale";
 
 /** Coalescing window for writing body text to the cache: keystrokes are frequent, so a short batch accumulates before persisting (option changes are still written immediately). */
@@ -107,7 +109,7 @@ const DRAFT_SAVE_DEBOUNCE_MS = 300;
  * failure (private mode) both helpers degrade to "not consumed", and the in-component
  * ref still provides the previous apply-once-per-mount behavior.
  */
-type RouteStateField = "agentId" | "workspace";
+type RouteStateField = "agentId" | "workspace" | "modelRef";
 function loadAppliedRouteKey(field: RouteStateField): string | null {
   try {
     return sessionStorage.getItem(`penguin.chatRouteApplied.${field}`);
@@ -267,6 +269,8 @@ export function DraftView({
   const routeState = location.state as {
     agentId?: string;
     workspace?: string;
+    /** A model (or coding agent) to preselect — the coding-agents screen's "New session". */
+    modelRef?: ModelRefDto;
   } | null;
   const stateAgentId = routeState?.agentId;
   const appliedStateKey = useRef<string | null>(null);
@@ -312,6 +316,42 @@ export function DraftView({
     setWorkspace(stateWorkspace);
   }, [location.key, stateWorkspace]);
 
+  // Explicit model from route state, applied once per location.key like the Workspace above.
+  const stateModelRef = routeState?.modelRef;
+  const appliedModelKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      stateModelRef === undefined ||
+      appliedModelKey.current === location.key ||
+      loadAppliedRouteKey("modelRef") === location.key
+    ) {
+      return;
+    }
+    appliedModelKey.current = location.key;
+    saveAppliedRouteKey("modelRef", location.key);
+    setModelRef(stateModelRef);
+  }, [location.key, stateModelRef]);
+
+  // External coding agents, offered in the same dropdown as models (coding-agent-models.ts).
+  // Best-effort: a server without any leaves the dropdown exactly as it was.
+  const [codingAgentRows, setCodingAgentRows] = useState<ModelInfo[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([api.listCodingAgents(), api.discoverCodingAgents()])
+      .then(([saved, discovered]) => {
+        if (!cancelled) setCodingAgentRows(codingAgentModelRows(saved.agents, discovered));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const pickableModels = useMemo(
+    () => [...(models?.models ?? []), ...codingAgentRows],
+    [models, codingAgentRows],
+  );
+  const codingAgent = parseCodingAgentRef(modelRef);
+
   // Project defaults for Workspace / approval mode: the same apply-once discipline as the
   // route-state effects above, deferred until the defaults resolve. A field is only seeded
   // when nothing with higher precedence claims it — no route override (workspace only), no
@@ -343,6 +383,9 @@ export function DraftView({
   useEffect(() => {
     if (!models) return;
     if (modelRef && models.models.some((m) => sameModelRef(m, modelRef))) return;
+    // A coding agent is judged by the coding-agents server, not the model list, and its rows
+    // may still be loading: keep the pick, and let the send report an agent that is gone.
+    if (modelRef && isCodingAgentRow(modelRef)) return;
     const first = models.models[0];
     setModelRef(
       models.defaultModel ?? (first ? { provider: first.provider, modelId: first.modelId } : null),
@@ -639,6 +682,49 @@ export function DraftView({
     setApprovalMode(mode);
   }, []);
 
+  /**
+   * The first message to a coding agent: its session opens in the chosen Workspace (empty is
+   * a temporary one, as for a model), takes the picked model if any, and gets the text; the
+   * conversation then continues on the coding-agents screen, which renders its transcript,
+   * tool calls and permission asks. Images are not sent — the text is.
+   */
+  const sendToCodingAgent = useCallback(
+    async (
+      target: NonNullable<ReturnType<typeof parseCodingAgentRef>>,
+      input: TaskInputPart[],
+    ): Promise<boolean> => {
+      const text = input
+        .flatMap((part) => (part.type === "text" ? [part.text] : []))
+        .join("\n")
+        .trim();
+      if (!text) {
+        toastError(S.chat.codingAgentTextOnly);
+        return false;
+      }
+      try {
+        const { session } = await api.createCodingAgentSession({
+          agentId: target.agentId,
+          ...(workspace.trim() ? { workspaceDir: workspace.trim() } : {}),
+        });
+        if (target.model)
+          await api
+            .setCodingAgentSessionConfig(session.sessionId, {
+              configId: target.model.configId,
+              value: target.model.value,
+            })
+            .catch(() => undefined);
+        await api.promptCodingAgentSession(session.sessionId, { text });
+        discardDraft();
+        navigate("/coding-agents", { state: { sessionId: session.sessionId } });
+        return true;
+      } catch (e) {
+        toastError(apiErrorText(e));
+        return false;
+      }
+    },
+    [workspace, discardDraft, navigate],
+  );
+
   // Synchronous in-flight guard for the one send entry point (the composer): a second
   // submission while one is running would create a second Session with its own first task and
   // a racing navigation. A ref rather than state — the composer disables its own send button
@@ -650,7 +736,16 @@ export function DraftView({
   // failure, so the input area keeps the draft and can resend.
   const onSend = useCallback(
     async (input: TaskInputPart[], goal: { budget: number } | null = null): Promise<boolean> => {
-      if (!agentId || sendingRef.current) return false;
+      if (sendingRef.current) return false;
+      if (codingAgent) {
+        sendingRef.current = true;
+        try {
+          return await sendToCodingAgent(codingAgent, input);
+        } finally {
+          sendingRef.current = false;
+        }
+      }
+      if (!agentId) return false;
       sendingRef.current = true;
       let createdId: string | null = null;
       try {
@@ -696,6 +791,7 @@ export function DraftView({
       agentId,
       approvalMode,
       modelRef,
+      codingAgent,
       workspace,
       cached.source,
       add,
@@ -780,7 +876,7 @@ export function DraftView({
           onSend={onSend}
           onStop={async () => undefined}
           modelRef={modelRef}
-          models={models?.models ?? []}
+          models={pickableModels}
           onChangeModel={setModelRef}
           thinkingLevel={thinkingLevel}
           onChangeThinkingLevel={onChangeThinkingLevel}
@@ -803,7 +899,10 @@ export function DraftView({
 
         {/* Ownership selection right below the card (small pill dropdowns, styled after ChatGPT's project picker button) */}
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <AgentSelect agents={agents} selected={selectedAgent} onSelect={selectAgent} />
+          {/* A coding agent is its own agent: the Penguin Agent picker has nothing to say to it. */}
+          {!codingAgent && (
+            <AgentSelect agents={agents} selected={selectedAgent} onSelect={selectAgent} />
+          )}
           <WorkspaceSelect projectId={projectId} workspace={workspace} onChange={changeWorkspace} />
         </div>
 

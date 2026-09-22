@@ -16,6 +16,7 @@
  * the identity, so a profile that has never dragged a group sees exactly the catalog
  * order. Storage stays out of this module: the caller loads the array and passes it in.
  */
+import { isCodingAgentRow } from "../chat/coding-agent-models";
 import {
   MODEL_PROVIDERS,
   catalogEntryFor,
@@ -368,7 +369,12 @@ export function visibleChatModels<T extends ModelCredentialRowLike>(
     showAll || !ordered.some(hasConfiguredKey)
       ? ordered
       : ordered.filter(
-          (m) => hasConfiguredKey(m) || sameModelRef(m, selected) || sameModelRef(m, defaultModel),
+          (m) =>
+            hasConfiguredKey(m) ||
+            // A coding agent has no key here: its CLI signs in on the server machine itself.
+            isCodingAgentRow(m) ||
+            sameModelRef(m, selected) ||
+            sameModelRef(m, defaultModel),
         );
   return keep.filter((m) => matchesQuery(m, query));
 }

@@ -4,7 +4,7 @@
  * text and thinking streams, tool-call cards, permission asks, mode switches.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigationType } from "react-router";
+import { useLocation, useNavigate, useNavigationType } from "react-router";
 import type {
   CodingAgentConfigOption,
   CodingAgentDiscoveryCandidate,
@@ -16,7 +16,6 @@ import type {
 import {
   answerCodingAgentPermission,
   cancelCodingAgentSession,
-  createCodingAgentSession,
   discoverCodingAgents,
   downloadCodingAgentTranscript,
   promptCodingAgentSession,
@@ -29,11 +28,11 @@ import {
   setCodingAgentSessionConfig,
 } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
+import { CODING_AGENT_PROVIDER } from "../chat/coding-agent-models";
 import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneStrip, type Tone } from "../../lib/tone";
 import { useAuth } from "../../state/auth";
-import { useProject } from "../../state/project";
 import { Button } from "../../components/ui/button";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { Field } from "../../components/ui/field";
@@ -41,7 +40,6 @@ import { GlyphIcon } from "../../components/ui/glyph-icon";
 import { Input, Textarea } from "../../components/ui/input";
 import { Modal } from "../../components/ui/modal";
 import { Select } from "../../components/ui/select";
-import { WorkspaceSelect } from "../chat/workspace-select";
 import { toastError, toastSuccess } from "../../components/ui/toast";
 import { useCodingAgents, useCodingAgentStream } from "./use-coding-agents";
 
@@ -127,7 +125,7 @@ export function CodingAgentsPage() {
     if (next !== null) setSelectedId(next);
   }, [navigationType, requestedSessionId]);
   const [addOpen, setAddOpen] = useState(false);
-  const [launchFor, setLaunchFor] = useState<string | null>(null);
+  const navigate = useNavigate();
   const [removing, setRemoving] = useState<CodingAgentServerInfo | null>(null);
   const [candidates, setCandidates] = useState<CodingAgentDiscoveryCandidate[] | null>(null);
   const [agentModels, setAgentModels] = useState<Record<string, CodingAgentConfigOption[]>>({});
@@ -255,7 +253,13 @@ export function CodingAgentsPage() {
                 key={card.key}
                 card={card}
                 isAdmin={isAdmin}
-                onNewSession={() => setLaunchFor(card.agentId)}
+                // A session starts where every conversation does: a new chat, with this agent
+                // already picked in the model dropdown and the folder optional.
+                onNewSession={() =>
+                  navigate("/chat/new", {
+                    state: { modelRef: { provider: CODING_AGENT_PROVIDER, modelId: card.agentId } },
+                  })
+                }
                 onRemove={() => {
                   const agent = agents.find((a) => a.id === card.agentId);
                   if (agent !== undefined) setRemoving(agent);
@@ -315,12 +319,6 @@ export function CodingAgentsPage() {
       />
 
       <AddAgentModal open={addOpen} onClose={() => setAddOpen(false)} onSaved={reload} />
-      <LaunchModal
-        cards={installed}
-        initialAgentId={launchFor}
-        onClose={() => setLaunchFor(null)}
-        onCreated={reload}
-      />
       <ConfirmModal
         open={removing !== null}
         title={S.codingAgents.removeConfirmTitle}
@@ -1064,109 +1062,6 @@ function AddAgentModal({
         <Field label={S.codingAgents.envLabel} hint={S.codingAgents.envHint}>
           <Textarea size="sm" value={env} onChange={(e) => setEnv(e.target.value)} />
         </Field>
-      </div>
-    </Modal>
-  );
-}
-
-/**
- * Start a session: pick one of the page's installed agents — a saved definition, or a
- * detected-but-unsaved recipe (the server persists the recipe-derived definition on
- * start) — and optionally pick a folder. An empty folder is the same contract chat has
- * — the server auto-creates a temporary workspace — so starting is one click, and the
- * folder browser is there for when a specific checkout matters.
- */
-function LaunchModal({
-  cards,
-  initialAgentId,
-  onClose,
-  onCreated,
-}: {
-  cards: AgentCardModel[];
-  initialAgentId: string | null;
-  onClose: () => void;
-  onCreated: () => void;
-}) {
-  const { currentProject } = useProject();
-  const [agentId, setAgentId] = useState("");
-  const [workspace, setWorkspace] = useState("");
-  // Re-open resets the picker to the row that launched it (or the first agent).
-  useEffect(() => {
-    if (initialAgentId !== null) {
-      setAgentId(initialAgentId);
-      setWorkspace("");
-    }
-  }, [initialAgentId]);
-  // Only startable cards are offered: a saved definition always has its own command, a
-  // recipe needs its launch (an installed-but-adapterless agent would only 400 at start).
-  const startable = useMemo(
-    () => cards.filter((c) => c.saved || c.commandLine !== ""),
-    [cards],
-  );
-  // The preselected id is always the id of one of the startable cards (a card's own New
-  // session opened the modal), so the Select's value always matches a rendered option.
-  const card = startable.find((c) => c.agentId === agentId) ?? null;
-  const create = () => {
-    if (card === null) return;
-    createCodingAgentSession({
-      agentId: card.agentId,
-      ...(workspace.trim() === "" ? {} : { workspaceDir: workspace.trim() }),
-    })
-      .then(() => {
-        onCreated();
-        setWorkspace("");
-        onClose();
-      })
-      .catch((e: unknown) => toastError(apiErrorText(e)));
-  };
-  return (
-    <Modal
-      open={initialAgentId !== null}
-      title={S.codingAgents.newSession}
-      onClose={onClose}
-      footer={
-        <>
-          <Button size="sm" onClick={onClose}>
-            {S.codingAgents.cancel}
-          </Button>
-          <Button size="sm" variant="primary" disabled={card === null} onClick={create}>
-            {S.codingAgents.startSession}
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-3">
-        <Field label={S.codingAgents.agentLabel} required>
-          <Select size="sm" value={agentId} onChange={(e) => setAgentId(e.target.value)}>
-            {startable.length === 0 ? (
-              <option value="">{S.codingAgents.noAgents}</option>
-            ) : (
-              startable.map((c) => (
-                <option key={c.key} value={c.agentId}>
-                  {c.title}
-                </option>
-              ))
-            )}
-          </Select>
-        </Field>
-        {card !== null && card.commandLine !== "" ? (
-          <div className="truncate font-mono text-xs text-gray-500 dark:text-gray-400">
-            {card.commandLine}
-          </div>
-        ) : null}
-        {currentProject !== null ? (
-          <WorkspaceSelect
-            projectId={currentProject.projectId}
-            workspace={workspace}
-            onChange={setWorkspace}
-            variant="form"
-            fieldLabel={S.codingAgents.workspaceLabel}
-          />
-        ) : (
-          <Field label={S.codingAgents.workspaceLabel} hint={S.codingAgents.workspaceHint}>
-            <Input size="sm" value={workspace} onChange={(e) => setWorkspace(e.target.value)} />
-          </Field>
-        )}
       </div>
     </Modal>
   );

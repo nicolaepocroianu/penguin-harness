@@ -274,14 +274,10 @@ export type Strings = {
     save: string;
     cancel: string;
     newSession: string;
-    agentLabel: string;
     configOn: string;
     configOff: string;
     sessionsTitle: string;
     noSessions: string;
-    workspaceLabel: string;
-    workspaceHint: string;
-    startSession: string;
     endSession: string;
     busy: string;
     idle: string;
@@ -1474,6 +1470,7 @@ export type Strings = {
     newSessionMenu: string;
     chooseAgent: string;
     chooseModel: string;
+    codingAgentTextOnly: string;
     thinkingLevel: string;
     thinkingLevelNames: Readonly<Record<string, string>>;
     thinkingLevelMenuName: (name: string, level: string) => string;

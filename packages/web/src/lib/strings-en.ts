@@ -349,14 +349,10 @@ export const en: Strings = {
     save: "Save",
     cancel: "Cancel",
     newSession: "New session",
-    agentLabel: "Agent",
     configOn: "On",
     configOff: "Off",
     sessionsTitle: "Sessions",
     noSessions: "No coding-agent sessions yet.",
-    workspaceLabel: "Workspace folder",
-    workspaceHint: "The folder the agent works in. Left empty, a temporary workspace is created.",
-    startSession: "Start session",
     endSession: "End session",
     busy: "Working…",
     idle: "Idle",
@@ -2247,6 +2243,7 @@ export const en: Strings = {
     newSessionMenu: "New chat",
     chooseAgent: "Choose agent",
     chooseModel: "Choose model",
+    codingAgentTextOnly: "A coding agent takes text. Type a message to start it.",
     thinkingLevel: "Thinking level",
     /** Tier names for the thinking-level controls: the wire value itself, so the label names the value actually sent (per maintainer request). `none` exists purely to display a stored legacy value — it is never offered as a choice (many models cannot disable thinking). */
     thinkingLevelNames: {
