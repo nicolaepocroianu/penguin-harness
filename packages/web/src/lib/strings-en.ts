@@ -242,6 +242,13 @@ export const en: Strings = {
     previewTitle: "Preview",
     previewHelp:
       "Runs the assembled module in place; Reload picks up a rebuilt module. Scene and language overrides apply to modules assembled after this feature shipped — older previews ignore them and can always be opened in a new tab.",
+    sandboxTitle: "Module build",
+    sandboxHelp:
+      "The harness's own build of this activity's module, separate from the bundle an assembly agent produced. Build runs the module's toolchain and reports its output, so a build that fails is visible rather than a preview that never appears.",
+    sandboxBuild: "Build module",
+    sandboxBuilding: "Building…",
+    sandboxRefresh: "Refresh",
+    sandboxLog: "Build output",
     previewScene: "Start scene",
     previewSceneDefault: "Module default",
     previewLanguageDefault: "Default language",

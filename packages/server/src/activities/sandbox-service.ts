@@ -38,6 +38,7 @@ import {
   sandboxModuleRoot,
   sandboxStatus,
   withinRoot,
+  type SandboxBuildReport,
   type SandboxStatus,
 } from "./sandbox-paths.js";
 
@@ -86,17 +87,7 @@ export interface SandboxMediaResponse {
   body?: Opaque<"Uint8Array", Uint8Array>;
 }
 
-export interface SandboxBuildReport {
-  ok: boolean;
-  /** True when this request joined a build already running. */
-  joined: boolean;
-  /** True when nothing was built because the module was already current. */
-  skipped: boolean;
-  /** One line an author can act on. */
-  message: string;
-  /** The build's own output, kept whole. */
-  log: string;
-}
+export type { SandboxBuildReport };
 
 export interface PayloadOptions {
   languageCode?: string | null;

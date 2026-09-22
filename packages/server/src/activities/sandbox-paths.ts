@@ -44,6 +44,19 @@ export function withinRoot(root: string, relative: string): string | null {
   return target;
 }
 
+/** What the web client is told about a build it asked for. */
+export interface SandboxBuildReport {
+  ok: boolean;
+  /** True when this request joined a build already running. */
+  joined: boolean;
+  /** True when nothing was built because the module was already current. */
+  skipped: boolean;
+  /** One line an author can act on. */
+  message: string;
+  /** The build's own output, kept whole. */
+  log: string;
+}
+
 /** What the web client is told about a preview. */
 export interface SandboxStatus {
   state: PreviewState;
