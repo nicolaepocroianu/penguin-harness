@@ -19,7 +19,14 @@ import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { MessageStream } from "../chat/message-stream";
-import { focusLabel, followUpText, latestConversation, type AssistFocus } from "./conversation";
+import {
+  conversationThreads,
+  focusLabel,
+  followUpText,
+  latestConversation,
+  type AssistFocus,
+} from "./conversation";
+import { Select } from "../../components/ui/select";
 import type { ProposalBase, ProposalChange } from "./proposal";
 import { ProposalCard } from "./proposal-card";
 import type { ProposalRead } from "./use-assist-proposal";
@@ -42,6 +49,7 @@ export function ConversationPanel({
   onSeedTaken,
   onApplyAll,
   onDiscard,
+  onThread,
 }: {
   /** The activity's API path. */
   endpoint: string;
@@ -69,15 +77,22 @@ export function ConversationPanel({
   onApplyAll?: () => Promise<void>;
   /** Set the newest conversation's proposal aside. */
   onDiscard?: () => Promise<void>;
+  /** The conversation now open, so the page reads that one's proposal; null for a new one. */
+  onThread?: (runId: string | null) => void;
 }) {
   const latest = latestConversation(runs);
+  const threads = conversationThreads(runs);
   // Undefined follows the newest conversation; null is a fresh one the next message starts.
   const [choice, setChoice] = useState<string | null | undefined>(undefined);
   const sessionId = choice === undefined ? (latest?.sessionId ?? null) : choice;
   const run = sessionId ? runs.find((entry) => entry.sessionId === sessionId) : undefined;
   const startedRunning = run?.status === "running" ? "running" : "idle";
+  const openRun = run?.runId ?? null;
+  useEffect(() => onThread?.(openRun), [openRun, onThread]);
   return (
     <Conversation
+      threads={threads}
+      onChooseThread={(id) => setChoice(id)}
       // A different Session is a different transcript; nothing of the last one carries over.
       key={sessionId ?? "fresh"}
       sessionId={sessionId}
@@ -123,7 +138,12 @@ function Conversation({
   onFresh,
   onSession,
   onStarted,
+  threads,
+  onChooseThread,
 }: {
+  threads: readonly ActivityRunSummary[];
+  /** Open another conversation by its Session; null starts a new one. */
+  onChooseThread: (sessionId: string | null) => void;
   sessionId: string | null;
   base: ProposalBase;
   dirty: boolean;
@@ -204,18 +224,37 @@ function Conversation({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {sessionId && (
+      {(sessionId || threads.length > 0) && (
         <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-2 text-sm dark:border-gray-800">
-          <Link
-            to={`/chat/${encodeURIComponent(sessionId)}`}
-            className="text-brand-600 hover:text-brand-700 dark:text-brand-300"
-          >
-            {words.openInChat}
-          </Link>
-          <span className="flex-1" />
-          <Button size="sm" variant="ghost" onClick={onFresh} disabled={sending}>
-            {words.fresh}
-          </Button>
+          <div className="min-w-0 flex-1">
+            <Select
+              size="sm"
+              aria-label={words.threads}
+              value={sessionId ?? ""}
+              disabled={sending}
+              onChange={(event) =>
+                event.target.value ? onChooseThread(event.target.value) : onFresh()
+              }
+            >
+              <option value="">{words.fresh}</option>
+              {threads.map((thread) => (
+                <option key={thread.runId} value={thread.sessionId!}>
+                  {words.thread(
+                    focusLabel(thread.assist?.focus ?? null),
+                    new Date(thread.createdAt).toLocaleString(),
+                  )}
+                </option>
+              ))}
+            </Select>
+          </div>
+          {sessionId && (
+            <Link
+              to={`/chat/${encodeURIComponent(sessionId)}`}
+              className="shrink-0 text-brand-600 hover:text-brand-700 dark:text-brand-300"
+            >
+              {words.openInChat}
+            </Link>
+          )}
         </div>
       )}
       <div className="min-h-0 flex-1">

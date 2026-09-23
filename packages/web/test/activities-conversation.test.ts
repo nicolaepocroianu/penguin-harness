@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
 import {
+  conversationThreads,
   focusFor,
   focusLabel,
   followUpText,
@@ -27,6 +28,17 @@ describe("conversation panel", () => {
       run("unstarted", "assist", "2026-09-23T11:00:00Z", null),
     ];
     expect(latestConversation(runs)!.runId).toBe("new");
+  });
+
+  it("lists every conversation with a session, newest first, as threads", () => {
+    const runs = [
+      run("spec", "spec", "2026-09-23T10:00:00Z", "s-spec"),
+      run("old", "assist", "2026-09-20T10:00:00Z", "s-old"),
+      run("new", "assist", "2026-09-22T10:00:00Z", "s-new"),
+      run("unstarted", "assist", "2026-09-23T11:00:00Z", null),
+    ];
+    expect(conversationThreads(runs).map((thread) => thread.runId)).toEqual(["new", "old"]);
+    expect(conversationThreads([])).toEqual([]);
   });
 
   it("focuses an asset only while the scenes section shows it", () => {

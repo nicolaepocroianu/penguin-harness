@@ -20,6 +20,13 @@ export interface AssistFocus {
   language?: string;
 }
 
+/** Every conversation about this activity that can be resumed, newest first. */
+export function conversationThreads(runs: readonly ActivityRunSummary[]): ActivityRunSummary[] {
+  return runs
+    .filter((run) => run.kind === "assist" && !!run.sessionId)
+    .sort((left, right) => (left.createdAt < right.createdAt ? 1 : -1));
+}
+
 /** The newest conversation about this activity that can be resumed, if there is one. */
 export function latestConversation(runs: readonly ActivityRunSummary[]): ActivityRunSummary | null {
   let newest: ActivityRunSummary | null = null;

@@ -223,6 +223,8 @@ export const en: Strings = {
       stop: "Stop",
       fresh: "New conversation",
       openInChat: "Open in chat",
+      threads: "Conversation",
+      thread: (about: string, when: string) => `About ${about} · ${when}`,
       empty:
         "Ask about whatever you have open. The agent reads a copy of the activity, so nothing changes until you apply it.",
       readOnly: "Only the project owner can start a conversation here.",

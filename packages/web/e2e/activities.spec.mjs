@@ -2319,3 +2319,56 @@ test("applies a whole proposal at once, and discards one after asking", async ({
   await expect(panel.getByRole("region", { name: "Proposed changes" })).toHaveCount(0);
   expect(f.errors).toEqual([]);
 });
+
+test("the conversation panel lists its threads and shows the open one's proposal", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  const thread = (runId, createdAt, focus) => ({
+    kind: "assist",
+    runId,
+    activityId: "act_test",
+    projectId,
+    sessionId: `session_${runId}`,
+    status: "succeeded",
+    createdAt,
+    inputRevision: "1",
+    hasCandidate: false,
+    error: null,
+    assist: { focus },
+  });
+  const summaries = { run_new: "Newest idea.", run_old: "An older idea." };
+  await page.route("**/*", (route) => {
+    const p = new URL(route.request().url()).pathname;
+    const json = (value) =>
+      route.fulfill({ contentType: "application/json", body: JSON.stringify(value) });
+    if (p === `${base}/act_test/runs` && route.request().method() === "GET")
+      return json({
+        runs: [
+          thread("run_old", "2026-09-20T10:00:00Z", { section: "scenes", sceneId: "intro" }),
+          thread("run_new", "2026-09-22T10:00:00Z", null),
+        ],
+      });
+    const match = p.match(/\/runs\/(run_new|run_old)\/proposal$/);
+    if (match)
+      return json({
+        proposal: {
+          summary: summaries[match[1]],
+          changes: [{ target: "description", text: `${match[1]} script` }],
+        },
+        error: null,
+      });
+    return route.fallback();
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Conversation", exact: true }).click();
+  const panel = page.getByRole("complementary", { name: "Conversation", exact: true });
+  await expect(panel.getByText("Newest idea.", { exact: true })).toBeVisible();
+  const threads = panel.getByRole("button", { name: "Conversation", exact: true });
+  await expect(threads).toContainText("About the whole activity");
+  await threads.click();
+  await page.getByRole("option", { name: /^About scene intro/ }).click();
+  await expect(panel.getByText("An older idea.", { exact: true })).toBeVisible();
+  expect(f.errors).toEqual([]);
+});

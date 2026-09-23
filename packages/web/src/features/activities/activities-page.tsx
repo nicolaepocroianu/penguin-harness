@@ -430,7 +430,13 @@ function ActivityEditor({
       spec !== pretty(detail.draft.spec) ||
       media !== pretty(detail.draft.mediaPlan?.manifest));
   state.current = { dirty, busy, revision: detail?.draft.contentRevision ?? "", available };
-  const proposal = useAssistProposal(endpoint, latestConversation(runs)?.runId ?? null);
+  // The conversation the panel has open, whose proposal the studio shows; until the panel
+  // says otherwise, the newest.
+  const [threadRunId, setThreadRunId] = useState<string | null | undefined>(undefined);
+  const proposal = useAssistProposal(
+    endpoint,
+    threadRunId === undefined ? (latestConversation(runs)?.runId ?? null) : threadRunId,
+  );
   // The proposed script, while it still differs from the saved one.
   const proposedScript = proposal.read?.proposal?.changes.find(
     (change) => change.target === "description",
@@ -953,6 +959,7 @@ function ActivityEditor({
                 proposal.read ? () => applyWholeProposal(proposal.read!.runId) : undefined
               }
               onDiscard={proposal.read ? () => discardProposal(proposal.read!.runId) : undefined}
+              onThread={setThreadRunId}
             />
           ),
         },

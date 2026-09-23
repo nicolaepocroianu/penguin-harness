@@ -187,6 +187,8 @@ export type Strings = {
       stop: string;
       fresh: string;
       openInChat: string;
+      threads: string;
+      thread: (about: string, when: string) => string;
       empty: string;
       readOnly: string;
       noAgent: string;
