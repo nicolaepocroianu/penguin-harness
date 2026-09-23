@@ -155,3 +155,47 @@ export function railWidthAfterKey(width: number, key: string, large = false): nu
   if (key === "End") return RAIL_MAX_WIDTH;
   return null;
 }
+
+/**
+ * The panels the icon rail on the right opens beside the work, in rail order. Loom keeps
+ * these behind a rail of its own so the main panel stays the only large thing on screen.
+ */
+export type StudioPanel = "player" | "sessions";
+export const STUDIO_PANELS: readonly StudioPanel[] = ["player", "sessions"];
+
+/** The icon rail's width and the width of the panel it opens, in pixels. */
+export const STUDIO_RAIL_WIDTH = 44;
+export const SIDE_PANEL_WIDTH = 400;
+
+/**
+ * Whether an open side panel can sit beside the tree and the editor. When it cannot, it
+ * covers the editor instead of squeezing it past the point where the editor still works:
+ * a panel over the work can be closed, a crushed editor cannot be read.
+ */
+export function sidePanelFitsBeside(available: number): boolean {
+  if (!Number.isFinite(available) || available <= 0) return true;
+  return available - STUDIO_RAIL_WIDTH - SIDE_PANEL_WIDTH >= WORKSPACE_TWO_PANE_WIDTH;
+}
+
+export const SIDE_PANEL_KEY = "penguin.activitySidePanel";
+
+/** The panel left open last time, or none; anything unrecognised opens nothing. */
+export function readSidePanel(storage?: Pick<Storage, "getItem">): StudioPanel | null {
+  try {
+    const raw = (storage ?? localStorage).getItem(SIDE_PANEL_KEY);
+    return STUDIO_PANELS.includes(raw as StudioPanel) ? (raw as StudioPanel) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeSidePanel(
+  panel: StudioPanel | null,
+  storage?: Pick<Storage, "setItem">,
+): void {
+  try {
+    (storage ?? localStorage).setItem(SIDE_PANEL_KEY, panel ?? "");
+  } catch {
+    // A remembered panel is a convenience, as the rail width is.
+  }
+}

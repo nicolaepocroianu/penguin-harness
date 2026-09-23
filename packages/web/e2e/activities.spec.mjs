@@ -588,8 +588,24 @@ async function fixture(page) {
  * The activity editor is a workspace: its parts live behind a rail rather than stacked
  * down one page, so a test opens the part it is about before touching it.
  */
+/** The workspace's sections, under the names the Loom-style hierarchy gives them. */
+const TREE_NAMES = {
+  Description: "Activity Script",
+  Specification: "Activity Spec",
+  "Scenes and media": "Scenes",
+  "Speech coverage": "Audios",
+  "Media library": "Media Library",
+  "Module preview": "Module Definition",
+  "Generation history": "Generation History",
+};
+
 async function openSection(page, name) {
-  const button = page.getByRole("button", { name, exact: true });
+  // Level 1: Loom's hierarchy repeats "Audios" as a group inside every scene.
+  const button = page.getByRole("treeitem", {
+    name: TREE_NAMES[name] ?? name,
+    exact: true,
+    level: 1,
+  });
   // On a workspace too narrow for both panes the rail is shut over the work, so its
   // sections are not on the page until it is opened. Wait for one or the other, since
   // an absent button also means the page has not rendered the rail yet.
@@ -1445,10 +1461,10 @@ test("member view is read-only and mobile layout does not overflow", async ({ pa
   await expect(page.getByText("Only the Project owner can edit activities.")).toBeVisible();
   // Too narrow to hold a rail beside the work, so the rail starts shut and the editor
   // keeps the width rather than being squeezed into a sliver beside a menu.
-  await expect(page.locator('nav[aria-label="Activity sections"]')).toHaveCount(0);
+  await expect(page.locator('nav[aria-label="Activity hierarchy"]')).toHaveCount(0);
   await openSection(page, "Description");
   // Choosing a section hands the workspace back instead of leaving the menu over it.
-  await expect(page.locator('nav[aria-label="Activity sections"]')).toHaveCount(0);
+  await expect(page.locator('nav[aria-label="Activity hierarchy"]')).toHaveCount(0);
   await expect(page.getByRole("textbox", { name: "Description", exact: true })).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "Generate specification", exact: true }),
@@ -1460,7 +1476,7 @@ test("member view is read-only and mobile layout does not overflow", async ({ pa
   // window and back must not leave it covering the editor again. The emulated viewport
   // change does not notify the page the way a real window resize does, so the
   // notification is sent by hand.
-  const sections = page.locator('nav[aria-label="Activity sections"]');
+  const sections = page.locator('nav[aria-label="Activity hierarchy"]');
   const resize = async (width) => {
     await page.setViewportSize({ width, height: 844 });
     await page.evaluate(() => window.dispatchEvent(new Event("resize")));

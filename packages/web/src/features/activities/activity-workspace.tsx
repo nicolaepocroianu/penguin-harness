@@ -7,12 +7,23 @@
  * is the same contract the chat page keeps. The divider follows the workspace file
  * browser's: a real `separator` that drags and also moves by keyboard, with its width
  * remembered only on release rather than on every frame.
+ *
+ * On the right, a thin icon rail opens one side panel at a time (the player, the agent
+ * sessions) beside the work, the way Loom's right rail does, so the main panel stays the
+ * only large thing on screen until an author asks for more.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Chevron } from "../../components/ui/chevron";
+import { CloseIcon } from "../../components/ui/icons";
 import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
 import {
+  SIDE_PANEL_WIDTH,
+  STUDIO_RAIL_WIDTH,
+  readSidePanel,
+  sidePanelFitsBeside,
+  writeSidePanel,
+  type StudioPanel,
   RAIL_MAX_WIDTH,
   RAIL_MIN_WIDTH,
   clampRailWidth,
@@ -25,10 +36,20 @@ import {
   writeRailWidth,
 } from "./workspace-model";
 
+/** One entry of the right rail: its icon, and what its panel shows once opened. */
+export interface StudioPanelEntry {
+  key: StudioPanel;
+  label: string;
+  /** A stroke icon path in a 24-unit box. */
+  icon: string;
+  render: () => ReactNode;
+}
+
 export function ActivityWorkspace({
   header,
   notices,
   rail,
+  panels = [],
   children,
 }: {
   header: ReactNode;
@@ -39,8 +60,12 @@ export function ActivityWorkspace({
    * and a choice should hand the workspace back.
    */
   rail: (dismiss: () => void) => ReactNode;
+  /** The panels the right rail offers; none leaves the rail out. */
+  panels?: readonly StudioPanelEntry[];
   children: ReactNode;
 }) {
+  const [panel, setPanel] = useState<StudioPanel | null>(() => readSidePanel());
+  const openPanel = panels.find((entry) => entry.key === panel) ?? null;
   const [width, setWidth] = useState(() => readRailWidth());
   const [collapsed, setCollapsed] = useState(() => readRailCollapsed());
   const [dragging, setDragging] = useState(false);
@@ -71,9 +96,19 @@ export function ActivityWorkspace({
     };
   }, []);
 
-  const beside = railFitsBeside(available);
+  // The side panel takes its width before the tree is measured against what is left, so
+  // opening the player never pushes the tree into its narrow, menu-over-the-work form.
+  const sideBeside = sidePanelFitsBeside(available);
+  const reserved = panels.length
+    ? STUDIO_RAIL_WIDTH + (openPanel && sideBeside ? SIDE_PANEL_WIDTH : 0)
+    : 0;
+  const beside = railFitsBeside(available > 0 ? available - reserved : available);
   const open = beside ? !collapsed : narrowOpen;
-  const applied = !open ? 0 : beside ? railWidthFor(width, available) : available;
+  const applied = !open
+    ? 0
+    : beside
+      ? railWidthFor(width, available - reserved)
+      : available - reserved;
 
   // A drag that never sees its pointerup — the system claiming a touch gesture, or this
   // workspace unmounting mid-drag — would otherwise leave the move listener installed.
@@ -128,6 +163,12 @@ export function ActivityWorkspace({
     writeRailWidth(next);
   }
 
+  function choosePanel(key: StudioPanel) {
+    const next = panel === key ? null : key;
+    setPanel(next);
+    writeSidePanel(next);
+  }
+
   function toggle() {
     if (!beside) {
       setNarrowOpen((current) => !current);
@@ -149,7 +190,7 @@ export function ActivityWorkspace({
           {notices}
         </div>
       )}
-      <div ref={bodyRef} className="flex min-h-0 flex-1">
+      <div ref={bodyRef} className="relative flex min-h-0 flex-1">
         <div
           style={open ? { width: `${applied}px` } : undefined}
           className={`flex min-h-0 shrink-0 flex-col border-gray-200 dark:border-gray-800 ${
@@ -200,6 +241,70 @@ export function ActivityWorkspace({
         )}
         {/* Too narrow for both, and the rail is open: the rail has the workspace. */}
         {(beside || !open) && children}
+        {openPanel && (
+          <aside
+            aria-label={openPanel.label}
+            // Too narrow to sit beside the work: it covers the editor, up to the rail.
+            style={{
+              width: `${SIDE_PANEL_WIDTH}px`,
+              ...(sideBeside ? {} : { right: `${STUDIO_RAIL_WIDTH}px` }),
+            }}
+            className={`flex min-h-0 max-w-full shrink-0 flex-col border-l border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950 ${
+              sideBeside ? "" : "absolute inset-y-0 z-30 shadow-lg"
+            }`}
+          >
+            <div className="flex h-10 shrink-0 items-center gap-2 border-b border-gray-200 px-3 dark:border-gray-800">
+              <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{openPanel.label}</h2>
+              <button
+                type="button"
+                aria-label={S.activities.studioPanels.close}
+                title={S.activities.studioPanels.close}
+                onClick={() => choosePanel(openPanel.key)}
+                className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">{openPanel.render()}</div>
+          </aside>
+        )}
+        {panels.length > 0 && (
+          <nav
+            aria-label={S.activities.studioPanels.rail}
+            style={{ width: `${STUDIO_RAIL_WIDTH}px` }}
+            className="flex shrink-0 flex-col items-center gap-1 border-l border-gray-200 py-2 dark:border-gray-800"
+          >
+            {panels.map((entry) => (
+              <button
+                key={entry.key}
+                type="button"
+                aria-pressed={panel === entry.key}
+                aria-label={entry.label}
+                title={entry.label}
+                onClick={() => choosePanel(entry.key)}
+                className={`flex size-8 items-center justify-center rounded-md ${
+                  panel === entry.key
+                    ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
+                    : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                }`}
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d={entry.icon} />
+                </svg>
+              </button>
+            ))}
+          </nav>
+        )}
       </div>
     </div>
   );

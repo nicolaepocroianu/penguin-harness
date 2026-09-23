@@ -8,6 +8,7 @@ import type { ActivitySandbox } from "./sandbox-service.js";
 import type { Config } from "../hmr/capabilities.js";
 import { hostOnly, requestAuthority, resolvePreviewTarget } from "../services/preview-token.js";
 import { playBase } from "./play-routes.js";
+import { requestOrigin } from "../http/routes/model-oauth.js";
 import { findWafRoot } from "./waf-module.js";
 import { SPEECH_MODEL, SPEECH_VOICES } from "./audio.js";
 import { IMAGE_MODEL } from "./generated-image.js";
@@ -208,11 +209,26 @@ export class ActivityRoutes {
       );
       // No separate preview origin: the page is served on the App's host, sandboxed.
       const host = target?.host ?? hostOnly(requestAuthority(c.req.url, c.req.header("host")));
+      // The origin this author reached the App on: the only one the page may report its
+      // state to. Proxy headers count only where the deployment says a proxy sets them.
+      const parentOrigin = requestOrigin(
+        c.req.url,
+        {
+          ...(c.req.header("x-forwarded-proto") !== undefined
+            ? { proto: c.req.header("x-forwarded-proto")! }
+            : {}),
+          ...(c.req.header("x-forwarded-host") !== undefined
+            ? { host: c.req.header("x-forwarded-host")! }
+            : {}),
+        },
+        this.config.trustProxy,
+      );
       const { token } = await this.sandbox.play(
         projectId,
         pathParam(c, "activityId"),
         host,
         target === null,
+        parentOrigin,
       );
       const query = new URLSearchParams();
       const language = c.req.query("language");

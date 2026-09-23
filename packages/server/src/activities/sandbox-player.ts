@@ -16,8 +16,11 @@ import { createHash } from "node:crypto";
 /**
  * The player's entry, bundled against the framework.
  *
- * Loom's `player.js`, less what only Loom's shell used (interactable highlighting and the
- * state relay to its inspector). What the page needs to know arrives as JSON in
+ * Loom's `player.js`, including its inspector bridge: the page reports the activity's
+ * state and its tap targets to the App that opened it, and outlines a tap target when the
+ * App asks. Loom found the App through `document.referrer`; this page is served with no
+ * referrer, so the App's origin arrives signed in the page's configuration instead, and a
+ * page with none reports nothing. What the page needs to know arrives as JSON in
  * `#penguin-sandbox`, not as query parameters, because the page is the server's to write.
  */
 export const PLAYER_SOURCE = String.raw`
@@ -63,6 +66,85 @@ document.body.addEventListener('keyup', (event) => {
         pubSub.publish('pauseController:togglePause');
     }
 });
+
+// The inspector bridge, as Loom's player has it. The framework announces every state it
+// enters and every change to what can be tapped; both go to the App that opened this page,
+// and to nobody else. The App may ask for one tap target to be outlined, and only the App.
+const ACTIVITY_STATE_EVENT = 'waf:activity-state-change';
+const ACTIVITY_INTERACTABLES_EVENT = 'waf:activity-interactables-change';
+const STATE_MESSAGE = 'penguin-sandbox:activity-state';
+const HIGHLIGHT_MESSAGE = 'penguin-sandbox:highlight-interactable';
+let latestActivityState = null;
+
+function currentInteractables() {
+    try {
+        const inspection = window.Activity && window.Activity.Inspection;
+        return (inspection && inspection.getCurrentState().interactables) || [];
+    } catch (error) {
+        return [];
+    }
+}
+
+function relayActivityState(detail, interactables) {
+    if (!detail || !sandbox.parentOrigin || window.parent === window) return;
+    try {
+        window.parent.postMessage(
+            { type: STATE_MESSAGE, detail: detail, interactables: interactables || [] },
+            sandbox.parentOrigin
+        );
+    } catch (error) {
+        // A value the structured clone cannot carry is the inspector's loss, not the learner's.
+    }
+}
+
+document.addEventListener(
+    ACTIVITY_STATE_EVENT,
+    (event) => {
+        latestActivityState = event.detail;
+        relayActivityState(latestActivityState, currentInteractables());
+    },
+    true
+);
+document.addEventListener(
+    ACTIVITY_INTERACTABLES_EVENT,
+    (event) => relayActivityState(latestActivityState, event.detail),
+    true
+);
+
+window.addEventListener('message', (event) => {
+    const data = event.data;
+    if (!data || data.type !== HIGHLIGHT_MESSAGE) return;
+    if (!sandbox.parentOrigin || event.source !== window.parent || event.origin !== sandbox.parentOrigin) return;
+    if (typeof data.id === 'string' && data.id) highlightInteractable(data.id);
+    else clearInteractableHighlight();
+});
+
+function ensureHighlightStyle() {
+    if (document.getElementById('penguin-highlight-style')) return;
+    const style = document.createElement('style');
+    style.id = 'penguin-highlight-style';
+    style.textContent =
+        '.penguin-highlight { outline: 3px solid #1a73e8 !important; outline-offset: 3px !important; }';
+    (document.head || document.documentElement).appendChild(style);
+}
+
+function clearInteractableHighlight() {
+    const outlined = document.querySelectorAll('.penguin-highlight');
+    for (let i = 0; i < outlined.length; i++) outlined[i].classList.remove('penguin-highlight');
+}
+
+function highlightInteractable(id) {
+    ensureHighlightStyle();
+    clearInteractableHighlight();
+    let escaped = id;
+    try {
+        escaped = window.CSS && window.CSS.escape ? window.CSS.escape(id) : id.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+    } catch (error) {
+        return;
+    }
+    const targets = document.querySelectorAll('[data-interactable-id="' + escaped + '"]');
+    for (let i = 0; i < targets.length; i++) targets[i].classList.add('penguin-highlight');
+}
 
 pubSub.on(Activity.Events.Started, hideLoading);
 
@@ -272,6 +354,8 @@ export interface PlayerPageInput {
   startSceneId: string | null;
   /** When the page's link stops working, epoch milliseconds; null when it does not. */
   expiresAt: number | null;
+  /** The App origin the page reports its state to; null when it reports nothing. */
+  parentOrigin: string | null;
 }
 
 function escapeHtml(value: string): string {

@@ -5,7 +5,6 @@ export type Strings = {
   appName: string;
   activities: {
     mediaLanguage: string;
-    mediaType: string;
     noMediaAssets: string;
     boundMedia: string;
     unboundMedia: string;
@@ -15,7 +14,43 @@ export type Strings = {
     assetPathHint: string;
     sceneAssets: string;
     workspaceRail: string;
-    workspaceSections: string;
+    /** The hierarchy panel, named the way Loom names it. */
+    studioTree: {
+      label: string;
+      rows: Record<
+        | "activityScript"
+        | "activitySpec"
+        | "implementationFeatures"
+        | "configurationData"
+        | "assessmentData"
+        | "moduleDefinition"
+        | "audios"
+        | "scenes"
+        | "unassigned"
+        | "mediaLibrary"
+        | "history",
+        string
+      >;
+      groups: Record<"image" | "video" | "audio" | "animation", string>;
+      fold: (name: string) => string;
+      unfold: (name: string) => string;
+      notYet: string;
+      needsMedia: string;
+    };
+    /** What the playing activity reports about itself, under the player. */
+    studioPlayer: {
+      now: (state: string, scene: string) => string;
+      waiting: string;
+      tapTargets: string;
+    };
+    /** The icon rail on the right and the panels it opens. */
+    studioPanels: {
+      rail: string;
+      close: string;
+      names: Record<"player" | "sessions", string>;
+      sessionsEmpty: string;
+      openSession: string;
+    };
     railCollapse: string;
     railExpand: string;
     railWidth: string;

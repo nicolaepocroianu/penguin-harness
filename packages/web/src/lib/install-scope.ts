@@ -151,6 +151,12 @@ export const KEY_RULES: readonly KeyRule[] = [
   },
   {
     kind: "exact",
+    key: "penguin.activitySidePanel",
+    scope: "browser",
+    why: "Which activity side panel (player, agent sessions) is open; chrome layout, holds no entity.",
+  },
+  {
+    kind: "exact",
     key: "penguin.activityRailCollapsed",
     scope: "browser",
     why: "Whether the activity workspace rail is collapsed; chrome layout, holds no entity.",

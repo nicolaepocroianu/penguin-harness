@@ -8,6 +8,7 @@ import { InfoPopover } from "../../components/ui/info-popover";
 import { Select } from "../../components/ui/select";
 import { fitScale, parseResolution, sceneIds } from "./preview";
 import { canBuild, playUrl, sandboxTone } from "./sandbox";
+import { highlightMessage, readPlayerReport, type PlayerReport } from "./player-bridge";
 
 /**
  * What the harness knows about this activity's module, and the one action an author has.
@@ -159,6 +160,34 @@ function SandboxPlayer({
   const [language, setLanguage] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const boxRef = useRef<HTMLDivElement | null>(null);
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
+  // What the playing activity last reported about itself (see player-bridge.ts), and the
+  // tap target an author asked to see outlined.
+  const [report, setReport] = useState<PlayerReport | null>(null);
+  const [outlined, setOutlined] = useState<string | null>(null);
+  useEffect(() => {
+    if (!playing) return;
+    const receive = (event: MessageEvent) => {
+      const next = readPlayerReport(event.data, event.source, frameRef.current?.contentWindow);
+      if (next) setReport(next);
+    };
+    window.addEventListener("message", receive);
+    return () => window.removeEventListener("message", receive);
+  }, [playing]);
+  // A reload or a different start is a new run of the activity: the last run's state and
+  // outline describe nothing on screen any more.
+  useEffect(() => {
+    setReport(null);
+    setOutlined(null);
+  }, [playing, reloadKey, scene, language]);
+  function outline(id: string) {
+    const next = outlined === id ? null : id;
+    setOutlined(next);
+    // The page may sit on the preview origin or, sandboxed, on no origin at all, so there
+    // is no origin to name. The message is an id and nothing else; the page accepts it
+    // only from this window.
+    frameRef.current?.contentWindow?.postMessage(highlightMessage(next), "*");
+  }
   const [boxWidth, setBoxWidth] = useState(0);
   useLayoutEffect(() => {
     const element = boxRef.current;
@@ -242,6 +271,7 @@ function SandboxPlayer({
             style={{ height: Math.round(viewport.height * scale) }}
           >
             <iframe
+              ref={frameRef}
               key={`${reloadKey}:${url}`}
               src={url}
               title={S.activities.sandboxPlayer}
@@ -254,6 +284,36 @@ function SandboxPlayer({
                 transformOrigin: "top left",
               }}
             />
+          </div>
+          <div className="mt-3 space-y-2 text-sm">
+            <p aria-live="polite" className="text-gray-600 dark:text-gray-300">
+              {report
+                ? S.activities.studioPlayer.now(report.state.state, report.state.sceneId)
+                : S.activities.studioPlayer.waiting}
+            </p>
+            {report && report.interactables.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs text-gray-500">
+                  {S.activities.studioPlayer.tapTargets}
+                </span>
+                {report.interactables.map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    aria-pressed={outlined === entry.id}
+                    title={entry.description ?? entry.id}
+                    onClick={() => outline(entry.id)}
+                    className={`rounded-md border px-2 py-0.5 text-xs ${
+                      outlined === entry.id
+                        ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
+                        : "border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900"
+                    }`}
+                  >
+                    {entry.id}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

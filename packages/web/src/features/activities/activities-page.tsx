@@ -23,14 +23,16 @@ import { Select } from "../../components/ui/select";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { CreateActivityDialog } from "./create-activity-dialog";
 import { ImportDialog } from "./import-dialog";
-import { ActivityRail } from "./activity-rail";
-import { ActivityWorkspace as WorkspaceShell } from "./activity-workspace";
+import { ActivityWorkspace as WorkspaceShell, type StudioPanelEntry } from "./activity-workspace";
 import { AssetEditor } from "./asset-editor";
 import { fileSizeText } from "./media-library";
 import { SpeechCoverage } from "./speech-coverage";
 import { buildSceneTree, filterTree, treeSelections, type SceneAssetType } from "./scene-assets";
 import { firstSelection, sameSelection, type SceneAssetSelection } from "./scene-asset-tree";
 import { resolveSection, workspaceSections, type WorkspaceSection } from "./workspace-model";
+import { buildStudioTree } from "./studio-tree";
+import { StudioTreeView } from "./studio-tree-view";
+import { SessionsPanel } from "./sessions-panel";
 import { ModulePreview } from "./module-preview";
 import { SandboxPanel } from "./sandbox-panel";
 import { sandboxHasModule, type SandboxStatusLike } from "./sandbox";
@@ -637,6 +639,32 @@ function ActivityEditor({
     selected && treeSelections(tree).some((entry) => sameSelection(entry, selected))
       ? selected
       : firstSelection(tree);
+  const languages = Object.keys(detail?.draft.mediaPlan?.manifest.assets ?? {});
+  const panels: StudioPanelEntry[] = detail
+    ? [
+        {
+          key: "player",
+          label: S.activities.studioPanels.names.player,
+          icon: "M8 5v14l11-7z",
+          render: () => (
+            <div className="p-3">
+              <SandboxPanel
+                projectId={projectId}
+                activityId={detail.id}
+                spec={detail.draft.spec}
+                languages={languages}
+              />
+            </div>
+          ),
+        },
+        {
+          key: "sessions",
+          label: S.activities.studioPanels.names.sessions,
+          icon: "M4 5h16v11H9l-5 4z",
+          render: () => <SessionsPanel runs={runs} />,
+        },
+      ]
+    : [];
   if (!detail)
     return (
       <p
@@ -648,6 +676,7 @@ function ActivityEditor({
     );
   return (
     <WorkspaceShell
+      panels={panels}
       header={
         <>
           <Link
@@ -718,25 +747,37 @@ function ActivityEditor({
         </>
       }
       rail={(dismiss) => (
-        <ActivityRail
-          sections={sections}
-          section={section}
-          onSection={(next) => {
-            setSection(next);
-            dismiss();
-          }}
-          languages={Object.keys(editedManifest?.assets ?? {})}
-          tree={tree}
-          language={language}
-          onLanguage={setLanguage}
-          kind={kind}
-          onKind={setKind}
-          selection={selection}
-          onSelect={(next) => {
-            setSelected(next);
-            dismiss();
-          }}
-        />
+        <div className="flex min-h-0 flex-1 flex-col">
+          {Object.keys(editedManifest?.assets ?? {}).length > 1 && (
+            <div className="shrink-0 px-3 pt-2">
+              <Select
+                size="sm"
+                label={S.activities.mediaLanguage}
+                value={language}
+                onChange={(event) => setLanguage(event.target.value)}
+              >
+                {Object.keys(editedManifest?.assets ?? {}).map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
+          <StudioTreeView
+            nodes={buildStudioTree(sections, tree)}
+            section={section}
+            selection={section === "scenes" ? selection : null}
+            onChoose={(target) => {
+              if (target.kind === "section") setSection(target.section);
+              else if (target.kind === "asset") {
+                setSelected(target.selection);
+                setSection("scenes");
+              }
+              dismiss();
+            }}
+          />
+        </div>
       )}
     >
       {section === "scenes" && editedManifest ? (

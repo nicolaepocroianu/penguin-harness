@@ -140,6 +140,12 @@ export interface PlayTarget {
   /** True when that host is the App's own, so the page must be sandboxed off its origin. */
   shared: boolean;
   expiresAt: number;
+  /**
+   * The App origin that asked for the link, which the page reports its state to (see the
+   * player's inspector bridge). Signed with the rest, so a page is never told to talk to
+   * an origin other than the one that opened it. Absent on links minted before it existed.
+   */
+  parentOrigin?: string;
 }
 
 export interface SandboxMediaResponse {
@@ -189,6 +195,8 @@ export abstract class ActivitySandbox extends Interface<{
     activityId: string,
     host: string,
     shared: boolean,
+    /** The App origin asking; the page reports its state there and nowhere else. */
+    parentOrigin?: string,
   ): Promise<{ token: string; expiresAt: number }>;
   /** What a play token grants, or null when it is forged, expired or for another host. */
   verifyPlay(token: string, host: string): PlayTarget | null;
@@ -199,6 +207,8 @@ export abstract class ActivitySandbox extends Interface<{
     options: PayloadOptions,
     /** When the page's link stops working, so the page can say so rather than break. */
     expiresAt: number | null,
+    /** The App origin the page may report its state to; null reports nothing. */
+    parentOrigin?: string | null,
   ): Promise<PlayerPageResult>;
   playerFile(rawPath: string): Promise<SandboxMediaResponse>;
   frameworkFile(
@@ -651,6 +661,7 @@ export class ActivitySandboxService implements ActivitySandbox {
     activityId: string,
     host: string,
     shared: boolean,
+    parentOrigin?: string,
   ): Promise<{ token: string; expiresAt: number }> {
     // Refuses a link to an activity that does not exist while the caller can still be told.
     const activity = await this.activities.getActivity(projectId, activityId);
@@ -660,6 +671,7 @@ export class ActivitySandboxService implements ActivitySandbox {
       host: host.toLowerCase(),
       shared,
       expiresAt: Date.now() + PLAY_TOKEN_TTL_MS,
+      ...(parentOrigin ? { parentOrigin } : {}),
     };
     const body = Buffer.from(JSON.stringify(target), "utf8").toString("base64url");
     return {
@@ -711,6 +723,7 @@ export class ActivitySandboxService implements ActivitySandbox {
     base: string,
     options: PayloadOptions,
     expiresAt: number | null = null,
+    parentOrigin: string | null = null,
   ): Promise<PlayerPageResult> {
     const activity = await this.activities.getActivity(projectId, activityId);
     const spec = activity.draft.spec;
@@ -756,6 +769,7 @@ export class ActivitySandboxService implements ActivitySandbox {
         languageCode: options.languageCode ?? null,
         startSceneId: options.startSceneId ?? null,
         expiresAt,
+        parentOrigin,
       }),
     };
   }
