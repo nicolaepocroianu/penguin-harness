@@ -376,6 +376,13 @@ export const en: Strings = {
       blocked: "Needs a script",
     },
     bulkSpeechLanguages: "Languages",
+    narrationLanguages: {
+      title: "In every language",
+      absent: "Not in this language's media plan.",
+      spoken: "Bound",
+      unspoken: "Needs speech",
+      open: "Open",
+    },
     speechTranslation: {
       missing: "Needs translation",
       outdated: "English changed",

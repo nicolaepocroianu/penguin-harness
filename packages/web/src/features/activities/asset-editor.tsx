@@ -19,6 +19,7 @@ import { MediaBinding } from "./media-binding";
 import { isUploadPath } from "./media-library";
 import { MediaPlayer } from "./media-player";
 import { WaveformPlayer } from "./waveform-player";
+import { NarrationLanguages } from "./narration-languages";
 import { MediaTextReview } from "./media-text-review";
 import type { SceneAssetSelection } from "./scene-asset-tree";
 
@@ -51,6 +52,8 @@ export function AssetEditor({
   onUpload,
   sceneNav,
   onTranslate,
+  defaultLanguage = "en-US",
+  onLanguage,
 }: {
   manifest: AssetManifest;
   /** The language group the rail is showing. */
@@ -84,6 +87,9 @@ export function AssetEditor({
   onUpload: (file: File) => Promise<UploadedMedia>;
   /** Translate a narration from the default language; absent where there is nothing to translate from. */
   onTranslate?: (language: string, assetKey: string) => void;
+  defaultLanguage?: string;
+  /** Open this asset in another language. */
+  onLanguage?: (language: string) => void;
   /**
    * Where this asset's scene sits on the storyboard: its name, the way back to the board,
    * and the scenes either side. Absent for media no scene uses.
@@ -341,6 +347,15 @@ export function AssetEditor({
                       </Button>
                     )}
                   </div>
+                )}
+                {onLanguage && (
+                  <NarrationLanguages
+                    manifest={manifest}
+                    assetKey={asset.key}
+                    language={language}
+                    defaultLanguage={defaultLanguage}
+                    onLanguage={onLanguage}
+                  />
                 )}
                 {asset.generatedAudio && (
                   <div className="space-y-1">

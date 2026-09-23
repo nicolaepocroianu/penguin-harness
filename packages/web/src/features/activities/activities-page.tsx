@@ -1220,6 +1220,8 @@ function ActivityEditor({
             startRun("generate-media-text", { language: lang, assetKey })
           }
           onAcceptText={(runId) => acceptRun(runId, "accept-media-text")}
+          defaultLanguage={languageSetup.defaultLanguage}
+          onLanguage={setLanguage}
           onTranslate={
             language === languageSetup.defaultLanguage
               ? undefined

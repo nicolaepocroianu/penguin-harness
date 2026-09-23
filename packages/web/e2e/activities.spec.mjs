@@ -2709,3 +2709,52 @@ test("adds a language, translates a narration into it, and translates the rest a
   expect(translations[0]).toMatchObject({ language: "es-MX", assetKey: "hello", translate: true });
   expect(f.errors).toEqual([]);
 });
+
+test("a narration shows every language's script, and opens another language from there", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  const narration = (key, script, extra = {}) => ({
+    key,
+    type: "audio",
+    description: key,
+    ...(script ? { script } : {}),
+    usages: [{ sceneId: "intro", sourceKey: key, occurrence: 1, sceneOccurrenceCount: 1 }],
+    ...extra,
+  });
+  await page.route(`**${base}/act_test/plan-media`, (route) =>
+    route.fallback({
+      postData: JSON.stringify({
+        ...route.request().postDataJSON(),
+        manifest: {
+          productCode: "words",
+          refNum: 12,
+          assets: {
+            "en-US": [narration("hello", "Hello", { path: "media/uploads/hello-1234abcd.wav" })],
+            "es-MX": [narration("hello")],
+          },
+        },
+      }),
+    }),
+  );
+  await openSection(page, "Specification");
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify(spec));
+  await page.getByRole("button", { name: "Validate and save", exact: true }).click();
+  await openSection(page, "Scenes and media");
+  await planMedia(page);
+  const languages = page.getByRole("region", { name: "In every language" });
+  await expect(languages.getByRole("listitem")).toHaveText([
+    /^en-USHelloBound$/,
+    /^es-MXNeeds translationNeeds speechOpen$/,
+  ]);
+  await languages.getByRole("button", { name: "Open", exact: true }).click();
+  // Spanish is open now: its row has nothing to open, and English's has.
+  await expect(languages.getByRole("listitem")).toHaveText([
+    /^en-USHelloBoundOpen$/,
+    /^es-MXNeeds translationNeeds speech$/,
+  ]);
+  expect(f.errors).toEqual([]);
+});

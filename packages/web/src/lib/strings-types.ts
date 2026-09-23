@@ -317,6 +317,14 @@ export type Strings = {
       "all" | "needs" | "translate" | "ready" | "failed" | "blocked",
       string
     >;
+    /** One narration across the activity's languages, as Loom's audio panel lists it. */
+    narrationLanguages: {
+      title: string;
+      absent: string;
+      spoken: string;
+      unspoken: string;
+      open: string;
+    };
     speechTranslation: Record<"missing" | "outdated" | "translating", string> & {
       translate: string;
       translateAll: (n: number) => string;
