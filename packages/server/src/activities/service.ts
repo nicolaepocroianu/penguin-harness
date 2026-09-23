@@ -1258,6 +1258,9 @@ export class ActivityService implements ActivityAuthoring {
       setBookMode: async (productCode, mode) => {
         await this.setProductBookMode(projectId, collection.collectionId, productCode, mode);
       },
+      setImplementationFeatures: async (activityId, selectedIds) => {
+        await this.setImplementationFeatures(projectId, activityId, selectedIds);
+      },
     };
     return applyImport(mapping, target);
   }

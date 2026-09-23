@@ -54,6 +54,7 @@ describe("a clean import", () => {
         description: "Practice sight words.",
         spec: { ...activitySpec },
         languages: ["en-US"],
+        implementationFeatures: [],
       },
     ]);
   });

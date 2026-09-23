@@ -64,11 +64,28 @@ function fakeTarget(options: { existing?: ExistingProduct; refuse?: Map<number, 
     async setBookMode(productCode, mode) {
       calls.push({ name: "setBookMode", detail: { productCode, mode } });
     },
+    async setImplementationFeatures(activityId, selectedIds) {
+      calls.push({ name: "setImplementationFeatures", detail: { activityId, selectedIds } });
+    },
   };
   return { target, calls, named: (name: string) => calls.filter((call) => call.name === name) };
 }
 
 describe("importing a product", () => {
+  it("carries a ref's implementation features, and asks nothing of refs without any", async () => {
+    const { target, named } = fakeTarget();
+    await applyImport(
+      mapImport(product(), [
+        { ...ref(1), implementationFeatures: ["r2phcs03l-speaker-audio-choices"] },
+        ref(2),
+      ]),
+      target,
+    );
+    expect(named("setImplementationFeatures").map((call) => call.detail)).toEqual([
+      { activityId: "act1", selectedIds: ["r2phcs03l-speaker-audio-choices"] },
+    ]);
+  });
+
   it("creates every ref and reports them", async () => {
     const { target } = fakeTarget();
     const outcome = await applyImport(mapImport(product(), [ref(1), ref(2)]), target);

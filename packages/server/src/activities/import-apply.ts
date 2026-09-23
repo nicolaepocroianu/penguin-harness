@@ -46,6 +46,7 @@ export interface ImportTarget {
   setDescription(activityId: string, description: string, revision: string): Promise<string>;
   setSpec(activityId: string, spec: Record<string, unknown>, revision: string): Promise<string>;
   setBookMode(productCode: string, mode: "decodable" | "readAlong"): Promise<void>;
+  setImplementationFeatures(activityId: string, selectedIds: string[]): Promise<void>;
 }
 
 export interface ImportOutcome {
@@ -177,6 +178,8 @@ async function importRef(
     // A ref with no specification was already reported as a loss by the mapping; there is
     // nothing here to write, and inventing an empty one would make it look imported.
     if (ref.spec) await target.setSpec(created.activityId, ref.spec, revision);
+    if (ref.implementationFeatures.length)
+      await target.setImplementationFeatures(created.activityId, ref.implementationFeatures);
     return null;
   } catch (error) {
     return reason(error);

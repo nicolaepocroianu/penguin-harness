@@ -33,6 +33,8 @@ export interface SourceRef {
   manifest: Record<string, unknown> | null;
   description: string;
   languages: string[];
+  /** Absent from refs read before implementation features were carried. */
+  implementationFeatures?: string[];
 }
 
 /** What Penguin would create for the product. */
@@ -54,6 +56,7 @@ export interface MappedActivity {
   spec: Record<string, unknown> | null;
   /** Language groups carried across, in order. */
   languages: string[];
+  implementationFeatures: string[];
 }
 
 export interface ImportMapping {
@@ -155,6 +158,7 @@ export function mapImport(product: SourceProduct, refs: readonly SourceRef[]): I
       description: ref.description,
       spec,
       languages,
+      implementationFeatures: ref.implementationFeatures ?? [],
     });
   }
 

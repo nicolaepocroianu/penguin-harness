@@ -22,3 +22,6 @@ exactly instead of reinventing them. With it, every row of Loom's hierarchy open
   run may read but not change.
 - The view lists each feature with a switch that saves at once. The tree's "not produced
   yet" state was removed, since no row needs it any more.
+- Importing from Loom carries each ref's selection, read from its
+  `implementation_features.json`. Only features in the catalogue are kept, and a ref
+  without the file imports with none.
