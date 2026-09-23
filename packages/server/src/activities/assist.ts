@@ -25,6 +25,8 @@ export const ASSIST_SECTIONS = [
   "scenes",
   "library",
   "history",
+  "configuration",
+  "assessment",
 ] as const;
 
 export type AssistSection = (typeof ASSIST_SECTIONS)[number];
@@ -76,6 +78,8 @@ const SECTION_WORDS: Record<AssistSection, string> = {
   scenes: "the scenes and their media",
   library: "the activity's media library",
   history: "the activity's generation history",
+  configuration: "the module's configuration (configurations/<product>-<ref>.json in the module)",
+  assessment: "the module's assessment data (assessments/<product>-<ref>.json in the module)",
 };
 
 /** Where the author is, in words the agent can find in input.json. */

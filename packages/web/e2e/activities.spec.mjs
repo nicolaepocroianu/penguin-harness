@@ -2106,3 +2106,52 @@ test("the Build stage lists what stands between the draft and a module", async (
   await expect.poll(() => asked.at(-1)).toBe("D:/waf");
   expect(f.errors).toEqual([]);
 });
+
+test("shows the module's configuration and assessment, read-only, as Loom's documents", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  await page.route("**/*", (route) => {
+    const p = new URL(route.request().url()).pathname;
+    const json = (value) =>
+      route.fulfill({ contentType: "application/json", body: JSON.stringify(value) });
+    if (p === `${base}/act_test/sandbox/status`)
+      return json({
+        state: "ready",
+        playable: true,
+        buildable: true,
+        message: "Ready.",
+        buildLog: null,
+      });
+    if (p === `${base}/act_test/module-documents`)
+      return json({
+        source: "checkout",
+        configuration: { file: "configurations/words-12.json", value: { maxRounds: 3 } },
+        assessment: {
+          file: "assessments/words-12.json",
+          value: { items: [{ id: "q1" }, { id: "q2" }] },
+        },
+      });
+    return route.fallback();
+  });
+  await openSection(page, "Specification");
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify(spec));
+  await page.getByRole("button", { name: "Validate and save", exact: true }).click();
+  await page.reload();
+  await openSection(page, "Configuration Data");
+  await expect(
+    page.getByText("configurations/words-12.json, from the module in the WAF checkout."),
+  ).toBeVisible();
+  await expect(page.getByText('"maxRounds": 3')).toBeVisible();
+  await openSection(page, "Assessment Data");
+  await expect(
+    page.getByText("assessments/words-12.json, from the module in the WAF checkout. 2 items."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("treeitem", { name: "Implementation Features", exact: true, level: 1 }),
+  ).toHaveAttribute("aria-disabled", "true");
+  expect(f.errors).toEqual([]);
+});

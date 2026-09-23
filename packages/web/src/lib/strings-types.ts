@@ -193,9 +193,28 @@ export type Strings = {
     railExpand: string;
     railWidth: string;
     sectionNames: Record<
-      "description" | "specification" | "scenes" | "speech" | "library" | "module" | "history",
+      | "description"
+      | "specification"
+      | "configuration"
+      | "assessment"
+      | "scenes"
+      | "speech"
+      | "library"
+      | "module"
+      | "history",
       string
     >;
+    /** Loom's Configuration Data and Assessment Data: the module's own documents, read-only. */
+    moduleDocuments: {
+      loading: string;
+      unreadable: (reason: string) => string;
+      none: string;
+      missing: (file: string) => string;
+      fromRun: (file: string) => string;
+      fromCheckout: (file: string) => string;
+      items: (n: number) => string;
+      readOnly: string;
+    };
     libraryCount: (count: number) => string;
     librarySectionEmpty: string;
     sceneAssetTree: string;

@@ -75,12 +75,21 @@ describe("studio tree", () => {
     ]);
   });
 
-  it("keeps Loom-only documents in the tree, disabled, rather than dropping them", () => {
-    for (const id of ["implementationFeatures", "configurationData", "assessmentData"]) {
-      const node = find(tree, id)!;
-      expect(node.disabled).toBe(true);
-      expect(node.target).toEqual({ kind: "unavailable", document: id });
-    }
+  it("keeps a Loom-only document in the tree, disabled, rather than dropping it", () => {
+    const node = find(tree, "implementationFeatures")!;
+    expect(node.disabled).toBe(true);
+    expect(node.target).toEqual({ kind: "unavailable", document: "implementationFeatures" });
+  });
+
+  it("opens the module's configuration and assessment once there is a module", () => {
+    expect(find(tree, "configuration")!.target).toEqual({
+      kind: "section",
+      section: "configuration",
+    });
+    expect(find(tree, "assessment")!.disabled).toBe(false);
+    const early = buildStudioTree(fresh, buildSceneTree(null, []));
+    expect(find(early, "configuration")!.disabled).toBe(true);
+    expect(find(early, "assessment")!.disabled).toBe(true);
   });
 
   it("disables a section row exactly when its workspace section is unavailable", () => {

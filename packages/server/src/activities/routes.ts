@@ -271,6 +271,14 @@ export class ActivityRoutes {
         ),
       );
     });
+    app.get("/:activityId/module-documents", async (c) =>
+      c.json(
+        await this.sandbox.moduleDocuments(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+        ),
+      ),
+    );
     app.get("/:activityId/sandbox/payload", async (c) => {
       return c.json(
         await this.sandbox.payload(requireValidId(c, "projectId"), pathParam(c, "activityId"), {

@@ -46,6 +46,7 @@ import { PipelineControls, PipelinePanel } from "./pipeline-panel";
 import { storyboardFrames, type StoryboardFrame } from "./storyboard";
 import { Storyboard } from "./storyboard-view";
 import { BuildPanel } from "./build-panel";
+import { ModuleDocumentView } from "./module-document-view";
 import { useAssistProposal } from "./use-assist-proposal";
 import { StudioTreeView } from "./studio-tree-view";
 import { SessionsPanel } from "./sessions-panel";
@@ -1392,6 +1393,13 @@ function ActivityEditor({
                     </>
                   )}
                 </section>
+              )}
+              {(section === "configuration" || section === "assessment") && (
+                <ModuleDocumentView
+                  endpoint={endpoint}
+                  kind={section}
+                  revision={detail.draft.contentRevision}
+                />
               )}
               {section === "module" && (
                 <>

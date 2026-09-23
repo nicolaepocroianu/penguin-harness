@@ -231,11 +231,24 @@ export const en: Strings = {
     sectionNames: {
       description: "Description",
       specification: "Specification",
+      configuration: "Configuration data",
+      assessment: "Assessment data",
       scenes: "Scenes and media",
       speech: "Speech coverage",
       library: "Media library",
       module: "Module preview",
       history: "Generation history",
+    },
+    moduleDocuments: {
+      loading: "Reading the module…",
+      unreadable: (reason: string) => `The module could not be read: ${reason}`,
+      none: "There is no module to read yet. Assemble one in Module Definition.",
+      missing: (file: string) => `The module has no ${file}.`,
+      fromRun: (file: string) => `${file}, from the module this activity assembled.`,
+      fromCheckout: (file: string) => `${file}, from the module in the WAF checkout.`,
+      items: (n: number) => `${n} ${n === 1 ? "item" : "items"}`,
+      readOnly:
+        "Read-only: the module owns this file. Change the activity and assemble again to change it.",
     },
     libraryCount: (count: number) =>
       `${count} file${count === 1 ? "" : "s"} uploaded for this activity`,

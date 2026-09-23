@@ -7,7 +7,15 @@
 
 /** The parts of an activity the rail navigates between. */
 export type WorkspaceSection =
-  "description" | "specification" | "scenes" | "speech" | "library" | "module" | "history";
+  | "description"
+  | "specification"
+  | "configuration"
+  | "assessment"
+  | "scenes"
+  | "speech"
+  | "library"
+  | "module"
+  | "history";
 
 export interface WorkspaceSectionEntry {
   key: WorkspaceSection;
@@ -33,6 +41,9 @@ export function workspaceSections(state: WorkspaceState): WorkspaceSectionEntry[
   return [
     { key: "description", enabled: true },
     { key: "specification", enabled: true },
+    // The module's own documents, read from whichever module the player would play.
+    { key: "configuration", enabled: state.hasModule },
+    { key: "assessment", enabled: state.hasModule },
     // Always reachable: the action that builds the media plan lives inside this
     // section, so gating the section would hide its own entry point. The pane says
     // what is missing instead.

@@ -4846,6 +4846,7 @@ export type {
   ActivityRunStatus,
 } from "../activities/domain.js";
 export type { SandboxStatus, SandboxBuildReport } from "../activities/sandbox-paths.js";
+export type { ModuleDocuments } from "../activities/module-documents.js";
 export type {
   PipelineState,
   PipelineStep,

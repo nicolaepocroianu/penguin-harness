@@ -35,6 +35,8 @@ describe("workspace sections", () => {
     expect(workspaceSections(full).map((section) => section.key)).toEqual([
       "description",
       "specification",
+      "configuration",
+      "assessment",
       "scenes",
       "speech",
       "library",

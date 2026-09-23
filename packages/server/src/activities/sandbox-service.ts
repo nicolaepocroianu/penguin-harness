@@ -12,6 +12,7 @@
  * likewise: the draft's own files first, then the checkout's media root, which is where
  * every manifest path that is not an upload points.
  */
+import type { ModuleDocuments } from "./module-documents.js";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -178,6 +179,7 @@ type RangeRequest = { range?: string | null; ifRange?: string | null; ifNoneMatc
 /** The sandbox as its callers see it. */
 export abstract class ActivitySandbox extends Interface<{
   status(projectId: string, activityId: string): Promise<SandboxStatus>;
+  moduleDocuments(projectId: string, activityId: string): Promise<ModuleDocuments>;
   payload(projectId: string, activityId: string, options: PayloadOptions): Promise<ActivityPayload>;
   moduleFile(projectId: string, activityId: string, rawPath: string): Promise<SandboxMediaResponse>;
   /** One file of the checkout's navigation bar module, which every played layout carries. */
@@ -311,6 +313,31 @@ export class ActivitySandboxService implements ActivitySandbox {
       root,
       output: checkoutOutputRoot(this.config.root, product.moduleFolder),
       moduleFolder: product.moduleFolder,
+    };
+  }
+
+  async moduleDocuments(projectId: string, activityId: string): Promise<ModuleDocuments> {
+    const activity = await this.activities.getActivity(projectId, activityId);
+    const source = await this.moduleSource(projectId, activity);
+    if (!source) return { source: null, configuration: null, assessment: null };
+    const read = async (folder: string, names: string[]) => {
+      for (const name of names) {
+        const value = await readJsonFile(path.join(source.root, folder, name));
+        if (value) return { file: `${folder}/${name}`, value };
+      }
+      return null;
+    };
+    const own = `${activity.productCode}-${activity.refNum}.json`;
+    // The assessment falls back to the canonical ref's, as the player's does.
+    const product = this.activities.productOf(activity);
+    const shared =
+      product?.canonicalRefNum != null && product.canonicalRefNum !== activity.refNum
+        ? [`${activity.productCode}-${product.canonicalRefNum}.json`]
+        : [];
+    return {
+      source: source.kind,
+      configuration: await read("configurations", [own]),
+      assessment: await read("assessments", [own, ...shared]),
     };
   }
 
