@@ -111,10 +111,53 @@ document.addEventListener(
     true
 );
 
+// Picking: while the App has it switched on, a click chooses an element instead of playing
+// the activity. The page reports the nearest element with an id -- generated modules give
+// content elements their asset key as the id -- and the tap target it belongs to, if any.
+const PICK_MODE_MESSAGE = 'penguin-sandbox:pick-mode';
+const PICKED_MESSAGE = 'penguin-sandbox:picked';
+let picking = false;
+
+function pickFromClick(event) {
+    if (!picking) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const target = event.target instanceof Element ? event.target : null;
+    const withId = target && target.closest('[id]');
+    const interactable = target && target.closest('[data-interactable-id]');
+    const id = withId && withId.id ? String(withId.id).slice(0, 200) : null;
+    const interactableId = interactable ? String(interactable.getAttribute('data-interactable-id') || '').slice(0, 200) || null : null;
+    if (!id && !interactableId) return;
+    if (interactableId) highlightInteractable(interactableId);
+    try {
+        window.parent.postMessage(
+            { type: PICKED_MESSAGE, id: id, interactableId: interactableId },
+            sandbox.parentOrigin
+        );
+    } catch (error) {
+        // Nothing to report to; the click simply did nothing.
+    }
+}
+// Capture, and on every pointer event a tap is made of, so the activity never sees a pick.
+['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend'].forEach((type) =>
+    document.addEventListener(type, (event) => {
+        if (!picking) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+    }, true)
+);
+document.addEventListener('click', pickFromClick, true);
+
 window.addEventListener('message', (event) => {
     const data = event.data;
-    if (!data || data.type !== HIGHLIGHT_MESSAGE) return;
+    if (!data || (data.type !== HIGHLIGHT_MESSAGE && data.type !== PICK_MODE_MESSAGE)) return;
     if (!sandbox.parentOrigin || event.source !== window.parent || event.origin !== sandbox.parentOrigin) return;
+    if (data.type === PICK_MODE_MESSAGE) {
+        picking = data.on === true;
+        document.documentElement.style.cursor = picking ? 'crosshair' : '';
+        if (!picking) clearInteractableHighlight();
+        return;
+    }
     if (typeof data.id === 'string' && data.id) highlightInteractable(data.id);
     else clearInteractableHighlight();
 });

@@ -184,3 +184,49 @@ export function pathTo(
   }
   return [];
 }
+
+/**
+ * The ids a picked element could be known by, most specific first. Generated modules give a
+ * content element its asset key as its id and a label that key plus `__label`
+ * (the `waf-element-ids` skill), so both the id and its stem are worth trying, then the
+ * tap target the element belongs to.
+ */
+export function pickCandidates(pick: {
+  id: string | null;
+  interactableId: string | null;
+}): string[] {
+  const out: string[] = [];
+  for (const value of [pick.id, pick.interactableId]) {
+    if (!value) continue;
+    const stem = value.split("__")[0]!;
+    for (const candidate of [value, stem])
+      if (candidate && !out.includes(candidate)) out.push(candidate);
+  }
+  return out;
+}
+
+/**
+ * The asset a picked element shows, or null when nothing in the hierarchy is named the way
+ * it is. The scene the player reports being in is searched first, since a key reused across
+ * scenes should open where the author is looking; ids are case-sensitive, because in a
+ * letters activity `P` and `p` are different assets.
+ */
+export function assetForPick(
+  scenes: SceneAssetTree,
+  sceneId: string | null,
+  pick: { id: string | null; interactableId: string | null },
+): SceneAssetSelection | null {
+  const ordered = [
+    ...scenes.scenes.filter((scene) => scene.sceneId === sceneId),
+    ...scenes.scenes.filter((scene) => scene.sceneId !== sceneId),
+  ];
+  for (const candidate of pickCandidates(pick)) {
+    for (const scene of ordered)
+      for (const category of scene.categories)
+        if (category.assets.some((asset) => asset.key === candidate))
+          return { sceneId: scene.sceneId, key: candidate };
+    if (scenes.unassigned.some((asset) => asset.key === candidate))
+      return { sceneId: "", key: candidate };
+  }
+  return null;
+}

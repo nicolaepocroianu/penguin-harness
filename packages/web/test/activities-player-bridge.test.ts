@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   HIGHLIGHT_MESSAGE,
+  PICKED_MESSAGE,
+  PICK_MODE_MESSAGE,
   STATE_MESSAGE,
   highlightMessage,
+  pickModeMessage,
+  readPlayerPick,
   readPlayerReport,
 } from "../src/features/activities/player-bridge";
 
@@ -89,5 +93,35 @@ describe("player bridge", () => {
   it("asks the player to outline one target, or none", () => {
     expect(highlightMessage("rock_P")).toEqual({ type: HIGHLIGHT_MESSAGE, id: "rock_P" });
     expect(highlightMessage(null)).toEqual({ type: HIGHLIGHT_MESSAGE, id: null });
+  });
+
+  it("reads a pick from the player's own frame only", () => {
+    const message = { type: PICKED_MESSAGE, id: "rock_P__label", interactableId: "rock_P" };
+    expect(readPlayerPick(message, frame, frame)).toEqual({
+      id: "rock_P__label",
+      interactableId: "rock_P",
+    });
+    expect(readPlayerPick(message, { name: "other" }, frame)).toBeNull();
+    expect(readPlayerPick({ ...message, type: STATE_MESSAGE }, frame, frame)).toBeNull();
+  });
+
+  it("keeps a pick with one usable id, and drops one with none", () => {
+    expect(readPlayerPick({ type: PICKED_MESSAGE, id: "cat" }, frame, frame)).toEqual({
+      id: "cat",
+      interactableId: null,
+    });
+    expect(
+      readPlayerPick(
+        { type: PICKED_MESSAGE, id: "x".repeat(201), interactableId: 3 },
+        frame,
+        frame,
+      ),
+    ).toBeNull();
+    expect(readPlayerPick({ type: PICKED_MESSAGE, id: "" }, frame, frame)).toBeNull();
+  });
+
+  it("switches picking on and off", () => {
+    expect(pickModeMessage(true)).toEqual({ type: PICK_MODE_MESSAGE, on: true });
+    expect(pickModeMessage(false)).toEqual({ type: PICK_MODE_MESSAGE, on: false });
   });
 });

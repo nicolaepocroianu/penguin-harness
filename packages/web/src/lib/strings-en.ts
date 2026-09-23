@@ -40,6 +40,10 @@ export const en: Strings = {
       now: (state: string, scene: string) => `Now in ${state}, ${scene}`,
       waiting: "The activity has not reported its state yet.",
       tapTargets: "Tap targets",
+      pick: "Pick",
+      picking: "Click something in the player",
+      opened: (name: string) => `Opened ${name}.`,
+      noMatch: (id: string) => `Nothing in this activity is named ${id}.`,
     },
     studioPanels: {
       rail: "Activity panels",

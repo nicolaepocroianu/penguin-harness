@@ -8,7 +8,20 @@ import { InfoPopover } from "../../components/ui/info-popover";
 import { Select } from "../../components/ui/select";
 import { fitScale, parseResolution, sceneIds } from "./preview";
 import { canBuild, playUrl, sandboxTone } from "./sandbox";
-import { highlightMessage, readPlayerReport, type PlayerReport } from "./player-bridge";
+import {
+  highlightMessage,
+  pickModeMessage,
+  readPlayerPick,
+  readPlayerReport,
+  type PlayerPick,
+  type PlayerReport,
+} from "./player-bridge";
+
+/**
+ * Opens what an author picked in the player, answering the name of what it opened, or null
+ * when nothing in the activity is named the way the picked element is.
+ */
+export type OnPick = (pick: PlayerPick, sceneId: string | null) => string | null;
 
 /**
  * What the harness knows about this activity's module, and the one action an author has.
@@ -23,11 +36,13 @@ export function SandboxPanel({
   activityId,
   spec,
   languages,
+  onPick,
 }: {
   projectId: string;
   activityId: string;
   spec: Record<string, unknown> | null;
   languages: string[];
+  onPick?: OnPick;
 }) {
   const base = `/api/projects/${encodeURIComponent(projectId)}/activities/${encodeURIComponent(activityId)}/sandbox`;
   const [status, setStatus] = useState<SandboxStatus | null>(null);
@@ -120,6 +135,7 @@ export function SandboxPanel({
           activityId={activityId}
           spec={spec}
           languages={languages}
+          onPick={onPick}
         />
       )}
       {log && (
@@ -145,11 +161,13 @@ function SandboxPlayer({
   activityId,
   spec,
   languages,
+  onPick,
 }: {
   projectId: string;
   activityId: string;
   spec: Record<string, unknown> | null;
   languages: string[];
+  onPick?: OnPick;
 }) {
   const viewport = parseResolution(
     (spec?.runtime as Record<string, unknown> | undefined)?.resolution,
@@ -165,20 +183,50 @@ function SandboxPlayer({
   // tap target an author asked to see outlined.
   const [report, setReport] = useState<PlayerReport | null>(null);
   const [outlined, setOutlined] = useState<string | null>(null);
+  // Picking chooses one element and then hands the activity back, the way a browser's
+  // element inspector does: a second click should play, not pick again.
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState<string | null>(null);
+  const sceneRef = useRef<string | null>(null);
+  sceneRef.current = report?.state.sceneId ?? null;
+  const pickRef = useRef(onPick);
+  pickRef.current = onPick;
   useEffect(() => {
     if (!playing) return;
     const receive = (event: MessageEvent) => {
-      const next = readPlayerReport(event.data, event.source, frameRef.current?.contentWindow);
-      if (next) setReport(next);
+      const frame = frameRef.current?.contentWindow;
+      const next = readPlayerReport(event.data, event.source, frame);
+      if (next) {
+        setReport(next);
+        return;
+      }
+      const pick = readPlayerPick(event.data, event.source, frame);
+      if (!pick) return;
+      setPicking(false);
+      frame?.postMessage(pickModeMessage(false), "*");
+      const opened = pickRef.current?.(pick, sceneRef.current) ?? null;
+      setPicked(
+        opened
+          ? S.activities.studioPlayer.opened(opened)
+          : S.activities.studioPlayer.noMatch(pick.id ?? pick.interactableId ?? ""),
+      );
     };
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
   }, [playing]);
+  function togglePicking() {
+    const next = !picking;
+    setPicking(next);
+    setPicked(null);
+    frameRef.current?.contentWindow?.postMessage(pickModeMessage(next), "*");
+  }
   // A reload or a different start is a new run of the activity: the last run's state and
   // outline describe nothing on screen any more.
   useEffect(() => {
     setReport(null);
     setOutlined(null);
+    setPicking(false);
+    setPicked(null);
   }, [playing, reloadKey, scene, language]);
   function outline(id: string) {
     const next = outlined === id ? null : id;
@@ -245,6 +293,11 @@ function SandboxPlayer({
         )}
         {playing ? (
           <>
+            {onPick && (
+              <Button size="sm" aria-pressed={picking} onClick={togglePicking}>
+                {picking ? S.activities.studioPlayer.picking : S.activities.studioPlayer.pick}
+              </Button>
+            )}
             <Button size="sm" onClick={() => setReloadKey((value) => value + 1)}>
               {S.activities.previewReload}
             </Button>
@@ -286,6 +339,11 @@ function SandboxPlayer({
             />
           </div>
           <div className="mt-3 space-y-2 text-sm">
+            {picked && (
+              <p role="status" className="text-gray-600 dark:text-gray-300">
+                {picked}
+              </p>
+            )}
             <p aria-live="polite" className="text-gray-600 dark:text-gray-300">
               {report
                 ? S.activities.studioPlayer.now(report.state.state, report.state.sceneId)

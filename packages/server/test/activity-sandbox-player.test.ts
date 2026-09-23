@@ -70,4 +70,15 @@ describe("the player's inspector bridge", () => {
       "if (!sandbox.parentOrigin || event.source !== window.parent || event.origin !== sandbox.parentOrigin) return;",
     );
   });
+
+  it("picks only while the App has switched picking on, and swallows the tap it picks", () => {
+    expect(PLAYER_SOURCE).toContain("picking = data.on === true;");
+    expect(PLAYER_SOURCE).toContain("if (!picking) return;");
+    expect(PLAYER_SOURCE).toContain("event.stopImmediatePropagation();");
+    // Pick mode arrives through the same gate as a highlight: this window's parent, at the
+    // configured origin, and nothing else.
+    expect(PLAYER_SOURCE).toContain(
+      "if (!data || (data.type !== HIGHLIGHT_MESSAGE && data.type !== PICK_MODE_MESSAGE)) return;",
+    );
+  });
 });

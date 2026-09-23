@@ -3,9 +3,11 @@ import type { ActivityRunSummary, AssetManifest } from "@prismshadow/penguin-ser
 import { buildSceneTree } from "../src/features/activities/scene-assets";
 import { sessionRuns } from "../src/features/activities/sessions-panel";
 import {
+  assetForPick,
   buildStudioTree,
   isCurrent,
   pathTo,
+  pickCandidates,
   type StudioNode,
 } from "../src/features/activities/studio-tree";
 import {
@@ -127,6 +129,48 @@ describe("studio tree", () => {
       "group:scene-4:audio",
     ]);
     expect(pathTo(tree, "description", null)).toEqual([]);
+  });
+});
+
+describe("picking in the player", () => {
+  const scenes = buildSceneTree({ scenes: [{ id: "scene-1" }, { id: "scene-4" }] }, [
+    asset({ key: "P", type: "image", usages: [usage("scene-1", "P")] }),
+    asset({ key: "p", type: "image", usages: [usage("scene-4", "p")] }),
+    asset({
+      key: "rock",
+      type: "image",
+      usages: [usage("scene-1", "rock"), usage("scene-4", "rock")],
+    }),
+    asset({ key: "lost", type: "audio", usages: [usage("gone", "lost")] }),
+  ]);
+
+  it("tries the id, its stem, then the tap target, without repeats", () => {
+    expect(pickCandidates({ id: "rock__label", interactableId: "rock" })).toEqual([
+      "rock__label",
+      "rock",
+    ]);
+    expect(pickCandidates({ id: null, interactableId: "tap__hit" })).toEqual(["tap__hit", "tap"]);
+    expect(pickCandidates({ id: null, interactableId: null })).toEqual([]);
+  });
+
+  it("opens a label's asset, in the scene the player is in first", () => {
+    const pick = { id: "rock__label", interactableId: null };
+    expect(assetForPick(scenes, "scene-4", pick)).toEqual({ sceneId: "scene-4", key: "rock" });
+    expect(assetForPick(scenes, "scene-1", pick)).toEqual({ sceneId: "scene-1", key: "rock" });
+  });
+
+  it("tells P from p, falls back to other scenes and orphans, and gives up quietly", () => {
+    expect(assetForPick(scenes, "scene-4", { id: "P", interactableId: null })).toEqual({
+      sceneId: "scene-1",
+      key: "P",
+    });
+    expect(assetForPick(scenes, null, { id: "lost", interactableId: null })).toEqual({
+      sceneId: "",
+      key: "lost",
+    });
+    expect(
+      assetForPick(scenes, "scene-1", { id: "wrapper", interactableId: "nothing" }),
+    ).toBeNull();
   });
 });
 

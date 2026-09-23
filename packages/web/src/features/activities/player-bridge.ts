@@ -11,6 +11,8 @@
 
 export const STATE_MESSAGE = "penguin-sandbox:activity-state";
 export const HIGHLIGHT_MESSAGE = "penguin-sandbox:highlight-interactable";
+export const PICK_MODE_MESSAGE = "penguin-sandbox:pick-mode";
+export const PICKED_MESSAGE = "penguin-sandbox:picked";
 
 /** The framework's report of where the activity is. */
 export interface PlayerState {
@@ -90,4 +92,26 @@ export function readPlayerReport(
 /** The request to outline one tap target, or to clear the outline with null. */
 export function highlightMessage(id: string | null): { type: string; id: string | null } {
   return { type: HIGHLIGHT_MESSAGE, id };
+}
+
+/** What an author clicked while picking: the nearest element id, and its tap target. */
+export interface PlayerPick {
+  id: string | null;
+  interactableId: string | null;
+}
+
+/** The pick a message carries, under the same rules as a state report. */
+export function readPlayerPick(data: unknown, source: unknown, frame: unknown): PlayerPick | null {
+  if (!frame || source !== frame) return null;
+  if (!data || typeof data !== "object") return null;
+  const message = data as Record<string, unknown>;
+  if (message.type !== PICKED_MESSAGE) return null;
+  const id = text(message.id) || null;
+  const interactableId = text(message.interactableId) || null;
+  return id || interactableId ? { id, interactableId } : null;
+}
+
+/** Switch picking on or off in the player. */
+export function pickModeMessage(on: boolean): { type: string; on: boolean } {
+  return { type: PICK_MODE_MESSAGE, on };
 }

@@ -30,7 +30,7 @@ import { SpeechCoverage } from "./speech-coverage";
 import { buildSceneTree, filterTree, treeSelections, type SceneAssetType } from "./scene-assets";
 import { firstSelection, sameSelection, type SceneAssetSelection } from "./scene-asset-tree";
 import { resolveSection, workspaceSections, type WorkspaceSection } from "./workspace-model";
-import { buildStudioTree } from "./studio-tree";
+import { assetForPick, buildStudioTree } from "./studio-tree";
 import { StudioTreeView } from "./studio-tree-view";
 import { SessionsPanel } from "./sessions-panel";
 import { ModulePreview } from "./module-preview";
@@ -653,6 +653,18 @@ function ActivityEditor({
                 activityId={detail.id}
                 spec={detail.draft.spec}
                 languages={languages}
+                onPick={(pick, sceneId) => {
+                  // Matched against every kind of media, whatever the tree shows.
+                  const found = assetForPick(
+                    buildSceneTree(detail.draft.spec, editedManifest?.assets[language] ?? []),
+                    sceneId,
+                    pick,
+                  );
+                  if (!found) return null;
+                  setSelected(found);
+                  setSection("scenes");
+                  return found.key;
+                }}
               />
             </div>
           ),

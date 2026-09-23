@@ -42,6 +42,10 @@ export type Strings = {
       now: (state: string, scene: string) => string;
       waiting: string;
       tapTargets: string;
+      pick: string;
+      picking: string;
+      opened: (name: string) => string;
+      noMatch: (id: string) => string;
     };
     /** The icon rail on the right and the panels it opens. */
     studioPanels: {
