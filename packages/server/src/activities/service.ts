@@ -1,4 +1,10 @@
 import fs from "node:fs/promises";
+import {
+  IMPLEMENTATION_FEATURES,
+  IMPLEMENTATION_FEATURES_FILE,
+  normalizeFeatureSelection,
+  unknownFeatureIds,
+} from "./implementation-features.js";
 import { DEFAULT_LANGUAGE_CODE, canAddLanguage } from "./languages.js";
 import type { ProposalChange } from "./assist.js";
 import { validateBookSpec } from "./book.js";
@@ -128,6 +134,44 @@ export class ActivityService implements ActivityAuthoring {
       activity.collectionId,
       activity.id,
       activity.draft.draftId,
+    );
+  }
+  async implementationFeatures(projectId: string, activityId: string) {
+    const activity = await this.getActivity(projectId, activityId);
+    // No file, or one that does not parse, is a ref that has selected nothing.
+    const stored: unknown = await fs
+      .readFile(
+        path.join(this.activityWorkspace(projectId, activity), IMPLEMENTATION_FEATURES_FILE),
+        "utf8",
+      )
+      .then((text) => JSON.parse(text) as unknown)
+      .catch(() => null);
+    return {
+      features: [...IMPLEMENTATION_FEATURES],
+      selectedIds: normalizeFeatureSelection(
+        (stored as { selectedIds?: unknown } | null)?.selectedIds,
+      ),
+    };
+  }
+  async setImplementationFeatures(projectId: string, activityId: string, selectedIds: string[]) {
+    const unknown = unknownFeatureIds(selectedIds);
+    if (unknown.length)
+      throw new HttpError(
+        422,
+        "features_invalid",
+        `Unknown implementation feature: ${unknown.join(", ")}.`,
+      );
+    return this.projectWork.run(projectId, () =>
+      this.locks.run(activityId, async () => {
+        const activity = await this.getActivity(projectId, activityId);
+        const workspace = this.activityWorkspace(projectId, activity);
+        await fs.mkdir(workspace, { recursive: true });
+        const selection = normalizeFeatureSelection(selectedIds);
+        await atomicJson(path.join(workspace, IMPLEMENTATION_FEATURES_FILE), {
+          selectedIds: selection,
+        });
+        return { features: [...IMPLEMENTATION_FEATURES], selectedIds: selection };
+      }),
     );
   }
   async uploadMedia(

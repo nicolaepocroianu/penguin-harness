@@ -35,7 +35,6 @@ export type Strings = {
       groups: Record<"image" | "video" | "audio" | "animation", string>;
       fold: (name: string) => string;
       unfold: (name: string) => string;
-      notYet: string;
       needsMedia: string;
     };
     /** What the playing activity reports about itself, under the player. */
@@ -213,6 +212,7 @@ export type Strings = {
     sectionNames: Record<
       | "description"
       | "specification"
+      | "features"
       | "configuration"
       | "assessment"
       | "scenes"
@@ -223,6 +223,13 @@ export type Strings = {
       | "history",
       string
     >;
+    /** Loom's Implementation Features: patterns the module assembly reproduces exactly. */
+    implementationFeatures: {
+      help: string;
+      selected: (n: number, total: number) => string;
+      source: (module: string) => string;
+      unreadable: (reason: string) => string;
+    };
     /** Loom's Activity Stats: the media plan counted and weighed. */
     activityStats: {
       reload: string;

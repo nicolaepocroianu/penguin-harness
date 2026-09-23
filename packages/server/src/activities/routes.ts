@@ -96,6 +96,30 @@ export class ActivityRoutes {
     app.get("/language-setup", (c) =>
       c.json({ defaultLanguage: DEFAULT_LANGUAGE_CODE, languages: ACTIVITY_LANGUAGES }),
     );
+    app.get("/:activityId/implementation-features", async (c) =>
+      c.json(
+        await this.activities.implementationFeatures(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+        ),
+      ),
+    );
+    app.put("/:activityId/implementation-features", async (c) => {
+      const body = await readJson(c);
+      if (
+        !Array.isArray(body.selectedIds) ||
+        body.selectedIds.length > 100 ||
+        body.selectedIds.some((id) => typeof id !== "string" || id.length > 128)
+      )
+        throw badRequest("selectedIds must be a list of feature ids.");
+      return c.json(
+        await this.activities.setImplementationFeatures(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          body.selectedIds as string[],
+        ),
+      );
+    });
     app.post("/:activityId/languages", async (c) => {
       const body = await readJson(c);
       return c.json(

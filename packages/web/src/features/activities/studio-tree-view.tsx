@@ -63,7 +63,6 @@ export function StudioTreeView({
     const open = branch && opened.has(node.id);
     const current = isCurrent(node, section, selection);
     const label = labelOf(node);
-    const unavailable = node.target?.kind === "unavailable";
     return (
       <li key={node.id} role="none">
         <div
@@ -96,7 +95,7 @@ export function StudioTreeView({
             aria-current={current ? "true" : undefined}
             aria-disabled={node.disabled || undefined}
             aria-expanded={branch ? open : undefined}
-            title={unavailable ? S.activities.studioTree.notYet : label}
+            title={label}
             onClick={() => {
               if (node.disabled) return;
               if (node.target) onChoose(node.target);

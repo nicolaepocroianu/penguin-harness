@@ -28,6 +28,7 @@ export const ASSIST_SECTIONS = [
   "configuration",
   "assessment",
   "stats",
+  "features",
 ] as const;
 
 export type AssistSection = (typeof ASSIST_SECTIONS)[number];
@@ -82,6 +83,7 @@ const SECTION_WORDS: Record<AssistSection, string> = {
   configuration: "the module's configuration (configurations/<product>-<ref>.json in the module)",
   assessment: "the module's assessment data (assessments/<product>-<ref>.json in the module)",
   stats: "the activity's media counts and sizes (draft.mediaPlan)",
+  features: "the implementation features this ref asks its module assembly to reproduce",
 };
 
 /** Where the author is, in words the agent can find in input.json. */

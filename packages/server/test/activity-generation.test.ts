@@ -1791,4 +1791,48 @@ describe("activity generation through Harness sessions", () => {
       current.draft.mediaPlan!.manifest.assets["en-US"],
     );
   });
+  it("keeps a ref's implementation features, and hands them to its module assembly", async () => {
+    const f = await fixture(true);
+    const read = async () =>
+      (await (await f.client.get(`${f.endpoint}/implementation-features`)).json()) as {
+        features: { id: string }[];
+        selectedIds: string[];
+      };
+    const initial = await read();
+    expect(initial.selectedIds).toEqual([]);
+    expect(initial.features.map((feature) => feature.id)).toContain(
+      "r2phcs03l-speaker-audio-choices",
+    );
+    const unknown = await f.client.put(`${f.endpoint}/implementation-features`, {
+      selectedIds: ["no-such-feature"],
+    });
+    expect(unknown.status).toBe(422);
+    expect(
+      (await f.client.put(`${f.endpoint}/implementation-features`, { selectedIds: "x" })).status,
+    ).toBe(400);
+    const saved = await f.client.put(`${f.endpoint}/implementation-features`, {
+      selectedIds: ["vocabwordsreview-final-review-cards", "r2phcs03l-speaker-audio-choices"],
+    });
+    expect(saved.status, await saved.clone().text()).toBe(200);
+    // Kept in catalogue order, however they were sent.
+    expect((await read()).selectedIds).toEqual([
+      "r2phcs03l-speaker-audio-choices",
+      "vocabwordsreview-final-review-cards",
+    ]);
+
+    const run = await f.startModule();
+    const session = f.t.deps.sessionsRepo.findById(run.sessionId!)!;
+    const handed = JSON.parse(
+      await fs.readFile(path.join(session.workspace!, "implementation-features.json"), "utf8"),
+    ) as { id: string }[];
+    expect(handed.map((feature) => feature.id)).toEqual([
+      "r2phcs03l-speaker-audio-choices",
+      "vocabwordsreview-final-review-cards",
+    ]);
+    await waitFor(() =>
+      f.prompts.some((prompt) =>
+        prompt.includes("Selected implementation features: Speaker audio choices"),
+      ),
+    );
+  });
 });

@@ -34,7 +34,6 @@ export const en: Strings = {
       groups: { image: "Images", video: "Videos", audio: "Audios", animation: "Animations" },
       fold: (name: string) => `Fold ${name}`,
       unfold: (name: string) => `Unfold ${name}`,
-      notYet: "Loom shows this document; Penguin does not produce it yet.",
       needsMedia: "Needs media",
     },
     studioPlayer: {
@@ -252,6 +251,7 @@ export const en: Strings = {
     sectionNames: {
       description: "Description",
       specification: "Specification",
+      features: "Implementation features",
       configuration: "Configuration data",
       assessment: "Assessment data",
       scenes: "Scenes and media",
@@ -260,6 +260,12 @@ export const en: Strings = {
       library: "Media library",
       module: "Module preview",
       history: "Generation history",
+    },
+    implementationFeatures: {
+      help: "Patterns a shipped module already implements well. Each one selected here is reproduced by the next module assembly, with its source module's functions, selectors and animations, rather than reinvented.",
+      selected: (n: number, total: number) => `${n} of ${total} selected`,
+      source: (module: string) => `From ${module}`,
+      unreadable: (reason: string) => `The implementation features could not be read: ${reason}`,
     },
     activityStats: {
       reload: "Reload",

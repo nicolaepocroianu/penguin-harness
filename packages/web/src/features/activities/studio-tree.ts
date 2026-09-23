@@ -5,8 +5,8 @@
  * from it, and the scenes with their media grouped by kind. Authors moving over from Loom
  * know where things are by that tree, so the studio keeps its order and its names rather
  * than inventing new ones. Each row either opens a workspace section or selects an asset;
- * rows for documents Penguin does not produce yet stay in the tree, disabled, so the tree
- * never looks like an activity with fewer parts than Loom showed.
+ * a section whose subject does not exist yet stays in the tree, disabled, so the tree never
+ * looks like an activity with fewer parts than Loom showed.
  *
  * Pure: the view draws what this returns and holds no derivation of its own, so the tree,
  * the main panel and the tests cannot disagree about what a row does.
@@ -15,14 +15,10 @@ import type { SceneAssetSelection } from "./scene-asset-tree";
 import type { SceneAssetTree, SceneAssetType } from "./scene-assets";
 import type { WorkspaceSection, WorkspaceSectionEntry } from "./workspace-model";
 
-/** Loom's documents that have no Penguin counterpart yet. */
-export type LoomOnlyDocument = "implementationFeatures" | "configurationData" | "assessmentData";
-
 /** What choosing a row does. */
 export type StudioTarget =
   | { kind: "section"; section: WorkspaceSection }
-  | { kind: "asset"; selection: SceneAssetSelection }
-  | { kind: "unavailable"; document: LoomOnlyDocument };
+  | { kind: "asset"; selection: SceneAssetSelection };
 
 /** The one piece of state a row may carry; the view owns the words and the colour. */
 export type StudioMark = "unbound" | null;
@@ -43,7 +39,9 @@ export interface StudioNode {
 export type StudioLabel =
   | "activityScript"
   | "activitySpec"
-  | LoomOnlyDocument
+  | "implementationFeatures"
+  | "configurationData"
+  | "assessmentData"
   | "moduleDefinition"
   | "audios"
   | "scenes"
@@ -71,17 +69,6 @@ function sectionRow(
     disabled: !entry?.enabled,
     mark: null,
     children,
-  };
-}
-
-function unavailableRow(document: LoomOnlyDocument): StudioNode {
-  return {
-    id: document,
-    label: { key: document },
-    target: { kind: "unavailable", document },
-    disabled: true,
-    mark: null,
-    children: [],
   };
 }
 
@@ -135,7 +122,7 @@ export function buildStudioTree(
   return [
     sectionRow("script", "activityScript", "description", sections),
     sectionRow("spec", "activitySpec", "specification", sections),
-    unavailableRow("implementationFeatures"),
+    sectionRow("features", "implementationFeatures", "features", sections),
     sectionRow("configuration", "configurationData", "configuration", sections),
     sectionRow("assessment", "assessmentData", "assessment", sections),
     sectionRow("module", "moduleDefinition", "module", sections),

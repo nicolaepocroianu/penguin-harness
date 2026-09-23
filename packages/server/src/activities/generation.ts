@@ -1,4 +1,9 @@
 import fs from "node:fs/promises";
+import {
+  RUN_FEATURES_FILE,
+  featureClause,
+  type ImplementationFeature,
+} from "./implementation-features.js";
 import path from "node:path";
 import { validateBookSpec } from "./book.js";
 import { compileBookConfiguration, type BookMode } from "./book-configuration.js";
@@ -493,6 +498,16 @@ export class ActivityGenerationService implements ActivityGeneration {
             }
             if (mediaText)
               await atomicJson(path.join(workspace, "media-text-input.json"), mediaText);
+            // An assembly is handed the implementation features its ref selected.
+            let features: ImplementationFeature[] = [];
+            if (module && !audio && !image && !mediaText && !assist) {
+              const chosen = await this.activities.implementationFeatures(projectId, activityId);
+              features = chosen.features.filter((feature) =>
+                chosen.selectedIds.includes(feature.id),
+              );
+              if (features.length)
+                await atomicJson(path.join(workspace, RUN_FEATURES_FILE), features);
+            }
             if (this.stopped) {
               this.finish(run, "interrupted", "Server stopped before generation started.");
               return run;
@@ -506,7 +521,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                   : audio
                     ? audioPrompt
                     : module
-                      ? modulePrompt
+                      ? modulePrompt + featureClause(features)
                       : generationPrompt;
             const session = await this.sessionService.createSession({
               projectId,

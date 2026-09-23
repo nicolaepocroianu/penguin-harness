@@ -9,6 +9,7 @@
 export type WorkspaceSection =
   | "description"
   | "specification"
+  | "features"
   | "configuration"
   | "assessment"
   | "scenes"
@@ -42,6 +43,8 @@ export function workspaceSections(state: WorkspaceState): WorkspaceSectionEntry[
   return [
     { key: "description", enabled: true },
     { key: "specification", enabled: true },
+    // Loom's checklist for the module assembly; choosing features needs no module yet.
+    { key: "features", enabled: true },
     // The module's own documents, read from whichever module the player would play.
     { key: "configuration", enabled: state.hasModule },
     { key: "assessment", enabled: state.hasModule },

@@ -50,6 +50,7 @@ import { BuildPanel } from "./build-panel";
 import { ModuleDocumentView } from "./module-document-view";
 import { ActivityStatsView } from "./activity-stats-view";
 import { RefSwitcher } from "./ref-switcher";
+import { ImplementationFeaturesView } from "./implementation-features-view";
 import { GenerationHistory } from "./history-section";
 import { useAssistProposal } from "./use-assist-proposal";
 import { StudioTreeView } from "./studio-tree-view";
@@ -1519,6 +1520,9 @@ function ActivityEditor({
                     </>
                   )}
                 </section>
+              )}
+              {section === "features" && (
+                <ImplementationFeaturesView endpoint={endpoint} editable={editable && available} />
               )}
               {section === "stats" && (
                 <ActivityStatsView endpoint={endpoint} revision={detail.draft.contentRevision} />

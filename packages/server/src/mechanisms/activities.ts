@@ -7,6 +7,7 @@ import type { AssistFocus, AssistProposal, ProposalChange } from "../activities/
 import type { UploadedMedia } from "../activities/upload.js";
 import type { ImportOutcome } from "../activities/import-apply.js";
 import type { ImportedActivity } from "../activities/loom-import.js";
+import type { ImplementationFeature } from "../activities/implementation-features.js";
 import type { ImportMapping } from "../activities/import-mapping.js";
 import type {
   ActivityDraft,
@@ -166,6 +167,16 @@ export abstract class ActivityAuthoring extends Interface<{
     activityId: string,
     expectedRevision: string,
   ): Promise<ActivityDraft>;
+  /** Loom's implementation features, and the ones this ref asks its assembly to reproduce. */
+  implementationFeatures(
+    projectId: string,
+    activityId: string,
+  ): Promise<{ features: ImplementationFeature[]; selectedIds: string[] }>;
+  setImplementationFeatures(
+    projectId: string,
+    activityId: string,
+    selectedIds: string[],
+  ): Promise<{ features: ImplementationFeature[]; selectedIds: string[] }>;
   /** Add a language the activity can be translated into, with its media plan to fill in. */
   addLanguage(
     projectId: string,

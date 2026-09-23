@@ -76,10 +76,10 @@ describe("studio tree", () => {
     ]);
   });
 
-  it("keeps a Loom-only document in the tree, disabled, rather than dropping it", () => {
-    const node = find(tree, "implementationFeatures")!;
-    expect(node.disabled).toBe(true);
-    expect(node.target).toEqual({ kind: "unavailable", document: "implementationFeatures" });
+  it("opens Loom's implementation features whatever else exists", () => {
+    const early = buildStudioTree(fresh, buildSceneTree(null, []));
+    expect(find(early, "features")!.disabled).toBe(false);
+    expect(find(early, "features")!.target).toEqual({ kind: "section", section: "features" });
   });
 
   it("opens the module's configuration and assessment once there is a module", () => {

@@ -2120,6 +2120,7 @@ test("shows the module's configuration and assessment, read-only, as Loom's docu
 }) => {
   const f = await fixture(page);
   await create(page);
+  const featureWrites = [];
   await page.route("**/*", (route) => {
     const p = new URL(route.request().url()).pathname;
     const json = (value) =>
@@ -2132,6 +2133,28 @@ test("shows the module's configuration and assessment, read-only, as Loom's docu
         message: "Ready.",
         buildLog: null,
       });
+    if (p === `${base}/act_test/implementation-features`) {
+      const feature = (id, label) => ({
+        id,
+        label,
+        description: `${label}, as its source module does it.`,
+        category: "Interaction",
+        sourceModule: "waf-module-r2phcs03L",
+        sourcePaths: [],
+        requiredSymbols: [],
+        requiredSelectors: [],
+        requiredStyleFragments: [],
+      });
+      const features = [
+        feature("r2phcs03l-speaker-audio-choices", "Speaker audio choices"),
+        feature("r2phcs03l-freight-conveyor", "Freight boxes and conveyor"),
+      ];
+      if (route.request().method() === "PUT") {
+        featureWrites.push(route.request().postDataJSON());
+        return json({ features, selectedIds: route.request().postDataJSON().selectedIds });
+      }
+      return json({ features, selectedIds: ["r2phcs03l-speaker-audio-choices"] });
+    }
     if (p === `${base}/act_test/module-documents`)
       return json({
         source: "checkout",
@@ -2158,9 +2181,17 @@ test("shows the module's configuration and assessment, read-only, as Loom's docu
   await expect(
     page.getByText("assessments/words-12.json, from the module in the WAF checkout. 2 items."),
   ).toBeVisible();
-  await expect(
-    page.getByRole("treeitem", { name: "Implementation Features", exact: true, level: 1 }),
-  ).toHaveAttribute("aria-disabled", "true");
+  // Loom's third document: the features the module assembly reproduces.
+  await openSection(page, "Implementation Features");
+  await expect(page.getByText("1 of 2 selected", { exact: true })).toBeVisible();
+  const conveyor = page.getByRole("switch", { name: "Freight boxes and conveyor" });
+  await expect(conveyor).toHaveAttribute("aria-checked", "false");
+  await conveyor.click();
+  await expect.poll(() => featureWrites.length).toBe(1);
+  expect(featureWrites[0]).toEqual({
+    selectedIds: ["r2phcs03l-speaker-audio-choices", "r2phcs03l-freight-conveyor"],
+  });
+  await expect(page.getByText("2 of 2 selected", { exact: true })).toBeVisible();
   expect(f.errors).toEqual([]);
 });
 
