@@ -647,9 +647,9 @@ async function create(page, { activityType = "standard" } = {}) {
   await page.getByRole("button", { name: "Create activity", exact: true }).click();
   await expect(page).toHaveURL(/activities\/act_test$/);
   await page
-    .getByRole("textbox", { name: "Description", exact: true })
+    .getByRole("textbox", { name: "Activity Script", exact: true })
     .fill("Practice common sight words");
-  await page.getByRole("button", { name: "Save description", exact: true }).click();
+  await page.getByRole("button", { name: "Save script", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Generate specification", exact: true }),
   ).toBeEnabled();
@@ -963,8 +963,8 @@ test("assembles a saved spec and links to the Harness-isolated WAF preview", asy
     page.getByRole("button", { name: "Copy candidate into editor", exact: true }),
   ).toHaveCount(0);
   await openSection(page, "Description");
-  await page.getByRole("textbox", { name: "Description", exact: true }).fill("A new revision");
-  await page.getByRole("button", { name: "Save description", exact: true }).click();
+  await page.getByRole("textbox", { name: "Activity Script", exact: true }).fill("A new revision");
+  await page.getByRole("button", { name: "Save script", exact: true }).click();
   // The runs list and the embedded preview both carry the staleness notice.
   await openSection(page, "Module preview");
   await expect(
@@ -1405,7 +1405,7 @@ test("create, save, generate, leave and reopen a completed specification", async
   );
   await page.reload();
   await openSection(page, "Description");
-  await expect(page.getByRole("textbox", { name: "Description", exact: true })).toHaveValue(
+  await expect(page.getByRole("textbox", { name: "Activity Script", exact: true })).toHaveText(
     "Practice common sight words",
   );
   await openSection(page, "Generation history");
@@ -1423,24 +1423,24 @@ test("polling preserves unsaved edits and exposes conflicting output for review"
   await openSection(page, "Generation history");
   await expect(page.getByRole("button", { name: "Cancel generation" })).toBeVisible();
   await openSection(page, "Description");
-  await page.getByRole("textbox", { name: "Description", exact: true }).fill("My unsaved edit");
+  await page.getByRole("textbox", { name: "Activity Script", exact: true }).fill("My unsaved edit");
   f.conflict();
   await openSection(page, "Generation history");
   await expect(
     page.getByText("Draft changed — candidate preserved", { exact: true }),
   ).toBeVisible();
   await openSection(page, "Description");
-  await expect(page.getByRole("textbox", { name: "Description", exact: true })).toHaveValue(
+  await expect(page.getByRole("textbox", { name: "Activity Script", exact: true })).toHaveText(
     "My unsaved edit",
   );
-  await page.getByRole("button", { name: "Save description", exact: true }).click();
+  await page.getByRole("button", { name: "Save script", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Draft changed");
-  await expect(page.getByRole("textbox", { name: "Description", exact: true })).toHaveValue(
+  await expect(page.getByRole("textbox", { name: "Activity Script", exact: true })).toHaveText(
     "My unsaved edit",
   );
   page.on("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Reload draft", exact: true }).click();
-  await expect(page.getByRole("textbox", { name: "Description", exact: true })).toHaveValue(
+  await expect(page.getByRole("textbox", { name: "Activity Script", exact: true })).toHaveText(
     "Changed in another tab",
   );
   await openSection(page, "Generation history");
@@ -1465,7 +1465,10 @@ test("member view is read-only and mobile layout does not overflow", async ({ pa
   await openSection(page, "Description");
   // Choosing a section hands the workspace back instead of leaving the menu over it.
   await expect(page.locator('nav[aria-label="Activity hierarchy"]')).toHaveCount(0);
-  await expect(page.getByRole("textbox", { name: "Description", exact: true })).toBeDisabled();
+  await expect(page.getByRole("textbox", { name: "Activity Script", exact: true })).toHaveAttribute(
+    "contenteditable",
+    "false",
+  );
   await expect(
     page.getByRole("button", { name: "Generate specification", exact: true }),
   ).toHaveCount(0);
@@ -1497,7 +1500,7 @@ test("dirty drafts block sidebar, Session, browser back, and project switches", 
   await create(page);
   await openSection(page, "Description");
   await page.getByRole("button", { name: "Generate specification", exact: true }).click();
-  const description = page.getByRole("textbox", { name: "Description", exact: true });
+  const description = page.getByRole("textbox", { name: "Activity Script", exact: true });
   await openSection(page, "Scenes and media");
   await openSection(page, "Description");
   await description.fill("Keep this edit");
@@ -1515,11 +1518,11 @@ test("dirty drafts block sidebar, Session, browser back, and project switches", 
   await page.goBack();
   await expect(page).toHaveURL(/activities\/act_test$/);
   await openSection(page, "Description");
-  await expect(description).toHaveValue("Keep this edit");
+  await expect(description).toHaveText("Keep this edit");
   await page.getByRole("button", { name: "Activities test", exact: true }).click();
   await page.getByRole("button", { name: "Second project owner", exact: true }).click();
   await expect(page.getByRole("button", { name: "Activities test", exact: true })).toBeVisible();
-  await expect(description).toHaveValue("Keep this edit");
+  await expect(description).toHaveText("Keep this edit");
   expect(await page.evaluate(() => localStorage.getItem("penguin.lastProjectId"))).not.toBe(
     "second-project",
   );
@@ -1596,15 +1599,15 @@ test("polling errors recover without clearing a save conflict or unsaved edits",
   await page.reload();
   await expect(page.getByRole("alert")).toContainText("The server hit an internal error");
   await page.clock.fastForward(30_000);
-  const description = page.getByRole("textbox", { name: "Description", exact: true });
+  const description = page.getByRole("textbox", { name: "Activity Script", exact: true });
   await openSection(page, "Description");
-  await expect(description).toHaveValue("Practice common sight words");
+  await expect(description).toHaveText("Practice common sight words");
   await expect(page.getByRole("alert")).toHaveCount(0);
   await openSection(page, "Scenes and media");
   await openSection(page, "Description");
   await description.fill("Keep this unsaved edit");
   f.changeSavedDescription();
-  await page.getByRole("button", { name: "Save description", exact: true }).click();
+  await page.getByRole("button", { name: "Save script", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Draft changed");
   f.failHistory();
   await page.clock.fastForward(30_000);
@@ -1612,7 +1615,7 @@ test("polling errors recover without clearing a save conflict or unsaved edits",
   await page.clock.fastForward(30_000);
   await expect(page.getByRole("alert")).toHaveCount(1);
   await expect(page.getByRole("alert")).toContainText("Draft changed");
-  await expect(description).toHaveValue("Keep this unsaved edit");
+  await expect(description).toHaveText("Keep this unsaved edit");
   expect(f.errors).toEqual([]);
 });
 
@@ -1636,7 +1639,7 @@ async function projectSettings(page) {
 test("canceling the dirty-editor guard prevents Project deletion and remount", async ({ page }) => {
   const f = await fixture(page);
   await create(page);
-  const description = page.getByRole("textbox", { name: "Description", exact: true });
+  const description = page.getByRole("textbox", { name: "Activity Script", exact: true });
   await openSection(page, "Scenes and media");
   await openSection(page, "Description");
   await description.fill("Keep before deletion");
@@ -1651,7 +1654,7 @@ test("canceling the dirty-editor guard prevents Project deletion and remount", a
   await expect(page.getByRole("dialog", { name: "Delete Project", exact: true })).toHaveCount(0);
   expect(f.deletedProjects).toBe(0);
   await settings.getByRole("button", { name: "Close", exact: true }).click();
-  await expect(description).toHaveValue("Keep before deletion");
+  await expect(description).toHaveText("Keep before deletion");
   expect(await description.evaluate((element, before) => element === before, original)).toBe(true);
   expect(f.errors).toEqual([]);
 });
@@ -1662,7 +1665,7 @@ test("declining a refresh fallback preserves detached text without retaining Pro
   const f = await fixture(page);
   await create(page);
   await page.clock.install();
-  const description = page.getByRole("textbox", { name: "Description", exact: true });
+  const description = page.getByRole("textbox", { name: "Activity Script", exact: true });
   await openSection(page, "Scenes and media");
   await openSection(page, "Description");
   await description.fill("Copy this before leaving");
@@ -1675,11 +1678,11 @@ test("declining a refresh fallback preserves detached text without retaining Pro
   await expect(
     page.getByText("This Project is no longer available.", { exact: false }),
   ).toBeVisible();
-  await expect(description).toHaveValue("Copy this before leaving");
+  await expect(description).toHaveText("Copy this before leaving");
   await expect(description).toBeEnabled();
-  await expect(description).toHaveAttribute("readonly", "");
+  await expect(description).toHaveAttribute("aria-readonly", "true");
   expect(await description.evaluate((element, before) => element === before, original)).toBe(true);
-  await expect(page.getByRole("button", { name: "Save description", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save script", exact: true })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Generate specification", exact: true }),
   ).toHaveCount(0);
@@ -1693,11 +1696,106 @@ test("declining a refresh fallback preserves detached text without retaining Pro
   ).toHaveCount(0);
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.getByRole("button", { name: "Second project owner", exact: true }).click();
-  await expect(description).toHaveValue("Copy this before leaving");
+  await expect(description).toHaveText("Copy this before leaving");
   expect(await description.evaluate((element, before) => element === before, original)).toBe(true);
   await page.getByRole("button", { name: "Select a Project", exact: true }).click();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Second project owner", exact: true }).click();
   await expect(page.getByRole("button", { name: "Second project", exact: true })).toBeVisible();
+  expect(f.errors).toEqual([]);
+});
+
+test("the script editor folds scenes, diffs against the last save and shows an agent's proposal", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  await openSection(page, "Description");
+  const script = [
+    "Description",
+    "",
+    "Scene 1: Intro",
+    "<video>An island.</video>",
+    "Scene 2: Rocks",
+    "The narrator says <audio>Find d.</audio>",
+  ].join("\n");
+  const box = page.getByRole("textbox", { name: "Activity Script", exact: true });
+  const save = page.getByRole("button", { name: "Save script", exact: true });
+  await box.fill(script);
+  await save.click();
+  await expect(save).toBeDisabled();
+  await expect(box.locator(".cm-media-tag").first()).toHaveText("<video>");
+
+  // Scenes fold to their headings and open again.
+  const scenes = page.getByRole("button", { name: "Scenes", exact: true });
+  await scenes.click();
+  await expect(box).not.toContainText("An island.");
+  await expect(box).toContainText("Scene 2: Rocks");
+  await scenes.click();
+  await expect(box).toContainText("An island.");
+
+  // An edit reads against the last save, names its scene, and reverts where it stands.
+  await box.fill(script.replace("Find d.", "Find lowercase d."));
+  await page.getByRole("button", { name: "Diff", exact: true }).click();
+  await page.getByRole("option", { name: "Diff: Since last save", exact: true }).click();
+  await expect(page.getByText("+1 −1", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Scene 2", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Go to the change at line 6" })).toBeVisible();
+  await page.getByRole("button", { name: "Revert", exact: true }).click();
+  await expect(page.getByText("No changes", { exact: true })).toBeVisible();
+  await expect(save).toBeDisabled();
+
+  // A conversation's proposal marks the scenes it changes and reads as a diff until accepted.
+  const proposed = script.replace("Scene 1: Intro", "Scene 1: Welcome");
+  await page.route("**/*", async (route) => {
+    const p = new URL(route.request().url()).pathname;
+    if (p === `${base}/act_test/runs`)
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          runs: [
+            {
+              kind: "assist",
+              inputRevision: "1",
+              runId: "run_assist",
+              activityId: "act_test",
+              projectId,
+              sessionId: "session_assist",
+              status: "succeeded",
+              createdAt: "2026-09-19T11:00:00Z",
+              hasCandidate: false,
+              error: null,
+            },
+          ],
+        }),
+      });
+    if (p === `${base}/act_test/runs/run_assist/proposal`)
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          proposal: {
+            summary: "A warmer opening",
+            changes: [{ target: "description", text: proposed }],
+          },
+          error: null,
+        }),
+      });
+    return route.fallback();
+  });
+  await page.reload();
+  await openSection(page, "Description");
+  await expect(box.locator(".cm-proposed-hint")).toHaveText("proposed, not applied");
+  await page.getByRole("button", { name: "Diff", exact: true }).click();
+  await page.getByRole("option", { name: "Diff: Agent proposal", exact: true }).click();
+  await expect(
+    page.getByText("This is the agent's proposed script", { exact: false }),
+  ).toBeVisible();
+  await expect(box).toContainText("Scene 1: Welcome");
+  await expect(box).toHaveAttribute("contenteditable", "false");
+  await page.getByRole("button", { name: "Accept the proposed script", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Accept the proposed script" })).toHaveCount(0);
+  await expect(box).toHaveAttribute("contenteditable", "true");
+  await expect(box).toContainText("Scene 1: Welcome");
+  await expect(box.locator(".cm-proposed-hint")).toHaveCount(0);
   expect(f.errors).toEqual([]);
 });

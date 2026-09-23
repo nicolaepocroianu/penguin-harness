@@ -32,8 +32,10 @@ import { firstSelection, sameSelection, type SceneAssetSelection } from "./scene
 import { resolveSection, workspaceSections, type WorkspaceSection } from "./workspace-model";
 import { assetForPick, buildStudioTree } from "./studio-tree";
 import { ConversationPanel } from "./conversation-panel";
-import { focusFor } from "./conversation";
+import { focusFor, latestConversation } from "./conversation";
 import { applyMediaChange, type ProposalChange } from "./proposal";
+import { ScriptEditor } from "./script-editor";
+import { useAssistProposal } from "./use-assist-proposal";
 import { StudioTreeView } from "./studio-tree-view";
 import { SessionsPanel } from "./sessions-panel";
 import { ModulePreview } from "./module-preview";
@@ -403,6 +405,15 @@ function ActivityEditor({
       spec !== pretty(detail.draft.spec) ||
       media !== pretty(detail.draft.mediaPlan?.manifest));
   state.current = { dirty, busy, revision: detail?.draft.contentRevision ?? "", available };
+  const proposal = useAssistProposal(endpoint, latestConversation(runs)?.runId ?? null);
+  // The proposed script, while it still differs from the saved one.
+  const proposedScript = proposal.read?.proposal?.changes.find(
+    (change) => change.target === "description",
+  );
+  const scriptProposal =
+    proposedScript && detail && proposedScript.text !== detail.draft.description
+      ? proposedScript.text
+      : null;
   useLayoutEffect(() => {
     onDirty(dirty);
   });
@@ -736,6 +747,8 @@ function ActivityEditor({
               }}
               dirty={dirty}
               onAccept={acceptProposal}
+              proposal={proposal.read}
+              onReplyEnded={proposal.reload}
             />
           ),
         },
@@ -914,160 +927,156 @@ function ActivityEditor({
           }
           onAcceptText={(runId) => acceptRun(runId, "accept-media-text")}
         />
+      ) : section === "description" ? (
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <ScriptEditor
+            value={description}
+            saved={detail.draft.description}
+            proposal={scriptProposal}
+            access={!available ? "read" : editable && !busy ? "edit" : "disabled"}
+            canSave={editable}
+            saveDisabled={busy || description === detail.draft.description}
+            acceptBlocked={dirty ? S.activities.studioProposal.saveFirst : null}
+            onChange={setDescription}
+            onSave={() => void save("description")}
+            onAcceptProposal={
+              editable && available && scriptProposal !== null
+                ? () => void acceptProposal({ target: "description", text: scriptProposal })
+                : undefined
+            }
+          />
+          {editable && (
+            <div className="max-h-[45%] shrink-0 overflow-y-auto border-t border-gray-200 p-4 dark:border-gray-800">
+              <div className="mx-auto max-w-4xl">
+                <div className="space-y-3">
+                  <Select
+                    size="sm"
+                    label={S.activities.agent}
+                    value={selectedAgent}
+                    onChange={(e) => setAgentId(e.target.value)}
+                    disabled={busy || running}
+                  >
+                    <optgroup label={S.activities.penguinAgents}>
+                      {agents.map((agent) => (
+                        <option key={agent.agentId} value={agent.agentId}>
+                          {agent.name ?? agent.agentId}
+                        </option>
+                      ))}
+                    </optgroup>
+                    {codingAgents.length > 0 && (
+                      <optgroup label={S.activities.codingAgents}>
+                        {codingAgents.map((agent) => (
+                          <option key={agent.id} value={`coding:${agent.id}`}>
+                            {agent.title}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </Select>
+                  {codingAgentId && (
+                    <p className="text-xs text-gray-500">{S.activities.codingAgentMedia}</p>
+                  )}
+                  {detail.activityType === "book" && (
+                    <>
+                      <h3 className="flex items-center gap-2 text-xs font-semibold">
+                        {S.activities.readingMode}
+                        <InfoPopover label={S.activities.readingMode}>
+                          <p>{S.activities.readingModeHelp}</p>
+                        </InfoPopover>
+                      </h3>
+                      <Select
+                        size="sm"
+                        aria-label={S.activities.readingMode}
+                        hint={S.activities.readingModeHint}
+                        value={bookMode}
+                        onChange={(e) => setBookMode(e.target.value as typeof bookMode)}
+                        disabled={busy || running}
+                      >
+                        <option value="">{S.activities.chooseReadingMode}</option>
+                        <option value="readAlong">{S.activities.readAlong}</option>
+                        <option value="decodable">{S.activities.decodable}</option>
+                      </Select>
+                    </>
+                  )}
+                  {dirty && (
+                    <p className={`text-xs ${toneInk.attention}`}>{S.activities.saveFirst}</p>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    disabled={busy || running || dirty || !selectedAgent || !description.trim()}
+                    onClick={() =>
+                      void action(async () => {
+                        const run = await apiFetch<ActivityRun>(`${endpoint}/generate-spec`, {
+                          method: "POST",
+                          body: {
+                            ...runner,
+                            expectedRevision: detail.draft.contentRevision,
+                          },
+                        });
+                        if (alive.current) {
+                          setRuns((previous) => [
+                            summarize(run),
+                            ...previous.filter((item) => item.runId !== run.runId),
+                          ]);
+                          setRefreshVersion((value) => value + 1);
+                        }
+                      })
+                    }
+                  >
+                    {S.activities.generate}
+                  </Button>
+                  <Input
+                    size="sm"
+                    label={S.activities.wafRoot}
+                    value={wafRoot}
+                    onChange={(event) => setWafRoot(event.target.value)}
+                    disabled={busy || running}
+                    hint={S.activities.wafRootHint}
+                  />
+                  <Button
+                    size="sm"
+                    disabled={
+                      busy ||
+                      running ||
+                      dirty ||
+                      !selectedAgent ||
+                      detail.draft.status !== "valid" ||
+                      !detail.draft.spec ||
+                      (detail.activityType === "book" && (!bookMode || !detail.draft.mediaPlan))
+                    }
+                    onClick={() =>
+                      void action(async () => {
+                        const run = await apiFetch<ActivityRun>(`${endpoint}/assemble-module`, {
+                          method: "POST",
+                          body: {
+                            ...runner,
+                            expectedRevision: detail.draft.contentRevision,
+                            wafRoot: wafRoot.trim() || undefined,
+                            ...(detail.activityType === "book" ? { bookMode } : {}),
+                          },
+                        });
+                        if (alive.current) {
+                          setRuns((previous) => [
+                            summarize(run),
+                            ...previous.filter((item) => item.runId !== run.runId),
+                          ]);
+                          setRefreshVersion((value) => value + 1);
+                        }
+                      })
+                    }
+                  >
+                    {S.activities.assemble}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
       ) : (
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
             <div className="mx-auto max-w-4xl space-y-5">
-              {section === "description" && (
-                <>
-                  <div className="space-y-2">
-                    <Textarea
-                      size="sm"
-                      label={S.activities.description}
-                      rows={7}
-                      value={description}
-                      maxLength={100_000}
-                      onChange={(e) => setDescription(e.target.value)}
-                      disabled={available && (!editable || busy)}
-                      readOnly={!available}
-                    />
-                    <div className="flex flex-wrap gap-2">
-                      {editable && (
-                        <Button
-                          size="sm"
-                          onClick={() => void save("description")}
-                          disabled={busy || description === detail.draft.description}
-                        >
-                          {S.activities.saveDescription}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  {editable && (
-                    <div className="space-y-3 rounded-lg border border-gray-200 p-3 dark:border-gray-800">
-                      <Select
-                        size="sm"
-                        label={S.activities.agent}
-                        value={selectedAgent}
-                        onChange={(e) => setAgentId(e.target.value)}
-                        disabled={busy || running}
-                      >
-                        <optgroup label={S.activities.penguinAgents}>
-                          {agents.map((agent) => (
-                            <option key={agent.agentId} value={agent.agentId}>
-                              {agent.name ?? agent.agentId}
-                            </option>
-                          ))}
-                        </optgroup>
-                        {codingAgents.length > 0 && (
-                          <optgroup label={S.activities.codingAgents}>
-                            {codingAgents.map((agent) => (
-                              <option key={agent.id} value={`coding:${agent.id}`}>
-                                {agent.title}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                      </Select>
-                      {codingAgentId && (
-                        <p className="text-xs text-gray-500">{S.activities.codingAgentMedia}</p>
-                      )}
-                      {detail.activityType === "book" && (
-                        <>
-                          <h3 className="flex items-center gap-2 text-xs font-semibold">
-                            {S.activities.readingMode}
-                            <InfoPopover label={S.activities.readingMode}>
-                              <p>{S.activities.readingModeHelp}</p>
-                            </InfoPopover>
-                          </h3>
-                          <Select
-                            size="sm"
-                            aria-label={S.activities.readingMode}
-                            hint={S.activities.readingModeHint}
-                            value={bookMode}
-                            onChange={(e) => setBookMode(e.target.value as typeof bookMode)}
-                            disabled={busy || running}
-                          >
-                            <option value="">{S.activities.chooseReadingMode}</option>
-                            <option value="readAlong">{S.activities.readAlong}</option>
-                            <option value="decodable">{S.activities.decodable}</option>
-                          </Select>
-                        </>
-                      )}
-                      {dirty && (
-                        <p className={`text-xs ${toneInk.attention}`}>{S.activities.saveFirst}</p>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        disabled={busy || running || dirty || !selectedAgent || !description.trim()}
-                        onClick={() =>
-                          void action(async () => {
-                            const run = await apiFetch<ActivityRun>(`${endpoint}/generate-spec`, {
-                              method: "POST",
-                              body: {
-                                ...runner,
-                                expectedRevision: detail.draft.contentRevision,
-                              },
-                            });
-                            if (alive.current) {
-                              setRuns((previous) => [
-                                summarize(run),
-                                ...previous.filter((item) => item.runId !== run.runId),
-                              ]);
-                              setRefreshVersion((value) => value + 1);
-                            }
-                          })
-                        }
-                      >
-                        {S.activities.generate}
-                      </Button>
-                      <Input
-                        size="sm"
-                        label={S.activities.wafRoot}
-                        value={wafRoot}
-                        onChange={(event) => setWafRoot(event.target.value)}
-                        disabled={busy || running}
-                        hint={S.activities.wafRootHint}
-                      />
-                      <Button
-                        size="sm"
-                        disabled={
-                          busy ||
-                          running ||
-                          dirty ||
-                          !selectedAgent ||
-                          detail.draft.status !== "valid" ||
-                          !detail.draft.spec ||
-                          (detail.activityType === "book" && (!bookMode || !detail.draft.mediaPlan))
-                        }
-                        onClick={() =>
-                          void action(async () => {
-                            const run = await apiFetch<ActivityRun>(`${endpoint}/assemble-module`, {
-                              method: "POST",
-                              body: {
-                                ...runner,
-                                expectedRevision: detail.draft.contentRevision,
-                                wafRoot: wafRoot.trim() || undefined,
-                                ...(detail.activityType === "book" ? { bookMode } : {}),
-                              },
-                            });
-                            if (alive.current) {
-                              setRuns((previous) => [
-                                summarize(run),
-                                ...previous.filter((item) => item.runId !== run.runId),
-                              ]);
-                              setRefreshVersion((value) => value + 1);
-                            }
-                          })
-                        }
-                      >
-                        {S.activities.assemble}
-                      </Button>
-                    </div>
-                  )}
-                </>
-              )}
               {section === "specification" && (
                 <>
                   <section className="space-y-3">

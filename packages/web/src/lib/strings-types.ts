@@ -57,6 +57,27 @@ export type Strings = {
       sessionsEmpty: string;
       openSession: string;
     };
+    /** The Activity Script editor: scenes that fold, media tags, and a diff against a base. */
+    studioScript: {
+      label: string;
+      scenes: string;
+      scenesHelp: string;
+      diff: string;
+      diffOff: string;
+      diffSaved: string;
+      diffProposal: string;
+      stats: (added: number, removed: number) => string;
+      noChanges: string;
+      changedScenes: string;
+      scene: (n: number) => string;
+      proposed: string;
+      proposalShown: string;
+      acceptProposal: string;
+      save: string;
+      minimap: string;
+      jump: (line: number) => string;
+      revert: string;
+    };
     /** An agent's proposed changes, reviewed in the conversation panel. */
     studioProposal: {
       title: string;

@@ -22,8 +22,9 @@ import { toneInk } from "../../lib/tone";
 import { MessageStream, type StreamRenderContext } from "../chat/message-stream";
 import { useSessionStream } from "../chat/use-session-stream";
 import { focusLabel, followUpText, latestConversation, type AssistFocus } from "./conversation";
-import type { AssistProposal, ProposalBase, ProposalChange } from "./proposal";
+import type { ProposalBase, ProposalChange } from "./proposal";
 import { ProposalCard } from "./proposal-card";
+import type { ProposalRead } from "./use-assist-proposal";
 
 export function ConversationPanel({
   endpoint,
@@ -36,6 +37,8 @@ export function ConversationPanel({
   base,
   dirty,
   onAccept,
+  proposal,
+  onReplyEnded,
 }: {
   /** The activity's API path. */
   endpoint: string;
@@ -52,6 +55,10 @@ export function ConversationPanel({
   /** The author has unsaved edits of their own. */
   dirty: boolean;
   onAccept: (change: ProposalChange) => Promise<void>;
+  /** The newest conversation's proposal, as the page last read it. */
+  proposal: ProposalRead | null;
+  /** A reply ended, so the agent may have written a new proposal. */
+  onReplyEnded: () => void;
 }) {
   const latest = latestConversation(runs);
   // Undefined follows the newest conversation; null is a fresh one the next message starts.
@@ -64,10 +71,11 @@ export function ConversationPanel({
       // A different Session is a different transcript; nothing of the last one carries over.
       key={sessionId ?? "fresh"}
       sessionId={sessionId}
-      runId={run?.runId ?? null}
       base={base}
       dirty={dirty}
       onAccept={onAccept}
+      proposal={run && proposal?.runId === run.runId ? proposal : null}
+      onReplyEnded={onReplyEnded}
       initialStatus={startedRunning}
       endpoint={endpoint}
       runner={runner}
@@ -83,10 +91,11 @@ export function ConversationPanel({
 
 function Conversation({
   sessionId,
-  runId,
   base,
   dirty,
   onAccept,
+  proposal: read,
+  onReplyEnded,
   initialStatus,
   endpoint,
   runner,
@@ -98,10 +107,11 @@ function Conversation({
   onStarted,
 }: {
   sessionId: string | null;
-  runId: string | null;
   base: ProposalBase;
   dirty: boolean;
   onAccept: (change: ProposalChange) => Promise<void>;
+  proposal: ProposalRead | null;
+  onReplyEnded: () => void;
   initialStatus: "idle" | "running";
   endpoint: string;
   runner: Record<string, string> | null;
@@ -121,28 +131,13 @@ function Conversation({
   // follow-up's. Null on a resumed conversation, whose first message this page never saw.
   const lastSent = useRef<AssistFocus | null>(null);
   const running = stream.taskState === "running";
-  // The agent's current proposal, read again whenever a reply ends: each reply may write a
-  // new one, and nothing else says it did.
-  const [proposal, setProposal] = useState<AssistProposal | null>(null);
-  const [proposalError, setProposalError] = useState<string | null>(null);
+  const proposal = read?.proposal ?? null;
+  const proposalError = read?.error ?? null;
+  const wasRunning = useRef(running);
   useEffect(() => {
-    if (!runId || running) return;
-    let cancelled = false;
-    void apiFetch<{ proposal: AssistProposal | null; error: string | null }>(
-      `${endpoint}/runs/${encodeURIComponent(runId)}/proposal`,
-    )
-      .then((value) => {
-        if (cancelled) return;
-        setProposal(value.proposal);
-        setProposalError(value.error);
-      })
-      .catch(() => {
-        /* Reading a proposal is a courtesy; the conversation stands without it. */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [endpoint, runId, running]);
+    if (wasRunning.current && !running) onReplyEnded();
+    wasRunning.current = running;
+  }, [running, onReplyEnded]);
 
   const onApprove = useCallback(
     async (toolCallId: string, decision: "allow" | "deny", origin: string[]) => {
