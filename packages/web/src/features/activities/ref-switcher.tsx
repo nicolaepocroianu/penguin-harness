@@ -1,5 +1,5 @@
 /**
- * Loom's refs, in the activity's header: which ref of the product is open, the others to
+ * A product's refs, in the activity's header: which ref is open, the others to
  * move to, and what this one is called and whether others may build against it.
  *
  * A ref is an activity of its own here, so moving to another is navigation, and the page's

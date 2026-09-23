@@ -1,5 +1,5 @@
 /**
- * One narration across every language, as Loom's audio panel lists it: each language's
+ * One narration across every language, so a line can be checked in all of them at once:
  * script, whether it still needs translating, and whether it is spoken yet, with a way to
  * open that language. Shown only when the activity has more than one.
  */

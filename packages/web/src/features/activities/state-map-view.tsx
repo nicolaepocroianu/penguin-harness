@@ -1,5 +1,5 @@
 /**
- * The behavior map under the player, as Loom's preview draws it beside its sandbox: the
+ * The behavior map under the player, so what the module does can be read beside it: the
  * scene's phases top to bottom, forward transitions as solid curves, returns dashed, and
  * the phase the activity reports itself in highlighted as it plays.
  *
@@ -205,7 +205,7 @@ export function StateMapView({
   open,
   onToggle,
 }: {
-  /** Whether the map is shown; the header stays either way, as Loom's toggle does. */
+  /** Whether the map is shown; the header stays either way, so it can be shown again. */
   open: boolean;
   onToggle: () => void;
   /** The activity's sandbox API path. */

@@ -1,5 +1,5 @@
 /**
- * The Activity Script editor, after Loom's: one monospace surface where scenes fold to
+ * The Activity Script editor: one monospace surface where scenes fold to
  * their headings, media elements stand out from the prose around them, and a diff against
  * a chosen base is drawn in place rather than in a second view.
  *
@@ -172,6 +172,8 @@ function common() {
     search({ top: true }),
     EditorView.lineWrapping,
     EditorView.contentAttributes.of({ "aria-label": S.activities.studioScript.label }),
+    // The editor's own words (search, folding, merge controls) in the app's dictionary.
+    EditorState.phrases.of(S.activities.studioScript.editorPhrases),
     keymap.of([
       { key: "Alt-ArrowDown", run: goToNextChunk },
       { key: "Alt-ArrowUp", run: goToPreviousChunk },

@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { buildReadiness } from "./build-readiness.js";
 import type { MediaAsset } from "./media.js";
 import type { CarriedBinding } from "./import-mapping.js";
 import {
@@ -137,6 +138,15 @@ export class ActivityService implements ActivityAuthoring {
       activity.id,
       activity.draft.draftId,
     );
+  }
+  async readiness(projectId: string, activityId: string, wafRoot: string) {
+    const activity = await this.getActivity(projectId, activityId);
+    // The author's checkout when they typed one, or the one assembly would discover.
+    const checkout = await findWafRoot(process.cwd(), wafRoot || process.env.WAF_ROOT_DIR);
+    return buildReadiness(activity, {
+      canonical: this.isCanonicalRef(activity),
+      checkoutFound: !!checkout,
+    });
   }
   async implementationFeatures(projectId: string, activityId: string) {
     const activity = await this.getActivity(projectId, activityId);
@@ -738,7 +748,7 @@ export class ActivityService implements ActivityAuthoring {
     });
   }
   /**
-   * A language added to the media plan, as Loom's language table allows. As in Loom, a
+   * A language added to the media plan, from the product's language table. A
    * language's group holds only what it says differently: the scripted narration, without
    * its script, so each reads as needing translation rather than passing an English line
    * off as a translated one. Pictures, music and effects fall back to the default.

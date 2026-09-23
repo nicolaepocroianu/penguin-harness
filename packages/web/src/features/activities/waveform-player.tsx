@@ -62,7 +62,7 @@ export function WaveformPlayer({
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const reducedMotion = usePrefersReducedMotion();
-  // Loom's trim: a stretch dragged across the waveform, played on its own or cut out.
+  // A trim: a stretch dragged across the waveform, played on its own or cut out.
   const [selection, setSelection] = useState<{ start: number; end: number } | null>(null);
   const [trimming, setTrimming] = useState(false);
   const [trimError, setTrimError] = useState<string | null>(null);
@@ -187,9 +187,9 @@ export function WaveformPlayer({
       const Context =
         window.AudioContext ??
         (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!Context) throw new Error("no audio context");
+      if (!Context) throw new Error(S.activities.waveformTrim.noAudio);
       const response = await fetch(src, { credentials: "same-origin" });
-      if (!response.ok) throw new Error(String(response.status));
+      if (!response.ok) throw new Error(S.activities.waveformTrim.fetchFailed(response.status));
       const bytes = await response.arrayBuffer();
       const rate = wavSampleRate(new Uint8Array(bytes));
       const context = rate ? new Context({ sampleRate: rate }) : new Context();
@@ -292,7 +292,7 @@ export function WaveformPlayer({
           if (Number.isFinite(value) && !duration) setDuration(value);
         }}
         onTimeUpdate={(event) => {
-          // Playing a selection stops at its end, as Loom's "Play selected" does.
+          // Playing a selection stops at its end, or it would run on into what is kept.
           if (stopAt.current !== null && event.currentTarget.currentTime >= stopAt.current) {
             stopAt.current = null;
             event.currentTarget.pause();

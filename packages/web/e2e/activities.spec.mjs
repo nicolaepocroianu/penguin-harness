@@ -1813,9 +1813,7 @@ test("the script editor folds scenes, diffs against the last save and shows an a
   await expect(box.locator(".cm-proposed-hint")).toHaveText("proposed, not applied");
   await page.getByRole("button", { name: "Diff", exact: true }).click();
   await page.getByRole("option", { name: "Diff: Agent proposal", exact: true }).click();
-  await expect(
-    page.getByText("This is the agent's proposed script", { exact: false }),
-  ).toBeVisible();
+  await expect(page.getByText("Agent proposal, read-only", { exact: true })).toBeVisible();
   await expect(box).toContainText("Scene 1: Welcome");
   await expect(box).toHaveAttribute("contenteditable", "false");
   await page.getByRole("button", { name: "Accept the proposed script", exact: true }).click();
@@ -1835,7 +1833,8 @@ test("runs every stage from the hierarchy and follows the run in its panel", asy
     ["spec", "media", "speech", "images", "module"].map((step, index) => ({
       step,
       status: statuses[index],
-      detail: step === "images" && statuses[index] === "skipped" ? "No image is missing." : null,
+      detail: null,
+      note: step === "images" && statuses[index] === "skipped" ? "noImages" : null,
       done: step === "speech" ? 2 : 0,
       total: step === "speech" ? 2 : 0,
       runIds: [],

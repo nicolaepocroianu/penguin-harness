@@ -17,7 +17,6 @@ import { SPEECH_MODEL, SPEECH_VOICES } from "./audio.js";
 import { IMAGE_MODEL } from "./generated-image.js";
 import { UPLOAD_MAX_BYTES } from "./upload.js";
 import { ActivityPipelines, parseSelection } from "./pipeline-run.js";
-import { buildReadiness } from "./build-readiness.js";
 import {
   badRequest,
   optionalString,
@@ -92,7 +91,7 @@ export class ActivityRoutes {
         ),
       );
     });
-    // Loom's language table: what an activity may be authored and translated in.
+    // The language table: what an activity may be authored and translated in.
     app.get("/language-setup", (c) =>
       c.json({ defaultLanguage: DEFAULT_LANGUAGE_CODE, languages: ACTIVITY_LANGUAGES }),
     );
@@ -504,7 +503,7 @@ export class ActivityRoutes {
         ),
       ),
     );
-    // What an author calls a ref, and whether others may build against it (Loom's Refs).
+    // What an author calls a ref, and whether others may build against it.
     app.patch("/:activityId/identity", async (c) => {
       const body = await readJson(c);
       if (body.stable !== undefined && typeof body.stable !== "boolean")
@@ -632,15 +631,14 @@ export class ActivityRoutes {
     });
     // What stands between the draft and an assembled module, checked where the facts live.
     app.get("/:activityId/readiness", async (c) => {
-      const projectId = requireValidId(c, "projectId");
-      const activity = await this.activities.getActivity(projectId, pathParam(c, "activityId"));
       const wafRoot = (c.req.query("wafRoot") ?? "").trim();
       if (wafRoot.length > 4096) throw badRequest("wafRoot is too long.");
       return c.json({
-        checks: buildReadiness(activity, {
-          canonical: this.activities.isCanonicalRef(activity),
-          checkoutFound: !!(await findWafRoot(process.cwd(), wafRoot || process.env.WAF_ROOT_DIR)),
-        }),
+        checks: await this.activities.readiness(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          wafRoot,
+        ),
       });
     });
     app.get("/:activityId/pipeline", async (c) =>

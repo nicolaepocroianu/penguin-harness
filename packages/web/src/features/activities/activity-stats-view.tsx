@@ -1,5 +1,5 @@
 /**
- * Loom's Activity Stats panel: the media plan counted and weighed, by asset type and by
+ * Activity Stats: the media plan counted and weighed, by asset type and by
  * language, in the app's own table style.
  */
 import { useEffect, useState } from "react";

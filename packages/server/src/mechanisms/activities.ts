@@ -8,6 +8,7 @@ import type { UploadedMedia } from "../activities/upload.js";
 import type { ImportOutcome } from "../activities/import-apply.js";
 import type { ImportedActivity } from "../activities/loom-import.js";
 import type { ImplementationFeature } from "../activities/implementation-features.js";
+import type { ReadinessCheck } from "../activities/build-readiness.js";
 import type { ImportMapping } from "../activities/import-mapping.js";
 import type {
   ActivityDraft,
@@ -167,6 +168,8 @@ export abstract class ActivityAuthoring extends Interface<{
     activityId: string,
     expectedRevision: string,
   ): Promise<ActivityDraft>;
+  /** What stands between the draft and an assembled module, with this checkout, if given. */
+  readiness(projectId: string, activityId: string, wafRoot: string): Promise<ReadinessCheck[]>;
   /** Loom's implementation features, and the ones this ref asks its assembly to reproduce. */
   implementationFeatures(
     projectId: string,

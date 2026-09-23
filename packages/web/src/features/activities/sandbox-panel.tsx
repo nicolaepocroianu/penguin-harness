@@ -197,7 +197,7 @@ function SandboxPlayer({
   // element inspector does: a second click should play, not pick again.
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
-  // Loom's preview shows its state machine beside the player until an author hides it.
+  // The behavior map is shown until an author hides it: it is how a state is read.
   const [showMap, setShowMap] = useState(true);
   const sceneRef = useRef<string | null>(null);
   sceneRef.current = report?.state.sceneId ?? null;

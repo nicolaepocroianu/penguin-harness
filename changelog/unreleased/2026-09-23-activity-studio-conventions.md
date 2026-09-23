@@ -27,3 +27,9 @@ tokens and architecture.
   in behaviour.
 - The page ignores a language table or a stage sequence that does not have the expected
   shape, instead of failing to render.
+- A stage's reason for having nothing to do reaches the App as a code (`note`) that the
+  App words, instead of server-written English. The server's error messages are
+  unchanged.
+- The script editor's own labels (search, folding, merge controls) and the waveform trim's
+  errors come from the strings dictionary.
+- Build readiness is computed by the activity service. The route only reads its input.

@@ -4855,6 +4855,7 @@ export type {
   PipelineSelection,
   PipelineStepState,
   PipelineStepStatus,
+  PipelineNote,
 } from "../activities/pipeline-types.js";
 export type { ReadinessCheck, ReadinessLevel } from "../activities/build-readiness.js";
 

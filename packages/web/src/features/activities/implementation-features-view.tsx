@@ -1,7 +1,7 @@
 /**
- * Loom's Implementation Features: patterns shipped modules implement well, which this ref
- * can ask its module assembly to reproduce exactly. Each switch saves at once, as Loom's
- * checklist does; the selection is read by the next assembly.
+ * Implementation Features: patterns shipped modules implement well, which this ref can ask
+ * its module assembly to reproduce exactly. Each switch saves at once, since there is
+ * nothing else on the page to save; the selection is read by the next assembly.
  */
 import { useEffect, useId, useState } from "react";
 import type { ImplementationFeature } from "@prismshadow/penguin-server/api";

@@ -1,7 +1,7 @@
 /**
- * Running the stages, after Loom's pipeline controls: a stage picker and Run under the
- * hierarchy, and a panel that follows the run. Loom follows a run as a log; here the log
- * is the running stage's own Session, so its approvals can be answered where it is shown.
+ * Running the stages: a stage picker and Run under the hierarchy, and a panel that follows
+ * the run. What it follows is the running stage's own Session, so its approvals can be
+ * answered where it is shown rather than in a separate chat.
  */
 import { Link } from "react-router";
 import type {
@@ -55,7 +55,7 @@ function summary(pipeline: PipelineState): { text: string; tone: Tone } {
   return { text: words.failed(pipeline.error ?? words.status.failed), tone: "danger" };
 }
 
-/** The stage picker and Run, at the foot of the hierarchy as Loom has them. */
+/** The stage picker and Run, at the foot of the hierarchy the stages act on. */
 export function PipelineControls({
   choice,
   pipeline,
@@ -137,12 +137,12 @@ function StepRow({ step }: { step: PipelineStepState }) {
               : words.status[step.status]}
           </span>
         </div>
-        {step.detail && (
+        {(step.detail || step.note) && (
           <p
             className={`truncate text-xs ${step.status === "failed" ? toneInk.danger : "text-gray-500"}`}
-            title={step.detail}
+            title={step.detail ?? undefined}
           >
-            {step.detail}
+            {step.detail ?? (step.note ? words.notes[step.note] : "")}
           </p>
         )}
       </div>

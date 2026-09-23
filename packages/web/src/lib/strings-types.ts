@@ -137,6 +137,10 @@ export type Strings = {
       stop: string;
       idle: string;
       progress: (done: number, total: number) => string;
+      notes: Record<
+        "planCurrent" | "allTranslated" | "needsPenguinAgent" | "noNarration" | "noImages",
+        string
+      >;
       running: (step: string) => string;
       finished: string;
       stopped: string;
@@ -171,6 +175,8 @@ export type Strings = {
       jump: (line: number) => string;
       revert: string;
       autosave: Record<"pending" | "saving" | "saved" | "failed" | "held", string>;
+      /** CodeMirror's built-in labels, keyed by its English phrase. */
+      editorPhrases: Record<string, string>;
     };
     /** An agent's proposed changes, reviewed in the conversation panel. */
     studioProposal: {
@@ -249,7 +255,7 @@ export type Strings = {
       loading: string;
       unreadable: (reason: string) => string;
       none: string;
-      missing: (file: string) => string;
+      missing: Record<"configuration" | "assessment", string>;
       fromRun: (file: string) => string;
       fromCheckout: (file: string) => string;
       items: (n: number) => string;
@@ -306,6 +312,8 @@ export type Strings = {
       clear: string;
       working: string;
       failed: (reason: string) => string;
+      noAudio: string;
+      fetchFailed: (status: number) => string;
     };
     waveformUnavailable: string;
     bulkSpeechTitle: string;

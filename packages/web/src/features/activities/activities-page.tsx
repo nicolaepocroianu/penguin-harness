@@ -71,7 +71,7 @@ function pipelineOrNull(value: unknown): PipelineState | null {
   return state && Array.isArray(state.steps) && typeof state.status === "string" ? state : null;
 }
 
-/** How long after the last keystroke the script saves itself, as in Loom. */
+/** How long after the last keystroke the script saves itself: long enough not to save mid-word. */
 const SCRIPT_AUTOSAVE_MS = 5000;
 export function ActivitiesPage() {
   useLocale();
@@ -325,7 +325,7 @@ function ActivityEditor({
   // The activity's run of its stages, as the server last reported it (pipeline-run.ts).
   const [pipeline, setPipeline] = useState<PipelineState | null>(null);
   const [pipelineChoice, setPipelineChoice] = useState<PipelineSelection>("all");
-  // Loom's language table: what the activity may be translated into.
+  // The languages the product supports: what the activity may be translated into.
   const [languageSetup, setLanguageSetup] = useState<{
     defaultLanguage: string;
     languages: { code: string; label: string }[];
@@ -588,7 +588,7 @@ function ActivityEditor({
     : { agentId: selectedAgent };
   const running = runs.some((run) => run.status === "running");
   const pipelineRunning = pipeline?.status === "running";
-  // Loom's editor saves the script a few seconds after typing stops, and holds off while
+  // The script saves itself a few seconds after typing stops, and holds off while
   // the pipeline runs so a save never moves the draft under a stage. Text typed during a
   // save stays: a save never writes the saved text back over the editor.
   const [scriptSave, setScriptSave] = useState<"saving" | "saved" | "failed" | null>(null);

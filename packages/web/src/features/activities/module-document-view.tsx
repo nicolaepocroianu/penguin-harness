@@ -1,5 +1,5 @@
 /**
- * Loom's Configuration Data and Assessment Data: the module's own configuration and
+ * Configuration Data and Assessment Data: the module's own configuration and
  * assessment files for this ref, shown as they are. The module owns them (an assembly
  * wrote them, or they are the checkout's), so they are read here, not edited.
  */
@@ -44,12 +44,7 @@ export function ModuleDocumentView({
   if (!documents) return <p className="text-sm text-gray-500">{words.loading}</p>;
   if (!documents.source) return <p className="text-sm text-gray-500">{words.none}</p>;
   const document = documents[kind];
-  if (!document)
-    return (
-      <p className="text-sm text-gray-500">
-        {words.missing(kind === "configuration" ? "configuration file" : "assessment file")}
-      </p>
-    );
+  if (!document) return <p className="text-sm text-gray-500">{words.missing[kind]}</p>;
   const items =
     kind === "assessment" &&
     document.value &&

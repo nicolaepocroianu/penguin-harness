@@ -251,7 +251,7 @@ describe("running the stages", () => {
     expect(w.plans()).toBe(1);
     expect(w.runner.status("act")!.steps[0]).toMatchObject({
       status: "skipped",
-      detail: "The media plan already matches the specification.",
+      note: "planCurrent",
     });
   });
 
@@ -292,7 +292,7 @@ describe("running the stages", () => {
     expect(final.status).toBe("succeeded");
     expect(final.steps[3]).toMatchObject({
       status: "skipped",
-      detail: "Media generation needs a Penguin agent, not a coding agent.",
+      note: "needsPenguinAgent",
     });
     expect(w.started).toEqual(["spec", "module"]);
     expect(w.runs.map((run) => run.codingAgentId)).toEqual(["codex", "codex"]);

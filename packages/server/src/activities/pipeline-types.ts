@@ -16,11 +16,16 @@ export type PipelineSelection = "all" | PipelineStep;
 export type PipelineStepStatus =
   "pending" | "running" | "succeeded" | "skipped" | "failed" | "cancelled";
 
+export type PipelineNote =
+  "planCurrent" | "allTranslated" | "needsPenguinAgent" | "noNarration" | "noImages";
+
 export interface PipelineStepState {
   step: PipelineStep;
   status: PipelineStepStatus;
-  /** Why a step was skipped or failed, or what it is doing. */
+  /** Why a step failed (the run's own reason), or the asset it is working on. */
   detail: string | null;
+  /** Why a step had nothing to do, as a code the App words. */
+  note: PipelineNote | null;
   /** Items a media step works through; 0 for single-run steps. */
   done: number;
   total: number;

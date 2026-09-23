@@ -5,8 +5,8 @@
  * module: the symbols its behaviour calls, the selectors its DOM carries, and the style
  * fragments (durations, easing, keyframes) that make it feel the same.
  *
- * The catalogue is Loom's, unchanged. A ref's selection is kept beside its draft, as Loom
- * keeps it beside the spec, and only the assembly reads it.
+ * The catalogue is Loom's, unchanged, so imported selections keep their meaning. A ref's
+ * selection is kept beside its draft, outside its revision, and only the assembly reads it.
  */
 export interface ImplementationFeature {
   id: string;
