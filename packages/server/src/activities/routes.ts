@@ -272,6 +272,14 @@ export class ActivityRoutes {
         ),
       );
     });
+    app.get("/:activityId/media-stats", async (c) =>
+      c.json({
+        media: await this.sandbox.mediaStats(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+        ),
+      }),
+    );
     app.get("/:activityId/module-documents", async (c) =>
       c.json(
         await this.sandbox.moduleDocuments(

@@ -12,6 +12,7 @@ export type WorkspaceSection =
   | "configuration"
   | "assessment"
   | "scenes"
+  | "stats"
   | "speech"
   | "library"
   | "module"
@@ -49,6 +50,7 @@ export function workspaceSections(state: WorkspaceState): WorkspaceSectionEntry[
     // what is missing instead.
     { key: "scenes", enabled: true },
     { key: "speech", enabled: state.hasSpec && state.hasPlan },
+    { key: "stats", enabled: state.hasPlan },
     { key: "library", enabled: true },
     // Reachable once there is a specification to assemble from: the Build stage that
     // assembles the first module lives in this section, as planning media lives in Scenes.

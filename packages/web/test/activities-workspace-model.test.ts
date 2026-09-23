@@ -39,6 +39,7 @@ describe("workspace sections", () => {
       "assessment",
       "scenes",
       "speech",
+      "stats",
       "library",
       "module",
       "history",

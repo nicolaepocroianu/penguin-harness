@@ -13,6 +13,7 @@
  * every manifest path that is not an upload points.
  */
 import type { ModuleDocuments } from "./module-documents.js";
+import type { MediaStat } from "./media-stats.js";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -180,6 +181,8 @@ type RangeRequest = { range?: string | null; ifRange?: string | null; ifNoneMatc
 export abstract class ActivitySandbox extends Interface<{
   status(projectId: string, activityId: string): Promise<SandboxStatus>;
   moduleDocuments(projectId: string, activityId: string): Promise<ModuleDocuments>;
+  /** Every asset of the media plan with the size of the file it is bound to. */
+  mediaStats(projectId: string, activityId: string): Promise<MediaStat[]>;
   payload(projectId: string, activityId: string, options: PayloadOptions): Promise<ActivityPayload>;
   moduleFile(projectId: string, activityId: string, rawPath: string): Promise<SandboxMediaResponse>;
   /** One file of the checkout's navigation bar module, which every played layout carries. */
@@ -314,6 +317,48 @@ export class ActivitySandboxService implements ActivitySandbox {
       output: checkoutOutputRoot(this.config.root, product.moduleFolder),
       moduleFolder: product.moduleFolder,
     };
+  }
+
+  async mediaStats(projectId: string, activityId: string): Promise<MediaStat[]> {
+    const activity = await this.activities.getActivity(projectId, activityId);
+    // The same places the player looks for media: the draft's own, then the checkout's.
+    const roots = [
+      sandboxMediaRoot({
+        draftWorkspace: this.activities.draftWorkspace(
+          projectId,
+          activity.collectionId,
+          activity.id,
+          activity.draft.draftId,
+        ),
+      }),
+    ];
+    const wafRoot = await this.locateWafRoot();
+    if (wafRoot) roots.push(path.join(wafRoot, "media"));
+    const sizeOf = async (bound: string | undefined): Promise<number | null> => {
+      const normal = (bound ?? "").replace(/\\/g, "/").replace(/^\/+/, "");
+      if (!normal.startsWith("media/")) return null;
+      const relative = previewMediaPath(normal.slice("media/".length));
+      if (!relative) return null;
+      for (const root of roots) {
+        const file = withinRoot(root, relative);
+        const stat = file ? await fs.stat(file).catch(() => null) : null;
+        if (stat?.isFile()) return stat.size;
+      }
+      return null;
+    };
+    const stats: MediaStat[] = [];
+    for (const [language, assets] of Object.entries(
+      activity.draft.mediaPlan?.manifest.assets ?? {},
+    ))
+      for (const asset of assets)
+        stats.push({
+          language,
+          key: asset.key,
+          type: asset.type,
+          bound: !!asset.path,
+          bytes: asset.path ? await sizeOf(asset.path) : null,
+        });
+    return stats;
   }
 
   async moduleDocuments(projectId: string, activityId: string): Promise<ModuleDocuments> {

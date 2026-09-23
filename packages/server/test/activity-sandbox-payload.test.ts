@@ -378,4 +378,68 @@ describe("the payload a preview serves", () => {
     const payload = await service.payload(PROJECT, ACTIVITY, {});
     expect(payload.configuration.sightWords).toEqual({});
   });
+
+  it("sizes each bound asset from the draft's media, then the checkout's", async () => {
+    const usage = [{ sceneId: "intro", sourceKey: "k", occurrence: 1, sceneOccurrenceCount: 1 }];
+    const checkout = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-waf-"));
+    cleanups.push(() => fs.rm(checkout, { recursive: true, force: true }));
+    const { service, root } = await build({
+      wafRoot: checkout,
+      manifest: {
+        productCode: "sight-words",
+        refNum: 1,
+        assets: {
+          "en-US": [
+            {
+              key: "hi",
+              type: "audio",
+              description: "",
+              path: "media/uploads/hi.wav",
+              usages: usage,
+            },
+            {
+              key: "cat",
+              type: "image",
+              description: "",
+              path: "media/images/cat.png",
+              usages: usage,
+            },
+            {
+              key: "gone",
+              type: "image",
+              description: "",
+              path: "media/images/gone.png",
+              usages: usage,
+            },
+            { key: "bye", type: "audio", description: "", usages: usage },
+          ],
+        },
+      },
+    });
+    await fs.mkdir(path.join(root, "draft", "media", "uploads"), { recursive: true });
+    await fs.writeFile(path.join(root, "draft", "media", "uploads", "hi.wav"), Buffer.alloc(120));
+    await fs.mkdir(path.join(checkout, "media", "images"), { recursive: true });
+    await fs.writeFile(path.join(checkout, "media", "images", "cat.png"), Buffer.alloc(30));
+    expect(await service.mediaStats(PROJECT, ACTIVITY)).toEqual([
+      { language: "en-US", key: "hi", type: "audio", bound: true, bytes: 120 },
+      { language: "en-US", key: "cat", type: "image", bound: true, bytes: 30 },
+      { language: "en-US", key: "gone", type: "image", bound: true, bytes: null },
+      { language: "en-US", key: "bye", type: "audio", bound: false, bytes: null },
+    ]);
+  });
+
+  it("reads the module's configuration file for this ref, and says where from", async () => {
+    const { service } = await build({ configuration: { rounds: 3 } });
+    expect(await service.moduleDocuments(PROJECT, ACTIVITY)).toEqual({
+      source: "run",
+      configuration: { file: "configurations/sight-words-1.json", value: { rounds: 3 } },
+      assessment: null,
+    });
+    const { service: none } = await build({ runs: [] });
+    expect(await none.moduleDocuments(PROJECT, ACTIVITY)).toEqual({
+      source: null,
+      configuration: null,
+      assessment: null,
+    });
+  });
 });

@@ -70,6 +70,7 @@ describe("studio tree", () => {
       "moduleDefinition",
       "audios",
       "scenes",
+      "activityStats",
       "mediaLibrary",
       "history",
     ]);

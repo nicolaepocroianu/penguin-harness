@@ -26,6 +26,7 @@ export type Strings = {
         | "moduleDefinition"
         | "audios"
         | "scenes"
+        | "activityStats"
         | "unassigned"
         | "mediaLibrary"
         | "history",
@@ -203,12 +204,26 @@ export type Strings = {
       | "configuration"
       | "assessment"
       | "scenes"
+      | "stats"
       | "speech"
       | "library"
       | "module"
       | "history",
       string
     >;
+    /** Loom's Activity Stats: the media plan counted and weighed. */
+    activityStats: {
+      reload: string;
+      unreadable: (reason: string) => string;
+      empty: string;
+      type: string;
+      language: string;
+      count: string;
+      bound: string;
+      size: string;
+      total: string;
+      missing: (n: number) => string;
+    };
     /** Loom's Configuration Data and Assessment Data: the module's own documents, read-only. */
     moduleDocuments: {
       loading: string;

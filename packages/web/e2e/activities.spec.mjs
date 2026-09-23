@@ -2478,3 +2478,40 @@ test("trims a stretch out of a narration and binds the shorter clip", async ({ p
   );
   expect(f.errors).toEqual([]);
 });
+
+test("Activity Stats counts and weighs the media plan by type and language", async ({ page }) => {
+  const f = await fixture(page);
+  await create(page);
+  await page.route("**/*", (route) => {
+    const p = new URL(route.request().url()).pathname;
+    if (p !== `${base}/act_test/media-stats`) return route.fallback();
+    return route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        media: [
+          { language: "en-US", key: "cat", type: "image", bound: true, bytes: 2048 },
+          { language: "en-US", key: "hi", type: "audio", bound: true, bytes: 1024 },
+          { language: "es-MX", key: "hi", type: "audio", bound: true, bytes: null },
+        ],
+      }),
+    });
+  });
+  await openSection(page, "Specification");
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify(spec));
+  await page.getByRole("button", { name: "Validate and save", exact: true }).click();
+  await openSection(page, "Scenes and media");
+  await planMedia(page);
+  await openSection(page, "Activity Stats");
+  const byType = page.getByRole("table").first();
+  await expect(byType.getByRole("row")).toHaveText([
+    "Asset typeAssetsBoundTotal size",
+    /^Images112(\.0)? KB$/,
+    /^Audio221(\.0)? KB$/,
+    /^All assets333(\.0)? KB$/,
+  ]);
+  await expect(page.getByRole("table")).toHaveCount(2);
+  await expect(page.getByText("1 bound file was not found", { exact: false })).toBeVisible();
+  expect(f.errors).toEqual([]);
+});

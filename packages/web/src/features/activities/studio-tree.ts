@@ -47,6 +47,7 @@ export type StudioLabel =
   | "moduleDefinition"
   | "audios"
   | "scenes"
+  | "activityStats"
   | "unassigned"
   | "mediaLibrary"
   | "history"
@@ -140,6 +141,7 @@ export function buildStudioTree(
     sectionRow("module", "moduleDefinition", "module", sections),
     sectionRow("audios", "audios", "speech", sections),
     sectionRow("scenes", "scenes", "scenes", sections, sceneRows),
+    sectionRow("stats", "activityStats", "stats", sections),
     sectionRow("library", "mediaLibrary", "library", sections),
     sectionRow("history", "history", "history", sections),
   ];

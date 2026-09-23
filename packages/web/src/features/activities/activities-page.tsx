@@ -48,6 +48,7 @@ import { storyboardFrames, type StoryboardFrame } from "./storyboard";
 import { Storyboard } from "./storyboard-view";
 import { BuildPanel } from "./build-panel";
 import { ModuleDocumentView } from "./module-document-view";
+import { ActivityStatsView } from "./activity-stats-view";
 import { useAssistProposal } from "./use-assist-proposal";
 import { StudioTreeView } from "./studio-tree-view";
 import { SessionsPanel } from "./sessions-panel";
@@ -1443,6 +1444,9 @@ function ActivityEditor({
                     </>
                   )}
                 </section>
+              )}
+              {section === "stats" && (
+                <ActivityStatsView endpoint={endpoint} revision={detail.draft.contentRevision} />
               )}
               {(section === "configuration" || section === "assessment") && (
                 <ModuleDocumentView
