@@ -103,6 +103,7 @@ import { BenchmarkService } from "./services/benchmark-service.js";
 import { ActivityService } from "./activities/service.js";
 import { ActivityRoutes } from "./activities/routes.js";
 import { ActivitySandboxService } from "./activities/sandbox-service.js";
+import { ActivityPlayRoutes } from "./activities/play-routes.js";
 import { ActivityGenerationService } from "./activities/generation.js";
 import { ActivityAuthoring, ActivityGeneration } from "./mechanisms/activities.js";
 import { ProjectsRoutes } from "./http/routes/dirs.js";
@@ -359,7 +360,13 @@ export class AgentsModule {}
 export class CodingAgentsModule {}
 
 @Module({
-  children: [ActivityService, ActivityGenerationService, ActivitySandboxService, ActivityRoutes],
+  children: [
+    ActivityService,
+    ActivityGenerationService,
+    ActivitySandboxService,
+    ActivityRoutes,
+    ActivityPlayRoutes,
+  ],
   exports: [ActivityAuthoring, ActivityGeneration],
 })
 export class ActivitiesModule {}
