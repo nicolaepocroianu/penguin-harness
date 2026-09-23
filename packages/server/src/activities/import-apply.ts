@@ -18,7 +18,7 @@
  * twice is an import nobody dares run once, and a half-finished import — a network drop, a
  * bad spec in ref seven — has to be resumable.
  */
-import type { ImportMapping, MappedActivity } from "./import-mapping.js";
+import type { CarriedBinding, ImportMapping, MappedActivity } from "./import-mapping.js";
 
 /** A product Penguin already holds under this code. */
 export interface ExistingProduct {
@@ -47,6 +47,12 @@ export interface ImportTarget {
   setSpec(activityId: string, spec: Record<string, unknown>, revision: string): Promise<string>;
   setBookMode(productCode: string, mode: "decodable" | "readAlong"): Promise<void>;
   setImplementationFeatures(activityId: string, selectedIds: string[]): Promise<void>;
+  /** Plan media from the saved specification and bind it as Loom had it. */
+  setMedia(
+    activityId: string,
+    media: Record<string, CarriedBinding[]>,
+    revision: string,
+  ): Promise<string>;
 }
 
 export interface ImportOutcome {
@@ -177,7 +183,12 @@ async function importRef(
       revision = await target.setDescription(created.activityId, ref.description, revision);
     // A ref with no specification was already reported as a loss by the mapping; there is
     // nothing here to write, and inventing an empty one would make it look imported.
-    if (ref.spec) await target.setSpec(created.activityId, ref.spec, revision);
+    if (ref.spec) {
+      revision = await target.setSpec(created.activityId, ref.spec, revision);
+      // Media is planned from the specification, so it can only follow one.
+      if (Object.keys(ref.media).length)
+        revision = await target.setMedia(created.activityId, ref.media, revision);
+    }
     if (ref.implementationFeatures.length)
       await target.setImplementationFeatures(created.activityId, ref.implementationFeatures);
     return null;

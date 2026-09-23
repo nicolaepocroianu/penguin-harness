@@ -12,6 +12,7 @@
  */
 import { validateActivitySpec } from "./domain.js";
 import { DEFAULT_LANGUAGE_CODE, findLanguage } from "./languages.js";
+import { normalizeAlignment, type WordTiming } from "./word-timings.js";
 
 /** A Loom product, as the reader found it. */
 export interface SourceProduct {
@@ -57,6 +58,87 @@ export interface MappedActivity {
   /** Language groups carried across, in order. */
   languages: string[];
   implementationFeatures: string[];
+  /** Loom's bindings, by language: what each asset was bound to and, for narration, said. */
+  media: Record<string, CarriedBinding[]>;
+}
+
+/** What Loom bound one asset to, as far as Penguin's manifest can keep it. */
+export interface CarriedBinding {
+  key: string;
+  path?: string;
+  script?: string;
+  wordTimings?: WordTiming[];
+  durationMs?: number;
+}
+
+/** A path Penguin's manifest accepts: relative, under media/, no traversal. */
+const MEDIA_PATH = /^media\/[A-Za-z0-9_./ -]+$/;
+
+/**
+ * Authored per-asset facts Loom keeps and Penguin's manifest has no field for. Named when
+ * dropped. Loom's own bookkeeping (roles, normalised words, ownership flags) is derived,
+ * not authored, and goes unmentioned.
+ */
+const UNCARRIED: Record<string, string> = {
+  voice: "voices",
+  phonemes: "phonemes",
+};
+
+/**
+ * Loom's bindings for the languages being carried. Loom's older manifests are a flat list,
+ * which is the default language's.
+ */
+export function carriedBindings(
+  manifest: Record<string, unknown> | null,
+  languages: readonly string[],
+): { media: Record<string, CarriedBinding[]>; lost: Record<string, number>; badPaths: number } {
+  const media: Record<string, CarriedBinding[]> = {};
+  const lost: Record<string, number> = {};
+  let badPaths = 0;
+  const assets = manifest?.["assets"];
+  const groups: Record<string, unknown> = Array.isArray(assets)
+    ? { [DEFAULT_LANGUAGE_CODE]: assets }
+    : assets && typeof assets === "object"
+      ? (assets as Record<string, unknown>)
+      : {};
+  for (const language of languages) {
+    const list = groups[language];
+    if (!Array.isArray(list)) continue;
+    media[language] = list.flatMap((entry) => {
+      if (!entry || typeof entry !== "object") return [];
+      const asset = entry as Record<string, unknown>;
+      if (typeof asset.key !== "string" || !asset.key) return [];
+      for (const [field, name] of Object.entries(UNCARRIED))
+        if (asset[field] !== undefined) lost[name] = (lost[name] ?? 0) + 1;
+      const binding: CarriedBinding = { key: asset.key };
+      if (typeof asset.path === "string" && asset.path) {
+        if (MEDIA_PATH.test(asset.path) && !asset.path.split("/").includes(".."))
+          binding.path = asset.path;
+        else badPaths += 1;
+      }
+      if (asset.type === "audio" && typeof asset.script === "string") binding.script = asset.script;
+      // Timings are kept only when they align with the script they were made for; a
+      // read-along driven by timings for other words highlights the wrong ones.
+      if (asset.type === "audio" && Array.isArray(asset.wordTimings)) {
+        const aligned =
+          binding.script !== undefined
+            ? normalizeAlignment(binding.script, asset.wordTimings)
+            : null;
+        if (aligned) binding.wordTimings = aligned;
+        else
+          lost["word timings that did not match their script"] =
+            (lost["word timings that did not match their script"] ?? 0) + 1;
+      }
+      if (
+        asset.type === "audio" &&
+        Number.isSafeInteger(asset.durationMs) &&
+        (asset.durationMs as number) >= 0
+      )
+        binding.durationMs = asset.durationMs as number;
+      return [binding];
+    });
+  }
+  return { media, lost, badPaths };
 }
 
 export interface ImportMapping {
@@ -143,6 +225,16 @@ export function mapImport(product: SourceProduct, refs: readonly SourceRef[]): I
       }
     }
     if (!ref.manifest) dropped.push(`Ref ${ref.refNum} has no asset manifest to import.`);
+    const carried = carriedBindings(ref.manifest, languages);
+    const lostNames = Object.entries(carried.lost).map(([name, count]) => `${name} (${count})`);
+    if (lostNames.length)
+      dropped.push(
+        `Ref ${ref.refNum}: Loom's per-asset ${lostNames.join(", ")} were not carried; Penguin's media plan has no field for them.`,
+      );
+    if (carried.badPaths)
+      dropped.push(
+        `Ref ${ref.refNum}: ${carried.badPaths} media ${carried.badPaths === 1 ? "path was" : "paths were"} not under media/ and ${carried.badPaths === 1 ? "was" : "were"} not carried.`,
+      );
     if (!ref.description.trim())
       dropped.push(`Ref ${ref.refNum} has no description, so nothing records what it is for.`);
 
@@ -159,6 +251,7 @@ export function mapImport(product: SourceProduct, refs: readonly SourceRef[]): I
       spec,
       languages,
       implementationFeatures: ref.implementationFeatures ?? [],
+      media: carried.media,
     });
   }
 

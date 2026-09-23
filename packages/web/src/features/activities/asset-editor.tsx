@@ -126,6 +126,8 @@ export function AssetEditor({
     edit((entry) => {
       entry.path = stored.path;
       delete entry.generatedAudio;
+      delete entry.wordTimings;
+      delete entry.durationMs;
     });
   }
   function edit(change: (entry: NonNullable<typeof asset>) => void) {
@@ -292,6 +294,9 @@ export function AssetEditor({
                 edit((entry) => {
                   if (path) entry.path = path;
                   else delete entry.path;
+                  // Timings describe the recording that was bound, not this one.
+                  delete entry.wordTimings;
+                  delete entry.durationMs;
                 })
               }
             />
@@ -325,6 +330,7 @@ export function AssetEditor({
                   onChange={(event) =>
                     edit((entry) => {
                       entry.script = event.target.value;
+                      delete entry.wordTimings;
                     })
                   }
                 />

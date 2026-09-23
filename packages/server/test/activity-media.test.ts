@@ -54,6 +54,40 @@ function activity(): ActivityDetail {
 }
 
 describe("activity media planning", () => {
+  it("keeps a narration's translation source, word timings and length through validation", () => {
+    const usage = { sceneId: "intro", sourceKey: "hi", occurrence: 1, sceneOccurrenceCount: 1 };
+    const narration = {
+      key: "hi",
+      type: "audio",
+      description: "Greeting",
+      script: "Hola amigos",
+      translatedFrom: "Hello friends",
+      durationMs: 900,
+      wordTimings: [
+        { word: "Hola", startMs: 0, endMs: 400 },
+        { word: "amigos", startMs: 450, endMs: 850 },
+      ],
+      usages: [usage],
+    };
+    const validated = validateManifest(
+      { productCode: "words", refNum: 1, assets: { "es-MX": [narration] } },
+      { productCode: "words", refNum: 1 },
+    );
+    expect(validated.assets["es-MX"]![0]).toEqual(narration);
+    expect(() =>
+      validateManifest(
+        {
+          productCode: "words",
+          refNum: 1,
+          assets: {
+            "en-US": [{ ...narration, wordTimings: [{ word: "x", startMs: 5, endMs: 5 }] }],
+          },
+        },
+        { productCode: "words", refNum: 1 },
+      ),
+    ).toThrow(/Word timings/);
+  });
+
   it("coalesces reused scene assets without claiming target paths are existing media", () => {
     const plan = planMedia(activity());
     expect(plan.manifest.assets["en-US"]).toHaveLength(2);

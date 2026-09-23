@@ -67,11 +67,34 @@ function fakeTarget(options: { existing?: ExistingProduct; refuse?: Map<number, 
     async setImplementationFeatures(activityId, selectedIds) {
       calls.push({ name: "setImplementationFeatures", detail: { activityId, selectedIds } });
     },
+    async setMedia(activityId, media, revision) {
+      calls.push({ name: "setMedia", detail: { activityId, media, revision } });
+      return `${revision}+m`;
+    },
   };
   return { target, calls, named: (name: string) => calls.filter((call) => call.name === name) };
 }
 
 describe("importing a product", () => {
+  it("binds media as Loom had it once the specification is in, and only then", async () => {
+    const { target, named } = fakeTarget();
+    const bound = {
+      ...ref(1),
+      manifest: {
+        assets: { "en-US": [{ key: "hi", type: "audio", path: "media/a/hi.mp3", script: "Hi" }] },
+      },
+    };
+    await applyImport(mapImport(product(), [bound, { ...bound, refNum: 2, spec: null }]), target);
+    const media = named("setMedia").map((call) => call.detail);
+    expect(media).toHaveLength(1);
+    expect(media[0]).toMatchObject({
+      activityId: "act1",
+      media: { "en-US": [{ key: "hi", path: "media/a/hi.mp3", script: "Hi" }] },
+    });
+    // It follows the specification's revision, not the draft's first one.
+    expect(String(media[0]!.revision)).toContain("+s");
+  });
+
   it("carries a ref's implementation features, and asks nothing of refs without any", async () => {
     const { target, named } = fakeTarget();
     await applyImport(
@@ -111,9 +134,16 @@ describe("importing a product", () => {
   it("writes the description and then the specification, threading the revision", async () => {
     const { target, calls } = fakeTarget();
     await applyImport(mapImport(product(), [ref(1)]), target);
-    expect(calls.map((call) => call.name)).toEqual(["createRef", "setDescription", "setSpec"]);
+    // A ref Loom had a manifest for gets a media plan, planned from its specification.
+    expect(calls.map((call) => call.name)).toEqual([
+      "createRef",
+      "setDescription",
+      "setSpec",
+      "setMedia",
+    ]);
     expect(calls[1]!.detail.revision).toBe("rev1-0");
     expect(calls[2]!.detail.revision).toBe("rev1-0+d");
+    expect(calls[3]!.detail.revision).toBe("rev1-0+d+s");
   });
 
   it("sets a ref's name and stability, which creation does not accept", async () => {

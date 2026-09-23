@@ -50,8 +50,12 @@ export function buildReadiness(
       a === DEFAULT_LANGUAGE ? -1 : b === DEFAULT_LANGUAGE ? 1 : a.localeCompare(b),
     );
     const defaults = plan.manifest.assets[DEFAULT_LANGUAGE] ?? [];
+    // What a language has to say differently: the default's scripted narration. Music and
+    // effects carry no script and fall back to the default, as in Loom.
     const defaultSpeech = new Set(
-      defaults.filter((asset) => asset.type === "audio").map((asset) => asset.key),
+      defaults
+        .filter((asset) => asset.type === "audio" && !!asset.script?.trim())
+        .map((asset) => asset.key),
     );
     for (const language of languages) {
       const audio = plan.manifest.assets[language]!.filter((asset) => asset.type === "audio");

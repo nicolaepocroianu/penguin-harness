@@ -1,4 +1,6 @@
 import fs from "node:fs/promises";
+import type { MediaAsset } from "./media.js";
+import type { CarriedBinding } from "./import-mapping.js";
 import {
   IMPLEMENTATION_FEATURES,
   IMPLEMENTATION_FEATURES_FILE,
@@ -333,7 +335,11 @@ export class ActivityService implements ActivityAuthoring {
         asset.translatedFrom = target.translation.from;
       }
       if (target.type === "image") asset.description = text;
-      else asset.script = text;
+      else {
+        asset.script = text;
+        // The timings were for the words this replaces.
+        delete asset.wordTimings;
+      }
       return { ...draft, mediaPlan: { ...plan, manifest } };
     });
   }
@@ -656,6 +662,7 @@ export class ActivityService implements ActivityAuthoring {
               `The media plan has no ${change.language} ${change.field === "script" ? "narration" : "asset"} named ${change.assetKey}.`,
             );
           asset[change.field] = change.text;
+          if (change.field === "script") delete asset.wordTimings;
         }
         try {
           next = {
@@ -731,10 +738,10 @@ export class ActivityService implements ActivityAuthoring {
     });
   }
   /**
-   * A language added to the media plan, as Loom's language table allows. Pictures, video
-   * and animation are shared across languages, so their bindings come along; a narration
-   * comes without a script, so it reads as needing translation rather than passing an
-   * English line off as a translated one.
+   * A language added to the media plan, as Loom's language table allows. As in Loom, a
+   * language's group holds only what it says differently: the scripted narration, without
+   * its script, so each reads as needing translation rather than passing an English line
+   * off as a translated one. Pictures, music and effects fall back to the default.
    */
   async addLanguage(
     projectId: string,
@@ -748,8 +755,9 @@ export class ActivityService implements ActivityAuthoring {
         throw new HttpError(409, "media_stale", "Plan media from the saved specification first.");
       const refusal = canAddLanguage(Object.keys(plan.manifest.assets), language);
       if (refusal) throw new HttpError(422, "language_invalid", refusal.message);
-      const group = plan.manifest.assets[DEFAULT_LANGUAGE_CODE]!.map((asset) => {
-        if (asset.type !== "audio") return structuredClone(asset);
+      const group = plan.manifest.assets[DEFAULT_LANGUAGE_CODE]!.filter(
+        (asset) => asset.type === "audio" && !!asset.script?.trim(),
+      ).map((asset) => {
         const {
           script: _script,
           path: _path,
@@ -765,6 +773,60 @@ export class ActivityService implements ActivityAuthoring {
       );
       return { ...draft, mediaPlan: { ...plan, manifest } };
     });
+  }
+  /**
+   * An imported ref's media: planned from its specification as any ref's is, then bound as
+   * Loom had it. A language Loom held besides the default holds exactly what Loom listed
+   * for it, which is what it says differently; the rest falls back to the default.
+   */
+  async importMedia(
+    projectId: string,
+    activityId: string,
+    media: Record<string, CarriedBinding[]>,
+    expectedRevision: string,
+  ): Promise<ActivityDraft> {
+    const planned = await this.planMedia(projectId, activityId, expectedRevision);
+    const manifest = structuredClone(planned.mediaPlan!.manifest);
+    const defaults = manifest.assets[DEFAULT_LANGUAGE_CODE] ?? [];
+    for (const [language, bindings] of Object.entries(media)) {
+      const byKey = new Map(bindings.map((binding) => [binding.key, binding]));
+      const listed = (asset: MediaAsset) =>
+        byKey.has(asset.key) || (!!asset.sourceKey && byKey.has(asset.sourceKey));
+      const base =
+        language === DEFAULT_LANGUAGE_CODE
+          ? defaults
+          : defaults.filter(listed).map((asset) => {
+              const {
+                script: _script,
+                path: _path,
+                generatedAudio: _audio,
+                generatedImage: _image,
+                translatedFrom: _from,
+                wordTimings: _timings,
+                durationMs: _duration,
+                ...rest
+              } = structuredClone(asset);
+              return rest;
+            });
+      manifest.assets[language] = base.map((asset) => {
+        const binding = byKey.get(asset.key) ?? (asset.sourceKey && byKey.get(asset.sourceKey));
+        if (!binding) return asset;
+        return {
+          ...asset,
+          ...(binding.path ? { path: binding.path } : {}),
+          ...(asset.type === "audio" && binding.script !== undefined
+            ? { script: binding.script }
+            : {}),
+          ...(asset.type === "audio" && binding.wordTimings
+            ? { wordTimings: binding.wordTimings }
+            : {}),
+          ...(asset.type === "audio" && binding.durationMs !== undefined
+            ? { durationMs: binding.durationMs }
+            : {}),
+        };
+      });
+    }
+    return this.applyMedia(projectId, activityId, manifest, planned.contentRevision);
   }
   async applyMedia(
     projectId: string,
@@ -889,6 +951,9 @@ export class ActivityService implements ActivityAuthoring {
         );
       asset.path = `media/generated/${result.runId}.wav`;
       asset.generatedAudio = { runId: result.runId, sha256: result.sha256 };
+      // The timings described the recording this replaces.
+      delete asset.wordTimings;
+      delete asset.durationMs;
       return { ...draft, mediaPlan: { ...plan, manifest } };
     });
   }
@@ -1261,6 +1326,8 @@ export class ActivityService implements ActivityAuthoring {
       setImplementationFeatures: async (activityId, selectedIds) => {
         await this.setImplementationFeatures(projectId, activityId, selectedIds);
       },
+      setMedia: async (activityId, media, revision) =>
+        (await this.importMedia(projectId, activityId, media, revision)).contentRevision,
     };
     return applyImport(mapping, target);
   }

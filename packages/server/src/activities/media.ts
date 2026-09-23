@@ -11,6 +11,13 @@ export interface MediaAsset {
    * one was translated from. When the default line is rewritten, the translation is stale.
    */
   translatedFrom?: string;
+  /**
+   * When each spoken word of a narration's clip starts and ends, which a read-along
+   * highlights by, and the clip's length. They describe one recording of one script, so
+   * any change to either drops them.
+   */
+  wordTimings?: { word: string; startMs: number; endMs: number }[];
+  durationMs?: number;
   /** A reference in the WAF media checkout, never a server filesystem path. */
   path?: string;
   generatedAudio?: { runId: string; sha256: string };
@@ -73,6 +80,8 @@ export function validateManifest(value: unknown, address: ActivityAddress): Asse
               "sourceKey",
               "script",
               "translatedFrom",
+              "wordTimings",
+              "durationMs",
               "path",
               "usages",
               "generatedAudio",
@@ -106,6 +115,34 @@ export function validateManifest(value: unknown, address: ActivityAddress): Asse
           asset.type !== "audio")
       )
         throw new Error("Only a narration may record what it was translated from.");
+      if (
+        asset.wordTimings !== undefined &&
+        (asset.type !== "audio" ||
+          !Array.isArray(asset.wordTimings) ||
+          asset.wordTimings.length > 10000 ||
+          asset.wordTimings.some((raw: unknown) => {
+            const timing = raw as Record<string, unknown> | null;
+            return (
+              !timing ||
+              typeof timing.word !== "string" ||
+              timing.word.length > 200 ||
+              !Number.isSafeInteger(timing.startMs) ||
+              !Number.isSafeInteger(timing.endMs) ||
+              (timing.startMs as number) < 0 ||
+              (timing.endMs as number) <= (timing.startMs as number)
+            );
+          }))
+      )
+        throw new Error(
+          "Word timings belong to a narration: words with ascending start and end times.",
+        );
+      if (
+        asset.durationMs !== undefined &&
+        (asset.type !== "audio" ||
+          !Number.isSafeInteger(asset.durationMs) ||
+          (asset.durationMs as number) < 0)
+      )
+        throw new Error("A duration belongs to a narration, in whole milliseconds.");
       if (
         asset.path !== undefined &&
         (typeof asset.path !== "string" ||
@@ -178,6 +215,19 @@ export function validateManifest(value: unknown, address: ActivityAddress): Asse
         description: asset.description,
         ...(asset.sourceKey !== undefined ? { sourceKey: String(asset.sourceKey) } : {}),
         ...(asset.script !== undefined ? { script: String(asset.script) } : {}),
+        ...(asset.translatedFrom !== undefined
+          ? { translatedFrom: String(asset.translatedFrom) }
+          : {}),
+        ...(asset.wordTimings !== undefined
+          ? {
+              wordTimings: (asset.wordTimings as Record<string, unknown>[]).map((timing) => ({
+                word: String(timing.word),
+                startMs: Number(timing.startMs),
+                endMs: Number(timing.endMs),
+              })),
+            }
+          : {}),
+        ...(asset.durationMs !== undefined ? { durationMs: Number(asset.durationMs) } : {}),
         ...(asset.path !== undefined ? { path: String(asset.path) } : {}),
         ...(asset.generatedAudio !== undefined
           ? { generatedAudio: asset.generatedAudio as MediaAsset["generatedAudio"] }
