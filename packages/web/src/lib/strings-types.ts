@@ -475,6 +475,8 @@ export type Strings = {
     previewLanguageDefault: string;
     previewReload: string;
     previewResolution: (dimensions: string) => string;
+    previewResolutionLabel: string;
+    previewResolutionOwn: (dimensions: string) => string;
     newActivity: string;
     importFromLoom: string;
     importHelp: string;

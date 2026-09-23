@@ -2063,6 +2063,14 @@ test("the player draws the module's behavior map and follows the phase it report
   await expect(toggle).toHaveAttribute("aria-pressed", "true");
   await toggle.click();
   await expect(map).toHaveCount(0);
+
+  // Another screen changes only the preview: the player is laid out at its size.
+  const resolution = panel.getByRole("button", { name: "Preview resolution", exact: true });
+  await expect(resolution).toContainText("640×480 (the activity's own)");
+  await expect(panel.locator("iframe")).toHaveCSS("width", "640px");
+  await resolution.click();
+  await page.getByRole("option", { name: "1920×1080 viewport", exact: true }).click();
+  await expect(panel.locator("iframe")).toHaveCSS("width", "1920px");
   expect(f.errors).toEqual([]);
 });
 

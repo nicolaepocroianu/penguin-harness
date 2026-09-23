@@ -7,7 +7,7 @@ import { toneStrip } from "../../lib/tone";
 import { Button } from "../../components/ui/button";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { Select } from "../../components/ui/select";
-import { fitScale, parseResolution, sceneIds } from "./preview";
+import { PREVIEW_RESOLUTIONS, fitScale, parseResolution, sceneIds } from "./preview";
 import { canBuild, playUrl, sandboxTone } from "./sandbox";
 import {
   highlightMessage,
@@ -179,9 +179,10 @@ function SandboxPlayer({
   onPick?: OnPick;
   hasMedia: boolean;
 }) {
-  const viewport = parseResolution(
-    (spec?.runtime as Record<string, unknown> | undefined)?.resolution,
-  );
+  const own = parseResolution((spec?.runtime as Record<string, unknown> | undefined)?.resolution);
+  // Another screen to try the activity at; empty plays it at its own resolution.
+  const [resolution, setResolution] = useState("");
+  const viewport = resolution ? parseResolution(resolution) : own;
   const scenes = sceneIds(spec);
   const [playing, setPlaying] = useState(false);
   const [scene, setScene] = useState("");
@@ -336,9 +337,23 @@ function SandboxPlayer({
         <a className="text-xs underline" target="_blank" rel="noopener noreferrer" href={url}>
           {S.activities.sandboxOpen}
         </a>
-        <span className="text-xs text-gray-500">
-          {S.activities.previewResolution(`${viewport.width}×${viewport.height}`)}
-        </span>
+        <Select
+          size="sm"
+          aria-label={S.activities.previewResolutionLabel}
+          value={resolution}
+          onChange={(event) => setResolution(event.target.value)}
+        >
+          <option value="">
+            {S.activities.previewResolutionOwn(`${own.width}×${own.height}`)}
+          </option>
+          {PREVIEW_RESOLUTIONS.filter((size) => size !== `${own.width}x${own.height}`).map(
+            (size) => (
+              <option key={size} value={size}>
+                {S.activities.previewResolution(size.replace("x", "×"))}
+              </option>
+            ),
+          )}
+        </Select>
       </div>
       {playing && (
         <div ref={boxRef} className="w-full">

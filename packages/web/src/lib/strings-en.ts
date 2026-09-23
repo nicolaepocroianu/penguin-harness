@@ -609,6 +609,8 @@ export const en: Strings = {
     previewLanguageDefault: "Default language",
     previewReload: "Reload preview",
     previewResolution: (dimensions: string) => `${dimensions} viewport`,
+    previewResolutionLabel: "Preview resolution",
+    previewResolutionOwn: (dimensions: string) => `${dimensions} (the activity's own)`,
     newActivity: "New activity",
     importFromLoom: "Import from Loom",
     importHelp:
