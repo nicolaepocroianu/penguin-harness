@@ -97,6 +97,7 @@ export class ActivityPlayRoutes {
           languageCode: c.req.query("language") ?? null,
           startSceneId: c.req.query("scene") ?? null,
         },
+        target.expiresAt,
       );
       return new Response(page.html, {
         status: page.status,

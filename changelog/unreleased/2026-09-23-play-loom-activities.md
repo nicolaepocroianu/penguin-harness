@@ -35,10 +35,12 @@ the media, and the framework's shared layouts, stylesheets, images and sounds. A
 are emulated as Loom emulated them: the module's own items in order, every answer
 accepted, nothing scored.
 
-The page is served on the preview origin behind a signed, two-hour link bound to one
+The page is served on the preview origin behind a signed, twelve-hour link bound to one
 activity and one host, like workspace previews, because a module's code, written by an
 agent, must not run with the author's session. Without a separate preview origin it is served on the App's
-host with an opaque, sandboxed origin instead.
+host with an opaque, sandboxed origin instead. Every file the page fetches rides on
+that link, so when it runs out the page says so over the activity rather than letting
+pictures and sounds fail one at a time; Reload in the Module section issues a new one.
 
 ## What does not play
 

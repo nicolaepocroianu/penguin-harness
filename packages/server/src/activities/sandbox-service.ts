@@ -124,8 +124,12 @@ const NAVBAR_CONFIGURATION = "none_navBar.json";
 const ASSESSMENT_SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_ASSESSMENT_SESSIONS = 500;
 
-/** How long a play link works. Long enough to play an activity through, not a session. */
-export const PLAY_TOKEN_TTL_MS = 2 * 60 * 60 * 1000;
+/**
+ * How long a play link works. Every file the page fetches rides on it, and a book fetches
+ * its pages as they are turned, so it has to outlast a working session, not one play
+ * through. The page says when it has run out (see `sandbox-player`); Reload issues a new one.
+ */
+export const PLAY_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 
 /** What a play token grants: one activity's preview, on one host, until it expires. */
 export interface PlayTarget {
@@ -193,6 +197,8 @@ export abstract class ActivitySandbox extends Interface<{
     activityId: string,
     base: string,
     options: PayloadOptions,
+    /** When the page's link stops working, so the page can say so rather than break. */
+    expiresAt: number | null,
   ): Promise<PlayerPageResult>;
   playerFile(rawPath: string): Promise<SandboxMediaResponse>;
   frameworkFile(
@@ -704,6 +710,7 @@ export class ActivitySandboxService implements ActivitySandbox {
     activityId: string,
     base: string,
     options: PayloadOptions,
+    expiresAt: number | null = null,
   ): Promise<PlayerPageResult> {
     const activity = await this.activities.getActivity(projectId, activityId);
     const spec = activity.draft.spec;
@@ -748,6 +755,7 @@ export class ActivitySandboxService implements ActivitySandbox {
         resolution: typeof runtime.resolution === "string" ? runtime.resolution : null,
         languageCode: options.languageCode ?? null,
         startSceneId: options.startSceneId ?? null,
+        expiresAt,
       }),
     };
   }

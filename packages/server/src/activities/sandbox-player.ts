@@ -65,6 +65,19 @@ document.body.addEventListener('keyup', (event) => {
 });
 
 pubSub.on(Activity.Events.Started, hideLoading);
+
+// Every file this page fetches rides on a link that expires. Past that, pages and sounds
+// fail one by one as they are asked for, which looks like a broken activity; saying so
+// once, over the activity, is the honest version.
+if (typeof sandbox.expiresAt === 'number') {
+    const showExpired = () => {
+        const notice = document.getElementById('playerExpired');
+        if (notice) notice.hidden = false;
+    };
+    const remaining = sandbox.expiresAt - Date.now();
+    if (remaining <= 0) showExpired();
+    else setTimeout(showExpired, Math.min(remaining, 2147483647));
+}
 pubSub.on(Activity.Events.ActivityLoadFailed, handleActivityFailed);
 
 function hideLoading() {
@@ -257,6 +270,8 @@ export interface PlayerPageInput {
   resolution: string | null;
   languageCode: string | null;
   startSceneId: string | null;
+  /** When the page's link stops working, epoch milliseconds; null when it does not. */
+  expiresAt: number | null;
 }
 
 function escapeHtml(value: string): string {
@@ -288,7 +303,12 @@ export function playerPage(input: PlayerPageInput): string {
         position: fixed; inset: 0; z-index: 100000; display: flex; align-items: center;
         justify-content: center; background: #229cbd; color: #fff; font: 600 1.25rem/1.2 sans-serif;
       }
-      #playerLoading[hidden] { display: none; }
+      #playerLoading[hidden], #playerExpired[hidden] { display: none; }
+      #playerExpired {
+        position: fixed; inset: 0; z-index: 100001; display: flex; align-items: center;
+        justify-content: center; padding: 24px; text-align: center; background: rgba(11, 17, 23, 0.92);
+        color: #fff; font: 600 1.1rem/1.4 sans-serif;
+      }
     </style>
   </head>
   <body>
@@ -304,6 +324,9 @@ export function playerPage(input: PlayerPageInput): string {
         <img src="${base}images/teacherHelp.jpg" alt="" id="teacherHelpImage" draggable="false" />
       </div>
       <div id="playerLoading" role="status" aria-live="polite">Loading preview…</div>
+      <div id="playerExpired" role="alert" hidden>
+        This preview link has expired, so its pictures and sounds can no longer load. Reload the preview to keep playing.
+      </div>
     </main>
     <script type="application/json" id="penguin-sandbox">${json}</script>
     <script src="${base}player/player.js"></script>
