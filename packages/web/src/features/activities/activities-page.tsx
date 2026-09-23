@@ -43,6 +43,8 @@ import { focusFor, latestConversation } from "./conversation";
 import { applyMediaChange, type ProposalChange } from "./proposal";
 import { ScriptEditor } from "./script-editor";
 import { PipelineControls, PipelinePanel } from "./pipeline-panel";
+import { storyboardFrames, type StoryboardFrame } from "./storyboard";
+import { Storyboard } from "./storyboard-view";
 import { useAssistProposal } from "./use-assist-proposal";
 import { StudioTreeView } from "./studio-tree-view";
 import { SessionsPanel } from "./sessions-panel";
@@ -316,6 +318,9 @@ function ActivityEditor({
   // The activity's run of its stages, as the server last reported it (pipeline-run.ts).
   const [pipeline, setPipeline] = useState<PipelineState | null>(null);
   const [pipelineChoice, setPipelineChoice] = useState<PipelineSelection>("all");
+  // The Scenes section opens on the storyboard; opening an asset leaves it for the editor.
+  const [board, setBoard] = useState(true);
+  const [boardScene, setBoardScene] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState<{ key: StudioPanel; at: number } | null>(null);
   // An excerpt on its way to the conversation's composer, from another panel.
   const [excerpt, setExcerpt] = useState<string | null>(null);
@@ -556,14 +561,14 @@ function ActivityEditor({
   const agentLabel = codingAgentId
     ? (codingAgents.find((agent) => agent.id === codingAgentId)?.title ?? codingAgentId)
     : (agents.find((agent) => agent.agentId === selectedAgent)?.name ?? selectedAgent);
-  function runStages() {
+  function runStages(stage: PipelineSelection = pipelineChoice) {
     void action(async () => {
       if (!detail) return;
       const started = await apiFetch<PipelineState>(`${endpoint}/pipeline`, {
         method: "POST",
         body: {
           ...runner,
-          stage: pipelineChoice,
+          stage,
           ...(wafRoot.trim() ? { wafRoot: wafRoot.trim() } : {}),
           ...(detail.activityType === "book" && bookMode ? { bookMode } : {}),
         },
@@ -750,10 +755,52 @@ function ActivityEditor({
   );
   // A selection the filter or a rebuilt plan removed falls back to the first leaf, so
   // the detail pane never points at an asset the tree no longer draws.
+  const fullTree = buildSceneTree(
+    detail?.draft.spec ?? null,
+    editedManifest?.assets[language] ?? [],
+  );
+  const frames = storyboardFrames(
+    fullTree,
+    detail?.draft.mediaPlan?.manifest.assets[language] ?? [],
+    runs,
+    proposal.read?.proposal?.changes ?? [],
+    language,
+  );
   const selection =
     selected && treeSelections(tree).some((entry) => sameSelection(entry, selected))
       ? selected
       : firstSelection(tree);
+  // The open asset's place on the storyboard, and the scenes either side that have media
+  // to open, so an author can walk the activity scene by scene from the editor.
+  const frameLabel = (frame: StoryboardFrame) =>
+    frame.general
+      ? S.activities.studioBoard.shared
+      : S.activities.studioBoard.scene(frame.number, frame.sceneId);
+  const openFrame = (frame: StoryboardFrame | undefined) =>
+    frame?.firstAssetKey
+      ? {
+          label: frameLabel(frame),
+          open: () => {
+            setKind("all");
+            setSelected({ sceneId: frame.sceneId, key: frame.firstAssetKey! });
+            setBoardScene(frame.sceneId);
+          },
+        }
+      : null;
+  const openable = frames.filter((frame) => frame.firstAssetKey);
+  const here = openable.findIndex((frame) => frame.sceneId === selection?.sceneId);
+  const sceneNav =
+    here >= 0
+      ? {
+          label: frameLabel(openable[here]!),
+          onBoard: () => {
+            setBoardScene(openable[here]!.sceneId);
+            setBoard(true);
+          },
+          previous: openFrame(openable[here - 1]),
+          next: openFrame(openable[here + 1]),
+        }
+      : undefined;
   const languages = Object.keys(detail?.draft.mediaPlan?.manifest.assets ?? {});
   const panels: StudioPanelEntry[] = detail
     ? [
@@ -793,6 +840,7 @@ function ActivityEditor({
                   );
                   if (!found) return null;
                   setSelected(found);
+                  setBoard(false);
                   setSection("scenes");
                   return found.key;
                 }}
@@ -810,7 +858,11 @@ function ActivityEditor({
               runs={runs}
               runner={selectedAgent ? runner : null}
               revision={detail.draft.contentRevision}
-              focus={focusFor(section, selection, language)}
+              focus={
+                section === "scenes" && board
+                  ? { section, ...(boardScene ? { sceneId: boardScene, language } : {}) }
+                  : focusFor(section, selection, language)
+              }
               editable={editable}
               onStarted={(run) => {
                 setRuns((previous) => [
@@ -944,11 +996,14 @@ function ActivityEditor({
           <StudioTreeView
             nodes={buildStudioTree(sections, tree)}
             section={section}
-            selection={section === "scenes" ? selection : null}
+            selection={section === "scenes" && !board ? selection : null}
             onChoose={(target) => {
-              if (target.kind === "section") setSection(target.section);
-              else if (target.kind === "asset") {
+              if (target.kind === "section") {
+                setSection(target.section);
+                if (target.section === "scenes") setBoard(true);
+              } else if (target.kind === "asset") {
                 setSelected(target.selection);
+                setBoard(false);
                 setSection("scenes");
               }
               dismiss();
@@ -960,14 +1015,47 @@ function ActivityEditor({
               pipeline={pipeline}
               blocked={pipelineBlocked}
               onChoose={setPipelineChoice}
-              onRun={runStages}
+              onRun={() => runStages()}
               onStop={stopStages}
             />
           )}
         </div>
       )}
     >
-      {section === "scenes" && editedManifest ? (
+      {section === "scenes" && editedManifest && board ? (
+        <Storyboard
+          frames={frames}
+          selected={boardScene}
+          assetsOf={(sceneId) =>
+            fullTree.scenes
+              .find((scene) => scene.sceneId === sceneId)
+              ?.categories.flatMap((category) => category.assets) ?? []
+          }
+          thumbnailUrl={(assetKey) =>
+            `${endpoint}/media-image?${new URLSearchParams({
+              language,
+              assetKey,
+              expectedRevision: detail.draft.contentRevision,
+              ...(wafRoot.trim() ? { wafRoot: wafRoot.trim() } : {}),
+            })}`
+          }
+          onSelect={setBoardScene}
+          onOpen={(sceneId, key) => {
+            setKind("all");
+            setSelected({ sceneId, key });
+            setBoardScene(sceneId);
+            setBoard(false);
+          }}
+          onPlay={() => setShowPanel({ key: "player", at: Date.now() })}
+          onEditMedia={() => {
+            const first = frames.find((frame) => frame.sceneId === boardScene)?.firstAssetKey;
+            if (boardScene && first) setSelected({ sceneId: boardScene, key: first });
+            setBoard(false);
+          }}
+          onAssemble={editable && available ? () => runStages("module") : undefined}
+          assembleDisabled={!!pipelineBlocked}
+        />
+      ) : section === "scenes" && editedManifest ? (
         <AssetEditor
           manifest={editedManifest}
           language={language}
@@ -1018,6 +1106,7 @@ function ActivityEditor({
             startRun("generate-media-text", { language: lang, assetKey })
           }
           onAcceptText={(runId) => acceptRun(runId, "accept-media-text")}
+          sceneNav={sceneNav}
         />
       ) : section === "description" ? (
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -1290,6 +1379,7 @@ function ActivityEditor({
                     // came first instead.
                     setKind((current) => (current === "all" ? current : "audio"));
                     setSelected({ sceneId: usage ?? "", key });
+                    setBoard(false);
                     setSection("scenes");
                   }}
                   onGenerateAll={(keys) =>

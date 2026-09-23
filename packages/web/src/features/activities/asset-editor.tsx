@@ -49,6 +49,7 @@ export function AssetEditor({
   onGenerateText,
   onAcceptText,
   onUpload,
+  sceneNav,
 }: {
   manifest: AssetManifest;
   /** The language group the rail is showing. */
@@ -80,6 +81,16 @@ export function AssetEditor({
   onGenerateText: (language: string, assetKey: string) => void;
   onAcceptText: (runId: string) => void;
   onUpload: (file: File) => Promise<UploadedMedia>;
+  /**
+   * Where this asset's scene sits on the storyboard: its name, the way back to the board,
+   * and the scenes either side. Absent for media no scene uses.
+   */
+  sceneNav?: {
+    label: string;
+    onBoard: () => void;
+    previous: { label: string; open: () => void } | null;
+    next: { label: string; open: () => void } | null;
+  };
 }) {
   const [voiceChoice, setVoice] = useState("");
   const group = manifest.assets[language] ?? [];
@@ -123,6 +134,48 @@ export function AssetEditor({
   const acceptedAudio = runs.find((run) => run.runId === asset?.generatedAudio?.runId)?.audio;
   return (
     <section aria-label={S.activities.sceneAssets} className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {sceneNav && (
+        <nav
+          aria-label={S.activities.studioBoard.back}
+          className="flex shrink-0 items-center gap-1 border-b border-gray-200 px-2 py-1 text-xs dark:border-gray-800"
+        >
+          <Button size="sm" variant="ghost" onClick={sceneNav.onBoard}>
+            {S.activities.studioBoard.back}
+          </Button>
+          <span aria-hidden className="text-gray-300 dark:text-gray-700">
+            /
+          </span>
+          <span className="min-w-0 flex-1 truncate px-1 text-gray-600 dark:text-gray-400">
+            {sceneNav.label}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={!sceneNav.previous}
+            aria-label={
+              sceneNav.previous
+                ? S.activities.studioBoard.previousScene(sceneNav.previous.label)
+                : S.activities.studioBoard.previous
+            }
+            onClick={() => sceneNav.previous?.open()}
+          >
+            {S.activities.studioBoard.previous}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={!sceneNav.next}
+            aria-label={
+              sceneNav.next
+                ? S.activities.studioBoard.nextScene(sceneNav.next.label)
+                : S.activities.studioBoard.next
+            }
+            onClick={() => sceneNav.next?.open()}
+          >
+            {S.activities.studioBoard.next}
+          </Button>
+        </nav>
+      )}
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-gray-200 px-4 py-2.5 dark:border-gray-800">
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-sm font-semibold">

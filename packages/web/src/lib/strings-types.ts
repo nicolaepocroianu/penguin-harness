@@ -57,6 +57,28 @@ export type Strings = {
       sessionsEmpty: string;
       openSession: string;
     };
+    /** The storyboard: every scene as a frame, the Scenes section's first view. */
+    studioBoard: {
+      title: string;
+      count: (n: number) => string;
+      play: string;
+      assemble: string;
+      editMedia: string;
+      back: string;
+      previous: string;
+      next: string;
+      previousScene: (scene: string) => string;
+      nextScene: (scene: string) => string;
+      open: string;
+      scene: (n: number, id: string) => string;
+      shared: string;
+      working: string;
+      proposed: string;
+      unbound: (n: number) => string;
+      assets: (n: number) => string;
+      noAssets: string;
+      empty: string;
+    };
     /** Running the stages: Loom's stage picker and Run, and the panel that follows a run. */
     studioRun: {
       stage: string;

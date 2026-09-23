@@ -615,8 +615,23 @@ async function openSection(page, name) {
   if (opened) await expand.click();
   // Clicking the section already showing re-renders the rail under the click, but a rail
   // opened just now is covering the work and has to be dismissed by choosing anyway.
-  if (!opened && (await button.getAttribute("aria-current")) === "true") return;
-  await button.click();
+  if (opened || (await button.getAttribute("aria-current")) !== "true") await button.click();
+  // Scenes opens on the storyboard once there is a media plan; the media itself is one
+  // step further, which is where these tests work.
+  if (name === "Scenes and media") {
+    const board = page.getByRole("heading", { name: "Storyboard", exact: true });
+    await expect(
+      board.or(page.getByRole("heading", { name: /^Media plan/ })).first(),
+    ).toBeVisible();
+    if (await board.count())
+      await page.getByRole("button", { name: "Edit media", exact: true }).click();
+  }
+}
+
+/** Plan media from the Scenes section, then step from the storyboard into the media. */
+async function planMedia(page) {
+  await page.getByRole("button", { name: "Plan media", exact: true }).click();
+  await page.getByRole("button", { name: "Edit media", exact: true }).click();
 }
 
 /** Switching sections unmounts the pane, so its disclosures reopen each time. */
@@ -766,7 +781,7 @@ test("reports speech coverage and generates every missing narration at once", as
     .fill(JSON.stringify(spec));
   await page.getByRole("button", { name: "Validate and save", exact: true }).click();
   await openSection(page, "Scenes and media");
-  await page.getByRole("button", { name: "Plan media", exact: true }).click();
+  await planMedia(page);
 
   // Three narrations: one already bound, one ready to generate, one still without a script.
   const narration = (key, extra) => ({
@@ -831,7 +846,7 @@ test("uploads media into the activity workspace and binds it from the library", 
     .fill(JSON.stringify(spec));
   await page.getByRole("button", { name: "Validate and save", exact: true }).click();
   await openSection(page, "Scenes and media");
-  await page.getByRole("button", { name: "Plan media", exact: true }).click();
+  await planMedia(page);
 
   const binding = page.getByRole("textbox", { name: /^Media path/ });
   await expect(binding).toHaveValue("");
@@ -877,7 +892,7 @@ test("previews only saved images and resets previews across edits, checkout chan
     .fill(JSON.stringify(spec));
   await page.getByRole("button", { name: "Validate and save", exact: true }).click();
   await openSection(page, "Scenes and media");
-  await page.getByRole("button", { name: "Plan media", exact: true }).click();
+  await planMedia(page);
   await expect(page.getByText("Assign and save a media path to preview this image.")).toBeVisible();
   const binding = page.getByRole("textbox", { name: /^Media path/ });
   await binding.fill("media/images/cat.png");
@@ -1004,7 +1019,7 @@ test("requires an explicit reading mode for book assembly and sends it per run",
   await page.getByRole("option", { name: "Read-along", exact: true }).click();
   await expect(assemble).toBeDisabled();
   await openSection(page, "Scenes and media");
-  await page.getByRole("button", { name: "Plan media", exact: true }).click();
+  await planMedia(page);
   await openSection(page, "Description");
   await expect(assemble).toBeEnabled();
   await expect(page.getByText("Validated", { exact: true })).toBeVisible();
@@ -1032,7 +1047,7 @@ test("edits scripts and explicitly accepts speech while regeneration keeps the a
     .fill(JSON.stringify(spec));
   await page.getByRole("button", { name: "Validate and save", exact: true }).click();
   await openSection(page, "Scenes and media");
-  await page.getByRole("button", { name: "Plan media", exact: true }).click();
+  await planMedia(page);
   await openManifest(page);
   const manifest = {
     productCode: "words",
@@ -1089,7 +1104,7 @@ test("edits image descriptions and explicitly accepts images while failed regene
     .fill(JSON.stringify(spec));
   await page.getByRole("button", { name: "Validate and save", exact: true }).click();
   await openSection(page, "Scenes and media");
-  await page.getByRole("button", { name: "Plan media", exact: true }).click();
+  await planMedia(page);
   await openManifest(page);
   const manifest = {
     productCode: "words",
@@ -1175,7 +1190,7 @@ test("reviews and accepts an improved image prompt without changing its saved me
     .fill(JSON.stringify(spec));
   await page.getByRole("button", { name: "Validate and save", exact: true }).click();
   await openSection(page, "Scenes and media");
-  await page.getByRole("button", { name: "Plan media", exact: true }).click();
+  await planMedia(page);
   await openManifest(page);
   const manifest = {
     productCode: "words",
@@ -1245,7 +1260,7 @@ test("reviews narration suggestions, preserves existing audio provenance, and bl
     .fill(JSON.stringify(spec));
   await page.getByRole("button", { name: "Validate and save", exact: true }).click();
   await openSection(page, "Scenes and media");
-  await page.getByRole("button", { name: "Plan media", exact: true }).click();
+  await planMedia(page);
   await openManifest(page);
   const manifest = {
     productCode: "words",
@@ -1308,7 +1323,7 @@ test("members cannot edit media text", async ({ page }) => {
     .fill(JSON.stringify(spec));
   await page.getByRole("button", { name: "Validate and save", exact: true }).click();
   await openSection(page, "Scenes and media");
-  await page.getByRole("button", { name: "Plan media", exact: true }).click();
+  await planMedia(page);
   await openManifest(page);
   await page.getByRole("textbox", { name: /^Asset manifest/ }).fill(
     JSON.stringify({
@@ -1350,7 +1365,7 @@ test("image candidates from a conflicting run remain view-only", async ({ page }
     .fill(JSON.stringify(spec));
   await page.getByRole("button", { name: "Validate and save", exact: true }).click();
   await openSection(page, "Scenes and media");
-  await page.getByRole("button", { name: "Plan media", exact: true }).click();
+  await planMedia(page);
   await openManifest(page);
   const manifest = {
     productCode: "words",
@@ -1863,5 +1878,82 @@ test("runs every stage from the hierarchy and follows the run in its panel", asy
   await page.getByRole("button", { name: "Run", exact: true }).click();
   await expect.poll(() => posts.length).toBe(2);
   expect(posts[1]).toMatchObject({ stage: "images" });
+  expect(f.errors).toEqual([]);
+});
+
+test("the storyboard shows every scene, and walks into its media scene by scene", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  const withScenes = {
+    ...spec,
+    scenes: [
+      {
+        id: "intro",
+        description: "An island appears.",
+        media: { images: [{ key: "island", description: "An island" }] },
+      },
+      { id: "quiet", description: "A pause with no media." },
+      {
+        id: "rocks",
+        description: "Find the letter d.",
+        media: { images: [{ key: "rock", description: "A rock" }] },
+      },
+    ],
+  };
+  await openSection(page, "Specification");
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify(withScenes));
+  await page.getByRole("button", { name: "Validate and save", exact: true }).click();
+  // This fixture plans media from a manifest the request carries, so plan this spec's.
+  const asset = (key, sceneId) => ({
+    key,
+    type: "image",
+    description: key,
+    usages: [{ sceneId, sourceKey: key, occurrence: 1, sceneOccurrenceCount: 1 }],
+  });
+  await page.route(`**${base}/act_test/plan-media`, (route) =>
+    route.fallback({
+      postData: JSON.stringify({
+        ...route.request().postDataJSON(),
+        manifest: {
+          productCode: "words",
+          refNum: 12,
+          assets: { "en-US": [asset("island", "intro"), asset("rock", "rocks")] },
+        },
+      }),
+    }),
+  );
+  await openSection(page, "Scenes and media");
+  await planMedia(page);
+
+  // Scenes opens on the board: one frame per scene, in order, marked while media is missing.
+  await page.getByRole("treeitem", { name: "Scenes", exact: true, level: 1 }).click();
+  await expect(page.getByRole("heading", { name: "Storyboard", exact: true })).toBeVisible();
+  await expect(page.getByText("3 scenes", { exact: true })).toBeVisible();
+  const intro = page.getByRole("button", { name: "Scene 1, intro. 1 without media" });
+  await expect(page.getByRole("button", { name: "Scene 2, quiet", exact: true })).toBeVisible();
+  await intro.click();
+  await expect(intro).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("heading", { name: "Scene 1, intro", exact: true })).toBeVisible();
+
+  // Opening a scene opens its media, and the editor steps over the scene with none.
+  await page.getByRole("button", { name: /^island/ }).click();
+  await expect(page.getByRole("heading", { name: "island", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Next scene: Scene 3, rocks", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "rock", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
+  await page
+    .getByRole("navigation", { name: "Storyboard" })
+    .getByRole("button", {
+      name: "Storyboard",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Scene 3, rocks. 1 without media" }),
+  ).toHaveAttribute("aria-pressed", "true");
   expect(f.errors).toEqual([]);
 });
