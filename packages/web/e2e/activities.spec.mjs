@@ -2505,7 +2505,19 @@ test("trims a stretch out of a narration and binds the shorter clip", async ({ p
   await page.mouse.down();
   await page.mouse.move(box.x + box.width * 0.75, box.y + box.height / 2, { steps: 5 });
   await page.mouse.up();
-  await expect(page.getByText(/selected$/)).toBeVisible();
+  await expect(page.getByText(/ remains$/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Play remaining", exact: true })).toBeVisible();
+
+  // The same from the keyboard: Escape clears, Enter marks the start and then the end.
+  await wave.focus();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Remove selection" })).toHaveCount(0);
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Enter");
+  await expect(page.getByText(/^Start marked at/)).toBeVisible();
+  await page.keyboard.press("Shift+ArrowRight");
+  await page.keyboard.press("Enter");
+  await expect(page.getByText(/ remains$/)).toBeVisible();
   await page.getByRole("button", { name: "Remove selection", exact: true }).click();
   await expect.poll(() => stored.length).toBe(1);
   // Half the clip is gone, at the clip's own rate: a second of an 8 kHz, 16-bit mono tone.

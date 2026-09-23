@@ -13,7 +13,9 @@ import {
   clipTime,
   encodeWav,
   normalizePeaks,
+  remainingLength,
   removeRange,
+  selectionBetween,
   selectionFromDrag,
   wavSampleRate,
   playedFraction,
@@ -264,6 +266,12 @@ describe("trimming a clip", () => {
     expect(selectionFromDrag(150, 50, 200, 4)).toEqual({ start: 1, end: 3 });
     expect(selectionFromDrag(100, 101, 200, 4)).toBeNull();
     expect(selectionFromDrag(0, 100, 0, 4)).toBeNull();
+  });
+
+  it("reads two marked moments as a selection either way round, and says what remains", () => {
+    expect(selectionBetween(2.5, 1)).toEqual({ start: 1, end: 2.5 });
+    expect(selectionBetween(1, 1.01)).toBeNull();
+    expect(remainingLength(4, { start: 1, end: 2.5 })).toBe(2.5);
   });
 
   it("takes the selected stretch out of every channel", () => {

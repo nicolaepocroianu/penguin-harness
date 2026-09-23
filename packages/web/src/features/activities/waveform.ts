@@ -71,6 +71,21 @@ export function wavSampleRate(bytes: Uint8Array): number | null {
 /** The shortest selection worth acting on, in seconds; anything less was a click. */
 export const MIN_SELECTION = 0.05;
 
+/** The stretch between two marked moments, in either order, or null when too short. */
+export function selectionBetween(
+  first: number,
+  second: number,
+): { start: number; end: number } | null {
+  const start = Math.min(first, second);
+  const end = Math.max(first, second);
+  return end - start >= MIN_SELECTION ? { start, end } : null;
+}
+
+/** How long the clip would be with the selection taken out. */
+export function remainingLength(duration: number, selection: { start: number; end: number }) {
+  return Math.max(0, duration - (selection.end - selection.start));
+}
+
 /** The stretch of the clip a drag across the waveform covers, or null for a click. */
 export function selectionFromDrag(
   fromX: number,

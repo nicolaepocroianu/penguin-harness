@@ -18,7 +18,9 @@ import {
   encodeWav,
   normalizePeaks,
   playedFraction,
+  remainingLength,
   removeRange,
+  selectionBetween,
   seekTime,
   selectionFromDrag,
   wavSampleRate,
@@ -68,6 +70,10 @@ export function WaveformPlayer({
   const [trimError, setTrimError] = useState<string | null>(null);
   const dragFrom = useRef<number | null>(null);
   const stopAt = useRef<number | null>(null);
+  // Playing what a trim would keep jumps over the selection.
+  const skip = useRef<{ start: number; end: number } | null>(null);
+  // A selection made from the keyboard: Enter marks where it starts, then where it ends.
+  const [mark, setMark] = useState<number | null>(null);
 
   useEffect(() => {
     setEnvelope(null);
@@ -174,8 +180,18 @@ export function WaveformPlayer({
   function playSelection() {
     const audio = audioRef.current;
     if (!audio || !selection) return;
+    skip.current = null;
     audio.currentTime = selection.start;
     stopAt.current = selection.end;
+    void audio.play();
+  }
+
+  function playRemaining() {
+    const audio = audioRef.current;
+    if (!audio || !selection) return;
+    stopAt.current = null;
+    skip.current = selection;
+    audio.currentTime = selection.start > 0 ? 0 : selection.end;
     void audio.play();
   }
 
@@ -242,15 +258,34 @@ export function WaveformPlayer({
             if (range) setSelection(range);
             else seek(event.clientX);
           }}
+          aria-description={onTrim ? S.activities.waveformTrim.keys : undefined}
           onKeyDown={(event) => {
             const audio = audioRef.current;
             if (!audio) return;
             if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
               event.preventDefault();
+              // Fine steps while trimming, where a tenth of a second matters.
+              const step = onTrim && !event.shiftKey ? 0.1 : 1;
               audio.currentTime = Math.min(
                 duration,
-                Math.max(0, audio.currentTime + (event.key === "ArrowRight" ? 1 : -1)),
+                Math.max(0, audio.currentTime + (event.key === "ArrowRight" ? step : -step)),
               );
+            } else if (event.key === "Home" || event.key === "End") {
+              event.preventDefault();
+              audio.currentTime = event.key === "Home" ? 0 : duration;
+            } else if (onTrim && event.key === "Enter") {
+              event.preventDefault();
+              if (mark === null) setMark(audio.currentTime);
+              else {
+                const range = selectionBetween(mark, audio.currentTime);
+                if (range) setSelection(range);
+                setMark(null);
+              }
+            } else if (onTrim && event.key === "Escape" && (selection || mark !== null)) {
+              event.preventDefault();
+              event.stopPropagation();
+              setSelection(null);
+              setMark(null);
             }
           }}
           className="w-full cursor-pointer rounded focus-visible:ring-2 focus-visible:ring-gray-400/40"
@@ -297,6 +332,13 @@ export function WaveformPlayer({
             stopAt.current = null;
             event.currentTarget.pause();
           }
+          const skipping = skip.current;
+          if (
+            skipping &&
+            event.currentTarget.currentTime >= skipping.start &&
+            event.currentTarget.currentTime < skipping.end
+          )
+            event.currentTarget.currentTime = skipping.end;
           // Reduced motion keeps the picture still; the native player still reads out time.
           if (!reducedMotion) setPosition(event.currentTarget.currentTime);
         }}
@@ -310,14 +352,19 @@ export function WaveformPlayer({
       {onTrim && peaks?.length ? (
         selection ? (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-gray-600 dark:text-gray-300">
+            <span aria-live="polite" className="text-xs text-gray-600 dark:text-gray-300">
               {S.activities.waveformTrim.selected(
                 clipTime(selection.start),
                 clipTime(selection.end),
               )}
+              {" · "}
+              {S.activities.waveformTrim.remains(clipTime(remainingLength(duration, selection)))}
             </span>
             <Button size="sm" variant="ghost" onClick={playSelection} disabled={trimming}>
               {S.activities.waveformTrim.play}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={playRemaining} disabled={trimming}>
+              {S.activities.waveformTrim.playRemaining}
             </Button>
             <Button size="sm" onClick={() => void removeSelection()} disabled={trimming}>
               {trimming ? S.activities.waveformTrim.working : S.activities.waveformTrim.remove}
@@ -331,6 +378,10 @@ export function WaveformPlayer({
               {S.activities.waveformTrim.clear}
             </Button>
           </div>
+        ) : mark !== null ? (
+          <p aria-live="polite" className="text-xs text-gray-600 dark:text-gray-300">
+            {S.activities.waveformTrim.marked(clipTime(mark))}
+          </p>
         ) : (
           <p className="text-xs text-gray-500">{S.activities.waveformTrim.hint}</p>
         )

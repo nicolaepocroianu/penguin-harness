@@ -314,6 +314,10 @@ export type Strings = {
       failed: (reason: string) => string;
       noAudio: string;
       fetchFailed: (status: number) => string;
+      remains: (length: string) => string;
+      playRemaining: string;
+      marked: (at: string) => string;
+      keys: string;
     };
     waveformUnavailable: string;
     bulkSpeechTitle: string;
