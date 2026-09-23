@@ -39,7 +39,9 @@ export function workspaceSections(state: WorkspaceState): WorkspaceSectionEntry[
     { key: "scenes", enabled: true },
     { key: "speech", enabled: state.hasSpec && state.hasPlan },
     { key: "library", enabled: true },
-    { key: "module", enabled: state.hasModule },
+    // Reachable once there is a specification to assemble from: the Build stage that
+    // assembles the first module lives in this section, as planning media lives in Scenes.
+    { key: "module", enabled: state.hasModule || state.hasSpec },
     { key: "history", enabled: true },
   ];
 }

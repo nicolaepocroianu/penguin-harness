@@ -45,6 +45,7 @@ import { ScriptEditor } from "./script-editor";
 import { PipelineControls, PipelinePanel } from "./pipeline-panel";
 import { storyboardFrames, type StoryboardFrame } from "./storyboard";
 import { Storyboard } from "./storyboard-view";
+import { BuildPanel } from "./build-panel";
 import { useAssistProposal } from "./use-assist-proposal";
 import { StudioTreeView } from "./studio-tree-view";
 import { SessionsPanel } from "./sessions-panel";
@@ -1087,8 +1088,7 @@ function ActivityEditor({
             if (boardScene && first) setSelected({ sceneId: boardScene, key: first });
             setBoard(false);
           }}
-          onAssemble={editable && available ? () => runStages("module") : undefined}
-          assembleDisabled={!!pipelineBlocked}
+          onAssemble={() => setSection("module")}
         />
       ) : section === "scenes" && editedManifest ? (
         <AssetEditor
@@ -1193,28 +1193,6 @@ function ActivityEditor({
                   {codingAgentId && (
                     <p className="text-xs text-gray-500">{S.activities.codingAgentMedia}</p>
                   )}
-                  {detail.activityType === "book" && (
-                    <>
-                      <h3 className="flex items-center gap-2 text-xs font-semibold">
-                        {S.activities.readingMode}
-                        <InfoPopover label={S.activities.readingMode}>
-                          <p>{S.activities.readingModeHelp}</p>
-                        </InfoPopover>
-                      </h3>
-                      <Select
-                        size="sm"
-                        aria-label={S.activities.readingMode}
-                        hint={S.activities.readingModeHint}
-                        value={bookMode}
-                        onChange={(e) => setBookMode(e.target.value as typeof bookMode)}
-                        disabled={busy || running}
-                      >
-                        <option value="">{S.activities.chooseReadingMode}</option>
-                        <option value="readAlong">{S.activities.readAlong}</option>
-                        <option value="decodable">{S.activities.decodable}</option>
-                      </Select>
-                    </>
-                  )}
                   {dirty && (
                     <p className={`text-xs ${toneInk.attention}`}>{S.activities.saveFirst}</p>
                   )}
@@ -1242,48 +1220,6 @@ function ActivityEditor({
                     }
                   >
                     {S.activities.generate}
-                  </Button>
-                  <Input
-                    size="sm"
-                    label={S.activities.wafRoot}
-                    value={wafRoot}
-                    onChange={(event) => setWafRoot(event.target.value)}
-                    disabled={busy || running}
-                    hint={S.activities.wafRootHint}
-                  />
-                  <Button
-                    size="sm"
-                    disabled={
-                      busy ||
-                      running ||
-                      dirty ||
-                      !selectedAgent ||
-                      detail.draft.status !== "valid" ||
-                      !detail.draft.spec ||
-                      (detail.activityType === "book" && (!bookMode || !detail.draft.mediaPlan))
-                    }
-                    onClick={() =>
-                      void action(async () => {
-                        const run = await apiFetch<ActivityRun>(`${endpoint}/assemble-module`, {
-                          method: "POST",
-                          body: {
-                            ...runner,
-                            expectedRevision: detail.draft.contentRevision,
-                            wafRoot: wafRoot.trim() || undefined,
-                            ...(detail.activityType === "book" ? { bookMode } : {}),
-                          },
-                        });
-                        if (alive.current) {
-                          setRuns((previous) => [
-                            summarize(run),
-                            ...previous.filter((item) => item.runId !== run.runId),
-                          ]);
-                          setRefreshVersion((value) => value + 1);
-                        }
-                      })
-                    }
-                  >
-                    {S.activities.assemble}
                   </Button>
                 </div>
               </div>
@@ -1459,6 +1395,90 @@ function ActivityEditor({
               )}
               {section === "module" && (
                 <>
+                  <BuildPanel
+                    endpoint={endpoint}
+                    revision={detail.draft.contentRevision}
+                    wafRoot={wafRoot}
+                    runs={runs}
+                    unsaved={dirty}
+                    proposalOpen={!!proposal.read?.proposal?.changes.length}
+                  >
+                    {(blocked) =>
+                      editable && (
+                        <div className="space-y-3">
+                          {detail.activityType === "book" && (
+                            <>
+                              <h3 className="flex items-center gap-2 text-xs font-semibold">
+                                {S.activities.readingMode}
+                                <InfoPopover label={S.activities.readingMode}>
+                                  <p>{S.activities.readingModeHelp}</p>
+                                </InfoPopover>
+                              </h3>
+                              <Select
+                                size="sm"
+                                aria-label={S.activities.readingMode}
+                                hint={S.activities.readingModeHint}
+                                value={bookMode}
+                                onChange={(e) => setBookMode(e.target.value as typeof bookMode)}
+                                disabled={busy || running}
+                              >
+                                <option value="">{S.activities.chooseReadingMode}</option>
+                                <option value="readAlong">{S.activities.readAlong}</option>
+                                <option value="decodable">{S.activities.decodable}</option>
+                              </Select>
+                            </>
+                          )}
+                          <Input
+                            size="sm"
+                            label={S.activities.wafRoot}
+                            value={wafRoot}
+                            onChange={(event) => setWafRoot(event.target.value)}
+                            disabled={busy || running}
+                            hint={S.activities.wafRootHint}
+                          />
+                          <Button
+                            size="sm"
+                            disabled={
+                              blocked ||
+                              busy ||
+                              running ||
+                              dirty ||
+                              !selectedAgent ||
+                              detail.draft.status !== "valid" ||
+                              !detail.draft.spec ||
+                              (detail.activityType === "book" &&
+                                (!bookMode || !detail.draft.mediaPlan))
+                            }
+                            onClick={() =>
+                              void action(async () => {
+                                const run = await apiFetch<ActivityRun>(
+                                  `${endpoint}/assemble-module`,
+                                  {
+                                    method: "POST",
+                                    body: {
+                                      ...runner,
+                                      expectedRevision: detail.draft.contentRevision,
+                                      wafRoot: wafRoot.trim() || undefined,
+                                      ...(detail.activityType === "book" ? { bookMode } : {}),
+                                    },
+                                  },
+                                );
+                                if (alive.current) {
+                                  setRuns((previous) => [
+                                    summarize(run),
+                                    ...previous.filter((item) => item.runId !== run.runId),
+                                  ]);
+                                  setRefreshVersion((value) => value + 1);
+                                }
+                              })
+                            }
+                          >
+                            {S.activities.assemble}
+                          </Button>
+                        </div>
+                      )
+                    }
+                  </BuildPanel>
                   <SandboxPanel
                     projectId={projectId}
                     activityId={detail.id}

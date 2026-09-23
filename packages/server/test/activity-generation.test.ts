@@ -1627,4 +1627,19 @@ describe("activity generation through Harness sessions", () => {
       pipeline: { status: "succeeded" },
     });
   });
+  it("reports what stands between the draft and an assembled module", async () => {
+    const { client, endpoint } = await fixture();
+    const response = await client.get(
+      `${endpoint}/readiness?wafRoot=${encodeURIComponent("Z:/no/such/checkout")}`,
+    );
+    expect(response.status).toBe(200);
+    const { checks } = (await response.json()) as { checks: { id: string; level: string }[] };
+    // A fresh draft has no saved specification, which assembly refuses.
+    expect(checks.find((check) => check.id === "spec")).toMatchObject({ level: "fail" });
+    expect(checks.find((check) => check.id === "canonical")).toMatchObject({ level: "ok" });
+    expect(checks.find((check) => check.id === "checkout")).toMatchObject({
+      level: "fail",
+      found: false,
+    });
+  });
 });

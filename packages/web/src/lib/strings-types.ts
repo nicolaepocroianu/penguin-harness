@@ -90,6 +90,27 @@ export type Strings = {
       noAssets: string;
       empty: string;
     };
+    /** The Build stage: what stands between the draft and an assembled module. */
+    studioBuild: {
+      title: string;
+      checking: string;
+      unreadable: (reason: string) => string;
+      script: Record<"ok" | "warn", string>;
+      spec: Record<"ok" | "fail", string>;
+      plan: Record<"current" | "missing" | "stale", string>;
+      speech: (language: string, bound: number, total: number) => string;
+      coverage: (language: string, covered: number, total: number) => string;
+      media: (bound: number, total: number) => string;
+      canonical: Record<"ok" | "fail", string>;
+      checkout: Record<"ok" | "fail", string>;
+      unsaved: Record<"ok" | "fail", string>;
+      proposal: Record<"ok" | "warn", string>;
+      level: Record<"ok" | "warn" | "fail", string>;
+      lastRun: (status: string, when: string) => string;
+      olderDraft: string;
+      openSession: string;
+      noRun: string;
+    };
     /** Running the stages: Loom's stage picker and Run, and the panel that follows a run. */
     studioRun: {
       stage: string;

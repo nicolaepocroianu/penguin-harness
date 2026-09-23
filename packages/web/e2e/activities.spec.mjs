@@ -445,6 +445,7 @@ async function fixture(page) {
       };
       return json(activity.draft);
     }
+    if (p === `${base}/act_test/readiness`) return json({ checks: [] });
     if (p.startsWith("/api/")) {
       if (p.endsWith("/usage/errors")) return json({ items: [], total: 0 });
       if (p.endsWith("/sessions"))
@@ -704,7 +705,7 @@ test("plans media, preserves unsaved bindings on navigation, and saves paths for
   const manifest = JSON.parse(await editor.inputValue());
   manifest.assets["en-US"][0].path = "media/images/cat.png";
   await editor.fill(JSON.stringify(manifest));
-  await openSection(page, "Description");
+  await openSection(page, "Module preview");
   await expect(
     page.getByRole("button", { name: "Assemble WAF module", exact: true }),
   ).toBeDisabled();
@@ -718,7 +719,7 @@ test("plans media, preserves unsaved bindings on navigation, and saves paths for
   await openSection(page, "Scenes and media");
   await page.getByRole("button", { name: "Validate and save media", exact: true }).click();
   expect((await request).postDataJSON().manifest).toEqual(manifest);
-  await openSection(page, "Description");
+  await openSection(page, "Module preview");
   await expect(
     page.getByRole("button", { name: "Assemble WAF module", exact: true }),
   ).toBeEnabled();
@@ -919,7 +920,7 @@ test("previews only saved images and resets previews across edits, checkout chan
   ).toBeVisible();
   expect(f.imageRequests).toHaveLength(1);
   await binding.fill("media/images/cat.png");
-  await openSection(page, "Description");
+  await openSection(page, "Module preview");
   await page.getByRole("textbox", { name: /^WAF checkout/ }).fill("C:/Other WAF");
   f.setImageFailure(true);
   await openSection(page, "Scenes and media");
@@ -943,14 +944,16 @@ test("assembles a saved spec and links to the Harness-isolated WAF preview", asy
   const f = await fixture(page);
   await create(page);
   const assemble = page.getByRole("button", { name: "Assemble WAF module", exact: true });
-  await openSection(page, "Description");
-  await expect(assemble).toBeDisabled();
+  // Nothing to assemble from yet, so the Build stage is not open to choose.
+  await expect(
+    page.getByRole("treeitem", { name: "Module Definition", exact: true, level: 1 }),
+  ).toHaveAttribute("aria-disabled", "true");
   await openSection(page, "Specification");
   await page
     .getByRole("textbox", { name: "Specification JSON", exact: true })
     .fill(JSON.stringify(spec));
   await page.getByRole("button", { name: "Validate and save", exact: true }).click();
-  await openSection(page, "Description");
+  await openSection(page, "Module preview");
   await expect(assemble).toBeEnabled();
   await expect(page.getByRole("textbox", { name: /^WAF checkout/ })).toHaveValue("C:/WAF checkout");
   const sent = page.waitForRequest((request) => request.url().endsWith("/assemble-module"));
@@ -1010,7 +1013,7 @@ test("requires an explicit reading mode for book assembly and sends it per run",
   await openSection(page, "Specification");
   await page.getByRole("button", { name: "Validate and save", exact: true }).click();
   const assemble = page.getByRole("button", { name: "Assemble WAF module", exact: true });
-  await openSection(page, "Description");
+  await openSection(page, "Module preview");
   await expect(assemble).toBeDisabled();
   const readingMode = page.getByRole("button", { name: "Reading mode", exact: true });
   await expect(readingMode).toHaveText("Choose a reading mode");
@@ -1020,7 +1023,7 @@ test("requires an explicit reading mode for book assembly and sends it per run",
   await expect(assemble).toBeDisabled();
   await openSection(page, "Scenes and media");
   await planMedia(page);
-  await openSection(page, "Description");
+  await openSection(page, "Module preview");
   await expect(assemble).toBeEnabled();
   await expect(page.getByText("Validated", { exact: true })).toBeVisible();
   await expect(page.getByText("Unsaved changes", { exact: true })).toHaveCount(0);
@@ -2053,5 +2056,53 @@ test("the player draws the module's behavior map and follows the phase it report
   await expect(toggle).toHaveAttribute("aria-pressed", "true");
   await toggle.click();
   await expect(map).toHaveCount(0);
+  expect(f.errors).toEqual([]);
+});
+
+test("the Build stage lists what stands between the draft and a module", async ({ page }) => {
+  const f = await fixture(page);
+  await create(page);
+  const asked = [];
+  await page.route("**/*", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname !== `${base}/act_test/readiness`) return route.fallback();
+    asked.push(url.searchParams.get("wafRoot"));
+    return route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        checks: [
+          { id: "spec", level: "ok" },
+          { id: "plan", level: "fail", state: "stale" },
+          { id: "speech", level: "warn", language: "en-US", bound: 3, total: 5 },
+          { id: "coverage", level: "warn", language: "es-MX", covered: 4, total: 5 },
+          { id: "checkout", level: "ok", found: true },
+        ],
+      }),
+    });
+  });
+  await openSection(page, "Specification");
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify(spec));
+  await page.getByRole("button", { name: "Validate and save", exact: true }).click();
+  await openSection(page, "Module preview");
+  const checks = page.getByRole("list", { name: "Build", exact: true });
+  await expect(
+    checks.getByText("The media plan is older than the specification. Rebuild it in Scenes."),
+  ).toBeVisible();
+  await expect(checks.getByText("Speech in en-US: 3 of 5 bound.")).toBeVisible();
+  await expect(
+    checks.getByText("es-MX has 4 of 5 narrations of the default language."),
+  ).toBeVisible();
+  await expect(checks.getByRole("img", { name: "Blocks assembly" })).toHaveCount(1);
+  // Assembly would be refused on a stale plan, so it is not offered.
+  await expect(
+    page.getByRole("button", { name: "Assemble WAF module", exact: true }),
+  ).toBeDisabled();
+  await expect(checks.getByText("No unsaved edits.")).toBeVisible();
+  await expect(page.getByText("This activity has not been assembled yet.")).toBeVisible();
+  // The checkout an author types is the one checked.
+  await page.getByRole("textbox", { name: /^WAF checkout/ }).fill("D:/waf");
+  await expect.poll(() => asked.at(-1)).toBe("D:/waf");
   expect(f.errors).toEqual([]);
 });

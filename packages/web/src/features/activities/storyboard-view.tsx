@@ -40,7 +40,6 @@ export function Storyboard({
   onPlay,
   onEditMedia,
   onAssemble,
-  assembleDisabled,
 }: {
   frames: readonly StoryboardFrame[];
   selected: string | null;
@@ -52,8 +51,8 @@ export function Storyboard({
   onPlay: () => void;
   /** Leave the board for the per-asset editor, on the chosen scene when there is one. */
   onEditMedia: () => void;
-  onAssemble?: () => void;
-  assembleDisabled: boolean;
+  /** Open the Build stage, where assembling is checked and started. */
+  onAssemble: () => void;
 }) {
   const words = S.activities.studioBoard;
   const current = frames.find((frame) => frame.sceneId === selected) ?? null;
@@ -71,11 +70,9 @@ export function Storyboard({
         <Button size="sm" variant="ghost" onClick={onPlay}>
           {words.play}
         </Button>
-        {onAssemble && (
-          <Button size="sm" onClick={onAssemble} disabled={assembleDisabled}>
-            {words.assemble}
-          </Button>
-        )}
+        <Button size="sm" onClick={onAssemble}>
+          {words.assemble}
+        </Button>
       </div>
       {current && (
         <div className="space-y-1.5 border-b border-gray-200 px-4 py-2.5 dark:border-gray-800">

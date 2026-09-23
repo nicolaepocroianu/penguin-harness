@@ -15,6 +15,7 @@ import { SPEECH_MODEL, SPEECH_VOICES } from "./audio.js";
 import { IMAGE_MODEL } from "./generated-image.js";
 import { UPLOAD_MAX_BYTES } from "./upload.js";
 import { PipelineRunner, parseSelection, type PipelineState } from "./pipeline-run.js";
+import { buildReadiness } from "./build-readiness.js";
 import {
   badRequest,
   optionalString,
@@ -565,6 +566,19 @@ export class ActivityRoutes {
         ...(bookMode ? { bookMode: bookMode as "readAlong" | "decodable" } : {}),
       });
       return c.json(state, 202);
+    });
+    // What stands between the draft and an assembled module, checked where the facts live.
+    app.get("/:activityId/readiness", async (c) => {
+      const projectId = requireValidId(c, "projectId");
+      const activity = await this.activities.getActivity(projectId, pathParam(c, "activityId"));
+      const wafRoot = (c.req.query("wafRoot") ?? "").trim();
+      if (wafRoot.length > 4096) throw badRequest("wafRoot is too long.");
+      return c.json({
+        checks: buildReadiness(activity, {
+          canonical: this.activities.isCanonicalRef(activity),
+          checkoutFound: !!(await findWafRoot(process.cwd(), wafRoot || process.env.WAF_ROOT_DIR)),
+        }),
+      });
     });
     app.get("/:activityId/pipeline", async (c) =>
       c.json({

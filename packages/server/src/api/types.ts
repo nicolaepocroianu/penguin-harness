@@ -4853,6 +4853,7 @@ export type {
   PipelineStepState,
   PipelineStepStatus,
 } from "../activities/pipeline-run.js";
+export type { ReadinessCheck, ReadinessLevel } from "../activities/build-readiness.js";
 
 // ---------------------------------------------------------------------------
 // Coding agents (Agent Client Protocol)

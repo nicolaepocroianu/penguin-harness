@@ -93,6 +93,45 @@ export const en: Strings = {
       noAssets: "This scene asks for no media.",
       empty: "The specification has no scenes yet.",
     },
+    studioBuild: {
+      title: "Build",
+      checking: "Checking what the module needs…",
+      unreadable: (reason: string) => `Could not check the build: ${reason}`,
+      script: { ok: "The activity script is written.", warn: "The activity script is empty." },
+      spec: {
+        ok: "The specification is valid.",
+        fail: "Validate and save a specification first.",
+      },
+      plan: {
+        current: "The media plan matches the specification.",
+        missing: "There is no media plan, so the module will carry no media.",
+        stale: "The media plan is older than the specification. Rebuild it in Scenes.",
+      },
+      speech: (language: string, bound: number, total: number) =>
+        `Speech in ${language}: ${bound} of ${total} bound.`,
+      coverage: (language: string, covered: number, total: number) =>
+        `${language} has ${covered} of ${total} narrations of the default language.`,
+      media: (bound: number, total: number) =>
+        `Images, video and animation: ${bound} of ${total} bound.`,
+      canonical: {
+        ok: "This ref owns the module code.",
+        fail: "Another ref owns this product's module code. Assemble from that ref.",
+      },
+      checkout: {
+        ok: "The WAF checkout was found.",
+        fail: "No WAF checkout was found. Enter its folder below.",
+      },
+      unsaved: { ok: "No unsaved edits.", fail: "Save your edits first." },
+      proposal: {
+        ok: "No proposal is waiting.",
+        warn: "A proposal is waiting in the conversation.",
+      },
+      level: { ok: "Ready", warn: "Warning", fail: "Blocks assembly" },
+      lastRun: (status: string, when: string) => `Last assembly: ${status}, ${when}.`,
+      olderDraft: "It was built from an older draft.",
+      openSession: "Open session",
+      noRun: "This activity has not been assembled yet.",
+    },
     studioRun: {
       stage: "Stage",
       all: "All stages",
