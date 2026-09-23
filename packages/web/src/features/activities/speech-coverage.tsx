@@ -30,6 +30,14 @@ const STATE_TONE: Record<SpeechState, Tone | null> = {
 
 const FILTERS: readonly SpeechFilter[] = ["all", "needs", "failed", "ready", "blocked"];
 
+// The app's segmented control (`components/ui/segmented.tsx`), laid out to wrap: these
+// choices carry counts and can number more than the control's four columns.
+const SEGMENTS = "inline-flex flex-wrap gap-0.5 rounded-md bg-gray-100 p-0.5 dark:bg-gray-800";
+const SEGMENT = "rounded px-2 py-1 text-xs transition-colors duration-150";
+const SEGMENT_ON =
+  "bg-white font-medium text-gray-900 shadow-sm dark:bg-gray-600 dark:text-gray-100";
+const SEGMENT_OFF = "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200";
+
 type MediaAsset = AssetManifest["assets"][string][number];
 
 export function SpeechCoverage({
@@ -92,44 +100,28 @@ export function SpeechCoverage({
         </p>
       )}
       {languages.length > 1 && onLanguage && (
-        <div
-          role="group"
-          aria-label={S.activities.bulkSpeechLanguages}
-          className="flex flex-wrap gap-1"
-        >
+        <div role="group" aria-label={S.activities.bulkSpeechLanguages} className={SEGMENTS}>
           {languages.map((entry) => (
             <button
               key={entry.language}
               type="button"
               aria-pressed={entry.language === language}
               onClick={() => onLanguage(entry.language)}
-              className={`rounded-md border px-2 py-0.5 text-xs tabular-nums ${
-                entry.language === language
-                  ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
-                  : "border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900"
-              }`}
+              className={`${SEGMENT} tabular-nums ${entry.language === language ? SEGMENT_ON : SEGMENT_OFF}`}
             >
               {S.activities.bulkSpeechLanguage(entry.language, entry.ready, entry.total)}
             </button>
           ))}
         </div>
       )}
-      <div
-        role="group"
-        aria-label={S.activities.bulkSpeechFilters}
-        className="flex flex-wrap gap-1"
-      >
+      <div role="group" aria-label={S.activities.bulkSpeechFilters} className={SEGMENTS}>
         {FILTERS.filter((entry) => entry === "all" || counts[entry] > 0).map((entry) => (
           <button
             key={entry}
             type="button"
             aria-pressed={filter === entry}
             onClick={() => setFilter(entry)}
-            className={`rounded-full px-2 py-0.5 text-xs ${
-              filter === entry
-                ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
-                : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-            }`}
+            className={`${SEGMENT} ${filter === entry ? SEGMENT_ON : SEGMENT_OFF}`}
           >
             {S.activities.bulkSpeechFilter[entry]}{" "}
             <span className="tabular-nums opacity-70">{counts[entry]}</span>

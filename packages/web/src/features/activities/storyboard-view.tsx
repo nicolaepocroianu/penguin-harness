@@ -143,13 +143,15 @@ export function Storyboard({
                     className="group block w-full text-left"
                   >
                     <span
+                      // A waiting proposal is drawn as a ghost: the frame's outline dashed,
+                      // with the attention dot in its caption carrying the state.
                       className={`flex aspect-[4/3] items-start overflow-hidden rounded-md border bg-gray-50 dark:bg-gray-900 ${
                         frame.proposed ? "border-dashed" : ""
                       } ${
                         chosen
                           ? "border-brand-600 ring-2 ring-brand-600/25"
                           : frame.proposed
-                            ? "border-brand-400"
+                            ? "border-gray-400 dark:border-gray-500"
                             : "border-gray-200 group-hover:border-gray-400 dark:border-gray-800 dark:group-hover:border-gray-600"
                       }`}
                     >
@@ -166,6 +168,12 @@ export function Storyboard({
                       >
                         {frame.general ? words.shared : frame.sceneId}
                       </span>
+                      {frame.proposed && (
+                        <span
+                          aria-hidden
+                          className={`size-1.5 rounded-full ${toneDot.attention}`}
+                        />
+                      )}
                       {frame.working && (
                         <span
                           aria-hidden

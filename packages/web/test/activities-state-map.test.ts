@@ -56,14 +56,14 @@ describe("the behavior map", () => {
     expect(map.nodes.find((node) => node.id === "idle")).toMatchObject({ initial: true });
     expect(map.nodes.find((node) => node.id === "orphan")).toMatchObject({ final: true });
     expect(map.edges).toEqual([
-      { from: "idle", to: "prompt", label: "after 500 ms", back: false },
-      { from: "prompt", to: "waiting", label: "done", back: false },
-      { from: "prompt", to: "waiting", label: "error", back: false },
-      { from: "waiting", to: "correct", label: "CORRECT", back: false },
-      { from: "waiting", to: "retry", label: "WRONG", back: false },
-      { from: "retry", to: "waiting", label: "done", back: true },
+      { from: "idle", to: "prompt", trigger: { kind: "after", ms: "500" }, back: false },
+      { from: "prompt", to: "waiting", trigger: { kind: "done" }, back: false },
+      { from: "prompt", to: "waiting", trigger: { kind: "error" }, back: false },
+      { from: "waiting", to: "correct", trigger: { kind: "event", name: "CORRECT" }, back: false },
+      { from: "waiting", to: "retry", trigger: { kind: "event", name: "WRONG" }, back: false },
+      { from: "retry", to: "waiting", trigger: { kind: "done" }, back: true },
     ]);
-    expect(map.exits).toEqual([{ from: "correct", to: "#next-round", label: "done" }]);
+    expect(map.exits).toEqual([{ from: "correct", to: "#next-round", trigger: { kind: "done" } }]);
   });
 
   it("has no map for a scene the machine does not define", () => {

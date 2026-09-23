@@ -302,4 +302,20 @@ describe("running the stages", () => {
       "cancelled",
     ]);
   });
+
+  it("stops stepping when its component goes away, leaving the run in flight alone", async () => {
+    const w = world();
+    const list = w.generation.list.bind(w.generation);
+    let release = false;
+    (w.generation as { list: typeof list }).list = async (p, a) =>
+      release ? list(p, a) : w.runs.map((run) => ({ ...run, hasCandidate: false }));
+    const { done } = w.runner.start("proj", "act", { selection: "all", agentId: "agent" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    w.runner.dispose();
+    release = true;
+    await done;
+    expect(w.started).toEqual(["spec"]);
+    expect(w.cancelled).toEqual([]);
+    expect(w.runner.status("act")!.status).toBe("cancelled");
+  });
 });

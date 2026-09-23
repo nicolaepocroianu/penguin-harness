@@ -55,6 +55,7 @@ export const en: Strings = {
         none: "This module has no state machine, so there is no behavior map to draw.",
         unreadable: (reason: string) => `The behavior map could not be read: ${reason}`,
         leaves: "Leaves the scene",
+        trigger: { after: (ms: string) => `after ${ms} ms`, done: "done", error: "error" },
         exit: (phase: string, event: string, target: string) =>
           `${phase}, on ${event}, to ${target}`,
         live: (phase: string) => `${phase}, where the activity is now`,

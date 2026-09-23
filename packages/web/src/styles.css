@@ -920,7 +920,7 @@ html.dark .shiki span {
 .script-editor .cm-editor .cm-proposed-hint {
   margin-left: 0.75rem;
   font-weight: 400;
-  @apply font-sans text-brand-600 dark:text-brand-300;
+  @apply font-sans;
 }
 .script-editor .cm-editor .cm-changedLine,
 .script-editor .cm-editor .cm-insertedLine {

@@ -15,7 +15,7 @@ import { findWafRoot } from "./waf-module.js";
 import { SPEECH_MODEL, SPEECH_VOICES } from "./audio.js";
 import { IMAGE_MODEL } from "./generated-image.js";
 import { UPLOAD_MAX_BYTES } from "./upload.js";
-import { PipelineRunner, parseSelection, type PipelineState } from "./pipeline-run.js";
+import { ActivityPipelines, parseSelection } from "./pipeline-run.js";
 import { buildReadiness } from "./build-readiness.js";
 import {
   badRequest,
@@ -55,21 +55,12 @@ export class ActivityRoutes {
   @Use() private readonly activities!: ActivityAuthoring;
   @Use() private readonly generation!: ActivityGeneration;
   @Use() private readonly sandbox!: ActivitySandbox;
+  @Use() private readonly pipelines!: ActivityPipelines;
   @Use() private readonly config!: Config;
   @Bind("activities") routes!: Hono<AppEnv>;
 
   setup() {
     const app = new HonoApp<AppEnv>();
-    const pipelines = new PipelineRunner({
-      generation: this.generation,
-      activities: this.activities,
-    });
-    // A sequence is keyed by activity; answering only inside its own project keeps one
-    // project from reading another's, whatever id it guesses.
-    const pipelineOf = (projectId: string, activityId: string): PipelineState | null => {
-      const state = pipelines.status(activityId);
-      return state && state.projectId === projectId ? state : null;
-    };
     app.use("*", async (c, next) => {
       const projectId = requireValidId(c, "projectId");
       // Collections created by this slice are project-local. No implicit cross-project
@@ -568,9 +559,7 @@ export class ActivityRoutes {
       const bookMode = optionalString(body, "bookMode", { maxLen: 16 });
       if (bookMode && bookMode !== "readAlong" && bookMode !== "decodable")
         throw badRequest("bookMode must be readAlong or decodable.");
-      // An unknown activity is refused here rather than as the first step's failure.
-      await this.activities.getActivity(projectId, activityId);
-      const { state } = pipelines.start(projectId, activityId, {
+      const state = await this.pipelines.start(projectId, activityId, {
         selection: parseSelection(body.stage),
         agentId: runner.agentId,
         ...(runner.runtime ? { codingAgentId: runner.runtime.codingAgentId } : {}),
@@ -599,14 +588,19 @@ export class ActivityRoutes {
     });
     app.get("/:activityId/pipeline", async (c) =>
       c.json({
-        pipeline: pipelineOf(requireValidId(c, "projectId"), pathParam(c, "activityId")),
+        pipeline: await this.pipelines.status(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+        ),
       }),
     );
     app.post("/:activityId/pipeline/stop", async (c) => {
-      const projectId = requireValidId(c, "projectId");
-      const activityId = pathParam(c, "activityId");
-      if (!pipelineOf(projectId, activityId)) return c.json({ pipeline: null });
-      return c.json({ pipeline: await pipelines.stop(activityId) });
+      return c.json({
+        pipeline: await this.pipelines.stop(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+        ),
+      });
     });
     app.get("/:activityId/runs/:runId/candidate", async (c) =>
       c.json({

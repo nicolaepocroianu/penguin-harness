@@ -56,6 +56,7 @@ export type Strings = {
         none: string;
         unreadable: (reason: string) => string;
         leaves: string;
+        trigger: { after: (ms: string) => string; done: string; error: string };
         exit: (phase: string, event: string, target: string) => string;
         live: (phase: string) => string;
         graph: (scene: string) => string;

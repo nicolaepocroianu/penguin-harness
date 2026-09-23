@@ -49,11 +49,17 @@ export interface MapNode {
   final: boolean;
 }
 
+/** What fires a transition; the view words it. */
+export type MapTrigger =
+  | { kind: "event"; name: string }
+  | { kind: "after"; ms: string }
+  | { kind: "done" }
+  | { kind: "error" };
+
 export interface MapEdge {
   from: string;
   to: string;
-  /** The event, `after 3000 ms`, `done` or `error`. */
-  label: string;
+  trigger: MapTrigger;
   /** Goes back up the map or stays on its row: drawn dashed, the way a retry reads. */
   back: boolean;
 }
@@ -62,7 +68,7 @@ export interface MapEdge {
 export interface MapExit {
   from: string;
   to: string;
-  label: string;
+  trigger: MapTrigger;
 }
 
 export interface SceneMap {
@@ -80,17 +86,20 @@ function targets(transition: unknown): string[] {
   });
 }
 
-/** Every transition a phase declares, with the name an author knows it by. */
-function transitionsOf(phase: Json): { label: string; target: string }[] {
-  const found: { label: string; target: string }[] = [];
-  for (const [event, transition] of Object.entries(object(phase.on) ?? {}))
-    for (const target of targets(transition)) found.push({ label: event, target });
-  for (const [delay, transition] of Object.entries(object(phase.after) ?? {}))
-    for (const target of targets(transition)) found.push({ label: `after ${delay} ms`, target });
+/** Every transition a phase declares, with what fires it. */
+function transitionsOf(phase: Json): { trigger: MapTrigger; target: string }[] {
+  const found: { trigger: MapTrigger; target: string }[] = [];
+  for (const [name, transition] of Object.entries(object(phase.on) ?? {}))
+    for (const target of targets(transition))
+      found.push({ trigger: { kind: "event", name }, target });
+  for (const [ms, transition] of Object.entries(object(phase.after) ?? {}))
+    for (const target of targets(transition))
+      found.push({ trigger: { kind: "after", ms }, target });
   const invoke = object(phase.invoke);
   if (invoke) {
-    for (const target of targets(invoke.onDone)) found.push({ label: "done", target });
-    for (const target of targets(invoke.onError)) found.push({ label: "error", target });
+    for (const target of targets(invoke.onDone)) found.push({ trigger: { kind: "done" }, target });
+    for (const target of targets(invoke.onError))
+      found.push({ trigger: { kind: "error" }, target });
   }
   return found;
 }
@@ -120,10 +129,10 @@ export function sceneMap(machine: StateMachine, sceneId: string): SceneMap | nul
   const edges: MapEdge[] = [];
   const exits: MapExit[] = [];
   for (const id of ids)
-    for (const { label, target } of transitionsOf(object(children[id]) ?? {})) {
+    for (const { trigger, target } of transitionsOf(object(children[id]) ?? {})) {
       const to = localPhase(target, sceneId, phases);
-      if (to) edges.push({ from: id, to, label, back: false });
-      else exits.push({ from: id, to: target, label });
+      if (to) edges.push({ from: id, to, trigger, back: false });
+      else exits.push({ from: id, to: target, trigger });
     }
 
   // Rows by the shortest path from the first phase, so the map reads in the order a

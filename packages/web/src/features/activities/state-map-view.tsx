@@ -13,7 +13,22 @@ import { Select } from "../../components/ui/select";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
-import { machineOf, machineScenes, sceneMap, type MapNode, type StateMachine } from "./state-map";
+import {
+  machineOf,
+  machineScenes,
+  sceneMap,
+  type MapNode,
+  type MapTrigger,
+  type StateMachine,
+} from "./state-map";
+
+/** A trigger in the author's words; an event keeps the name the module gave it. */
+function triggerText(trigger: MapTrigger): string {
+  const words = S.activities.studioPlayer.map.trigger;
+  if (trigger.kind === "event") return trigger.name;
+  if (trigger.kind === "after") return words.after(trigger.ms);
+  return words[trigger.kind];
+}
 
 const WIDTH = 360;
 const ROW = 64;
@@ -48,12 +63,12 @@ function SceneGraph({
   for (const edge of map.edges) {
     const key = `${edge.from}->${edge.to}`;
     const entry = lines.get(key);
-    if (entry) entry.labels.push(edge.label);
+    if (entry) entry.labels.push(triggerText(edge.trigger));
     else
       lines.set(key, {
         from: byId.get(edge.from)!,
         to: byId.get(edge.to)!,
-        labels: [edge.label],
+        labels: [triggerText(edge.trigger)],
         back: edge.back,
       });
   }
@@ -170,8 +185,8 @@ function SceneGraph({
           <p className="font-medium">{words.leaves}</p>
           <ul>
             {map.exits.map((exit) => (
-              <li key={`${exit.from}:${exit.label}:${exit.to}`} className="truncate">
-                {words.exit(exit.from, exit.label, exit.to.replace(/^#/, ""))}
+              <li key={`${exit.from}:${triggerText(exit.trigger)}:${exit.to}`} className="truncate">
+                {words.exit(exit.from, triggerText(exit.trigger), exit.to.replace(/^#/, ""))}
               </li>
             ))}
           </ul>

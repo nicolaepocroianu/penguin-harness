@@ -102,7 +102,8 @@ class ProposedHint extends WidgetType {
   }
   toDOM() {
     const hint = document.createElement("span");
-    hint.className = "cm-proposed-hint";
+    // A proposal waiting on the author is an attention state; its ink comes from tone.ts.
+    hint.className = `cm-proposed-hint ${toneInk.attention}`;
     hint.textContent = this.text;
     return hint;
   }

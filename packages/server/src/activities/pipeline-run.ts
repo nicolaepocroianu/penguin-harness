@@ -19,54 +19,30 @@
  * outlive it in the history either way. A step that fails stops the sequence; nothing is
  * rolled back, and nothing after it runs.
  */
+import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import { SPEECH_VOICES } from "./audio.js";
 import { contentRevision, type ActivityRun } from "./domain.js";
 import type { AssetManifest } from "./media.js";
+import {
+  PIPELINE_STEPS,
+  type PipelineInput,
+  type PipelineSelection,
+  type PipelineState,
+  type PipelineStep,
+  type PipelineStepState,
+} from "./pipeline-types.js";
 
-export const PIPELINE_STEPS = ["spec", "media", "speech", "images", "module"] as const;
-export type PipelineStep = (typeof PIPELINE_STEPS)[number];
-export type PipelineSelection = "all" | PipelineStep;
-
-export type PipelineStepStatus =
-  "pending" | "running" | "succeeded" | "skipped" | "failed" | "cancelled";
-
-export interface PipelineStepState {
-  step: PipelineStep;
-  status: PipelineStepStatus;
-  /** Why a step was skipped or failed, or what it is doing. */
-  detail: string | null;
-  /** Items a media step works through; 0 for single-run steps. */
-  done: number;
-  total: number;
-  runIds: string[];
-}
-
-export interface PipelineState {
-  pipelineId: string;
-  projectId: string;
-  activityId: string;
-  selection: PipelineSelection;
-  status: "running" | "succeeded" | "failed" | "cancelled";
-  steps: PipelineStepState[];
-  /** The run and Session the sequence is waiting on, for following it live. */
-  currentRunId: string | null;
-  currentSessionId: string | null;
-  error: string | null;
-  startedAt: string;
-  finishedAt: string | null;
-}
-
-export interface PipelineInput {
-  selection: PipelineSelection;
-  /** The Penguin agent that runs agent steps, or owns the coding agent's Session. */
-  agentId: string;
-  codingAgentId?: string;
-  voice?: string;
-  wafRoot?: string;
-  bookMode?: "readAlong" | "decodable";
-}
+export {
+  PIPELINE_STEPS,
+  type PipelineInput,
+  type PipelineSelection,
+  type PipelineState,
+  type PipelineStep,
+  type PipelineStepState,
+  type PipelineStepStatus,
+} from "./pipeline-types.js";
 
 export function parseSelection(value: unknown): PipelineSelection {
   if (value === undefined || value === "all") return "all";
@@ -132,11 +108,20 @@ export class PipelineRunner {
   private readonly now: () => string;
   private readonly newId: () => string;
   private counter = 0;
+  private disposed = false;
 
   constructor(private readonly deps: PipelineDeps) {
     this.pause = deps.pause ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
     this.now = deps.now ?? (() => new Date().toISOString());
     this.newId = deps.newId ?? (() => `pipeline_${Date.now().toString(36)}_${++this.counter}`);
+  }
+
+  /**
+   * Stop stepping: the component is going away (a restart or a hot replacement). The run in
+   * flight is left alone, an ordinary run its history still shows; nothing after it starts.
+   */
+  dispose(): void {
+    this.disposed = true;
   }
 
   /** The activity's latest sequence, running or finished, or null when it has had none. */
@@ -198,7 +183,7 @@ export class PipelineRunner {
 
   private async drive(state: PipelineState, input: PipelineInput): Promise<void> {
     for (const step of state.steps) {
-      if (this.stopping.has(state.activityId)) break;
+      if (this.stopping.has(state.activityId) || this.disposed) break;
       step.status = "running";
       try {
         await this.runStep(state, step, input);
@@ -215,9 +200,11 @@ export class PipelineRunner {
       }
     }
     const failed = state.steps.some((step) => step.status === "failed");
+    // Stopped by the author, or cut short because the server is going away: either way,
+    // not every chosen stage ran.
     state.status = failed
       ? "failed"
-      : this.stopping.has(state.activityId)
+      : this.stopping.has(state.activityId) || this.disposed
         ? "cancelled"
         : "succeeded";
     for (const step of state.steps)
@@ -351,6 +338,7 @@ export class PipelineRunner {
       );
       if (!latest) throw new Error(`Run ${run.runId} is no longer in the history.`);
       state.currentSessionId = latest.sessionId;
+      if (this.disposed) throw new Stopped();
       if (TERMINAL.has(latest.status)) {
         if (latest.status === "succeeded") return;
         if (latest.status === "cancelled" && this.stopping.has(state.activityId))
@@ -359,5 +347,52 @@ export class PipelineRunner {
       }
       await this.pause(POLL_MS);
     }
+  }
+}
+
+/** "Run all stages" for one activity at a time, kept by the server that runs it. */
+export abstract class ActivityPipelines extends Interface<{
+  start(projectId: string, activityId: string, input: PipelineInput): Promise<PipelineState>;
+  /** The activity's latest sequence in this project, or null when it has had none here. */
+  status(projectId: string, activityId: string): Promise<PipelineState | null>;
+  stop(projectId: string, activityId: string): Promise<PipelineState | null>;
+}>() {}
+
+@Component()
+export class ActivityPipelineService implements ActivityPipelines {
+  @Use() private readonly generation!: ActivityGeneration;
+  @Use() private readonly activities!: ActivityAuthoring;
+  private runner: PipelineRunner | null = null;
+
+  setup({ effect }: ClassCtx) {
+    const runner = new PipelineRunner({
+      generation: this.generation,
+      activities: this.activities,
+    });
+    this.runner = runner;
+    effect(() => runner.dispose());
+  }
+
+  private active(): PipelineRunner {
+    if (!this.runner) throw new HttpError(503, "pipeline_unavailable", "Stages are not ready yet.");
+    return this.runner;
+  }
+
+  async start(projectId: string, activityId: string, input: PipelineInput) {
+    // An unknown activity is refused here rather than as the first step's failure.
+    await this.activities.getActivity(projectId, activityId);
+    return this.active().start(projectId, activityId, input).state;
+  }
+
+  // A sequence is keyed by activity; answering only inside its own project keeps one
+  // project from reading or stopping another's, whatever id it names.
+  async status(projectId: string, activityId: string) {
+    const state = this.active().status(activityId);
+    return state && state.projectId === projectId ? state : null;
+  }
+
+  async stop(projectId: string, activityId: string) {
+    if (!(await this.status(projectId, activityId))) return null;
+    return this.active().stop(activityId);
   }
 }
