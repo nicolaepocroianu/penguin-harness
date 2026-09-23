@@ -7,6 +7,8 @@ import type {
   ActivityRun,
   ActivityRunSummary,
   AssetManifest,
+  PipelineSelection,
+  PipelineState,
   UploadedMedia,
 } from "@prismshadow/penguin-server/api";
 import { apiFetch } from "../../api/client";
@@ -29,12 +31,18 @@ import { fileSizeText } from "./media-library";
 import { SpeechCoverage } from "./speech-coverage";
 import { buildSceneTree, filterTree, treeSelections, type SceneAssetType } from "./scene-assets";
 import { firstSelection, sameSelection, type SceneAssetSelection } from "./scene-asset-tree";
-import { resolveSection, workspaceSections, type WorkspaceSection } from "./workspace-model";
+import {
+  resolveSection,
+  workspaceSections,
+  type StudioPanel,
+  type WorkspaceSection,
+} from "./workspace-model";
 import { assetForPick, buildStudioTree } from "./studio-tree";
 import { ConversationPanel } from "./conversation-panel";
 import { focusFor, latestConversation } from "./conversation";
 import { applyMediaChange, type ProposalChange } from "./proposal";
 import { ScriptEditor } from "./script-editor";
+import { PipelineControls, PipelinePanel } from "./pipeline-panel";
 import { useAssistProposal } from "./use-assist-proposal";
 import { StudioTreeView } from "./studio-tree-view";
 import { SessionsPanel } from "./sessions-panel";
@@ -305,6 +313,13 @@ function ActivityEditor({
   const [runs, setRuns] = useState<ActivityRunSummary[]>([]);
   const [sandboxModule, setSandboxModule] = useState(false);
   const [refreshVersion, setRefreshVersion] = useState(0);
+  // The activity's run of its stages, as the server last reported it (pipeline-run.ts).
+  const [pipeline, setPipeline] = useState<PipelineState | null>(null);
+  const [pipelineChoice, setPipelineChoice] = useState<PipelineSelection>("all");
+  const [showPanel, setShowPanel] = useState<{ key: StudioPanel; at: number } | null>(null);
+  // An excerpt on its way to the conversation's composer, from another panel.
+  const [excerpt, setExcerpt] = useState<string | null>(null);
+  const takeExcerpt = useCallback(() => setExcerpt(null), []);
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState("");
   const [notice, setNotice] = useState("");
@@ -439,18 +454,23 @@ function ActivityEditor({
       const revisionAtStart = state.current.revision;
       let active = false;
       try {
-        const [value, history, sandbox] = await Promise.all([
+        const [value, history, sandbox, stages] = await Promise.all([
           apiFetch<ActivityDetail>(endpoint),
           apiFetch<{ runs: ActivityRunSummary[] }>(`${endpoint}/runs`),
           // A module this project never assembled -- one Loom generated -- still has a
           // Module section; only the sandbox knows it is there.
           apiFetch<SandboxStatusLike>(`${endpoint}/sandbox/status`).catch(() => null),
+          // Following a run is a courtesy over the history, which stands without it.
+          apiFetch<{ pipeline: PipelineState | null }>(`${endpoint}/pipeline`).catch(() => null),
         ]);
         if (cancelled) return;
         setLoadError("");
         setRuns(history.runs);
         setSandboxModule(sandboxHasModule(sandbox));
-        active = history.runs.some((run) => run.status === "running");
+        if (stages) setPipeline(stages.pipeline);
+        active =
+          history.runs.some((run) => run.status === "running") ||
+          stages?.pipeline?.status === "running";
         if (!state.current.busy && state.current.revision === revisionAtStart) {
           if (!state.current.dirty) accept(value);
           else if (value.draft.contentRevision !== state.current.revision) setChanged(true);
@@ -519,6 +539,50 @@ function ActivityEditor({
     ? { codingAgentId, ...(penguinAgent !== undefined ? { agentId: penguinAgent } : {}) }
     : { agentId: selectedAgent };
   const running = runs.some((run) => run.status === "running");
+  const pipelineRunning = pipeline?.status === "running";
+  const words = S.activities.studioRun;
+  // Why Run cannot start the stages now. The server refuses the same cases; saying so
+  // here saves the round trip, and says it in the author's terms.
+  const pipelineBlocked =
+    !editable || !available
+      ? null
+      : dirty
+        ? words.saveFirst
+        : running || pipelineRunning
+          ? words.otherRun
+          : !selectedAgent
+            ? words.noAgent
+            : null;
+  const agentLabel = codingAgentId
+    ? (codingAgents.find((agent) => agent.id === codingAgentId)?.title ?? codingAgentId)
+    : (agents.find((agent) => agent.agentId === selectedAgent)?.name ?? selectedAgent);
+  function runStages() {
+    void action(async () => {
+      if (!detail) return;
+      const started = await apiFetch<PipelineState>(`${endpoint}/pipeline`, {
+        method: "POST",
+        body: {
+          ...runner,
+          stage: pipelineChoice,
+          ...(wafRoot.trim() ? { wafRoot: wafRoot.trim() } : {}),
+          ...(detail.activityType === "book" && bookMode ? { bookMode } : {}),
+        },
+      });
+      if (!alive.current) return;
+      setPipeline(started);
+      setShowPanel({ key: "run", at: Date.now() });
+      setRefreshVersion((value) => value + 1);
+    });
+  }
+  function stopStages() {
+    void action(async () => {
+      const stopped = await apiFetch<{ pipeline: PipelineState | null }>(
+        `${endpoint}/pipeline/stop`,
+        { method: "POST", body: {} },
+      );
+      if (alive.current) setPipeline(stopped.pipeline);
+    });
+  }
   useEffect(() => {
     const next = speechQueue?.keys[0];
     if (!next || running || busy || dirty || !selectedAgent || codingAgentId || !detail) return;
@@ -694,6 +758,21 @@ function ActivityEditor({
   const panels: StudioPanelEntry[] = detail
     ? [
         {
+          key: "run",
+          label: S.activities.studioPanels.names.run,
+          icon: "M5 6h10M5 12h14M5 18h7",
+          render: () => (
+            <PipelinePanel
+              pipeline={pipeline}
+              agentLabel={agentLabel}
+              onAddExcerpt={(text) => {
+                setExcerpt(text);
+                setShowPanel({ key: "conversation", at: Date.now() });
+              }}
+            />
+          ),
+        },
+        {
           key: "player",
           label: S.activities.studioPanels.names.player,
           icon: "M8 5v14l11-7z",
@@ -749,6 +828,8 @@ function ActivityEditor({
               onAccept={acceptProposal}
               proposal={proposal.read}
               onReplyEnded={proposal.reload}
+              seed={excerpt}
+              onSeedTaken={takeExcerpt}
             />
           ),
         },
@@ -772,6 +853,7 @@ function ActivityEditor({
   return (
     <WorkspaceShell
       panels={panels}
+      showPanel={showPanel}
       header={
         <>
           <Link
@@ -872,6 +954,16 @@ function ActivityEditor({
               dismiss();
             }}
           />
+          {editable && available && (
+            <PipelineControls
+              choice={pipelineChoice}
+              pipeline={pipeline}
+              blocked={pipelineBlocked}
+              onChoose={setPipelineChoice}
+              onRun={runStages}
+              onStop={stopStages}
+            />
+          )}
         </div>
       )}
     >

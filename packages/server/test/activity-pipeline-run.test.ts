@@ -1,0 +1,305 @@
+import { describe, expect, it } from "vitest";
+import {
+  PipelineRunner,
+  imageTargets,
+  parseSelection,
+  speechTargets,
+  stepsFor,
+} from "../src/activities/pipeline-run.js";
+import { contentRevision, type ActivityRun } from "../src/activities/domain.js";
+import type { AssetManifest } from "../src/activities/media.js";
+import type { ActivityAuthoring, ActivityGeneration } from "../src/mechanisms/activities.js";
+
+const usage = [{ sceneId: "intro", sourceKey: "k", occurrence: 1, sceneOccurrenceCount: 1 }];
+
+function manifest(): AssetManifest {
+  return {
+    productCode: "words",
+    refNum: 1,
+    assets: {
+      "en-US": [
+        { key: "hello", type: "audio", description: "Greeting", script: "Hello", usages: usage },
+        {
+          key: "bound",
+          type: "audio",
+          description: "Done",
+          script: "Hi",
+          path: "a.wav",
+          usages: usage,
+        },
+        { key: "silent", type: "audio", description: "No script", usages: usage },
+        { key: "cat", type: "image", description: "A cat", usages: usage },
+        { key: "clip", type: "video", description: "A clip", usages: usage },
+      ],
+      "es-MX": [
+        { key: "hello", type: "audio", description: "Saludo", script: "Hola", usages: usage },
+      ],
+    },
+  };
+}
+
+describe("choosing the work", () => {
+  it("finds unbound narration with a script and unbound described images, in every language", () => {
+    expect(speechTargets(manifest())).toEqual([
+      { language: "en-US", assetKey: "hello" },
+      { language: "es-MX", assetKey: "hello" },
+    ]);
+    expect(imageTargets(manifest())).toEqual([{ language: "en-US", assetKey: "cat" }]);
+  });
+
+  it("runs every step for all, one step on its own, and refuses an unknown one", () => {
+    expect(stepsFor(parseSelection(undefined))).toEqual([
+      "spec",
+      "media",
+      "speech",
+      "images",
+      "module",
+    ]);
+    expect(stepsFor(parseSelection("speech"))).toEqual(["speech"]);
+    expect(() => parseSelection("deploy")).toThrow(/stage must be/);
+  });
+});
+
+/** An activity and the two services, faked closely enough to show what the sequence does. */
+function world(options: { fail?: ActivityRun["kind"]; description?: string } = {}) {
+  let revision = 1;
+  const spec = { id: "words", title: "Words", activityDescription: "d", scenes: [] };
+  const activity = {
+    id: "act",
+    productCode: "words",
+    refNum: 1,
+    draft: {
+      contentRevision: "r1",
+      description: options.description ?? "Scene 1: Intro",
+      status: "draft" as string,
+      spec: null as Record<string, unknown> | null,
+      mediaPlan: undefined as
+        | { specRevision: string; requirements: Record<string, string>; manifest: AssetManifest }
+        | undefined,
+    },
+  };
+  const bump = () => (activity.draft.contentRevision = `r${++revision}`);
+  const runs: ActivityRun[] = [];
+  const started: string[] = [];
+  const cancelled: string[] = [];
+  const asset = (language: string, key: string) =>
+    activity.draft.mediaPlan!.manifest.assets[language]!.find((item) => item.key === key)!;
+
+  const generation = {
+    async start(
+      _p: string,
+      _a: string,
+      agentId: string,
+      expected: string,
+      module?: any,
+      runtime?: any,
+    ) {
+      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
+      const kind: ActivityRun["kind"] = module?.audio
+        ? "audio"
+        : module?.image
+          ? "image"
+          : module
+            ? "module"
+            : "spec";
+      const run = {
+        kind,
+        runId: `run_${runs.length + 1}`,
+        sessionId: `session_${runs.length + 1}`,
+        status: "running",
+        error: null,
+        agentId,
+        codingAgentId: runtime?.codingAgentId,
+        audio: module?.audio,
+        image: module?.image,
+      } as unknown as ActivityRun;
+      runs.push(run);
+      started.push(
+        kind === "audio" || kind === "image"
+          ? `${kind}:${(module.audio ?? module.image).language}:${(module.audio ?? module.image).assetKey}`
+          : kind,
+      );
+      return run;
+    },
+    async list() {
+      // Each look settles whatever is running, as a finished Session would.
+      for (const run of runs.filter((item) => item.status === "running")) {
+        if (options.fail === run.kind) {
+          run.status = "failed";
+          run.error = `${run.kind} broke`;
+          continue;
+        }
+        run.status = "succeeded";
+        if (run.kind === "spec") {
+          activity.draft.spec = spec;
+          activity.draft.status = "valid";
+          bump();
+        }
+      }
+      return runs.map((run) => ({ ...run, hasCandidate: false }));
+    },
+    async acceptAudio(_p: string, _a: string, runId: string, expected: string) {
+      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
+      const run = runs.find((item) => item.runId === runId)!;
+      asset(run.audio!.language, run.audio!.assetKey).path = `${runId}.wav`;
+      bump();
+    },
+    async acceptImage(_p: string, _a: string, runId: string, expected: string) {
+      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
+      const run = runs.find((item) => item.runId === runId)!;
+      asset(run.image!.language, run.image!.assetKey).path = `${runId}.png`;
+      bump();
+    },
+    async cancel(_p: string, _a: string, runId: string) {
+      cancelled.push(runId);
+      const run = runs.find((item) => item.runId === runId)!;
+      run.status = "cancelled";
+      return run;
+    },
+  } as unknown as ActivityGeneration;
+
+  let plans = 0;
+  const activities = {
+    async getActivity() {
+      return structuredClone(activity);
+    },
+    async planMedia(_p: string, _a: string, expected: string) {
+      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
+      plans++;
+      activity.draft.mediaPlan = {
+        specRevision: contentRevision(activity.draft.spec),
+        requirements: {},
+        manifest: manifest(),
+      };
+      bump();
+    },
+  } as unknown as ActivityAuthoring;
+
+  const runner = new PipelineRunner({
+    generation,
+    activities,
+    // Yield to the timer queue, as a real wait does, so a held run cannot starve the test.
+    pause: () => new Promise((resolve) => setImmediate(resolve)),
+    now: () => "2026-09-23T12:00:00Z",
+    newId: () => "pipeline_1",
+  });
+  return { runner, activity, runs, started, cancelled, plans: () => plans, generation };
+}
+
+describe("running the stages", () => {
+  it("takes an activity from its script to an assembled module, accepting media on the way", async () => {
+    const w = world();
+    const { state, done } = w.runner.start("proj", "act", { selection: "all", agentId: "agent" });
+    expect(state.steps.map((step) => step.status)).toEqual([
+      "pending",
+      "pending",
+      "pending",
+      "pending",
+      "pending",
+    ]);
+    await done;
+    const final = w.runner.status("act")!;
+    expect(final.status).toBe("succeeded");
+    expect(final.steps.map((step) => [step.step, step.status])).toEqual([
+      ["spec", "succeeded"],
+      ["media", "succeeded"],
+      ["speech", "succeeded"],
+      ["images", "succeeded"],
+      ["module", "succeeded"],
+    ]);
+    expect(w.started).toEqual([
+      "spec",
+      "audio:en-US:hello",
+      "audio:es-MX:hello",
+      "image:en-US:cat",
+      "module",
+    ]);
+    expect(final.steps[2]).toMatchObject({ done: 2, total: 2 });
+    expect(w.activity.draft.mediaPlan!.manifest.assets["es-MX"]![0]!.path).toBe("run_3.wav");
+    expect(final.currentRunId).toBeNull();
+    expect(final.finishedAt).toBe("2026-09-23T12:00:00Z");
+  });
+
+  it("keeps a current media plan instead of rebuilding it", async () => {
+    const w = world();
+    await w.runner.start("proj", "act", { selection: "spec", agentId: "agent" }).done;
+    await w.runner.start("proj", "act", { selection: "media", agentId: "agent" }).done;
+    await w.runner.start("proj", "act", { selection: "media", agentId: "agent" }).done;
+    expect(w.plans()).toBe(1);
+    expect(w.runner.status("act")!.steps[0]).toMatchObject({
+      status: "skipped",
+      detail: "The media plan already matches the specification.",
+    });
+  });
+
+  it("stops at the first failure with the run's own reason, and runs nothing after it", async () => {
+    const w = world({ fail: "audio" });
+    await w.runner.start("proj", "act", { selection: "all", agentId: "agent" }).done;
+    const final = w.runner.status("act")!;
+    expect(final.status).toBe("failed");
+    expect(final.error).toBe("audio broke");
+    expect(final.steps.map((step) => step.status)).toEqual([
+      "succeeded",
+      "succeeded",
+      "failed",
+      "cancelled",
+      "cancelled",
+    ]);
+    expect(w.started).toEqual(["spec", "audio:en-US:hello"]);
+  });
+
+  it("refuses to start without a script, and says so", async () => {
+    const w = world({ description: "  " });
+    await w.runner.start("proj", "act", { selection: "all", agentId: "agent" }).done;
+    expect(w.runner.status("act")!.error).toBe(
+      "Write the activity script before generating the specification.",
+    );
+    expect(w.started).toEqual([]);
+  });
+
+  it("skips media with a coding agent and says why, still assembling with it", async () => {
+    const w = world();
+    await w.runner.start("proj", "act", {
+      selection: "all",
+      agentId: "",
+      codingAgentId: "codex",
+    }).done;
+    const final = w.runner.status("act")!;
+    expect(final.status).toBe("succeeded");
+    expect(final.steps[2]).toMatchObject({
+      status: "skipped",
+      detail: "Media generation needs a Penguin agent, not a coding agent.",
+    });
+    expect(w.started).toEqual(["spec", "module"]);
+    expect(w.runs.map((run) => run.codingAgentId)).toEqual(["codex", "codex"]);
+  });
+
+  it("refuses a second sequence while one runs, and stops the run in flight on request", async () => {
+    const w = world();
+    // Hold every run open until the test lets go.
+    const list = w.generation.list.bind(w.generation);
+    let release = false;
+    (w.generation as { list: typeof list }).list = async (p, a) =>
+      release ? list(p, a) : w.runs.map((run) => ({ ...run, hasCandidate: false }));
+    const { done } = w.runner.start("proj", "act", { selection: "all", agentId: "agent" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(() => w.runner.start("proj", "act", { selection: "all", agentId: "agent" })).toThrow(
+      /already running/,
+    );
+    expect(w.runner.status("act")!.currentRunId).toBe("run_1");
+    await w.runner.stop("act");
+    release = true;
+    await done;
+    const final = w.runner.status("act")!;
+    expect(w.cancelled).toEqual(["run_1"]);
+    expect(final.status).toBe("cancelled");
+    expect(final.error).toBeNull();
+    expect(final.steps.map((step) => step.status)).toEqual([
+      "cancelled",
+      "cancelled",
+      "cancelled",
+      "cancelled",
+      "cancelled",
+    ]);
+  });
+});

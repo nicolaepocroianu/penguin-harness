@@ -1559,4 +1559,72 @@ describe("activity generation through Harness sessions", () => {
       dispose();
     }
   });
+  it("runs the stages in order from one request, reports them, and refuses a second", async () => {
+    const { client, endpoint, finish } = await fixture();
+    const until = async (cond: () => Promise<boolean>, timeoutMs = 5000) => {
+      const start = Date.now();
+      while (!(await cond())) {
+        if (Date.now() - start > timeoutMs) throw new Error("until timed out");
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    };
+    const unknown = await client.post(`${endpoint}/pipeline`, {
+      agentId: "default_agent",
+      stage: "deploy",
+    });
+    expect(unknown.status).toBe(400);
+    expect(
+      await (await client.get(`${endpoint.replace(/[^/]+$/, "act_missing")}/pipeline`)).json(),
+    ).toEqual({ pipeline: null });
+    expect(await (await client.get(`${endpoint}/pipeline`)).json()).toEqual({ pipeline: null });
+
+    const response = await client.post(`${endpoint}/pipeline`, {
+      agentId: "default_agent",
+      stage: "spec",
+    });
+    expect(response.status, await response.clone().text()).toBe(202);
+    const started = (await response.json()) as { steps: { step: string; status: string }[] };
+    expect(started.steps).toEqual([expect.objectContaining({ step: "spec" })]);
+    const again = await client.post(`${endpoint}/pipeline`, { agentId: "default_agent" });
+    expect(again.status).toBe(409);
+    expect(await again.json()).toMatchObject({ error: { code: "pipeline_running" } });
+
+    // The sequence starts the same spec run an author would, visible in the history.
+    let run: ActivityRun | undefined;
+    await until(async () => {
+      const { runs } = (await (await client.get(`${endpoint}/runs`)).json()) as {
+        runs: ActivityRun[];
+      };
+      run = runs.find(
+        (entry) => entry.kind === "spec" && entry.status === "running" && !!entry.sessionId,
+      );
+      return !!run;
+    });
+    // The run lands in the history a moment before the sequence hears back from starting it.
+    let live = { pipeline: { currentRunId: "", currentSessionId: "" } };
+    await until(async () => {
+      live = (await (await client.get(`${endpoint}/pipeline`)).json()) as typeof live;
+      return live.pipeline.currentRunId === run!.runId;
+    });
+    expect(live.pipeline).toMatchObject({
+      currentRunId: run!.runId,
+      currentSessionId: run!.sessionId,
+    });
+    expect((await finish(run!)).status).toBe("succeeded");
+    await until(async () => {
+      const { pipeline } = (await (await client.get(`${endpoint}/pipeline`)).json()) as {
+        pipeline: { status: string };
+      };
+      return pipeline.status === "succeeded";
+    }, 10_000);
+    const done = (await (await client.get(`${endpoint}/pipeline`)).json()) as {
+      pipeline: { steps: { status: string; runIds: string[] }[] };
+    };
+    expect(done.pipeline.steps).toEqual([
+      expect.objectContaining({ status: "succeeded", runIds: [run!.runId] }),
+    ]);
+    expect(await (await client.post(`${endpoint}/pipeline/stop`, {})).json()).toMatchObject({
+      pipeline: { status: "succeeded" },
+    });
+  });
 });

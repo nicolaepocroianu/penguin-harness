@@ -1799,3 +1799,69 @@ test("the script editor folds scenes, diffs against the last save and shows an a
   await expect(box.locator(".cm-proposed-hint")).toHaveCount(0);
   expect(f.errors).toEqual([]);
 });
+
+test("runs every stage from the hierarchy and follows the run in its panel", async ({ page }) => {
+  const f = await fixture(page);
+  await create(page);
+  const posts = [];
+  let reads = 0;
+  const steps = (statuses) =>
+    ["spec", "media", "speech", "images", "module"].map((step, index) => ({
+      step,
+      status: statuses[index],
+      detail: step === "images" && statuses[index] === "skipped" ? "No image is missing." : null,
+      done: step === "speech" ? 2 : 0,
+      total: step === "speech" ? 2 : 0,
+      runIds: [],
+    }));
+  const state = (status, statuses, error = null) => ({
+    pipelineId: "pipeline_1",
+    projectId,
+    activityId: "act_test",
+    selection: "all",
+    status,
+    steps: steps(statuses),
+    currentRunId: null,
+    currentSessionId: null,
+    error,
+    startedAt: "2026-09-23T12:00:00Z",
+    finishedAt: status === "running" ? null : "2026-09-23T12:05:00Z",
+  });
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    const p = new URL(request.url()).pathname;
+    if (p !== `${base}/act_test/pipeline`) return route.fallback();
+    const json = (value, status = 200) =>
+      route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
+    if (request.method() === "POST") {
+      posts.push(request.postDataJSON());
+      return json(state("running", ["running", "pending", "pending", "pending", "pending"]), 202);
+    }
+    reads++;
+    if (!posts.length) return json({ pipeline: null });
+    return json({
+      pipeline: state("succeeded", ["succeeded", "succeeded", "succeeded", "skipped", "succeeded"]),
+    });
+  });
+  await page.reload();
+  const stage = page.getByRole("button", { name: "Stage", exact: true });
+  await expect(stage).toContainText("All stages");
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect.poll(() => posts.length).toBe(1);
+  expect(posts[0]).toMatchObject({ stage: "all", agentId: "default_agent" });
+  const panel = page.getByRole("complementary", { name: "Stages", exact: true });
+  await expect(panel).toBeVisible();
+  // The page keeps reading the run while it is in flight, and shows how it ended.
+  await expect(panel.getByText("All chosen stages finished.", { exact: true })).toBeVisible();
+  await expect(panel.getByText("Generate speech", { exact: true })).toBeVisible();
+  await expect(panel.getByText("No image is missing.", { exact: true })).toBeVisible();
+  expect(reads).toBeGreaterThan(0);
+
+  // One stage on its own is the same control.
+  await stage.click();
+  await page.getByRole("option", { name: "Generate images", exact: true }).click();
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect.poll(() => posts.length).toBe(2);
+  expect(posts[1]).toMatchObject({ stage: "images" });
+  expect(f.errors).toEqual([]);
+});

@@ -50,6 +50,7 @@ export function ActivityWorkspace({
   notices,
   rail,
   panels = [],
+  showPanel = null,
   children,
 }: {
   header: ReactNode;
@@ -62,9 +63,19 @@ export function ActivityWorkspace({
   rail: (dismiss: () => void) => ReactNode;
   /** The panels the right rail offers; none leaves the rail out. */
   panels?: readonly StudioPanelEntry[];
+  /**
+   * A panel the page wants in front, as when a run it just started should be followed.
+   * `at` distinguishes a second request for the same panel from the first.
+   */
+  showPanel?: { key: StudioPanel; at: number } | null;
   children: ReactNode;
 }) {
   const [panel, setPanel] = useState<StudioPanel | null>(() => readSidePanel());
+  useEffect(() => {
+    if (!showPanel) return;
+    setPanel(showPanel.key);
+    writeSidePanel(showPanel.key);
+  }, [showPanel]);
   const openPanel = panels.find((entry) => entry.key === panel) ?? null;
   const [width, setWidth] = useState(() => readRailWidth());
   const [collapsed, setCollapsed] = useState(() => readRailCollapsed());

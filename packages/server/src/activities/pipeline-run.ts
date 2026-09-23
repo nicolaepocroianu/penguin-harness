@@ -1,0 +1,363 @@
+/**
+ * "Run all stages", as Loom's pipeline controls offer it: one click that takes an activity
+ * from its script to an assembled module, or one stage re-run on its own.
+ *
+ * It is a sequencer over the runs that exist, not a second way of running anything. Each
+ * step starts the same run an author could start by hand, through `ActivityGeneration`,
+ * waits for it the way the history panel does, and accepts what it produced through the
+ * same accept the author would press. Every run it starts is an ordinary run in the
+ * activity's history, with its own Session.
+ *
+ * Steps, in Loom's order where Penguin has the stage:
+ *   spec    generate the specification from the script (applied when it completes)
+ *   media   plan media from the specification (kept when already current)
+ *   speech  generate and accept every unbound narration with a usable script
+ *   images  generate and accept every unbound image with a description
+ *   module  assemble the WAF module (scaffold, configuration and behavior in one run)
+ *
+ * State lives in memory only: a sequence belongs to the server that runs it, and its runs
+ * outlive it in the history either way. A step that fails stops the sequence; nothing is
+ * rolled back, and nothing after it runs.
+ */
+import { HttpError } from "../http/errors.js";
+import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
+import { SPEECH_VOICES } from "./audio.js";
+import { contentRevision, type ActivityRun } from "./domain.js";
+import type { AssetManifest } from "./media.js";
+
+export const PIPELINE_STEPS = ["spec", "media", "speech", "images", "module"] as const;
+export type PipelineStep = (typeof PIPELINE_STEPS)[number];
+export type PipelineSelection = "all" | PipelineStep;
+
+export type PipelineStepStatus =
+  "pending" | "running" | "succeeded" | "skipped" | "failed" | "cancelled";
+
+export interface PipelineStepState {
+  step: PipelineStep;
+  status: PipelineStepStatus;
+  /** Why a step was skipped or failed, or what it is doing. */
+  detail: string | null;
+  /** Items a media step works through; 0 for single-run steps. */
+  done: number;
+  total: number;
+  runIds: string[];
+}
+
+export interface PipelineState {
+  pipelineId: string;
+  projectId: string;
+  activityId: string;
+  selection: PipelineSelection;
+  status: "running" | "succeeded" | "failed" | "cancelled";
+  steps: PipelineStepState[];
+  /** The run and Session the sequence is waiting on, for following it live. */
+  currentRunId: string | null;
+  currentSessionId: string | null;
+  error: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
+export interface PipelineInput {
+  selection: PipelineSelection;
+  /** The Penguin agent that runs agent steps, or owns the coding agent's Session. */
+  agentId: string;
+  codingAgentId?: string;
+  voice?: string;
+  wafRoot?: string;
+  bookMode?: "readAlong" | "decodable";
+}
+
+export function parseSelection(value: unknown): PipelineSelection {
+  if (value === undefined || value === "all") return "all";
+  if (typeof value === "string" && (PIPELINE_STEPS as readonly string[]).includes(value))
+    return value as PipelineStep;
+  throw new HttpError(400, "invalid_request", "stage must be all or one of the pipeline steps.");
+}
+
+export function stepsFor(selection: PipelineSelection): PipelineStep[] {
+  return selection === "all" ? [...PIPELINE_STEPS] : [selection];
+}
+
+type MediaAsset = AssetManifest["assets"][string][number];
+const TEXT_MAX = 5000;
+const usable = (text: string | undefined) => !!text?.trim() && text.length <= TEXT_MAX;
+
+/** Unbound narration with a script the speech run accepts, in every language, in manifest order. */
+export function speechTargets(manifest: AssetManifest): { language: string; assetKey: string }[] {
+  return Object.entries(manifest.assets).flatMap(([language, assets]) =>
+    assets
+      .filter((asset: MediaAsset) => asset.type === "audio" && !asset.path && usable(asset.script))
+      .map((asset) => ({ language, assetKey: asset.key })),
+  );
+}
+
+/** Unbound images with a description the image run accepts, in every language. */
+export function imageTargets(manifest: AssetManifest): { language: string; assetKey: string }[] {
+  return Object.entries(manifest.assets).flatMap(([language, assets]) =>
+    assets
+      .filter(
+        (asset: MediaAsset) => asset.type === "image" && !asset.path && usable(asset.description),
+      )
+      .map((asset) => ({ language, assetKey: asset.key })),
+  );
+}
+
+const TERMINAL = new Set<ActivityRun["status"]>([
+  "succeeded",
+  "failed",
+  "conflict",
+  "cancelled",
+  "interrupted",
+]);
+
+/** Thrown inside a step once the author has asked the sequence to stop. */
+class Stopped extends Error {}
+
+export interface PipelineDeps {
+  generation: ActivityGeneration;
+  activities: ActivityAuthoring;
+  /** How long to wait between looks at a run; injected so tests do not wait. */
+  pause?: (ms: number) => Promise<void>;
+  now?: () => string;
+  newId?: () => string;
+}
+
+const POLL_MS = 1000;
+
+export class PipelineRunner {
+  private readonly states = new Map<string, PipelineState>();
+  private readonly stopping = new Set<string>();
+  private readonly pause: (ms: number) => Promise<void>;
+  private readonly now: () => string;
+  private readonly newId: () => string;
+  private counter = 0;
+
+  constructor(private readonly deps: PipelineDeps) {
+    this.pause = deps.pause ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    this.now = deps.now ?? (() => new Date().toISOString());
+    this.newId = deps.newId ?? (() => `pipeline_${Date.now().toString(36)}_${++this.counter}`);
+  }
+
+  /** The activity's latest sequence, running or finished, or null when it has had none. */
+  status(activityId: string): PipelineState | null {
+    return this.states.get(activityId) ?? null;
+  }
+
+  /**
+   * Start a sequence. It returns at once with the plan; the steps run after. Resolves the
+   * returned promise's `done` when the sequence has settled, which only tests wait for.
+   */
+  start(
+    projectId: string,
+    activityId: string,
+    input: PipelineInput,
+  ): { state: PipelineState; done: Promise<void> } {
+    if (this.states.get(activityId)?.status === "running")
+      throw new HttpError(
+        409,
+        "pipeline_running",
+        "This activity is already running its stages. Stop it before starting again.",
+      );
+    const state: PipelineState = {
+      pipelineId: this.newId(),
+      projectId,
+      activityId,
+      selection: input.selection,
+      status: "running",
+      steps: stepsFor(input.selection).map((step) => ({
+        step,
+        status: "pending",
+        detail: null,
+        done: 0,
+        total: 0,
+        runIds: [],
+      })),
+      currentRunId: null,
+      currentSessionId: null,
+      error: null,
+      startedAt: this.now(),
+      finishedAt: null,
+    };
+    this.states.set(activityId, state);
+    this.stopping.delete(activityId);
+    return { state: structuredClone(state), done: this.drive(state, input) };
+  }
+
+  /** Ask the running sequence to stop: the run in flight is cancelled, and nothing after it runs. */
+  async stop(activityId: string): Promise<PipelineState | null> {
+    const state = this.states.get(activityId);
+    if (!state || state.status !== "running") return state ?? null;
+    this.stopping.add(activityId);
+    if (state.currentRunId)
+      await this.deps.generation
+        .cancel(state.projectId, activityId, state.currentRunId)
+        .catch(() => undefined);
+    return state;
+  }
+
+  private async drive(state: PipelineState, input: PipelineInput): Promise<void> {
+    for (const step of state.steps) {
+      if (this.stopping.has(state.activityId)) break;
+      step.status = "running";
+      try {
+        await this.runStep(state, step, input);
+        if (step.status === "running") step.status = "succeeded";
+      } catch (error) {
+        const stopped = error instanceof Stopped || this.stopping.has(state.activityId);
+        step.status = stopped ? "cancelled" : "failed";
+        step.detail = stopped ? null : error instanceof Error ? error.message : String(error);
+        if (!stopped) state.error = step.detail;
+        break;
+      } finally {
+        state.currentRunId = null;
+        state.currentSessionId = null;
+      }
+    }
+    const failed = state.steps.some((step) => step.status === "failed");
+    state.status = failed
+      ? "failed"
+      : this.stopping.has(state.activityId)
+        ? "cancelled"
+        : "succeeded";
+    for (const step of state.steps)
+      if (step.status === "pending" && state.status !== "succeeded") step.status = "cancelled";
+    this.stopping.delete(state.activityId);
+    state.finishedAt = this.now();
+  }
+
+  private async runStep(
+    state: PipelineState,
+    step: PipelineStepState,
+    input: PipelineInput,
+  ): Promise<void> {
+    const { projectId, activityId } = state;
+    const { activities, generation } = this.deps;
+    const runtime = input.codingAgentId ? { codingAgentId: input.codingAgentId } : undefined;
+    const current = () => activities.getActivity(projectId, activityId);
+
+    if (step.step === "spec") {
+      const activity = await current();
+      if (!activity.draft.description.trim())
+        throw new Error("Write the activity script before generating the specification.");
+      await this.follow(
+        state,
+        step,
+        await generation.start(
+          projectId,
+          activityId,
+          input.agentId,
+          activity.draft.contentRevision,
+          undefined,
+          runtime,
+        ),
+      );
+      return;
+    }
+
+    if (step.step === "media") {
+      const activity = await current();
+      if (!activity.draft.spec || activity.draft.status !== "valid")
+        throw new Error("Save a valid specification before planning media.");
+      const plan = activity.draft.mediaPlan;
+      if (plan && plan.specRevision === contentRevision(activity.draft.spec)) {
+        step.status = "skipped";
+        step.detail = "The media plan already matches the specification.";
+        return;
+      }
+      await activities.planMedia(projectId, activityId, activity.draft.contentRevision);
+      return;
+    }
+
+    if (step.step === "speech" || step.step === "images") {
+      // Media is generated by a Penguin agent's model; a coding agent writes code.
+      if (input.codingAgentId || !input.agentId) {
+        step.status = "skipped";
+        step.detail = "Media generation needs a Penguin agent, not a coding agent.";
+        return;
+      }
+      const activity = await current();
+      const manifest = activity.draft.mediaPlan?.manifest;
+      if (!manifest) throw new Error("Plan media before generating it.");
+      const targets = step.step === "speech" ? speechTargets(manifest) : imageTargets(manifest);
+      step.total = targets.length;
+      if (!targets.length) {
+        step.status = "skipped";
+        step.detail = step.step === "speech" ? "No narration is missing." : "No image is missing.";
+        return;
+      }
+      const voice =
+        input.voice && (SPEECH_VOICES as readonly string[]).includes(input.voice)
+          ? input.voice
+          : SPEECH_VOICES[0];
+      for (const target of targets) {
+        step.detail = target.assetKey;
+        const before = await current();
+        const run = await generation.start(
+          projectId,
+          activityId,
+          input.agentId,
+          before.draft.contentRevision,
+          step.step === "speech" ? { audio: { ...target, voice } } : { image: target },
+        );
+        await this.follow(state, step, run);
+        const after = await current();
+        if (step.step === "speech")
+          await generation.acceptAudio(
+            projectId,
+            activityId,
+            run.runId,
+            after.draft.contentRevision,
+          );
+        else
+          await generation.acceptImage(
+            projectId,
+            activityId,
+            run.runId,
+            after.draft.contentRevision,
+          );
+        step.done += 1;
+      }
+      step.detail = null;
+      return;
+    }
+
+    const activity = await current();
+    await this.follow(
+      state,
+      step,
+      await generation.start(
+        projectId,
+        activityId,
+        input.agentId,
+        activity.draft.contentRevision,
+        {
+          ...(input.wafRoot ? { wafRoot: input.wafRoot } : {}),
+          ...(input.bookMode ? { bookMode: input.bookMode } : {}),
+        },
+        runtime,
+      ),
+    );
+  }
+
+  /** Wait for one run to settle; anything but success ends the step with the run's own reason. */
+  private async follow(state: PipelineState, step: PipelineStepState, run: ActivityRun) {
+    step.runIds.push(run.runId);
+    state.currentRunId = run.runId;
+    state.currentSessionId = run.sessionId;
+    for (;;) {
+      const latest = (await this.deps.generation.list(state.projectId, state.activityId)).find(
+        (entry) => entry.runId === run.runId,
+      );
+      if (!latest) throw new Error(`Run ${run.runId} is no longer in the history.`);
+      state.currentSessionId = latest.sessionId;
+      if (TERMINAL.has(latest.status)) {
+        if (latest.status === "succeeded") return;
+        if (latest.status === "cancelled" && this.stopping.has(state.activityId))
+          throw new Stopped();
+        throw new Error(latest.error ?? `The ${latest.kind} run ended as ${latest.status}.`);
+      }
+      await this.pause(POLL_MS);
+    }
+  }
+}

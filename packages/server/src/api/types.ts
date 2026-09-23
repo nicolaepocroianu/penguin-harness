@@ -4846,6 +4846,13 @@ export type {
   ActivityRunStatus,
 } from "../activities/domain.js";
 export type { SandboxStatus, SandboxBuildReport } from "../activities/sandbox-paths.js";
+export type {
+  PipelineState,
+  PipelineStep,
+  PipelineSelection,
+  PipelineStepState,
+  PipelineStepStatus,
+} from "../activities/pipeline-run.js";
 
 // ---------------------------------------------------------------------------
 // Coding agents (Agent Client Protocol)

@@ -53,9 +53,35 @@ export type Strings = {
     studioPanels: {
       rail: string;
       close: string;
-      names: Record<"player" | "conversation" | "sessions", string>;
+      names: Record<"run" | "player" | "conversation" | "sessions", string>;
       sessionsEmpty: string;
       openSession: string;
+    };
+    /** Running the stages: Loom's stage picker and Run, and the panel that follows a run. */
+    studioRun: {
+      stage: string;
+      all: string;
+      steps: Record<"spec" | "media" | "speech" | "images" | "module", string>;
+      status: Record<
+        "pending" | "running" | "succeeded" | "skipped" | "failed" | "cancelled",
+        string
+      >;
+      run: string;
+      stop: string;
+      idle: string;
+      progress: (done: number, total: number) => string;
+      running: (step: string) => string;
+      finished: string;
+      stopped: string;
+      failed: (reason: string) => string;
+      saveFirst: string;
+      otherRun: string;
+      noAgent: string;
+      with: (agent: string) => string;
+      live: string;
+      waitingForSession: string;
+      openInChat: string;
+      noRun: string;
     };
     /** The Activity Script editor: scenes that fold, media tags, and a diff against a base. */
     studioScript: {

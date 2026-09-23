@@ -8,23 +8,22 @@
  * message starts an assist run that tells the agent where the author is, and a follow-up
  * says so again when the author has moved.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import type { ActivityRun, ActivityRunSummary } from "@prismshadow/penguin-server/api";
-import { ApiError, apiFetch } from "../../api/client";
+import { apiFetch } from "../../api/client";
 import * as api from "../../api/endpoints";
 import { Button } from "../../components/ui/button";
 import { Textarea } from "../../components/ui/input";
 import { apiErrorText } from "../../lib/api-error";
-import { approvalKey } from "../../lib/omni/stream-model";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
-import { MessageStream, type StreamRenderContext } from "../chat/message-stream";
-import { useSessionStream } from "../chat/use-session-stream";
+import { MessageStream } from "../chat/message-stream";
 import { focusLabel, followUpText, latestConversation, type AssistFocus } from "./conversation";
 import type { ProposalBase, ProposalChange } from "./proposal";
 import { ProposalCard } from "./proposal-card";
 import type { ProposalRead } from "./use-assist-proposal";
+import { useSessionTranscript } from "./use-session-transcript";
 
 export function ConversationPanel({
   endpoint,
@@ -39,6 +38,8 @@ export function ConversationPanel({
   onAccept,
   proposal,
   onReplyEnded,
+  seed = null,
+  onSeedTaken,
 }: {
   /** The activity's API path. */
   endpoint: string;
@@ -59,6 +60,9 @@ export function ConversationPanel({
   proposal: ProposalRead | null;
   /** A reply ended, so the agent may have written a new proposal. */
   onReplyEnded: () => void;
+  /** Text handed over from elsewhere in the studio, to be added to the message being written. */
+  seed?: string | null;
+  onSeedTaken?: () => void;
 }) {
   const latest = latestConversation(runs);
   // Undefined follows the newest conversation; null is a fresh one the next message starts.
@@ -76,6 +80,8 @@ export function ConversationPanel({
       onAccept={onAccept}
       proposal={run && proposal?.runId === run.runId ? proposal : null}
       onReplyEnded={onReplyEnded}
+      seed={seed}
+      onSeedTaken={onSeedTaken}
       initialStatus={startedRunning}
       endpoint={endpoint}
       runner={runner}
@@ -96,6 +102,8 @@ function Conversation({
   onAccept,
   proposal: read,
   onReplyEnded,
+  seed,
+  onSeedTaken,
   initialStatus,
   endpoint,
   runner,
@@ -112,6 +120,8 @@ function Conversation({
   onAccept: (change: ProposalChange) => Promise<void>;
   proposal: ProposalRead | null;
   onReplyEnded: () => void;
+  seed: string | null;
+  onSeedTaken?: () => void;
   initialStatus: "idle" | "running";
   endpoint: string;
   runner: Record<string, string> | null;
@@ -123,14 +133,20 @@ function Conversation({
   onStarted: (run: ActivityRun) => void;
 }) {
   const words = S.activities.studioConversation;
-  const stream = useSessionStream(sessionId, initialStatus);
+  const { stream, running, ctx, items, older, error, setError } = useSessionTranscript(
+    sessionId,
+    initialStatus,
+  );
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!seed) return;
+    setDraft((text) => `${text}${text ? "\n" : ""}${seed}\n`);
+    onSeedTaken?.();
+  }, [seed, onSeedTaken]);
   // Where the author was when they last spoke: the first message's focus, then each
   // follow-up's. Null on a resumed conversation, whose first message this page never saw.
   const lastSent = useRef<AssistFocus | null>(null);
-  const running = stream.taskState === "running";
   const proposal = read?.proposal ?? null;
   const proposalError = read?.error ?? null;
   const wasRunning = useRef(running);
@@ -138,40 +154,6 @@ function Conversation({
     if (wasRunning.current && !running) onReplyEnded();
     wasRunning.current = running;
   }, [running, onReplyEnded]);
-
-  const onApprove = useCallback(
-    async (toolCallId: string, decision: "allow" | "deny", origin: string[]) => {
-      if (!sessionId) return;
-      stream.markLocalDecision(toolCallId);
-      const key = approvalKey(origin, toolCallId);
-      try {
-        await api.postApproval(sessionId, toolCallId, { decision });
-        stream.resolveApproval(key);
-      } catch (cause) {
-        if (cause instanceof ApiError && cause.status === 404) stream.resolveApproval(key);
-        else setError(apiErrorText(cause));
-      }
-    },
-    [sessionId, stream],
-  );
-  const ctx: StreamRenderContext = useMemo(
-    () => ({
-      pendingApprovals: stream.pendingApprovals,
-      onApprove,
-      origin: [],
-      taskRunning: running,
-    }),
-    [stream.pendingApprovals, onApprove, running],
-  );
-  const items = useMemo(
-    () =>
-      stream.prefixItems.length
-        ? [...stream.prefixItems, ...stream.model.items]
-        : stream.model.items,
-    // The model mutates in place; its version is the repaint signal.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [stream.version],
-  );
 
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -230,13 +212,7 @@ function Conversation({
             items={items}
             version={stream.version}
             ctx={ctx}
-            older={{
-              hasMore: stream.older.hasMore,
-              loading: stream.older.loading,
-              error: stream.older.error,
-              prependedCount: stream.prefixItems.length,
-              onLoad: stream.loadOlder,
-            }}
+            older={older}
             // The excerpt's text is already the Markdown quote a message should carry.
             onAddExcerpt={(excerpt) =>
               setDraft((text) => `${text}${text ? "\n" : ""}${excerpt.text}\n`)

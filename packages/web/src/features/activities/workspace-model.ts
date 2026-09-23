@@ -160,8 +160,8 @@ export function railWidthAfterKey(width: number, key: string, large = false): nu
  * The panels the icon rail on the right opens beside the work, in rail order. Loom keeps
  * these behind a rail of its own so the main panel stays the only large thing on screen.
  */
-export type StudioPanel = "player" | "conversation" | "sessions";
-export const STUDIO_PANELS: readonly StudioPanel[] = ["player", "conversation", "sessions"];
+export type StudioPanel = "run" | "player" | "conversation" | "sessions";
+export const STUDIO_PANELS: readonly StudioPanel[] = ["run", "player", "conversation", "sessions"];
 
 /** The icon rail's width and the width of the panel it opens, in pixels. */
 export const STUDIO_RAIL_WIDTH = 44;
