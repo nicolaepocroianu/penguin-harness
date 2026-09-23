@@ -29,6 +29,7 @@ import {
   verifyMediaArtifacts,
 } from "./waf-module.js";
 import {
+  DISCARDED_PROPOSAL_FILE,
   PROPOSAL_FILE,
   PROPOSAL_MAX_BYTES,
   assistPrompt,
@@ -230,6 +231,19 @@ export class ActivityGenerationService implements ActivityGeneration {
     } catch (error) {
       return { proposal: null, error: (error as Error).message };
     }
+  }
+
+  async discardProposal(projectId: string, activityId: string, runId: string): Promise<void> {
+    const run = await this.getRun(projectId, activityId, runId);
+    if (run.kind !== "assist")
+      throw new HttpError(404, "run_not_found", "That run is not a conversation.");
+    const workspace = this.workspace(run);
+    // Renamed, not deleted: what the agent proposed stays with the rest of its run.
+    await fs
+      .rename(path.join(workspace, PROPOSAL_FILE), path.join(workspace, DISCARDED_PROPOSAL_FILE))
+      .catch((error: NodeJS.ErrnoException) => {
+        if (error.code !== "ENOENT") throw error;
+      });
   }
 
   async candidate(projectId: string, activityId: string, runId: string): Promise<string | null> {

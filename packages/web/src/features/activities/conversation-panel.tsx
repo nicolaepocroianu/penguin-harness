@@ -40,6 +40,8 @@ export function ConversationPanel({
   onReplyEnded,
   seed = null,
   onSeedTaken,
+  onApplyAll,
+  onDiscard,
 }: {
   /** The activity's API path. */
   endpoint: string;
@@ -63,6 +65,10 @@ export function ConversationPanel({
   /** Text handed over from elsewhere in the studio, to be added to the message being written. */
   seed?: string | null;
   onSeedTaken?: () => void;
+  /** Apply the newest conversation's whole proposal as one draft change. */
+  onApplyAll?: () => Promise<void>;
+  /** Set the newest conversation's proposal aside. */
+  onDiscard?: () => Promise<void>;
 }) {
   const latest = latestConversation(runs);
   // Undefined follows the newest conversation; null is a fresh one the next message starts.
@@ -82,6 +88,8 @@ export function ConversationPanel({
       onReplyEnded={onReplyEnded}
       seed={seed}
       onSeedTaken={onSeedTaken}
+      onApplyAll={onApplyAll}
+      onDiscard={onDiscard}
       initialStatus={startedRunning}
       endpoint={endpoint}
       runner={runner}
@@ -104,6 +112,8 @@ function Conversation({
   onReplyEnded,
   seed,
   onSeedTaken,
+  onApplyAll,
+  onDiscard,
   initialStatus,
   endpoint,
   runner,
@@ -122,6 +132,8 @@ function Conversation({
   onReplyEnded: () => void;
   seed: string | null;
   onSeedTaken?: () => void;
+  onApplyAll?: () => Promise<void>;
+  onDiscard?: () => Promise<void>;
   initialStatus: "idle" | "running";
   endpoint: string;
   runner: Record<string, string> | null;
@@ -230,6 +242,8 @@ function Conversation({
               base={base}
               dirty={dirty}
               onAccept={editable ? onAccept : undefined}
+              onApplyAll={editable && onApplyAll ? onApplyAll : undefined}
+              onDiscard={editable && onDiscard ? onDiscard : undefined}
             />
           ) : (
             <p role="status" className={`text-xs ${toneInk.attention}`}>

@@ -208,6 +208,10 @@ export const en: Strings = {
       showChange: "Show the change",
       saveFirst: "Save or reload your own edits before accepting a proposal.",
       unreadable: (reason: string) => `The agent's proposal can't be used: ${reason}`,
+      applyAll: (n: number) => `Apply ${n} changes`,
+      discard: "Discard",
+      discardConfirm:
+        "Set this proposal aside? It stays with the conversation's run, and the agent's next proposal replaces it.",
     },
     studioConversation: {
       about: (focus: string) => `About ${focus}`,

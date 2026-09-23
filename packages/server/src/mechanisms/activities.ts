@@ -3,7 +3,7 @@ import type { AudioTarget, AudioResult } from "../activities/audio.js";
 import type { ImageRequest } from "../activities/image.js";
 import type { ImageTarget, ImageResult } from "../activities/generated-image.js";
 import type { MediaTextTarget } from "../activities/media-text.js";
-import type { AssistFocus, AssistProposal } from "../activities/assist.js";
+import type { AssistFocus, AssistProposal, ProposalChange } from "../activities/assist.js";
 import type { UploadedMedia } from "../activities/upload.js";
 import type { ImportOutcome } from "../activities/import-apply.js";
 import type { ImportedActivity } from "../activities/loom-import.js";
@@ -44,6 +44,11 @@ export abstract class ActivityGeneration extends Interface<{
     activityId: string,
     runId: string,
   ): Promise<{ proposal: AssistProposal | null; error: string | null }>;
+  /**
+   * Set an assist run's proposal aside, kept in its workspace for the trace, so the studio
+   * stops offering it until the agent writes another.
+   */
+  discardProposal(projectId: string, activityId: string, runId: string): Promise<void>;
   cancel(projectId: string, activityId: string, runId: string): Promise<ActivityRun>;
   acceptAudio(
     projectId: string,
@@ -68,6 +73,13 @@ export abstract class ActivityGeneration extends Interface<{
 }>() {}
 
 export abstract class ActivityAuthoring extends Interface<{
+  /** Every change of an agent's proposal as one draft change: all of it, or none. */
+  applyProposal(
+    projectId: string,
+    activityId: string,
+    changes: ProposalChange[],
+    expectedRevision: string,
+  ): Promise<ActivityDraft>;
   applyMediaText(
     projectId: string,
     activityId: string,

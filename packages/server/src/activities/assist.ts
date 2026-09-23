@@ -115,6 +115,8 @@ Answer the author directly. Do not delegate.`;
  * agent made to an activity is one an author accepted, in the Trace and the draft history.
  */
 export const PROPOSAL_FILE = "proposal.json";
+/** Where a proposal the author discarded is kept, beside the run that made it. */
+export const DISCARDED_PROPOSAL_FILE = "proposal.discarded.json";
 
 const PROPOSAL_INSTRUCTIONS = `When the author asks for a change, or agrees to one you suggested, write it to ${PROPOSAL_FILE} in this workspace, and the studio will show it to them to accept. Replace the whole file each time; it holds your current proposal, not a history. Its shape, as JSON without Markdown fences:
 {"summary":"one or two sentences on what changes and why","changes":[ ...one or more of:

@@ -1,4 +1,5 @@
 import { ASSIST_MESSAGE_MAX, parseAssistFocus } from "./assist.js";
+import { HttpError } from "../http/errors.js";
 import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
 import type { Hono } from "hono";
 import { Hono as HonoApp } from "hono";
@@ -617,6 +618,40 @@ export class ActivityRoutes {
         ),
       ),
     );
+    // The whole proposal, read fresh from the run and applied as one change to the draft.
+    app.post("/:activityId/runs/:runId/proposal/apply", async (c) => {
+      const projectId = requireValidId(c, "projectId");
+      const activityId = pathParam(c, "activityId");
+      const body = await readJson(c);
+      const expectedRevision = requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 });
+      const { proposal, error } = await this.generation.proposal(
+        projectId,
+        activityId,
+        pathParam(c, "runId"),
+      );
+      if (!proposal)
+        throw new HttpError(
+          409,
+          "proposal_missing",
+          error ?? "The conversation has no proposal to apply.",
+        );
+      return c.json(
+        await this.activities.applyProposal(
+          projectId,
+          activityId,
+          proposal.changes,
+          expectedRevision,
+        ),
+      );
+    });
+    app.post("/:activityId/runs/:runId/proposal/discard", async (c) => {
+      await this.generation.discardProposal(
+        requireValidId(c, "projectId"),
+        pathParam(c, "activityId"),
+        pathParam(c, "runId"),
+      );
+      return c.json({ proposal: null, error: null });
+    });
     app.post("/:activityId/apply-generated-spec", async (c) => {
       const body = await readJson(c);
       if (body.spec === undefined) throw badRequest("spec is required.");

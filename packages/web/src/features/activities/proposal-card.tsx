@@ -5,6 +5,7 @@
  */
 import { useState } from "react";
 import { Button } from "../../components/ui/button";
+import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import {
@@ -23,15 +24,25 @@ export function ProposalCard({
   base,
   dirty,
   onAccept,
+  onApplyAll,
+  onDiscard,
 }: {
   proposal: AssistProposal;
   base: ProposalBase;
   /** The author has unsaved edits, which accepting would overwrite. */
   dirty: boolean;
   onAccept?: (change: ProposalChange) => Promise<void>;
+  /** Apply every change as one draft change, all or none. */
+  onApplyAll?: () => Promise<void>;
+  onDiscard?: () => Promise<void>;
 }) {
   const words = S.activities.studioProposal;
   const [accepting, setAccepting] = useState<string | null>(null);
+  const [discarding, setDiscarding] = useState(false);
+  // Only changes that still apply to something and have not landed yet count.
+  const open = proposal.changes.filter(
+    (change) => changeTexts(change, base) && !changeIsApplied(change, base),
+  );
   return (
     <section aria-label={words.title} className="space-y-2">
       <h4 className="text-sm font-semibold">{words.title}</h4>
@@ -39,6 +50,48 @@ export function ProposalCard({
         <p className="text-sm text-gray-600 dark:text-gray-300">{proposal.summary}</p>
       )}
       {dirty && onAccept && <p className={`text-xs ${toneInk.attention}`}>{words.saveFirst}</p>}
+      {(onApplyAll || onDiscard) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {onApplyAll && open.length > 1 && (
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={dirty || accepting !== null}
+              onClick={() => {
+                setAccepting("*");
+                void onApplyAll().finally(() => setAccepting(null));
+              }}
+            >
+              {words.applyAll(open.length)}
+            </Button>
+          )}
+          {onDiscard && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={accepting !== null}
+              onClick={() => setDiscarding(true)}
+            >
+              {words.discard}
+            </Button>
+          )}
+        </div>
+      )}
+      {discarding && onDiscard && (
+        <ConfirmModal
+          open
+          tone="primary"
+          title={words.title}
+          confirmLabel={words.discard}
+          onClose={() => setDiscarding(false)}
+          onConfirm={() => {
+            setDiscarding(false);
+            void onDiscard();
+          }}
+        >
+          <p>{words.discardConfirm}</p>
+        </ConfirmModal>
+      )}
       <ul className="space-y-2">
         {proposal.changes.map((change) => {
           const key = changeKey(change);

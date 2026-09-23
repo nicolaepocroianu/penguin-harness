@@ -172,6 +172,9 @@ export type Strings = {
       showChange: string;
       saveFirst: string;
       unreadable: (reason: string) => string;
+      applyAll: (n: number) => string;
+      discard: string;
+      discardConfirm: string;
     };
     /** The conversation panel: an agent asked about what the author has open. */
     studioConversation: {

@@ -1642,4 +1642,73 @@ describe("activity generation through Harness sessions", () => {
       found: false,
     });
   });
+  it("applies a whole proposal as one draft change, or none of it, and sets one aside", async () => {
+    const { client, endpoint, finish } = await fixture();
+    const before = (await (await client.get(endpoint)).json()) as ActivityDetail;
+    const run = (await (
+      await client.post(`${endpoint}/assist`, {
+        agentId: "default_agent",
+        expectedRevision: before.draft.contentRevision,
+        message: "Rewrite it.",
+      })
+    ).json()) as ActivityRun;
+    await finish(run);
+    const { session } = (await (await client.get(`/api/sessions/${run.sessionId}`)).json()) as {
+      session: { workspace: string };
+    };
+    const file = path.join(session.workspace, "proposal.json");
+    const apply = (revision: string) =>
+      client.post(`${endpoint}/runs/${run.runId}/proposal/apply`, { expectedRevision: revision });
+
+    // One change that cannot land keeps the others out too.
+    await fs.writeFile(
+      file,
+      JSON.stringify({
+        changes: [
+          { target: "description", text: "Never applied" },
+          { target: "media", language: "en-US", assetKey: "nope", field: "script", text: "x" },
+        ],
+      }),
+    );
+    const refused = await apply(before.draft.contentRevision);
+    expect(refused.status).toBe(409);
+    expect(await refused.json()).toMatchObject({ error: { code: "media_stale" } });
+    const unchanged = (await (await client.get(endpoint)).json()) as ActivityDetail;
+    expect(unchanged.draft.description).toBe(before.draft.description);
+
+    await fs.writeFile(
+      file,
+      JSON.stringify({
+        summary: "A new script and its specification.",
+        changes: [
+          { target: "description", text: "Teach three sight words" },
+          { target: "spec", spec: activitySpec },
+        ],
+      }),
+    );
+    const applied = await apply(before.draft.contentRevision);
+    expect(applied.status, await applied.clone().text()).toBe(200);
+    const draft = (await applied.json()) as ActivityDetail["draft"];
+    expect(draft).toMatchObject({
+      description: "Teach three sight words",
+      spec: activitySpec,
+      status: "valid",
+    });
+    // Against the revision it was applied to, a second apply is a conflict, not a repeat.
+    expect((await apply(before.draft.contentRevision)).status).toBe(409);
+
+    // Discarding keeps the file with the run, and the studio stops offering it.
+    const discarded = await client.post(`${endpoint}/runs/${run.runId}/proposal/discard`, {});
+    expect(await discarded.json()).toEqual({ proposal: null, error: null });
+    expect(await (await client.get(`${endpoint}/runs/${run.runId}/proposal`)).json()).toEqual({
+      proposal: null,
+      error: null,
+    });
+    await expect(
+      fs.readFile(path.join(session.workspace, "proposal.discarded.json"), "utf8"),
+    ).resolves.toContain("Teach three sight words");
+    const missing = await apply(draft.contentRevision);
+    expect(missing.status).toBe(409);
+    expect(await missing.json()).toMatchObject({ error: { code: "proposal_missing" } });
+  });
 });

@@ -759,6 +759,35 @@ function ActivityEditor({
       setNotice(S.activities.saved);
     });
   }
+  /**
+   * Apply the conversation's whole proposal as one draft change, read fresh from its run
+   * by the server, so it lands whole or not at all.
+   */
+  async function applyWholeProposal(runId: string): Promise<void> {
+    await action(async () => {
+      if (!detail || state.current.dirty) throw new Error(S.activities.studioProposal.saveFirst);
+      const draft = await apiFetch<ActivityDraft>(
+        `${endpoint}/runs/${encodeURIComponent(runId)}/proposal/apply`,
+        { method: "POST", body: { expectedRevision: detail.draft.contentRevision } },
+      );
+      if (!alive.current) return;
+      accept({
+        ...detail,
+        title: draft.status === "valid" ? String(draft.spec?.title) : detail.title,
+        draft,
+      });
+      setNotice(S.activities.saved);
+    });
+  }
+  async function discardProposal(runId: string): Promise<void> {
+    await action(async () => {
+      await apiFetch(`${endpoint}/runs/${encodeURIComponent(runId)}/proposal/discard`, {
+        method: "POST",
+        body: {},
+      });
+      proposal.reload();
+    });
+  }
   /** Accept a candidate, which replaces the draft rather than starting anything. */
   function acceptRun(runId: string, path: string) {
     void action(async () => {
@@ -920,6 +949,10 @@ function ActivityEditor({
               onReplyEnded={proposal.reload}
               seed={excerpt}
               onSeedTaken={takeExcerpt}
+              onApplyAll={
+                proposal.read ? () => applyWholeProposal(proposal.read!.runId) : undefined
+              }
+              onDiscard={proposal.read ? () => discardProposal(proposal.read!.runId) : undefined}
             />
           ),
         },

@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import type { ProposalChange } from "./assist.js";
 import { validateBookSpec } from "./book.js";
 import path from "node:path";
 import { Component, Use } from "@prismshadow/penguin-core/kernel";
@@ -560,6 +561,70 @@ export class ActivityService implements ActivityAuthoring {
     };
   }
 
+  /**
+   * An agent's whole proposal, applied as one change to the draft so that it lands whole or
+   * not at all. Media text goes first, while the plan still matches the specification it
+   * was planned from; then the script; then the specification, whose new revision leaves
+   * the plan to be rebuilt, as any specification change does.
+   */
+  async applyProposal(
+    projectId: string,
+    activityId: string,
+    changes: ProposalChange[],
+    expectedRevision: string,
+  ): Promise<ActivityDraft> {
+    return this.change(projectId, activityId, expectedRevision, (draft, activity) => {
+      let next: ActivityDraft = { ...draft };
+      const media = changes.filter(
+        (change): change is Extract<ProposalChange, { target: "media" }> =>
+          change.target === "media",
+      );
+      if (media.length) {
+        const plan = next.mediaPlan;
+        if (!plan || next.status !== "valid" || plan.specRevision !== contentRevision(next.spec))
+          throw new HttpError(
+            409,
+            "media_stale",
+            "Rebuild the media plan from the saved specification before applying media changes.",
+          );
+        const manifest = structuredClone(plan.manifest);
+        for (const change of media) {
+          const asset = manifest.assets[change.language]?.find(
+            (item) => item.key === change.assetKey,
+          );
+          if (!asset || (change.field === "script" && asset.type !== "audio"))
+            throw new HttpError(
+              422,
+              "proposal_invalid",
+              `The media plan has no ${change.language} ${change.field === "script" ? "narration" : "asset"} named ${change.assetKey}.`,
+            );
+          asset[change.field] = change.text;
+        }
+        try {
+          next = {
+            ...next,
+            mediaPlan: { ...plan, manifest: validateManifest(manifest, activity) },
+          };
+        } catch (error) {
+          throw new HttpError(422, "media_invalid", (error as Error).message);
+        }
+      }
+      const description = changes.find((change) => change.target === "description");
+      if (description) next = { ...next, description: description.text, status: "draft" };
+      const spec = changes.find((change) => change.target === "spec");
+      if (spec) {
+        let parsed: Record<string, unknown>;
+        try {
+          parsed = validateActivitySpec(spec.spec);
+          if (activity.activityType === "book") validateBookSpec(parsed);
+        } catch (error) {
+          throw new HttpError(422, "spec_invalid", (error as Error).message);
+        }
+        next = { ...next, spec: parsed, status: "valid" };
+      }
+      return next;
+    });
+  }
   async updateDescription(
     projectId: string,
     activityId: string,

@@ -2237,3 +2237,85 @@ test("speech coverage says what failed, filters the list, and tries one again", 
   expect(generated[0]).toMatchObject({ language: "en-US", assetKey: "hello" });
   expect(f.errors).toEqual([]);
 });
+
+test("applies a whole proposal at once, and discards one after asking", async ({ page }) => {
+  const f = await fixture(page);
+  await create(page);
+  let proposal = {
+    summary: "A warmer opening and a matching specification.",
+    changes: [
+      { target: "description", text: "Scene 1: Welcome" },
+      { target: "spec", spec: { ...spec, title: "Warm words" } },
+    ],
+  };
+  const applied = [];
+  let discards = 0;
+  // The draft as the fixture last served it, to answer the apply with.
+  let served = null;
+  page.on("response", async (response) => {
+    if (
+      new URL(response.url()).pathname === `${base}/act_test` &&
+      response.request().method() === "GET"
+    )
+      served = await response.json().catch(() => served);
+  });
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    const p = new URL(request.url()).pathname;
+    const json = (value, status = 200) =>
+      route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
+    if (p === `${base}/act_test/runs` && request.method() === "GET")
+      return json({
+        runs: [
+          {
+            kind: "assist",
+            runId: "run_assist",
+            activityId: "act_test",
+            projectId,
+            sessionId: "session_assist",
+            status: "succeeded",
+            createdAt: "2026-09-23T11:00:00Z",
+            inputRevision: "1",
+            hasCandidate: false,
+            error: null,
+          },
+        ],
+      });
+    if (p === `${base}/act_test/runs/run_assist/proposal`) return json({ proposal, error: null });
+    if (p === `${base}/act_test/runs/run_assist/proposal/apply`) {
+      applied.push(request.postDataJSON());
+      return json({
+        ...served.draft,
+        description: "Scene 1: Welcome",
+        contentRevision: "applied",
+      });
+    }
+    if (p === `${base}/act_test/runs/run_assist/proposal/discard`) {
+      discards++;
+      proposal = null;
+      return json({ proposal: null, error: null });
+    }
+    return route.fallback();
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Conversation", exact: true }).click();
+  const panel = page.getByRole("complementary", { name: "Conversation", exact: true });
+  await panel.getByRole("button", { name: "Apply 2 changes", exact: true }).click();
+  await expect.poll(() => applied.length).toBe(1);
+  expect(applied[0]).toHaveProperty("expectedRevision");
+  await openSection(page, "Description");
+  await expect(page.getByRole("textbox", { name: "Activity Script", exact: true })).toHaveText(
+    "Scene 1: Welcome",
+  );
+
+  // A new proposal can be set aside instead; the author confirms first.
+  proposal = { summary: "", changes: [{ target: "description", text: "Something else" }] };
+  await page.reload();
+  // The side panel is remembered across reloads, so it is still open.
+  await expect(panel).toBeVisible();
+  await panel.getByRole("button", { name: "Discard", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Discard", exact: true }).click();
+  await expect.poll(() => discards).toBe(1);
+  await expect(panel.getByRole("region", { name: "Proposed changes" })).toHaveCount(0);
+  expect(f.errors).toEqual([]);
+});
