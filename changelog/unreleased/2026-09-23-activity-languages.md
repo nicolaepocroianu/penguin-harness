@@ -11,10 +11,11 @@ translation is text an author can read and correct before any audio exists.
 ## Details
 
 - `POST /api/projects/:projectId/activities/:activityId/languages` with
-  `{language, expectedRevision}` adds a language to the media plan. Pictures, video and
-  animation keep their bindings. Narration comes without a script, so it reads as needing
-  translation rather than passing English off as translated. `GET …/activities/language-setup`
-  returns the language table.
+  `{language, expectedRevision}` adds a language to the media plan. As in Loom, the new
+  group holds only the scripted narration, without its script, so each line reads as
+  needing translation rather than passing English off as translated. Pictures, music and
+  effects fall back to the default. `GET …/activities/language-setup` returns the language
+  table.
 - `generate-media-text` takes `translate: true` to translate a narration's default-language
   script. Accepting the translation records that script on the asset as `translatedFrom`.
   If the English line is rewritten, the translation shows as out of date. A translation
