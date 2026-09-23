@@ -66,6 +66,9 @@ export function SpeechCoverage({
   onTranslateAll,
   addable = [],
   onAddLanguage,
+  voices = [],
+  voice = "",
+  onVoice,
 }: {
   assets: readonly MediaAsset[];
   language: string;
@@ -84,6 +87,10 @@ export function SpeechCoverage({
   /** Languages the activity could still be translated into. */
   addable?: readonly { code: string; label: string }[];
   onAddLanguage?: (code: string) => void;
+  /** The voice bulk generation and retries use. */
+  voices?: readonly string[];
+  voice?: string;
+  onVoice?: (voice: string) => void;
   editable: boolean;
   canGenerate: boolean;
   /** Open one narration in the workbench's detail panel. */
@@ -139,8 +146,24 @@ export function SpeechCoverage({
           ))}
         </div>
       )}
-      {editable && (toTranslate > 0 || addable.length > 0) && (
+      {editable && (toTranslate > 0 || addable.length > 0 || (voices.length > 1 && onVoice)) && (
         <div className="flex flex-wrap items-center gap-2">
+          {voices.length > 1 && onVoice && (
+            <div className="w-36">
+              <Select
+                size="sm"
+                aria-label={S.activities.speechVoice}
+                value={voice}
+                onChange={(event) => onVoice(event.target.value)}
+              >
+                {voices.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
           {toTranslate > 0 && onTranslateAll && (
             <Button size="sm" disabled={!canGenerate} onClick={onTranslateAll}>
               {S.activities.speechTranslation.translateAll(toTranslate)}

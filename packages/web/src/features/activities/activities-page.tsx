@@ -387,6 +387,9 @@ function ActivityEditor({
   const [bookMode, setBookMode] = useState<"" | "readAlong" | "decodable">("");
   const [wafRoot, setWafRoot] = useState("");
   const [voices, setVoices] = useState<string[]>([]);
+  // The voice bulk speech, retries and the stage sequence speak with; one per session.
+  const [bulkVoiceChoice, setBulkVoice] = useState("");
+  const bulkVoice = voices.includes(bulkVoiceChoice) ? bulkVoiceChoice : (voices[0] ?? "");
   const [uploads, setUploads] = useState<UploadedMedia[]>([]);
   /**
    * Narration still to ask for. The server runs one generation per activity at a time,
@@ -641,6 +644,7 @@ function ActivityEditor({
         body: {
           ...runner,
           stage,
+          ...(bulkVoice ? { voice: bulkVoice } : {}),
           ...(wafRoot.trim() ? { wafRoot: wafRoot.trim() } : {}),
           ...(detail.activityType === "book" && bookMode ? { bookMode } : {}),
         },
@@ -1442,9 +1446,7 @@ function ActivityEditor({
                     setBoard(false);
                     setSection("scenes");
                   }}
-                  onGenerateAll={(keys) =>
-                    setSpeechQueue({ language, voice: voices[0] ?? "", keys })
-                  }
+                  onGenerateAll={(keys) => setSpeechQueue({ language, voice: bulkVoice, keys })}
                   queued={speechQueue?.keys.length ?? 0}
                   onCancelQueue={() => setSpeechQueue(null)}
                   runs={runs}
@@ -1453,6 +1455,9 @@ function ActivityEditor({
                     return { language: code, ready: tally.ready, total: tally.total };
                   })}
                   onLanguage={setLanguage}
+                  voices={voices}
+                  voice={bulkVoice}
+                  onVoice={setBulkVoice}
                   sources={
                     language === languageSetup.defaultLanguage
                       ? undefined
@@ -1485,7 +1490,7 @@ function ActivityEditor({
                     })
                   }
                   onRetry={(key) =>
-                    startRun("generate-audio", { language, assetKey: key, voice: voices[0] ?? "" })
+                    startRun("generate-audio", { language, assetKey: key, voice: bulkVoice })
                   }
                 />
               )}
