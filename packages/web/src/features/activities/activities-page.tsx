@@ -66,6 +66,8 @@ const runTone: Record<ActivityRun["status"], Tone> = {
   interrupted: "attention",
 };
 
+/** How long after the last keystroke the script saves itself, as in Loom. */
+const SCRIPT_AUTOSAVE_MS = 5000;
 export function ActivitiesPage() {
   useLocale();
   useDocumentTitle(S.activities.title);
@@ -492,23 +494,27 @@ function ActivityEditor({
       clearTimeout(timer);
     };
   }, [endpoint, refreshVersion, available]);
-  async function action(operation: () => Promise<void>) {
-    if (state.current.busy || !state.current.available) return;
+  /** Run one change at a time; resolves true only when it went through. */
+  async function action(operation: () => Promise<void>): Promise<boolean> {
+    if (state.current.busy || !state.current.available) return false;
     state.current.busy = true;
     setBusy(true);
     setError("");
     setNotice("");
     try {
       await operation();
+      return true;
     } catch (e) {
       if (alive.current) setError(apiErrorText(e));
+      return false;
     } finally {
       if (alive.current) setBusy(false);
     }
   }
-  async function save(kind: "description" | "spec" | "media") {
-    if (!detail) return;
-    await action(async () => {
+  /** Save one part of the draft. `quiet` leaves out the notice, for an autosave. */
+  async function save(kind: "description" | "spec" | "media", quiet = false): Promise<boolean> {
+    if (!detail) return false;
+    return action(async () => {
       const draft = await apiFetch<ActivityDraft>(
         `${endpoint}/${kind === "description" ? "description" : kind === "media" ? "media" : "apply-generated-spec"}`,
         {
@@ -531,7 +537,7 @@ function ActivityEditor({
       });
       if (kind === "spec") setSpec(pretty(draft.spec));
       if (kind === "media") setMedia(pretty(draft.mediaPlan?.manifest));
-      setNotice(S.activities.saved);
+      if (!quiet) setNotice(S.activities.saved);
       await onSaved();
     });
   }
@@ -545,6 +551,35 @@ function ActivityEditor({
     : { agentId: selectedAgent };
   const running = runs.some((run) => run.status === "running");
   const pipelineRunning = pipeline?.status === "running";
+  // Loom's editor saves the script a few seconds after typing stops, and holds off while
+  // the pipeline runs so a save never moves the draft under a stage. Text typed during a
+  // save stays: a save never writes the saved text back over the editor.
+  const [scriptSave, setScriptSave] = useState<"saving" | "saved" | "failed" | null>(null);
+  const scriptDirty = !!detail && description !== detail.draft.description;
+  const autosaveHeld = running || pipelineRunning;
+  useEffect(() => {
+    if (!scriptDirty || !editable || !available || busy || autosaveHeld) return;
+    const timer = setTimeout(() => {
+      setScriptSave("saving");
+      void save("description", true).then((ok) => {
+        if (alive.current) setScriptSave(ok ? "saved" : "failed");
+      });
+    }, SCRIPT_AUTOSAVE_MS);
+    return () => clearTimeout(timer);
+    // `save` reads the latest text when it fires; the timer restarts on every edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [description, scriptDirty, editable, available, busy, autosaveHeld]);
+  const scriptStatus = scriptDirty
+    ? autosaveHeld
+      ? S.activities.studioScript.autosave.held
+      : scriptSave === "saving"
+        ? S.activities.studioScript.autosave.saving
+        : scriptSave === "failed"
+          ? S.activities.studioScript.autosave.failed
+          : S.activities.studioScript.autosave.pending
+    : scriptSave === "saved"
+      ? S.activities.studioScript.autosave.saved
+      : null;
   const words = S.activities.studioRun;
   // Why Run cannot start the stages now. The server refuses the same cases; saying so
   // here saves the round trip, and says it in the author's terms.
@@ -689,8 +724,8 @@ function ActivityEditor({
    * it is checked and recorded the same way. The author's unsaved edits are never
    * overwritten: the card will not offer Accept while there are any.
    */
-  function acceptProposal(change: ProposalChange): Promise<void> {
-    return action(async () => {
+  async function acceptProposal(change: ProposalChange): Promise<void> {
+    await action(async () => {
       if (!detail || state.current.dirty) throw new Error(S.activities.studioProposal.saveFirst);
       const [path, method, body] =
         change.target === "description"
@@ -1114,7 +1149,8 @@ function ActivityEditor({
             value={description}
             saved={detail.draft.description}
             proposal={scriptProposal}
-            access={!available ? "read" : editable && !busy ? "edit" : "disabled"}
+            access={!available ? "read" : editable ? "edit" : "disabled"}
+            status={scriptStatus}
             canSave={editable}
             saveDisabled={busy || description === detail.draft.description}
             acceptBlocked={dirty ? S.activities.studioProposal.saveFirst : null}

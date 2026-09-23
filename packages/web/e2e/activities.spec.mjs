@@ -1957,3 +1957,33 @@ test("the storyboard shows every scene, and walks into its media scene by scene"
   ).toHaveAttribute("aria-pressed", "true");
   expect(f.errors).toEqual([]);
 });
+
+test("the script saves itself after a pause, and waits while a run is in flight", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  await page.clock.install();
+  await openSection(page, "Description");
+  const box = page.getByRole("textbox", { name: "Activity Script", exact: true });
+  const saves = [];
+  page.on("request", (request) => {
+    if (request.url().endsWith(`${base}/act_test/description`)) saves.push(request.postDataJSON());
+  });
+  await box.fill("Scene 1: Intro");
+  await expect(page.getByText("Unsaved, saves in a moment", { exact: true })).toBeVisible();
+  await page.clock.fastForward(5_500);
+  await expect(page.getByText("Saved", { exact: true }).first()).toBeVisible();
+  expect(saves.map((body) => body.description)).toEqual(["Scene 1: Intro"]);
+
+  // A run moves the draft, so the script holds its edits until the run ends.
+  await page.getByRole("button", { name: "Generate specification", exact: true }).click();
+  await box.fill("Scene 1: Welcome");
+  await expect(
+    page.getByText("Unsaved, saves when the running work ends", { exact: true }),
+  ).toBeVisible();
+  await page.clock.fastForward(10_000);
+  expect(saves).toHaveLength(1);
+  await expect(box).toHaveText("Scene 1: Welcome");
+  expect(f.errors).toEqual([]);
+});

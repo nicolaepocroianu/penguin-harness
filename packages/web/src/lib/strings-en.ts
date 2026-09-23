@@ -136,6 +136,13 @@ export const en: Strings = {
       minimap: "Changes in the script",
       jump: (line: number) => `Go to the change at line ${line}`,
       revert: "Revert",
+      autosave: {
+        pending: "Unsaved, saves in a moment",
+        saving: "Saving…",
+        saved: "Saved",
+        failed: "Not saved, see the message above",
+        held: "Unsaved, saves when the running work ends",
+      },
     },
     studioProposal: {
       title: "Proposed changes",

@@ -125,6 +125,7 @@ export type Strings = {
       minimap: string;
       jump: (line: number) => string;
       revert: string;
+      autosave: Record<"pending" | "saving" | "saved" | "failed" | "held", string>;
     };
     /** An agent's proposed changes, reviewed in the conversation panel. */
     studioProposal: {

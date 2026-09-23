@@ -216,6 +216,7 @@ export function ScriptEditor({
   access,
   canSave,
   saveDisabled,
+  status = null,
   acceptBlocked,
   onChange,
   onSave,
@@ -230,6 +231,8 @@ export function ScriptEditor({
   /** Whether this author may save at all, which shows the Save action. */
   canSave: boolean;
   saveDisabled: boolean;
+  /** Where saving stands, in words: pending, saving, saved or failed. */
+  status?: string | null;
   /** Why the proposal cannot be accepted right now, if it cannot. */
   acceptBlocked: string | null;
   onChange: (value: string) => void;
@@ -378,6 +381,11 @@ export function ScriptEditor({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 px-4 py-2 dark:border-gray-800">
         <h2 className="text-sm font-semibold">{words.label}</h2>
+        {status && (
+          <span aria-live="polite" className="text-xs text-gray-500">
+            {status}
+          </span>
+        )}
         <span className="flex-1" />
         {base !== "off" && (
           <span aria-live="polite" className="text-xs text-gray-500 tabular-nums">
