@@ -46,6 +46,8 @@ export type Strings = {
       picking: string;
       opened: (name: string) => string;
       noMatch: (id: string) => string;
+      noMedia: string;
+      silent: string;
     };
     /** The icon rail on the right and the panels it opens. */
     studioPanels: {

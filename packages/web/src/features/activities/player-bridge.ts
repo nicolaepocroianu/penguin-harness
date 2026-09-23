@@ -94,11 +94,18 @@ export function highlightMessage(id: string | null): { type: string; id: string 
   return { type: HIGHLIGHT_MESSAGE, id };
 }
 
-/** What an author clicked while picking: the nearest element id, and its tap target. */
+/**
+ * What an author clicked while picking: the ids from the clicked element out to the
+ * activity (nearest first, `id` being the nearest), and the tap target it belongs to.
+ */
 export interface PlayerPick {
   id: string | null;
+  ids?: string[];
   interactableId: string | null;
 }
+
+/** The page reports at most this many ids for one click. */
+const MAX_PICK_IDS = 8;
 
 /** The pick a message carries, under the same rules as a state report. */
 export function readPlayerPick(data: unknown, source: unknown, frame: unknown): PlayerPick | null {
@@ -106,9 +113,15 @@ export function readPlayerPick(data: unknown, source: unknown, frame: unknown): 
   if (!data || typeof data !== "object") return null;
   const message = data as Record<string, unknown>;
   if (message.type !== PICKED_MESSAGE) return null;
-  const id = text(message.id) || null;
+  const listed = Array.isArray(message.ids) ? message.ids : [];
+  const ids = listed
+    .slice(0, MAX_PICK_IDS)
+    .map((value) => text(value))
+    .filter((value): value is string => !!value);
+  const id = text(message.id) || ids[0] || null;
+  if (id && !ids.includes(id)) ids.unshift(id);
   const interactableId = text(message.interactableId) || null;
-  return id || interactableId ? { id, interactableId } : null;
+  return id || interactableId ? { id, ids, interactableId } : null;
 }
 
 /** Switch picking on or off in the player. */

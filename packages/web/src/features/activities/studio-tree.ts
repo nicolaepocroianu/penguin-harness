@@ -186,21 +186,25 @@ export function pathTo(
 }
 
 /**
- * The ids a picked element could be known by, most specific first. Generated modules give a
- * content element its asset key as its id and a label that key plus `__label`
- * (the `waf-element-ids` skill), so both the id and its stem are worth trying, then the
- * tap target the element belongs to.
+ * The ids a picked element could be known by, most specific first. Modules name elements
+ * differently: some give a content element its asset key as its id and its label that key
+ * plus `__label` (the `waf-element-ids` skill), others namespace every id under the module
+ * (`module-x__rock-2-A__letter`). So each id the page reported is tried whole, then each of
+ * its `__` parts, and the tap target last.
  */
 export function pickCandidates(pick: {
   id: string | null;
+  ids?: readonly string[];
   interactableId: string | null;
 }): string[] {
   const out: string[] = [];
-  for (const value of [pick.id, pick.interactableId]) {
-    if (!value) continue;
-    const stem = value.split("__")[0]!;
-    for (const candidate of [value, stem])
-      if (candidate && !out.includes(candidate)) out.push(candidate);
+  const add = (value: string) => {
+    if (value && !out.includes(value)) out.push(value);
+  };
+  const ids = pick.ids?.length ? pick.ids : pick.id ? [pick.id] : [];
+  for (const value of [...ids, ...(pick.interactableId ? [pick.interactableId] : [])]) {
+    add(value);
+    for (const part of value.split("__")) add(part);
   }
   return out;
 }
@@ -214,7 +218,7 @@ export function pickCandidates(pick: {
 export function assetForPick(
   scenes: SceneAssetTree,
   sceneId: string | null,
-  pick: { id: string | null; interactableId: string | null },
+  pick: { id: string | null; ids?: readonly string[]; interactableId: string | null },
 ): SceneAssetSelection | null {
   const ordered = [
     ...scenes.scenes.filter((scene) => scene.sceneId === sceneId),

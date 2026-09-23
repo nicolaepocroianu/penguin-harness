@@ -81,4 +81,17 @@ describe("the player's inspector bridge", () => {
       "if (!data || (data.type !== HIGHLIGHT_MESSAGE && data.type !== PICK_MODE_MESSAGE)) return;",
     );
   });
+
+  it("picks inside the activity only, reporting every id out to it, nearest first", () => {
+    // The navbar's pause button is not an asset; a click outside the activity keeps picking.
+    expect(PLAYER_SOURCE).toContain(
+      "if (!target || !activity || !activity.contains(target) || target === activity) return;",
+    );
+    expect(PLAYER_SOURCE).toContain(
+      "for (let node = target; node && node !== activity && ids.length < 8; node = node.parentElement)",
+    );
+    expect(PLAYER_SOURCE).toContain(
+      "{ type: PICKED_MESSAGE, id: ids[0] || null, ids: ids, interactableId: interactableId }",
+    );
+  });
 });

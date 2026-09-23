@@ -123,15 +123,26 @@ function pickFromClick(event) {
     event.preventDefault();
     event.stopImmediatePropagation();
     const target = event.target instanceof Element ? event.target : null;
-    const withId = target && target.closest('[id]');
-    const interactable = target && target.closest('[data-interactable-id]');
-    const id = withId && withId.id ? String(withId.id).slice(0, 200) : null;
-    const interactableId = interactable ? String(interactable.getAttribute('data-interactable-id') || '').slice(0, 200) || null : null;
-    if (!id && !interactableId) return;
+    // Only the activity is pickable: the navbar and the player's own notices are not
+    // anything an author can open, so a click there keeps picking.
+    const activity = document.getElementById('activity');
+    if (!target || !activity || !activity.contains(target) || target === activity) return;
+    // Every id from the clicked element out to the activity, nearest first: modules name
+    // things differently (an asset key, a namespaced "module-x__rock-2-A"), so the App
+    // tries them all rather than the page guessing which one names an asset.
+    const ids = [];
+    for (let node = target; node && node !== activity && ids.length < 8; node = node.parentElement) {
+        if (node.id) ids.push(String(node.id).slice(0, 200));
+    }
+    const interactable = target.closest('[data-interactable-id]');
+    const interactableId = interactable && activity.contains(interactable)
+        ? String(interactable.getAttribute('data-interactable-id') || '').slice(0, 200) || null
+        : null;
+    if (!ids.length && !interactableId) return;
     if (interactableId) highlightInteractable(interactableId);
     try {
         window.parent.postMessage(
-            { type: PICKED_MESSAGE, id: id, interactableId: interactableId },
+            { type: PICKED_MESSAGE, id: ids[0] || null, ids: ids, interactableId: interactableId },
             sandbox.parentOrigin
         );
     } catch (error) {

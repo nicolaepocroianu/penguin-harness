@@ -99,8 +99,22 @@ describe("player bridge", () => {
     const message = { type: PICKED_MESSAGE, id: "rock_P__label", interactableId: "rock_P" };
     expect(readPlayerPick(message, frame, frame)).toEqual({
       id: "rock_P__label",
+      ids: ["rock_P__label"],
       interactableId: "rock_P",
     });
+    // The page's list of ids out to the activity, with anything unusable dropped.
+    expect(
+      readPlayerPick(
+        {
+          type: PICKED_MESSAGE,
+          id: "a",
+          ids: ["a", 7, "b", "x".repeat(201)],
+          interactableId: null,
+        },
+        frame,
+        frame,
+      ),
+    ).toEqual({ id: "a", ids: ["a", "b"], interactableId: null });
     expect(readPlayerPick(message, { name: "other" }, frame)).toBeNull();
     expect(readPlayerPick({ ...message, type: STATE_MESSAGE }, frame, frame)).toBeNull();
   });
@@ -108,6 +122,7 @@ describe("player bridge", () => {
   it("keeps a pick with one usable id, and drops one with none", () => {
     expect(readPlayerPick({ type: PICKED_MESSAGE, id: "cat" }, frame, frame)).toEqual({
       id: "cat",
+      ids: ["cat"],
       interactableId: null,
     });
     expect(

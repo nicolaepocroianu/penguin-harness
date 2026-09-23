@@ -693,6 +693,7 @@ function ActivityEditor({
                 activityId={detail.id}
                 spec={detail.draft.spec}
                 languages={languages}
+                hasMedia={!!editedManifest?.assets[language]?.length}
                 onPick={(pick, sceneId) => {
                   // Matched against every kind of media, whatever the tree shows.
                   const found = assetForPick(

@@ -44,6 +44,9 @@ export const en: Strings = {
       picking: "Click something in the player",
       opened: (name: string) => `Opened ${name}.`,
       noMatch: (id: string) => `Nothing in this activity is named ${id}.`,
+      noMedia: "Plan media first: picking opens an asset, and this activity has none yet.",
+      silent:
+        "This module does not report its state. Modules built on Loom's state machine do; older ones, like this one, don't.",
     },
     studioPanels: {
       rail: "Activity panels",

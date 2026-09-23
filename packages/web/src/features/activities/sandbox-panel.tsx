@@ -21,6 +21,9 @@ import {
  * Opens what an author picked in the player, answering the name of what it opened, or null
  * when nothing in the activity is named the way the picked element is.
  */
+/** How long a playing module may stay quiet before the panel stops waiting for a report. */
+const SILENT_AFTER_MS = 8000;
+
 export type OnPick = (pick: PlayerPick, sceneId: string | null) => string | null;
 
 /**
@@ -37,12 +40,15 @@ export function SandboxPanel({
   spec,
   languages,
   onPick,
+  hasMedia = true,
 }: {
   projectId: string;
   activityId: string;
   spec: Record<string, unknown> | null;
   languages: string[];
   onPick?: OnPick;
+  /** Whether the activity has a media plan, without which there is nothing to pick. */
+  hasMedia?: boolean;
 }) {
   const base = `/api/projects/${encodeURIComponent(projectId)}/activities/${encodeURIComponent(activityId)}/sandbox`;
   const [status, setStatus] = useState<SandboxStatus | null>(null);
@@ -136,6 +142,7 @@ export function SandboxPanel({
           spec={spec}
           languages={languages}
           onPick={onPick}
+          hasMedia={hasMedia}
         />
       )}
       {log && (
@@ -162,12 +169,14 @@ function SandboxPlayer({
   spec,
   languages,
   onPick,
+  hasMedia,
 }: {
   projectId: string;
   activityId: string;
   spec: Record<string, unknown> | null;
   languages: string[];
   onPick?: OnPick;
+  hasMedia: boolean;
 }) {
   const viewport = parseResolution(
     (spec?.runtime as Record<string, unknown> | undefined)?.resolution,
@@ -191,6 +200,11 @@ function SandboxPlayer({
   sceneRef.current = report?.state.sceneId ?? null;
   const pickRef = useRef(onPick);
   pickRef.current = onPick;
+  const hasMediaRef = useRef(hasMedia);
+  hasMediaRef.current = hasMedia;
+  // Only modules built on Loom's state machine report their state. One that has said
+  // nothing for a while is not going to, and "not yet" would be a promise it cannot keep.
+  const [silent, setSilent] = useState(false);
   useEffect(() => {
     if (!playing) return;
     const receive = (event: MessageEvent) => {
@@ -208,7 +222,9 @@ function SandboxPlayer({
       setPicked(
         opened
           ? S.activities.studioPlayer.opened(opened)
-          : S.activities.studioPlayer.noMatch(pick.id ?? pick.interactableId ?? ""),
+          : !hasMediaRef.current
+            ? S.activities.studioPlayer.noMedia
+            : S.activities.studioPlayer.noMatch(pick.id ?? pick.interactableId ?? ""),
       );
     };
     window.addEventListener("message", receive);
@@ -227,6 +243,10 @@ function SandboxPlayer({
     setOutlined(null);
     setPicking(false);
     setPicked(null);
+    setSilent(false);
+    if (!playing) return;
+    const timer = setTimeout(() => setSilent(true), SILENT_AFTER_MS);
+    return () => clearTimeout(timer);
   }, [playing, reloadKey, scene, language]);
   function outline(id: string) {
     const next = outlined === id ? null : id;
@@ -347,7 +367,9 @@ function SandboxPlayer({
             <p aria-live="polite" className="text-gray-600 dark:text-gray-300">
               {report
                 ? S.activities.studioPlayer.now(report.state.state, report.state.sceneId)
-                : S.activities.studioPlayer.waiting}
+                : silent
+                  ? S.activities.studioPlayer.silent
+                  : S.activities.studioPlayer.waiting}
             </p>
             {report && report.interactables.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5">

@@ -148,8 +148,28 @@ describe("picking in the player", () => {
     expect(pickCandidates({ id: "rock__label", interactableId: "rock" })).toEqual([
       "rock__label",
       "rock",
+      "label",
     ]);
-    expect(pickCandidates({ id: null, interactableId: "tap__hit" })).toEqual(["tap__hit", "tap"]);
+    expect(pickCandidates({ id: null, interactableId: "tap__hit" })).toEqual([
+      "tap__hit",
+      "tap",
+      "hit",
+    ]);
+    // Every id out to the activity, each whole and then in parts.
+    expect(
+      pickCandidates({
+        id: "module-x__rock-2-A__letter",
+        ids: ["module-x__rock-2-A__letter", "module-x__rock-2-A", "choices"],
+        interactableId: null,
+      }),
+    ).toEqual([
+      "module-x__rock-2-A__letter",
+      "module-x",
+      "rock-2-A",
+      "letter",
+      "module-x__rock-2-A",
+      "choices",
+    ]);
     expect(pickCandidates({ id: null, interactableId: null })).toEqual([]);
   });
 
