@@ -321,8 +321,22 @@ export const en: Strings = {
     bulkSpeechQueued: (count: number) =>
       `${count} narration${count === 1 ? "" : "s"} queued; each runs after the one before it`,
     bulkSpeechStop: "Stop queue",
+    bulkSpeechRetry: "Try again",
+    bulkSpeechFilters: "Show",
+    bulkSpeechFilter: {
+      all: "All",
+      needs: "Needs speech",
+      ready: "Bound",
+      failed: "Failed",
+      blocked: "Needs a script",
+    },
+    bulkSpeechLanguages: "Languages",
+    bulkSpeechLanguage: (language: string, ready: number, total: number) =>
+      `${language} ${ready}/${total}`,
     speechState: {
       ready: "Bound",
+      generating: "Generating…",
+      failed: "Failed",
       missing: "Needs speech",
       scriptMissing: "Needs a script",
       scriptTooLong: "Script too long",

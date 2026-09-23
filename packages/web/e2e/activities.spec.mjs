@@ -2155,3 +2155,85 @@ test("shows the module's configuration and assessment, read-only, as Loom's docu
   ).toHaveAttribute("aria-disabled", "true");
   expect(f.errors).toEqual([]);
 });
+
+test("speech coverage says what failed, filters the list, and tries one again", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  const narration = (key, script) => ({
+    key,
+    type: "audio",
+    description: key,
+    script,
+    usages: [{ sceneId: "intro", sourceKey: key, occurrence: 1, sceneOccurrenceCount: 1 }],
+  });
+  await page.route(`**${base}/act_test/plan-media`, (route) =>
+    route.fallback({
+      postData: JSON.stringify({
+        ...route.request().postDataJSON(),
+        manifest: {
+          productCode: "words",
+          refNum: 12,
+          assets: {
+            "en-US": [narration("hello", "Hello"), narration("bye", "Bye"), narration("quiet", "")],
+          },
+        },
+      }),
+    }),
+  );
+  const generated = [];
+  await page.route("**/*", (route) => {
+    const request = route.request();
+    const p = new URL(request.url()).pathname;
+    if (p === `${base}/act_test/generate-audio`) generated.push(request.postDataJSON());
+    if (p !== `${base}/act_test/runs` || request.method() !== "GET") return route.fallback();
+    return route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        runs: [
+          {
+            kind: "audio",
+            runId: "run_voice",
+            activityId: "act_test",
+            projectId,
+            sessionId: "session_voice",
+            status: "failed",
+            error: "The voice timed out.",
+            createdAt: "2026-09-23T10:00:00Z",
+            inputRevision: "1",
+            audio: { language: "en-US", assetKey: "hello", voice: "Kore" },
+            hasCandidate: false,
+          },
+        ],
+      }),
+    });
+  });
+  await openSection(page, "Specification");
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify(spec));
+  await page.getByRole("button", { name: "Validate and save", exact: true }).click();
+  await openSection(page, "Scenes and media");
+  await planMedia(page);
+  // The history was read before the stub above; read it again.
+  await page.reload();
+  await openSection(page, "Speech coverage");
+
+  const filters = page.getByRole("group", { name: "Show", exact: true });
+  await expect(filters.getByRole("button")).toHaveText([
+    "All 3",
+    "Needs speech 2",
+    "Failed 1",
+    "Needs a script 1",
+  ]);
+  await filters.getByRole("button", { name: /^Failed/ }).click();
+  const failed = page.getByRole("button", { name: /^hello/ });
+  await expect(failed).toContainText("Failed");
+  await expect(failed).toHaveAttribute("title", "The voice timed out.");
+  await expect(page.getByRole("button", { name: /^bye/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect.poll(() => generated.length).toBe(1);
+  expect(generated[0]).toMatchObject({ language: "en-US", assetKey: "hello" });
+  expect(f.errors).toEqual([]);
+});

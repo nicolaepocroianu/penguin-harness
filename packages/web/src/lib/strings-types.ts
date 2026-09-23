@@ -270,7 +270,15 @@ export type Strings = {
     bulkSpeechStarted: (count: number) => string;
     bulkSpeechQueued: (count: number) => string;
     bulkSpeechStop: string;
-    speechState: Record<"ready" | "missing" | "scriptMissing" | "scriptTooLong", string>;
+    bulkSpeechRetry: string;
+    bulkSpeechFilters: string;
+    bulkSpeechFilter: Record<"all" | "needs" | "ready" | "failed" | "blocked", string>;
+    bulkSpeechLanguages: string;
+    bulkSpeechLanguage: (language: string, ready: number, total: number) => string;
+    speechState: Record<
+      "ready" | "generating" | "failed" | "missing" | "scriptMissing" | "scriptTooLong",
+      string
+    >;
     diffShow: string;
     diffHide: string;
     diffTitle: string;

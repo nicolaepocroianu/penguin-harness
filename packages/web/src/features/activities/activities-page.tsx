@@ -29,6 +29,7 @@ import { ActivityWorkspace as WorkspaceShell, type StudioPanelEntry } from "./ac
 import { AssetEditor } from "./asset-editor";
 import { fileSizeText } from "./media-library";
 import { SpeechCoverage } from "./speech-coverage";
+import { speechTally } from "./bulk-speech";
 import { buildSceneTree, filterTree, treeSelections, type SceneAssetType } from "./scene-assets";
 import { firstSelection, sameSelection, type SceneAssetSelection } from "./scene-asset-tree";
 import {
@@ -1360,6 +1361,15 @@ function ActivityEditor({
                   }
                   queued={speechQueue?.keys.length ?? 0}
                   onCancelQueue={() => setSpeechQueue(null)}
+                  runs={runs}
+                  languages={Object.entries(editedManifest.assets).map(([code, group]) => {
+                    const tally = speechTally(group, runs, code);
+                    return { language: code, ready: tally.ready, total: tally.total };
+                  })}
+                  onLanguage={setLanguage}
+                  onRetry={(key) =>
+                    startRun("generate-audio", { language, assetKey: key, voice: voices[0] ?? "" })
+                  }
                 />
               )}
               {section === "library" && (

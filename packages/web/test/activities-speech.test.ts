@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { AssetManifest } from "@prismshadow/penguin-server/api";
+import type { ActivityRunSummary, AssetManifest } from "@prismshadow/penguin-server/api";
 import {
   SPEECH_SCRIPT_MAX,
+  inSpeechFilter,
   neediestLanguage,
   pendingSpeechKeys,
   speechScriptUsable,
@@ -79,9 +80,57 @@ describe("speech readiness", () => {
 
   it("counts every narration exactly once", () => {
     const tally = speechTally(assets);
-    expect(tally).toEqual({ total: 6, ready: 2, pending: 2, blocked: 2 });
+    expect(tally).toEqual({ total: 6, ready: 2, pending: 2, failed: 0, generating: 0, blocked: 2 });
     expect(tally.ready + tally.pending + tally.blocked).toBe(tally.total);
-    expect(speechTally([])).toEqual({ total: 0, ready: 0, pending: 0, blocked: 0 });
+    expect(speechTally([])).toEqual({
+      total: 0,
+      ready: 0,
+      pending: 0,
+      failed: 0,
+      generating: 0,
+      blocked: 0,
+    });
+  });
+
+  it("reads each narration's latest speech run in the language shown", () => {
+    const run = (key: string, status: string, createdAt: string, language = "en-US") =>
+      ({
+        kind: "audio",
+        status,
+        createdAt,
+        error: status === "failed" ? "The voice timed out." : null,
+        audio: { language, assetKey: key },
+      }) as unknown as ActivityRunSummary;
+    const runs = [
+      run("needs_speech", "failed", "2026-09-23T10:00:00Z"),
+      run("needs_speech", "failed", "2026-09-23T09:00:00Z"),
+      run("also_needs", "failed", "2026-09-23T09:00:00Z"),
+      run("also_needs", "running", "2026-09-23T10:00:00Z"),
+      run("bound_upload", "failed", "2026-09-23T11:00:00Z"),
+      run("no_script", "failed", "2026-09-23T11:00:00Z", "es-MX"),
+    ];
+    const statuses = speechStatuses(assets, runs, "en-US");
+    expect(statuses.find((status) => status.key === "needs_speech")).toMatchObject({
+      state: "failed",
+      error: "The voice timed out.",
+    });
+    expect(statuses.find((status) => status.key === "also_needs")!.state).toBe("generating");
+    // A bound narration is bound, whatever an old run did.
+    expect(statuses.find((status) => status.key === "bound_upload")!.state).toBe("ready");
+    // Failed ones are tried again by the bulk run; one already generating is not doubled.
+    expect(pendingSpeechKeys(assets, runs, "en-US")).toEqual(["needs_speech"]);
+    expect(speechTally(assets, runs, "en-US")).toMatchObject({
+      failed: 1,
+      generating: 1,
+      pending: 1,
+    });
+    const failed = statuses.find((status) => status.key === "needs_speech")!;
+    expect(inSpeechFilter(failed, "failed")).toBe(true);
+    expect(inSpeechFilter(failed, "needs")).toBe(true);
+    expect(inSpeechFilter(failed, "ready")).toBe(false);
+    const noScript = statuses.find((status) => status.key === "no_script")!;
+    expect(inSpeechFilter(noScript, "blocked")).toBe(true);
+    expect(inSpeechFilter(noScript, "needs")).toBe(false);
   });
 
   it("judges a script by the endpoint's own limit", () => {
