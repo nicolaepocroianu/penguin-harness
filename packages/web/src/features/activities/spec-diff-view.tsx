@@ -49,9 +49,15 @@ export function SpecDiffView({
   saved,
   edited,
   onRevert,
+  compact = false,
 }: {
   saved: string;
   edited: string;
+  /**
+   * Just the changed lines, inline, for a narrow panel: no heading, stepping or layout
+   * switch, which a one-change review does not need.
+   */
+  compact?: boolean;
   /** Absent when the draft is not editable, which hides the revert action. */
   onRevert?: () => void;
 }) {
@@ -86,6 +92,21 @@ export function SpecDiffView({
 
   if (!stats.added && !stats.removed)
     return <p className="text-xs text-gray-500">{S.activities.diffNone}</p>;
+  if (compact)
+    return (
+      <div className="space-y-1">
+        <p className="text-xs text-gray-500">
+          {S.activities.diffStats(stats.added, stats.removed, stats.regions)}
+        </p>
+        {truncated && <p className={`text-xs ${toneInk.attention}`}>{S.activities.diffTooLarge}</p>}
+        <div
+          aria-label={S.activities.diffTitle}
+          className="max-h-72 overflow-auto rounded-lg border border-gray-200 font-mono text-xs dark:border-gray-800"
+        >
+          <InlineRows shown={shown} />
+        </div>
+      </div>
+    );
 
   return (
     <section className="space-y-2">

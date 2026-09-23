@@ -14,6 +14,7 @@
  * where every change is reviewed.
  */
 import { HttpError } from "../http/errors.js";
+import { validateActivitySpec } from "./domain.js";
 
 /** The workspace sections a focus can name; the studio's tree rows map onto these. */
 export const ASSIST_SECTIONS = [
@@ -99,6 +100,114 @@ export function assistPrompt(message: string, focus: AssistFocus | null): string
 ---
 Context from the activity studio: the author is looking at ${describeFocus(focus)}.
 This workspace holds a copy of the activity: input.json (the whole draft, including the specification and media plan) and description.md (the activity script). Read them before answering.
-Files you write here do not change the activity; the author applies changes in the studio. When you suggest a change, say exactly what to change and where.
+Files you write here do not change the activity. ${PROPOSAL_INSTRUCTIONS}
 Answer the author directly. Do not delegate.`;
+}
+
+/**
+ * How the agent hands a change back. The studio reads this file after each reply and shows
+ * each change as a diff against the live draft, which the author accepts or leaves; so the
+ * agent never needs write access to anything but its own workspace, and every change an
+ * agent made to an activity is one an author accepted, in the Trace and the draft history.
+ */
+export const PROPOSAL_FILE = "proposal.json";
+
+const PROPOSAL_INSTRUCTIONS = `When the author asks for a change, or agrees to one you suggested, write it to ${PROPOSAL_FILE} in this workspace, and the studio will show it to them to accept. Replace the whole file each time; it holds your current proposal, not a history. Its shape, as JSON without Markdown fences:
+{"summary":"one or two sentences on what changes and why","changes":[ ...one or more of:
+  {"target":"description","text":"the complete new activity script"},
+  {"target":"spec","spec":{ the complete new specification, in the same shape as draft.spec in input.json }},
+  {"target":"media","language":"en-US","assetKey":"an asset key from draft.mediaPlan","field":"description" or "script","text":"the new image description or spoken script"}
+]}
+Write complete values, never fragments or diffs. Change only what the author asked for. Tell the author in your reply that a proposal is ready to review.`;
+
+export type ProposalChange =
+  | { target: "description"; text: string }
+  | { target: "spec"; spec: Record<string, unknown> }
+  | {
+      target: "media";
+      language: string;
+      assetKey: string;
+      field: "description" | "script";
+      text: string;
+    };
+
+export interface AssistProposal {
+  summary: string;
+  changes: ProposalChange[];
+}
+
+/** Room for a long script or a large spec; a proposal past this is not one to review. */
+export const PROPOSAL_MAX_BYTES = 1024 * 1024;
+const MAX_CHANGES = 20;
+
+function proposalText(value: unknown, what: string, max: number, allowEmpty = false): string {
+  if (typeof value !== "string" || (!allowEmpty && !value.trim()) || value.length > max)
+    throw new Error(
+      `${what} must be ${allowEmpty ? "" : "non-empty "}text of at most ${max} characters.`,
+    );
+  return value;
+}
+
+/**
+ * The proposal in a file the agent wrote, checked the way each change's own route would
+ * check it, so a proposal the studio shows is one it can apply. Throws with a sentence the
+ * author can read (and paste back to the agent) when it is not.
+ */
+export function parseAssistProposal(raw: string): AssistProposal {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(`${PROPOSAL_FILE} is not valid JSON.`);
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+    throw new Error(`${PROPOSAL_FILE} must be a JSON object.`);
+  const record = parsed as Record<string, unknown>;
+  const summary = proposalText(record.summary ?? "", "summary", 2000, true);
+  if (!Array.isArray(record.changes) || !record.changes.length)
+    throw new Error("A proposal needs at least one change.");
+  if (record.changes.length > MAX_CHANGES)
+    throw new Error(`A proposal holds at most ${MAX_CHANGES} changes.`);
+  const seen = new Set<string>();
+  const changes = record.changes.map((value, index): ProposalChange => {
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      throw new Error(`Change ${index + 1} must be an object.`);
+    const change = value as Record<string, unknown>;
+    // Two changes to one thing leave the author to guess which the agent meant.
+    const once = (key: string) => {
+      if (seen.has(key)) throw new Error(`Change ${index + 1} changes ${key} a second time.`);
+      seen.add(key);
+    };
+    if (change.target === "description") {
+      once("the activity script");
+      return {
+        target: "description",
+        text: proposalText(change.text, "The activity script", 100_000),
+      };
+    }
+    if (change.target === "spec") {
+      once("the specification");
+      try {
+        return { target: "spec", spec: validateActivitySpec(change.spec) };
+      } catch (error) {
+        throw new Error(`The proposed specification is invalid: ${(error as Error).message}`);
+      }
+    }
+    if (change.target === "media") {
+      const language = proposalText(change.language, "language", 64);
+      const assetKey = proposalText(change.assetKey, "assetKey", 200);
+      if (change.field !== "description" && change.field !== "script")
+        throw new Error(`Change ${index + 1} must set field to "description" or "script".`);
+      once(`${assetKey} (${language})`);
+      return {
+        target: "media",
+        language,
+        assetKey,
+        field: change.field,
+        text: proposalText(change.text, `The new ${change.field}`, 5000),
+      };
+    }
+    throw new Error(`Change ${index + 1} has an unknown target.`);
+  });
+  return { summary, changes };
 }

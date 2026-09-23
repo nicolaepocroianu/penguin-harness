@@ -33,6 +33,7 @@ import { resolveSection, workspaceSections, type WorkspaceSection } from "./work
 import { assetForPick, buildStudioTree } from "./studio-tree";
 import { ConversationPanel } from "./conversation-panel";
 import { focusFor } from "./conversation";
+import { applyMediaChange, type ProposalChange } from "./proposal";
 import { StudioTreeView } from "./studio-tree-view";
 import { SessionsPanel } from "./sessions-panel";
 import { ModulePreview } from "./module-preview";
@@ -603,6 +604,43 @@ function ActivityEditor({
       }
     });
   }
+  /**
+   * Accept one change an agent proposed, through the route the author's own save uses, so
+   * it is checked and recorded the same way. The author's unsaved edits are never
+   * overwritten: the card will not offer Accept while there are any.
+   */
+  function acceptProposal(change: ProposalChange): Promise<void> {
+    return action(async () => {
+      if (!detail || state.current.dirty) throw new Error(S.activities.studioProposal.saveFirst);
+      const [path, method, body] =
+        change.target === "description"
+          ? (["description", "PATCH", { description: change.text }] as const)
+          : change.target === "spec"
+            ? (["apply-generated-spec", "POST", { spec: change.spec }] as const)
+            : ([
+                "media",
+                "PUT",
+                {
+                  manifest: applyMediaChange(
+                    detail.draft.mediaPlan?.manifest ??
+                      fail(S.activities.studioProposal.missingAsset(change.assetKey)),
+                    change,
+                  ),
+                },
+              ] as const);
+      const draft = await apiFetch<ActivityDraft>(`${endpoint}/${path}`, {
+        method,
+        body: { expectedRevision: detail.draft.contentRevision, ...body },
+      });
+      if (!alive.current) return;
+      accept({
+        ...detail,
+        title: draft.status === "valid" ? String(draft.spec?.title) : detail.title,
+        draft,
+      });
+      setNotice(S.activities.saved);
+    });
+  }
   /** Accept a candidate, which replaces the draft rather than starting anything. */
   function acceptRun(runId: string, path: string) {
     void action(async () => {
@@ -690,6 +728,13 @@ function ActivityEditor({
                 ]);
                 setRefreshVersion((value) => value + 1);
               }}
+              base={{
+                description: detail.draft.description,
+                spec: detail.draft.spec,
+                manifest: detail.draft.mediaPlan?.manifest ?? null,
+              }}
+              dirty={dirty}
+              onAccept={acceptProposal}
             />
           ),
         },
@@ -1373,6 +1418,10 @@ function ActivityEditor({
       )}
     </WorkspaceShell>
   );
+}
+
+function fail(message: string): never {
+  throw new Error(message);
 }
 
 function summarize({ candidate, ...run }: ActivityRun): ActivityRunSummary {

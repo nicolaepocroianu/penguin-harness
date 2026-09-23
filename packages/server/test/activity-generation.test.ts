@@ -1180,6 +1180,68 @@ describe("activity generation through Harness sessions", () => {
     expect(failed.status).toBe("failed");
   });
 
+  it("reads an assist run's proposal fresh from its workspace, and only one it could apply", async () => {
+    const { client, endpoint, finish } = await fixture();
+    const current = (await (await client.get(endpoint)).json()) as ActivityDetail;
+    const run = (await (
+      await client.post(`${endpoint}/assist`, {
+        agentId: "default_agent",
+        expectedRevision: current.draft.contentRevision,
+        message: "Make the script shorter.",
+      })
+    ).json()) as ActivityRun;
+    await finish(run);
+    const read = async (runId = run.runId) => {
+      const response = await client.get(`${endpoint}/runs/${runId}/proposal`);
+      return { status: response.status, body: await response.json() };
+    };
+    expect((await read()).body).toEqual({ proposal: null, error: null });
+    const { session } = (await (await client.get(`/api/sessions/${run.sessionId}`)).json()) as {
+      session: { workspace: string };
+    };
+    const file = path.join(session.workspace, "proposal.json");
+    const proposal = {
+      summary: "Shorter.",
+      changes: [
+        { target: "description", text: "Teach three sight words" },
+        { target: "spec", spec: activitySpec },
+        { target: "media", language: "en-US", assetKey: "welcome", field: "script", text: "Hi!" },
+      ],
+    };
+    await fs.writeFile(file, JSON.stringify(proposal));
+    expect((await read()).body).toEqual({ proposal, error: null });
+    // A later reply replaces it, and the next read sees the replacement.
+    await fs.writeFile(
+      file,
+      JSON.stringify({ changes: [{ target: "spec", spec: { ...activitySpec, scenes: [] } }] }),
+    );
+    const invalid = (await read()).body as { proposal: null; error: string };
+    expect(invalid.proposal).toBeNull();
+    expect(invalid.error).toMatch(/specification is invalid/);
+    await fs.writeFile(
+      file,
+      JSON.stringify({
+        changes: [
+          { target: "description", text: "One" },
+          { target: "description", text: "Two" },
+        ],
+      }),
+    );
+    expect(((await read()).body as { error: string }).error).toMatch(/second time/);
+    // A link out of the workspace is not read through.
+    await fs.rm(file);
+    await fs.symlink(path.join(session.workspace, "input.json"), file);
+    expect(((await read()).body as { error: string }).error).toMatch(/regular file/);
+    // Only conversations have proposals.
+    const spec = await client.post(`${endpoint}/generate-spec`, {
+      agentId: "default_agent",
+      expectedRevision: current.draft.contentRevision,
+    });
+    const specRun = (await spec.json()) as ActivityRun;
+    expect((await read(specRun.runId)).status).toBe(404);
+    await finish(specRun);
+  });
+
   it("captures inputs in a separate workspace, then validates, applies and reopens the saved result", async () => {
     const f = await fixture();
     const run = await f.start();

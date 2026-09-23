@@ -55,6 +55,20 @@ export type Strings = {
       sessionsEmpty: string;
       openSession: string;
     };
+    /** An agent's proposed changes, reviewed in the conversation panel. */
+    studioProposal: {
+      title: string;
+      script: string;
+      spec: string;
+      media: (key: string, field: "description" | "script", language: string) => string;
+      missingAsset: (key: string) => string;
+      nothingToApply: string;
+      accept: string;
+      accepted: string;
+      showChange: string;
+      saveFirst: string;
+      unreadable: (reason: string) => string;
+    };
     /** The conversation panel: an agent asked about what the author has open. */
     studioConversation: {
       about: (focus: string) => string;

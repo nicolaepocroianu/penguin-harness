@@ -28,7 +28,14 @@ import {
   modulePrompt,
   verifyMediaArtifacts,
 } from "./waf-module.js";
-import { assistPrompt, type AssistFocus } from "./assist.js";
+import {
+  PROPOSAL_FILE,
+  PROPOSAL_MAX_BYTES,
+  assistPrompt,
+  parseAssistProposal,
+  type AssistFocus,
+  type AssistProposal,
+} from "./assist.js";
 import { mediaTextPrompt, mediaTextTarget, parseMediaTextCandidate } from "./media-text.js";
 import {
   newId,
@@ -194,6 +201,35 @@ export class ActivityGenerationService implements ActivityGeneration {
       .get(runId) as { candidate: string } | undefined;
     const { hasCandidate: _, ...metadata } = JSON.parse(row.record_json) as ActivityRunSummary;
     return { ...metadata, kind: row.kind, candidate: payload?.candidate ?? null };
+  }
+
+  /**
+   * What an assist run's agent last proposed, read fresh each time: the Session goes on
+   * after the run finishes, and each reply may replace the proposal. Null with no error
+   * when there is none yet; an error, and no proposal, when the file is not one the studio
+   * could apply.
+   */
+  async proposal(
+    projectId: string,
+    activityId: string,
+    runId: string,
+  ): Promise<{ proposal: AssistProposal | null; error: string | null }> {
+    const run = await this.getRun(projectId, activityId, runId);
+    if (run.kind !== "assist")
+      throw new HttpError(404, "run_not_found", "That run is not a conversation.");
+    let raw: string;
+    try {
+      raw = await readCandidate(path.join(this.workspace(run), PROPOSAL_FILE), PROPOSAL_MAX_BYTES);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT")
+        return { proposal: null, error: null };
+      return { proposal: null, error: (error as Error).message };
+    }
+    try {
+      return { proposal: parseAssistProposal(raw), error: null };
+    } catch (error) {
+      return { proposal: null, error: (error as Error).message };
+    }
   }
 
   async candidate(projectId: string, activityId: string, runId: string): Promise<string | null> {

@@ -3,7 +3,7 @@ import type { AudioTarget, AudioResult } from "../activities/audio.js";
 import type { ImageRequest } from "../activities/image.js";
 import type { ImageTarget, ImageResult } from "../activities/generated-image.js";
 import type { MediaTextTarget } from "../activities/media-text.js";
-import type { AssistFocus } from "../activities/assist.js";
+import type { AssistFocus, AssistProposal } from "../activities/assist.js";
 import type { UploadedMedia } from "../activities/upload.js";
 import type { ImportOutcome } from "../activities/import-apply.js";
 import type { ImportedActivity } from "../activities/loom-import.js";
@@ -38,6 +38,12 @@ export abstract class ActivityGeneration extends Interface<{
   ): Promise<ActivityRun>;
   list(projectId: string, activityId: string): Promise<ActivityRunSummary[]>;
   candidate(projectId: string, activityId: string, runId: string): Promise<string | null>;
+  /** An assist run's current proposal, read from its workspace. */
+  proposal(
+    projectId: string,
+    activityId: string,
+    runId: string,
+  ): Promise<{ proposal: AssistProposal | null; error: string | null }>;
   cancel(projectId: string, activityId: string, runId: string): Promise<ActivityRun>;
   acceptAudio(
     projectId: string,

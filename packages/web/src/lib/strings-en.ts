@@ -52,6 +52,20 @@ export const en: Strings = {
       sessionsEmpty: "No agent has worked on this activity yet.",
       openSession: "Open",
     },
+    studioProposal: {
+      title: "Proposed changes",
+      script: "Activity Script",
+      spec: "Activity Spec",
+      media: (key: string, field: "description" | "script", language: string) =>
+        `${key} ${field === "script" ? "script" : "description"} (${language})`,
+      missingAsset: (key: string) => `The saved media plan has no asset named ${key}.`,
+      nothingToApply: "The saved draft has nothing this applies to.",
+      accept: "Accept",
+      accepted: "In the draft",
+      showChange: "Show the change",
+      saveFirst: "Save or reload your own edits before accepting a proposal.",
+      unreadable: (reason: string) => `The agent's proposal can't be used: ${reason}`,
+    },
     studioConversation: {
       about: (focus: string) => `About ${focus}`,
       wholeActivity: "the whole activity",

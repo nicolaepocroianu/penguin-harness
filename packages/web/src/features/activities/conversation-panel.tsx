@@ -8,7 +8,7 @@
  * message starts an assist run that tells the agent where the author is, and a follow-up
  * says so again when the author has moved.
  */
-import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import type { ActivityRun, ActivityRunSummary } from "@prismshadow/penguin-server/api";
 import { ApiError, apiFetch } from "../../api/client";
@@ -22,6 +22,8 @@ import { toneInk } from "../../lib/tone";
 import { MessageStream, type StreamRenderContext } from "../chat/message-stream";
 import { useSessionStream } from "../chat/use-session-stream";
 import { focusLabel, followUpText, latestConversation, type AssistFocus } from "./conversation";
+import type { AssistProposal, ProposalBase, ProposalChange } from "./proposal";
+import { ProposalCard } from "./proposal-card";
 
 export function ConversationPanel({
   endpoint,
@@ -31,6 +33,9 @@ export function ConversationPanel({
   focus,
   editable,
   onStarted,
+  base,
+  dirty,
+  onAccept,
 }: {
   /** The activity's API path. */
   endpoint: string;
@@ -42,18 +47,27 @@ export function ConversationPanel({
   editable: boolean;
   /** A new conversation is a run, and belongs in the activity's history straight away. */
   onStarted: (run: ActivityRun) => void;
+  /** The saved draft a proposal is shown against. */
+  base: ProposalBase;
+  /** The author has unsaved edits of their own. */
+  dirty: boolean;
+  onAccept: (change: ProposalChange) => Promise<void>;
 }) {
   const latest = latestConversation(runs);
   // Undefined follows the newest conversation; null is a fresh one the next message starts.
   const [choice, setChoice] = useState<string | null | undefined>(undefined);
   const sessionId = choice === undefined ? (latest?.sessionId ?? null) : choice;
-  const startedRunning =
-    runs.find((run) => run.sessionId === sessionId)?.status === "running" ? "running" : "idle";
+  const run = sessionId ? runs.find((entry) => entry.sessionId === sessionId) : undefined;
+  const startedRunning = run?.status === "running" ? "running" : "idle";
   return (
     <Conversation
       // A different Session is a different transcript; nothing of the last one carries over.
       key={sessionId ?? "fresh"}
       sessionId={sessionId}
+      runId={run?.runId ?? null}
+      base={base}
+      dirty={dirty}
+      onAccept={onAccept}
       initialStatus={startedRunning}
       endpoint={endpoint}
       runner={runner}
@@ -69,6 +83,10 @@ export function ConversationPanel({
 
 function Conversation({
   sessionId,
+  runId,
+  base,
+  dirty,
+  onAccept,
   initialStatus,
   endpoint,
   runner,
@@ -80,6 +98,10 @@ function Conversation({
   onStarted,
 }: {
   sessionId: string | null;
+  runId: string | null;
+  base: ProposalBase;
+  dirty: boolean;
+  onAccept: (change: ProposalChange) => Promise<void>;
   initialStatus: "idle" | "running";
   endpoint: string;
   runner: Record<string, string> | null;
@@ -99,6 +121,28 @@ function Conversation({
   // follow-up's. Null on a resumed conversation, whose first message this page never saw.
   const lastSent = useRef<AssistFocus | null>(null);
   const running = stream.taskState === "running";
+  // The agent's current proposal, read again whenever a reply ends: each reply may write a
+  // new one, and nothing else says it did.
+  const [proposal, setProposal] = useState<AssistProposal | null>(null);
+  const [proposalError, setProposalError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!runId || running) return;
+    let cancelled = false;
+    void apiFetch<{ proposal: AssistProposal | null; error: string | null }>(
+      `${endpoint}/runs/${encodeURIComponent(runId)}/proposal`,
+    )
+      .then((value) => {
+        if (cancelled) return;
+        setProposal(value.proposal);
+        setProposalError(value.error);
+      })
+      .catch(() => {
+        /* Reading a proposal is a courtesy; the conversation stands without it. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [endpoint, runId, running]);
 
   const onApprove = useCallback(
     async (toolCallId: string, decision: "allow" | "deny", origin: string[]) => {
@@ -207,6 +251,22 @@ function Conversation({
           <p className="p-4 text-sm text-gray-500">{editable ? words.empty : words.readOnly}</p>
         )}
       </div>
+      {(proposal || proposalError) && (
+        <div className="max-h-[45%] shrink-0 overflow-y-auto border-t border-gray-200 p-3 dark:border-gray-800">
+          {proposal ? (
+            <ProposalCard
+              proposal={proposal}
+              base={base}
+              dirty={dirty}
+              onAccept={editable ? onAccept : undefined}
+            />
+          ) : (
+            <p role="status" className={`text-xs ${toneInk.attention}`}>
+              {S.activities.studioProposal.unreadable(proposalError!)}
+            </p>
+          )}
+        </div>
+      )}
       {editable && (
         <form
           onSubmit={(event) => void send(event)}

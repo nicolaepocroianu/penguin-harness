@@ -538,6 +538,15 @@ export class ActivityRoutes {
         ),
       }),
     );
+    app.get("/:activityId/runs/:runId/proposal", async (c) =>
+      c.json(
+        await this.generation.proposal(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          pathParam(c, "runId"),
+        ),
+      ),
+    );
     app.post("/:activityId/apply-generated-spec", async (c) => {
       const body = await readJson(c);
       if (body.spec === undefined) throw badRequest("spec is required.");
