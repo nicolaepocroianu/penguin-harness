@@ -51,9 +51,25 @@ export type Strings = {
     studioPanels: {
       rail: string;
       close: string;
-      names: Record<"player" | "sessions", string>;
+      names: Record<"player" | "conversation" | "sessions", string>;
       sessionsEmpty: string;
       openSession: string;
+    };
+    /** The conversation panel: an agent asked about what the author has open. */
+    studioConversation: {
+      about: (focus: string) => string;
+      wholeActivity: string;
+      asset: (key: string, scene: string | null) => string;
+      scene: (scene: string) => string;
+      placeholder: string;
+      send: string;
+      stop: string;
+      fresh: string;
+      openInChat: string;
+      empty: string;
+      readOnly: string;
+      noAgent: string;
+      movedTo: (focus: string) => string;
     };
     railCollapse: string;
     railExpand: string;
@@ -215,6 +231,7 @@ export type Strings = {
     moduleRun: string;
     moduleReady: string;
     specRun: string;
+    assistRun: string;
     previewModule: string;
     olderModule: string;
     previewTitle: string;

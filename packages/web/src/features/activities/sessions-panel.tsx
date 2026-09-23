@@ -29,6 +29,8 @@ export function runTitle(kind: ActivityRunSummary["kind"]): string {
       return S.activities.imageRun;
     case "media-text":
       return S.activities.textRun;
+    case "assist":
+      return S.activities.assistRun;
     default:
       return S.activities.specRun;
   }

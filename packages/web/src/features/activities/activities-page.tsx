@@ -31,6 +31,8 @@ import { buildSceneTree, filterTree, treeSelections, type SceneAssetType } from 
 import { firstSelection, sameSelection, type SceneAssetSelection } from "./scene-asset-tree";
 import { resolveSection, workspaceSections, type WorkspaceSection } from "./workspace-model";
 import { assetForPick, buildStudioTree } from "./studio-tree";
+import { ConversationPanel } from "./conversation-panel";
+import { focusFor } from "./conversation";
 import { StudioTreeView } from "./studio-tree-view";
 import { SessionsPanel } from "./sessions-panel";
 import { ModulePreview } from "./module-preview";
@@ -670,6 +672,28 @@ function ActivityEditor({
           ),
         },
         {
+          key: "conversation",
+          label: S.activities.studioPanels.names.conversation,
+          icon: "M21 12a8 8 0 0 1-11.8 7L4 20l1.1-4.6A8 8 0 1 1 21 12z",
+          render: () => (
+            <ConversationPanel
+              endpoint={endpoint}
+              runs={runs}
+              runner={selectedAgent ? runner : null}
+              revision={detail.draft.contentRevision}
+              focus={focusFor(section, selection, language)}
+              editable={editable}
+              onStarted={(run) => {
+                setRuns((previous) => [
+                  summarize(run),
+                  ...previous.filter((item) => item.runId !== run.runId),
+                ]);
+                setRefreshVersion((value) => value + 1);
+              }}
+            />
+          ),
+        },
+        {
           key: "sessions",
           label: S.activities.studioPanels.names.sessions,
           icon: "M4 5h16v11H9l-5 4z",
@@ -1205,7 +1229,9 @@ function ActivityEditor({
                                   ? S.activities.imageRun
                                   : run.kind === "media-text"
                                     ? S.activities.textRun
-                                    : S.activities.specRun}
+                                    : run.kind === "assist"
+                                      ? S.activities.assistRun
+                                      : S.activities.specRun}
                           </span>
                           <span
                             className={`rounded px-2 py-0.5 text-xs ${toneSurface[runTone[run.status]]}`}

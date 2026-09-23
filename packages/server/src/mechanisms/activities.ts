@@ -3,6 +3,7 @@ import type { AudioTarget, AudioResult } from "../activities/audio.js";
 import type { ImageRequest } from "../activities/image.js";
 import type { ImageTarget, ImageResult } from "../activities/generated-image.js";
 import type { MediaTextTarget } from "../activities/media-text.js";
+import type { AssistFocus } from "../activities/assist.js";
 import type { UploadedMedia } from "../activities/upload.js";
 import type { ImportOutcome } from "../activities/import-apply.js";
 import type { ImportedActivity } from "../activities/loom-import.js";
@@ -29,6 +30,8 @@ export abstract class ActivityGeneration extends Interface<{
       audio?: { language: string; assetKey: string; voice: string };
       image?: { language: string; assetKey: string };
       mediaText?: { language: string; assetKey: string };
+      /** An assist run: the author's first message and what they had open. */
+      assist?: { message: string; focus: AssistFocus | null };
     },
     /** Run on an external coding agent instead of the Penguin agent `agentId` names. */
     runtime?: { codingAgentId?: string },

@@ -1,3 +1,4 @@
+import { ASSIST_MESSAGE_MAX, parseAssistFocus } from "./assist.js";
 import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
 import type { Hono } from "hono";
 import { Hono as HonoApp } from "hono";
@@ -463,6 +464,28 @@ export class ActivityRoutes {
           runner.agentId,
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
           undefined,
+          runner.runtime,
+        ),
+        202,
+      );
+    });
+    // A conversation about the activity, focused on what the author has open. It is a run
+    // like any other, so the activity's history links it to its Session.
+    app.post("/:activityId/assist", async (c) => {
+      const body = await readJson(c);
+      const runner = stageRunner(body);
+      return c.json(
+        await this.generation.start(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          runner.agentId,
+          requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
+          {
+            assist: {
+              message: requireString(body, "message", { minLen: 1, maxLen: ASSIST_MESSAGE_MAX }),
+              focus: parseAssistFocus(body.focus),
+            },
+          },
           runner.runtime,
         ),
         202,

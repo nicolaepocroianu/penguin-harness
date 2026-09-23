@@ -44,6 +44,7 @@ describe("activity generation through Harness sessions", () => {
     const disposed = new Set<string>();
     let output = JSON.stringify(activitySpec);
     let fatal = false;
+    const prompts: string[] = [];
     const fakeSession = (row: SessionRow): RuntimeSession => ({
       sessionId: row.sessionId,
       dispose: () => {
@@ -56,6 +57,7 @@ describe("activity generation through Harness sessions", () => {
       skipReconnectWait: () => false,
       async *compact() {},
       async *run(_input, options) {
+        prompts.push(JSON.stringify(_input));
         yield requestBegin();
         await new Promise<void>((resolve) => {
           complete = resolve;
@@ -206,6 +208,7 @@ describe("activity generation through Harness sessions", () => {
     }
     return {
       t,
+      prompts,
       client,
       activity,
       draft,
@@ -1118,6 +1121,63 @@ describe("activity generation through Harness sessions", () => {
         .prepare("SELECT COUNT(*) AS count FROM activity_runs WHERE kind = 'module'")
         .get(),
     ).toMatchObject({ count: 0 });
+  });
+
+  it("starts an assist conversation about what the author has open, and applies nothing", async () => {
+    const { client, endpoint, finish, prompts } = await fixture();
+    const current = (await (await client.get(endpoint)).json()) as ActivityDetail;
+    const bad = await client.post(`${endpoint}/assist`, {
+      agentId: "default_agent",
+      expectedRevision: current.draft.contentRevision,
+      message: "Why?",
+      focus: { section: "terminal" },
+    });
+    expect(bad.status).toBe(400);
+    const empty = await client.post(`${endpoint}/assist`, {
+      agentId: "default_agent",
+      expectedRevision: current.draft.contentRevision,
+      message: "",
+    });
+    expect(empty.status).toBe(400);
+    const response = await client.post(`${endpoint}/assist`, {
+      agentId: "default_agent",
+      expectedRevision: current.draft.contentRevision,
+      message: "Is the cat too hard to spot?",
+      focus: { section: "scenes", sceneId: "intro", assetKey: "cat", language: "en-US" },
+    });
+    expect(response.status, await response.clone().text()).toBe(202);
+    const run = (await response.json()) as ActivityRun;
+    expect(run.kind).toBe("assist");
+    expect(run.assist).toEqual({
+      focus: { section: "scenes", sceneId: "intro", assetKey: "cat", language: "en-US" },
+    });
+    await waitFor(() => prompts.length === 1);
+    const prompt = JSON.parse(prompts[0]!) as unknown;
+    const text = JSON.stringify(prompt);
+    // The author's words come first, then where they were looking.
+    expect(text.indexOf("Is the cat too hard to spot?")).toBeLessThan(
+      text.indexOf('the media asset \\"cat\\" in scene \\"intro\\"'),
+    );
+    expect(text).toContain('the media asset \\"cat\\" in scene \\"intro\\"');
+    // The reply is the result: the spec the fake session leaves behind is not collected.
+    const done = await finish(run);
+    expect(done.status).toBe("succeeded");
+    expect(done.candidate).toBeNull();
+    const after = (await (await client.get(endpoint)).json()) as ActivityDetail;
+    expect(after.draft.spec).toEqual(current.draft.spec);
+    // A failed reply fails the run, and says why.
+    const again = (await (
+      await client.post(`${endpoint}/assist`, {
+        agentId: "default_agent",
+        expectedRevision: after.draft.contentRevision,
+        message: "And now?",
+      })
+    ).json()) as ActivityRun;
+    expect(again.assist).toEqual({ focus: null });
+    await waitFor(() => prompts.length === 2);
+    expect(prompts[1]).toContain("the activity as a whole");
+    const failed = await finish(again, "", true);
+    expect(failed.status).toBe("failed");
   });
 
   it("captures inputs in a separate workspace, then validates, applies and reopens the saved result", async () => {

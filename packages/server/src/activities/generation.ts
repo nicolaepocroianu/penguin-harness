@@ -28,6 +28,7 @@ import {
   modulePrompt,
   verifyMediaArtifacts,
 } from "./waf-module.js";
+import { assistPrompt, type AssistFocus } from "./assist.js";
 import { mediaTextPrompt, mediaTextTarget, parseMediaTextCandidate } from "./media-text.js";
 import {
   newId,
@@ -210,6 +211,7 @@ export class ActivityGenerationService implements ActivityGeneration {
       audio?: { language: string; assetKey: string; voice: string };
       image?: { language: string; assetKey: string };
       mediaText?: { language: string; assetKey: string };
+      assist?: { message: string; focus: AssistFocus | null };
     },
     runtime?: { codingAgentId?: string },
   ): Promise<ActivityRun> {
@@ -225,7 +227,10 @@ export class ActivityGenerationService implements ActivityGeneration {
               "draft_conflict",
               "Save or reload the draft before generating.",
             );
-          if (!activity.draft.description.trim())
+          const assist = module?.assist;
+          // An author may ask for help writing the script, so an empty one is no reason
+          // to refuse a conversation.
+          if (!assist && !activity.draft.description.trim())
             throw new HttpError(
               400,
               "description_required",
@@ -233,14 +238,17 @@ export class ActivityGenerationService implements ActivityGeneration {
             );
           let wafRoot: string | null = null;
           let bookMode: BookMode | undefined;
-          if (module && [module.audio, module.image, module.mediaText].filter(Boolean).length > 1)
+          if (
+            module &&
+            [module.audio, module.image, module.mediaText, module.assist].filter(Boolean).length > 1
+          )
             throw new HttpError(400, "generation_invalid", "Choose one media generation type.");
           const audio = module?.audio ? audioTarget(activity, module.audio) : undefined;
           const image = module?.image ? imageTarget(activity, module.image) : undefined;
           const mediaText = module?.mediaText
             ? mediaTextTarget(activity, module.mediaText)
             : undefined;
-          if (module && !audio && !image && !mediaText) {
+          if (module && !audio && !image && !mediaText && !assist) {
             if (!activity.draft.spec || activity.draft.status !== "valid")
               throw new HttpError(
                 400,
@@ -316,18 +324,21 @@ export class ActivityGenerationService implements ActivityGeneration {
               "This activity already has a running generation.",
             );
           const run: ActivityRun = {
-            kind: mediaText
-              ? "media-text"
-              : image
-                ? "image"
-                : audio
-                  ? "audio"
-                  : module
-                    ? "module"
-                    : "spec",
+            kind: assist
+              ? "assist"
+              : mediaText
+                ? "media-text"
+                : image
+                  ? "image"
+                  : audio
+                    ? "audio"
+                    : module
+                      ? "module"
+                      : "spec",
             ...(audio ? { audio } : {}),
             ...(image ? { image } : {}),
             ...(mediaText ? { mediaText } : {}),
+            ...(assist ? { assist: { focus: assist.focus } } : {}),
             ...(bookMode ? { bookMode } : {}),
             runId: newId("run"),
             activityId,
@@ -436,15 +447,17 @@ export class ActivityGenerationService implements ActivityGeneration {
               this.finish(run, "interrupted", "Server stopped before generation started.");
               return run;
             }
-            const prompt = mediaText
-              ? mediaTextPrompt(mediaText)
-              : image
-                ? imagePrompt
-                : audio
-                  ? audioPrompt
-                  : module
-                    ? modulePrompt
-                    : generationPrompt;
+            const prompt = assist
+              ? assistPrompt(assist.message, assist.focus)
+              : mediaText
+                ? mediaTextPrompt(mediaText)
+                : image
+                  ? imagePrompt
+                  : audio
+                    ? audioPrompt
+                    : module
+                      ? modulePrompt
+                      : generationPrompt;
             const session = await this.sessionService.createSession({
               projectId,
               agentId: owner,
@@ -682,6 +695,14 @@ export class ActivityGenerationService implements ActivityGeneration {
             const stoppedShort = run.codingAgentId ? this.observers.get(run.runId) : undefined;
             if (stoppedShort && !stoppedShort.completed) {
               this.finish(run, "failed", stoppedShort.error ?? "The coding agent did not finish.");
+              return;
+            }
+            if (run.kind === "assist") {
+              // A conversation has no artifact to collect: the reply is the result, and it
+              // is in the Session.
+              const observer = this.observers.get(run.runId);
+              if (observer?.completed) this.finish(run, "succeeded");
+              else this.finish(run, "failed", observer?.error ?? "The agent did not reply.");
               return;
             }
             const file = path.join(
