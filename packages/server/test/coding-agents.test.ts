@@ -193,7 +193,7 @@ describe("coding agents api", () => {
       expect(gemini?.detected).toBe(true);
       expect(claude?.detected).toBe(false);
       // The npx fallback still resolves as the suggested launch — it is just never run.
-      expect(claude?.launch?.args).toEqual(["-y", "claude-agent-acp"]);
+      expect(claude?.launch?.args).toEqual(["-y", "@agentclientprotocol/claude-agent-acp"]);
     } finally {
       homedir.mockRestore();
       for (const [key, value] of savedEnv) {

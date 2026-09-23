@@ -97,6 +97,27 @@ function newSessionId(date = new Date()): string {
   return `session-${day}-${time}-${randomUUID().replace(/-/g, "").slice(0, 8)}`;
 }
 
+/**
+ * npx package names earlier recipes suggested that no longer install a working adapter: the
+ * unscoped `claude-agent-acp` never existed on npm, and Codex's adapter moved scope. A
+ * definition saved from one of those suggestions would otherwise fail every start.
+ */
+const RENAMED_ADAPTER_PACKAGES: Record<string, string> = {
+  "claude-agent-acp": "@agentclientprotocol/claude-agent-acp",
+  "@zed-industries/codex-acp": "@agentclientprotocol/codex-acp",
+};
+
+/** A saved npx launch of a renamed adapter package, pointed at the package's current name. */
+export function upgradeAdapterPackage(definition: AgentServerDefinition): AgentServerDefinition {
+  const file = definition.command.split(/[\\/]/u).pop() ?? "";
+  if (file.toLowerCase().replace(/\.(cmd|exe|bat)$/u, "") !== "npx") return definition;
+  const renamed = (arg: string) =>
+    Object.hasOwn(RENAMED_ADAPTER_PACKAGES, arg) ? RENAMED_ADAPTER_PACKAGES[arg]! : arg;
+  const args = definition.args ?? [];
+  if (args.every((arg) => renamed(arg) === arg)) return definition;
+  return { ...definition, args: args.map(renamed) };
+}
+
 /** What a connection test asks: an answer anyone can check, which costs next to nothing. */
 const SMOKE_PROMPT = "Reply with only the word: ok";
 
@@ -806,7 +827,7 @@ export class CodingAgentService implements CodingAgents {
       const definitions: AgentServerDefinition[] = [];
       for (const entry of parsed) {
         try {
-          definitions.push(parseDefinition(entry));
+          definitions.push(upgradeAdapterPackage(parseDefinition(entry)));
         } catch {
           // Skip the malformed entry.
         }

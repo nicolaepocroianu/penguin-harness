@@ -85,18 +85,19 @@ const AGENT_RECIPES: AgentRecipe[] = [
   {
     id: "claude",
     title: "Claude Code",
-    homepageUrl: "https://github.com/zed-industries/claude-agent-acp",
+    homepageUrl: "https://github.com/agentclientprotocol/claude-agent-acp",
     detect: ["claude"],
     // The ACP entrypoint is a separate adapter over the Claude Code SDK; the legacy
-    // package name still installs a working binary, so it stays a candidate.
+    // package name still installs a working binary, so it stays a candidate. The adapter
+    // is published scoped only: an unscoped `claude-agent-acp` does not exist on npm.
     launch: [
       { command: "claude-agent-acp", args: [] },
       { command: "claude-code-acp", args: [] },
-      { command: "npx", args: ["-y", "claude-agent-acp"] },
+      { command: "npx", args: ["-y", "@agentclientprotocol/claude-agent-acp"] },
     ],
     authHint: "Uses your Claude subscription login or ANTHROPIC_API_KEY on the server machine.",
     adapterHint:
-      "Claude Code is installed; add its ACP adapter with: npm install -g claude-agent-acp",
+      "Claude Code is installed; add its ACP adapter with: npm install -g @agentclientprotocol/claude-agent-acp",
     authProbe: { args: ["auth", "status"] },
   },
   {
@@ -106,11 +107,11 @@ const AGENT_RECIPES: AgentRecipe[] = [
     detect: ["codex"],
     launch: [
       { command: "codex-acp", args: [] },
-      { command: "npx", args: ["-y", "@zed-industries/codex-acp"] },
+      { command: "npx", args: ["-y", "@agentclientprotocol/codex-acp"] },
     ],
     authHint: "Run `codex login` once on the server machine; a login URL is printed.",
     adapterHint:
-      "Codex is installed; add its ACP adapter with: npm install -g @zed-industries/codex-acp",
+      "Codex is installed; add its ACP adapter with: npm install -g @agentclientprotocol/codex-acp",
     authProbe: { args: ["login", "status"] },
   },
   // The three below speak ACP natively, so the CLI itself is the launch: an installed

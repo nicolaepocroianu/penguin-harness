@@ -85,7 +85,7 @@ describe("agent discovery", () => {
     expect(claude?.launch?.command.toLowerCase()).toBe(
       path.join(bin, WIN ? "npx.cmd" : "npx").toLowerCase(),
     );
-    expect(claude?.launch?.args).toEqual(["-y", "claude-agent-acp"]);
+    expect(claude?.launch?.args).toEqual(["-y", "@agentclientprotocol/claude-agent-acp"]);
   });
 
   it("reports a setup hint when the agent is installed but no entrypoint is", async () => {
@@ -93,7 +93,7 @@ describe("agent discovery", () => {
     const candidates = await discoverAgents({ env: env(), home });
     const claude = candidates.find((c) => c.recipeId === "claude");
     expect(claude?.launch).toBeNull();
-    expect(claude?.setupHint).toContain("npm install -g claude-agent-acp");
+    expect(claude?.setupHint).toContain("npm install -g @agentclientprotocol/claude-agent-acp");
   });
 
   it("marks agents absent from the machine as undetected", async () => {
@@ -110,7 +110,7 @@ describe("agent discovery", () => {
     const candidates = await discoverAgents({ env: env(), home });
     const claude = candidates.find((c) => c.recipeId === "claude");
     expect(claude?.detected).toBe(false);
-    expect(claude?.launch?.args).toEqual(["-y", "claude-agent-acp"]);
+    expect(claude?.launch?.args).toEqual(["-y", "@agentclientprotocol/claude-agent-acp"]);
   });
 
   it("finds CLIs in version-manager install dirs the PATH misses", async () => {
@@ -139,7 +139,7 @@ describe("agent discovery", () => {
     expect(claude?.launch?.command).toContain(
       path.join("node-versions", "v22.11.0", "installation"),
     );
-    expect(claude?.launch?.args).toEqual(["-y", "claude-agent-acp"]);
+    expect(claude?.launch?.args).toEqual(["-y", "@agentclientprotocol/claude-agent-acp"]);
   });
 });
 
