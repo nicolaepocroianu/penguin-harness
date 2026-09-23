@@ -8,6 +8,7 @@ export const en: Strings = {
     mediaLanguage: "Language",
     noMediaAssets: "No assets match this filter.",
     boundMedia: "Bound",
+    downloadCurrent: "Download current",
     unboundMedia: "Needs media",
     usedInScenes: "Used in scenes",
     noSceneUsage: "No scene references",

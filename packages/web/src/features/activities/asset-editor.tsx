@@ -220,6 +220,20 @@ export function AssetEditor({
             {asset.path ? S.activities.boundMedia : S.activities.unboundMedia}
           </span>
         )}
+        {asset?.path?.startsWith("media/") && (
+          // Served as the player finds it: the draft's own media, then the checkout's.
+          <a
+            href={`${endpoint}/sandbox/media/${asset.path
+              .slice("media/".length)
+              .split("/")
+              .map(encodeURIComponent)
+              .join("/")}`}
+            download={asset.path.split("/").pop()}
+            className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-300"
+          >
+            {S.activities.downloadCurrent}
+          </a>
+        )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {!asset ? (

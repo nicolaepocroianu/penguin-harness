@@ -2781,7 +2781,14 @@ test("a narration shows every language's script, and opens another language from
     /^en-USHelloBound$/,
     /^es-MXNeeds translationNeeds speechOpen$/,
   ]);
+  // The bound recording can be downloaded as the player would fetch it.
+  await expect(page.getByRole("link", { name: "Download current", exact: true })).toHaveAttribute(
+    "href",
+    `${base}/act_test/sandbox/media/uploads/hello-1234abcd.wav`,
+  );
   await languages.getByRole("button", { name: "Open", exact: true }).click();
+  // Spanish has no recording yet, so there is nothing to download.
+  await expect(page.getByRole("link", { name: "Download current", exact: true })).toHaveCount(0);
   // Spanish is open now: its row has nothing to open, and English's has.
   await expect(languages.getByRole("listitem")).toHaveText([
     /^en-USHelloBoundOpen$/,
