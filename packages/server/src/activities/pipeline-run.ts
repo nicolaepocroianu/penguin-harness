@@ -11,6 +11,8 @@
  * Steps, in Loom's order where Penguin has the stage:
  *   spec    generate the specification from the script (applied when it completes)
  *   media   plan media from the specification (kept when already current)
+ *   translations  translate and accept every narration another language lacks, or whose
+ *           default-language line changed since it was translated
  *   speech  generate and accept every unbound narration with a usable script
  *   images  generate and accept every unbound image with a description
  *   module  assemble the WAF module (scaffold, configuration and behavior in one run)
@@ -23,6 +25,7 @@ import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-c
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import { SPEECH_VOICES } from "./audio.js";
+import { DEFAULT_LANGUAGE_CODE } from "./languages.js";
 import { contentRevision, type ActivityRun } from "./domain.js";
 import type { AssetManifest } from "./media.js";
 import {
@@ -66,6 +69,35 @@ export function speechTargets(manifest: AssetManifest): { language: string; asse
       .filter((asset: MediaAsset) => asset.type === "audio" && !asset.path && usable(asset.script))
       .map((asset) => ({ language, assetKey: asset.key })),
   );
+}
+
+/**
+ * Narrations to translate, in every language but the default: those with no script yet,
+ * and those translated from a default-language line that has since been rewritten. A
+ * script with no recorded source was written by someone, not translated, and is left be.
+ */
+export function translationTargets(
+  manifest: AssetManifest,
+): { language: string; assetKey: string }[] {
+  const sources = new Map(
+    (manifest.assets[DEFAULT_LANGUAGE_CODE] ?? [])
+      .filter((asset) => asset.type === "audio" && usable(asset.script))
+      .map((asset) => [asset.key, asset.script!]),
+  );
+  return Object.entries(manifest.assets)
+    .filter(([language]) => language !== DEFAULT_LANGUAGE_CODE)
+    .flatMap(([language, assets]) =>
+      assets
+        .filter((asset: MediaAsset) => {
+          const source = sources.get(asset.key);
+          if (asset.type !== "audio" || source === undefined) return false;
+          return (
+            !asset.script?.trim() ||
+            (asset.translatedFrom !== undefined && asset.translatedFrom !== source)
+          );
+        })
+        .map((asset) => ({ language, assetKey: asset.key })),
+    );
 }
 
 /** Unbound images with a description the image run accepts, in every language. */
@@ -253,6 +285,42 @@ export class PipelineRunner {
         return;
       }
       await activities.planMedia(projectId, activityId, activity.draft.contentRevision);
+      return;
+    }
+
+    if (step.step === "translations") {
+      const activity = await current();
+      const manifest = activity.draft.mediaPlan?.manifest;
+      if (!manifest) throw new Error("Plan media before translating it.");
+      const targets = translationTargets(manifest);
+      step.total = targets.length;
+      if (!targets.length) {
+        step.status = "skipped";
+        step.detail = "Every narration is translated.";
+        return;
+      }
+      for (const target of targets) {
+        step.detail = `${target.assetKey} (${target.language})`;
+        const before = await current();
+        const run = await generation.start(
+          projectId,
+          activityId,
+          input.agentId,
+          before.draft.contentRevision,
+          { mediaText: { ...target, translate: true } },
+          runtime,
+        );
+        await this.follow(state, step, run);
+        const after = await current();
+        await generation.acceptMediaText(
+          projectId,
+          activityId,
+          run.runId,
+          after.draft.contentRevision,
+        );
+        step.done += 1;
+      }
+      step.detail = null;
       return;
     }
 

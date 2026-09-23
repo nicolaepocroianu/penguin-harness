@@ -50,6 +50,7 @@ export function AssetEditor({
   onAcceptText,
   onUpload,
   sceneNav,
+  onTranslate,
 }: {
   manifest: AssetManifest;
   /** The language group the rail is showing. */
@@ -81,6 +82,8 @@ export function AssetEditor({
   onGenerateText: (language: string, assetKey: string) => void;
   onAcceptText: (runId: string) => void;
   onUpload: (file: File) => Promise<UploadedMedia>;
+  /** Translate a narration from the default language; absent where there is nothing to translate from. */
+  onTranslate?: (language: string, assetKey: string) => void;
   /**
    * Where this asset's scene sits on the storyboard: its name, the way back to the board,
    * and the scenes either side. Absent for media no scene uses.
@@ -320,13 +323,24 @@ export function AssetEditor({
                   }
                 />
                 {editable && (
-                  <Button
-                    size="sm"
-                    disabled={!canGenerate}
-                    onClick={() => onGenerateText(language, asset.key)}
-                  >
-                    {S.activities.improveNarration}
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      disabled={!canGenerate}
+                      onClick={() => onGenerateText(language, asset.key)}
+                    >
+                      {S.activities.improveNarration}
+                    </Button>
+                    {onTranslate && (
+                      <Button
+                        size="sm"
+                        disabled={!canGenerate}
+                        onClick={() => onTranslate(language, asset.key)}
+                      >
+                        {S.activities.speechTranslation.translate}
+                      </Button>
+                    )}
+                  </div>
                 )}
                 {asset.generatedAudio && (
                   <div className="space-y-1">

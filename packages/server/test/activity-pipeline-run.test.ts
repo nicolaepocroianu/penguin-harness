@@ -5,6 +5,7 @@ import {
   parseSelection,
   speechTargets,
   stepsFor,
+  translationTargets,
 } from "../src/activities/pipeline-run.js";
 import { contentRevision, type ActivityRun } from "../src/activities/domain.js";
 import type { AssetManifest } from "../src/activities/media.js";
@@ -12,7 +13,7 @@ import type { ActivityAuthoring, ActivityGeneration } from "../src/mechanisms/ac
 
 const usage = [{ sceneId: "intro", sourceKey: "k", occurrence: 1, sceneOccurrenceCount: 1 }];
 
-function manifest(): AssetManifest {
+function manifest(withRomanian = false): AssetManifest {
   return {
     productCode: "words",
     refNum: 1,
@@ -34,6 +35,9 @@ function manifest(): AssetManifest {
       "es-MX": [
         { key: "hello", type: "audio", description: "Saludo", script: "Hola", usages: usage },
       ],
+      ...(withRomanian
+        ? { "ro-RO": [{ key: "hello", type: "audio", description: "Salut", usages: usage }] }
+        : {}),
     },
   };
 }
@@ -51,6 +55,7 @@ describe("choosing the work", () => {
     expect(stepsFor(parseSelection(undefined))).toEqual([
       "spec",
       "media",
+      "translations",
       "speech",
       "images",
       "module",
@@ -61,7 +66,9 @@ describe("choosing the work", () => {
 });
 
 /** An activity and the two services, faked closely enough to show what the sequence does. */
-function world(options: { fail?: ActivityRun["kind"]; description?: string } = {}) {
+function world(
+  options: { fail?: ActivityRun["kind"]; description?: string; romanian?: boolean } = {},
+) {
   let revision = 1;
   const spec = { id: "words", title: "Words", activityDescription: "d", scenes: [] };
   const activity = {
@@ -99,9 +106,11 @@ function world(options: { fail?: ActivityRun["kind"]; description?: string } = {
         ? "audio"
         : module?.image
           ? "image"
-          : module
-            ? "module"
-            : "spec";
+          : module?.mediaText
+            ? "media-text"
+            : module
+              ? "module"
+              : "spec";
       const run = {
         kind,
         runId: `run_${runs.length + 1}`,
@@ -112,11 +121,12 @@ function world(options: { fail?: ActivityRun["kind"]; description?: string } = {
         codingAgentId: runtime?.codingAgentId,
         audio: module?.audio,
         image: module?.image,
+        mediaText: module?.mediaText,
       } as unknown as ActivityRun;
       runs.push(run);
       started.push(
-        kind === "audio" || kind === "image"
-          ? `${kind}:${(module.audio ?? module.image).language}:${(module.audio ?? module.image).assetKey}`
+        kind === "audio" || kind === "image" || kind === "media-text"
+          ? `${kind}:${(module.audio ?? module.image ?? module.mediaText).language}:${(module.audio ?? module.image ?? module.mediaText).assetKey}`
           : kind,
       );
       return run;
@@ -150,6 +160,17 @@ function world(options: { fail?: ActivityRun["kind"]; description?: string } = {
       asset(run.image!.language, run.image!.assetKey).path = `${runId}.png`;
       bump();
     },
+    async acceptMediaText(_p: string, _a: string, runId: string, expected: string) {
+      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
+      const run = runs.find((item) => item.runId === runId)! as ActivityRun & {
+        mediaText: { language: string; assetKey: string };
+      };
+      const target = asset(run.mediaText.language, run.mediaText.assetKey);
+      const source = asset("en-US", run.mediaText.assetKey);
+      target.script = `translated ${source.script}`;
+      target.translatedFrom = source.script;
+      bump();
+    },
     async cancel(_p: string, _a: string, runId: string) {
       cancelled.push(runId);
       const run = runs.find((item) => item.runId === runId)!;
@@ -169,7 +190,7 @@ function world(options: { fail?: ActivityRun["kind"]; description?: string } = {
       activity.draft.mediaPlan = {
         specRevision: contentRevision(activity.draft.spec),
         requirements: {},
-        manifest: manifest(),
+        manifest: manifest(options.romanian),
       };
       bump();
     },
@@ -196,6 +217,7 @@ describe("running the stages", () => {
       "pending",
       "pending",
       "pending",
+      "pending",
     ]);
     await done;
     const final = w.runner.status("act")!;
@@ -203,6 +225,7 @@ describe("running the stages", () => {
     expect(final.steps.map((step) => [step.step, step.status])).toEqual([
       ["spec", "succeeded"],
       ["media", "succeeded"],
+      ["translations", "skipped"],
       ["speech", "succeeded"],
       ["images", "succeeded"],
       ["module", "succeeded"],
@@ -214,7 +237,7 @@ describe("running the stages", () => {
       "image:en-US:cat",
       "module",
     ]);
-    expect(final.steps[2]).toMatchObject({ done: 2, total: 2 });
+    expect(final.steps[3]).toMatchObject({ done: 2, total: 2 });
     expect(w.activity.draft.mediaPlan!.manifest.assets["es-MX"]![0]!.path).toBe("run_3.wav");
     expect(final.currentRunId).toBeNull();
     expect(final.finishedAt).toBe("2026-09-23T12:00:00Z");
@@ -241,6 +264,7 @@ describe("running the stages", () => {
     expect(final.steps.map((step) => step.status)).toEqual([
       "succeeded",
       "succeeded",
+      "skipped",
       "failed",
       "cancelled",
       "cancelled",
@@ -266,7 +290,7 @@ describe("running the stages", () => {
     }).done;
     const final = w.runner.status("act")!;
     expect(final.status).toBe("succeeded");
-    expect(final.steps[2]).toMatchObject({
+    expect(final.steps[3]).toMatchObject({
       status: "skipped",
       detail: "Media generation needs a Penguin agent, not a coding agent.",
     });
@@ -300,6 +324,7 @@ describe("running the stages", () => {
       "cancelled",
       "cancelled",
       "cancelled",
+      "cancelled",
     ]);
   });
 
@@ -317,5 +342,36 @@ describe("running the stages", () => {
     expect(w.started).toEqual(["spec"]);
     expect(w.cancelled).toEqual([]);
     expect(w.runner.status("act")!.status).toBe("cancelled");
+  });
+
+  it("translates what a language lacks before speaking it, and leaves hand-written lines be", async () => {
+    const w = world({ romanian: true });
+    await w.runner.start("proj", "act", { selection: "all", agentId: "agent" }).done;
+    // es-MX "Hola" has no recorded source, so it was written, not translated: left alone.
+    expect(w.started).toEqual([
+      "spec",
+      "media-text:ro-RO:hello",
+      "audio:en-US:hello",
+      "audio:es-MX:hello",
+      "audio:ro-RO:hello",
+      "image:en-US:cat",
+      "module",
+    ]);
+    const ro = w.activity.draft.mediaPlan!.manifest.assets["ro-RO"]![0]!;
+    expect(ro).toMatchObject({ script: "translated Hello", translatedFrom: "Hello" });
+    expect(w.runs.find((run) => run.kind === "media-text")).toMatchObject({
+      mediaText: { language: "ro-RO", assetKey: "hello", translate: true },
+    });
+  });
+
+  it("finds narrations never translated, or translated from a line since rewritten", () => {
+    const plan = manifest(true);
+    plan.assets["es-MX"]![0]!.translatedFrom = "Hi there";
+    expect(translationTargets(plan)).toEqual([
+      { language: "es-MX", assetKey: "hello" },
+      { language: "ro-RO", assetKey: "hello" },
+    ]);
+    plan.assets["es-MX"]![0]!.translatedFrom = "Hello";
+    expect(translationTargets(plan)).toEqual([{ language: "ro-RO", assetKey: "hello" }]);
   });
 });

@@ -830,7 +830,14 @@ export class ActivityGenerationService implements ActivityGeneration {
                   await readCandidate(file, 64 * 1024),
                   run.mediaText,
                 );
-                run.candidate = JSON.stringify({ ...run.mediaText, text });
+                // The candidate's own four fields, not the target: a translation's target
+                // also carries its source, which a candidate does not.
+                run.candidate = JSON.stringify({
+                  language: run.mediaText.language,
+                  assetKey: run.mediaText.assetKey,
+                  type: run.mediaText.type,
+                  text,
+                });
                 this.save(run);
                 if (this.stopped) return;
                 await this.projectWork.run(run.projectId, async () => {

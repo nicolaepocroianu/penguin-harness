@@ -446,6 +446,14 @@ async function fixture(page) {
       return json(activity.draft);
     }
     if (p === `${base}/act_test/readiness`) return json({ checks: [] });
+    if (p === `${base}/language-setup`)
+      return json({
+        defaultLanguage: "en-US",
+        languages: [
+          { code: "en-US", label: "English" },
+          { code: "es-MX", label: "Spanish" },
+        ],
+      });
     if (p.startsWith("/api/")) {
       if (p.endsWith("/usage/errors")) return json({ items: [], total: 0 });
       if (p.endsWith("/sessions"))
@@ -2571,5 +2579,133 @@ test("the header switches between a product's refs and names one, as Loom's Refs
   await refs.click();
   await page.getByRole("option", { name: "Ref 13 · Round two · stable" }).click();
   await expect(page).toHaveURL(/activities\/act_other$/);
+  expect(f.errors).toEqual([]);
+});
+
+test("adds a language, translates a narration into it, and translates the rest at once", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  const narration = (key, script) => ({
+    key,
+    type: "audio",
+    description: key,
+    ...(script ? { script } : {}),
+    usages: [{ sceneId: "intro", sourceKey: key, occurrence: 1, sceneOccurrenceCount: 1 }],
+  });
+  await page.route(`**${base}/act_test/plan-media`, (route) =>
+    route.fallback({
+      postData: JSON.stringify({
+        ...route.request().postDataJSON(),
+        manifest: {
+          productCode: "words",
+          refNum: 12,
+          assets: { "en-US": [narration("hello", "Hello"), narration("bye", "Bye")] },
+        },
+      }),
+    }),
+  );
+  const languages = [];
+  const translations = [];
+  const stages = [];
+  await page.route("**/*", (route) => {
+    const request = route.request();
+    const p = new URL(request.url()).pathname;
+    if (p === `${base}/language-setup`)
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          defaultLanguage: "en-US",
+          languages: [
+            { code: "en-US", label: "English" },
+            { code: "es-MX", label: "Spanish" },
+            { code: "ro-RO", label: "Romanian" },
+          ],
+        }),
+      });
+    if (p === `${base}/act_test/languages`) {
+      languages.push(request.postDataJSON());
+      // Answer as the server does: the fixture's own plan route stores the new group.
+      return route.fallback({
+        url: request.url().replace(/\/languages$/, "/media"),
+        postData: JSON.stringify({
+          expectedRevision: request.postDataJSON().expectedRevision,
+          manifest: {
+            productCode: "words",
+            refNum: 12,
+            assets: {
+              "en-US": [narration("hello", "Hello"), narration("bye", "Bye")],
+              "es-MX": [
+                narration("hello"),
+                { ...narration("bye", "Adiós"), translatedFrom: "Goodbye" },
+              ],
+            },
+          },
+        }),
+      });
+    }
+    if (p === `${base}/act_test/generate-media-text`) translations.push(request.postDataJSON());
+    if (p === `${base}/act_test/pipeline` && request.method() === "POST") {
+      stages.push(request.postDataJSON());
+      return route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({
+          pipelineId: "pipeline_1",
+          projectId,
+          activityId: "act_test",
+          selection: "translations",
+          status: "running",
+          steps: [
+            {
+              step: "translations",
+              status: "running",
+              detail: null,
+              done: 0,
+              total: 2,
+              runIds: [],
+            },
+          ],
+          currentRunId: null,
+          currentSessionId: null,
+          error: null,
+          startedAt: "2026-09-23T12:00:00Z",
+          finishedAt: null,
+        }),
+      });
+    }
+    return route.fallback();
+  });
+  await openSection(page, "Specification");
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify(spec));
+  await page.getByRole("button", { name: "Validate and save", exact: true }).click();
+  await openSection(page, "Scenes and media");
+  await planMedia(page);
+  await page.reload();
+  await openSection(page, "Speech coverage");
+
+  await page.getByRole("button", { name: "Add a language", exact: true }).click();
+  await expect(page.getByRole("option", { name: "English", exact: true })).toHaveCount(0);
+  await page.getByRole("option", { name: "Spanish", exact: true }).click();
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect.poll(() => languages.length).toBe(1);
+  expect(languages[0]).toMatchObject({ language: "es-MX" });
+
+  // Spanish is open now: one line never translated, one translated from an older English line.
+  await expect(page.getByRole("button", { name: /^hello/ })).toContainText("Needs translation");
+  await expect(page.getByRole("button", { name: /^bye/ })).toContainText("English changed");
+  // Everything that needs it, through the Translate stage...
+  await page.getByRole("button", { name: "Translate 2", exact: true }).click();
+  await expect.poll(() => stages.length).toBe(1);
+  expect(stages[0]).toMatchObject({ stage: "translations" });
+  // The Stages panel opens to follow that run; close it to get back to the list.
+  await page.getByRole("button", { name: "Stages", exact: true }).click();
+  // ...or one line on its own, whose run then counts it as being translated.
+  await page.getByRole("button", { name: "Translate", exact: true }).first().click();
+  await expect.poll(() => translations.length).toBe(1);
+  expect(translations[0]).toMatchObject({ language: "es-MX", assetKey: "hello", translate: true });
   expect(f.errors).toEqual([]);
 });

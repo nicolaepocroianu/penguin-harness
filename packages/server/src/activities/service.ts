@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { DEFAULT_LANGUAGE_CODE, canAddLanguage } from "./languages.js";
 import type { ProposalChange } from "./assist.js";
 import { validateBookSpec } from "./book.js";
 import path from "node:path";
@@ -275,6 +276,18 @@ export class ActivityService implements ActivityAuthoring {
           "media_text_changed",
           "The selected media text changed. Generate a new candidate.",
         );
+      if (target.translation) {
+        const source = manifest.assets[DEFAULT_LANGUAGE_CODE]?.find(
+          (entry) => entry.key === target.assetKey,
+        );
+        if (source?.script !== target.translation.from)
+          throw new HttpError(
+            409,
+            "translation_source_changed",
+            "The script this translates changed. Translate it again.",
+          );
+        asset.translatedFrom = target.translation.from;
+      }
       if (target.type === "image") asset.description = text;
       else asset.script = text;
       return { ...draft, mediaPlan: { ...plan, manifest } };
@@ -671,6 +684,42 @@ export class ActivityService implements ActivityAuthoring {
       } catch (error) {
         throw new HttpError(422, "media_invalid", (error as Error).message);
       }
+    });
+  }
+  /**
+   * A language added to the media plan, as Loom's language table allows. Pictures, video
+   * and animation are shared across languages, so their bindings come along; a narration
+   * comes without a script, so it reads as needing translation rather than passing an
+   * English line off as a translated one.
+   */
+  async addLanguage(
+    projectId: string,
+    activityId: string,
+    language: string,
+    expectedRevision: string,
+  ): Promise<ActivityDraft> {
+    return this.change(projectId, activityId, expectedRevision, (draft, activity) => {
+      const plan = draft.mediaPlan;
+      if (!plan || draft.status !== "valid" || plan.specRevision !== contentRevision(draft.spec))
+        throw new HttpError(409, "media_stale", "Plan media from the saved specification first.");
+      const refusal = canAddLanguage(Object.keys(plan.manifest.assets), language);
+      if (refusal) throw new HttpError(422, "language_invalid", refusal.message);
+      const group = plan.manifest.assets[DEFAULT_LANGUAGE_CODE]!.map((asset) => {
+        if (asset.type !== "audio") return structuredClone(asset);
+        const {
+          script: _script,
+          path: _path,
+          generatedAudio: _audio,
+          translatedFrom: _from,
+          ...rest
+        } = structuredClone(asset);
+        return rest;
+      });
+      const manifest = validateManifest(
+        { ...plan.manifest, assets: { ...plan.manifest.assets, [language]: group } },
+        activity,
+      );
+      return { ...draft, mediaPlan: { ...plan, manifest } };
     });
   }
   async applyMedia(

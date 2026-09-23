@@ -21,6 +21,11 @@ export interface SpeechStatus {
   state: SpeechState;
   /** Why the last attempt failed, when it did. */
   error?: string;
+  /**
+   * In a language other than the default, whether the script still needs translating: never
+   * translated, translated from a default line since rewritten, or being translated now.
+   */
+  translation?: "missing" | "outdated" | "translating";
 }
 
 /** Whether this asset's script could be sent to the speech endpoint as it stands. */
@@ -45,20 +50,42 @@ export function speechStatuses(
   assets: readonly MediaAsset[],
   runs: readonly ActivityRunSummary[] = [],
   language = "",
+  /** The default language's scripts by key, when `language` is not the default. */
+  sources?: ReadonlyMap<string, string>,
 ): SpeechStatus[] {
   const latest = new Map<string, ActivityRunSummary>();
-  for (const run of runs)
+  const translating = new Set<string>();
+  for (const run of runs) {
     if (run.kind === "audio" && run.audio?.language === language) {
       const seen = latest.get(run.audio.assetKey);
       if (!seen || run.createdAt > seen.createdAt) latest.set(run.audio.assetKey, run);
     }
+    if (
+      run.kind === "media-text" &&
+      run.status === "running" &&
+      run.mediaText?.language === language &&
+      run.mediaText.translation
+    )
+      translating.add(run.mediaText.assetKey);
+  }
+  const translationOf = (asset: MediaAsset): SpeechStatus["translation"] => {
+    const source = sources?.get(asset.key);
+    if (!source?.trim()) return undefined;
+    if (translating.has(asset.key)) return "translating";
+    if (!asset.script?.trim()) return "missing";
+    // A script with no recorded source was written, not translated, and stands.
+    if (asset.translatedFrom !== undefined && asset.translatedFrom !== source) return "outdated";
+    return undefined;
+  };
   return assets
     .filter((asset) => asset.type === "audio")
     .map((asset) => {
       const run = latest.get(asset.key);
+      const translation = translationOf(asset);
       const base = {
         key: asset.key,
         sceneIds: [...new Set(asset.usages.map((usage) => usage.sceneId))],
+        ...(translation ? { translation } : {}),
       };
       if (asset.path) return { ...base, state: "ready" as const };
       if (!asset.script?.trim()) return { ...base, state: "scriptMissing" as const };
@@ -113,11 +140,12 @@ export function speechTally(
 }
 
 /** The list's filters, as Loom's Audios panel offers them. */
-export type SpeechFilter = "all" | "needs" | "ready" | "failed" | "blocked";
+export type SpeechFilter = "all" | "needs" | "translate" | "ready" | "failed" | "blocked";
 
 /** Whether a narration belongs under a filter. */
 export function inSpeechFilter(status: SpeechStatus, filter: SpeechFilter): boolean {
   if (filter === "all") return true;
+  if (filter === "translate") return status.translation !== undefined;
   if (filter === "ready") return status.state === "ready";
   if (filter === "failed") return status.state === "failed";
   if (filter === "blocked")

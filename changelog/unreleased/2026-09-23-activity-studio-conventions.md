@@ -23,3 +23,7 @@ tokens and architecture.
 - Speech coverage's filters and language switcher use the app's segmented-control styling.
 - What the read-only module documents are is explained in an info popover beside their
   title, as the app discloses explanations.
+- Generation History moved out of the activity page into its own component, with no change
+  in behaviour.
+- The page ignores a language table or a stage sequence that does not have the expected
+  shape, instead of failing to render.

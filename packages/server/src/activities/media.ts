@@ -6,6 +6,11 @@ export interface MediaAsset {
   description: string;
   sourceKey?: string;
   script?: string;
+  /**
+   * For a narration in a language other than the default: the default-language script this
+   * one was translated from. When the default line is rewritten, the translation is stale.
+   */
+  translatedFrom?: string;
   /** A reference in the WAF media checkout, never a server filesystem path. */
   path?: string;
   generatedAudio?: { runId: string; sha256: string };
@@ -67,6 +72,7 @@ export function validateManifest(value: unknown, address: ActivityAddress): Asse
               "description",
               "sourceKey",
               "script",
+              "translatedFrom",
               "path",
               "usages",
               "generatedAudio",
@@ -93,6 +99,13 @@ export function validateManifest(value: unknown, address: ActivityAddress): Asse
         (typeof asset.script !== "string" || asset.script.length > 100000 || asset.type !== "audio")
       )
         throw new Error("Only audio assets may contain a script, up to 100000 characters.");
+      if (
+        asset.translatedFrom !== undefined &&
+        (typeof asset.translatedFrom !== "string" ||
+          asset.translatedFrom.length > 100000 ||
+          asset.type !== "audio")
+      )
+        throw new Error("Only a narration may record what it was translated from.");
       if (
         asset.path !== undefined &&
         (typeof asset.path !== "string" ||

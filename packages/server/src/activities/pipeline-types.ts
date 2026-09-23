@@ -2,7 +2,14 @@
  * The shapes of "Run all stages", on their own so the App can import them without
  * pulling in the service that runs the stages (see `pipeline-run.ts`).
  */
-export const PIPELINE_STEPS = ["spec", "media", "speech", "images", "module"] as const;
+export const PIPELINE_STEPS = [
+  "spec",
+  "media",
+  "translations",
+  "speech",
+  "images",
+  "module",
+] as const;
 export type PipelineStep = (typeof PIPELINE_STEPS)[number];
 export type PipelineSelection = "all" | PipelineStep;
 

@@ -1,4 +1,5 @@
 import { ASSIST_MESSAGE_MAX, parseAssistFocus } from "./assist.js";
+import { ACTIVITY_LANGUAGES, DEFAULT_LANGUAGE_CODE } from "./languages.js";
 import { HttpError } from "../http/errors.js";
 import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
 import type { Hono } from "hono";
@@ -91,6 +92,21 @@ export class ActivityRoutes {
         ),
       );
     });
+    // Loom's language table: what an activity may be authored and translated in.
+    app.get("/language-setup", (c) =>
+      c.json({ defaultLanguage: DEFAULT_LANGUAGE_CODE, languages: ACTIVITY_LANGUAGES }),
+    );
+    app.post("/:activityId/languages", async (c) => {
+      const body = await readJson(c);
+      return c.json(
+        await this.activities.addLanguage(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          requireString(body, "language", { minLen: 5, maxLen: 5 }),
+          requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
+        ),
+      );
+    });
     app.get("/module-setup", async (c) => {
       this.access.requireProjectOwner(c.var.user.userId, requireValidId(c, "projectId"));
       return c.json({ wafRoot: await findWafRoot() });
@@ -155,6 +171,7 @@ export class ActivityRoutes {
             mediaText: {
               language: requireString(body, "language", { minLen: 5, maxLen: 5 }),
               assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
+              ...(body.translate === true ? { translate: true } : {}),
             },
           },
           runner.runtime,

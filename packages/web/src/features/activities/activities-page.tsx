@@ -64,6 +64,12 @@ import { activityInitials, filterActivities, latestModuleRun } from "./preview";
 const basePath = (projectId: string) => `/api/projects/${encodeURIComponent(projectId)}/activities`;
 const pretty = (value: unknown) => (value ? JSON.stringify(value, null, 2) : "");
 
+/** A stage sequence the panels can draw, or null for an answer that is not one. */
+function pipelineOrNull(value: unknown): PipelineState | null {
+  const state = value as PipelineState | null;
+  return state && Array.isArray(state.steps) && typeof state.status === "string" ? state : null;
+}
+
 /** How long after the last keystroke the script saves itself, as in Loom. */
 const SCRIPT_AUTOSAVE_MS = 5000;
 export function ActivitiesPage() {
@@ -318,6 +324,32 @@ function ActivityEditor({
   // The activity's run of its stages, as the server last reported it (pipeline-run.ts).
   const [pipeline, setPipeline] = useState<PipelineState | null>(null);
   const [pipelineChoice, setPipelineChoice] = useState<PipelineSelection>("all");
+  // Loom's language table: what the activity may be translated into.
+  const [languageSetup, setLanguageSetup] = useState<{
+    defaultLanguage: string;
+    languages: { code: string; label: string }[];
+  }>({ defaultLanguage: "en-US", languages: [] });
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ defaultLanguage: string; languages: { code: string; label: string }[] }>(
+      `${basePath(projectId)}/language-setup`,
+    )
+      .then((value) => {
+        // A table is kept only when it is one; anything else offers no language to add.
+        if (
+          !cancelled &&
+          Array.isArray(value?.languages) &&
+          typeof value.defaultLanguage === "string"
+        )
+          setLanguageSetup(value);
+      })
+      .catch(() => {
+        /* Without the table no language is offered to add; nothing else depends on it. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
   // The Scenes section opens on the storyboard; opening an asset leaves it for the editor.
   const [board, setBoard] = useState(true);
   const [boardScene, setBoardScene] = useState<string | null>(null);
@@ -478,7 +510,7 @@ function ActivityEditor({
         setLoadError("");
         setRuns(history.runs);
         setSandboxModule(sandboxHasModule(sandbox));
-        if (stages) setPipeline(stages.pipeline);
+        if (stages) setPipeline(pipelineOrNull(stages.pipeline));
         active =
           history.runs.some((run) => run.status === "running") ||
           stages?.pipeline?.status === "running";
@@ -613,7 +645,7 @@ function ActivityEditor({
         },
       });
       if (!alive.current) return;
-      setPipeline(started);
+      setPipeline(pipelineOrNull(started));
       setShowPanel({ key: "run", at: Date.now() });
       setRefreshVersion((value) => value + 1);
     });
@@ -624,7 +656,7 @@ function ActivityEditor({
         `${endpoint}/pipeline/stop`,
         { method: "POST", body: {} },
       );
-      if (alive.current) setPipeline(stopped.pipeline);
+      if (alive.current) setPipeline(pipelineOrNull(stopped.pipeline));
     });
   }
   useEffect(() => {
@@ -1188,6 +1220,12 @@ function ActivityEditor({
             startRun("generate-media-text", { language: lang, assetKey })
           }
           onAcceptText={(runId) => acceptRun(runId, "accept-media-text")}
+          onTranslate={
+            language === languageSetup.defaultLanguage
+              ? undefined
+              : (lang, assetKey) =>
+                  startRun("generate-media-text", { language: lang, assetKey, translate: true })
+          }
           sceneNav={sceneNav}
         />
       ) : section === "description" ? (
@@ -1412,6 +1450,37 @@ function ActivityEditor({
                     return { language: code, ready: tally.ready, total: tally.total };
                   })}
                   onLanguage={setLanguage}
+                  sources={
+                    language === languageSetup.defaultLanguage
+                      ? undefined
+                      : new Map(
+                          (editedManifest.assets[languageSetup.defaultLanguage] ?? [])
+                            .filter((asset) => asset.type === "audio" && asset.script)
+                            .map((asset) => [asset.key, asset.script!]),
+                        )
+                  }
+                  onTranslate={(key) =>
+                    startRun("generate-media-text", { language, assetKey: key, translate: true })
+                  }
+                  onTranslateAll={() => runStages("translations")}
+                  addable={languageSetup.languages
+                    .filter(
+                      (entry) =>
+                        entry.code !== languageSetup.defaultLanguage &&
+                        !(entry.code in editedManifest.assets),
+                    )
+                    .map((entry) => ({ code: entry.code, label: entry.label }))}
+                  onAddLanguage={(code) =>
+                    void action(async () => {
+                      const draft = await apiFetch<ActivityDraft>(`${endpoint}/languages`, {
+                        method: "POST",
+                        body: { language: code, expectedRevision: detail.draft.contentRevision },
+                      });
+                      if (!alive.current) return;
+                      accept({ ...detail, draft });
+                      setLanguage(code);
+                    })
+                  }
                   onRetry={(key) =>
                     startRun("generate-audio", { language, assetKey: key, voice: voices[0] ?? "" })
                   }

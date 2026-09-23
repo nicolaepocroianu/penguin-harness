@@ -152,6 +152,7 @@ export const en: Strings = {
       steps: {
         spec: "Generate spec",
         media: "Plan media",
+        translations: "Translate",
         speech: "Generate speech",
         images: "Generate images",
         module: "Assemble module",
@@ -369,11 +370,21 @@ export const en: Strings = {
     bulkSpeechFilter: {
       all: "All",
       needs: "Needs speech",
+      translate: "Needs translation",
       ready: "Bound",
       failed: "Failed",
       blocked: "Needs a script",
     },
     bulkSpeechLanguages: "Languages",
+    speechTranslation: {
+      missing: "Needs translation",
+      outdated: "English changed",
+      translating: "Translating…",
+      translate: "Translate",
+      translateAll: (n: number) => `Translate ${n}`,
+      addLanguage: "Add a language",
+      add: "Add",
+    },
     bulkSpeechLanguage: (language: string, ready: number, total: number) =>
       `${language} ${ready}/${total}`,
     speechState: {

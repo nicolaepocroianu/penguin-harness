@@ -87,8 +87,11 @@ describe("activity generation through Harness sessions", () => {
             path.join(row.workspace!, "media-text.json"),
             output === "invalid"
               ? "invalid"
-              : JSON.stringify({
-                  ...target,
+              : // The four fields the prompt asks for, whatever else the input carries.
+                JSON.stringify({
+                  language: target.language,
+                  assetKey: target.assetKey,
+                  type: target.type,
                   text: target.type === "audio" ? "Hello there." : "A brighter blue penguin",
                 }),
           );
@@ -1723,5 +1726,69 @@ describe("activity generation through Harness sessions", () => {
     expect(await named.json()).toMatchObject({ displayName: "Round two", stable: true });
     const cleared = await client.patch(`${endpoint}/identity`, { displayName: "" });
     expect(await cleared.json()).toMatchObject({ displayName: null, stable: true });
+  });
+  it("adds a language with narration to translate, translates one, and records its source", async () => {
+    const f = await fixture("media-text");
+    const first = (await (await f.startMediaText("audio")).json()) as ActivityRun;
+    await f.finish(first);
+    let current = (await (await f.client.get(f.endpoint)).json()) as ActivityDetail;
+    const add = (language: string) =>
+      f.client.post(`${f.endpoint}/languages`, {
+        language,
+        expectedRevision: current.draft.contentRevision,
+      });
+    for (const refused of ["en-US", "fr-FR", "es-MX"])
+      expect((await add(refused)).status, refused).toBe(422);
+    const added = await add("ro-RO");
+    expect(added.status, await added.clone().text()).toBe(200);
+    current = (await (await f.client.get(f.endpoint)).json()) as ActivityDetail;
+    const romanian = current.draft.mediaPlan!.manifest.assets["ro-RO"]!;
+    // The narration comes without the English script or its recording.
+    expect(romanian).toHaveLength(1);
+    expect(romanian[0]).not.toHaveProperty("script");
+    expect(romanian[0]).not.toHaveProperty("path");
+
+    // A plain media-text run cannot translate an image, nor translate into the default.
+    const refusedTranslation = await f.client.post(`${f.endpoint}/generate-media-text`, {
+      agentId: "default_agent",
+      expectedRevision: current.draft.contentRevision,
+      language: "en-US",
+      assetKey: "voice",
+      translate: true,
+    });
+    expect(refusedTranslation.status).toBe(422);
+
+    const started = await f.client.post(`${f.endpoint}/generate-media-text`, {
+      agentId: "default_agent",
+      expectedRevision: current.draft.contentRevision,
+      language: "ro-RO",
+      assetKey: "voice",
+      translate: true,
+    });
+    expect(started.status, await started.clone().text()).toBe(202);
+    const run = (await started.json()) as ActivityRun;
+    expect(run.mediaText).toEqual({
+      language: "ro-RO",
+      assetKey: "voice",
+      type: "audio",
+      text: "",
+      translation: { from: "Penguin", languageName: "Romanian" },
+    });
+    await waitFor(() => f.prompts.some((prompt) => prompt.includes("into Romanian")));
+    const done = await f.finish(run);
+    expect(done.status, done.error ?? "").toBe("succeeded");
+    const accepted = await f.client.post(`${f.endpoint}/runs/${run.runId}/accept-media-text`, {
+      expectedRevision: run.inputRevision,
+    });
+    expect(accepted.status, await accepted.clone().text()).toBe(200);
+    const after = (await (await f.client.get(f.endpoint)).json()) as ActivityDetail;
+    expect(after.draft.mediaPlan!.manifest.assets["ro-RO"]![0]).toMatchObject({
+      script: "Hello there.",
+      translatedFrom: "Penguin",
+    });
+    // The rest of the plan is untouched.
+    expect(after.draft.mediaPlan!.manifest.assets["en-US"]).toEqual(
+      current.draft.mediaPlan!.manifest.assets["en-US"],
+    );
   });
 });

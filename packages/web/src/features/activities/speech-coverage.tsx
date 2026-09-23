@@ -7,6 +7,7 @@ import { useState } from "react";
 import type { ActivityRunSummary, AssetManifest } from "@prismshadow/penguin-server/api";
 import { Button } from "../../components/ui/button";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
+import { Select } from "../../components/ui/select";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { S } from "../../lib/strings";
 import { toneInk, type Tone } from "../../lib/tone";
@@ -28,7 +29,14 @@ const STATE_TONE: Record<SpeechState, Tone | null> = {
   scriptTooLong: "attention",
 };
 
-const FILTERS: readonly SpeechFilter[] = ["all", "needs", "failed", "ready", "blocked"];
+const FILTERS: readonly SpeechFilter[] = [
+  "all",
+  "needs",
+  "translate",
+  "failed",
+  "ready",
+  "blocked",
+];
 
 // The app's segmented control (`components/ui/segmented.tsx`), laid out to wrap: these
 // choices carry counts and can number more than the control's four columns.
@@ -53,6 +61,11 @@ export function SpeechCoverage({
   languages = [],
   onLanguage,
   onRetry,
+  sources,
+  onTranslate,
+  onTranslateAll,
+  addable = [],
+  onAddLanguage,
 }: {
   assets: readonly MediaAsset[];
   language: string;
@@ -63,6 +76,14 @@ export function SpeechCoverage({
   onLanguage?: (language: string) => void;
   /** Generate one narration again after it failed. */
   onRetry?: (key: string) => void;
+  /** The default language's scripts by key, when this language is a translation. */
+  sources?: ReadonlyMap<string, string>;
+  onTranslate?: (key: string) => void;
+  /** Translate everything that needs it, as the Translate stage does. */
+  onTranslateAll?: () => void;
+  /** Languages the activity could still be translated into. */
+  addable?: readonly { code: string; label: string }[];
+  onAddLanguage?: (code: string) => void;
   editable: boolean;
   canGenerate: boolean;
   /** Open one narration in the workbench's detail panel. */
@@ -74,7 +95,11 @@ export function SpeechCoverage({
 }) {
   const [confirming, setConfirming] = useState(false);
   const [filter, setFilter] = useState<SpeechFilter>("all");
-  const statuses = speechStatuses(assets, runs, language);
+  const [adding, setAdding] = useState("");
+  const statuses = speechStatuses(assets, runs, language, sources);
+  const toTranslate = statuses.filter(
+    (status) => status.translation === "missing" || status.translation === "outdated",
+  ).length;
   const tally = speechTally(assets, runs, language);
   const pending = pendingSpeechKeys(assets, runs, language);
   const counts = Object.fromEntries(
@@ -114,6 +139,44 @@ export function SpeechCoverage({
           ))}
         </div>
       )}
+      {editable && (toTranslate > 0 || addable.length > 0) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {toTranslate > 0 && onTranslateAll && (
+            <Button size="sm" disabled={!canGenerate} onClick={onTranslateAll}>
+              {S.activities.speechTranslation.translateAll(toTranslate)}
+            </Button>
+          )}
+          {addable.length > 0 && onAddLanguage && (
+            <>
+              <div className="w-44">
+                <Select
+                  size="sm"
+                  aria-label={S.activities.speechTranslation.addLanguage}
+                  value={adding}
+                  onChange={(event) => setAdding(event.target.value)}
+                >
+                  <option value="">{S.activities.speechTranslation.addLanguage}</option>
+                  {addable.map((entry) => (
+                    <option key={entry.code} value={entry.code}>
+                      {entry.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <Button
+                size="sm"
+                disabled={!adding}
+                onClick={() => {
+                  onAddLanguage(adding);
+                  setAdding("");
+                }}
+              >
+                {S.activities.speechTranslation.add}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
       <div role="group" aria-label={S.activities.bulkSpeechFilters} className={SEGMENTS}>
         {FILTERS.filter((entry) => entry === "all" || counts[entry] > 0).map((entry) => (
           <button
@@ -143,10 +206,36 @@ export function SpeechCoverage({
                   <span className="font-medium">{status.key}</span>
                   <span className="text-gray-500"> · {status.sceneIds.join(", ")}</span>
                 </span>
-                <span className={`shrink-0 ${tone ? toneInk[tone] : "text-gray-500"}`}>
-                  {S.activities.speechState[status.state]}
+                <span
+                  className={`shrink-0 ${
+                    status.translation === "translating"
+                      ? toneInk.busy
+                      : status.translation
+                        ? toneInk.attention
+                        : tone
+                          ? toneInk[tone]
+                          : "text-gray-500"
+                  }`}
+                >
+                  {status.translation === "missing" || status.translation === "translating"
+                    ? S.activities.speechTranslation[status.translation]
+                    : status.translation === "outdated"
+                      ? `${S.activities.speechState[status.state]} · ${S.activities.speechTranslation.outdated}`
+                      : S.activities.speechState[status.state]}
                 </span>
               </button>
+              {(status.translation === "missing" || status.translation === "outdated") &&
+                editable &&
+                onTranslate && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={!canGenerate}
+                    onClick={() => onTranslate(status.key)}
+                  >
+                    {S.activities.speechTranslation.translate}
+                  </Button>
+                )}
               {status.state === "failed" && editable && onRetry && (
                 <Button
                   size="sm"

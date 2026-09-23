@@ -29,7 +29,7 @@ export abstract class ActivityGeneration extends Interface<{
       bookMode?: string;
       audio?: { language: string; assetKey: string; voice: string };
       image?: { language: string; assetKey: string };
-      mediaText?: { language: string; assetKey: string };
+      mediaText?: { language: string; assetKey: string; translate?: boolean };
       /** An assist run: the author's first message and what they had open. */
       assist?: { message: string; focus: AssistFocus | null };
     },
@@ -164,6 +164,13 @@ export abstract class ActivityAuthoring extends Interface<{
   planMedia(
     projectId: string,
     activityId: string,
+    expectedRevision: string,
+  ): Promise<ActivityDraft>;
+  /** Add a language the activity can be translated into, with its media plan to fill in. */
+  addLanguage(
+    projectId: string,
+    activityId: string,
+    language: string,
     expectedRevision: string,
   ): Promise<ActivityDraft>;
   applyMedia(

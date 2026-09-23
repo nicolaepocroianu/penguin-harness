@@ -128,7 +128,7 @@ export type Strings = {
     studioRun: {
       stage: string;
       all: string;
-      steps: Record<"spec" | "media" | "speech" | "images" | "module", string>;
+      steps: Record<"spec" | "media" | "translations" | "speech" | "images" | "module", string>;
       status: Record<
         "pending" | "running" | "succeeded" | "skipped" | "failed" | "cancelled",
         string
@@ -313,7 +313,16 @@ export type Strings = {
     bulkSpeechStop: string;
     bulkSpeechRetry: string;
     bulkSpeechFilters: string;
-    bulkSpeechFilter: Record<"all" | "needs" | "ready" | "failed" | "blocked", string>;
+    bulkSpeechFilter: Record<
+      "all" | "needs" | "translate" | "ready" | "failed" | "blocked",
+      string
+    >;
+    speechTranslation: Record<"missing" | "outdated" | "translating", string> & {
+      translate: string;
+      translateAll: (n: number) => string;
+      addLanguage: string;
+      add: string;
+    };
     bulkSpeechLanguages: string;
     bulkSpeechLanguage: (language: string, ready: number, total: number) => string;
     speechState: Record<

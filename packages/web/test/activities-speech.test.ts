@@ -222,6 +222,43 @@ describe("waveform arithmetic", () => {
   });
 });
 
+describe("translation", () => {
+  const sources = new Map([
+    ["hello", "Hello"],
+    ["bye", "Bye"],
+    ["wave", "Wave"],
+    ["own", "Mine"],
+  ]);
+  const spanish: MediaAsset[] = [
+    asset({ key: "hello" }),
+    asset({ key: "bye", script: "Adiós", translatedFrom: "Goodbye" }),
+    asset({ key: "wave", script: "Hola", translatedFrom: "Wave" }),
+    asset({ key: "own", script: "Mío" }),
+  ];
+  const running = {
+    kind: "media-text",
+    status: "running",
+    createdAt: "2026-09-23T10:00:00Z",
+    mediaText: { language: "es-MX", assetKey: "wave", translation: { from: "Wave" } },
+  } as unknown as ActivityRunSummary;
+
+  it("marks what was never translated, what the default line has since changed, and what is being translated", () => {
+    const statuses = speechStatuses(spanish, [running], "es-MX", sources);
+    expect(statuses.map((status) => [status.key, status.translation])).toEqual([
+      ["hello", "missing"],
+      ["bye", "outdated"],
+      ["wave", "translating"],
+      // Written by someone, with no source recorded: it stands.
+      ["own", undefined],
+    ]);
+    expect(statuses.filter((status) => inSpeechFilter(status, "translate"))).toHaveLength(3);
+  });
+
+  it("marks nothing without the default language's scripts to compare against", () => {
+    expect(speechStatuses(spanish, [], "es-MX").some((status) => status.translation)).toBe(false);
+  });
+});
+
 describe("trimming a clip", () => {
   it("reads a drag as a stretch of the clip, and a click as none", () => {
     expect(selectionFromDrag(150, 50, 200, 4)).toEqual({ start: 1, end: 3 });
