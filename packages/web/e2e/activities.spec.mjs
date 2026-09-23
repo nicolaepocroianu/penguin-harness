@@ -2515,3 +2515,61 @@ test("Activity Stats counts and weighs the media plan by type and language", asy
   await expect(page.getByText("1 bound file was not found", { exact: false })).toBeVisible();
   expect(f.errors).toEqual([]);
 });
+
+test("the header switches between a product's refs and names one, as Loom's Refs do", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  const identities = [];
+  // Only what the switcher reads; the page's own draft comes from the fixture.
+  const ref = { productCode: "words", collectionId: "col_test", archived: false };
+  let current = null;
+  page.on("response", async (response) => {
+    if (
+      new URL(response.url()).pathname === `${base}/act_test` &&
+      response.request().method() === "GET"
+    )
+      current = await response.json().catch(() => current);
+  });
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const json = (value) =>
+      route.fulfill({ contentType: "application/json", body: JSON.stringify(value) });
+    if (url.pathname === base && request.method() === "GET" && url.searchParams.get("collectionId"))
+      return json({
+        activities: [
+          { ...ref, id: "act_test", refNum: 12, displayName: null, stable: false },
+          { ...ref, id: "act_other", refNum: 13, displayName: "Round two", stable: true },
+        ],
+      });
+    if (url.pathname === `${base}/act_test/identity`) {
+      const body = request.postDataJSON();
+      identities.push(body);
+      return json({ ...current, displayName: body.displayName, stable: body.stable });
+    }
+    return route.fallback();
+  });
+  await page.reload();
+  const refs = page.getByRole("button", { name: "Ref", exact: true });
+  await expect(refs).toContainText("Ref 12");
+  await refs.click();
+  await expect(page.getByRole("option", { name: "Ref 13 · Round two · stable" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Ref settings", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "words, ref 12" });
+  await dialog.getByRole("textbox", { name: /^Display name/ }).fill("Round one");
+  await dialog.getByRole("switch").click();
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  await expect.poll(() => identities.length).toBe(1);
+  expect(identities[0]).toEqual({ displayName: "Round one", stable: true });
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText("Stable", { exact: true }).first()).toBeVisible();
+
+  await refs.click();
+  await page.getByRole("option", { name: "Ref 13 · Round two · stable" }).click();
+  await expect(page).toHaveURL(/activities\/act_other$/);
+  expect(f.errors).toEqual([]);
+});

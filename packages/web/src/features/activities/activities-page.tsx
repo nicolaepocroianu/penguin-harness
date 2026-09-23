@@ -49,6 +49,7 @@ import { Storyboard } from "./storyboard-view";
 import { BuildPanel } from "./build-panel";
 import { ModuleDocumentView } from "./module-document-view";
 import { ActivityStatsView } from "./activity-stats-view";
+import { RefSwitcher } from "./ref-switcher";
 import { useAssistProposal } from "./use-assist-proposal";
 import { StudioTreeView } from "./studio-tree-view";
 import { SessionsPanel } from "./sessions-panel";
@@ -997,10 +998,20 @@ function ActivityEditor({
             <h2 className="truncate text-sm font-semibold" title={detail.title}>
               {detail.title}
             </h2>
-            <p className="truncate text-xs text-gray-500">
-              {detail.productCode} / {detail.refNum} · {S.activities.collection}:{" "}
-              {detail.collectionId}
-            </p>
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+              <span>{detail.productCode}</span>
+              <RefSwitcher
+                base={basePath(projectId)}
+                activity={detail}
+                editable={editable && available}
+                onIdentity={(record) =>
+                  setDetail((current) => (current ? { ...current, ...record } : current))
+                }
+              />
+              <span className="truncate">
+                {S.activities.collection}: {detail.collectionId}
+              </span>
+            </div>
           </div>
           <p aria-live="polite" className={`text-xs ${dirty ? toneInk.attention : toneInk.muted}`}>
             {dirty ? S.activities.unsaved : S.activities.draftStatus[detail.draft.status]}

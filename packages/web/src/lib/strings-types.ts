@@ -70,6 +70,17 @@ export type Strings = {
       sessionsEmpty: string;
       openSession: string;
     };
+    /** Loom's refs: the product's refs in the header, and one ref's name and stability. */
+    studioRefs: {
+      ref: string;
+      option: (refNum: number, name: string | null, stable: boolean) => string;
+      stable: string;
+      stableHint: string;
+      settings: string;
+      settingsTitle: (productCode: string, refNum: number) => string;
+      displayName: string;
+      displayNameHint: string;
+    };
     /** The storyboard: every scene as a frame, the Scenes section's first view. */
     studioBoard: {
       title: string;

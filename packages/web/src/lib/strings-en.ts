@@ -74,6 +74,18 @@ export const en: Strings = {
       sessionsEmpty: "No agent has worked on this activity yet.",
       openSession: "Open",
     },
+    studioRefs: {
+      ref: "Ref",
+      option: (refNum: number, name: string | null, stable: boolean) =>
+        `Ref ${refNum}${name ? ` · ${name}` : ""}${stable ? " · stable" : ""}`,
+      stable: "Stable",
+      stableHint:
+        "A stable ref is one other refs may be built from, as in Loom. Mark it stable once its content is settled.",
+      settings: "Ref settings",
+      settingsTitle: (productCode: string, refNum: number) => `${productCode}, ref ${refNum}`,
+      displayName: "Display name",
+      displayNameHint: "Up to 64 characters. Leave empty to show the ref's number.",
+    },
     studioBoard: {
       title: "Storyboard",
       count: (n: number) => `${n} ${n === 1 ? "scene" : "scenes"}`,

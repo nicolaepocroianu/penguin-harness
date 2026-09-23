@@ -1711,4 +1711,17 @@ describe("activity generation through Harness sessions", () => {
     expect(missing.status).toBe(409);
     expect(await missing.json()).toMatchObject({ error: { code: "proposal_missing" } });
   });
+  it("names a ref and marks it stable, and refuses a stability that is not a yes or no", async () => {
+    const { client, endpoint } = await fixture();
+    const bad = await client.patch(`${endpoint}/identity`, { stable: "yes" });
+    expect(bad.status).toBe(400);
+    const named = await client.patch(`${endpoint}/identity`, {
+      displayName: "  Round two ",
+      stable: true,
+    });
+    expect(named.status, await named.clone().text()).toBe(200);
+    expect(await named.json()).toMatchObject({ displayName: "Round two", stable: true });
+    const cleared = await client.patch(`${endpoint}/identity`, { displayName: "" });
+    expect(await cleared.json()).toMatchObject({ displayName: null, stable: true });
+  });
 });

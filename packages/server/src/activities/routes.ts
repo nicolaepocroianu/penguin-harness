@@ -463,6 +463,22 @@ export class ActivityRoutes {
         ),
       ),
     );
+    // What an author calls a ref, and whether others may build against it (Loom's Refs).
+    app.patch("/:activityId/identity", async (c) => {
+      const body = await readJson(c);
+      if (body.stable !== undefined && typeof body.stable !== "boolean")
+        throw badRequest("stable must be true or false.");
+      return c.json(
+        await this.activities.setRefIdentity(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          {
+            ...(body.displayName !== undefined ? { displayName: body.displayName } : {}),
+            ...(body.stable !== undefined ? { stable: body.stable as boolean } : {}),
+          },
+        ),
+      );
+    });
     app.patch("/:activityId/description", async (c) => {
       const body = await readJson(c);
       return c.json(
