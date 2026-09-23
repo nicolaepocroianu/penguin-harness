@@ -1538,11 +1538,11 @@ test("dirty drafts block sidebar, Session, browser back, and project switches", 
   page.on("dialog", decline);
   await openSection(page, "Generation history");
   await page.getByRole("link", { name: "Open Session / approvals" }).click();
-  await expect(page).toHaveURL(/activities\/act_test$/);
+  await expect(page).toHaveURL(/activities\/act_test(\?section=\w+)?$/);
   await page.getByRole("link", { name: "Agents", exact: true }).click();
-  await expect(page).toHaveURL(/activities\/act_test$/);
+  await expect(page).toHaveURL(/activities\/act_test(\?section=\w+)?$/);
   await page.goBack();
-  await expect(page).toHaveURL(/activities\/act_test$/);
+  await expect(page).toHaveURL(/activities\/act_test(\?section=\w+)?$/);
   await openSection(page, "Description");
   await expect(description).toHaveText("Keep this edit");
   await page.getByRole("button", { name: "Activities test", exact: true }).click();
@@ -2806,4 +2806,14 @@ test("a narration shows every language's script, and opens another language from
     /^es-MXNeeds translationNeeds speech$/,
   ]);
   expect(f.errors).toEqual([]);
+});
+
+test("the open section is in the address, so a link or a reload lands on it", async ({ page }) => {
+  await fixture(page);
+  await create(page);
+  await expect(page).toHaveURL(/section=specification/);
+  await page.reload();
+  await expect(page.getByText("Advanced: specification JSON", { exact: true })).toBeVisible();
+  await page.goto(`${origin}/activities/act_test?section=nonsense`);
+  await expect(page.getByRole("textbox", { name: "Activity Script", exact: true })).toBeVisible();
 });

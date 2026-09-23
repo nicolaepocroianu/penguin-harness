@@ -62,6 +62,17 @@ export function workspaceSections(state: WorkspaceState): WorkspaceSectionEntry[
   ];
 }
 
+const SECTION_KEYS: readonly WorkspaceSection[] = workspaceSections({
+  hasSpec: true,
+  hasPlan: true,
+  hasModule: true,
+}).map((section) => section.key);
+
+/** A section named in the address (`?section=`), or null when it names none. */
+export function sectionFromParam(value: string | null): WorkspaceSection | null {
+  return SECTION_KEYS.find((key) => key === value) ?? null;
+}
+
 /** The section to open, honouring a choice only while it is still available. */
 export function resolveSection(
   chosen: WorkspaceSection | null,

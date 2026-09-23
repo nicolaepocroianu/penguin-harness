@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Link, useBlocker, useNavigate, useParams } from "react-router";
+import { Link, useBlocker, useNavigate, useParams, useSearchParams } from "react-router";
 import type {
   ActivityDetail,
   ActivityDraft,
@@ -36,6 +36,7 @@ import {
   resolveSection,
   workspaceSections,
   type StudioPanel,
+  sectionFromParam,
   type WorkspaceSection,
 } from "./workspace-model";
 import { assetForPick, buildStudioTree } from "./studio-tree";
@@ -311,7 +312,26 @@ function ActivityEditor({
   const [description, setDescription] = useState("");
   const [spec, setSpec] = useState("");
   const [specOpen, setSpecOpen] = useState(false);
-  const [sectionChoice, setSection] = useState<WorkspaceSection | null>(null);
+  // The open section is mirrored into ?section= so a link can land on it; an unknown or
+  // not-yet-available one falls back like any other choice.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [sectionChoice, setSectionChoice] = useState<WorkspaceSection | null>(() =>
+    sectionFromParam(searchParams.get("section")),
+  );
+  const setSection = useCallback(
+    (next: WorkspaceSection) => {
+      setSectionChoice(next);
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          params.set("section", next);
+          return params;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
   const [languageChoice, setLanguage] = useState("");
   const [kind, setKind] = useState<SceneAssetType | "all">("all");
   const [selected, setSelected] = useState<SceneAssetSelection | null>(null);

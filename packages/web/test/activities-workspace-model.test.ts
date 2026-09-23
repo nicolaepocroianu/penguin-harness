@@ -13,6 +13,7 @@ import {
   readRailCollapsed,
   readRailWidth,
   resolveSection,
+  sectionFromParam,
   workspaceSections,
   writeRailCollapsed,
   writeRailWidth,
@@ -172,5 +173,13 @@ describe("remembered rail state", () => {
     expect(readRailCollapsed(hostile)).toBe(false);
     expect(() => writeRailWidth(300, hostile)).not.toThrow();
     expect(() => writeRailCollapsed(true, hostile)).not.toThrow();
+  });
+});
+
+describe("sectionFromParam", () => {
+  it("reads a section named in the address and ignores anything else", () => {
+    expect(sectionFromParam("speech")).toBe("speech");
+    expect(sectionFromParam("nope")).toBeNull();
+    expect(sectionFromParam(null)).toBeNull();
   });
 });
