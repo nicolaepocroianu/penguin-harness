@@ -48,6 +48,17 @@ export type Strings = {
       noMatch: (id: string) => string;
       noMedia: string;
       silent: string;
+      map: {
+        toggle: string;
+        scene: string;
+        loading: string;
+        none: string;
+        unreadable: (reason: string) => string;
+        leaves: string;
+        exit: (phase: string, event: string, target: string) => string;
+        live: (phase: string) => string;
+        graph: (scene: string) => string;
+      };
     };
     /** The icon rail on the right and the panels it opens. */
     studioPanels: {

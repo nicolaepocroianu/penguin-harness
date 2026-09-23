@@ -47,6 +47,18 @@ export const en: Strings = {
       noMedia: "Plan media first: picking opens an asset, and this activity has none yet.",
       silent:
         "This module does not report its state. Modules built on Loom's state machine do; older ones, like this one, don't.",
+      map: {
+        toggle: "Behavior map",
+        scene: "Scene",
+        loading: "Reading the module's state machine…",
+        none: "This module has no state machine, so there is no behavior map to draw.",
+        unreadable: (reason: string) => `The behavior map could not be read: ${reason}`,
+        leaves: "Leaves the scene",
+        exit: (phase: string, event: string, target: string) =>
+          `${phase}, on ${event}, to ${target}`,
+        live: (phase: string) => `${phase}, where the activity is now`,
+        graph: (scene: string) => `Behavior of ${scene}`,
+      },
     },
     studioPanels: {
       rail: "Activity panels",

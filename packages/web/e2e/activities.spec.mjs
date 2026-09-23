@@ -1987,3 +1987,71 @@ test("the script saves itself after a pause, and waits while a run is in flight"
   await expect(box).toHaveText("Scene 1: Welcome");
   expect(f.errors).toEqual([]);
 });
+
+test("the player draws the module's behavior map and follows the phase it reports", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  const machine = {
+    version: "1.1",
+    id: "letters",
+    initial: "rocks",
+    states: {
+      rocks: {
+        initial: "prompt",
+        states: {
+          prompt: { invoke: { src: "say", onDone: "waiting" } },
+          waiting: { on: { CORRECT: "correct", WRONG: "retry" } },
+          retry: { invoke: { src: "say", onDone: "waiting" } },
+          correct: { invoke: { src: "chest", onDone: "#next" } },
+        },
+      },
+    },
+  };
+  // A stand-in for the played module: it reports its state the way the real bridge does.
+  const playerPage = `<!doctype html><body><script>
+    setInterval(() => parent.postMessage({
+      type: "penguin-sandbox:activity-state",
+      detail: { index: 1, phase: "waiting", sceneId: "rocks", state: "rocks.waiting" },
+      interactables: [],
+    }, "*"), 100);
+  </script></body>`;
+  await page.route("**/*", (route) => {
+    const p = new URL(route.request().url()).pathname;
+    const json = (value) =>
+      route.fulfill({ contentType: "application/json", body: JSON.stringify(value) });
+    if (p === `${base}/act_test/sandbox/status`)
+      return json({
+        state: "ready",
+        playable: true,
+        buildable: true,
+        message: "Ready.",
+        buildLog: null,
+      });
+    if (p === `${base}/act_test/sandbox/payload`)
+      return json({ configuration: { stateMachine: machine } });
+    if (p === `${base}/act_test/sandbox/play`)
+      return route.fulfill({ contentType: "text/html", body: playerPage });
+    return route.fallback();
+  });
+  await openSection(page, "Specification");
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify({ ...spec, scenes: [{ id: "rocks", description: "Find d" }] }));
+  await page.getByRole("button", { name: "Validate and save", exact: true }).click();
+  await page.getByRole("button", { name: "Player", exact: true }).click();
+  const panel = page.getByRole("complementary", { name: "Player", exact: true });
+  await panel.getByRole("button", { name: "Play", exact: true }).click();
+
+  const map = panel.getByRole("img", { name: "Behavior of rocks", exact: true });
+  await expect(map).toBeVisible();
+  await expect(map.locator('[aria-current="step"]')).toContainText("waiting");
+  await expect(panel.getByText("correct, on done, to next", { exact: true })).toBeVisible();
+
+  const toggle = panel.getByRole("button", { name: "Behavior map", exact: true });
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await toggle.click();
+  await expect(map).toHaveCount(0);
+  expect(f.errors).toEqual([]);
+});

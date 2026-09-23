@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { SandboxBuildReport, SandboxStatus } from "@prismshadow/penguin-server/api";
 import { apiFetch } from "../../api/client";
+import { StateMapView } from "./state-map-view";
 import { S } from "../../lib/strings";
 import { toneStrip } from "../../lib/tone";
 import { Button } from "../../components/ui/button";
@@ -196,6 +197,8 @@ function SandboxPlayer({
   // element inspector does: a second click should play, not pick again.
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
+  // Loom's preview shows its state machine beside the player until an author hides it.
+  const [showMap, setShowMap] = useState(true);
   const sceneRef = useRef<string | null>(null);
   sceneRef.current = report?.state.sceneId ?? null;
   const pickRef = useRef(onPick);
@@ -394,6 +397,17 @@ function SandboxPlayer({
                 ))}
               </div>
             )}
+            <div className="border-t border-gray-200 pt-2 dark:border-gray-800">
+              <StateMapView
+                open={showMap}
+                onToggle={() => setShowMap((value) => !value)}
+                base={`/api/projects/${encodeURIComponent(projectId)}/activities/${encodeURIComponent(activityId)}/sandbox`}
+                language={language}
+                reportedScene={report?.state.sceneId ?? null}
+                reportedPhase={report?.state.phase ?? null}
+                startScene={scene}
+              />
+            </div>
           </div>
         </div>
       )}

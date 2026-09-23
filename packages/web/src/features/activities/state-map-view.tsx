@@ -1,0 +1,287 @@
+/**
+ * The behavior map under the player, as Loom's preview draws it beside its sandbox: the
+ * scene's phases top to bottom, forward transitions as solid curves, returns dashed, and
+ * the phase the activity reports itself in highlighted as it plays.
+ *
+ * The machine is read from the module's own configuration through the sandbox payload,
+ * never from the playing page, so the map shows what the module declares rather than what
+ * a page chose to say.
+ */
+import { useEffect, useId, useMemo, useState } from "react";
+import { apiFetch } from "../../api/client";
+import { Select } from "../../components/ui/select";
+import { apiErrorText } from "../../lib/api-error";
+import { S } from "../../lib/strings";
+import { toneInk } from "../../lib/tone";
+import { machineOf, machineScenes, sceneMap, type MapNode, type StateMachine } from "./state-map";
+
+const WIDTH = 360;
+const ROW = 64;
+const NODE_HEIGHT = 28;
+const PAD = 18;
+
+function centre(node: MapNode) {
+  return {
+    x: PAD + ((WIDTH - PAD * 2) * (node.column + 0.5)) / node.columns,
+    y: PAD + NODE_HEIGHT / 2 + node.depth * ROW,
+  };
+}
+const nodeWidth = (node: MapNode) => Math.min(132, (WIDTH - PAD * 2) / node.columns - 14);
+
+function SceneGraph({
+  machine,
+  sceneId,
+  livePhase,
+}: {
+  machine: StateMachine;
+  sceneId: string;
+  livePhase: string | null;
+}) {
+  const words = S.activities.studioPlayer.map;
+  const marker = `arrow-${useId().replace(/[^a-zA-Z0-9-]/g, "")}`;
+  const map = useMemo(() => sceneMap(machine, sceneId), [machine, sceneId]);
+  if (!map) return null;
+  const byId = new Map(map.nodes.map((node) => [node.id, node]));
+  const height = PAD * 2 + NODE_HEIGHT + Math.max(0, ...map.nodes.map((n) => n.depth)) * ROW;
+  // Two transitions between the same phases are one line with both names.
+  const lines = new Map<string, { from: MapNode; to: MapNode; labels: string[]; back: boolean }>();
+  for (const edge of map.edges) {
+    const key = `${edge.from}->${edge.to}`;
+    const entry = lines.get(key);
+    if (entry) entry.labels.push(edge.label);
+    else
+      lines.set(key, {
+        from: byId.get(edge.from)!,
+        to: byId.get(edge.to)!,
+        labels: [edge.label],
+        back: edge.back,
+      });
+  }
+  return (
+    <div className="space-y-2">
+      <svg
+        role="img"
+        aria-label={words.graph(sceneId)}
+        viewBox={`0 0 ${WIDTH} ${height}`}
+        className="w-full"
+      >
+        <defs>
+          <marker
+            id={marker}
+            viewBox="0 0 8 8"
+            refX="7"
+            refY="4"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto-start-reverse"
+          >
+            <path d="M0 0L8 4L0 8z" className="fill-gray-400 dark:fill-gray-500" />
+          </marker>
+        </defs>
+        {[...lines.values()].map(({ from, to, labels, back }) => {
+          const a = centre(from);
+          const b = centre(to);
+          const label = labels.join(", ");
+          let d: string;
+          let lx: number;
+          let ly: number;
+          if (from === to) {
+            const x = a.x + nodeWidth(from) / 2;
+            d = `M${x} ${a.y - 6} C${x + 28} ${a.y - 20} ${x + 28} ${a.y + 20} ${x} ${a.y + 6}`;
+            lx = x + 26;
+            ly = a.y + 3;
+          } else if (!back) {
+            const y1 = a.y + NODE_HEIGHT / 2;
+            const y2 = b.y - NODE_HEIGHT / 2;
+            d = `M${a.x} ${y1} C${a.x} ${y1 + 22} ${b.x} ${y2 - 22} ${b.x} ${y2}`;
+            lx = (a.x + b.x) / 2 + 6;
+            ly = (y1 + y2) / 2 + 3;
+          } else {
+            // A return swings out past the side it is nearer, clear of the forward path.
+            const left = a.x <= WIDTH / 2;
+            const x1 = a.x + ((left ? -1 : 1) * nodeWidth(from)) / 2;
+            const x2 = b.x + ((left ? -1 : 1) * nodeWidth(to)) / 2;
+            const swing = left ? Math.min(x1, x2) - 34 : Math.max(x1, x2) + 34;
+            d = `M${x1} ${a.y} C${swing} ${a.y} ${swing} ${b.y} ${x2} ${b.y}`;
+            lx = swing + (left ? -2 : 2);
+            ly = (a.y + b.y) / 2 + 3;
+          }
+          return (
+            <g key={`${from.id}->${to.id}`}>
+              <path
+                d={d}
+                fill="none"
+                strokeWidth="1.5"
+                strokeDasharray={back ? "4 3" : undefined}
+                markerEnd={`url(#${marker})`}
+                className="stroke-gray-300 dark:stroke-gray-600"
+              />
+              <text
+                x={lx}
+                y={ly}
+                fontSize="10"
+                textAnchor={back && lx < WIDTH / 2 ? "end" : "start"}
+                className="fill-gray-500"
+              >
+                {label}
+              </text>
+            </g>
+          );
+        })}
+        {map.nodes.map((node) => {
+          const { x, y } = centre(node);
+          const width = nodeWidth(node);
+          const live = node.id === livePhase;
+          return (
+            <g key={node.id} aria-current={live ? "step" : undefined}>
+              <title>{live ? words.live(node.id) : node.id}</title>
+              <rect
+                x={x - width / 2}
+                y={y - NODE_HEIGHT / 2}
+                width={width}
+                height={NODE_HEIGHT}
+                rx={node.final ? NODE_HEIGHT / 2 : 6}
+                strokeWidth={live ? "1.5" : "1"}
+                className={
+                  live
+                    ? "fill-brand-50 stroke-brand-600 dark:fill-brand-950 dark:stroke-brand-300"
+                    : "fill-white stroke-gray-300 dark:fill-gray-900 dark:stroke-gray-700"
+                }
+              />
+              <text
+                x={x}
+                y={y + 4}
+                fontSize="11"
+                textAnchor="middle"
+                className={
+                  live
+                    ? "fill-brand-700 font-semibold dark:fill-brand-200"
+                    : "fill-gray-700 dark:fill-gray-300"
+                }
+              >
+                {node.id.length > 18 ? `${node.id.slice(0, 17)}…` : node.id}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      {map.exits.length > 0 && (
+        <div className="space-y-0.5 text-xs text-gray-500">
+          <p className="font-medium">{words.leaves}</p>
+          <ul>
+            {map.exits.map((exit) => (
+              <li key={`${exit.from}:${exit.label}:${exit.to}`} className="truncate">
+                {words.exit(exit.from, exit.label, exit.to.replace(/^#/, ""))}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function StateMapView({
+  base,
+  language,
+  reportedScene,
+  reportedPhase,
+  startScene,
+  open,
+  onToggle,
+}: {
+  /** Whether the map is shown; the header stays either way, as Loom's toggle does. */
+  open: boolean;
+  onToggle: () => void;
+  /** The activity's sandbox API path. */
+  base: string;
+  language: string;
+  reportedScene: string | null;
+  reportedPhase: string | null;
+  startScene: string;
+}) {
+  const words = S.activities.studioPlayer.map;
+  const [read, setRead] = useState<
+    | { state: "loading" }
+    | { state: "none" }
+    | { state: "error"; message: string }
+    | { state: "ready"; machine: StateMachine }
+  >({ state: "loading" });
+  const [choice, setChoice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setRead({ state: "loading" });
+    const query = language ? `?${new URLSearchParams({ language })}` : "";
+    apiFetch<{ configuration: unknown }>(`${base}/payload${query}`)
+      .then((payload) => {
+        if (cancelled) return;
+        const machine = machineOf(payload.configuration);
+        setRead(machine ? { state: "ready", machine } : { state: "none" });
+      })
+      .catch((cause) => {
+        if (!cancelled) setRead({ state: "error", message: apiErrorText(cause) });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [base, language, open]);
+  // A scene change in the player takes the map with it; a scene the author picked holds
+  // until then.
+  useEffect(() => setChoice(null), [reportedScene]);
+
+  const machine = open && read.state === "ready" ? read.machine : null;
+  const scenes = machine ? machineScenes(machine) : [];
+  const shown =
+    choice ??
+    (reportedScene && scenes.includes(reportedScene)
+      ? reportedScene
+      : scenes.includes(startScene)
+        ? startScene
+        : machine && scenes.includes(machine.initial)
+          ? machine.initial
+          : (scenes[0] ?? ""));
+  return (
+    <div className="space-y-2">
+      <div className="flex min-h-8 items-center gap-2">
+        <button
+          type="button"
+          aria-pressed={open}
+          onClick={onToggle}
+          className="min-w-0 flex-1 text-left text-xs text-brand-700 hover:underline dark:text-brand-300"
+        >
+          {words.toggle}
+        </button>
+        {scenes.length > 1 && (
+          <div className="w-40">
+            <Select
+              size="sm"
+              aria-label={words.scene}
+              value={shown}
+              onChange={(event) => setChoice(event.target.value)}
+            >
+              {scenes.map((id) => (
+                <option key={id} value={id}>
+                  {id}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
+      </div>
+      {!open ? null : read.state === "loading" ? (
+        <p className="text-xs text-gray-500">{words.loading}</p>
+      ) : read.state === "error" ? (
+        <p className={`text-xs ${toneInk.attention}`}>{words.unreadable(read.message)}</p>
+      ) : !machine || !scenes.length ? (
+        <p className="text-xs text-gray-500">{words.none}</p>
+      ) : (
+        <SceneGraph
+          machine={machine}
+          sceneId={shown}
+          livePhase={shown === reportedScene ? reportedPhase : null}
+        />
+      )}
+    </div>
+  );
+}
