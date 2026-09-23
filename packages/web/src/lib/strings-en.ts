@@ -312,6 +312,15 @@ export const en: Strings = {
     waveform: "Waveform",
     showWaveform: "Show waveform",
     waveformLoading: "Reading the clip…",
+    waveformTrim: {
+      hint: "Drag across the waveform to select a stretch to play or remove.",
+      selected: (start: string, end: string) => `${start} to ${end} selected`,
+      play: "Play selection",
+      remove: "Remove selection",
+      clear: "Clear",
+      working: "Trimming…",
+      failed: (reason: string) => `The clip could not be trimmed: ${reason}`,
+    },
     waveformUnavailable: "This clip's waveform could not be drawn. Playback still works.",
     bulkSpeechTitle: "Speech coverage",
     bulkSpeechHelp:

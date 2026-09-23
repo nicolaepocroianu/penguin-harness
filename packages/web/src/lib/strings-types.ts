@@ -263,6 +263,15 @@ export type Strings = {
     waveform: string;
     showWaveform: string;
     waveformLoading: string;
+    waveformTrim: {
+      hint: string;
+      selected: (start: string, end: string) => string;
+      play: string;
+      remove: string;
+      clear: string;
+      working: string;
+      failed: (reason: string) => string;
+    };
     waveformUnavailable: string;
     bulkSpeechTitle: string;
     bulkSpeechHelp: string;

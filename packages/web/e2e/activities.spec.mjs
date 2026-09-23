@@ -2372,3 +2372,109 @@ test("the conversation panel lists its threads and shows the open one's proposal
   await expect(panel.getByText("An older idea.", { exact: true })).toBeVisible();
   expect(f.errors).toEqual([]);
 });
+
+/** A mono 16-bit PCM WAV of a quiet tone, `seconds` long, for clips the browser can decode. */
+function toneWav(seconds, rate = 8000) {
+  const frames = Math.round(seconds * rate);
+  const bytes = Buffer.alloc(44 + frames * 2);
+  bytes.write("RIFF", 0);
+  bytes.writeUInt32LE(36 + frames * 2, 4);
+  bytes.write("WAVEfmt ", 8);
+  bytes.writeUInt32LE(16, 16);
+  bytes.writeUInt16LE(1, 20);
+  bytes.writeUInt16LE(1, 22);
+  bytes.writeUInt32LE(rate, 24);
+  bytes.writeUInt32LE(rate * 2, 28);
+  bytes.writeUInt16LE(2, 32);
+  bytes.writeUInt16LE(16, 34);
+  bytes.write("data", 36);
+  bytes.writeUInt32LE(frames * 2, 40);
+  for (let frame = 0; frame < frames; frame += 1)
+    bytes.writeInt16LE(Math.round(Math.sin(frame / 8) * 8000), 44 + frame * 2);
+  return bytes;
+}
+
+test("trims a stretch out of a narration and binds the shorter clip", async ({ page }) => {
+  const f = await fixture(page);
+  await create(page);
+  const clip = toneWav(2);
+  const stored = [];
+  await page.route(`**${base}/act_test/plan-media`, (route) =>
+    route.fallback({
+      postData: JSON.stringify({
+        ...route.request().postDataJSON(),
+        manifest: {
+          productCode: "words",
+          refNum: 12,
+          assets: {
+            "en-US": [
+              {
+                key: "hello",
+                type: "audio",
+                description: "Greeting",
+                script: "Hello",
+                path: "media/uploads/hello-00000000.wav",
+                usages: [
+                  { sceneId: "intro", sourceKey: "hello", occurrence: 1, sceneOccurrenceCount: 1 },
+                ],
+              },
+            ],
+          },
+        },
+      }),
+    }),
+  );
+  await page.route("**/*", (route) => {
+    const request = route.request();
+    const p = new URL(request.url()).pathname;
+    if (p === `${base}/act_test/media-upload`)
+      return route.fulfill({ contentType: "audio/wav", body: clip });
+    if (p === `${base}/act_test/media-uploads` && request.method() === "POST") {
+      const input = request.postDataJSON();
+      const record = {
+        path: "media/uploads/hello-trimmed-1234abcd.wav",
+        name: input.name,
+        kind: "audio",
+        mimeType: "audio/wav",
+        byteLength: Buffer.from(input.dataBase64, "base64").byteLength,
+        sha256: "b".repeat(64),
+        updatedAt: "2026-09-23T10:00:00.000Z",
+      };
+      stored.push(record);
+      return route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify(record),
+      });
+    }
+    return route.fallback();
+  });
+  await openSection(page, "Specification");
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify(spec));
+  await page.getByRole("button", { name: "Validate and save", exact: true }).click();
+  await openSection(page, "Scenes and media");
+  await planMedia(page);
+  await page.getByRole("button", { name: "Show waveform", exact: true }).click();
+  const wave = page.getByRole("slider", { name: /^Waveform: hello/ });
+  await expect(wave).toBeVisible();
+  await expect(page.getByText("Drag across the waveform", { exact: false })).toBeVisible();
+
+  // Drag across the middle half of the clip.
+  const box = await wave.boundingBox();
+  await page.mouse.move(box.x + box.width * 0.25, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.75, box.y + box.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.getByText(/selected$/)).toBeVisible();
+  await page.getByRole("button", { name: "Remove selection", exact: true }).click();
+  await expect.poll(() => stored.length).toBe(1);
+  // Half the clip is gone, at the clip's own rate: a second of an 8 kHz, 16-bit mono tone.
+  expect(stored[0].byteLength).toBeGreaterThan(44 + 7000 * 2);
+  expect(stored[0].byteLength).toBeLessThan(44 + 9000 * 2);
+  await expect(page.getByRole("textbox", { name: /^Media path/ })).toHaveValue(
+    "media/uploads/hello-trimmed-1234abcd.wav",
+  );
+  expect(f.errors).toEqual([]);
+});

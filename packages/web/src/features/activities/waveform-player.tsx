@@ -13,7 +13,18 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { S } from "../../lib/strings";
 import { usePrefersReducedMotion } from "../../components/ui/use-reduced-motion";
-import { clipTime, normalizePeaks, playedFraction, seekTime, waveformPeaks } from "./waveform";
+import {
+  clipTime,
+  encodeWav,
+  normalizePeaks,
+  playedFraction,
+  removeRange,
+  seekTime,
+  selectionFromDrag,
+  wavSampleRate,
+  waveformPeaks,
+} from "./waveform";
+import { toneInk } from "../../lib/tone";
 
 const COLUMN_WIDTH = 3;
 const COLUMN_GAP = 1;
@@ -25,10 +36,16 @@ export function WaveformPlayer({
   label,
   /** Drawn straight away, for the one clip an author is working on. */
   autoLoad = false,
+  onTrim,
 }: {
   src: string;
   label: string;
   autoLoad?: boolean;
+  /**
+   * Offered the clip with a selected stretch removed, as a WAV file, to store and bind in
+   * place of this one. Absent where the clip cannot be replaced, which leaves no trimming.
+   */
+  onTrim?: (wav: Uint8Array) => Promise<void>;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -45,6 +62,12 @@ export function WaveformPlayer({
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const reducedMotion = usePrefersReducedMotion();
+  // Loom's trim: a stretch dragged across the waveform, played on its own or cut out.
+  const [selection, setSelection] = useState<{ start: number; end: number } | null>(null);
+  const [trimming, setTrimming] = useState(false);
+  const [trimError, setTrimError] = useState<string | null>(null);
+  const dragFrom = useRef<number | null>(null);
+  const stopAt = useRef<number | null>(null);
 
   useEffect(() => {
     setEnvelope(null);
@@ -53,6 +76,8 @@ export function WaveformPlayer({
     setPosition(0);
     setDuration(0);
     setRequested(autoLoad);
+    setSelection(null);
+    setTrimError(null);
   }, [src, autoLoad]);
 
   // Measure the box, and keep measuring it: the workbench is a resizable two-column
@@ -121,14 +146,70 @@ export function WaveformPlayer({
     // currentColor is not available to canvas, so the two inks are read from the element.
     const styles = getComputedStyle(canvas);
     const played = styles.getPropertyValue("color");
-    const rest = styles.getPropertyValue("background-color");
+    // Not the background: bars in the canvas's own background colour would be invisible.
+    const rest = styles.getPropertyValue("caret-color");
+    // The selection's ink is the border colour, which the canvas carries but never draws.
+    const selected = styles.getPropertyValue("border-top-color");
     const boundary = playedFraction(position, duration) * peaks.length;
+    const [from, to] = selection
+      ? [
+          playedFraction(selection.start, duration) * peaks.length,
+          playedFraction(selection.end, duration) * peaks.length,
+        ]
+      : [-1, -1];
     for (const [index, peak] of peaks.entries()) {
       const bar = Math.max(1, peak * (height - 2));
-      context.fillStyle = index < boundary ? played : rest;
+      context.fillStyle = index >= from && index < to ? selected : index < boundary ? played : rest;
       context.fillRect(index * (COLUMN_WIDTH + COLUMN_GAP), (height - bar) / 2, COLUMN_WIDTH, bar);
     }
-  }, [peaks, position, duration]);
+  }, [peaks, position, duration, selection]);
+
+  function offset(clientX: number): { x: number; width: number } | null {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    return { x: clientX - rect.left, width: rect.width };
+  }
+
+  function playSelection() {
+    const audio = audioRef.current;
+    if (!audio || !selection) return;
+    audio.currentTime = selection.start;
+    stopAt.current = selection.end;
+    void audio.play();
+  }
+
+  async function removeSelection() {
+    if (!selection || !onTrim) return;
+    setTrimming(true);
+    setTrimError(null);
+    try {
+      const Context =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Context) throw new Error("no audio context");
+      const response = await fetch(src, { credentials: "same-origin" });
+      if (!response.ok) throw new Error(String(response.status));
+      const bytes = await response.arrayBuffer();
+      const rate = wavSampleRate(new Uint8Array(bytes));
+      const context = rate ? new Context({ sampleRate: rate }) : new Context();
+      try {
+        const decoded = await context.decodeAudioData(bytes);
+        const channels = Array.from({ length: decoded.numberOfChannels }, (_, index) =>
+          decoded.getChannelData(index),
+        );
+        const kept = removeRange(channels, decoded.sampleRate, selection.start, selection.end);
+        await onTrim(encodeWav(kept, decoded.sampleRate));
+        setSelection(null);
+      } finally {
+        void context.close();
+      }
+    } catch (error) {
+      setTrimError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setTrimming(false);
+    }
+  }
 
   function seek(clientX: number) {
     const canvas = canvasRef.current;
@@ -149,7 +230,18 @@ export function WaveformPlayer({
           aria-valuemax={Math.round(duration)}
           aria-valuenow={Math.round(position)}
           aria-valuetext={`${clipTime(position)} / ${clipTime(duration)}`}
-          onClick={(event) => seek(event.clientX)}
+          onPointerDown={(event) => {
+            if (onTrim) dragFrom.current = event.clientX;
+          }}
+          onPointerUp={(event) => {
+            const from = dragFrom.current;
+            dragFrom.current = null;
+            const at = offset(event.clientX);
+            const start = from === null ? null : offset(from);
+            const range = at && start ? selectionFromDrag(start.x, at.x, at.width, duration) : null;
+            if (range) setSelection(range);
+            else seek(event.clientX);
+          }}
           onKeyDown={(event) => {
             const audio = audioRef.current;
             if (!audio) return;
@@ -166,8 +258,9 @@ export function WaveformPlayer({
           <canvas
             ref={canvasRef}
             aria-hidden
-            // The canvas reads both inks off itself: text for played, background for the rest.
-            className="block h-12 w-full bg-gray-300 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
+            // The canvas reads its inks off itself, from properties it never draws with:
+            // text for played, caret for the rest, border for a selection.
+            className="block h-12 w-full border-brand-500 caret-gray-300 text-gray-900 dark:border-brand-300 dark:caret-gray-700 dark:text-gray-100"
           />
         </div>
       ) : (
@@ -199,6 +292,11 @@ export function WaveformPlayer({
           if (Number.isFinite(value) && !duration) setDuration(value);
         }}
         onTimeUpdate={(event) => {
+          // Playing a selection stops at its end, as Loom's "Play selected" does.
+          if (stopAt.current !== null && event.currentTarget.currentTime >= stopAt.current) {
+            stopAt.current = null;
+            event.currentTarget.pause();
+          }
           // Reduced motion keeps the picture still; the native player still reads out time.
           if (!reducedMotion) setPosition(event.currentTarget.currentTime);
         }}
@@ -207,6 +305,39 @@ export function WaveformPlayer({
       {duration > 0 && (
         <p className="text-xs text-gray-500">
           {clipTime(position)} / {clipTime(duration)}
+        </p>
+      )}
+      {onTrim && peaks?.length ? (
+        selection ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-gray-600 dark:text-gray-300">
+              {S.activities.waveformTrim.selected(
+                clipTime(selection.start),
+                clipTime(selection.end),
+              )}
+            </span>
+            <Button size="sm" variant="ghost" onClick={playSelection} disabled={trimming}>
+              {S.activities.waveformTrim.play}
+            </Button>
+            <Button size="sm" onClick={() => void removeSelection()} disabled={trimming}>
+              {trimming ? S.activities.waveformTrim.working : S.activities.waveformTrim.remove}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSelection(null)}
+              disabled={trimming}
+            >
+              {S.activities.waveformTrim.clear}
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500">{S.activities.waveformTrim.hint}</p>
+        )
+      ) : null}
+      {trimError && (
+        <p role="alert" className={`text-xs ${toneInk.danger}`}>
+          {S.activities.waveformTrim.failed(trimError)}
         </p>
       )}
     </div>

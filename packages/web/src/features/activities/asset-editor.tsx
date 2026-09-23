@@ -105,6 +105,20 @@ export function AssetEditor({
   const audioUrl = (runId: string) => `${endpoint}/runs/${encodeURIComponent(runId)}/audio`;
   const generatedImageUrl = (runId: string) =>
     `${endpoint}/runs/${encodeURIComponent(runId)}/image`;
+  /**
+   * Store a trimmed clip as an upload and bind the asset to it. The file is no longer the
+   * one a speech run produced, so the asset stops claiming that run's output.
+   */
+  async function trimTo(wav: Uint8Array) {
+    if (!asset) return;
+    const stored = await onUpload(
+      new File([wav as BlobPart], `${asset.key}-trimmed.wav`, { type: "audio/wav" }),
+    );
+    edit((entry) => {
+      entry.path = stored.path;
+      delete entry.generatedAudio;
+    });
+  }
   function edit(change: (entry: NonNullable<typeof asset>) => void) {
     if (!asset || !editable || disabled) return;
     const updated = structuredClone(manifest);
@@ -276,6 +290,7 @@ export function AssetEditor({
               <WaveformPlayer
                 src={`${endpoint}/media-upload?path=${encodeURIComponent(asset.path!)}`}
                 label={asset.key}
+                onTrim={editable && !disabled ? trimTo : undefined}
               />
             )}
             {(asset.type === "video" || asset.type === "animation") &&
@@ -326,6 +341,7 @@ export function AssetEditor({
                       src={audioUrl(asset.generatedAudio.runId)}
                       label={S.activities.acceptedAudio}
                       autoLoad
+                      onTrim={editable && !disabled ? trimTo : undefined}
                     />
                   </div>
                 )}
