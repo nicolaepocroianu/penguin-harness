@@ -13,7 +13,7 @@ import path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream as WebReadableStream } from "node:stream/web";
-import { spawnTarget } from "@prismshadow/penguin-coding-agents";
+import { sandboxedAgentEnv, spawnTarget } from "@prismshadow/penguin-coding-agents";
 import * as tar from "tar";
 import { binaryFromManifest } from "./copilot-package.js";
 
@@ -24,6 +24,11 @@ export interface InstallRequest {
   runtimesDir: string;
   signal?: AbortSignal;
   onProgress?: (received: number, total: number | null) => void;
+  /**
+   * The environment the --version check runs with; defaults to the sandboxed agent
+   * allow-list, never the server's own environment.
+   */
+  env?: Record<string, string>;
 }
 
 export interface InstalledRuntime {
@@ -84,12 +89,19 @@ export async function installRuntime(req: InstallRequest): Promise<InstalledRunt
       throw error;
     }
     const installed = await installedRuntime(req.runtimesDir, req.version);
+    // On the two restore paths below, if this `rm` of the bad target fails, the old copy stays
+    // stranded under its `.incoming-` name and the next startup's cleanup deletes it. That is only
+    // safe because BuiltinAgentsService never reinstalls a working pinned version; any future
+    // "force reinstall" must move the bad target aside first instead of relying on this rm.
     if (installed === null) {
       await fs.rm(target, { recursive: true, force: true });
       if (hadPrevious) await fs.rename(aside, target).catch(() => undefined);
       throw new RuntimeInstallError("start", "The package did not unpack a program.");
     }
-    const reportedVersion = await versionOf(installed.program).catch(async (error: unknown) => {
+    const reportedVersion = await versionOf(
+      installed.program,
+      req.env ?? sandboxedAgentEnv(),
+    ).catch(async (error: unknown) => {
       await fs.rm(target, { recursive: true, force: true });
       if (hadPrevious) await fs.rename(aside, target).catch(() => undefined);
       throw new RuntimeInstallError(
@@ -228,7 +240,7 @@ async function download(
   }
 }
 
-function versionOf(program: string): Promise<string> {
+function versionOf(program: string, env: Record<string, string>): Promise<string> {
   const [file, args] = spawnTarget(program, ["--version"]);
   return new Promise((resolve, reject) => {
     execFile(
@@ -237,6 +249,7 @@ function versionOf(program: string): Promise<string> {
       {
         timeout: 30_000,
         windowsHide: true,
+        env,
         ...(file !== program ? { windowsVerbatimArguments: true } : {}),
       },
       (error, stdout) => {

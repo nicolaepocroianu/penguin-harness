@@ -17,6 +17,9 @@ export abstract class BuiltinAgents extends Interface<{
   /** Stop a download in progress; a cancelled download is not reported as a failure. */
   cancel(id: "copilot"): void;
   replaceToken(id: "copilot", token: string): BuiltinAgentInfo;
-  /** Delete the runtime, the token and the agent definition. Past sessions stay readable. */
+  /**
+   * Delete the runtime, the token and the agent definition. Past sessions stay readable.
+   * Refused while a live session runs the agent: its program is in use.
+   */
   remove(id: "copilot"): Promise<void>;
 }>() {}

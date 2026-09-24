@@ -171,6 +171,49 @@ describe("built-in copilot", () => {
     await expect(fs.access(path.join(t.root, "runtimes", "copilot"))).rejects.toThrow();
   });
 
+  it("says a replaced token waits for the running sessions to end", async () => {
+    await admin.post("/api/coding-agents/builtin/copilot/setup", { token: PAT });
+    expect(await until(state, (s) => s.status !== "downloading")).toMatchObject({
+      status: "ready",
+      envPending: false,
+    });
+    const created = await admin.post("/api/coding-agents/sessions", {
+      agentId: "copilot-builtin",
+    });
+    expect(created.status).toBe(201);
+    const { session } = (await created.json()) as { session: { sessionId: string } };
+    expect((await state()).envPending).toBe(false);
+    await admin.put("/api/coding-agents/builtin/copilot/token", {
+      token: "github_pat_22OTHER00000000000000000wxyz",
+    });
+    expect(await state()).toMatchObject({ tokenMasked: "gith…wxyz", envPending: true });
+    expect((await admin.delete(`/api/coding-agents/sessions/${session.sessionId}`)).status).toBe(
+      204,
+    );
+    expect((await state()).envPending).toBe(false);
+  });
+
+  it("refuses Remove while a session uses it, and removes once it closes", async () => {
+    await admin.post("/api/coding-agents/builtin/copilot/setup", { token: PAT });
+    await until(state, (s) => s.status !== "downloading");
+    const created = await admin.post("/api/coding-agents/sessions", {
+      agentId: "copilot-builtin",
+    });
+    expect(created.status).toBe(201);
+    const { session } = (await created.json()) as { session: { sessionId: string } };
+    const refused = await admin.delete("/api/coding-agents/builtin/copilot");
+    expect(refused.status).toBe(400);
+    expect(await refused.text()).toContain(
+      "Close the sessions using built-in Copilot before removing it.",
+    );
+    expect(await state()).toMatchObject({ status: "ready", tokenMasked: "gith…abcd" });
+    await fs.access(path.join(t.root, "runtimes", "copilot", COPILOT_VERSION));
+
+    await admin.delete(`/api/coding-agents/sessions/${session.sessionId}`);
+    expect((await admin.delete("/api/coding-agents/builtin/copilot")).status).toBe(204);
+    expect(await state()).toMatchObject({ status: "not-installed", tokenMasked: null });
+  });
+
   it("refuses an unknown built-in agent", async () => {
     expect(
       (await admin.post("/api/coding-agents/builtin/other/setup", { token: PAT })).status,
@@ -215,6 +258,59 @@ describe("built-in copilot across a restart", () => {
         tokenMasked: "gith…abcd",
       });
       expect((await fs.readdir(runtimes)).sort()).toEqual([COPILOT_VERSION]);
+    } finally {
+      delete process.env.PENGUIN_NPM_REGISTRY;
+      if (second !== undefined) await second.cleanup();
+      else await fs.rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+      await registry.close();
+    }
+  });
+
+  it("reports a missing program as failed, keeps the token, and downloads it again", async () => {
+    const packageName = copilotPackageName(process.platform, process.arch, isMuslLinux())!;
+    const registry = await fakeRegistry({ packageName, version: COPILOT_VERSION });
+    process.env.PENGUIN_NPM_REGISTRY = registry.url;
+    const root = await makeTempRoot();
+    const config = { root, dbPath: path.join(root, "web.db") };
+    let second: TestApp | undefined;
+    const read = async (client: ReturnType<typeof apiClient>) =>
+      ((await (await client.get("/api/coding-agents/builtin")).json()) as BuiltinAgentsResponse)
+        .agents[0]!;
+    try {
+      const first = await createTestApp({ config });
+      const admin = apiClient(first.app, (await loginAdmin(first.app)).cookie);
+      await admin.post("/api/coding-agents/builtin/copilot/setup", { token: PAT });
+      await until(
+        () => read(admin),
+        (s) => s.status !== "downloading",
+      );
+      first.deps.hmr.dispose();
+      first.deps.channels.dispose();
+      first.deps.db.close();
+      // Quarantined, cleared or moved: the definition survives, the program does not.
+      await fs.rm(path.join(root, "runtimes", "copilot"), { recursive: true, force: true });
+
+      second = await createTestApp({ config });
+      const again = apiClient(second.app, (await loginAdmin(second.app)).cookie);
+      expect(await read(again)).toMatchObject({
+        status: "failed",
+        installedVersion: null,
+        tokenMasked: "gith…abcd",
+        message: "The Copilot program is missing. Try again to download it.",
+      });
+      // Try again with the stored token.
+      expect((await again.post("/api/coding-agents/builtin/copilot/setup", {})).status).toBe(202);
+      expect(
+        await until(
+          () => read(again),
+          (s) => s.status !== "downloading",
+        ),
+      ).toMatchObject({
+        status: "ready",
+        installedVersion: COPILOT_VERSION,
+        tokenMasked: "gith…abcd",
+        message: null,
+      });
     } finally {
       delete process.env.PENGUIN_NPM_REGISTRY;
       if (second !== undefined) await second.cleanup();

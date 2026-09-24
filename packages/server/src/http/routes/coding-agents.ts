@@ -275,7 +275,14 @@ export function codingAgentsRoutes(deps: CodingAgentsRouteDeps): Hono<AppEnv> {
   app.delete("/builtin/:id", async (c) => {
     requireAdmin(c);
     requireCopilot(c);
-    await deps.builtinAgents.remove("copilot");
+    try {
+      await deps.builtinAgents.remove("copilot");
+    } catch (error) {
+      if (error instanceof Error && error.name === "RuntimeInstallError") {
+        throw badRequest(error.message);
+      }
+      throw error;
+    }
     return c.body(null, 204);
   });
 

@@ -30,6 +30,8 @@ export async function fakeRegistry(opts: {
   hold?: Promise<void>;
   /** The stub's `--version` exits non-zero instead of reporting a version. */
   failVersion?: boolean;
+  /** The stub's `--version` line also prints this environment variable's value. */
+  echoEnv?: string;
 }): Promise<FakeRegistry> {
   const work = await fs.mkdtemp(path.join(os.tmpdir(), "builtin-registry-"));
   const pkg = path.join(work, "package");
@@ -44,8 +46,10 @@ export async function fakeRegistry(opts: {
       exports: { ".": `./${program}` },
     }),
   );
-  const winVersionBranch = opts.failVersion ? "exit /b 1" : "echo 1.0.0-test& exit /b 0";
-  const posixVersionBranch = opts.failVersion ? "exit 1" : "echo 1.0.0-test; exit 0";
+  const winEcho = opts.echoEnv !== undefined ? ` [%${opts.echoEnv}%]` : "";
+  const posixEcho = opts.echoEnv !== undefined ? ` [$${opts.echoEnv}]` : "";
+  const winVersionBranch = opts.failVersion ? "exit /b 1" : `echo 1.0.0-test${winEcho}& exit /b 0`;
+  const posixVersionBranch = opts.failVersion ? "exit 1" : `echo "1.0.0-test${posixEcho}"; exit 0`;
   await fs.writeFile(
     path.join(pkg, program),
     win

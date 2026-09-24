@@ -8,7 +8,7 @@ import { Component, Use } from "@prismshadow/penguin-core/kernel";
 import { mkdirSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { AgentServerDefinition } from "@prismshadow/penguin-coding-agents";
+import { sandboxedAgentEnv, type AgentServerDefinition } from "@prismshadow/penguin-coding-agents";
 import type { BuiltinAgentInfo } from "../../api/types.js";
 import { Config } from "../../hmr/capabilities.js";
 import { BuiltinAgents } from "../../mechanisms/builtin-agents.js";
@@ -25,6 +25,8 @@ import {
 const AGENT_ID = "copilot-builtin";
 const TITLE = "GitHub Copilot (built-in)";
 const DEFAULT_REGISTRY = "https://registry.npmjs.org";
+const MISSING_PROGRAM = "The Copilot program is missing. Try again to download it.";
+const SESSIONS_OPEN = "Close the sessions using built-in Copilot before removing it.";
 
 interface Download {
   controller: AbortController;
@@ -54,6 +56,9 @@ export class BuiltinAgentsService implements BuiltinAgents {
     const runtime = version !== null ? await installedRuntime(this.runtimesDir(), version) : null;
     this.installed =
       runtime !== null ? { version: runtime.version, program: runtime.program } : null;
+    // A definition whose program is gone (quarantined, data folder cleared, root moved) is a
+    // failed install: the card offers Try again with the stored token, and Remove.
+    if (definition !== undefined && runtime === null) this.failure = MISSING_PROGRAM;
     await cleanRuntimes(this.runtimesDir(), this.installed?.version ?? null);
   }
 
@@ -99,6 +104,10 @@ export class BuiltinAgentsService implements BuiltinAgents {
   }
 
   async remove(_id: "copilot"): Promise<void> {
+    // A running agent holds its program open; deleting under it half-fails on Windows.
+    if (this.codingAgents.listSessions().some((s) => s.agentId === AGENT_ID)) {
+      throw new RuntimeInstallError("start", SESSIONS_OPEN);
+    }
     const running = this.download;
     if (running !== null) {
       running.controller.abort();
@@ -131,6 +140,8 @@ export class BuiltinAgentsService implements BuiltinAgents {
   private async runDownload(download: Download): Promise<void> {
     const { signal } = download.controller;
     try {
+      const home = this.copilotHome();
+      mkdirSync(home, { recursive: true, mode: 0o700 });
       const runtime = await installRuntime({
         // Read at download time: tests (and operators) point it at another registry.
         registry: (process.env.PENGUIN_NPM_REGISTRY ?? DEFAULT_REGISTRY).replace(/\/+$/u, ""),
@@ -138,6 +149,8 @@ export class BuiltinAgentsService implements BuiltinAgents {
         version: COPILOT_VERSION,
         runtimesDir: this.runtimesDir(),
         signal,
+        // The --version check runs the downloaded program: no server secrets, its own home.
+        env: sandboxedAgentEnv({ COPILOT_HOME: home }),
         onProgress: (received, total) => {
           download.received = received;
           download.total = total;
@@ -198,7 +211,10 @@ export class BuiltinAgentsService implements BuiltinAgents {
         this.download === null
           ? null
           : { received: this.download.received, total: this.download.total },
-      tokenMasked: token !== undefined && installedVersion !== null ? maskApiKey(token) : null,
+      tokenMasked: token !== undefined && token !== "" ? maskApiKey(token) : null,
+      envPending:
+        this.codingAgents.listAgents({ withEnv: true }).find((a) => a.id === AGENT_ID)
+          ?.envPending === true,
       message:
         this.packageName === null
           ? `Copilot has no build for this machine (${process.platform}-${process.arch}).`

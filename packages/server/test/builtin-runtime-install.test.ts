@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { spawnTarget } from "@prismshadow/penguin-coding-agents";
+import { sandboxedAgentEnv, spawnTarget } from "@prismshadow/penguin-coding-agents";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   RuntimeInstallError,
@@ -154,6 +154,45 @@ describe("runtime install", () => {
     await cleanRuntimes(dir, "0.2.0");
     expect((await fs.readdir(dir)).sort()).toEqual(["0.2.0"]);
     await cleanRuntimes(path.join(dir, "missing"), null); // no throw on a missing folder
+  });
+
+  it("runs --version without the server's own environment, only the one it is given", async () => {
+    const secret = "server-only-secret-42";
+    const previous = process.env.PENGUIN_TEST_SECRET;
+    process.env.PENGUIN_TEST_SECRET = secret;
+    try {
+      registry = await fakeRegistry({
+        packageName: NAME,
+        version: "1.0.0",
+        echoEnv: "PENGUIN_TEST_SECRET",
+      });
+      const sandboxed = await installRuntime({
+        registry: registry.url,
+        packageName: NAME,
+        version: "1.0.0",
+        runtimesDir: dir,
+      });
+      expect(sandboxed.reportedVersion).toMatch(/^1\.0\.0-test/);
+      expect(sandboxed.reportedVersion).not.toContain(secret);
+
+      await registry.close();
+      registry = await fakeRegistry({
+        packageName: NAME,
+        version: "2.0.0",
+        echoEnv: "PENGUIN_TEST_SECRET",
+      });
+      const given = await installRuntime({
+        registry: registry.url,
+        packageName: NAME,
+        version: "2.0.0",
+        runtimesDir: dir,
+        env: sandboxedAgentEnv({ PENGUIN_TEST_SECRET: "passed-in" }),
+      });
+      expect(given.reportedVersion).toContain("passed-in");
+    } finally {
+      if (previous === undefined) delete process.env.PENGUIN_TEST_SECRET;
+      else process.env.PENGUIN_TEST_SECRET = previous;
+    }
   });
 });
 

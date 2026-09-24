@@ -4917,6 +4917,8 @@ export interface BuiltinAgentInfo {
   downloadSize: number | null;
   progress: { received: number; total: number | null } | null;
   tokenMasked: string | null;
+  /** A replaced token waits for this agent's running sessions to end before it applies. */
+  envPending: boolean;
   /** Why the last attempt failed, or why the machine is unsupported. */
   message: string | null;
 }
