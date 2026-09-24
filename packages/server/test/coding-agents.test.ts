@@ -171,8 +171,16 @@ describe("coding agents api", () => {
     const seen = (await (
       await member.get("/api/coding-agents/discover")
     ).json()) as CodingAgentDiscoveryResponse;
-    expect(seen.agentErrors).toBeUndefined();
-    expect(seen.candidates.every((c) => c.probeError === undefined)).toBe(true);
+    // Members learn that it failed, not why.
+    expect(seen.agentErrors?.broken).toBe("");
+    expect(seen.candidates.every((c) => !c.probeError)).toBe(true);
+    // Removing the agent forgets its failure: a re-saved one is judged afresh.
+    expect((await admin.delete("/api/coding-agents/agents/broken")).status).toBe(204);
+    const after = (await (
+      await admin.get("/api/coding-agents/discover")
+    ).json()) as CodingAgentDiscoveryResponse;
+    expect(after.agentErrors?.broken).toBeUndefined();
+    expect((after.agentModels.fake ?? []).length).toBeGreaterThan(0);
   }, 60_000);
 
   // The refresh must not run an agent's npx-fallback launch when the agent itself is

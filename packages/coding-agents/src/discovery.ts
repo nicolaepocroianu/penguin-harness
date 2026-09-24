@@ -19,6 +19,8 @@ import fs from "node:fs/promises";
 import { spawn, type ChildProcess } from "node:child_process";
 import { resolveCommandPath } from "./resolve.js";
 import { spawnTarget } from "./connection.js";
+import { sandboxedAgentEnv } from "./env.js";
+import { killProcessTree } from "./process-tree.js";
 import type { AgentSessionConfigOption } from "./types.js";
 
 export type AgentAuthStatus = "ok" | "missing" | "unknown";
@@ -57,7 +59,13 @@ interface AgentRecipe {
    * none means: "missing" when those files are the only place a sign-in can live,
    * "unknown" when it may also sit somewhere unreadable (an OS keychain, another CLI).
    */
-  signIn?: { env: string[]; files: CredentialFile[]; absent: AgentAuthStatus };
+  signIn?: {
+    env: string[];
+    files: CredentialFile[];
+    absent: AgentAuthStatus;
+    /** Env switches that move the login somewhere unreadable, making no file "unknown". */
+    unreadableWhen?: string[];
+  };
 }
 
 interface CredentialFile {
@@ -99,9 +107,12 @@ export interface AgentDiscoveryCandidate {
   /**
    * Whether the agent is signed in: from its stored sign-in on every call, and from its
    * own status command when the call probed (which wins unless it could not tell).
-   * Absent when the agent is not detected or has no way to tell.
+   * Absent when the agent is not detected, or when it keeps its sign-in nowhere Penguin
+   * knows to look.
    */
   authStatus?: AgentAuthStatus;
+  /** Where `authStatus` came from: the CLI's own status command, or its stored sign-in. */
+  authSource?: "cli" | "stored";
   /**
    * The config options a live probe session observed (model choices, toggles); present
    * only when the caller probed the launch and the agent answered.
@@ -115,7 +126,7 @@ const AGENT_RECIPES: AgentRecipe[] = [
     title: "Gemini CLI",
     homepageUrl: "https://github.com/google-gemini/gemini-cli",
     detect: ["gemini"],
-    launch: [{ command: "gemini", args: ["--experimental-acp"] }],
+    launch: [{ command: "gemini", args: ["--acp"] }],
     authHint: "Sign in once on the server machine (Google account); a login URL is printed.",
     adapterHint: "Re-run this check after installing the Gemini CLI.",
     installCommand: "npm install -g @google/gemini-cli",
@@ -123,6 +134,7 @@ const AGENT_RECIPES: AgentRecipe[] = [
       env: ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENAI_USE_VERTEXAI"],
       files: [{ at: (home) => path.join(home, ".gemini", "oauth_creds.json") }],
       absent: "missing",
+      unreadableWhen: ["GEMINI_FORCE_ENCRYPTED_FILE_STORAGE"],
     },
   },
   {
@@ -245,10 +257,22 @@ const AGENT_RECIPES: AgentRecipe[] = [
     adapterHint: "Re-run this check after installing the Cline CLI.",
     installCommand: "npm install -g cline",
     signIn: {
-      env: [],
+      env: [
+        "CLINE_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "OPENROUTER_API_KEY",
+        "AI_GATEWAY_API_KEY",
+        "V0_API_KEY",
+      ],
       files: [
         {
-          at: (home) => path.join(home, ".cline", "data", "settings", "providers.json"),
+          at: (home, env) =>
+            path.join(
+              env.CLINE_DATA_DIR ?? path.join(home, ".cline", "data"),
+              "settings",
+              "providers.json",
+            ),
           // Signed in when any provider holds an account login or an API key.
           holds: (json) =>
             Object.values(record(record(json).providers)).some((provider) => {
@@ -262,7 +286,7 @@ const AGENT_RECIPES: AgentRecipe[] = [
             }),
         },
       ],
-      absent: "missing",
+      absent: "unknown",
     },
   },
   // The agents below speak ACP natively too. None has a sign-in Penguin can read, so their
@@ -297,13 +321,13 @@ const AGENT_RECIPES: AgentRecipe[] = [
   },
   {
     id: "kimi",
-    title: "Kimi CLI",
-    homepageUrl: "https://github.com/MoonshotAI/kimi-cli",
+    title: "Kimi Code CLI",
+    homepageUrl: "https://github.com/MoonshotAI/kimi-code",
     detect: ["kimi"],
     launch: [{ command: "kimi", args: ["acp"] }],
     authHint: "Run `kimi` once on the server machine and use its /login command.",
-    adapterHint: "Re-run this check after installing the Kimi CLI.",
-    installCommand: "uv tool install kimi-cli",
+    adapterHint: "Re-run this check after installing Kimi Code CLI.",
+    installCommand: "npm install -g @moonshot-ai/kimi-code",
   },
   {
     id: "kiro",
@@ -415,12 +439,23 @@ async function versionedToolchainDirs(home: string, env: NodeJS.ProcessEnv): Pro
  * the filesystem pass is cheap enough to compute per request and always fresh. With
  * `probe: true` each detected agent's CLI is additionally executed once for a
  * `--version` line and its auth status — callers cache those results.
+ *
+ * `env` is the server's own environment, used to find the CLIs. `agentEnv` is the one an
+ * agent is actually spawned with (a sandboxed allow-list plus its definition's own vars):
+ * the sign-in checks and the probes read that, since a key only the server holds never
+ * reaches the agent. It defaults to the bare sandboxed environment.
  */
 export async function discoverAgents(
-  options: { env?: NodeJS.ProcessEnv; home?: string; probe?: boolean } = {},
+  options: {
+    env?: NodeJS.ProcessEnv;
+    home?: string;
+    probe?: boolean;
+    agentEnv?: (recipeId: string) => NodeJS.ProcessEnv;
+  } = {},
 ): Promise<AgentDiscoveryCandidate[]> {
   const env = options.env ?? process.env;
   const home = options.home ?? os.homedir();
+  const agentEnv = options.agentEnv ?? (() => sandboxedAgentEnv({}, env));
   const extraDirs = await installDirCandidates(home, env);
   // Absolute path when found on the machine, undefined when not (resolveCommandPath
   // hands unresolved bare names back unchanged).
@@ -442,19 +477,18 @@ export async function discoverAgents(
           break;
         }
       }
+      const childEnv = detected ? agentEnv(recipe.id) : {};
       const probed =
         options.probe === true && detectedPath !== undefined
-          ? await probeCli(detectedPath, recipe)
+          ? await probeCli(detectedPath, recipe, childEnv)
           : {};
       const stored =
         detected && recipe.signIn !== undefined
-          ? await storedSignIn(recipe.signIn, home, env)
+          ? await storedSignIn(recipe.signIn, home, childEnv)
           : undefined;
       // The CLI's own answer wins; where it could not tell, what it stored still says.
-      const authStatus =
-        probed.authStatus !== undefined && probed.authStatus !== "unknown"
-          ? probed.authStatus
-          : (stored ?? probed.authStatus);
+      const cliAnswered = probed.authStatus !== undefined && probed.authStatus !== "unknown";
+      const authStatus = cliAnswered ? probed.authStatus : (stored ?? probed.authStatus);
       return {
         recipeId: recipe.id,
         title: recipe.title,
@@ -469,20 +503,32 @@ export async function discoverAgents(
               ? recipe.adapterHint
               : "Not found on the server machine.",
         ...(recipe.installCommand !== undefined ? { installCommand: recipe.installCommand } : {}),
-        ...probed,
-        ...(authStatus !== undefined ? { authStatus } : {}),
+        ...(probed.version !== undefined ? { version: probed.version } : {}),
+        ...(authStatus !== undefined
+          ? { authStatus, authSource: cliAnswered ? ("cli" as const) : ("stored" as const) }
+          : {}),
       };
     }),
   );
 }
 
-/** The agent's stored sign-in, read from its env keys and credential files; runs nothing. */
+/** A value that switches a sign-in on: set, and not an explicit off ("0", "false"). */
+function isOn(value: string | undefined): boolean {
+  return value !== undefined && value !== "" && !/^(0|false|no|off)$/i.test(value.trim());
+}
+
+/**
+ * The agent's stored sign-in, read from the env keys it accepts and its credential files;
+ * runs nothing. `env` is the environment the agent is spawned with.
+ */
 async function storedSignIn(
   signIn: NonNullable<AgentRecipe["signIn"]>,
   home: string,
   env: NodeJS.ProcessEnv,
 ): Promise<AgentAuthStatus> {
-  if (signIn.env.some((key) => (env[key] ?? "") !== "")) return "ok";
+  if (signIn.env.some((key) => isOn(env[key]))) return "ok";
+  // Some agents can move their login into the OS keychain; then no file is not signed out.
+  if (signIn.unreadableWhen?.some((key) => isOn(env[key])) === true) return "unknown";
   for (const file of signIn.files) {
     let text: string;
     try {
@@ -492,8 +538,9 @@ async function storedSignIn(
     }
     if (file.holds === undefined) return "ok";
     try {
-      // Line comments allowed: Copilot's config opens with one.
-      if (file.holds(JSON.parse(text.replace(/^\s*\/\/.*$/gm, "")))) return "ok";
+      // Line comments allowed: Copilot's config opens with one. A BOM is dropped first.
+      const json = text.replace(/^﻿/, "").replace(/^\s*\/\/.*$/gm, "");
+      if (file.holds(JSON.parse(json))) return "ok";
     } catch {
       // Unparseable is not signed out: the agent may still read what this cannot.
       return "unknown";
@@ -510,98 +557,89 @@ async function storedSignIn(
 async function probeCli(
   file: string,
   recipe: AgentRecipe,
+  env: NodeJS.ProcessEnv,
 ): Promise<Pick<AgentDiscoveryCandidate, "version" | "authStatus">> {
-  const [version, authStatus] = await Promise.all([
-    firstOutputLine(file, ["--version"]),
-    recipe.authProbe ? authStatusOf(file, recipe.authProbe) : Promise.resolve("unknown" as const),
+  const [versionRun, authRun] = await Promise.all([
+    quickRun(file, ["--version"], env, 3_000),
+    recipe.authProbe ? quickRun(file, recipe.authProbe.args, env, 5_000) : undefined,
   ]);
+  const version =
+    versionRun.code === undefined
+      ? undefined
+      : versionRun.stdout
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .find((line) => line !== "");
+  // A check that could not run or never answered says nothing about the login; nor does a
+  // failure that is not the signed-out answer (a broken config also exits non-zero).
+  let authStatus: AgentAuthStatus = "unknown";
+  if (authRun !== undefined && authRun.code !== undefined) {
+    const output = authRun.stdout + authRun.stderr;
+    if (recipe.authProbe?.signedOut?.test(output) === true) authStatus = "missing";
+    else if (authRun.code === 0) authStatus = "ok";
+    else if (recipe.authProbe?.signedOut === undefined) authStatus = "missing";
+  }
   return {
     ...(version !== undefined ? { version } : {}),
     ...(recipe.authProbe ? { authStatus } : {}),
   };
 }
 
-/** First non-empty output line of a quick run; undefined when it cannot run at all. */
-function firstOutputLine(
+/** Output kept from a quick run: a status line or a version fits many times over. */
+const OUTPUT_CAP = 64 * 1024;
+
+/**
+ * Run a short CLI command and collect what it printed. `code` is its exit code, or
+ * undefined when it could not start or did not finish in time. The timeout settles the run
+ * itself and kills the whole process tree: on Windows a `.cmd` shim runs under cmd.exe,
+ * and killing only that leaves the real CLI holding the pipes open, so waiting for
+ * `close` could wait forever. Input is closed, so a command that prompts ends instead.
+ */
+function quickRun(
   file: string,
   args: string[],
-  timeoutMs = 3_000,
-): Promise<string | undefined> {
+  env: NodeJS.ProcessEnv,
+  timeoutMs: number,
+): Promise<{ stdout: string; stderr: string; code: number | undefined }> {
   return new Promise((resolve) => {
+    let settled = false;
+    let stdout = "";
+    let stderr = "";
+    let timer: NodeJS.Timeout | undefined;
+    const settle = (code: number | undefined) => {
+      if (settled) return;
+      settled = true;
+      if (timer !== undefined) clearTimeout(timer);
+      resolve({ stdout, stderr, code });
+    };
     const [command, routedArgs] = spawnTarget(file, args);
     let child: ChildProcess;
     try {
       child = spawn(command, routedArgs, {
+        env,
         windowsHide: true,
         shell: false,
+        stdio: ["ignore", "pipe", "pipe"],
+        // Its own process group off Windows, so the kill reaches everything it started.
+        detached: process.platform !== "win32",
         ...(command !== file ? { windowsVerbatimArguments: true } : {}),
       });
     } catch {
-      resolve(undefined);
+      settle(undefined);
       return;
     }
-    let output = "";
-    child.stdout?.on("data", (chunk: Buffer) => {
-      if (output === "") output = chunk.toString();
-    });
-    const timer = setTimeout(() => child.kill(), timeoutMs);
-    timer.unref();
-    child.on("error", () => {
-      clearTimeout(timer);
-      resolve(undefined);
-    });
-    child.on("close", () => {
-      clearTimeout(timer);
-      const line = output
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .find((l) => l !== "");
-      resolve(line);
-    });
-  });
-}
-
-function authStatusOf(
-  file: string,
-  probe: NonNullable<AgentRecipe["authProbe"]>,
-  timeoutMs = 5_000,
-): Promise<AgentAuthStatus> {
-  return new Promise((resolve) => {
-    const [command, routedArgs] = spawnTarget(file, probe.args);
-    let child: ChildProcess;
-    try {
-      child = spawn(command, routedArgs, {
-        windowsHide: true,
-        shell: false,
-        ...(command !== file ? { windowsVerbatimArguments: true } : {}),
-      });
-    } catch {
-      resolve("unknown");
-      return;
-    }
-    let output = "";
-    child.stdout?.on("data", (chunk: Buffer) => {
-      output += chunk.toString();
-    });
-    child.stderr?.on("data", (chunk: Buffer) => {
-      output += chunk.toString();
-    });
-    let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill();
+    timer = setTimeout(() => {
+      killProcessTree(child);
+      settle(undefined);
     }, timeoutMs);
     timer.unref();
-    child.on("error", () => {
-      clearTimeout(timer);
-      resolve("unknown");
+    child.stdout?.on("data", (chunk: Buffer) => {
+      if (stdout.length < OUTPUT_CAP) stdout += chunk.toString();
     });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      // A check that never answered says nothing about the login.
-      if (timedOut) resolve("unknown");
-      else if (probe.signedOut?.test(output) === true) resolve("missing");
-      else resolve(code === 0 ? "ok" : "missing");
+    child.stderr?.on("data", (chunk: Buffer) => {
+      if (stderr.length < OUTPUT_CAP) stderr += chunk.toString();
     });
+    child.on("error", () => settle(undefined));
+    child.on("close", (code) => settle(code ?? undefined));
   });
 }

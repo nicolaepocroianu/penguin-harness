@@ -75,14 +75,16 @@ export function codingAgentsRoutes(deps: CodingAgentsRouteDeps): Hono<AppEnv> {
   // from the fs pass plus the last saved refresh. Everything that executes an agent or
   // writes — the live refresh, model choice, the definitions themselves — stays behind the
   // admin gate. Why a probe failed is the agent's own text, which may name paths on the
-  // server machine, so only admins get it.
+  // server machine, so everyone else learns only that it failed (an empty message).
   app.get("/discover", async (c) => {
     const found = await deps.codingAgents.discoverAgents(false);
     if (c.var.user.isAdmin) return c.json(found);
-    const { agentErrors: _agentErrors, ...rest } = found;
     return c.json({
-      ...rest,
-      candidates: found.candidates.map(({ probeError: _probeError, ...candidate }) => candidate),
+      ...found,
+      agentErrors: Object.fromEntries(Object.keys(found.agentErrors ?? {}).map((id) => [id, ""])),
+      candidates: found.candidates.map((candidate) =>
+        candidate.probeError !== undefined ? { ...candidate, probeError: "" } : candidate,
+      ),
     });
   });
 

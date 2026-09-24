@@ -1562,14 +1562,18 @@ export const en: Strings = {
     cliNeedsSetup: "Needs setup",
     cliWontStart: "Won't start",
     cliProbeFailed: (name: string, message: string) =>
-      `${name} would not open a session on the last Rescan: ${message}`,
+      `${name} would not open a session when last checked: ${message}`,
+    cliProbeFailedPlain: (name: string) =>
+      `${name} would not open a session when last checked. An admin can see why here.`,
     cliReadingModels: "Reading models…",
     cliNoModels: "No models to choose from",
     cliInstallSteps: "Install on the server machine, sign in with the CLI, then Rescan.",
+    cliInstallStepsMember:
+      "An admin installs these on the server machine; they appear here once found.",
     cliCopyInstall: (name: string) => `Copy the command that installs ${name}`,
     cliSignInUnknown: "Sign-in unknown",
     cliSignInUnknownTitle:
-      "This agent keeps its sign-in where the server cannot read it. Test it to be sure.",
+      "Penguin cannot read where this agent keeps its sign-in. Test it to be sure.",
     cliReadyCount: (ready: number, total: number) => `${ready} of ${total} ready`,
     cliSignInHint: (hint: string) => `Not signed in on the server machine. ${hint}`,
     cliStartChat: "Start a chat",

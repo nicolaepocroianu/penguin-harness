@@ -29,7 +29,7 @@ export interface AgentCardModel {
   homepageUrl?: string;
   /** The one command that installs the agent, when there is one for every OS. */
   installCommand?: string;
-  /** Why the last probe could not open a session with it (admins only). */
+  /** Why the last probe could not open a session with it; empty when not an admin. */
   probeError?: string;
   /** Everything the agent advertised on its last probe; absent until a Rescan has run. */
   options?: CodingAgentConfigOption[];

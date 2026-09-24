@@ -4893,14 +4893,17 @@ export interface CodingAgentDiscoveryCandidate {
   version?: string;
   /**
    * Whether the agent is signed in: read from its stored credentials on every call, and
-   * from its own status command after a probed refresh. Absent for an agent not detected.
+   * from its own status command after a probed refresh. Absent for an agent not detected,
+   * or one that keeps its sign-in nowhere Penguin knows to look.
    */
   authStatus?: "ok" | "missing" | "unknown";
+  /** Where `authStatus` came from: the CLI's own status command, or its stored sign-in. */
+  authSource?: "cli" | "stored";
   /** The ACP config options the last probe session observed (model choices, toggles). */
   models?: CodingAgentConfigOption[];
   /** The one command that installs the agent, when there is one for every OS. */
   installCommand?: string;
-  /** Why the last probe could not open a session with it; admins only. */
+  /** Why the last probe could not open a session with it; empty for anyone but an admin. */
   probeError?: string;
   /** The model remembered for this recipe, auto-applied to its new sessions. */
   rememberedModel?: { configId: string; value: boolean | string; name?: string } | null;
@@ -4940,7 +4943,7 @@ export interface CodingAgentDiscoveryResponse {
    * command (a recipe's probe rides the candidate's own `models`).
    */
   agentModels: Record<string, CodingAgentConfigOption[]>;
-  /** Why the last probe of a saved definition failed, by agent id; admins only. */
+  /** Why the last probe of a saved definition failed, by agent id; empty for non-admins. */
   agentErrors?: Record<string, string>;
   /** When the last probed refresh ran (epoch ms); absent when none ever has. */
   probedAt?: number;

@@ -6,7 +6,7 @@
  * not installed wait in a folded list with a link to install them. Starting one is starting a
  * chat with it picked in the model dropdown; its Sessions are ordinary Sessions.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router";
 import type {
   CodingAgentConfigOption,
@@ -47,6 +47,14 @@ import {
 } from "../coding-agents/agent-cards";
 import { CODING_AGENT_PROVIDER, codingAgentLogo } from "../chat/coding-agent-models";
 
+/**
+ * Whether this tab has already started the first probe on its own. Module scope, not the
+ * component: the panel remounts whenever the admin switches views, and a probe can take a
+ * while, so a component-level flag would start a second one on the way back, or retry a
+ * failing one on every visit.
+ */
+let autoProbeStarted = false;
+
 export function LocalCliPanel() {
   const { user } = useAuth();
   const isAdmin = user?.isAdmin === true;
@@ -84,12 +92,11 @@ export function LocalCliPanel() {
 
   // The models, versions and failures come from a probe, which is saved once run. Until the
   // first one, an admin's visit runs it so every card opens with its model dropdown.
-  const autoProbed = useRef(false);
   useEffect(() => {
-    if (!isAdmin || autoProbed.current || discovery === null || saved === null) return;
+    if (!isAdmin || autoProbeStarted || discovery === null || saved === null) return;
     if (discovery.probedAt !== undefined) return;
     if (saved.length === 0 && !discovery.candidates.some((c) => c.detected)) return;
-    autoProbed.current = true;
+    autoProbeStarted = true;
     rescan();
   }, [isAdmin, discovery, saved, rescan]);
 
@@ -144,7 +151,7 @@ export function LocalCliPanel() {
         <ul className="space-y-2">
           {installed.map((card) => (
             <CliCard
-              key={card.key}
+              key={`${card.key}:${discovery?.probedAt ?? 0}`}
               card={card}
               selected={selected === card.agentId}
               isAdmin={isAdmin}
@@ -176,7 +183,7 @@ export function LocalCliPanel() {
           {availableOpen && (
             <div className="border-t border-gray-200 p-3 dark:border-gray-800">
               <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
-                {S.models.cliInstallSteps}
+                {isAdmin ? S.models.cliInstallSteps : S.models.cliInstallStepsMember}
               </p>
               <ul className="grid gap-2 sm:grid-cols-2">
                 {available.map((card) => (
@@ -234,10 +241,12 @@ function CliCard({
   onRemove: () => void;
 }) {
   const model = currentModel(card);
-  const readiness = cardReadiness(card);
+  const panelId = useId();
   const modelOption = modelOptionOf(card.options);
   const [testing, setTesting] = useState(false);
   const [tested, setTested] = useState<CodingAgentTestResult | null>(null);
+  // A Test that passed since the last probe outranks that probe's failure.
+  const readiness = cardReadiness(tested?.ok === true ? { ...card, probeError: undefined } : card);
   const runTest = () => {
     setTesting(true);
     setTested(null);
@@ -260,8 +269,21 @@ function CliCard({
   };
   // The model the agent will use, chosen in the row: its advertised list once a probe has
   // read one, otherwise the plain name of what it will use.
+  // A remembered model the latest probe no longer lists stays in the list, so the row never
+  // claims the agent uses a model it will not.
+  const modelChoices =
+    modelOption && model !== null && !modelOption.options.some((o) => o.value === model.value)
+      ? [{ value: model.value, name: model.name }, ...modelOption.options]
+      : (modelOption?.options ?? []);
+  const modelText =
+    scanning && card.startable
+      ? S.models.cliReadingModels
+      : (model?.name ??
+        (readiness === "failed" || readiness === "setup"
+          ? S.models.cliNoModels
+          : S.models.cliDefault));
   const modelControl =
-    modelOption && modelOption.options.length > 0 ? (
+    modelOption && modelChoices.length > 0 ? (
       <Select
         size="sm"
         aria-label={`${card.title} ${S.models.cliModel}`}
@@ -269,20 +291,14 @@ function CliCard({
         disabled={!isAdmin}
         onChange={(e) => remember(modelOption, e.target.value, true)}
       >
-        {modelOption.options.map((value) => (
+        {modelChoices.map((value) => (
           <option key={value.value} value={value.value}>
             {value.name}
           </option>
         ))}
       </Select>
     ) : (
-      <p className="truncate text-xs text-gray-500 dark:text-gray-400">
-        {scanning && readiness !== "setup"
-          ? S.models.cliReadingModels
-          : readiness === "failed" || readiness === "setup"
-            ? S.models.cliNoModels
-            : (model?.name ?? S.models.cliDefault)}
-      </p>
+      <p className="truncate text-xs text-gray-500 dark:text-gray-400">{modelText}</p>
     );
   const effortValue = String(
     (effortOption && card.rememberedOptions?.[effortOption.id]) ?? effortOption?.currentValue ?? "",
@@ -298,7 +314,8 @@ function CliCard({
       <div className="flex min-w-0 items-center gap-3 pr-4">
         <button
           type="button"
-          aria-pressed={selected}
+          aria-expanded={selected}
+          aria-controls={panelId}
           onClick={onSelect}
           className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-4 text-left"
         >
@@ -320,31 +337,39 @@ function CliCard({
                 {card.version}
               </div>
             )}
-            {/* Narrow screens have no room for the dropdown in the row; it opens with the card. */}
+            {/* Below lg, beside the sidebar, the row has no room for the dropdown; it opens
+                with the card instead. */}
             {!selected && (
-              <div className="truncate text-xs text-gray-500 sm:hidden dark:text-gray-400">
-                {S.models.cliModelSummary(model?.name ?? S.models.cliDefault)}
+              <div className="truncate text-xs text-gray-500 lg:hidden dark:text-gray-400">
+                {S.models.cliModelSummary(modelText)}
               </div>
             )}
           </div>
         </button>
-        <div className="hidden w-56 shrink-0 sm:block">{modelControl}</div>
+        <div className="hidden w-56 shrink-0 lg:block">{modelControl}</div>
         <ReadinessMark readiness={readiness} />
       </div>
 
       {selected && (
-        <div className="space-y-3 border-t border-gray-100 px-4 pb-4 pt-3 dark:border-gray-800">
+        <div
+          id={panelId}
+          className="min-w-0 space-y-3 border-t border-gray-100 px-4 pb-4 pt-3 dark:border-gray-800"
+        >
           {card.commandLine !== "" && (
             <div className="truncate font-mono text-xs text-gray-500 dark:text-gray-400">
               {card.commandLine}
             </div>
           )}
-          {card.probeError !== undefined && (
-            <p className={`rounded-md border px-3 py-2 text-xs ${toneStrip.danger}`}>
-              {S.models.cliProbeFailed(card.title, card.probeError)}
+          {readiness === "failed" && (
+            <p
+              className={`rounded-md border px-3 py-2 text-xs [overflow-wrap:anywhere] ${toneStrip.danger}`}
+            >
+              {card.probeError
+                ? S.models.cliProbeFailed(card.title, card.probeError)
+                : S.models.cliProbeFailedPlain(card.title)}
             </p>
           )}
-          <div className="space-y-1.5 sm:hidden">
+          <div className="space-y-1.5 lg:hidden">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
               {S.models.cliModel}
             </span>

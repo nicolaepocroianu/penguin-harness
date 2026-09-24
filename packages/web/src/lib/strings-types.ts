@@ -1020,9 +1020,11 @@ export type Strings = {
     cliNeedsSetup: string;
     cliWontStart: string;
     cliProbeFailed: (name: string, message: string) => string;
+    cliProbeFailedPlain: (name: string) => string;
     cliReadingModels: string;
     cliNoModels: string;
     cliInstallSteps: string;
+    cliInstallStepsMember: string;
     cliCopyInstall: (name: string) => string;
     cliSignInUnknown: string;
     cliSignInUnknownTitle: string;
