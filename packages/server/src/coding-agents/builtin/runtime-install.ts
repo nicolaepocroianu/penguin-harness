@@ -10,6 +10,9 @@ import { execFile } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { Readable, Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import type { ReadableStream as WebReadableStream } from "node:stream/web";
 import { spawnTarget } from "@prismshadow/penguin-coding-agents";
 import * as tar from "tar";
 import { binaryFromManifest } from "./copilot-package.js";
@@ -63,13 +66,32 @@ export async function installRuntime(req: InstallRequest): Promise<InstalledRunt
     await tar.extract({ file: archive, cwd: unpacked, strip: 1 });
     await fs.rm(archive);
     const target = path.join(req.runtimesDir, req.version);
-    await fs.rm(target, { recursive: true, force: true });
-    await fs.rename(unpacked, target);
+    // Never delete a working install before the replacement has proven itself: move it aside
+    // under an `.incoming-` name first (so a crash before cleanup still gets swept up by the
+    // next startup's cleanRuntimes), and restore it if the rename or the --version check fails.
+    const aside = path.join(req.runtimesDir, `${INCOMING}${randomUUID().slice(0, 8)}-prev`);
+    let hadPrevious = false;
+    try {
+      await fs.rename(target, aside);
+      hadPrevious = true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    try {
+      await fs.rename(unpacked, target);
+    } catch (error) {
+      if (hadPrevious) await fs.rename(aside, target).catch(() => undefined);
+      throw error;
+    }
     const installed = await installedRuntime(req.runtimesDir, req.version);
-    if (installed === null)
+    if (installed === null) {
+      await fs.rm(target, { recursive: true, force: true });
+      if (hadPrevious) await fs.rename(aside, target).catch(() => undefined);
       throw new RuntimeInstallError("start", "The package did not unpack a program.");
+    }
     const reportedVersion = await versionOf(installed.program).catch(async (error: unknown) => {
       await fs.rm(target, { recursive: true, force: true });
+      if (hadPrevious) await fs.rename(aside, target).catch(() => undefined);
       throw new RuntimeInstallError(
         "start",
         `The program did not start: ${(error as Error).message}`,
@@ -78,6 +100,7 @@ export async function installRuntime(req: InstallRequest): Promise<InstalledRunt
         },
       );
     });
+    if (hadPrevious) await fs.rm(aside, { recursive: true, force: true }).catch(() => undefined);
     return { ...installed, reportedVersion };
   } catch (error) {
     if (req.signal?.aborted)
@@ -139,6 +162,22 @@ async function fetchJson(url: string, signal: AbortSignal | undefined): Promise<
   return res.json();
 }
 
+/**
+ * npm's `dist.integrity` is a Subresource Integrity string: one or more space-separated
+ * `<algorithm>-<base64 digest>` entries (a package can publish sha1 alongside sha512). Pick the
+ * sha512 entry specifically, never a weaker one the registry happens to list first.
+ */
+export function parseSha512Integrity(integrity: string): string {
+  const entry = integrity
+    .trim()
+    .split(/\s+/u)
+    .find((candidate) => candidate.startsWith("sha512-"));
+  if (entry === undefined) {
+    throw new RuntimeInstallError("integrity", "The registry did not publish a sha512 checksum.");
+  }
+  return entry.slice("sha512-".length);
+}
+
 async function download(
   url: string,
   integrity: string,
@@ -149,23 +188,35 @@ async function download(
   if (!res.ok || res.body === null) {
     throw new RuntimeInstallError("network", `The download answered ${res.status}.`);
   }
+  let expected: string;
+  try {
+    expected = parseSha512Integrity(integrity);
+  } catch (error) {
+    await res.body.cancel().catch(() => undefined);
+    throw error;
+  }
   const header = res.headers.get("content-length");
   const total = header !== null ? Number(header) : null;
-  const [algorithm, expected] = integrity.split("-", 2) as [string, string];
-  const hash = createHash(algorithm);
-  const out = createWriteStream(file);
+  const hash = createHash("sha512");
   let received = 0;
-  try {
-    for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+  // A hashing pass-through in front of the write stream: `pipeline` wires error listeners on
+  // every stream (source, transform, sink) and destroys them all on any failure, so a disk
+  // error (or an abort) rejects this call instead of surfacing as an unhandled 'error' event,
+  // and the write stream is always closed before pipeline settles.
+  const hashing = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
       hash.update(chunk);
       received += chunk.length;
-      if (!out.write(chunk))
-        await new Promise<void>((resolve) => out.once("drain", () => resolve()));
       req.onProgress?.(received, total);
-    }
-  } finally {
-    await new Promise<void>((resolve) => out.end(resolve));
-  }
+      callback(null, chunk);
+    },
+  });
+  await pipeline(
+    Readable.fromWeb(res.body as unknown as WebReadableStream<Uint8Array>),
+    hashing,
+    createWriteStream(file),
+    { signal: req.signal },
+  );
   if (total !== null && received !== total) {
     throw new RuntimeInstallError("network", "The download stopped before it finished.");
   }

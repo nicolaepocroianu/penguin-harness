@@ -28,6 +28,8 @@ export async function fakeRegistry(opts: {
   truncate?: boolean;
   /** Hold the tarball response until this resolves. */
   hold?: Promise<void>;
+  /** The stub's `--version` exits non-zero instead of reporting a version. */
+  failVersion?: boolean;
 }): Promise<FakeRegistry> {
   const work = await fs.mkdtemp(path.join(os.tmpdir(), "builtin-registry-"));
   const pkg = path.join(work, "package");
@@ -42,11 +44,13 @@ export async function fakeRegistry(opts: {
       exports: { ".": `./${program}` },
     }),
   );
+  const winVersionBranch = opts.failVersion ? "exit /b 1" : "echo 1.0.0-test& exit /b 0";
+  const posixVersionBranch = opts.failVersion ? "exit 1" : "echo 1.0.0-test; exit 0";
   await fs.writeFile(
     path.join(pkg, program),
     win
-      ? `@echo off\r\nif "%~1"=="--version" (echo 1.0.0-test& exit /b 0)\r\n"${process.execPath}" "${AGENT_MAIN}" %*\r\n`
-      : `#!/bin/sh\nif [ "$1" = "--version" ]; then echo 1.0.0-test; exit 0; fi\nexec "${process.execPath}" "${AGENT_MAIN}" "$@"\n`,
+      ? `@echo off\r\nif "%~1"=="--version" (${winVersionBranch})\r\n"${process.execPath}" "${AGENT_MAIN}" %*\r\n`
+      : `#!/bin/sh\nif [ "$1" = "--version" ]; then ${posixVersionBranch}; fi\nexec "${process.execPath}" "${AGENT_MAIN}" "$@"\n`,
     { mode: 0o755 },
   );
   const tgz = path.join(work, "pkg.tgz");
