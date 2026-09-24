@@ -173,7 +173,7 @@ describe("AcpConnection spawn routing", () => {
       const seen: { file: string; args: string[] }[] = [];
       const connection = await AcpConnection.spawn(
         "C:\\Program Files\\nodejs\\npx.cmd",
-        ["-y", "claude-agent-acp"],
+        ["-y", "@agentclientprotocol/claude-agent-acp"],
         {},
         CLIENT_INFO,
         HANDLERS,
@@ -187,7 +187,7 @@ describe("AcpConnection spawn routing", () => {
         "/d",
         "/s",
         "/c",
-        '""C:\\Program Files\\nodejs\\npx.cmd" -y claude-agent-acp"',
+        '""C:\\Program Files\\nodejs\\npx.cmd" -y @agentclientprotocol/claude-agent-acp"',
       ]);
     },
   );
