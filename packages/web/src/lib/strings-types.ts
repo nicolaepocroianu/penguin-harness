@@ -262,7 +262,6 @@ export type Strings = {
       items: (n: number) => string;
       readOnly: string;
     };
-    libraryCount: (count: number) => string;
     librarySectionEmpty: string;
     sceneAssetTree: string;
     chooseSceneAsset: string;
@@ -391,6 +390,21 @@ export type Strings = {
     speechCandidates: string;
     speechCandidate: string;
     acceptSpeech: string;
+    assetLibrary: {
+      kind: string;
+      binding: string;
+      bindings: Record<"any" | "unbound" | "bound", string>;
+      search: string;
+      planned: string;
+      uploaded: string;
+      count: (shown: number, total: number) => string;
+      columns: Record<"asset" | "type" | "binding" | "scenes" | "file" | "size" | "usedBy", string>;
+      sources: Record<"generated" | "upload" | "checkout", string>;
+      unbound: string;
+      unused: string;
+      noPlan: string;
+      noMatch: string;
+    };
     runSettled: {
       succeeded: (what: string) => string;
       failed: (what: string) => string;

@@ -24,12 +24,12 @@ import { Button } from "../../components/ui/button";
 import { Input, Textarea } from "../../components/ui/input";
 import { Select } from "../../components/ui/select";
 import { InfoPopover } from "../../components/ui/info-popover";
+import { AssetLibraryView } from "./asset-library-view";
 import { settledPipeline, settledRuns, type Announcement } from "./run-toasts";
 import { CreateActivityDialog } from "./create-activity-dialog";
 import { ImportDialog } from "./import-dialog";
 import { ActivityWorkspace as WorkspaceShell, type StudioPanelEntry } from "./activity-workspace";
 import { AssetEditor } from "./asset-editor";
-import { fileSizeText } from "./media-library";
 import { SpeechCoverage } from "./speech-coverage";
 import { speechTally } from "./bulk-speech";
 import { buildSceneTree, filterTree, treeSelections, type SceneAssetType } from "./scene-assets";
@@ -1550,36 +1550,21 @@ function ActivityEditor({
                 />
               )}
               {section === "library" && (
-                <section className="space-y-3">
-                  <h3 className="text-sm font-semibold">{S.activities.libraryTitle}</h3>
-                  {uploadsLoading ? (
-                    <p role="status" className="text-xs text-gray-500">
-                      {S.activities.libraryLoading}
-                    </p>
-                  ) : !uploads.length ? (
-                    <p className="text-xs text-gray-500">{S.activities.librarySectionEmpty}</p>
-                  ) : (
-                    <>
-                      <p className="text-xs text-gray-500">
-                        {S.activities.libraryCount(uploads.length)}
-                      </p>
-                      <ul className="space-y-1">
-                        {uploads.map((entry) => (
-                          <li
-                            key={entry.path}
-                            className="flex flex-wrap items-baseline justify-between gap-3 rounded-md border border-gray-200 p-2 text-xs dark:border-gray-800"
-                          >
-                            <span className="min-w-0 break-all">{entry.name}</span>
-                            <span className="shrink-0 text-gray-500">
-                              {S.activities.mediaTypes[entry.kind]} ·{" "}
-                              {fileSizeText(entry.byteLength)}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                </section>
+                <AssetLibraryView
+                  assets={editedManifest?.assets[language] ?? []}
+                  uploads={uploads}
+                  uploadsLoading={uploadsLoading}
+                  endpoint={endpoint}
+                  onOpen={(key) => {
+                    const usage = (editedManifest?.assets[language] ?? []).find(
+                      (entry) => entry.key === key,
+                    )?.usages[0]?.sceneId;
+                    setKind("all");
+                    setSelected({ sceneId: usage ?? "", key });
+                    setBoard(false);
+                    setSection("scenes");
+                  }}
+                />
               )}
               {section === "features" && (
                 <ImplementationFeaturesView endpoint={endpoint} editable={editable && available} />

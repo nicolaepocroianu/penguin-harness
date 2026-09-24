@@ -905,6 +905,32 @@ test("uploads media into the activity workspace and binds it from the library", 
   await page.getByRole("button", { name: "Validate and save media", exact: true }).click();
   await openSection(page, "Specification");
   await expect(page.getByText(/1 assets, 1 paths assigned, 0 unbound/)).toBeVisible();
+
+  // The library lists the plan and the uploads together, and what connects them.
+  await openSection(page, "Media library");
+  const planned = page.getByRole("region", { name: "In the media plan", exact: true });
+  const uploaded = page.getByRole("region", { name: "Uploaded files", exact: true });
+  await expect(planned.getByRole("row")).toHaveCount(2);
+  await expect(planned).toContainText("Uploaded");
+  const dog = uploaded.getByRole("row", { name: /dog\.png/ }).first();
+  await expect(dog).toContainText("Not used");
+  const cat = uploaded.getByRole("row", { name: /cat\.png/ });
+  const user = cat.getByRole("button");
+  const key = await user.textContent();
+  await page.getByRole("button", { name: "Unbound", exact: true }).click();
+  await expect(planned).toContainText("Nothing matches these filters.");
+  await expect(uploaded.getByRole("row", { name: /dog\.png/ }).first()).toBeVisible();
+  await expect(uploaded.getByRole("row", { name: /cat\.png/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Any", exact: true }).click();
+  await page.getByRole("searchbox", { name: "Search media", exact: true }).fill("dog");
+  await expect(uploaded.getByRole("row", { name: /cat\.png/ })).toHaveCount(0);
+  await page.getByRole("searchbox", { name: "Search media", exact: true }).fill("");
+  await uploaded
+    .getByRole("row", { name: /cat\.png/ })
+    .getByRole("button")
+    .click();
+  await expect(page.getByRole("heading", { name: key, exact: true })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: /^Media path/ })).toHaveValue(/cat-/);
   expect(f.errors).toEqual([]);
 });
 

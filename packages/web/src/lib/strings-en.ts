@@ -332,8 +332,6 @@ export const en: Strings = {
       readOnly:
         "Read-only: the module owns this file. Change the activity and assemble again to change it.",
     },
-    libraryCount: (count: number) =>
-      `${count} file${count === 1 ? "" : "s"} uploaded for this activity`,
     librarySectionEmpty: "Nothing has been uploaded for this activity yet.",
     sceneAssetTree: "Scenes and their media",
     chooseSceneAsset: "Choose a scene asset to preview and edit it.",
@@ -500,6 +498,30 @@ export const en: Strings = {
     speechCandidates: "Speech candidates",
     speechCandidate: "Speech candidate",
     acceptSpeech: "Accept this audio",
+    assetLibrary: {
+      kind: "Media type",
+      binding: "Binding",
+      bindings: { any: "Any", unbound: "Unbound", bound: "Bound" },
+      search: "Search media",
+      planned: "In the media plan",
+      uploaded: "Uploaded files",
+      count: (shown: number, total: number) =>
+        shown === total ? `${total}` : `${shown} of ${total}`,
+      columns: {
+        asset: "Asset",
+        type: "Type",
+        binding: "Binding",
+        scenes: "Scenes",
+        file: "File",
+        size: "Size",
+        usedBy: "Used by",
+      },
+      sources: { generated: "Generated", upload: "Uploaded", checkout: "From the checkout" },
+      unbound: "Unbound",
+      unused: "Not used",
+      noPlan: "Plan media to see its assets here.",
+      noMatch: "Nothing matches these filters.",
+    },
     runSettled: {
       succeeded: (what: string) => `${what} finished.`,
       failed: (what: string) => `${what} failed. Its reason is in the history.`,

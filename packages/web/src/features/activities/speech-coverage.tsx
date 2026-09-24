@@ -19,6 +19,7 @@ import {
   type SpeechFilter,
   type SpeechState,
 } from "./bulk-speech";
+import { SEGMENT, SEGMENTS, SEGMENT_OFF, SEGMENT_ON } from "./segment-styles";
 
 const STATE_TONE: Record<SpeechState, Tone | null> = {
   ready: null,
@@ -40,11 +41,6 @@ const FILTERS: readonly SpeechFilter[] = [
 
 // The app's segmented control (`components/ui/segmented.tsx`), laid out to wrap: these
 // choices carry counts and can number more than the control's four columns.
-const SEGMENTS = "inline-flex flex-wrap gap-0.5 rounded-md bg-gray-100 p-0.5 dark:bg-gray-800";
-const SEGMENT = "rounded px-2 py-1 text-xs transition-colors duration-150";
-const SEGMENT_ON =
-  "bg-white font-medium text-gray-900 shadow-sm dark:bg-gray-600 dark:text-gray-100";
-const SEGMENT_OFF = "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200";
 
 type MediaAsset = AssetManifest["assets"][string][number];
 
