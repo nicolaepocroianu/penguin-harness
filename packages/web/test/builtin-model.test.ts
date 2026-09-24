@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { BuiltinAgentInfo } from "@prismshadow/penguin-server/api";
-import { builtinActions, progressPercent } from "../src/features/models/builtin-model";
+import {
+  builtinActions,
+  builtinSubtitle,
+  progressPercent,
+} from "../src/features/models/builtin-model";
 
 const base: BuiltinAgentInfo = {
   id: "copilot",
@@ -85,5 +89,36 @@ describe("built-in card actions", () => {
     expect(
       progressPercent({ ...base, status: "downloading", progress: { received: 25, total: null } }),
     ).toBeNull();
+  });
+});
+
+describe("built-in card subtitle", () => {
+  it("shows nothing on an unsupported machine, instead of inviting a download", () => {
+    expect(builtinSubtitle({ ...base, status: "unsupported", message: "x" })).toEqual({
+      kind: "none",
+    });
+  });
+  it("offers the download-size hint before anything is installed, including a fresh failure", () => {
+    expect(builtinSubtitle(base)).toEqual({ kind: "download-size" });
+    expect(builtinSubtitle({ ...base, status: "failed", message: "x" })).toEqual({
+      kind: "download-size",
+    });
+  });
+  it("shows downloading, ready and update-available states", () => {
+    expect(
+      builtinSubtitle({ ...base, status: "downloading", progress: { received: 1, total: 2 } }),
+    ).toEqual({ kind: "downloading" });
+    expect(builtinSubtitle({ ...base, status: "ready", installedVersion: "1.0.88" })).toEqual({
+      kind: "ready",
+      version: "1.0.88",
+    });
+    expect(
+      builtinSubtitle({
+        ...base,
+        status: "update-available",
+        installedVersion: "1.0.80",
+        pinnedVersion: "1.0.88",
+      }),
+    ).toEqual({ kind: "update-available", installed: "1.0.80", pinned: "1.0.88" });
   });
 });

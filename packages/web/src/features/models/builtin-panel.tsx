@@ -24,7 +24,7 @@ import { ProviderLogo } from "../../components/ui/provider-logo";
 import { SkeletonList } from "../../components/ui/skeleton";
 import { toastError } from "../../components/ui/toast";
 import { codingAgentLogo } from "../chat/coding-agent-models";
-import { builtinActions, progressPercent } from "./builtin-model";
+import { builtinActions, builtinSubtitle, progressPercent } from "./builtin-model";
 
 const PAT_URL = "https://github.com/settings/personal-access-tokens/new";
 const LICENSE_URL = "https://github.com/github/copilot-cli/blob/main/LICENSE.md";
@@ -76,6 +76,7 @@ function CopilotCard({ info, onChanged }: { info: BuiltinAgentInfo; onChanged: (
       .finally(() => setBusy(false));
   };
   const percent = progressPercent(info);
+  const subtitle = builtinSubtitle(info);
 
   return (
     <li className="rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
@@ -89,13 +90,15 @@ function CopilotCard({ info, onChanged }: { info: BuiltinAgentInfo; onChanged: (
             {info.title}
           </div>
           <div className="truncate text-xs text-gray-500 dark:text-gray-400">
-            {info.status === "downloading"
+            {subtitle.kind === "downloading"
               ? S.models.builtinDownloading(percent)
-              : info.status === "update-available" && info.installedVersion !== null
-                ? S.models.builtinUpdateAvailable(info.installedVersion, info.pinnedVersion)
-                : info.installedVersion !== null
-                  ? S.models.builtinReady(info.installedVersion)
-                  : S.models.builtinDownloadSize(APPROX_MB)}
+              : subtitle.kind === "update-available"
+                ? S.models.builtinUpdateAvailable(subtitle.installed, subtitle.pinned)
+                : subtitle.kind === "ready"
+                  ? S.models.builtinReady(subtitle.version)
+                  : subtitle.kind === "download-size"
+                    ? S.models.builtinDownloadSize(APPROX_MB)
+                    : null}
             {info.tokenMasked !== null && (
               <span className="ml-2 font-mono">{S.models.builtinToken(info.tokenMasked)}</span>
             )}
@@ -133,7 +136,7 @@ function CopilotCard({ info, onChanged }: { info: BuiltinAgentInfo; onChanged: (
             </a>
           </div>
         )}
-        {(actions.setup || actions.update) && (
+        {(actions.setup || actions.update || (actions.retry && info.installedVersion === null)) && (
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {S.models.builtinTerms}{" "}
             <a
