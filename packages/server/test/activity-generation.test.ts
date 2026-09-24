@@ -457,7 +457,7 @@ describe("activity generation through Harness sessions", () => {
     const run = (await (await f.startAudio()).json()) as ActivityRun;
     expect(run.kind).toBe("audio");
     const session = f.t.deps.sessionsRepo.findById(run.sessionId!)!;
-    expect(session.approvalMode).toBe("always-ask");
+    expect(session.approvalMode).toBe("allow-all");
     expect(
       await fs.readFile(path.join(session.workspace!, "generate-speech.mjs"), "utf8"),
     ).toContain("AutoLLMClient");
@@ -577,7 +577,7 @@ describe("activity generation through Harness sessions", () => {
       model: "gemini-3.1-flash-image",
     });
     const session = f.t.deps.sessionsRepo.findById(run.sessionId!)!;
-    expect(session.approvalMode).toBe("always-ask");
+    expect(session.approvalMode).toBe("allow-all");
     expect(
       await fs.readFile(path.join(session.workspace!, "image-input.json"), "utf8"),
     ).not.toContain("fake-test-only");
@@ -700,7 +700,7 @@ describe("activity generation through Harness sessions", () => {
       text: "A blue penguin",
     });
     const session = f.t.deps.sessionsRepo.findById(run.sessionId!)!;
-    expect(session.approvalMode).toBe("always-ask");
+    expect(session.approvalMode).toBe("allow-all");
     const input = JSON.parse(
       await fs.readFile(path.join(session.workspace!, "media-text-input.json"), "utf8"),
     );
@@ -1015,7 +1015,7 @@ describe("activity generation through Harness sessions", () => {
     const run = await f.startModule();
     expect(run.kind).toBe("module");
     const session = f.t.deps.sessionsRepo.findById(run.sessionId!)!;
-    expect(session.approvalMode).toBe("always-ask");
+    expect(session.approvalMode).toBe("allow-all");
     expect(
       JSON.parse(await fs.readFile(path.join(session.workspace!, "module/definition.json"), "utf8"))
         .engine,
@@ -1249,7 +1249,7 @@ describe("activity generation through Harness sessions", () => {
     const f = await fixture();
     const run = await f.start();
     const session = f.t.deps.sessionsRepo.findById(run.sessionId!)!;
-    expect(session.approvalMode).toBe("always-ask");
+    expect(session.approvalMode).toBe("allow-all");
     expect(session.workspace).toBe(path.join(f.t.root, "activity-runs", run.runId));
     const input = JSON.parse(
       await fs.readFile(path.join(session.workspace!, "input.json"), "utf8"),

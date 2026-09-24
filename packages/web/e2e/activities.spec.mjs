@@ -1471,7 +1471,7 @@ test("create, save, generate, leave and reopen a completed specification", async
   await openSection(page, "Description");
   await page.getByRole("button", { name: "Generate specification", exact: true }).click();
   await openSection(page, "Generation history");
-  await expect(page.getByRole("link", { name: "Open Session / approvals" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Open Session" })).toHaveAttribute(
     "href",
     "/chat/session_test",
   );
@@ -1592,7 +1592,7 @@ test("dirty drafts block sidebar, Session, browser back, and project switches", 
   };
   page.on("dialog", decline);
   await openSection(page, "Generation history");
-  await page.getByRole("link", { name: "Open Session / approvals" }).click();
+  await page.getByRole("link", { name: "Open Session" }).click();
   await expect(page).toHaveURL(/activities\/act_test(\?section=\w+)?$/);
   await page.getByRole("link", { name: "Agents", exact: true }).click();
   await expect(page).toHaveURL(/activities\/act_test(\?section=\w+)?$/);

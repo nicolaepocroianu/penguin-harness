@@ -536,7 +536,9 @@ export class ActivityGenerationService implements ActivityGeneration {
               // instruction, because an instruction is not a permission system and the
               // people approving these Sessions are not all engineers.
               ...(wafRoot ? { protectedRoots: [checkoutRoot(wafRoot)] } : {}),
-              approvalMode: "always-ask",
+              // Stages run unattended, so every tool call is approved; the protected checkout
+              // above is still refused, whatever the approval mode allows.
+              approvalMode: "allow-all",
             });
             run.sessionId = session.sessionId;
             this.save(run);
