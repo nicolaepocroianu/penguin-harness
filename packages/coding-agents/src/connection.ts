@@ -6,6 +6,7 @@
  * follows the pattern proven in the use-codex plugin's client.
  */
 import { spawn, type ChildProcess } from "node:child_process";
+import os from "node:os";
 import { Readable, Writable } from "node:stream";
 import {
   client,
@@ -114,6 +115,11 @@ export class AcpConnection {
     const [file, spawnArgs] = spawnTarget(command, args);
     const proc = spawnProcess(file, spawnArgs, {
       env,
+      // Never the host's own directory: `npx -y <adapter>` started inside a project whose
+      // tree already holds the adapter (a pnpm workspace dependency, say) counts it
+      // installed and runs a bin that was never linked there, so the agent dies before
+      // the handshake. The agent's working directory is each session's own, sent over ACP.
+      cwd: os.tmpdir(),
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
       shell: false,
