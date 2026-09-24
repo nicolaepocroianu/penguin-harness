@@ -89,7 +89,10 @@ const usable = (text: string | undefined) => !!text?.trim() && text.length <= TE
 export function speechTargets(manifest: AssetManifest): { language: string; assetKey: string }[] {
   return Object.entries(manifest.assets).flatMap(([language, assets]) =>
     assets
-      .filter((asset: MediaAsset) => asset.type === "audio" && !asset.path && usable(asset.script))
+      .filter(
+        (asset: MediaAsset) =>
+          asset.type === "audio" && !asset.kind && !asset.path && usable(asset.script),
+      )
       .map((asset) => ({ language, assetKey: asset.key })),
   );
 }
@@ -113,7 +116,8 @@ export function translationTargets(
       assets
         .filter((asset: MediaAsset) => {
           const source = sources.get(asset.key);
-          if (asset.type !== "audio" || source === undefined) return false;
+          // Music and effects are not spoken, so there is nothing to translate.
+          if (asset.type !== "audio" || asset.kind || source === undefined) return false;
           return (
             !asset.script?.trim() ||
             (asset.translatedFrom !== undefined && asset.translatedFrom !== source)

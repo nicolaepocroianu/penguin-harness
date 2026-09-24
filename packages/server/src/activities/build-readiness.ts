@@ -54,7 +54,7 @@ export function buildReadiness(
     // effects carry no script and fall back to the default, as in Loom.
     const defaultSpeech = new Set(
       defaults
-        .filter((asset) => asset.type === "audio" && !!asset.script?.trim())
+        .filter((asset) => asset.type === "audio" && !asset.kind && !!asset.script?.trim())
         .map((asset) => asset.key),
     );
     for (const language of languages) {

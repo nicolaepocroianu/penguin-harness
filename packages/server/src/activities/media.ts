@@ -1,4 +1,5 @@
 import { contentRevision, type ActivityDetail, type ActivityAddress } from "./domain.js";
+import { playbackFromScript, readPlayback, type AudioKind } from "./playback.js";
 
 export interface MediaAsset {
   key: string;
@@ -18,6 +19,14 @@ export interface MediaAsset {
    */
   wordTimings?: { word: string; startMs: number; endMs: number }[];
   durationMs?: number;
+  /**
+   * Music and sound effects: how the module plays them (see playback.ts). All four or
+   * none; narration has none.
+   */
+  kind?: AudioKind;
+  channel?: string;
+  loop?: boolean;
+  volume?: number;
   /** A reference in the WAF media checkout, never a server filesystem path. */
   path?: string;
   generatedAudio?: { runId: string; sha256: string };
@@ -82,6 +91,10 @@ export function validateManifest(value: unknown, address: ActivityAddress): Asse
               "translatedFrom",
               "wordTimings",
               "durationMs",
+              "kind",
+              "channel",
+              "loop",
+              "volume",
               "path",
               "usages",
               "generatedAudio",
@@ -143,6 +156,11 @@ export function validateManifest(value: unknown, address: ActivityAddress): Asse
           (asset.durationMs as number) < 0)
       )
         throw new Error("A duration belongs to a narration, in whole milliseconds.");
+      const playback = readPlayback(asset);
+      if (playback === "invalid" || (playback && asset.type !== "audio"))
+        throw new Error(
+          "Audio playback needs kind (music or sfx), channel, loop, and a volume from 0 to 1, together.",
+        );
       if (
         asset.path !== undefined &&
         (typeof asset.path !== "string" ||
@@ -228,6 +246,7 @@ export function validateManifest(value: unknown, address: ActivityAddress): Asse
             }
           : {}),
         ...(asset.durationMs !== undefined ? { durationMs: Number(asset.durationMs) } : {}),
+        ...(playback ?? {}),
         ...(asset.path !== undefined ? { path: String(asset.path) } : {}),
         ...(asset.generatedAudio !== undefined
           ? { generatedAudio: asset.generatedAudio as MediaAsset["generatedAudio"] }
@@ -264,6 +283,9 @@ export function planMedia(activity: ActivityDetail): MediaPlan {
           type,
           description: String(item.description),
           ...(type === "audio" && item.script !== undefined ? { script: String(item.script) } : {}),
+          ...(type === "audio" && typeof item.script === "string"
+            ? (playbackFromScript(item.script) ?? {})
+            : {}),
           usages: [],
         };
         const existing = entries.get(asset.key);

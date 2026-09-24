@@ -2909,3 +2909,71 @@ test("the open section is in the address, so a link or a reload lands on it", as
   await page.goto(`${origin}/activities/act_test?section=nonsense`);
   await expect(page.getByRole("textbox", { name: "Activity Script", exact: true })).toBeVisible();
 });
+
+test("marks an audio asset as music or a sound effect, with how the module plays it", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  await openSection(page, "Specification");
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify(spec));
+  await page.getByRole("button", { name: "Validate and save", exact: true }).click();
+  await openSection(page, "Scenes and media");
+  await planMedia(page);
+  await openManifest(page);
+  await page.getByRole("textbox", { name: /^Asset manifest/ }).fill(
+    JSON.stringify({
+      productCode: "words",
+      refNum: 12,
+      assets: {
+        "en-US": [
+          {
+            key: "welcome",
+            type: "audio",
+            description: "Greeting",
+            script: "Hello",
+            usages: [{ sceneId: "intro" }],
+          },
+        ],
+      },
+    }),
+  );
+  await openSection(page, "Scenes and media");
+  await page.getByRole("button", { name: "Validate and save media", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Generate speech", exact: true })).toBeVisible();
+
+  // Music loops quietly by default, and is not spoken.
+  await page.getByRole("button", { name: "Audio type", exact: true }).click();
+  await page.getByRole("option", { name: "Music", exact: true }).click();
+  await expect(page.getByRole("switch", { name: "Loop", exact: true })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await expect(page.getByRole("slider", { name: "Volume", exact: true })).toHaveValue("0.4");
+  await expect(page.getByRole("button", { name: "Generate speech", exact: true })).toHaveCount(0);
+  await expect(page.getByText(/not spoken/)).toBeVisible();
+  await page.getByRole("switch", { name: "Loop", exact: true }).click();
+  await page.getByRole("slider", { name: "Volume", exact: true }).fill("0.25");
+  await expect(page.getByText("25%", { exact: true })).toBeVisible();
+
+  const saved = page.waitForRequest(
+    (request) => request.url().endsWith("/media") && request.method() === "PUT",
+  );
+  await page.getByRole("button", { name: "Validate and save media", exact: true }).click();
+  expect((await saved).postDataJSON().manifest.assets["en-US"][0]).toMatchObject({
+    key: "welcome",
+    kind: "music",
+    channel: "music",
+    loop: false,
+    volume: 0.25,
+  });
+
+  // Back to narration drops all four together.
+  await page.getByRole("button", { name: "Audio type", exact: true }).click();
+  await page.getByRole("option", { name: "Narration", exact: true }).click();
+  await expect(page.getByRole("switch", { name: "Loop", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Generate speech", exact: true })).toBeVisible();
+  expect(f.errors).toEqual([]);
+});

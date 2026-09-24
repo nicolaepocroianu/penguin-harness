@@ -766,7 +766,7 @@ export class ActivityService implements ActivityAuthoring {
       const refusal = canAddLanguage(Object.keys(plan.manifest.assets), language);
       if (refusal) throw new HttpError(422, "language_invalid", refusal.message);
       const group = plan.manifest.assets[DEFAULT_LANGUAGE_CODE]!.filter(
-        (asset) => asset.type === "audio" && !!asset.script?.trim(),
+        (asset) => asset.type === "audio" && !asset.kind && !!asset.script?.trim(),
       ).map((asset) => {
         const {
           script: _script,
@@ -833,6 +833,7 @@ export class ActivityService implements ActivityAuthoring {
           ...(asset.type === "audio" && binding.durationMs !== undefined
             ? { durationMs: binding.durationMs }
             : {}),
+          ...(asset.type === "audio" && binding.playback ? binding.playback : {}),
         };
       });
     }

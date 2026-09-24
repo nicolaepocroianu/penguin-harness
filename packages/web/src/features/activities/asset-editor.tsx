@@ -17,6 +17,7 @@ import { toneInk, toneSurface } from "../../lib/tone";
 import { ImagePreview } from "./image-preview";
 import { MediaBinding } from "./media-binding";
 import { MediaComparison } from "./media-comparison";
+import { AudioPlaybackFields } from "./audio-playback-fields";
 import { isUploadPath } from "./media-library";
 import { MediaPlayer } from "./media-player";
 import { WaveformPlayer } from "./waveform-player";
@@ -221,6 +222,8 @@ export function AssetEditor({
     pendingUpload && pendingUpload.language === language && pendingUpload.key === asset?.key
       ? pendingUpload.stored
       : null;
+  // Music and effects are audio, but not spoken: no voice, script help or translation.
+  const narration = asset?.type === "audio" && !asset.kind;
   const acceptedImage = runs.find((run) => run.runId === asset?.generatedImage?.runId)?.image;
   const acceptedAudio = runs.find((run) => run.runId === asset?.generatedAudio?.runId)?.audio;
   return (
@@ -436,6 +439,22 @@ export function AssetEditor({
               ))}
             {asset.type === "audio" && (
               <>
+                <AudioPlaybackFields
+                  asset={asset}
+                  disabled={!editable || disabled}
+                  onChange={(playback) =>
+                    edit((entry) => {
+                      delete entry.kind;
+                      delete entry.channel;
+                      delete entry.loop;
+                      delete entry.volume;
+                      if (playback) Object.assign(entry, playback);
+                    })
+                  }
+                />
+                {!narration && (
+                  <p className="text-xs text-gray-500">{S.activities.audioPlayback.notSpoken}</p>
+                )}
                 <Textarea
                   size="sm"
                   label={S.activities.speechScript}
@@ -451,7 +470,7 @@ export function AssetEditor({
                     })
                   }
                 />
-                {editable && (
+                {narration && editable && (
                   <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
@@ -471,7 +490,7 @@ export function AssetEditor({
                     )}
                   </div>
                 )}
-                {onLanguage && (
+                {narration && onLanguage && (
                   <NarrationLanguages
                     manifest={manifest}
                     assetKey={asset.key}
@@ -497,7 +516,7 @@ export function AssetEditor({
                     />
                   </div>
                 )}
-                {editable && (
+                {narration && editable && (
                   <>
                     <Select
                       size="sm"

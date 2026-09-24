@@ -519,6 +519,20 @@ export const en: Strings = {
     speechCandidates: "Speech candidates",
     speechCandidate: "Speech candidate",
     acceptSpeech: "Accept this audio",
+    audioPlayback: {
+      type: "Audio type",
+      kinds: { speech: "Narration", music: "Music", sfx: "Sound effect" },
+      loop: "Loop",
+      volume: "Volume",
+      percent: (n: number) => `${n}%`,
+      hint: {
+        music: (channel: string) =>
+          `Plays in the background on the ${channel} channel, under narration.`,
+        sfx: (channel: string) => `Plays on the ${channel} channel, over whatever else plays.`,
+      },
+      notSpoken:
+        "Music and sound effects are not spoken: upload a file or choose one from the library.",
+    },
     assetLibrary: {
       kind: "Media type",
       binding: "Binding",

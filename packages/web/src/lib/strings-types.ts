@@ -411,6 +411,15 @@ export type Strings = {
     speechCandidates: string;
     speechCandidate: string;
     acceptSpeech: string;
+    audioPlayback: {
+      type: string;
+      kinds: Record<"speech" | "music" | "sfx", string>;
+      loop: string;
+      volume: string;
+      percent: (n: number) => string;
+      hint: Record<"music" | "sfx", (channel: string) => string>;
+      notSpoken: string;
+    };
     assetLibrary: {
       kind: string;
       binding: string;

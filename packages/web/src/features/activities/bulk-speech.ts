@@ -77,25 +77,28 @@ export function speechStatuses(
     if (asset.translatedFrom !== undefined && asset.translatedFrom !== source) return "outdated";
     return undefined;
   };
-  return assets
-    .filter((asset) => asset.type === "audio")
-    .map((asset) => {
-      const run = latest.get(asset.key);
-      const translation = translationOf(asset);
-      const base = {
-        key: asset.key,
-        sceneIds: [...new Set(asset.usages.map((usage) => usage.sceneId))],
-        ...(translation ? { translation } : {}),
-      };
-      if (asset.path) return { ...base, state: "ready" as const };
-      if (!asset.script?.trim()) return { ...base, state: "scriptMissing" as const };
-      if ((asset.script?.length ?? 0) > SPEECH_SCRIPT_MAX)
-        return { ...base, state: "scriptTooLong" as const };
-      if (run?.status === "running") return { ...base, state: "generating" as const };
-      if (run && UNSUCCESSFUL.has(run.status))
-        return { ...base, state: "failed" as const, ...(run.error ? { error: run.error } : {}) };
-      return { ...base, state: "missing" as const };
-    });
+  return (
+    assets
+      // Music and effects are audio the module plays, not narration anyone speaks.
+      .filter((asset) => asset.type === "audio" && !asset.kind)
+      .map((asset) => {
+        const run = latest.get(asset.key);
+        const translation = translationOf(asset);
+        const base = {
+          key: asset.key,
+          sceneIds: [...new Set(asset.usages.map((usage) => usage.sceneId))],
+          ...(translation ? { translation } : {}),
+        };
+        if (asset.path) return { ...base, state: "ready" as const };
+        if (!asset.script?.trim()) return { ...base, state: "scriptMissing" as const };
+        if ((asset.script?.length ?? 0) > SPEECH_SCRIPT_MAX)
+          return { ...base, state: "scriptTooLong" as const };
+        if (run?.status === "running") return { ...base, state: "generating" as const };
+        if (run && UNSUCCESSFUL.has(run.status))
+          return { ...base, state: "failed" as const, ...(run.error ? { error: run.error } : {}) };
+        return { ...base, state: "missing" as const };
+      })
+  );
 }
 
 /** The keys a bulk run would generate, in manifest order: missing, and failed to try again. */

@@ -13,6 +13,7 @@
 import { validateActivitySpec } from "./domain.js";
 import { DEFAULT_LANGUAGE_CODE, findLanguage } from "./languages.js";
 import { normalizeAlignment, type WordTiming } from "./word-timings.js";
+import { importedPlayback, type AudioPlayback } from "./playback.js";
 
 /** A Loom product, as the reader found it. */
 export interface SourceProduct {
@@ -69,6 +70,7 @@ export interface CarriedBinding {
   script?: string;
   wordTimings?: WordTiming[];
   durationMs?: number;
+  playback?: AudioPlayback;
 }
 
 /** A path Penguin's manifest accepts: relative, under media/, no traversal. */
@@ -135,6 +137,8 @@ export function carriedBindings(
         (asset.durationMs as number) >= 0
       )
         binding.durationMs = asset.durationMs as number;
+      const playback = asset.type === "audio" ? importedPlayback(asset) : null;
+      if (playback) binding.playback = playback;
       return [binding];
     });
   }
