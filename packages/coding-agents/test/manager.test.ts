@@ -6,7 +6,7 @@ import { CodingAgentManager } from "../src/manager.js";
 import { AcpConnection } from "../src/connection.js";
 import { AcpAgentError, parseDefinition } from "../src/types.js";
 import { FakeCodingAgent } from "./fake-agent.js";
-import type { AgentSessionEvent } from "../src/types.js";
+import type { AgentServerDefinition, AgentSessionEvent } from "../src/types.js";
 
 const CLIENT_INFO = { name: "penguin-test", version: "0.0.0" };
 
@@ -22,6 +22,7 @@ function harness(options: {
   permissionTimeoutMs?: number;
   reopen?: "resume" | "load" | "none";
   history?: string[];
+  envFor?: (definition: AgentServerDefinition) => Record<string, string>;
 }): Harness {
   const fake = new FakeCodingAgent({
     modes: options.modes,
@@ -32,7 +33,7 @@ function harness(options: {
   const events: AgentSessionEvent[] = [];
   const manager = new CodingAgentManager({
     clientInfo: CLIENT_INFO,
-    envFor: () => ({}),
+    envFor: options.envFor ?? (() => ({})),
     permissionTimeoutMs: options.permissionTimeoutMs,
     createConnection: async (_definition, handlers) => {
       // Forward the kernel's events into the test's array as well as the manager's log.
@@ -465,6 +466,20 @@ describe("CodingAgentManager", () => {
     expect(manager.listSessions()).toHaveLength(0);
     // The process is gone with the last session; a further turn cannot start.
     await expect(manager.prompt(sessionB.sessionId, "hi")).rejects.toBeInstanceOf(AcpAgentError);
+  });
+
+  // The process reads its environment once; a change saved while it runs applies next start.
+  it("reports when a running agent was started with other environment variables", async () => {
+    let env: Record<string, string> = { KEY: "one" };
+    const { manager } = harness({ envFor: () => env });
+    manager.setDefinitions([{ id: "fake", command: "fake" }]);
+    expect(manager.startedWithOtherEnv("fake")).toBe(false);
+    const view = await manager.createSession("fake", workspace);
+    expect(manager.startedWithOtherEnv("fake")).toBe(false);
+    env = { KEY: "two" };
+    expect(manager.startedWithOtherEnv("fake")).toBe(true);
+    await manager.disposeSession(view.sessionId);
+    expect(manager.startedWithOtherEnv("fake")).toBe(false);
   });
 
   it("announces a failed turn when the agent connection dies mid-turn", async () => {

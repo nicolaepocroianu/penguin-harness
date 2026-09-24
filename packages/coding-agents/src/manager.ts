@@ -118,6 +118,8 @@ export class CodingAgentManager {
   private readonly definitions = new Map<string, AgentServerDefinition>();
   private readonly connections = new Map<string, AcpConnection>();
   private readonly pendingConnections = new Map<string, Promise<AcpConnection>>();
+  /** The environment each live connection's process was started with, as compared JSON. */
+  private readonly spawnedEnv = new Map<string, string>();
   private readonly sessions = new Map<string, SessionRecord>();
   private readonly liveListeners = new Map<string, Set<(event: AgentSessionEvent) => void>>();
   private readonly configSets = new Map<string, Promise<void>>();
@@ -160,6 +162,18 @@ export class CodingAgentManager {
 
   listSessions(): AgentSessionView[] {
     return [...this.sessions.values()].map((r) => this.viewOf(r));
+  }
+
+  /**
+   * Whether the agent's running process was started with a different environment than its
+   * definition now gives; false when it is not running. Its sessions keep the old values until
+   * the last one ends, since the process reads its environment only at start.
+   */
+  startedWithOtherEnv(definitionId: string): boolean {
+    const started = this.spawnedEnv.get(definitionId);
+    const definition = this.definitions.get(definitionId);
+    if (started === undefined || definition === undefined) return false;
+    return started !== JSON.stringify(this.envFor(definition));
   }
 
   sessionView(sessionId: string): AgentSessionView | undefined {
@@ -420,6 +434,7 @@ export class CodingAgentManager {
     );
     if (!remaining) {
       this.connections.delete(record.definitionId);
+      this.spawnedEnv.delete(record.definitionId);
       connection.dispose();
     }
   }
@@ -431,6 +446,7 @@ export class CodingAgentManager {
     this.sessions.clear();
     this.liveListeners.clear();
     this.configSets.clear();
+    this.spawnedEnv.clear();
   }
 
   // --- internals ---------------------------------------------------------------------------
@@ -579,6 +595,7 @@ export class CodingAgentManager {
       .then(async (connection) => {
         await connection.initialize();
         this.connections.set(definition.id, connection);
+        this.spawnedEnv.set(definition.id, JSON.stringify(this.envFor(definition)));
         return connection;
       })
       .finally(() => {
@@ -595,6 +612,7 @@ export class CodingAgentManager {
   private onConnectionEvent(definitionId: string, event: AgentSessionEvent): void {
     if (event.type === "state" && event.state === "closed") {
       this.connections.delete(definitionId);
+      this.spawnedEnv.delete(definitionId);
       for (const record of this.sessions.values()) {
         if (record.definitionId !== definitionId) continue;
         for (const [requestId, waiter] of record.permissions) {
