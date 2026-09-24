@@ -169,3 +169,77 @@ export function sceneMap(machine: StateMachine, sceneId: string): SceneMap | nul
   });
   return { nodes, edges, exits };
 }
+
+/** What one phase does, for the inspector beside the drawing. */
+export interface PhaseDetails {
+  id: string;
+  initial: boolean;
+  final: boolean;
+  /** Actions named on entering and leaving the phase, in declared order. */
+  entry: string[];
+  exit: string[];
+  /** Services the phase runs while it is active. */
+  invokes: string[];
+  /** Transitions out of the phase: to another phase here, or out of the scene. */
+  outgoing: { trigger: MapTrigger; to: string; leaves: boolean }[];
+  /** Phases of this scene that lead here. */
+  incoming: { trigger: MapTrigger; from: string }[];
+}
+
+/** Action names from XState's shapes: a name, `{ type }`, or a list of either. */
+function actionNames(value: unknown): string[] {
+  const list = Array.isArray(value) ? value : value === undefined ? [] : [value];
+  return list.flatMap((entry) => {
+    if (typeof entry === "string") return [entry];
+    const type = object(entry)?.type;
+    return typeof type === "string" ? [type] : [];
+  });
+}
+
+export function phaseDetails(
+  machine: StateMachine,
+  sceneId: string,
+  phaseId: string,
+): PhaseDetails | null {
+  const map = sceneMap(machine, sceneId);
+  const node = map?.nodes.find((entry) => entry.id === phaseId);
+  const phase = object(object(object(machine.states[sceneId])?.states)?.[phaseId]);
+  if (!map || !node || !phase) return null;
+  const invoke = phase.invoke;
+  const invokes = (Array.isArray(invoke) ? invoke : invoke === undefined ? [] : [invoke]).flatMap(
+    (entry) => {
+      const src = object(entry)?.src ?? entry;
+      if (typeof src === "string") return [src];
+      const type = object(src)?.type;
+      return typeof type === "string" ? [type] : [];
+    },
+  );
+  return {
+    id: phaseId,
+    initial: node.initial,
+    final: node.final,
+    entry: actionNames(phase.entry),
+    exit: actionNames(phase.exit),
+    invokes,
+    outgoing: [
+      ...map.edges
+        .filter((edge) => edge.from === phaseId)
+        .map((edge) => ({ trigger: edge.trigger, to: edge.to, leaves: false })),
+      ...map.exits
+        .filter((exit) => exit.from === phaseId)
+        .map((exit) => ({ trigger: exit.trigger, to: exit.to.replace(/^#/, ""), leaves: true })),
+    ],
+    incoming: map.edges
+      .filter((edge) => edge.to === phaseId)
+      .map((edge) => ({ trigger: edge.trigger, from: edge.from })),
+  };
+}
+
+/** Zoom steps for the drawing, as fractions of its natural width. */
+export const MAP_ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3] as const;
+
+/** The next zoom step in a direction, holding at either end. */
+export function stepZoom(current: number, direction: 1 | -1): number {
+  if (direction > 0) return MAP_ZOOMS.find((zoom) => zoom > current + 1e-9) ?? current;
+  return [...MAP_ZOOMS].reverse().find((zoom) => zoom < current - 1e-9) ?? current;
+}

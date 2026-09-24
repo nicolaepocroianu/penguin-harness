@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { machineOf, machineScenes, sceneMap } from "../src/features/activities/state-map";
+import {
+  machineOf,
+  machineScenes,
+  phaseDetails,
+  sceneMap,
+  stepZoom,
+} from "../src/features/activities/state-map";
 
 const configuration = {
   stateMachine: {
@@ -18,6 +24,8 @@ const configuration = {
           idle: { after: { "500": "prompt" } },
           prompt: { invoke: { src: "say", onDone: "waiting", onError: "waiting" } },
           waiting: {
+            entry: ["highlight", { type: "listen" }],
+            exit: "stopListening",
             on: {
               CORRECT: { target: "correct", actions: "stopHighlight" },
               WRONG: "retry",
@@ -68,5 +76,30 @@ describe("the behavior map", () => {
 
   it("has no map for a scene the machine does not define", () => {
     expect(sceneMap(machineOf(configuration)!, "missing")).toBeNull();
+  });
+});
+
+describe("inspecting a phase", () => {
+  const machine = machineOf(configuration)!;
+  it("says what a phase does on entry and exit, and how it is reached and left", () => {
+    const details = phaseDetails(machine, "rocks", "waiting")!;
+    expect(details.entry).toEqual(["highlight", "listen"]);
+    expect(details.exit).toEqual(["stopListening"]);
+    expect(details.incoming.map((edge) => edge.from)).toEqual(["prompt", "prompt", "retry"]);
+    expect(details.outgoing.map((edge) => edge.to)).toEqual(["correct", "retry"]);
+    const correct = phaseDetails(machine, "rocks", "correct")!;
+    expect(correct.invokes).toEqual(["chest"]);
+    expect(correct.outgoing).toEqual([
+      { trigger: { kind: "done" }, to: "next-round", leaves: true },
+    ]);
+    expect(phaseDetails(machine, "rocks", "orphan")).toMatchObject({ final: true, incoming: [] });
+    expect(phaseDetails(machine, "rocks", "missing")).toBeNull();
+  });
+
+  it("zooms in steps and holds at either end", () => {
+    expect(stepZoom(1, 1)).toBe(1.25);
+    expect(stepZoom(1, -1)).toBe(0.75);
+    expect(stepZoom(3, 1)).toBe(3);
+    expect(stepZoom(0.5, -1)).toBe(0.5);
   });
 });

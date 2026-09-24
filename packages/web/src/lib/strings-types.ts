@@ -60,6 +60,27 @@ export type Strings = {
         exit: (phase: string, event: string, target: string) => string;
         live: (phase: string) => string;
         graph: (scene: string) => string;
+        zoom: string;
+        zoomIn: string;
+        zoomOut: string;
+        zoomFit: string;
+        zoomLevel: (percent: number) => string;
+        inspect: {
+          hint: string;
+          title: (phase: string) => string;
+          initial: string;
+          final: string;
+          entry: string;
+          exit: string;
+          invokes: string;
+          outgoing: string;
+          incoming: string;
+          via: (trigger: string) => string;
+          to: string;
+          leaves: (trigger: string, target: string) => string;
+          nothing: string;
+          close: string;
+        };
       };
     };
     /** The icon rail on the right and the panels it opens. */

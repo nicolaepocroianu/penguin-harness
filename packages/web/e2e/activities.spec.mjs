@@ -2109,10 +2109,32 @@ test("the player draws the module's behavior map and follows the phase it report
   const panel = page.getByRole("complementary", { name: "Player", exact: true });
   await panel.getByRole("button", { name: "Play", exact: true }).click();
 
-  const map = panel.getByRole("img", { name: "Behavior of rocks", exact: true });
+  const map = panel.getByRole("group", { name: "Behavior of rocks", exact: true });
   await expect(map).toBeVisible();
   await expect(map.locator('[aria-current="step"]')).toContainText("waiting");
   await expect(panel.getByText("correct, on done, to next", { exact: true })).toBeVisible();
+
+  // A phase opens in the inspector, and its neighbours can be followed from there.
+  await map.getByRole("button", { name: "waiting, where the activity is now" }).click();
+  const inspector = panel.getByRole("region", { name: "Phase waiting", exact: true });
+  await expect(inspector).toContainText("on CORRECT, to correct");
+  await expect(inspector).toContainText("prompt, on done");
+  await inspector.getByRole("button", { name: "correct", exact: true }).click();
+  const correct = panel.getByRole("region", { name: "Phase correct", exact: true });
+  await expect(correct).toContainText("on done, leaves for next");
+  await expect(correct).toContainText("chest");
+  await correct.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(correct).toHaveCount(0);
+
+  // Zooming widens the drawing past the panel; Fit brings it back.
+  const drawing = map;
+  const fitted = (await drawing.boundingBox()).width;
+  await panel.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await panel.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await expect(panel.getByText("150%", { exact: true })).toBeVisible();
+  expect((await drawing.boundingBox()).width).toBeGreaterThan(fitted * 1.4);
+  await panel.getByRole("button", { name: "Fit", exact: true }).click();
+  await expect(panel.getByText("100%", { exact: true })).toBeVisible();
 
   const toggle = panel.getByRole("button", { name: "Behavior map", exact: true });
   await expect(toggle).toHaveAttribute("aria-pressed", "true");

@@ -7,8 +7,9 @@
  * never from the playing page, so the map shows what the module declares rather than what
  * a page chose to say.
  */
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { apiFetch } from "../../api/client";
+import { Button } from "../../components/ui/button";
 import { Select } from "../../components/ui/select";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
@@ -16,7 +17,9 @@ import { toneInk } from "../../lib/tone";
 import {
   machineOf,
   machineScenes,
+  phaseDetails,
   sceneMap,
+  stepZoom,
   type MapNode,
   type MapTrigger,
   type StateMachine,
@@ -43,16 +46,117 @@ function centre(node: MapNode) {
 }
 const nodeWidth = (node: MapNode) => Math.min(132, (WIDTH - PAD * 2) / node.columns - 14);
 
+/** One labelled list of the inspector; says "Nothing" rather than vanish. */
+function Facts({ label, items }: { label: string; items: ReactNode[] }) {
+  return (
+    <div>
+      <dt className="font-medium text-gray-600 dark:text-gray-400">{label}</dt>
+      <dd>
+        {items.length ? (
+          <ul className="space-y-0.5">
+            {items.map((item, index) => (
+              <li key={index} className="break-words">
+                {item}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <span className="text-gray-500">{S.activities.studioPlayer.map.inspect.nothing}</span>
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function PhaseInspector({
+  machine,
+  sceneId,
+  phaseId,
+  onChoose,
+  onClose,
+}: {
+  machine: StateMachine;
+  sceneId: string;
+  phaseId: string;
+  onChoose: (phase: string) => void;
+  onClose: () => void;
+}) {
+  const words = S.activities.studioPlayer.map.inspect;
+  const details = phaseDetails(machine, sceneId, phaseId);
+  if (!details) return null;
+  const link = (phase: string) => (
+    <button
+      type="button"
+      className="text-brand-600 hover:text-brand-700 dark:text-brand-300"
+      onClick={() => onChoose(phase)}
+    >
+      {phase}
+    </button>
+  );
+  return (
+    <section
+      aria-label={words.title(details.id)}
+      className="space-y-2 rounded-lg border border-gray-200 p-3 text-xs dark:border-gray-800"
+    >
+      <div className="flex items-center gap-2">
+        <h5 className="min-w-0 flex-1 break-all font-semibold">{words.title(details.id)}</h5>
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          {words.close}
+        </Button>
+      </div>
+      {(details.initial || details.final) && (
+        <p className="text-gray-500">
+          {[details.initial && words.initial, details.final && words.final]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      )}
+      <dl className="grid gap-2 sm:grid-cols-2">
+        <Facts label={words.entry} items={details.entry} />
+        <Facts label={words.exit} items={details.exit} />
+        <Facts label={words.invokes} items={details.invokes} />
+        <Facts
+          label={words.incoming}
+          items={details.incoming.map((edge) => (
+            <>
+              {link(edge.from)}, {words.via(triggerText(edge.trigger))}
+            </>
+          ))}
+        />
+        <Facts
+          label={words.outgoing}
+          items={details.outgoing.map((edge) =>
+            edge.leaves ? (
+              words.leaves(triggerText(edge.trigger), edge.to)
+            ) : (
+              <>
+                {words.via(triggerText(edge.trigger))}, {words.to} {link(edge.to)}
+              </>
+            ),
+          )}
+        />
+      </dl>
+    </section>
+  );
+}
+
 function SceneGraph({
   machine,
   sceneId,
   livePhase,
+  zoom,
+  onZoom,
 }: {
   machine: StateMachine;
   sceneId: string;
   livePhase: string | null;
+  /** The drawing's width as a multiple of the panel's; 1 fits it. */
+  zoom: number;
+  onZoom: (direction: 1 | -1) => void;
 }) {
   const words = S.activities.studioPlayer.map;
+  const [inspected, setInspected] = useState<string | null>(null);
+  useEffect(() => setInspected(null), [sceneId]);
   const marker = `arrow-${useId().replace(/[^a-zA-Z0-9-]/g, "")}`;
   const map = useMemo(() => sceneMap(machine, sceneId), [machine, sceneId]);
   if (!map) return null;
@@ -74,112 +178,151 @@ function SceneGraph({
   }
   return (
     <div className="space-y-2">
-      <svg
-        role="img"
-        aria-label={words.graph(sceneId)}
-        viewBox={`0 0 ${WIDTH} ${height}`}
-        className="w-full"
+      <div
+        className="max-h-[32rem] overflow-auto"
+        onWheel={(event) => {
+          if (!event.ctrlKey && !event.metaKey) return;
+          event.preventDefault();
+          onZoom(event.deltaY < 0 ? 1 : -1);
+        }}
       >
-        <defs>
-          <marker
-            id={marker}
-            viewBox="0 0 8 8"
-            refX="7"
-            refY="4"
-            markerWidth="7"
-            markerHeight="7"
-            orient="auto-start-reverse"
-          >
-            <path d="M0 0L8 4L0 8z" className="fill-gray-400 dark:fill-gray-500" />
-          </marker>
-        </defs>
-        {[...lines.values()].map(({ from, to, labels, back }) => {
-          const a = centre(from);
-          const b = centre(to);
-          const label = labels.join(", ");
-          let d: string;
-          let lx: number;
-          let ly: number;
-          if (from === to) {
-            const x = a.x + nodeWidth(from) / 2;
-            d = `M${x} ${a.y - 6} C${x + 28} ${a.y - 20} ${x + 28} ${a.y + 20} ${x} ${a.y + 6}`;
-            lx = x + 26;
-            ly = a.y + 3;
-          } else if (!back) {
-            const y1 = a.y + NODE_HEIGHT / 2;
-            const y2 = b.y - NODE_HEIGHT / 2;
-            d = `M${a.x} ${y1} C${a.x} ${y1 + 22} ${b.x} ${y2 - 22} ${b.x} ${y2}`;
-            lx = (a.x + b.x) / 2 + 6;
-            ly = (y1 + y2) / 2 + 3;
-          } else {
-            // A return swings out past the side it is nearer, clear of the forward path.
-            const left = a.x <= WIDTH / 2;
-            const x1 = a.x + ((left ? -1 : 1) * nodeWidth(from)) / 2;
-            const x2 = b.x + ((left ? -1 : 1) * nodeWidth(to)) / 2;
-            const swing = left ? Math.min(x1, x2) - 34 : Math.max(x1, x2) + 34;
-            d = `M${x1} ${a.y} C${swing} ${a.y} ${swing} ${b.y} ${x2} ${b.y}`;
-            lx = swing + (left ? -2 : 2);
-            ly = (a.y + b.y) / 2 + 3;
-          }
-          return (
-            <g key={`${from.id}->${to.id}`}>
-              <path
-                d={d}
-                fill="none"
-                strokeWidth="1.5"
-                strokeDasharray={back ? "4 3" : undefined}
-                markerEnd={`url(#${marker})`}
-                className="stroke-gray-300 dark:stroke-gray-600"
-              />
-              <text
-                x={lx}
-                y={ly}
-                fontSize="10"
-                textAnchor={back && lx < WIDTH / 2 ? "end" : "start"}
-                className="fill-gray-500"
+        <svg
+          role="group"
+          aria-label={words.graph(sceneId)}
+          viewBox={`0 0 ${WIDTH} ${height}`}
+          style={{ width: `${zoom * 100}%` }}
+          className="max-w-none"
+        >
+          <defs>
+            <marker
+              id={marker}
+              viewBox="0 0 8 8"
+              refX="7"
+              refY="4"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M0 0L8 4L0 8z" className="fill-gray-400 dark:fill-gray-500" />
+            </marker>
+          </defs>
+          {[...lines.values()].map(({ from, to, labels, back }) => {
+            const a = centre(from);
+            const b = centre(to);
+            const label = labels.join(", ");
+            let d: string;
+            let lx: number;
+            let ly: number;
+            if (from === to) {
+              const x = a.x + nodeWidth(from) / 2;
+              d = `M${x} ${a.y - 6} C${x + 28} ${a.y - 20} ${x + 28} ${a.y + 20} ${x} ${a.y + 6}`;
+              lx = x + 26;
+              ly = a.y + 3;
+            } else if (!back) {
+              const y1 = a.y + NODE_HEIGHT / 2;
+              const y2 = b.y - NODE_HEIGHT / 2;
+              d = `M${a.x} ${y1} C${a.x} ${y1 + 22} ${b.x} ${y2 - 22} ${b.x} ${y2}`;
+              lx = (a.x + b.x) / 2 + 6;
+              ly = (y1 + y2) / 2 + 3;
+            } else {
+              // A return swings out past the side it is nearer, clear of the forward path.
+              const left = a.x <= WIDTH / 2;
+              const x1 = a.x + ((left ? -1 : 1) * nodeWidth(from)) / 2;
+              const x2 = b.x + ((left ? -1 : 1) * nodeWidth(to)) / 2;
+              const swing = left ? Math.min(x1, x2) - 34 : Math.max(x1, x2) + 34;
+              d = `M${x1} ${a.y} C${swing} ${a.y} ${swing} ${b.y} ${x2} ${b.y}`;
+              lx = swing + (left ? -2 : 2);
+              ly = (a.y + b.y) / 2 + 3;
+            }
+            return (
+              <g key={`${from.id}->${to.id}`}>
+                <path
+                  d={d}
+                  fill="none"
+                  strokeWidth="1.5"
+                  strokeDasharray={back ? "4 3" : undefined}
+                  markerEnd={`url(#${marker})`}
+                  className="stroke-gray-300 dark:stroke-gray-600"
+                />
+                <text
+                  x={lx}
+                  y={ly}
+                  fontSize="10"
+                  textAnchor={back && lx < WIDTH / 2 ? "end" : "start"}
+                  className="fill-gray-500"
+                >
+                  {label}
+                </text>
+              </g>
+            );
+          })}
+          {map.nodes.map((node) => {
+            const { x, y } = centre(node);
+            const width = nodeWidth(node);
+            const live = node.id === livePhase;
+            const chosen = node.id === inspected;
+            const choose = () => setInspected(chosen ? null : node.id);
+            return (
+              <g
+                key={node.id}
+                role="button"
+                tabIndex={0}
+                aria-pressed={chosen}
+                aria-label={live ? words.live(node.id) : node.id}
+                aria-current={live ? "step" : undefined}
+                className="cursor-pointer outline-none [&:focus-visible>rect]:stroke-brand-500"
+                onClick={choose}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  choose();
+                }}
               >
-                {label}
-              </text>
-            </g>
-          );
-        })}
-        {map.nodes.map((node) => {
-          const { x, y } = centre(node);
-          const width = nodeWidth(node);
-          const live = node.id === livePhase;
-          return (
-            <g key={node.id} aria-current={live ? "step" : undefined}>
-              <title>{live ? words.live(node.id) : node.id}</title>
-              <rect
-                x={x - width / 2}
-                y={y - NODE_HEIGHT / 2}
-                width={width}
-                height={NODE_HEIGHT}
-                rx={node.final ? NODE_HEIGHT / 2 : 6}
-                strokeWidth={live ? "1.5" : "1"}
-                className={
-                  live
-                    ? "fill-brand-50 stroke-brand-600 dark:fill-brand-950 dark:stroke-brand-300"
-                    : "fill-white stroke-gray-300 dark:fill-gray-900 dark:stroke-gray-700"
-                }
-              />
-              <text
-                x={x}
-                y={y + 4}
-                fontSize="11"
-                textAnchor="middle"
-                className={
-                  live
-                    ? "fill-brand-700 font-semibold dark:fill-brand-200"
-                    : "fill-gray-700 dark:fill-gray-300"
-                }
-              >
-                {node.id.length > 18 ? `${node.id.slice(0, 17)}…` : node.id}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
+                <title>{live ? words.live(node.id) : node.id}</title>
+                <rect
+                  x={x - width / 2}
+                  y={y - NODE_HEIGHT / 2}
+                  width={width}
+                  height={NODE_HEIGHT}
+                  rx={node.final ? NODE_HEIGHT / 2 : 6}
+                  strokeWidth={chosen ? "2.5" : live ? "1.5" : "1"}
+                  className={`${
+                    live ? "fill-brand-50 dark:fill-brand-950" : "fill-white dark:fill-gray-900"
+                  } ${
+                    live || chosen
+                      ? "stroke-brand-600 dark:stroke-brand-300"
+                      : "stroke-gray-300 dark:stroke-gray-700"
+                  }`}
+                />
+                <text
+                  x={x}
+                  y={y + 4}
+                  fontSize="11"
+                  textAnchor="middle"
+                  className={
+                    live
+                      ? "fill-brand-700 font-semibold dark:fill-brand-200"
+                      : "fill-gray-700 dark:fill-gray-300"
+                  }
+                >
+                  {node.id.length > 18 ? `${node.id.slice(0, 17)}…` : node.id}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      {inspected ? (
+        <PhaseInspector
+          machine={machine}
+          sceneId={sceneId}
+          phaseId={inspected}
+          onChoose={setInspected}
+          onClose={() => setInspected(null)}
+        />
+      ) : (
+        <p className="text-xs text-gray-500">{words.inspect.hint}</p>
+      )}
       {map.exits.length > 0 && (
         <div className="space-y-0.5 text-xs text-gray-500">
           <p className="font-medium">{words.leaves}</p>
@@ -223,6 +366,7 @@ export function StateMapView({
     | { state: "ready"; machine: StateMachine }
   >({ state: "loading" });
   const [choice, setChoice] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -267,6 +411,37 @@ export function StateMapView({
         >
           {words.toggle}
         </button>
+        {machine && scenes.length > 0 && (
+          <div role="group" aria-label={words.zoom} className="flex items-center">
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label={words.zoomOut}
+              disabled={stepZoom(zoom, -1) === zoom}
+              onClick={() => setZoom(stepZoom(zoom, -1))}
+            >
+              −
+            </Button>
+            <span
+              aria-live="polite"
+              className="w-10 text-center text-xs tabular-nums text-gray-500"
+            >
+              {words.zoomLevel(Math.round(zoom * 100))}
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label={words.zoomIn}
+              disabled={stepZoom(zoom, 1) === zoom}
+              onClick={() => setZoom(stepZoom(zoom, 1))}
+            >
+              +
+            </Button>
+            <Button size="sm" variant="ghost" disabled={zoom === 1} onClick={() => setZoom(1)}>
+              {words.zoomFit}
+            </Button>
+          </div>
+        )}
         {scenes.length > 1 && (
           <div className="w-40">
             <Select
@@ -295,6 +470,8 @@ export function StateMapView({
           machine={machine}
           sceneId={shown}
           livePhase={shown === reportedScene ? reportedPhase : null}
+          zoom={zoom}
+          onZoom={(direction) => setZoom((current) => stepZoom(current, direction))}
         />
       )}
     </div>
