@@ -165,7 +165,9 @@ export function codingAgentsRoutes(deps: CodingAgentsRouteDeps): Hono<AppEnv> {
       if (entry.value !== undefined && typeof entry.value !== "string") {
         throw badRequest(`${entry.key}: value must be a string.`);
       }
-      return entry.value === undefined ? { key: entry.key } : { key: entry.key, value: entry.value };
+      return entry.value === undefined
+        ? { key: entry.key }
+        : { key: entry.key, value: entry.value };
     });
     try {
       return c.json({ agent: await deps.codingAgents.setAgentEnv(agentId, entries) });

@@ -37,7 +37,10 @@ export abstract class CodingAgents extends Interface<{
    * stored one; a key not listed is removed). A detected agent's definition is saved first.
    * Refused for a built-in definition, whose variables its own service owns.
    */
-  setAgentEnv(agentId: string, entries: { key: string; value?: string }[]): Promise<CodingAgentServerInfo>;
+  setAgentEnv(
+    agentId: string,
+    entries: { key: string; value?: string }[],
+  ): Promise<CodingAgentServerInfo>;
   /** For the built-in agents service only: write its definition, bypassing the Local CLI guard. */
   saveBuiltinDefinition(definition: AgentServerDefinition): void;
   /** For the built-in agents service only: drop its definition. */

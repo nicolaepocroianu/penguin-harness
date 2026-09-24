@@ -37,14 +37,23 @@ describe("coding agent env", () => {
 
   it("stores values, returns them masked, and keeps a key sent without a value", async () => {
     const put = (entries: unknown) => admin.put("/api/coding-agents/agents/fake/env", { entries });
-    expect((await put([{ key: "GEMINI_API_KEY", value: "AIzaSyExample1234567890" }, { key: "SHORT", value: "abc" }])).status).toBe(200);
+    expect(
+      (
+        await put([
+          { key: "GEMINI_API_KEY", value: "AIzaSyExample1234567890" },
+          { key: "SHORT", value: "abc" },
+        ])
+      ).status,
+    ).toBe(200);
     let fake = (await agentsAs(admin)).find((a) => a.id === "fake")!;
     expect(fake.env).toEqual([
       { key: "GEMINI_API_KEY", valueMasked: "AIza…7890" },
       { key: "SHORT", valueMasked: "***" },
     ]);
     // Keep GEMINI_API_KEY by name, drop SHORT, add another.
-    expect((await put([{ key: "GEMINI_API_KEY" }, { key: "OTHER", value: "value-two" }])).status).toBe(200);
+    expect(
+      (await put([{ key: "GEMINI_API_KEY" }, { key: "OTHER", value: "value-two" }])).status,
+    ).toBe(200);
     fake = (await agentsAs(admin)).find((a) => a.id === "fake")!;
     expect(fake.env).toEqual([
       { key: "GEMINI_API_KEY", valueMasked: "AIza…7890" },
@@ -60,7 +69,10 @@ describe("coding agent env", () => {
       [{ key: "PENGUIN_X", value: "x" }],
       [{ key: "1BAD", value: "x" }],
       [{ key: "A", value: "a\nb" }],
-      [{ key: "A", value: "x" }, { key: "A", value: "y" }],
+      [
+        { key: "A", value: "x" },
+        { key: "A", value: "y" },
+      ],
       [{ key: "NEVER_STORED" }],
     ]) {
       const res = await put(entries);
@@ -70,17 +82,30 @@ describe("coding agent env", () => {
   });
 
   it("is admin-only to write, and members never see env", async () => {
-    expect((await member.put("/api/coding-agents/agents/fake/env", { entries: [] })).status).toBe(403);
-    await admin.put("/api/coding-agents/agents/fake/env", { entries: [{ key: "K", value: "secret-value-123" }] });
+    expect((await member.put("/api/coding-agents/agents/fake/env", { entries: [] })).status).toBe(
+      403,
+    );
+    await admin.put("/api/coding-agents/agents/fake/env", {
+      entries: [{ key: "K", value: "secret-value-123" }],
+    });
     const fake = (await agentsAs(member)).find((a) => a.id === "fake")!;
     expect(fake).not.toHaveProperty("env");
     expect(fake).not.toHaveProperty("envPending");
   });
 
   it("keeps stored env when an agent is re-saved without env", async () => {
-    await admin.put("/api/coding-agents/agents/fake/env", { entries: [{ key: "K", value: "secret-value-123" }] });
+    await admin.put("/api/coding-agents/agents/fake/env", {
+      entries: [{ key: "K", value: "secret-value-123" }],
+    });
     expect(
-      (await admin.post("/api/coding-agents/agents", { id: "fake", title: "Renamed", command: process.execPath, args: [AGENT_MAIN] })).status,
+      (
+        await admin.post("/api/coding-agents/agents", {
+          id: "fake",
+          title: "Renamed",
+          command: process.execPath,
+          args: [AGENT_MAIN],
+        })
+      ).status,
     ).toBe(201);
     const fake = (await agentsAs(admin)).find((a) => a.id === "fake")!;
     expect(fake.title).toBe("Renamed");
@@ -108,7 +133,10 @@ describe("coding agent env", () => {
       env: { COPILOT_GITHUB_TOKEN: "github_pat_example_abcd" },
       builtin: "copilot",
     });
-    const save = await admin.post("/api/coding-agents/agents", { id: "copilot-builtin", command: "x" });
+    const save = await admin.post("/api/coding-agents/agents", {
+      id: "copilot-builtin",
+      command: "x",
+    });
     expect(save.status).toBe(400);
     expect(await save.text()).toMatch(/Built-in/);
     const env = await admin.put("/api/coding-agents/agents/copilot-builtin/env", { entries: [] });
