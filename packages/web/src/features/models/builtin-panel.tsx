@@ -15,7 +15,7 @@ import {
 } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
-import { toneStrip } from "../../lib/tone";
+import { toneInk, toneStrip } from "../../lib/tone";
 import { Button } from "../../components/ui/button";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { Modal } from "../../components/ui/modal";
@@ -109,6 +109,9 @@ function CopilotCard({ info, onChanged }: { info: BuiltinAgentInfo; onChanged: (
       <div className="mt-3 space-y-3">
         {info.status === "not-installed" && (
           <p className="text-xs text-gray-500 dark:text-gray-400">{S.models.builtinCopilotAbout}</p>
+        )}
+        {info.envPending && (
+          <p className={`text-xs ${toneInk.attention}`}>{S.models.cliEnvPending}</p>
         )}
         {info.message !== null && (
           <p role="status" className={`rounded-md border px-3 py-2 text-xs ${toneStrip.danger}`}>

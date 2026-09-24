@@ -27,7 +27,9 @@ export function builtinActions(info: BuiltinAgentInfo) {
         needsToken: info.tokenMasked === null,
         test: installed,
         replaceToken: installed,
-        remove: installed,
+        // A stored token means a definition exists (even one whose program went missing):
+        // it must stay removable.
+        remove: installed || info.tokenMasked !== null,
       };
     case "update-available":
       return { ...none, update: true, test: true, replaceToken: true, remove: true };

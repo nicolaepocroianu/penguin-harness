@@ -16,6 +16,7 @@ const base: BuiltinAgentInfo = {
   downloadSize: null,
   progress: null,
   tokenMasked: null,
+  envPending: false,
   message: null,
 };
 
@@ -76,6 +77,19 @@ describe("built-in card actions", () => {
         tokenMasked: "gith…abcd",
       }),
     ).toMatchObject({ retry: true, needsToken: false, test: true });
+  });
+  it("offers Remove and a stored-token Try again when the program went missing", () => {
+    expect(
+      builtinActions({
+        ...base,
+        status: "failed",
+        message: "The Copilot program is missing. Try again to download it.",
+        tokenMasked: "gith…abcd",
+      }),
+    ).toMatchObject({ retry: true, needsToken: false, remove: true, test: false });
+    expect(builtinActions({ ...base, status: "failed", message: "x" })).toMatchObject({
+      remove: false,
+    });
   });
   it("offers nothing on an unsupported machine", () => {
     expect(Object.values(builtinActions({ ...base, status: "unsupported" })).some(Boolean)).toBe(
