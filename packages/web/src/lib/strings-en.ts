@@ -1969,7 +1969,36 @@ export const en: Strings = {
     groupKeyApplied: (n: number): string => `API key set for ${n} models`,
     oauthKey: "Authorize key",
     viewLocalCli: "Local CLI",
+    viewBuiltin: "Built-in",
     viewApiProviders: "API providers",
+    builtinIntro:
+      "Agents Penguin downloads, runs and updates for you. You give it a token; nothing is installed on the server machine by hand.",
+    builtinCopilotAbout:
+      "GitHub Copilot, run from GitHub's own Copilot program. Penguin downloads it into its data folder and runs it with your personal access token.",
+    builtinDownloadSize: (mb: number): string => `Downloads about ${mb} MB.`,
+    builtinTokenLabel: "GitHub personal access token",
+    builtinTokenHint: "A fine-grained token (github_pat_…) with the Copilot Requests permission.",
+    builtinTokenCreate: "Create a token on GitHub",
+    builtinTerms: "Setting up accepts the GitHub Copilot CLI license.",
+    builtinTermsLink: "Read the license",
+    builtinSetup: "Set up",
+    builtinDownloading: (percent: number | null): string =>
+      percent === null ? "Downloading…" : `Downloading… ${percent}%`,
+    builtinCancel: "Cancel",
+    builtinReady: (version: string): string => `Ready · version ${version}`,
+    builtinUpdateAvailable: (installed: string, pinned: string): string =>
+      `Version ${installed} installed; ${pinned} is available.`,
+    builtinUpdate: "Update",
+    builtinRetry: "Try again",
+    builtinReplaceToken: "Replace token",
+    builtinReplaceTokenTitle: "Replace the token",
+    builtinToken: (masked: string): string => `Token ${masked}`,
+    builtinRemove: "Remove",
+    builtinRemoveTitle: "Remove built-in Copilot?",
+    builtinRemoveBody:
+      "Deletes the downloaded program and the stored token. Sessions that used it stay readable in history.",
+    builtinPatHint:
+      "If a session is refused, check that the token has not expired and has the Copilot Requests permission.",
     cliEnv: "Environment",
     cliEnvHint:
       "Variables this agent starts with, such as an API key. Values stay on the server and are shown masked.",

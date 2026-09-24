@@ -30,6 +30,8 @@ import type {
   BenchmarkCreateRequest,
   BenchmarkCreateResponse,
   BenchmarksResponse,
+  BuiltinAgentInfo,
+  BuiltinAgentsResponse,
   CaseMaterial,
   ChatDefaultsDto,
   CodingAgentDiscoveryResponse,
@@ -1835,6 +1837,25 @@ export const setCodingAgentEnv = (agentId: string, body: CodingAgentEnvRequest) 
     `/api/coding-agents/agents/${encodeURIComponent(agentId)}/env`,
     { method: "PUT", body },
   );
+
+// --- Built-in agents (Models → Built-in) ------------------------------------------------
+
+export const listBuiltinAgents = () =>
+  apiFetch<BuiltinAgentsResponse>("/api/coding-agents/builtin");
+export const setupBuiltinCopilot = (token?: string) =>
+  apiFetch<{ agent: BuiltinAgentInfo }>("/api/coding-agents/builtin/copilot/setup", {
+    method: "POST",
+    body: token !== undefined ? { token } : {},
+  });
+export const cancelBuiltinCopilot = () =>
+  apiFetch<void>("/api/coding-agents/builtin/copilot/cancel", { method: "POST", body: {} });
+export const replaceBuiltinCopilotToken = (token: string) =>
+  apiFetch<{ agent: BuiltinAgentInfo }>("/api/coding-agents/builtin/copilot/token", {
+    method: "PUT",
+    body: { token },
+  });
+export const removeBuiltinCopilot = () =>
+  apiFetch<void>("/api/coding-agents/builtin/copilot", { method: "DELETE" });
 
 /** Remember one other session setting (a reasoning effort) for an agent; admin-only. */
 export const setCodingAgentOption = (
