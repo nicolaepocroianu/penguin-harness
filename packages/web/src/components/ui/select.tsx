@@ -13,6 +13,7 @@ import { errorClass, sizeClass, sizeTextClass } from "./input";
 import type { ControlSize } from "./input";
 import { Field, controlBase, menuRowClass } from "./field";
 import { CheckIcon, ChevronDown } from "./icons";
+import { rowDescClass } from "./option-menu";
 import { usePortalPanel } from "./use-portal-panel";
 
 export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "size"> {
@@ -138,7 +139,8 @@ export function Select({
                   <div
                     key={`group-${i}`}
                     role="presentation"
-                    className="px-3 pb-1 pt-2 text-xs font-medium text-gray-500 dark:text-gray-400"
+                    // A group heading is secondary text, sized like a menu row's description.
+                    className={`px-3 pb-1 pt-2 ${rowDescClass[size]} font-medium text-gray-500 dark:text-gray-400`}
                   >
                     {row.label}
                   </div>
