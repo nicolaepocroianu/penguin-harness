@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   COPILOT_VERSION,
   binaryFromManifest,
   copilotPackageName,
+  isMuslLinux,
 } from "../src/coding-agents/builtin/copilot-package.js";
 
 describe("copilot package facts", () => {
@@ -21,5 +22,68 @@ describe("copilot package facts", () => {
     expect(binaryFromManifest({ exports: { ".": "./copilot.exe" } })).toBe("copilot.exe");
     expect(binaryFromManifest({ bin: { "copilot-linux-x64": "copilot" } })).toBe("copilot");
     expect(() => binaryFromManifest({})).toThrow(/program/);
+  });
+
+  describe("isMuslLinux", () => {
+    it("returns false off Linux", () => {
+      expect(isMuslLinux()).toBe(false);
+    });
+
+    it("returns true when the report header has no glibcVersionRuntime", () => {
+      const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
+      const originalReport = Object.getOwnPropertyDescriptor(process, "report");
+
+      try {
+        Object.defineProperty(process, "platform", { value: "linux", configurable: true });
+        Object.defineProperty(process, "report", {
+          value: { getReport: () => ({ header: {} }) },
+          configurable: true,
+        });
+
+        expect(isMuslLinux()).toBe(true);
+      } finally {
+        if (originalPlatform) Object.defineProperty(process, "platform", originalPlatform);
+        else delete (process as any).platform;
+        if (originalReport) Object.defineProperty(process, "report", originalReport);
+        else delete (process as any).report;
+      }
+    });
+
+    it("returns false when the header has glibcVersionRuntime", () => {
+      const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
+      const originalReport = Object.getOwnPropertyDescriptor(process, "report");
+
+      try {
+        Object.defineProperty(process, "platform", { value: "linux", configurable: true });
+        Object.defineProperty(process, "report", {
+          value: { getReport: () => ({ header: { glibcVersionRuntime: "2.31" } }) },
+          configurable: true,
+        });
+
+        expect(isMuslLinux()).toBe(false);
+      } finally {
+        if (originalPlatform) Object.defineProperty(process, "platform", originalPlatform);
+        else delete (process as any).platform;
+        if (originalReport) Object.defineProperty(process, "report", originalReport);
+        else delete (process as any).report;
+      }
+    });
+
+    it("returns false without throwing when process.report is undefined", () => {
+      const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
+      const originalReport = Object.getOwnPropertyDescriptor(process, "report");
+
+      try {
+        Object.defineProperty(process, "platform", { value: "linux", configurable: true });
+        Object.defineProperty(process, "report", { value: undefined, configurable: true });
+
+        expect(isMuslLinux()).toBe(false);
+      } finally {
+        if (originalPlatform) Object.defineProperty(process, "platform", originalPlatform);
+        else delete (process as any).platform;
+        if (originalReport) Object.defineProperty(process, "report", originalReport);
+        else delete (process as any).report;
+      }
+    });
   });
 });

@@ -22,9 +22,10 @@ export function copilotPackageName(
 /** A Linux without glibc (Alpine and the like), where the musl build is the one that runs. */
 export function isMuslLinux(): boolean {
   if (process.platform !== "linux") return false;
-  const header = (process.report?.getReport() as { header?: { glibcVersionRuntime?: string } })
-    .header;
-  return header?.glibcVersionRuntime === undefined;
+  const report = process.report?.getReport?.() as
+    { header?: { glibcVersionRuntime?: string } } | undefined;
+  const header = report?.header;
+  return header !== undefined && header.glibcVersionRuntime === undefined;
 }
 
 /** The program's path inside the unpacked package, from its manifest. */
