@@ -4,6 +4,7 @@
  *   GET    /api/coding-agents/discover                                 (any user: cached; cheap tier)
  *   POST   /api/coding-agents/discover/refresh                         (admin: live probes — versions, auth, models)
  *   PUT    /api/coding-agents/agents/:agentId/model                    (admin: remember an agent's model)
+ *   PUT    /api/coding-agents/agents/:agentId/env                      (admin: replace an agent's environment variables)
  *   POST   /api/coding-agents/agents                                   (admin: save a custom definition)
  *   DELETE /api/coding-agents/agents/:agentId                          (admin)
  *   GET    /api/coding-agents/sessions                                 (any user)
@@ -68,7 +69,9 @@ function rethrowKernelError(error: unknown, busyStatus = false): never {
 export function codingAgentsRoutes(deps: CodingAgentsRouteDeps): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
-  app.get("/agents", (c) => c.json({ agents: deps.codingAgents.listAgents() }));
+  app.get("/agents", (c) =>
+    c.json({ agents: deps.codingAgents.listAgents({ withEnv: c.var.user.isAdmin }) }),
+  );
 
   // The cached discovery read backs the card view every authenticated user already gets
   // (GET /agents and POST /sessions are any-user routes): it executes nothing, answering
@@ -149,6 +152,28 @@ export function codingAgentsRoutes(deps: CodingAgentsRouteDeps): Hono<AppEnv> {
     return c.body(null, 204);
   });
 
+  app.put("/agents/:agentId/env", async (c) => {
+    if (!c.var.user.isAdmin) {
+      throw new HttpError(403, "forbidden", "Admin access is required.");
+    }
+    const agentId = pathParam(c, "agentId");
+    const body = (await readJson(c)) as { entries?: unknown };
+    if (!Array.isArray(body.entries)) throw badRequest("entries must be an array.");
+    const entries = body.entries.map((raw: unknown) => {
+      const entry = raw as { key?: unknown; value?: unknown };
+      if (typeof entry?.key !== "string") throw badRequest("every entry needs a key.");
+      if (entry.value !== undefined && typeof entry.value !== "string") {
+        throw badRequest(`${entry.key}: value must be a string.`);
+      }
+      return entry.value === undefined ? { key: entry.key } : { key: entry.key, value: entry.value };
+    });
+    try {
+      return c.json({ agent: await deps.codingAgents.setAgentEnv(agentId, entries) });
+    } catch (error) {
+      rethrowKernelError(error);
+    }
+  });
+
   app.post("/agents", async (c) => {
     if (!c.var.user.isAdmin) {
       throw new HttpError(403, "forbidden", "Admin access is required.");
@@ -168,7 +193,13 @@ export function codingAgentsRoutes(deps: CodingAgentsRouteDeps): Hono<AppEnv> {
       throw new HttpError(403, "forbidden", "Admin access is required.");
     }
     const agentId = pathParam(c, "agentId");
-    if (!deps.codingAgents.removeAgent(agentId)) {
+    let removed: boolean;
+    try {
+      removed = deps.codingAgents.removeAgent(agentId);
+    } catch (error) {
+      rethrowKernelError(error);
+    }
+    if (!removed) {
       throw new HttpError(404, "not_found", "Agent definition does not exist.");
     }
     return c.body(null, 204);

@@ -31,6 +31,7 @@ import {
   parseDefinition,
   probeAgentOptions,
   sandboxedAgentEnv,
+  validateAgentEnvEntry,
   type AgentDiscoveryCandidate,
   type AgentPermissionOutcome,
   type AgentResumeSupport,
@@ -46,6 +47,7 @@ import type {
   CodingAgentConfigOption,
   CodingAgentDiscoveryCandidate,
   CodingAgentDiscoveryResponse,
+  CodingAgentEnvEntryInfo,
   CodingAgentServerInfo,
   CodingAgentSessionDetailResponse,
   CodingAgentSessionInfo,
@@ -55,6 +57,7 @@ import { Channels, Config, type ChannelApi } from "../hmr/capabilities.js";
 import { Settings } from "../mechanisms/settings.js";
 import { CodingAgents } from "../mechanisms/coding-agents.js";
 import { AcpAgentError } from "@prismshadow/penguin-coding-agents";
+import { maskApiKey } from "../services/project-config-service.js";
 import { renderTranscriptMarkdown, transcriptFilename } from "./transcript.js";
 import type { RuntimeSession } from "../runtime/session-manager.js";
 import {
@@ -118,6 +121,11 @@ export function upgradeAdapterPackage(definition: AgentServerDefinition): AgentS
   return { ...definition, args: args.map(renamed) };
 }
 
+/** An agent's variables as the API shows them: names in order, values masked. */
+function maskedEnv(env: Record<string, string> | undefined): CodingAgentEnvEntryInfo[] {
+  return Object.entries(env ?? {}).map(([key, value]) => ({ key, valueMasked: maskApiKey(value) }));
+}
+
 /** What a connection test asks: an answer anyone can check, which costs next to nothing. */
 const SMOKE_PROMPT = "Reply with only the word: ok";
 
@@ -179,19 +187,18 @@ export class CodingAgentService implements CodingAgents {
     return this.manager;
   }
 
-  listAgents(): CodingAgentServerInfo[] {
+  listAgents(opts: { withEnv?: boolean } = {}): CodingAgentServerInfo[] {
     const models = this.loadRememberedModels();
     const options = this.loadRememberedOptions();
-    return this.getManager()
-      .listDefinitions()
-      .map((d) => ({
-        id: d.id,
-        command: d.command,
-        args: d.args ?? [],
-        ...(d.title !== undefined ? { title: d.title } : {}),
-        ...(models[d.id] !== undefined ? { rememberedModel: models[d.id] } : {}),
-        ...(options[d.id] !== undefined ? { rememberedOptions: options[d.id] } : {}),
-      }));
+    const manager = this.getManager();
+    return manager.listDefinitions().map((d) => ({
+      ...this.infoOf(d),
+      ...(models[d.id] !== undefined ? { rememberedModel: models[d.id] } : {}),
+      ...(options[d.id] !== undefined ? { rememberedOptions: options[d.id] } : {}),
+      ...(opts.withEnv === true
+        ? { env: maskedEnv(d.env), envPending: manager.startedWithOtherEnv(d.id) }
+        : {}),
+    }));
   }
 
   async discoverAgents(
@@ -243,21 +250,75 @@ export class CodingAgentService implements CodingAgents {
   }
 
   saveAgent(input: unknown): CodingAgentServerInfo {
-    const definition: AgentServerDefinition = parseDefinition(input);
-    const definitions = this.loadDefinitions().filter((d) => d.id !== definition.id);
-    definitions.push(definition);
-    this.persistDefinitions(definitions);
-    return {
-      id: definition.id,
-      command: definition.command,
-      args: definition.args ?? [],
-      ...(definition.title !== undefined ? { title: definition.title } : {}),
-    };
+    const parsed: AgentServerDefinition = parseDefinition(input);
+    const existing = this.loadDefinitions().find((d) => d.id === parsed.id);
+    if (existing?.builtin !== undefined || parsed.builtin !== undefined) {
+      throw new AcpAgentError(`${parsed.id} is managed on Models → Built-in.`);
+    }
+    // A save that names no variables keeps the stored ones: the form never has their values.
+    const sentEnv =
+      input !== null && typeof input === "object" && Object.hasOwn(input as object, "env");
+    for (const [key, value] of Object.entries(parsed.env ?? {})) {
+      const problem = validateAgentEnvEntry(key, value);
+      if (problem !== null) throw new AcpAgentError(problem);
+    }
+    const definition = sentEnv ? parsed : { ...parsed, env: existing?.env ?? {} };
+    this.persistDefinitions([
+      ...this.loadDefinitions().filter((d) => d.id !== definition.id),
+      definition,
+    ]);
+    return this.infoOf(definition);
   }
 
   removeAgent(agentId: string): boolean {
     const definitions = this.loadDefinitions();
+    const target = definitions.find((d) => d.id === agentId);
+    if (target?.builtin !== undefined) {
+      throw new AcpAgentError(`${agentId} is managed on Models → Built-in.`);
+    }
     const remaining = definitions.filter((d) => d.id !== agentId);
+    if (remaining.length === definitions.length) return false;
+    this.persistDefinitions(remaining);
+    return true;
+  }
+
+  async setAgentEnv(
+    agentId: string,
+    entries: { key: string; value?: string }[],
+  ): Promise<CodingAgentServerInfo> {
+    await this.ensureDefinition(agentId);
+    const definition = this.loadDefinitions().find((d) => d.id === agentId);
+    if (definition === undefined) throw new AcpAgentError(`unknown agent: ${agentId}`);
+    if (definition.builtin !== undefined) {
+      throw new AcpAgentError(`${agentId} is managed on Models → Built-in.`);
+    }
+    const stored = definition.env ?? {};
+    const next: Record<string, string> = {};
+    for (const entry of entries) {
+      const problem = validateAgentEnvEntry(entry.key, entry.value);
+      if (problem !== null) throw new AcpAgentError(problem);
+      if (Object.hasOwn(next, entry.key)) throw new AcpAgentError(`${entry.key} is listed twice.`);
+      const value = entry.value ?? stored[entry.key];
+      if (value === undefined) throw new AcpAgentError(`${entry.key} has no stored value to keep.`);
+      next[entry.key] = value;
+    }
+    this.persistDefinitions([
+      ...this.loadDefinitions().filter((d) => d.id !== agentId),
+      { ...definition, env: next },
+    ]);
+    return this.listAgents({ withEnv: true }).find((a) => a.id === agentId)!;
+  }
+
+  saveBuiltinDefinition(definition: AgentServerDefinition): void {
+    this.persistDefinitions([
+      ...this.loadDefinitions().filter((d) => d.id !== definition.id),
+      definition,
+    ]);
+  }
+
+  removeBuiltinDefinition(agentId: string): boolean {
+    const definitions = this.loadDefinitions();
+    const remaining = definitions.filter((d) => !(d.id === agentId && d.builtin !== undefined));
     if (remaining.length === definitions.length) return false;
     this.persistDefinitions(remaining);
     return true;
@@ -851,6 +912,17 @@ export class CodingAgentService implements CodingAgents {
       extra.HTTP_PROXY = url;
     }
     return sandboxedAgentEnv(extra);
+  }
+
+  /** The listing shape of a definition, without remembered settings or env. */
+  private infoOf(d: AgentServerDefinition): CodingAgentServerInfo {
+    return {
+      id: d.id,
+      command: d.command,
+      args: d.args ?? [],
+      ...(d.title !== undefined ? { title: d.title } : {}),
+      ...(d.builtin !== undefined ? { builtin: d.builtin } : {}),
+    };
   }
 
   private toInfo(view: {

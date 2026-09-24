@@ -4865,6 +4865,16 @@ export type { ReadinessCheck, ReadinessLevel } from "../activities/build-readine
 // ---------------------------------------------------------------------------
 
 /** One configured external coding agent (an ACP-speaking command), as the Web App sees it. */
+export interface CodingAgentEnvEntryInfo {
+  key: string;
+  valueMasked: string;
+}
+
+/** PUT /api/coding-agents/agents/:agentId/env: the whole set; an entry without value keeps the stored one. */
+export interface CodingAgentEnvRequest {
+  entries: { key: string; value?: string }[];
+}
+
 export interface CodingAgentServerInfo {
   id: string;
   title?: string;
@@ -4877,6 +4887,15 @@ export interface CodingAgentServerInfo {
    * option id; applied to its new sessions after the model.
    */
   rememberedOptions?: Record<string, boolean | string>;
+  /** Admins only: the agent's own environment variables, values masked. */
+  env?: CodingAgentEnvEntryInfo[];
+  /**
+   * Admins only: the running agent was started with other values than it now has; they apply
+   * once its running sessions end.
+   */
+  envPending?: boolean;
+  /** Set when Penguin manages this agent itself (Models → Built-in), naming which built-in. */
+  builtin?: string;
 }
 
 export interface CodingAgentsResponse {

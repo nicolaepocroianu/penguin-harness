@@ -44,6 +44,7 @@ import type { OrgCacheRepo } from "../src/db/repos/organizations.js";
 import type { SessionManager, SessionLoader } from "../src/runtime/session-manager.js";
 import type { ErrorRecorder } from "../src/runtime/error-recorder.js";
 import type { MachinesService } from "../src/machines/service.js";
+import type { CodingAgents } from "../src/mechanisms/coding-agents.js";
 import { openDatabase } from "../src/db/database.js";
 import { TraceIndexRepo } from "../src/db/repos/trace-index.js";
 import { SessionSources } from "../src/runtime/session-sources.js";
@@ -170,6 +171,7 @@ export interface TestDeps {
   sessionSources: SessionSources;
   errors: ErrorRecorder;
   machines: MachinesService;
+  codingAgents: CodingAgents;
 }
 
 export function flattenForTests(boot: ServerBoot): TestDeps {
@@ -217,6 +219,7 @@ export function flattenForTests(boot: ServerBoot): TestDeps {
     sessionSources: api("SessionRuntimeModule", "SessionOrigins"),
     errors: api("ObservabilityModule", "Errors"),
     machines: api("MachinesModule", "machines"),
+    codingAgents: api("CodingAgentsModule", "CodingAgents"),
   };
 }
 
