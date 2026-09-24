@@ -33,6 +33,7 @@ import type {
   CaseMaterial,
   ChatDefaultsDto,
   CodingAgentDiscoveryResponse,
+  CodingAgentEnvRequest,
   CodingAgentModelRequest,
   CodingAgentSaveRequest,
   CodingAgentTestResult,
@@ -1827,6 +1828,13 @@ export const testCodingAgent = (agentId: string) =>
     method: "POST",
     body: {},
   });
+
+/** Replace an agent's environment variables; a name sent alone keeps its value. Admin-only. */
+export const setCodingAgentEnv = (agentId: string, body: CodingAgentEnvRequest) =>
+  apiFetch<{ agent: CodingAgentServerInfo }>(
+    `/api/coding-agents/agents/${encodeURIComponent(agentId)}/env`,
+    { method: "PUT", body },
+  );
 
 /** Remember one other session setting (a reasoning effort) for an agent; admin-only. */
 export const setCodingAgentOption = (

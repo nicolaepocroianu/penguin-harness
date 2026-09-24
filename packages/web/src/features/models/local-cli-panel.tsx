@@ -36,6 +36,7 @@ import { Select } from "../../components/ui/select";
 import { SkeletonList } from "../../components/ui/skeleton";
 import { toastError } from "../../components/ui/toast";
 import { AddAgentModal } from "./add-agent-modal";
+import { AgentEnvEditor } from "./agent-env-editor";
 import {
   buildAgentCards,
   currentModel,
@@ -352,6 +353,14 @@ function CliCard({
                 ))}
               </Select>
             </div>
+          )}
+          {isAdmin && card.startable && (
+            <AgentEnvEditor
+              agentId={card.agentId}
+              entries={card.env ?? []}
+              pending={card.envPending === true}
+              onChanged={onChanged}
+            />
           )}
           {card.setupHint && <p className={`text-xs ${toneInk.attention}`}>{card.setupHint}</p>}
           {(testing || tested !== null) && (

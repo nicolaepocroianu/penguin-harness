@@ -138,3 +138,25 @@ describe("currentModel and effortOptionOf", () => {
     expect(effortOptionOf([model])).toBeUndefined();
   });
 });
+
+describe("built-in and env on cards", () => {
+  it("leaves built-in definitions off Local CLI and carries env onto cards", () => {
+    const { installed } = buildAgentCards(
+      [
+        {
+          id: "mine",
+          command: "x",
+          args: [],
+          env: [{ key: "K", valueMasked: "***" }],
+          envPending: true,
+        },
+        { id: "copilot-builtin", command: "y", args: [], builtin: "copilot" },
+      ],
+      null,
+      "setup",
+    );
+    expect(installed.map((c) => c.agentId)).toEqual(["mine"]);
+    expect(installed[0]!.env).toEqual([{ key: "K", valueMasked: "***" }]);
+    expect(installed[0]!.envPending).toBe(true);
+  });
+});
