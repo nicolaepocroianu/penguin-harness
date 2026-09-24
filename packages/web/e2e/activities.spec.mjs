@@ -2747,16 +2747,23 @@ test("adds a language, translates a narration into it, and translates the rest a
   // Spanish is open now: one line never translated, one translated from an older English line.
   await expect(page.getByRole("button", { name: /^hello/ })).toContainText("Needs translation");
   await expect(page.getByRole("button", { name: /^bye/ })).toContainText("English changed");
-  // Everything that needs it, through the Translate stage...
-  await page.getByRole("button", { name: "Translate 2", exact: true }).click();
+  // A line with no script yet is translated and then spoken, in one go: every one in this
+  // language through the narration stages...
+  await page.getByRole("button", { name: "Translate and speak 2", exact: true }).click();
   await expect.poll(() => stages.length).toBe(1);
-  expect(stages[0]).toMatchObject({ stage: "translations" });
+  expect(stages[0]).toMatchObject({ stage: "narration", language: "es-MX" });
+  expect(stages[0].assetKey).toBeUndefined();
   // The Stages panel opens to follow that run; close it to get back to the list.
   await page.getByRole("button", { name: "Stages", exact: true }).click();
-  // ...or one line on its own, whose run then counts it as being translated.
-  await page.getByRole("button", { name: "Translate", exact: true }).first().click();
+  // ...or one line on its own.
+  await page.getByRole("button", { name: "Translate and speak", exact: true }).click();
+  await expect.poll(() => stages.length).toBe(2);
+  expect(stages[1]).toMatchObject({ stage: "narration", language: "es-MX", assetKey: "hello" });
+  await page.getByRole("button", { name: "Stages", exact: true }).click();
+  // A line that already has speech only needs its words brought up to date.
+  await page.getByRole("button", { name: "Translate", exact: true }).click();
   await expect.poll(() => translations.length).toBe(1);
-  expect(translations[0]).toMatchObject({ language: "es-MX", assetKey: "hello", translate: true });
+  expect(translations[0]).toMatchObject({ language: "es-MX", assetKey: "bye", translate: true });
   expect(f.errors).toEqual([]);
 });
 

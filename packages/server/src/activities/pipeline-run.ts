@@ -31,6 +31,7 @@ import type { AssetManifest } from "./media.js";
 import {
   PIPELINE_STEPS,
   type PipelineInput,
+  type PipelineScope,
   type PipelineSelection,
   type PipelineState,
   type PipelineStep,
@@ -40,6 +41,7 @@ import {
 export {
   PIPELINE_STEPS,
   type PipelineInput,
+  type PipelineScope,
   type PipelineSelection,
   type PipelineState,
   type PipelineStep,
@@ -50,13 +52,33 @@ export {
 
 export function parseSelection(value: unknown): PipelineSelection {
   if (value === undefined || value === "all") return "all";
+  if (value === "narration") return "narration";
   if (typeof value === "string" && (PIPELINE_STEPS as readonly string[]).includes(value))
     return value as PipelineStep;
-  throw new HttpError(400, "invalid_request", "stage must be all or one of the pipeline steps.");
+  throw new HttpError(
+    400,
+    "invalid_request",
+    "stage must be all, narration, or one of the pipeline steps.",
+  );
 }
 
 export function stepsFor(selection: PipelineSelection): PipelineStep[] {
-  return selection === "all" ? [...PIPELINE_STEPS] : [selection];
+  if (selection === "all") return [...PIPELINE_STEPS];
+  if (selection === "narration") return ["translations", "speech"];
+  return [selection];
+}
+
+/** The targets a scoped sequence may touch: one language, and one asset when it names one. */
+export function inScope<T extends { language: string; assetKey: string }>(
+  targets: readonly T[],
+  scope: PipelineScope | undefined,
+): T[] {
+  if (!scope) return [...targets];
+  return targets.filter(
+    (target) =>
+      target.language === scope.language &&
+      (scope.assetKey === undefined || target.assetKey === scope.assetKey),
+  );
 }
 
 type MediaAsset = AssetManifest["assets"][string][number];
@@ -182,6 +204,7 @@ export class PipelineRunner {
       projectId,
       activityId,
       selection: input.selection,
+      scope: input.scope ?? null,
       status: "running",
       steps: stepsFor(input.selection).map((step) => ({
         step,
@@ -294,7 +317,7 @@ export class PipelineRunner {
       const activity = await current();
       const manifest = activity.draft.mediaPlan?.manifest;
       if (!manifest) throw new Error("Plan media before translating it.");
-      const targets = translationTargets(manifest);
+      const targets = inScope(translationTargets(manifest), input.scope);
       step.total = targets.length;
       if (!targets.length) {
         step.status = "skipped";
@@ -336,7 +359,10 @@ export class PipelineRunner {
       const activity = await current();
       const manifest = activity.draft.mediaPlan?.manifest;
       if (!manifest) throw new Error("Plan media before generating it.");
-      const targets = step.step === "speech" ? speechTargets(manifest) : imageTargets(manifest);
+      const targets = inScope(
+        step.step === "speech" ? speechTargets(manifest) : imageTargets(manifest),
+        input.scope,
+      );
       step.total = targets.length;
       if (!targets.length) {
         step.status = "skipped";

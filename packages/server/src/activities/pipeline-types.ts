@@ -11,7 +11,11 @@ export const PIPELINE_STEPS = [
   "module",
 ] as const;
 export type PipelineStep = (typeof PIPELINE_STEPS)[number];
-export type PipelineSelection = "all" | PipelineStep;
+/**
+ * Every step, one step, or "narration": translating what a language lacks and then speaking
+ * it, so a language with empty scripts is voiced in one go.
+ */
+export type PipelineSelection = "all" | "narration" | PipelineStep;
 
 export type PipelineStepStatus =
   "pending" | "running" | "succeeded" | "skipped" | "failed" | "cancelled";
@@ -37,6 +41,8 @@ export interface PipelineState {
   projectId: string;
   activityId: string;
   selection: PipelineSelection;
+  /** The media steps' scope, when the sequence was asked for one language or one line. */
+  scope: PipelineScope | null;
   status: "running" | "succeeded" | "failed" | "cancelled";
   steps: PipelineStepState[];
   /** The run and Session the sequence is waiting on, for following it live. */
@@ -47,8 +53,15 @@ export interface PipelineState {
   finishedAt: string | null;
 }
 
+/** Media steps limited to one language, and optionally to one asset in it. */
+export interface PipelineScope {
+  language: string;
+  assetKey?: string;
+}
+
 export interface PipelineInput {
   selection: PipelineSelection;
+  scope?: PipelineScope;
   /** The Penguin agent that runs agent steps, or owns the coding agent's Session. */
   agentId: string;
   codingAgentId?: string;

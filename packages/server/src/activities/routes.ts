@@ -615,8 +615,12 @@ export class ActivityRoutes {
       const bookMode = optionalString(body, "bookMode", { maxLen: 16 });
       if (bookMode && bookMode !== "readAlong" && bookMode !== "decodable")
         throw badRequest("bookMode must be readAlong or decodable.");
+      const language = optionalString(body, "language", { maxLen: 35 });
+      const assetKey = optionalString(body, "assetKey", { maxLen: 200 });
+      if (assetKey && !language) throw badRequest("assetKey needs a language.");
       const state = await this.pipelines.start(projectId, activityId, {
         selection: parseSelection(body.stage),
+        ...(language ? { scope: { language, ...(assetKey ? { assetKey } : {}) } } : {}),
         agentId: runner.agentId,
         ...(runner.runtime ? { codingAgentId: runner.runtime.codingAgentId } : {}),
         ...(optionalString(body, "voice", { maxLen: 64 })

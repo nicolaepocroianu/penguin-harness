@@ -656,7 +656,10 @@ function ActivityEditor({
   const agentLabel = codingAgentId
     ? (codingAgents.find((agent) => agent.id === codingAgentId)?.title ?? codingAgentId)
     : (agents.find((agent) => agent.agentId === selectedAgent)?.name ?? selectedAgent);
-  function runStages(stage: PipelineSelection = pipelineChoice) {
+  function runStages(
+    stage: PipelineSelection = pipelineChoice,
+    scope?: { language: string; assetKey?: string },
+  ) {
     void action(async () => {
       if (!detail) return;
       const started = await apiFetch<PipelineState>(`${endpoint}/pipeline`, {
@@ -664,6 +667,7 @@ function ActivityEditor({
         body: {
           ...runner,
           stage,
+          ...scope,
           ...(bulkVoice ? { voice: bulkVoice } : {}),
           ...(wafRoot.trim() ? { wafRoot: wafRoot.trim() } : {}),
           ...(detail.activityType === "book" && bookMode ? { bookMode } : {}),
@@ -1490,7 +1494,10 @@ function ActivityEditor({
                   onTranslate={(key) =>
                     startRun("generate-media-text", { language, assetKey: key, translate: true })
                   }
-                  onTranslateAll={() => runStages("translations")}
+                  onTranslateAll={() => runStages("translations", { language })}
+                  onTranslateAndSpeak={(key) =>
+                    runStages("narration", { language, ...(key ? { assetKey: key } : {}) })
+                  }
                   addable={languageSetup.languages
                     .filter(
                       (entry) =>

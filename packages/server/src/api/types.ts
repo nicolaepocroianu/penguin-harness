@@ -4853,6 +4853,7 @@ export type {
   PipelineState,
   PipelineStep,
   PipelineSelection,
+  PipelineScope,
   PipelineStepState,
   PipelineStepStatus,
   PipelineNote,

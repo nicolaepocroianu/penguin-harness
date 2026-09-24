@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   PipelineRunner,
   imageTargets,
+  inScope,
   parseSelection,
   speechTargets,
   stepsFor,
@@ -61,6 +62,7 @@ describe("choosing the work", () => {
       "module",
     ]);
     expect(stepsFor(parseSelection("speech"))).toEqual(["speech"]);
+    expect(stepsFor(parseSelection("narration"))).toEqual(["translations", "speech"]);
     expect(() => parseSelection("deploy")).toThrow(/stage must be/);
   });
 });
@@ -373,5 +375,35 @@ describe("running the stages", () => {
     ]);
     plan.assets["es-MX"]![0]!.translatedFrom = "Hello";
     expect(translationTargets(plan)).toEqual([{ language: "ro-RO", assetKey: "hello" }]);
+  });
+
+  it("translates and speaks one language in one go, touching no other", async () => {
+    const w = world({ romanian: true });
+    await w.runner.start("proj", "act", { selection: "all", agentId: "agent" }).done;
+    const ro = w.activity.draft.mediaPlan!.manifest.assets["ro-RO"]![0]!;
+    delete ro.path;
+    delete ro.script;
+    delete ro.translatedFrom;
+    w.started.length = 0;
+    const { state, done } = w.runner.start("proj", "act", {
+      selection: "narration",
+      agentId: "agent",
+      scope: { language: "ro-RO" },
+    });
+    expect(state.scope).toEqual({ language: "ro-RO" });
+    await done;
+    expect(w.started).toEqual(["media-text:ro-RO:hello", "audio:ro-RO:hello"]);
+    expect(w.runner.status("act")!.status).toBe("succeeded");
+  });
+
+  it("limits targets to the scope's language and asset", () => {
+    const targets = [
+      { language: "ro-RO", assetKey: "a" },
+      { language: "ro-RO", assetKey: "b" },
+      { language: "es-MX", assetKey: "a" },
+    ];
+    expect(inScope(targets, undefined)).toEqual(targets);
+    expect(inScope(targets, { language: "ro-RO" })).toEqual(targets.slice(0, 2));
+    expect(inScope(targets, { language: "ro-RO", assetKey: "b" })).toEqual([targets[1]]);
   });
 });

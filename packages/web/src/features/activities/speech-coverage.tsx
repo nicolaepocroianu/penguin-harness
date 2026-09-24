@@ -64,6 +64,7 @@ export function SpeechCoverage({
   sources,
   onTranslate,
   onTranslateAll,
+  onTranslateAndSpeak,
   addable = [],
   onAddLanguage,
   voices = [],
@@ -84,6 +85,11 @@ export function SpeechCoverage({
   onTranslate?: (key: string) => void;
   /** Translate everything that needs it, as the Translate stage does. */
   onTranslateAll?: () => void;
+  /**
+   * Translate, then speak, what this language lacks: one line, or all of them. Offered where
+   * a script is empty, since speech needs a script and the script needs translating first.
+   */
+  onTranslateAndSpeak?: (key?: string) => void;
   /** Languages the activity could still be translated into. */
   addable?: readonly { code: string; label: string }[];
   onAddLanguage?: (code: string) => void;
@@ -107,6 +113,7 @@ export function SpeechCoverage({
   const toTranslate = statuses.filter(
     (status) => status.translation === "missing" || status.translation === "outdated",
   ).length;
+  const unscripted = statuses.filter((status) => status.translation === "missing").length;
   const tally = speechTally(assets, runs, language);
   const pending = pendingSpeechKeys(assets, runs, language);
   const counts = Object.fromEntries(
@@ -164,10 +171,17 @@ export function SpeechCoverage({
               </Select>
             </div>
           )}
-          {toTranslate > 0 && onTranslateAll && (
-            <Button size="sm" disabled={!canGenerate} onClick={onTranslateAll}>
-              {S.activities.speechTranslation.translateAll(toTranslate)}
+          {unscripted > 0 && onTranslateAndSpeak ? (
+            <Button size="sm" disabled={!canGenerate} onClick={() => onTranslateAndSpeak()}>
+              {S.activities.speechTranslation.translateAndSpeakAll(toTranslate)}
             </Button>
+          ) : (
+            toTranslate > 0 &&
+            onTranslateAll && (
+              <Button size="sm" disabled={!canGenerate} onClick={onTranslateAll}>
+                {S.activities.speechTranslation.translateAll(toTranslate)}
+              </Button>
+            )
           )}
           {addable.length > 0 && onAddLanguage && (
             <>
@@ -247,7 +261,17 @@ export function SpeechCoverage({
                       : S.activities.speechState[status.state]}
                 </span>
               </button>
-              {(status.translation === "missing" || status.translation === "outdated") &&
+              {status.translation === "missing" && editable && onTranslateAndSpeak ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={!canGenerate}
+                  onClick={() => onTranslateAndSpeak(status.key)}
+                >
+                  {S.activities.speechTranslation.translateAndSpeak}
+                </Button>
+              ) : (
+                (status.translation === "missing" || status.translation === "outdated") &&
                 editable &&
                 onTranslate && (
                   <Button
@@ -258,7 +282,8 @@ export function SpeechCoverage({
                   >
                     {S.activities.speechTranslation.translate}
                   </Button>
-                )}
+                )
+              )}
               {status.state === "failed" && editable && onRetry && (
                 <Button
                   size="sm"

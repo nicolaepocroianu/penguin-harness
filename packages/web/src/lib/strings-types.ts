@@ -129,6 +129,7 @@ export type Strings = {
       stage: string;
       all: string;
       steps: Record<"spec" | "media" | "translations" | "speech" | "images" | "module", string>;
+      narration: string;
       status: Record<
         "pending" | "running" | "succeeded" | "skipped" | "failed" | "cancelled",
         string
@@ -348,6 +349,8 @@ export type Strings = {
     speechTranslation: Record<"missing" | "outdated" | "translating", string> & {
       translate: string;
       translateAll: (n: number) => string;
+      translateAndSpeak: string;
+      translateAndSpeakAll: (n: number) => string;
       addLanguage: string;
       add: string;
     };

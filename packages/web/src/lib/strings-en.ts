@@ -157,6 +157,7 @@ export const en: Strings = {
         images: "Generate images",
         module: "Assemble module",
       },
+      narration: "Translate and speak",
       status: {
         pending: "Waiting",
         running: "Running",
@@ -441,6 +442,8 @@ export const en: Strings = {
       translating: "Translating…",
       translate: "Translate",
       translateAll: (n: number) => `Translate ${n}`,
+      translateAndSpeak: "Translate and speak",
+      translateAndSpeakAll: (n: number) => `Translate and speak ${n}`,
       addLanguage: "Add a language",
       add: "Add",
     },
