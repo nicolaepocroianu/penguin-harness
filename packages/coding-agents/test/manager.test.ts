@@ -74,6 +74,16 @@ describe("CodingAgentManager", () => {
     ).rejects.toBeInstanceOf(AcpAgentError);
   });
 
+  // The account-level reason ("this client is no longer supported", "not signed in") is
+  // the only useful part of a refusal; session/new carries no user content to leak.
+  it("relays the agent's own reason when it refuses to open a session", async () => {
+    const { manager, fake } = harness({});
+    fake.newSessionRefusal = "This client is no longer supported.";
+    await expect(manager.createSession("fake", workspace)).rejects.toThrow(
+      "the agent refused to open a session: This client is no longer supported.",
+    );
+  });
+
   it("runs a turn: chunks land in the log, and the view rebuilds the transcript", async () => {
     const { manager, fake } = harness({});
     fake.promptHandler = async (_ctx, sessionId) => {

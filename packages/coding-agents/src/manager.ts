@@ -12,6 +12,7 @@ import type {
   RequestPermissionRequest,
   RequestPermissionResponse,
 } from "@agentclientprotocol/sdk";
+import { RequestError } from "@agentclientprotocol/sdk";
 import {
   AcpConnection,
   configOptionsFromAcp,
@@ -190,9 +191,13 @@ export class CodingAgentManager {
     try {
       response = await connection.newSession(workspaceDir);
     } catch (error) {
-      throw error instanceof AcpAgentError
-        ? error
-        : new AcpAgentError("the agent refused to open a session", { cause: error });
+      if (error instanceof AcpAgentError) throw error;
+      // Like the handshake, session/new carries no user content, so the agent's own reason
+      // (an account it no longer serves, a missing sign-in) is safe to relay and is the
+      // only part that says what to do.
+      const detail =
+        error instanceof RequestError && error.message !== "" ? `: ${error.message}` : "";
+      throw new AcpAgentError(`the agent refused to open a session${detail}`, { cause: error });
     }
     const record = this.newRecord(
       response.sessionId,
