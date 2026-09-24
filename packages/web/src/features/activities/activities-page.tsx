@@ -12,6 +12,7 @@ import type {
   UploadedMedia,
 } from "@prismshadow/penguin-server/api";
 import { apiFetch } from "../../api/client";
+import { toastAttention, toastError, toastInfo, toastSuccess } from "../../components/ui/toast";
 import { discoverCodingAgents, listCodingAgents } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
@@ -23,6 +24,7 @@ import { Button } from "../../components/ui/button";
 import { Input, Textarea } from "../../components/ui/input";
 import { Select } from "../../components/ui/select";
 import { InfoPopover } from "../../components/ui/info-popover";
+import { settledPipeline, settledRuns, type Announcement } from "./run-toasts";
 import { CreateActivityDialog } from "./create-activity-dialog";
 import { ImportDialog } from "./import-dialog";
 import { ActivityWorkspace as WorkspaceShell, type StudioPanelEntry } from "./activity-workspace";
@@ -74,6 +76,13 @@ function pipelineOrNull(value: unknown): PipelineState | null {
 
 /** How long after the last keystroke the script saves itself: long enough not to save mid-word. */
 const SCRIPT_AUTOSAVE_MS = 5000;
+function announce({ kind, text }: Announcement) {
+  if (kind === "success") toastSuccess(text);
+  else if (kind === "error") toastError(text);
+  else if (kind === "attention") toastAttention(text);
+  else toastInfo(text);
+}
+
 export function ActivitiesPage() {
   useLocale();
   useDocumentTitle(S.activities.title);
@@ -380,7 +389,6 @@ function ActivityEditor({
   const takeExcerpt = useCallback(() => setExcerpt(null), []);
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState("");
-  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [changed, setChanged] = useState(false);
   /** A Penguin agent id, or `coding:<id>` for an external coding agent. */
@@ -554,13 +562,38 @@ function ActivityEditor({
       clearTimeout(timer);
     };
   }, [endpoint, refreshVersion, available]);
+  // Background work announces itself when it settles, wherever the author has gone in
+  // the workspace. While the stages run, their runs settle one after another, so only the
+  // stages' own outcome is announced.
+  const seenRuns = useRef<{
+    endpoint: string;
+    statuses: Map<string, ActivityRunSummary["status"]>;
+  }>({ endpoint: "", statuses: new Map() });
+  const seenPipeline = useRef<{ endpoint: string; status: PipelineState["status"] | null }>({
+    endpoint: "",
+    status: null,
+  });
+  useEffect(() => {
+    const before = seenRuns.current.endpoint === endpoint ? seenRuns.current.statuses : new Map();
+    if (pipeline?.status !== "running")
+      for (const announcement of settledRuns(before, runs)) announce(announcement);
+    seenRuns.current = {
+      endpoint,
+      statuses: new Map(runs.map((run) => [run.runId, run.status])),
+    };
+  }, [runs, endpoint, pipeline?.status]);
+  useEffect(() => {
+    const before = seenPipeline.current.endpoint === endpoint ? seenPipeline.current.status : null;
+    const announcement = settledPipeline(before, pipeline);
+    if (announcement) announce(announcement);
+    seenPipeline.current = { endpoint, status: pipeline?.status ?? null };
+  }, [pipeline, endpoint]);
   /** Run one change at a time; resolves true only when it went through. */
   async function action(operation: () => Promise<void>): Promise<boolean> {
     if (state.current.busy || !state.current.available) return false;
     state.current.busy = true;
     setBusy(true);
     setError("");
-    setNotice("");
     try {
       await operation();
       return true;
@@ -571,7 +604,7 @@ function ActivityEditor({
       if (alive.current) setBusy(false);
     }
   }
-  /** Save one part of the draft. `quiet` leaves out the notice, for an autosave. */
+  /** Save one part of the draft. `quiet` leaves out the toast, for an autosave. */
   async function save(kind: "description" | "spec" | "media", quiet = false): Promise<boolean> {
     if (!detail) return false;
     return action(async () => {
@@ -597,7 +630,7 @@ function ActivityEditor({
       });
       if (kind === "spec") setSpec(pretty(draft.spec));
       if (kind === "media") setMedia(pretty(draft.mediaPlan?.manifest));
-      if (!quiet) setNotice(S.activities.saved);
+      if (!quiet) toastSuccess(S.activities.saved);
       await onSaved();
     });
   }
@@ -818,7 +851,7 @@ function ActivityEditor({
         title: draft.status === "valid" ? String(draft.spec?.title) : detail.title,
         draft,
       });
-      setNotice(S.activities.saved);
+      toastSuccess(S.activities.saved);
     });
   }
   /**
@@ -838,7 +871,7 @@ function ActivityEditor({
         title: draft.status === "valid" ? String(draft.spec?.title) : detail.title,
         draft,
       });
-      setNotice(S.activities.saved);
+      toastSuccess(S.activities.saved);
     });
   }
   async function discardProposal(runId: string): Promise<void> {
@@ -859,7 +892,7 @@ function ActivityEditor({
       );
       if (alive.current) {
         accept({ ...detail!, draft });
-        setNotice(S.activities.saved);
+        toastSuccess(S.activities.saved);
       }
     });
   }
@@ -1105,11 +1138,6 @@ function ActivityEditor({
           {loadError && available && (
             <p role="alert" className={`rounded-md border p-3 text-xs ${toneStrip.danger}`}>
               {loadError}
-            </p>
-          )}
-          {notice && (
-            <p role="status" className={`text-xs ${toneInk.success}`}>
-              {notice}
             </p>
           )}
           {changed && (
@@ -1431,7 +1459,7 @@ function ActivityEditor({
                             });
                             if (alive.current) {
                               accept({ ...detail, draft });
-                              setNotice(S.activities.saved);
+                              toastSuccess(S.activities.saved);
                             }
                           })
                         }

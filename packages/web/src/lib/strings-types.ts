@@ -391,6 +391,12 @@ export type Strings = {
     speechCandidates: string;
     speechCandidate: string;
     acceptSpeech: string;
+    runSettled: {
+      succeeded: (what: string) => string;
+      failed: (what: string) => string;
+      cancelled: (what: string) => string;
+      conflict: (what: string) => string;
+    };
     mediaComparison: {
       title: string;
       current: string;

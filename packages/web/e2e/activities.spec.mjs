@@ -1104,6 +1104,10 @@ test("edits scripts and explicitly accepts speech while regeneration keeps the a
   await page.getByRole("button", { name: "Validate and save media", exact: true }).click();
   await page.getByRole("button", { name: "Generate speech", exact: true }).click();
   f.completeAudio();
+  // The run settles while the page watches, and says so wherever the author is.
+  await expect(page.getByText("Speech · welcome finished.", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
   await page.reload();
   await openSection(page, "Scenes and media");
   await expect(page.locator('audio[aria-label="Accepted audio"]')).toHaveCount(0);

@@ -500,6 +500,13 @@ export const en: Strings = {
     speechCandidates: "Speech candidates",
     speechCandidate: "Speech candidate",
     acceptSpeech: "Accept this audio",
+    runSettled: {
+      succeeded: (what: string) => `${what} finished.`,
+      failed: (what: string) => `${what} failed. Its reason is in the history.`,
+      cancelled: (what: string) => `${what} was cancelled.`,
+      conflict: (what: string) =>
+        `${what} finished against an older draft. Review it before accepting.`,
+    },
     mediaComparison: {
       title: "Current and new",
       current: "Current",

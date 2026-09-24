@@ -10,6 +10,7 @@ import { Button } from "../../components/ui/button";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, toneSurface, type Tone } from "../../lib/tone";
+import { runKindLabel } from "./run-toasts";
 
 const runTone: Record<ActivityRun["status"], Tone> = {
   running: "busy",
@@ -50,19 +51,7 @@ export function GenerationHistory({
           className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-800"
         >
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs">
-              {run.kind === "module"
-                ? S.activities.moduleRun
-                : run.kind === "audio"
-                  ? S.activities.audioRun
-                  : run.kind === "image"
-                    ? S.activities.imageRun
-                    : run.kind === "media-text"
-                      ? S.activities.textRun
-                      : run.kind === "assist"
-                        ? S.activities.assistRun
-                        : S.activities.specRun}
-            </span>
+            <span className="text-xs">{runKindLabel(run)}</span>
             <span className={`rounded px-2 py-0.5 text-xs ${toneSurface[runTone[run.status]]}`}>
               {run.kind === "module" && run.status === "succeeded"
                 ? S.activities.moduleReady
