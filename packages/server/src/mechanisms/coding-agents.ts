@@ -45,6 +45,11 @@ export abstract class CodingAgents extends Interface<{
   saveBuiltinDefinition(definition: AgentServerDefinition): void;
   /** For the built-in agents service only: drop its definition. */
   removeBuiltinDefinition(agentId: string): boolean;
+  /**
+   * For the built-in agents service only: the built-in definitions with their real env, so it
+   * can read its own token. Never returned from a route.
+   */
+  listDefinitionsForBuiltin(): AgentServerDefinition[];
   /** Remember the model a card picked for this agent; auto-applied to its new sessions. */
   setAgentModel(
     agentId: string,

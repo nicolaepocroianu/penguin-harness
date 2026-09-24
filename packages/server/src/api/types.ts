@@ -4902,6 +4902,33 @@ export interface CodingAgentsResponse {
   agents: CodingAgentServerInfo[];
 }
 
+/** Where a built-in agent (one Penguin downloads and runs itself) stands on this server. */
+export type BuiltinAgentStatus =
+  "not-installed" | "downloading" | "ready" | "update-available" | "failed" | "unsupported";
+
+export interface BuiltinAgentInfo {
+  id: "copilot";
+  agentId: "copilot-builtin";
+  title: string;
+  status: BuiltinAgentStatus;
+  installedVersion: string | null;
+  pinnedVersion: string;
+  /** Bytes, for the "about N MB" note; null when unknown. */
+  downloadSize: number | null;
+  progress: { received: number; total: number | null } | null;
+  tokenMasked: string | null;
+  /** Why the last attempt failed, or why the machine is unsupported. */
+  message: string | null;
+}
+
+export interface BuiltinAgentsResponse {
+  agents: BuiltinAgentInfo[];
+}
+
+export interface BuiltinSetupRequest {
+  token?: string;
+}
+
 /**
  * GET /coding-agents/discover: one known agent recipe probed against the server machine.
  * `launch` carries the suggested ACP entrypoint resolved to an absolute command, or null

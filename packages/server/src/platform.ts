@@ -151,6 +151,8 @@ import { FileReveal, WorkspaceFiles } from "./mechanisms/workspace.js";
 import { Settings, UiPrefsStore } from "./mechanisms/settings.js";
 import { CodingAgents } from "./mechanisms/coding-agents.js";
 import { CodingAgentService } from "./coding-agents/service.js";
+import { BuiltinAgentsService } from "./coding-agents/builtin/service.js";
+import { BuiltinAgents } from "./mechanisms/builtin-agents.js";
 import { CodingAgentsRoutes } from "./coding-agents/routes.js";
 import { MessagingBindings } from "./mechanisms/messaging.js";
 import { OrgCache } from "./mechanisms/organization.js";
@@ -355,8 +357,8 @@ export class TracesModule {}
 export class AgentsModule {}
 
 @Module({
-  children: [CodingAgentService, CodingAgentsRoutes],
-  exports: [CodingAgents],
+  children: [CodingAgentService, BuiltinAgentsService, CodingAgentsRoutes],
+  exports: [CodingAgents, BuiltinAgents],
 })
 export class CodingAgentsModule {}
 

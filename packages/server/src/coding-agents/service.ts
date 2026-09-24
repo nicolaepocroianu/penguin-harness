@@ -316,6 +316,10 @@ export class CodingAgentService implements CodingAgents {
     ]);
   }
 
+  listDefinitionsForBuiltin(): AgentServerDefinition[] {
+    return this.loadDefinitions().filter((d) => d.builtin !== undefined);
+  }
+
   removeBuiltinDefinition(agentId: string): boolean {
     const definitions = this.loadDefinitions();
     const remaining = definitions.filter((d) => !(d.id === agentId && d.builtin !== undefined));
