@@ -76,10 +76,11 @@ export class BuiltinAgentsService implements BuiltinAgents {
       if (given !== undefined) this.download.token = given;
       return this.info();
     }
-    if (this.installed?.version === COPILOT_VERSION && this.failure === null) {
-      if (given !== undefined) this.writeDefinition(this.installed.program, given);
-      return this.info();
+    // A new token applies to what is installed now, whether or not a download follows.
+    if (given !== undefined && this.installed !== null) {
+      this.writeDefinition(this.installed.program, given);
     }
+    if (this.installed?.version === COPILOT_VERSION && this.failure === null) return this.info();
     this.startDownload(pat);
     return this.info();
   }
