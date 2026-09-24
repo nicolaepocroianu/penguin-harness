@@ -72,11 +72,18 @@ export function codingAgentsRoutes(deps: CodingAgentsRouteDeps): Hono<AppEnv> {
 
   // The cached discovery read backs the card view every authenticated user already gets
   // (GET /agents and POST /sessions are any-user routes): it executes nothing, answering
-  // from the last refresh's cache (cheap fs tier on a miss). Everything that executes an
-  // agent or writes — the live refresh, model choice, the definitions themselves — stays
-  // behind the admin gate.
+  // from the fs pass plus the last saved refresh. Everything that executes an agent or
+  // writes — the live refresh, model choice, the definitions themselves — stays behind the
+  // admin gate. Why a probe failed is the agent's own text, which may name paths on the
+  // server machine, so only admins get it.
   app.get("/discover", async (c) => {
-    return c.json(await deps.codingAgents.discoverAgents(false));
+    const found = await deps.codingAgents.discoverAgents(false);
+    if (c.var.user.isAdmin) return c.json(found);
+    const { agentErrors: _agentErrors, ...rest } = found;
+    return c.json({
+      ...rest,
+      candidates: found.candidates.map(({ probeError: _probeError, ...candidate }) => candidate),
+    });
   });
 
   app.post("/discover/refresh", async (c) => {

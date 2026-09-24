@@ -6,7 +6,7 @@
  * not installed wait in a folded list with a link to install them. Starting one is starting a
  * chat with it picked in the model dropdown; its Sessions are ordinary Sessions.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import type {
   CodingAgentConfigOption,
@@ -25,12 +25,12 @@ import {
 } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
-import { toneInk, toneStrip } from "../../lib/tone";
+import { toneDot, toneInk, toneStrip, type Tone } from "../../lib/tone";
 import { useAuth } from "../../state/auth";
-import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Chevron } from "../../components/ui/chevron";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
+import { CopyButton, ROW_COPY_CLASS } from "../../components/ui/copy-button";
 import { ProviderLogo } from "../../components/ui/provider-logo";
 import { Select } from "../../components/ui/select";
 import { SkeletonList } from "../../components/ui/skeleton";
@@ -38,10 +38,12 @@ import { toastError } from "../../components/ui/toast";
 import { AddAgentModal } from "./add-agent-modal";
 import {
   buildAgentCards,
+  cardReadiness,
   currentModel,
   effortOptionOf,
   modelOptionOf,
   type AgentCardModel,
+  type CardReadiness,
 } from "../coding-agents/agent-cards";
 import { CODING_AGENT_PROVIDER, codingAgentLogo } from "../chat/coding-agent-models";
 
@@ -69,7 +71,7 @@ export function LocalCliPanel() {
   }, []);
   useEffect(load, [load]);
 
-  const rescan = () => {
+  const rescan = useCallback(() => {
     setScanning(true);
     refreshCodingAgents()
       .then((found) => {
@@ -78,7 +80,18 @@ export function LocalCliPanel() {
       })
       .catch((e: unknown) => toastError(apiErrorText(e)))
       .finally(() => setScanning(false));
-  };
+  }, []);
+
+  // The models, versions and failures come from a probe, which is saved once run. Until the
+  // first one, an admin's visit runs it so every card opens with its model dropdown.
+  const autoProbed = useRef(false);
+  useEffect(() => {
+    if (!isAdmin || autoProbed.current || discovery === null || saved === null) return;
+    if (discovery.probedAt !== undefined) return;
+    if (saved.length === 0 && !discovery.candidates.some((c) => c.detected)) return;
+    autoProbed.current = true;
+    rescan();
+  }, [isAdmin, discovery, saved, rescan]);
 
   const { installed, available } = buildAgentCards(
     saved ?? [],
@@ -96,9 +109,19 @@ export function LocalCliPanel() {
         </div>
       )}
       <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-          {S.models.installedClis(installed.length)}
-        </h2>
+        <div className="flex min-w-0 items-baseline gap-2">
+          <h2 className="shrink-0 text-sm font-semibold text-gray-900 dark:text-gray-100">
+            {S.models.installedClis(installed.length)}
+          </h2>
+          {installed.length > 0 && (
+            <span className="truncate text-xs text-gray-500 dark:text-gray-400">
+              {S.models.cliReadyCount(
+                installed.filter((card) => cardReadiness(card) === "ready").length,
+                installed.length,
+              )}
+            </span>
+          )}
+        </div>
         {isAdmin && (
           <div className="flex shrink-0 gap-2">
             <Button size="sm" onClick={() => setAddOpen(true)}>
@@ -125,6 +148,7 @@ export function LocalCliPanel() {
               card={card}
               selected={selected === card.agentId}
               isAdmin={isAdmin}
+              scanning={scanning}
               onSelect={() => setSelected(selected === card.agentId ? null : card.agentId)}
               onChanged={load}
               onStartChat={() =>
@@ -150,37 +174,16 @@ export function LocalCliPanel() {
             {S.models.availableClis(available.length)}
           </button>
           {availableOpen && (
-            <ul className="grid gap-2 border-t border-gray-200 p-3 sm:grid-cols-2 dark:border-gray-800">
-              {available.map((card) => (
-                <li
-                  key={card.key}
-                  className="flex min-w-0 items-center gap-3 rounded-md bg-gray-50 px-3 py-2.5 dark:bg-gray-900"
-                >
-                  <ProviderLogo
-                    provider={codingAgentLogo(card.agentId, card.title)}
-                    className="h-6 w-6 shrink-0 opacity-60"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm text-gray-900 dark:text-gray-100">
-                      {card.title}
-                    </div>
-                    <div className="truncate text-xs text-gray-500 dark:text-gray-400">
-                      {card.setupHint ?? S.codingAgents.setupRequired}
-                    </div>
-                  </div>
-                  {card.homepageUrl && (
-                    <a
-                      href={card.homepageUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="shrink-0 text-xs font-medium text-[var(--accent-fg)] underline-offset-2 hover:underline"
-                    >
-                      {S.models.cliInstall}
-                    </a>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <div className="border-t border-gray-200 p-3 dark:border-gray-800">
+              <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+                {S.models.cliInstallSteps}
+              </p>
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {available.map((card) => (
+                  <AvailableCard key={card.key} card={card} />
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       )}
@@ -215,6 +218,7 @@ function CliCard({
   card,
   selected,
   isAdmin,
+  scanning,
   onSelect,
   onChanged,
   onStartChat,
@@ -223,12 +227,14 @@ function CliCard({
   card: AgentCardModel;
   selected: boolean;
   isAdmin: boolean;
+  scanning: boolean;
   onSelect: () => void;
   onChanged: () => void;
   onStartChat: () => void;
   onRemove: () => void;
 }) {
   const model = currentModel(card);
+  const readiness = cardReadiness(card);
   const modelOption = modelOptionOf(card.options);
   const [testing, setTesting] = useState(false);
   const [tested, setTested] = useState<CodingAgentTestResult | null>(null);
@@ -252,6 +258,32 @@ function CliCard({
       : setCodingAgentOption(card.agentId, { configId: option.id, value });
     void request.then(onChanged).catch((e: unknown) => toastError(apiErrorText(e)));
   };
+  // The model the agent will use, chosen in the row: its advertised list once a probe has
+  // read one, otherwise the plain name of what it will use.
+  const modelControl =
+    modelOption && modelOption.options.length > 0 ? (
+      <Select
+        size="sm"
+        aria-label={`${card.title} ${S.models.cliModel}`}
+        value={model?.value ?? ""}
+        disabled={!isAdmin}
+        onChange={(e) => remember(modelOption, e.target.value, true)}
+      >
+        {modelOption.options.map((value) => (
+          <option key={value.value} value={value.value}>
+            {value.name}
+          </option>
+        ))}
+      </Select>
+    ) : (
+      <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+        {scanning && readiness !== "setup"
+          ? S.models.cliReadingModels
+          : readiness === "failed" || readiness === "setup"
+            ? S.models.cliNoModels
+            : (model?.name ?? S.models.cliDefault)}
+      </p>
+    );
   const effortValue = String(
     (effortOption && card.rememberedOptions?.[effortOption.id]) ?? effortOption?.currentValue ?? "",
   );
@@ -263,41 +295,42 @@ function CliCard({
           : "border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700"
       }`}
     >
-      <button
-        type="button"
-        aria-pressed={selected}
-        onClick={onSelect}
-        className="flex w-full min-w-0 items-center gap-3 px-4 py-3 text-left"
-      >
-        <ProviderLogo
-          provider={codingAgentLogo(card.agentId, card.title)}
-          className="h-8 w-8 shrink-0"
-        />
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-baseline gap-1.5 text-sm">
-            <span className="truncate font-medium text-gray-900 dark:text-gray-100">
-              {card.title}
-            </span>
-            {card.vendor && (
-              <span className="truncate text-gray-500 dark:text-gray-400">· {card.vendor}</span>
-            )}
-          </div>
-          <div className="flex min-w-0 items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            {card.version && <span className="truncate font-mono">{card.version}</span>}
-            {card.authStatus === "ok" && (
-              <span className={toneInk.success}>{S.models.cliSignedIn}</span>
-            )}
-            {card.authStatus === "missing" && (
-              <span className={toneInk.attention}>{S.models.cliSignInRequired}</span>
-            )}
-          </div>
-          {!selected && (
-            <div className="truncate text-xs text-gray-500 dark:text-gray-400">
-              {S.models.cliModelSummary(model?.name ?? S.models.cliDefault)}
+      <div className="flex min-w-0 items-center gap-3 pr-4">
+        <button
+          type="button"
+          aria-pressed={selected}
+          onClick={onSelect}
+          className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-4 text-left"
+        >
+          <ProviderLogo
+            provider={codingAgentLogo(card.agentId, card.title)}
+            className="h-8 w-8 shrink-0"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-baseline gap-1.5 text-sm">
+              <span className="truncate font-medium text-gray-900 dark:text-gray-100">
+                {card.title}
+              </span>
+              {card.vendor && (
+                <span className="truncate text-gray-500 dark:text-gray-400">· {card.vendor}</span>
+              )}
             </div>
-          )}
-        </div>
-      </button>
+            {card.version && (
+              <div className="truncate font-mono text-xs text-gray-500 dark:text-gray-400">
+                {card.version}
+              </div>
+            )}
+            {/* Narrow screens have no room for the dropdown in the row; it opens with the card. */}
+            {!selected && (
+              <div className="truncate text-xs text-gray-500 sm:hidden dark:text-gray-400">
+                {S.models.cliModelSummary(model?.name ?? S.models.cliDefault)}
+              </div>
+            )}
+          </div>
+        </button>
+        <div className="hidden w-56 shrink-0 sm:block">{modelControl}</div>
+        <ReadinessMark readiness={readiness} />
+      </div>
 
       {selected && (
         <div className="space-y-3 border-t border-gray-100 px-4 pb-4 pt-3 dark:border-gray-800">
@@ -306,32 +339,16 @@ function CliCard({
               {card.commandLine}
             </div>
           )}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                {S.models.cliModel}
-              </span>
-              {modelOption && <Badge tone="green">{S.models.cliSynced}</Badge>}
-            </div>
-            {modelOption && modelOption.options.length > 0 ? (
-              <Select
-                size="sm"
-                aria-label={`${card.title} ${S.models.cliModel}`}
-                value={model?.value ?? ""}
-                disabled={!isAdmin}
-                onChange={(e) => remember(modelOption, e.target.value, true)}
-              >
-                {modelOption.options.map((value) => (
-                  <option key={value.value} value={value.value}>
-                    {value.name}
-                  </option>
-                ))}
-              </Select>
-            ) : (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {model?.name ?? S.models.cliModelsUnknown}
-              </p>
-            )}
+          {card.probeError !== undefined && (
+            <p className={`rounded-md border px-3 py-2 text-xs ${toneStrip.danger}`}>
+              {S.models.cliProbeFailed(card.title, card.probeError)}
+            </p>
+          )}
+          <div className="space-y-1.5 sm:hidden">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              {S.models.cliModel}
+            </span>
+            {modelControl}
           </div>
           {effortOption && effortOption.options.length > 0 && (
             <div className="space-y-1.5">
@@ -352,6 +369,11 @@ function CliCard({
                 ))}
               </Select>
             </div>
+          )}
+          {readiness === "signIn" && card.authHint && (
+            <p className={`rounded-md border px-3 py-2 text-xs ${toneStrip.attention}`}>
+              {S.models.cliSignInHint(card.authHint)}
+            </p>
           )}
           {card.setupHint && <p className={`text-xs ${toneInk.attention}`}>{card.setupHint}</p>}
           {(testing || tested !== null) && (
@@ -377,6 +399,80 @@ function CliCard({
         </div>
       )}
     </li>
+  );
+}
+
+/**
+ * An agent not installed on the server machine: who makes it, the command that installs it
+ * where one works on every OS (with a copy button, since it runs in the server's terminal,
+ * not here), and a link to its install page.
+ */
+function AvailableCard({ card }: { card: AgentCardModel }) {
+  return (
+    <li className="min-w-0 space-y-2 rounded-md bg-gray-50 px-3 py-2.5 dark:bg-gray-900">
+      <div className="flex min-w-0 items-center gap-3">
+        <ProviderLogo
+          provider={codingAgentLogo(card.agentId, card.title)}
+          className="h-6 w-6 shrink-0 opacity-60"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm text-gray-900 dark:text-gray-100">{card.title}</div>
+          {card.vendor && (
+            <div className="truncate text-xs text-gray-500 dark:text-gray-400">{card.vendor}</div>
+          )}
+        </div>
+        {card.homepageUrl && (
+          <a
+            href={card.homepageUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="shrink-0 text-xs font-medium text-[var(--accent-fg)] underline-offset-2 hover:underline"
+          >
+            {S.models.cliInstall}
+          </a>
+        )}
+      </div>
+      {card.installCommand && (
+        <div className="flex min-w-0 items-center gap-2 rounded border border-gray-200 bg-white px-2 py-1 dark:border-gray-800 dark:bg-gray-950">
+          <code className="min-w-0 flex-1 truncate font-mono text-xs text-gray-700 dark:text-gray-300">
+            {card.installCommand}
+          </code>
+          <CopyButton
+            text={card.installCommand}
+            label={S.models.cliCopyInstall(card.title)}
+            className={ROW_COPY_CLASS}
+          />
+        </div>
+      )}
+    </li>
+  );
+}
+
+/**
+ * Whether the agent can run a prompt now, at the card's right edge: a state dot and its word,
+ * so the colour is never the only carrier. "Sign-in unknown" says why in its tooltip.
+ */
+function ReadinessMark({ readiness }: { readiness: CardReadiness }) {
+  const mark: Record<CardReadiness, { tone: Tone; label: string; title?: string }> = {
+    ready: { tone: "success", label: S.models.cliReady },
+    signIn: { tone: "attention", label: S.models.cliSignInRequired },
+    setup: { tone: "attention", label: S.models.cliNeedsSetup },
+    failed: { tone: "danger", label: S.models.cliWontStart },
+    unknown: {
+      tone: "muted",
+      label: S.models.cliSignInUnknown,
+      title: S.models.cliSignInUnknownTitle,
+    },
+  };
+  const { tone, label, title } = mark[readiness];
+  return (
+    <span
+      className="flex shrink-0 items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300"
+      {...(title !== undefined ? { title } : {})}
+    >
+      <span aria-hidden className={`block h-1.5 w-1.5 rounded-full ${toneDot[tone]}`} />
+      {label}
+    </span>
   );
 }
 

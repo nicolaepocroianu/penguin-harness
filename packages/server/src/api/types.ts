@@ -4889,12 +4889,19 @@ export interface CodingAgentDiscoveryCandidate {
   setupHint: string | null;
   /** A definition with this recipe's id is already saved. */
   alreadyAdded: boolean;
-  /** The CLI's own `--version` line; present only after a probed refresh. */
+  /** The CLI's own `--version` line; present once a probed refresh has run. */
   version?: string;
-  /** Login status of the agent's own CLI; present only after a probed refresh. */
+  /**
+   * Whether the agent is signed in: read from its stored credentials on every call, and
+   * from its own status command after a probed refresh. Absent for an agent not detected.
+   */
   authStatus?: "ok" | "missing" | "unknown";
-  /** The ACP config options a probe session observed (model choices, toggles); probed refresh only. */
+  /** The ACP config options the last probe session observed (model choices, toggles). */
   models?: CodingAgentConfigOption[];
+  /** The one command that installs the agent, when there is one for every OS. */
+  installCommand?: string;
+  /** Why the last probe could not open a session with it; admins only. */
+  probeError?: string;
   /** The model remembered for this recipe, auto-applied to its new sessions. */
   rememberedModel?: { configId: string; value: boolean | string; name?: string } | null;
   /** Other settings remembered for this recipe, by config option id. */
@@ -4930,9 +4937,13 @@ export interface CodingAgentDiscoveryResponse {
   candidates: CodingAgentDiscoveryCandidate[];
   /**
    * Probed config options keyed by agent id, for saved definitions probed at their own
-   * command (refresh only — a recipe's probe rides the candidate's own `models`).
+   * command (a recipe's probe rides the candidate's own `models`).
    */
   agentModels: Record<string, CodingAgentConfigOption[]>;
+  /** Why the last probe of a saved definition failed, by agent id; admins only. */
+  agentErrors?: Record<string, string>;
+  /** When the last probed refresh ran (epoch ms); absent when none ever has. */
+  probedAt?: number;
 }
 
 /** POST /coding-agents/agents body: a full definition; `env` is write-only (never listed back). */

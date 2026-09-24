@@ -141,6 +141,60 @@ describe("agent discovery", () => {
     );
     expect(claude?.launch?.args).toEqual(["-y", "@agentclientprotocol/claude-agent-acp"]);
   });
+
+  // The stored sign-in is read on every call, without executing the agent.
+  describe("stored sign-in", () => {
+    async function write(rel: string, text: string): Promise<void> {
+      const file = path.join(home, rel);
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      await fs.writeFile(file, text);
+    }
+    const statusOf = async (id: string, extraEnv: NodeJS.ProcessEnv = {}) =>
+      (await discoverAgents({ env: { ...env(), ...extraEnv }, home })).find(
+        (c) => c.recipeId === id,
+      )?.authStatus;
+
+    it("reads Gemini's login file, and says missing when there is none", async () => {
+      await install(bin, "gemini");
+      expect(await statusOf("gemini")).toBe("missing");
+      await write(".gemini/oauth_creds.json", "{}");
+      expect(await statusOf("gemini")).toBe("ok");
+    });
+
+    it("counts an API key in the environment as signed in", async () => {
+      await install(bin, "gemini");
+      expect(await statusOf("gemini", { GEMINI_API_KEY: "k" })).toBe("ok");
+    });
+
+    it("looks inside the file when existing is not enough", async () => {
+      await install(bin, "cline");
+      await write(".cline/data/settings/providers.json", '{"providers":{"x":{"settings":{}}}}');
+      expect(await statusOf("cline")).toBe("missing");
+      await write(
+        ".cline/data/settings/providers.json",
+        '{"providers":{"x":{"settings":{"apiKey":"k"}}}}',
+      );
+      expect(await statusOf("cline")).toBe("ok");
+    });
+
+    it("reads a config that opens with a comment line", async () => {
+      await install(bin, "copilot");
+      await write(".copilot/config.json", '// User settings\n{"loggedInUsers":[{"login":"a"}]}');
+      expect(await statusOf("copilot")).toBe("ok");
+    });
+
+    // Copilot may sign in through the GitHub CLI instead; that login is out of reach.
+    it("says unknown where the login may live somewhere unreadable", async () => {
+      await install(bin, "copilot");
+      await write(".copilot/config.json", '{"loggedInUsers":[]}');
+      expect(await statusOf("copilot")).toBe("unknown");
+    });
+
+    it("says nothing about an agent that is not installed", async () => {
+      await write(".gemini/oauth_creds.json", "{}");
+      expect(await statusOf("gemini")).toBeUndefined();
+    });
+  });
 });
 
 describe("resolveCommandPath", () => {
