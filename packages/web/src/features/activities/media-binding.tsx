@@ -30,6 +30,7 @@ export function MediaBinding({
   disabled,
   onChange,
   onUpload,
+  onUploaded,
 }: {
   asset: MediaAsset;
   /** Every asset in the same language group, the pool a reuse is drawn from. */
@@ -43,6 +44,8 @@ export function MediaBinding({
   onChange: (path: string | undefined) => void;
   /** Uploads the file and resolves with what the server stored, or rejects. */
   onUpload: (file: File) => Promise<UploadedMedia>;
+  /** Takes an upload of the right kind instead of binding it at once, to compare it first. */
+  onUploaded?: (stored: UploadedMedia) => void;
 }) {
   const [reuse, setReuse] = useState("");
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -107,6 +110,7 @@ export function MediaBinding({
                           // so; the file itself stays in the library.
                           if (stored.kind !== kind)
                             setUploadError(S.activities.uploadWrongKind(stored.kind));
+                          else if (onUploaded) onUploaded(stored);
                           else onChange(stored.path);
                         })
                         .catch((error: unknown) =>

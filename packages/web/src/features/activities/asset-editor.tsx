@@ -3,7 +3,7 @@
  * rail has selected. It fills its column, scrolls on its own, and keeps the binding and
  * its save action pinned to the bottom so the primary action is never scrolled away.
  */
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type {
   AssetManifest,
   ActivityRunSummary,
@@ -16,6 +16,7 @@ import { S } from "../../lib/strings";
 import { toneInk, toneSurface } from "../../lib/tone";
 import { ImagePreview } from "./image-preview";
 import { MediaBinding } from "./media-binding";
+import { MediaComparison } from "./media-comparison";
 import { isUploadPath } from "./media-library";
 import { MediaPlayer } from "./media-player";
 import { WaveformPlayer } from "./waveform-player";
@@ -102,6 +103,14 @@ export function AssetEditor({
   };
 }) {
   const [voiceChoice, setVoice] = useState("");
+  // An upload that would replace a bound file, held beside it until the author chooses.
+  const [pendingUpload, setPendingUpload] = useState<{
+    language: string;
+    key: string;
+    stored: UploadedMedia;
+  } | null>(null);
+  // New takes the author chose to keep the current media over; they stay in the candidates.
+  const [kept, setKept] = useState<ReadonlySet<string>>(new Set());
   const group = manifest.assets[language] ?? [];
   const asset = group.find((entry) => entry.key === selection?.key);
   const voice = voices.includes(voiceChoice) ? voiceChoice : (voices[0] ?? "");
@@ -130,6 +139,46 @@ export function AssetEditor({
       delete entry.durationMs;
     });
   }
+  const uploadUrl = (path: string) => `${endpoint}/media-upload?path=${encodeURIComponent(path)}`;
+  function bindPath(path: string | undefined) {
+    edit((entry) => {
+      if (path) entry.path = path;
+      else delete entry.path;
+      // Timings describe the recording that was bound, not this one.
+      delete entry.wordTimings;
+      delete entry.durationMs;
+    });
+  }
+  /** The media bound now, played or shown as the comparison's first half. */
+  function currentMedia(): ReactNode {
+    if (!asset?.path) return null;
+    const label = S.activities.mediaComparison.current;
+    if (asset.type === "audio" && asset.generatedAudio)
+      return <WaveformPlayer src={audioUrl(asset.generatedAudio.runId)} label={label} autoLoad />;
+    if (asset.type === "image" && asset.generatedImage)
+      return (
+        <ImagePreview
+          src={generatedImageUrl(asset.generatedImage.runId)}
+          description={asset.description}
+        />
+      );
+    if (isUploadPath(asset.path)) return uploadedMedia(asset.path, label);
+    if (asset.type === "image" && canPreview)
+      return <ImagePreview src={imageUrl} description={asset.description} />;
+    return (
+      <p className="break-words text-xs text-gray-500">
+        {S.activities.mediaComparison.noPreview(asset.path)}
+      </p>
+    );
+  }
+  function uploadedMedia(path: string, label: string): ReactNode {
+    if (!asset) return null;
+    if (asset.type === "audio")
+      return <WaveformPlayer src={uploadUrl(path)} label={label} autoLoad />;
+    if (asset.type === "image")
+      return <ImagePreview src={uploadUrl(path)} description={asset.description} />;
+    return <MediaPlayer kind="video" src={uploadUrl(path)} label={label} />;
+  }
   function edit(change: (entry: NonNullable<typeof asset>) => void) {
     if (!asset || !editable || disabled) return;
     const updated = structuredClone(manifest);
@@ -155,6 +204,23 @@ export function AssetEditor({
       run.mediaText?.assetKey === asset?.key &&
       run.mediaText?.type === asset?.type,
   );
+  // The newest take that could replace bound media, compared with it rather than listed.
+  const compared = asset?.path
+    ? [...(asset.type === "audio" ? audioCandidates : imageCandidates)]
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .find(
+          (run) =>
+            run.status === "succeeded" &&
+            run.hasCandidate &&
+            run.inputRevision === revision &&
+            run.runId !== (asset.generatedAudio ?? asset.generatedImage)?.runId &&
+            !kept.has(run.runId),
+        )
+    : undefined;
+  const upload =
+    pendingUpload && pendingUpload.language === language && pendingUpload.key === asset?.key
+      ? pendingUpload.stored
+      : null;
   const acceptedImage = runs.find((run) => run.runId === asset?.generatedImage?.runId)?.image;
   const acceptedAudio = runs.find((run) => run.runId === asset?.generatedAudio?.runId)?.audio;
   return (
@@ -304,16 +370,53 @@ export function AssetEditor({
               editable={editable}
               disabled={disabled}
               onUpload={onUpload}
-              onChange={(path) =>
-                edit((entry) => {
-                  if (path) entry.path = path;
-                  else delete entry.path;
-                  // Timings describe the recording that was bound, not this one.
-                  delete entry.wordTimings;
-                  delete entry.durationMs;
-                })
-              }
+              onUploaded={(stored) => {
+                if (asset.path && asset.path !== stored.path)
+                  setPendingUpload({ language, key: asset.key, stored });
+                else bindPath(stored.path);
+              }}
+              onChange={bindPath}
             />
+            {upload && (
+              <MediaComparison
+                current={currentMedia()}
+                next={uploadedMedia(upload.path, S.activities.mediaComparison.next)}
+                disabled={!editable || disabled}
+                onUse={() => {
+                  bindPath(upload.path);
+                  setPendingUpload(null);
+                }}
+                onKeep={() => setPendingUpload(null)}
+              />
+            )}
+            {compared && editable && (
+              <MediaComparison
+                current={currentMedia()}
+                next={
+                  asset.type === "audio" ? (
+                    <WaveformPlayer
+                      key={compared.runId}
+                      src={audioUrl(compared.runId)}
+                      label={S.activities.mediaComparison.next}
+                      autoLoad
+                    />
+                  ) : (
+                    <ImagePreview
+                      key={compared.runId}
+                      src={generatedImageUrl(compared.runId)}
+                      description={compared.image?.prompt ?? asset.description}
+                    />
+                  )
+                }
+                disabled={!canAccept}
+                onUse={() =>
+                  asset.type === "audio"
+                    ? onAcceptAudio(compared.runId)
+                    : onAcceptImage(compared.runId)
+                }
+                onKeep={() => setKept((previous) => new Set(previous).add(compared.runId))}
+              />
+            )}
             {asset.type === "audio" && !asset.generatedAudio && isUploadPath(asset.path) && (
               <WaveformPlayer
                 src={`${endpoint}/media-upload?path=${encodeURIComponent(asset.path!)}`}
@@ -491,7 +594,7 @@ export function AssetEditor({
                         className="space-y-2 border-t border-gray-200 pt-3 dark:border-gray-800"
                       >
                         <p className="text-xs">
-                          {new Date(run.createdAt).toLocaleString()} Â·{" "}
+                          {new Date(run.createdAt).toLocaleString()} ·{" "}
                           {S.activities.speechStatus[run.status]}
                         </p>
                         {run.error && <p className="break-words text-xs">{run.error}</p>}

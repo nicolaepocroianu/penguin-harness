@@ -870,6 +870,24 @@ test("uploads media into the activity workspace and binds it from the library", 
   await expect(binding).toHaveValue(/^media\/uploads\/cat-[a-f0-9]{8}\.png$/);
   await expect(page.getByText("Stored with this activity.")).toBeVisible();
 
+  // Another upload does not replace the bound file at once: it is shown beside it first.
+  const upload = (name) =>
+    page
+      .locator('input[type="file"]')
+      .setInputFiles({ name, mimeType: "image/png", buffer: PIXEL });
+  const comparison = page.getByRole("region", { name: "Current and new", exact: true });
+  await upload("dog.png");
+  await expect(comparison.getByRole("figure", { name: "Current" })).toBeVisible();
+  await expect(comparison.getByRole("figure", { name: "New" })).toBeVisible();
+  await expect(binding).toHaveValue(/cat-/);
+  await comparison.getByRole("button", { name: "Keep current", exact: true }).click();
+  await expect(comparison).toHaveCount(0);
+  await expect(binding).toHaveValue(/cat-/);
+  await upload("dog.png");
+  await comparison.getByRole("button", { name: "Use new", exact: true }).click();
+  await expect(comparison).toHaveCount(0);
+  await expect(binding).toHaveValue(/^media\/uploads\/dog-[a-f0-9]{8}\.png$/);
+
   // Clearing and rebinding from the library reaches the same file.
   await page.getByRole("button", { name: "Clear media path", exact: true }).click();
   await expect(binding).toHaveValue("");
@@ -1101,6 +1119,13 @@ test("edits scripts and explicitly accepts speech while regeneration keeps the a
   await expect(accepted).toHaveAttribute("src", source);
   await expect(page.locator('audio[aria-label="Speech candidate"]')).toHaveCount(2);
   await expect(page.getByRole("button", { name: "Accept this audio", exact: true })).toBeEnabled();
+  // The new take is heard beside the accepted one, and replaces it only on request.
+  const comparison = page.getByRole("region", { name: "Current and new", exact: true });
+  await expect(comparison.locator('audio[aria-label="Current"]')).toHaveAttribute("src", source);
+  await expect(comparison.locator('audio[aria-label="New"]')).toHaveCount(1);
+  await comparison.getByRole("button", { name: "Keep current", exact: true }).click();
+  await expect(comparison).toHaveCount(0);
+  await expect(accepted).toHaveAttribute("src", source);
   expect(f.errors).toEqual([]);
 });
 

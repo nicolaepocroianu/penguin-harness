@@ -500,6 +500,14 @@ export const en: Strings = {
     speechCandidates: "Speech candidates",
     speechCandidate: "Speech candidate",
     acceptSpeech: "Accept this audio",
+    mediaComparison: {
+      title: "Current and new",
+      current: "Current",
+      next: "New",
+      use: "Use new",
+      keep: "Keep current",
+      noPreview: (path: string) => `${path}, which cannot be previewed here`,
+    },
     olderSpeech:
       "Generated from an older draft. Generate again to accept against the current draft.",
     imageDescription: "Image description",

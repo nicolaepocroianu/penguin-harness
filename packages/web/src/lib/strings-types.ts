@@ -391,6 +391,14 @@ export type Strings = {
     speechCandidates: string;
     speechCandidate: string;
     acceptSpeech: string;
+    mediaComparison: {
+      title: string;
+      current: string;
+      next: string;
+      use: string;
+      keep: string;
+      noPreview: (path: string) => string;
+    };
     olderSpeech: string;
     imageDescription: string;
     imageDescriptionHint: string;
