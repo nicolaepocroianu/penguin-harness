@@ -245,6 +245,46 @@ describe("resolveShell — PENGUIN_SHELL override", () => {
   });
 });
 
+describe("resolveShell — Git for Windows with only its cmd folder on PATH", () => {
+  const GIT_BASH = "C:\\Program Files\\Git\\bin\\bash.exe";
+
+  it("finds bash in the bin folder of the install git resolves into", () => {
+    for (const git of [
+      "C:\\Program Files\\Git\\cmd\\git.exe",
+      "C:\\Program Files\\Git\\bin\\git.exe",
+      "C:\\Program Files\\Git\\mingw64\\bin\\git.exe",
+    ]) {
+      const shell = resolveShell({
+        platform: "win32",
+        env: {},
+        whichAll: which({ git: [git], pwsh: ["C:\\pwsh.exe"] }),
+        exists: has(GIT_BASH),
+      });
+      expect(shell).toEqual({ command: GIT_BASH, args: ["-lc"], name: "bash" });
+    }
+  });
+
+  it("comes before the bundled MinGit bash, whose userland is the smaller one", () => {
+    const shell = resolveShell({
+      platform: "win32",
+      env: { PENGUIN_BUNDLED_SHELL: "C:\\bundled\\sh.exe" },
+      whichAll: which({ git: ["C:\\Program Files\\Git\\cmd\\git.exe"] }),
+      exists: has(GIT_BASH, "C:\\bundled\\sh.exe"),
+    });
+    expect(shell.command).toBe(GIT_BASH);
+  });
+
+  it("falls through when that install has no bash (a MinGit or a lone git.exe)", () => {
+    const shell = resolveShell({
+      platform: "win32",
+      env: {},
+      whichAll: which({ git: ["C:\\tools\\git\\cmd\\git.exe"], pwsh: ["C:\\pwsh.exe"] }),
+      exists: () => false,
+    });
+    expect(shell.name).toBe("pwsh");
+  });
+});
+
 describe("resolveShell — the bundled MinGit bash (PENGUIN_BUNDLED_SHELL)", () => {
   const BUNDLED = "C:\\Users\\u\\.penguin\\git\\usr\\bin\\sh.exe";
   /** An exists() stub answering true only for the bundled path. */
