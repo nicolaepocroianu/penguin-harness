@@ -931,6 +931,47 @@ export type Strings = {
       savedSide: string;
       save: string;
     };
+    /** The Activity Spec read as scenes beside its JSON. */
+    specScenes: {
+      view: string;
+      scenes: string;
+      json: string;
+      unreadable: string;
+      openJson: string;
+      runtime: string;
+      engine: (value: string) => string;
+      layout: (value: string) => string;
+      theme: (value: string) => string;
+      assessment: (on: boolean) => string;
+      description: string;
+      noDescription: string;
+      prefixNotice: (prefix: string) => string;
+      removePrefix: string;
+      criteria: string;
+      noCriteria: string;
+      scenesHelp: string;
+      noScenes: string;
+      summary: (matching: number, differing: number) => string;
+      videos: (n: number) => string;
+      images: (n: number) => string;
+      animations: (n: number) => string;
+      sounds: (n: number) => string;
+      narrationLines: (n: number) => string;
+      noNarration: string;
+      matches: string;
+      differs: (n: number) => string;
+      notInScript: string;
+      lineNotInScript: string;
+      scriptSays: (text: string) => string;
+      useScript: string;
+      extraInScript: (n: number) => string;
+      narration: string;
+      media: string;
+      kinds: Record<"image" | "video" | "animation" | "sound", string>;
+      bound: string;
+      needsFile: string;
+      scene: (n: number, title: string) => string;
+    };
     /** The JSON editor Loom shows for a document: Diff and its toolbar, and why text cannot save. */
     jsonEditor: {
       diff: string;

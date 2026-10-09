@@ -149,6 +149,7 @@ export function JsonEditor({
   leading,
   actions,
   notices,
+  alternate,
   onChange,
   onSave,
 }: {
@@ -177,6 +178,12 @@ export function JsonEditor({
   actions?: ReactNode;
   /** Lines about the document, under the header. */
   notices?: ReactNode;
+  /**
+   * Another reading of the same text, shown in the editor's place while `shown`. The text
+   * editor keeps the document underneath, so an edit made through the reading reaches it,
+   * and Diff, which is a reading of the text, calls `leave` to put the text back on screen.
+   */
+  alternate?: { shown: boolean; node: ReactNode; leave: () => void };
   onChange: (value: string) => void;
   onSave: () => void;
 }) {
@@ -330,6 +337,7 @@ export function JsonEditor({
           aria-pressed={diffMode}
           title={!diffMode && changed ? words.diffHint : words.diffHelp}
           onClick={() => {
+            if (!diffMode) alternate?.leave();
             setDiffMode((open) => !open);
             setActive(-1);
           }}
@@ -424,7 +432,8 @@ export function JsonEditor({
           {problem ?? error}
         </p>
       )}
-      <div className={sideBySide ? "hidden" : "flex min-h-0 flex-1"}>
+      {alternate?.shown && <div className="min-h-0 flex-1 overflow-y-auto">{alternate.node}</div>}
+      <div className={sideBySide || alternate?.shown ? "hidden" : "flex min-h-0 flex-1"}>
         <div ref={host} className="script-editor min-h-0 min-w-0 flex-1" />
         {diffMode && markers.length > 0 && (
           <div
