@@ -21,6 +21,7 @@ import {
   stripDescriptionPrefix,
   takeScriptLine,
   type SceneCheck,
+  type SpecMediaKind,
   type SpecSceneReading,
 } from "./spec-scenes";
 
@@ -72,15 +73,17 @@ function sceneState(check: SceneCheck): { tone: Tone; text: string } {
 
 function sceneCounts(scene: SpecSceneReading): string {
   const words = S.activities.specScenes;
-  const count = (kind: string) => scene.media.filter((item) => item.kind === kind).length;
-  const parts = [
-    [count("video"), words.videos],
-    [count("image"), words.images],
-    [count("animation"), words.animations],
-    [count("sound"), words.sounds],
-  ]
-    .filter(([n]) => (n as number) > 0)
-    .map(([n, say]) => (say as (n: number) => string)(n as number));
+  const say: [SpecMediaKind, (n: number) => string][] = [
+    ["video", words.videos],
+    ["image", words.images],
+    ["animation", words.animations],
+    ["sound", words.sounds],
+  ];
+  const parts: string[] = [];
+  for (const [kind, phrase] of say) {
+    const n = scene.media.filter((item) => item.kind === kind).length;
+    if (n > 0) parts.push(phrase(n));
+  }
   parts.push(
     scene.narration.length ? words.narrationLines(scene.narration.length) : words.noNarration,
   );
@@ -347,20 +350,16 @@ export function SpecScenesView({
         )}
         {reading.scenes.map((scene, index) => {
           const check = checks[index]!;
+          const open = toggled[scene.id] ?? (check.known && !sceneAgrees(check));
           return (
             <SceneCard
               key={`${scene.number}:${scene.id}`}
               scene={scene}
               check={check}
-              open={toggled[scene.id] ?? (check.known && !sceneAgrees(check))}
+              open={open}
               bindings={bindings}
               editable={editable}
-              onToggle={() =>
-                setToggled((current) => ({
-                  ...current,
-                  [scene.id]: !(current[scene.id] ?? (check.known && !sceneAgrees(check))),
-                }))
-              }
+              onToggle={() => setToggled((current) => ({ ...current, [scene.id]: !open }))}
               onUseScript={(key, line) => {
                 const next = takeScriptLine(text, scene.id, key, line);
                 if (next !== null) onChange(next);
