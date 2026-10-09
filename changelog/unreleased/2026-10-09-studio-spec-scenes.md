@@ -3,6 +3,7 @@
 - **Date:** 2026-10-09
 - **Type:** feat
 - **Scope:** `web`
+- **PR:** [#92](https://github.com/nicolaepocroianu/penguin-harness/pull/92)
 
 The Activity Spec opens as scenes once a spec is saved, with a Scenes | JSON switch beside its
 title; the choice is remembered per browser. The scenes view shows the runtime as chips (engine,
