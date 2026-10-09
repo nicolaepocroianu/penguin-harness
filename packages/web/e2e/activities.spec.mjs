@@ -731,6 +731,16 @@ async function openSection(page, name) {
   // Clicking the section already showing re-renders the rail under the click, but a rail
   // opened just now is covering the work and has to be dismissed by choosing anyway.
   if (opened || (await button.getAttribute("aria-current")) !== "true") await button.click();
+  // The spec opens as scenes once one is saved; the JSON is one step further, which is
+  // where these tests work.
+  if (name === "Specification") {
+    const json = page.getByRole("group", { name: "View", exact: true }).getByRole("button", {
+      name: "JSON",
+      exact: true,
+    });
+    await expect(json).toBeVisible();
+    if ((await json.getAttribute("aria-pressed")) !== "true") await json.click();
+  }
   // Scenes opens on the storyboard once there is a media plan; the media itself is one
   // step further, which is where these tests work.
   if (name === "Scenes and media") {
@@ -919,6 +929,71 @@ test("reviews specification edits against the saved specification before saving"
   await editor.fill("{ not json");
   await expect(page.getByText(/^This is not valid JSON/)).toBeVisible();
   await expect(save).toBeDisabled();
+  expect(f.errors).toEqual([]);
+});
+
+test("reads the specification as scenes, checks narration against the script, and fixes the draft", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  await page.getByRole("textbox", { name: "Specification JSON", exact: true }).fill(
+    JSON.stringify({
+      ...spec,
+      activityDescription: "usesAssessment=true\nPractice words",
+      acceptance_criterias: ["Every word is read."],
+      scenes: [
+        {
+          id: "scene-1",
+          description: "Choose a word",
+          media: { images: [{ key: "cat", description: "A cat" }] },
+          audio: { tracks: [{ key: "hello", description: "", script: "Hello friend." }] },
+        },
+      ],
+    }),
+  );
+  await page.getByRole("button", { name: "Save Spec", exact: true }).click();
+  await openSection(page, "Description");
+  await page
+    .getByRole("textbox", { name: "Activity Script", exact: true })
+    .fill("Scene 1: Intro\n<audio>Hello there, friend!</audio>");
+  await page.getByRole("button", { name: "Save script", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Save script", exact: true })).toBeDisabled();
+
+  await openSection(page, "Specification");
+  const view = page.getByRole("group", { name: "View", exact: true });
+  await view.getByRole("button", { name: "Scenes", exact: true }).click();
+  await expect(page.getByText("Engine html", { exact: true })).toBeVisible();
+  await expect(page.getByText("Assessment off", { exact: true })).toBeVisible();
+  await expect(page.getByText("Every word is read.", { exact: true })).toBeVisible();
+  const card = page.getByRole("article", { name: "Scene 1: Intro", exact: true });
+  await expect(card.getByText("1 line differs", { exact: true })).toBeVisible();
+  await expect(card.getByText("Script says: “Hello there, friend!”")).toBeVisible();
+  await expect(card.getByText("A cat", { exact: true })).toBeVisible();
+
+  // Both fixes are unsaved edits of the JSON: Save Spec sends them together.
+  await page.getByRole("button", { name: "Remove it", exact: true }).click();
+  await expect(page.getByText(/^The description starts with/)).toHaveCount(0);
+  await card.getByRole("button", { name: "Use the script", exact: true }).click();
+  await expect(card.getByText("Matches the script", { exact: true })).toBeVisible();
+  const saved = page.waitForRequest(
+    (request) => request.url().endsWith("/apply-generated-spec") && request.method() === "POST",
+  );
+  await page.getByRole("button", { name: "Save Spec", exact: true }).click();
+  const body = (await saved).postDataJSON().spec;
+  expect(body.activityDescription).toBe("Practice words");
+  expect(body.scenes[0].audio.tracks[0].script).toBe("Hello there, friend!");
+  await expect(page.getByRole("button", { name: "Save Spec", exact: true })).toBeDisabled();
+
+  // Diff is a reading of the text, so it opens the JSON.
+  await page.getByRole("button", { name: "Diff", exact: true }).click();
+  await expect(view.getByRole("button", { name: "JSON", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+  ).toBeVisible();
   expect(f.errors).toEqual([]);
 });
 
@@ -3137,6 +3212,137 @@ test("edits the module's configuration, saves it, and discards the edit", async 
     selectedIds: ["r2phcs03l-speaker-audio-choices", "r2phcs03l-freight-conveyor"],
   });
   await expect(page.getByText("2 of 2 selected", { exact: true })).toBeVisible();
+  expect(f.errors).toEqual([]);
+});
+
+test("summarises the module definition and checks the files it loads", async ({ page }) => {
+  const f = await fixture(page);
+  await create(page);
+  const description = `Find the capital letters. ${"A long treasure hunt. ".repeat(10)}`;
+  const definition = {
+    id: "words",
+    schemaVersion: "2.0.0",
+    specificationVersion: "2.0.0",
+    engine: "html",
+    require: {
+      entry: { type: "javascript", url: "entry.js" },
+      layout: { type: "html", url: "layout.html" },
+      style: { type: "css", url: "style.css" },
+    },
+    assets: {},
+    properties: {},
+    themes: {
+      park: { properties: { key: "park", title: "Words", activityDescription: description } },
+    },
+  };
+  const checked = [];
+  await page.route("**/*", (route) => {
+    const request = route.request();
+    const p = new URL(request.url()).pathname;
+    const json = (value, status = 200) =>
+      route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
+    if (p === `${base}/act_test/sandbox/status`)
+      return json({
+        state: "ready",
+        playable: true,
+        buildable: true,
+        message: "Ready.",
+        buildLog: null,
+      });
+    if (p.startsWith(`${base}/act_test/sandbox/module/`)) {
+      const file = p.slice(`${base}/act_test/sandbox/module/`.length);
+      checked.push(`${request.method()} ${file}`);
+      return route.fulfill({ status: file === "style.css" ? 404 : 200, body: "" });
+    }
+    if (p === `${base}/act_test/module-documents`)
+      return json({
+        source: "checkout",
+        canonicalRefNum: 12,
+        configuration: {
+          file: "configurations/words-12.json",
+          value: { words: { telemetry: false } },
+          edited: false,
+          stale: false,
+          editable: true,
+        },
+        assessment: {
+          file: "assessments/words-12.json",
+          value: { items: [{ id: "q1" }, { id: "q2" }] },
+          edited: false,
+          stale: false,
+          editable: true,
+        },
+        definition: {
+          file: "definition.json",
+          value: definition,
+          edited: false,
+          stale: false,
+          editable: true,
+        },
+      });
+    return route.fallback();
+  });
+  await openSection(page, "Specification");
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify(spec));
+  await page.getByRole("button", { name: "Save Spec", exact: true }).click();
+  await page.reload();
+  await openSection(page, "Module definition");
+  const view = page.getByRole("group", { name: "Definition view", exact: true });
+  await expect(view.getByRole("button", { name: "Summary", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(page.getByRole("definition").first()).toHaveText("html");
+  await expect(page.getByText("2.0.0 · 2.0.0", { exact: true })).toBeVisible();
+
+  // Each file the definition requires, and whether the module has it.
+  const files = page.getByRole("table");
+  await expect(files.getByRole("row")).toHaveText([
+    /Role\s*File\s*Type\s*In the module/,
+    /Entry\s*entry\.js\s*javascript\s*Found/,
+    /Layout\s*layout\.html\s*html\s*Found/,
+    /Style\s*style\.css\s*css\s*Missing/,
+  ]);
+  expect(checked.sort()).toEqual(["HEAD entry.js", "HEAD layout.html", "HEAD style.css"]);
+  await expect(files.getByRole("link", { name: "entry.js", exact: true })).toHaveAttribute(
+    "href",
+    `${base}/act_test/sandbox/module/entry.js`,
+  );
+
+  // A long property is clamped until asked for.
+  await expect(page.getByText("Theme “park”", { exact: true })).toBeVisible();
+  const showAll = page.getByRole("button", { name: "Show all", exact: true });
+  await expect(showAll).toHaveAttribute("aria-expanded", "false");
+  await showAll.click();
+  await expect(page.getByRole("button", { name: "Show less", exact: true })).toBeVisible();
+
+  // The raw document is the JSON view.
+  await view.getByRole("button", { name: "JSON", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: /^Document JSON/ })).toContainText(
+    '"engine": "html"',
+  );
+  // An unsaved edit shows in the summary, and leaving for a neighbour asks first.
+  await page
+    .getByRole("textbox", { name: /^Document JSON/ })
+    .fill(JSON.stringify({ ...definition, engine: "canvas" }));
+  await view.getByRole("button", { name: "Summary", exact: true }).click();
+  await expect(page.getByText("Shows your unsaved edit.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("definition").first()).toHaveText("canvas");
+
+  // Its neighbours open from their cards, with what they hold.
+  const assessment = page.getByRole("button", { name: /^Assessment data/ });
+  await expect(assessment).toContainText("assessments/words-12.json · 2 items");
+  await assessment.click();
+  const leave = page.getByRole("dialog");
+  await leave.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("definition").first()).toHaveText("canvas");
+  await assessment.click();
+  await leave.getByRole("button", { name: "Discard", exact: true }).click();
+  await expect(
+    page.getByText("assessments/words-12.json, from the module in the WAF checkout. 2 items."),
+  ).toBeVisible();
   expect(f.errors).toEqual([]);
 });
 
@@ -7311,7 +7517,6 @@ test("shows what a deploy still needs", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /^Deploy More info/, level: 3 })).toBeVisible();
   const status = page.getByTestId("deploy-readiness");
   await expect(status).toHaveText("Not ready to deploy: 4 things are missing.");
-  await page.locator("summary").filter({ hasText: "What is missing" }).click();
   const problems = page.getByRole("region", { name: "What is missing" });
   await expect(problems.getByText("QA Jenkins address is empty.", { exact: true })).toBeVisible();
   await expect(
@@ -7332,6 +7537,12 @@ test("shows what a deploy still needs", async ({ page }) => {
   await expect(checks.getByRole("row", { name: /^Media clone/ })).toContainText("Not cloned yet");
   await expect(checks.getByRole("row", { name: /^Ref/ })).toContainText("The canonical ref");
 
+  // Deploy to QA waits on what is missing, and says so beside it.
+  await expect(page.getByRole("button", { name: "Deploy to QA", exact: true })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Deploy to QA", exact: true }),
+  ).toHaveAccessibleDescription("Waits for what is missing above.");
+
   // Prepare clones makes the three clones; only the settings are left.
   await page.getByRole("button", { name: "Prepare clones", exact: true }).click();
   await expect(status).toHaveText("Not ready to deploy: 1 thing is missing.");
@@ -7339,7 +7550,8 @@ test("shows what a deploy still needs", async ({ page }) => {
   await expect(checks.getByRole("row", { name: /^Media clone/ })).toContainText(
     "Cloned, on main, clean",
   );
-  await expect(page.getByRole("button", { name: "Prepare clones", exact: true })).toBeDisabled();
+  // Nothing is left for Prepare clones to make, so it is no longer offered.
+  await expect(page.getByRole("button", { name: "Prepare clones", exact: true })).toHaveCount(0);
   expect(prepares).toBe(1);
   await expect(checks.getByRole("row", { name: /^Branch loom\/words-deploy/ })).toContainText(
     "remote not checked",
@@ -7450,7 +7662,6 @@ test("an admin opens the deploy settings from what a deploy still needs", async 
   });
   await create(page);
   await openSection(page, "Deploy");
-  await page.locator("summary").filter({ hasText: "What is missing" }).click();
   const problems = page.getByRole("region", { name: "What is missing" });
   await expect(problems.getByText("QA Jenkins address is empty.", { exact: true })).toBeVisible();
 

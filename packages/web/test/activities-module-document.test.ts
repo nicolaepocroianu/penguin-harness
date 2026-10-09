@@ -5,8 +5,13 @@ import {
   documentChanged,
   documentOrigin,
   documentText,
+  definitionSummary,
+  filePresence,
+  moduleFileUrl,
+  modulePath,
   hasUnsavedText,
   parseDocument,
+  readDefinition,
 } from "../src/features/activities/module-document";
 
 const document: ModuleDocument = {
@@ -51,6 +56,129 @@ describe("a module document in the editor", () => {
     expect(assessmentItemCount({ items: [{}, {}] })).toBe(2);
     expect(assessmentItemCount({ maxRounds: 3 })).toBeNull();
     expect(assessmentItemCount(null)).toBeNull();
+  });
+});
+
+describe("the definition summary", () => {
+  it("reads what the assembled definition says", () => {
+    const summary = definitionSummary({
+      id: "words",
+      schemaVersion: "2.0.0",
+      specificationVersion: "2.0.0",
+      engine: "html",
+      require: {
+        entry: { type: "javascript", url: "entry.js" },
+        layout: { type: "html", url: "./res/layout.html?v=2" },
+        style: { type: "css", url: "https://cdn.example.org/style.css" },
+      },
+      assets: {},
+      properties: { a: 1 },
+      themes: {
+        park: {
+          properties: { key: "park", title: "Words", flags: { loud: true } },
+        },
+      },
+    });
+    expect(summary).toEqual({
+      engine: "html",
+      schemaVersion: "2.0.0",
+      specificationVersion: "2.0.0",
+      assets: 0,
+      properties: 1,
+      themes: [
+        {
+          name: "park",
+          properties: [
+            { key: "key", value: "park" },
+            { key: "title", value: "Words" },
+            { key: "flags", value: '{"loud":true}' },
+          ],
+        },
+      ],
+      files: [
+        { role: "entry", url: "entry.js", type: "javascript", path: "entry.js" },
+        {
+          role: "layout",
+          url: "./res/layout.html?v=2",
+          type: "html",
+          path: "res/layout.html",
+        },
+        {
+          role: "style",
+          url: "https://cdn.example.org/style.css",
+          type: "css",
+          path: null,
+        },
+      ],
+    });
+  });
+
+  it("tolerates missing and odd fields", () => {
+    expect(
+      definitionSummary({
+        engine: 3,
+        schemaVersion: "",
+        require: { entry: "entry.js", broken: { type: 7 }, list: [1] },
+        themes: ["park"],
+        assets: [1, 2],
+      }),
+    ).toEqual({
+      engine: "3",
+      schemaVersion: null,
+      specificationVersion: null,
+      themes: [],
+      assets: 0,
+      properties: 0,
+      files: [
+        { role: "entry", url: "entry.js", type: null, path: "entry.js" },
+        { role: "broken", url: null, type: "7", path: null },
+        { role: "list", url: null, type: null, path: null },
+      ],
+    });
+    expect(definitionSummary({}).files).toEqual([]);
+    expect(definitionSummary({ themes: { bare: null } }).themes).toEqual([
+      { name: "bare", properties: [] },
+    ]);
+  });
+
+  it("says why text is not a definition", () => {
+    expect(readDefinition("{ nope")).toHaveProperty("error");
+    expect(readDefinition("[1]")).toHaveProperty("error");
+    expect(readDefinition('{"engine":"html"}')).toHaveProperty("summary.engine", "html");
+  });
+
+  it("only treats module-relative URLs as module files", () => {
+    expect(modulePath("entry.js")).toBe("entry.js");
+    expect(modulePath("././dist/entry.js#x")).toBe("dist/entry.js");
+    expect(modulePath("/entry.js")).toBeNull();
+    expect(modulePath("//cdn/entry.js")).toBeNull();
+    expect(modulePath("data:text/css,")).toBeNull();
+    expect(modulePath("../other/entry.js")).toBeNull();
+    expect(modulePath("  ")).toBeNull();
+  });
+
+  it("decodes an escaped file name once and links it encoded once", () => {
+    expect(modulePath("res/my%20layout.html")).toBe("res/my layout.html");
+    expect(moduleFileUrl("/api/a", modulePath("res/my%20layout.html")!)).toBe(
+      "/api/a/sandbox/module/res/my%20layout.html",
+    );
+    // A malformed escape, or an escaped step out, names no file rather than throwing.
+    expect(modulePath("bad%E0%A4%A.js")).toBeNull();
+    expect(modulePath("%2e%2e/secret.js")).toBeNull();
+  });
+
+  it("drops harmless dot segments, as the browser does", () => {
+    expect(modulePath("res/./style.css")).toBe("res/style.css");
+    expect(modulePath("./entry.js")).toBe("entry.js");
+    expect(modulePath("a/../b")).toBeNull();
+    expect(modulePath("a//b.js")).toBeNull();
+  });
+
+  it("reads a file's presence from the preview's status", () => {
+    expect(filePresence(200)).toBe("found");
+    expect(filePresence(404)).toBe("missing");
+    expect(filePresence(400)).toBe("unknown");
+    expect(filePresence(409)).toBe("unknown");
   });
 });
 

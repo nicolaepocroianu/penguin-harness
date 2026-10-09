@@ -1,6 +1,6 @@
 /**
- * The PROD bar, under the QA deploy: where PROD stands (its two stages, the last deploy, why it
- * cannot start now), and Deploy to PROD for an admin who owns the project. The button opens a
+ * The PROD card, beside the QA one: where PROD stands (a short state, the last deploy, why it
+ * cannot start now, its two stages), and Deploy to PROD for an admin who owns the project. The button opens a
  * dialog whose confirm stays disabled until the product code is typed; the server checks the
  * code, the admin and that QA has the activity as it is now again. The run's log is the one the
  * section already follows.
@@ -20,7 +20,8 @@ import { apiErrorText } from "../../lib/api-error";
 import { formatDateTime } from "../../lib/format";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk } from "../../lib/tone";
-import { prodBar, prodConfirmed, prodRefusalText, refusalText } from "./deploy-model";
+import { prodBar, prodConfirmed, prodRefusalText, prodStatus, refusalText } from "./deploy-model";
+import { DeployStatePill } from "./deploy-state-pill";
 import type { Announcement } from "./run-toasts";
 
 const HEAD =
@@ -70,6 +71,7 @@ export function DeployProd({
   );
 
   const bar = prodBar(production, run, formatDateTime);
+  const state = prodStatus(production, run);
   const running = run?.status === "running";
   const prodRunning = running && run?.target === "prod";
   const confirmed = prodConfirmed(typed, productCode);
@@ -110,10 +112,10 @@ export function DeployProd({
 
   return (
     <section
-      className="space-y-3 rounded-xl border border-gray-200 p-4 dark:border-gray-800"
+      className="min-w-0 space-y-2 rounded-xl border border-gray-200 p-4 dark:border-gray-800"
       aria-labelledby="activity-deploy-prod-title"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <h4
           id="activity-deploy-prod-title"
           className="flex items-center gap-2 text-sm font-semibold"
@@ -123,12 +125,15 @@ export function DeployProd({
             <p>{words.prod.about}</p>
           </InfoPopover>
         </h4>
+        <DeployStatePill tone={state.tone} text={state.text} testId="deploy-prod-state" />
+        <span className="flex-1" />
         {editable &&
           (isAdmin ? (
             <Button
               size="sm"
               variant="primary"
               disabled={busy || running || bar.blocker !== null}
+              aria-describedby={!running && bar.blocker ? "deploy-prod-blocker" : undefined}
               aria-busy={busy}
               onClick={() => {
                 setError(null);
@@ -167,6 +172,7 @@ export function DeployProd({
       </p>
       {!running && (
         <p
+          id="deploy-prod-blocker"
           className={`text-xs ${bar.blocker ? "text-gray-500 dark:text-gray-400" : toneInk.success}`}
           data-testid="deploy-prod-blocker"
         >

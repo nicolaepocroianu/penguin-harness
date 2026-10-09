@@ -225,6 +225,60 @@ export function clonesMissing(context: DeployContext): boolean {
   );
 }
 
+/** A press on this page that clears a problem. */
+export type ReadinessAction =
+  "prepareClones" | "checkRemote" | "deploySettings" | "workspaceSettings";
+
+/**
+ * The press that clears a problem, or null when none on this page does. Prepare clones makes
+ * the module's clone and adds the media folder; the activity-data and media clones are the WAF
+ * workspace's, which an admin prepares in Settings. Asking the remote again clears a remote that
+ * could not be reached; a missing branch it only reports, so it is not offered for that.
+ */
+export function problemAction(problem: DeployProblem): ReadinessAction | null {
+  switch (problem.code) {
+    case "clone_missing":
+      return problem.repo === "module" ? "prepareClones" : "workspaceSettings";
+    case "media_path_missing":
+      return "prepareClones";
+    case "remote_unreachable":
+      return "checkRemote";
+    case "settings_missing":
+      return "deploySettings";
+    case "workspace_not_ready":
+      return "workspaceSettings";
+    default:
+      return null;
+  }
+}
+
+export interface ReadinessGroup {
+  /** The press that clears every problem in the group; null when the page has none. */
+  action: ReadinessAction | null;
+  texts: string[];
+}
+
+/**
+ * The problems as rows, those one press clears kept together so the press is offered once,
+ * in the order the server listed them.
+ */
+export function readinessGroups(problems: readonly DeployProblem[]): ReadinessGroup[] {
+  const groups: ReadinessGroup[] = [];
+  for (const problem of problems) {
+    const action = problemAction(problem);
+    const group = action === null ? undefined : groups.find((entry) => entry.action === action);
+    if (group) group.texts.push(problemText(problem));
+    else groups.push({ action, texts: [problemText(problem)] });
+  }
+  return groups;
+}
+
+/** The folded checks' summary: how many there are and how many want a look. */
+export function checksSummary(rows: readonly ReadinessRow[]): string {
+  const attention = rows.filter((row) => row.tone === "attention" || row.tone === "danger").length;
+  return S.activities.deploy.checksSummary(rows.length, attention);
+}
+
 // ---------------------------------------------------------------------------
 // The module release
 // ---------------------------------------------------------------------------
@@ -376,6 +430,8 @@ export interface StageRow {
   error: string | null;
   /** Why it cannot run now; null when it can. */
   blocker: string | null;
+  /** A fact the stage recorded worth a glance, such as how many media files it checked. */
+  detail: string | null;
 }
 
 /**
@@ -406,8 +462,100 @@ export function stageRows(run: DeployRun | null, stages: readonly DeployStageSta
       statusText: words.statuses[status],
       error,
       blocker,
+      detail:
+        state.stage === "verify_media_assets" && typeof state.metadata.mediaChecked === "number"
+          ? words.mediaFiles(state.metadata.mediaChecked)
+          : null,
     };
   });
+}
+
+/**
+ * Marks the stage the pipeline stopped at: when nothing runs and the first stage not done
+ * cannot run, it is the one to look at, so it reads Blocked instead of Not run.
+ */
+export function markBlocked(rows: readonly StageRow[]): StageRow[] {
+  if (rows.some((row) => row.status === "running")) return [...rows];
+  const index = rows.findIndex((row) => row.status !== "done");
+  const row = rows[index];
+  // A failed or stopped stage keeps its own words; only one never run is Blocked.
+  if (!row || row.status !== "pending" || row.blocker === null) return [...rows];
+  const out = [...rows];
+  out[index] = { ...row, tone: "attention", statusText: S.activities.deploy.blocked };
+  return out;
+}
+
+export type DeployPhaseKey = "module" | "data" | "qa";
+
+const PHASE_STAGES: Record<DeployPhaseKey, readonly DeployStage[]> = {
+  module: RELEASE_STAGES,
+  data: [
+    "export_activity_data",
+    "verify_activity_data",
+    "verify_media_assets",
+    "publish_activity_data",
+  ],
+  qa: ["trigger_activity_deploy", "await_activity_deploy"],
+};
+
+export interface DeployPhase {
+  key: DeployPhaseKey;
+  rows: StageRow[];
+  done: number;
+}
+
+/** The QA pipeline's stages in its three phases, each with how many are done. */
+export function deployPhases(rows: readonly StageRow[]): DeployPhase[] {
+  return (Object.keys(PHASE_STAGES) as DeployPhaseKey[]).map((key) => {
+    const mine = rows.filter((row) => PHASE_STAGES[key].includes(row.stage));
+    return { key, rows: mine, done: mine.filter((row) => row.status === "done").length };
+  });
+}
+
+const READINESS_BLOCKERS: ReadonlySet<DeployBlocker["code"]> = new Set<DeployBlocker["code"]>([
+  "settings_missing",
+  "clone_missing",
+  "clone_dirty",
+  "not_ready",
+]);
+
+/**
+ * Whether the readiness problems keep the stages from starting. The server decides which
+ * problems a stage tolerates (an export that failed half way leaves the activity-data clone
+ * dirty, and a retry must still start), so this reads the stages' own blockers rather than
+ * every problem the readiness checks list.
+ */
+export function readinessBlocksStart(stages: readonly DeployStageState[]): boolean {
+  return stages.some(
+    (state) => state.blocker !== null && READINESS_BLOCKERS.has(state.blocker.code),
+  );
+}
+
+/** Where the activity stands on QA, as a short status for the QA card. */
+export function qaStatus(
+  run: DeployRun | null,
+  stages: readonly DeployStageState[],
+): { tone: Tone; text: string } {
+  const words = S.activities.deploy.qaStates;
+  if (run?.status === "running" && isQaRun(run)) return { tone: "busy", text: words.deploying };
+  if (qaResult(stages)) return { tone: "success", text: words.onQa };
+  if (run && isQaRun(run) && run.status === "failed") return { tone: "danger", text: words.failed };
+  return { tone: "muted", text: words.notDeployed };
+}
+
+/** Where the activity stands on PROD, as a short status for the PROD card. */
+export function prodStatus(
+  production: DeployProductionState,
+  run: DeployRun | null,
+): { tone: Tone; text: string } {
+  const words = S.activities.deploy.prod.states;
+  if (run && isProdRun(run)) {
+    if (run.status === "running") return { tone: "busy", text: words.deploying };
+    if (run.status === "failed") return { tone: "danger", text: words.failed };
+  }
+  return production.last
+    ? { tone: "success", text: words.onProd }
+    : { tone: "muted", text: words.notDeployed };
 }
 
 /** Whether a run went further than the module release: a QA deploy, or a QA stage on its own. */

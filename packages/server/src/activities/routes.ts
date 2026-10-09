@@ -125,7 +125,9 @@ export class ActivityRoutes {
       // attachment; collection sharing needs its own explicit grants in a later slice.
       // Downloading a bundle of the project's media is a read, even though the list of
       // files travels as a POST body: any project member may do it, as they may GET each file.
-      if (c.req.method === "GET" || (c.req.method === "POST" && BUNDLE_PATH.test(c.req.path)))
+      // HEAD is a GET without the body, so it reads whatever GET reads.
+      const read = c.req.method === "GET" || c.req.method === "HEAD";
+      if (read || (c.req.method === "POST" && BUNDLE_PATH.test(c.req.path)))
         this.access.requireProjectAccess(c.var.user.userId, projectId);
       else this.access.requireProjectOwner(c.var.user.userId, projectId);
       await next();

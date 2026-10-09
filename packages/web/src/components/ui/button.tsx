@@ -3,7 +3,7 @@
  */
 import type { ButtonHTMLAttributes } from "react";
 
-type Variant = "primary" | "secondary" | "danger" | "ghost";
+type Variant = "primary" | "secondary" | "danger" | "ghost" | "ghostDanger";
 type Size = "sm" | "md" | "icon";
 
 const variantClass: Record<Variant, string> = {
@@ -20,6 +20,11 @@ const variantClass: Record<Variant, string> = {
   ghost:
     "bg-transparent text-gray-600 border border-transparent hover:bg-gray-100 hover:text-gray-900 " +
     "dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100",
+  // A ghost that warns: a destructive choice standing next to a primary one, with no frame of
+  // its own so the primary action stays the heavier of the two.
+  ghostDanger:
+    "bg-transparent text-red-600 border border-transparent hover:bg-red-50 " +
+    "dark:text-red-400 dark:hover:bg-red-950",
 };
 
 const sizeClass: Record<Size, string> = {

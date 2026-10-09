@@ -19,6 +19,7 @@ import type {
   ActivitySummary,
   AssetManifest,
   BookWordsRefresh,
+  DeployStateResponse,
   MediaStat,
   PipelineSelection,
   PipelineState,
@@ -79,6 +80,8 @@ import {
 import { assetForPick, buildStudioTree, sectionTrails } from "./studio-tree";
 import { sceneRanges } from "./script-model";
 import { buildScriptMedia, clipSelection } from "./script-media";
+import { SpecScenesView, readSpecView, writeSpecView, type SpecView } from "./spec-scenes-view";
+import { Segmented } from "../../components/ui/segmented";
 import type { SavedReview, ScriptReview } from "./script-editor";
 import { ConversationPanel } from "./conversation-panel";
 import { focusFor, latestConversation } from "./conversation";
@@ -100,7 +103,7 @@ import { DeployPanel } from "./deploy-panel";
 import { useAssistProposal, type ProposalRead } from "./use-assist-proposal";
 import { StudioTreeView } from "./studio-tree-view";
 import { SessionsPanel } from "./sessions-panel";
-import { ProgressSteps, ProposalWaiting, RunningChip, runPanel } from "./studio-status";
+import { ProgressSteps, ProposalWaiting, RunningChip, qaFact, runPanel } from "./studio-status";
 import { SandboxPanel } from "./sandbox-panel";
 import { sandboxHasModule, type SandboxStatusLike } from "./sandbox";
 import { JsonEditor } from "./json-editor";
@@ -421,6 +424,13 @@ function ActivityEditor({
   const [detail, setDetail] = useState<ActivityDetail | null>(null);
   const [description, setDescription] = useState("");
   const [spec, setSpec] = useState("");
+  // The spec reads as scenes once there is a saved spec to read, unless this viewer chose.
+  const [specViewChoice, setSpecViewChoice] = useState<SpecView | null>(readSpecView);
+  const [specViewDefault, setSpecViewDefault] = useState<SpecView | null>(null);
+  const chooseSpecView = useCallback((view: SpecView) => {
+    setSpecViewChoice(view);
+    writeSpecView(view);
+  }, []);
   // The open section is mirrored into ?section= so a link can land on it; an unknown or
   // not-yet-available one falls back like any other choice.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -592,6 +602,27 @@ function ActivityEditor({
     if (!available || !editable) return;
     void loadUploads();
   }, [projectId, available, editable]);
+  // The header's QA step reads the same deploy state the Deploy section does: once when the
+  // activity opens, and again each time the author leaves that section, where a deploy may
+  // have run. The section keeps its own state and is left alone.
+  const [deployState, setDeployState] = useState<DeployStateResponse | null>(null);
+  const inDeploy = sectionChoice === "deploy";
+  useEffect(() => {
+    if (!available || inDeploy) return;
+    let cancelled = false;
+    apiFetch<DeployStateResponse>(`${endpoint}/deploy`)
+      .then((value) => {
+        // An answer without stages says nothing about QA, and the step stays unchecked.
+        if (!cancelled) setDeployState(Array.isArray(value?.stages) ? value : null);
+      })
+      .catch(() => {
+        if (!cancelled) setDeployState(null);
+        // The header says the step is unchecked; the Deploy section reports the error itself.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [endpoint, available, inDeploy]);
   const dirty =
     detail !== null &&
     (description !== detail.draft.description ||
@@ -1262,6 +1293,27 @@ function ActivityEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [detail?.draft.mediaPlan, detail?.draft.spec, media, language, description],
   );
+  // Whether each clip of the shown language has a file, for the spec read as scenes.
+  const mediaBindings = useMemo(
+    () =>
+      detail?.draft.mediaPlan
+        ? new Map(
+            (editedManifest?.assets[language] ?? []).map((asset) => [asset.key, !!asset.path]),
+          )
+        : null,
+    [detail?.draft.mediaPlan, editedManifest, language],
+  );
+  // Decided as the section opens: a spec arriving from a run while the JSON is open must
+  // not swap the view under the author.
+  const hasSpec = useRef(false);
+  hasSpec.current = !!detail?.draft.spec;
+  const detailLoaded = detail !== null;
+  useEffect(() => {
+    setSpecViewDefault(
+      section === "specification" && detailLoaded ? (hasSpec.current ? "scenes" : "json") : null,
+    );
+  }, [section, detailLoaded]);
+  const specView: SpecView = specViewChoice ?? specViewDefault ?? "json";
   const latestTree = useRef(fullTree);
   latestTree.current = fullTree;
   const openClip = useCallback(
@@ -1555,9 +1607,12 @@ function ActivityEditor({
         layout={{ section, onSection: setSection }}
         header={
           <>
+            {/* On a phone the breadcrumb and the progress bar take the whole first row and
+                the Layout menu and panel tabs wrap under them; a nav squeezed beside them
+                would stack its words and run the bar under the menu. */}
             <nav
               aria-label={S.activities.breadcrumb}
-              className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-sm"
+              className="flex min-w-0 flex-1 basis-full flex-wrap items-center gap-1.5 text-sm sm:basis-0"
             >
               <Link
                 to="/activities"
@@ -1641,9 +1696,15 @@ function ActivityEditor({
                   specDirty: spec !== pretty(detail.draft.spec),
                   media: scriptMedia?.totals ?? null,
                   hasModule: !!latestModuleRun(runs) || sandboxModule,
+                  qa: deployState ? qaFact(deployState) : null,
                 }}
                 canOpen={(key) => sections.some((entry) => entry.key === key && entry.enabled)}
+                canAct={editable && available}
                 onOpen={setSection}
+                onNext={(go) => {
+                  if (go.kind === "section") setSection(go.section);
+                  else setShowPanel({ key: go.panel, at: Date.now() });
+                }}
               />
               {scriptProposal !== null && editable && (
                 <ProposalWaiting
@@ -1929,6 +1990,33 @@ function ActivityEditor({
               editable={editable && available}
               readOnly={!available}
               busy={busy}
+              leading={
+                <div role="group" aria-label={S.activities.specScenes.view}>
+                  <Segmented
+                    cols={2}
+                    value={specView}
+                    onChange={chooseSpecView}
+                    options={[
+                      { value: "scenes", label: S.activities.specScenes.scenes },
+                      { value: "json", label: S.activities.specScenes.json },
+                    ]}
+                  />
+                </div>
+              }
+              alternate={{
+                shown: specView === "scenes",
+                leave: () => chooseSpecView("json"),
+                node: (
+                  <SpecScenesView
+                    text={spec}
+                    script={description}
+                    bindings={mediaBindings}
+                    editable={editable && available}
+                    onChange={setSpec}
+                    onOpenJson={() => chooseSpecView("json")}
+                  />
+                ),
+              }}
               onChange={setSpec}
               onSave={() => void save("spec")}
             />
@@ -1943,6 +2031,11 @@ function ActivityEditor({
               subject={panelSubject}
               revision={detail.draft.contentRevision}
               editable={editable && available}
+              onOpenSection={(target) =>
+                sections.some((entry) => entry.key === target && entry.enabled)
+                  ? () => setSection(target)
+                  : undefined
+              }
               onDirty={setDocumentDirty}
               onSaved={(draft, text) => {
                 // Only the draft changed; unsaved script or specification text stays.

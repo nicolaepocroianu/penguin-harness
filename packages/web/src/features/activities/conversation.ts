@@ -100,13 +100,41 @@ export function followUpText(
  */
 const BRIEF_RULE = "\n\n---\n";
 const BRIEF_OPENING = "Context from the activity studio";
+/** The brief's first sentence names what the author had open, in the server's words. */
+const BRIEF_VIEWING = /^Context from the activity studio: the author is looking at (.+?)\.(?:\n|$)/;
 
-export function splitStudioBrief(text: string): { body: string; context: string } | null {
+export function splitStudioBrief(
+  text: string,
+): { body: string; context: string; viewing?: string } | null {
   const at = text.lastIndexOf(BRIEF_RULE);
   if (at < 0) return null;
   const context = text.slice(at + BRIEF_RULE.length);
   if (!context.startsWith(BRIEF_OPENING)) return null;
-  return { body: text.slice(0, at).trimEnd(), context };
+  const viewing = BRIEF_VIEWING.exec(context)?.[1];
+  return { body: text.slice(0, at).trimEnd(), context, ...(viewing ? { viewing } : {}) };
+}
+
+/**
+ * The line `followUpText` appends when the author has moved, read back off a stored
+ * message. It has to agree with `movedTo` in the strings, which a test holds it to.
+ */
+const MOVED_TO = /\n\n\(I am now looking at (.+)\.\)$/;
+
+export function splitMovedTo(text: string): { body: string; viewing: string } | null {
+  const match = MOVED_TO.exec(text);
+  if (!match) return null;
+  return { body: text.slice(0, match.index).trimEnd(), viewing: match[1]! };
+}
+
+/**
+ * What a user message in the studio's conversation carries beyond the author's words: the
+ * server's brief on the first message, or the moved-to line on a follow-up. Either names
+ * what the author was viewing, which the transcript shows as a chip rather than as text.
+ */
+export function splitStudioContext(
+  text: string,
+): { body: string; context?: string; viewing?: string } | null {
+  return splitStudioBrief(text) ?? splitMovedTo(text);
 }
 
 /** When a conversation started, to the minute: "Today 23:58", or the date and time. */
