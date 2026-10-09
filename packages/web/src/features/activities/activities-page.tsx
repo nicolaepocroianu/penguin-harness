@@ -1929,6 +1929,32 @@ function ActivityEditor({
             onAcceptVideo={
               videoSetup?.enabled ? (runId) => acceptRun(runId, "accept-video") : undefined
             }
+            onSaveTimeline={
+              videoSetup?.enabled
+                ? async (lang, assetKey, timeline) => {
+                    await action(async () => {
+                      const draft = await apiFetch<ActivityDraft>(`${endpoint}/video-timeline`, {
+                        method: "PUT",
+                        body: {
+                          language: lang,
+                          assetKey,
+                          timeline,
+                          expectedRevision: detail!.draft.contentRevision,
+                        },
+                      });
+                      if (alive.current) {
+                        accept({ ...detail!, draft });
+                        toastSuccess(S.activities.saved);
+                      }
+                    });
+                  }
+                : undefined
+            }
+            onRenderTimeline={
+              videoSetup?.enabled
+                ? (lang, assetKey) => startRun("render-timeline", { language: lang, assetKey })
+                : undefined
+            }
             onSaveSounds={(lang, assetKey, phonemes) =>
               void action(async () => {
                 const draft = await apiFetch<ActivityDraft>(

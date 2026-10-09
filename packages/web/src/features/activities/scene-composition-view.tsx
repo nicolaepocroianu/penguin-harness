@@ -12,6 +12,7 @@ import type {
   ActivityRunSummary,
   AssetManifest,
   CompositionCandidate,
+  VideoTimeline,
 } from "@prismshadow/penguin-server/api";
 import { apiFetch } from "../../api/client";
 import { Badge } from "../../components/ui/badge";
@@ -35,6 +36,7 @@ import {
 } from "./scene-composition";
 import { MediaComparison } from "./media-comparison";
 import { MediaPlayer } from "./media-player";
+import { SceneTimelineView } from "./scene-timeline-view";
 import {
   comparedRecording,
   isRecordable,
@@ -59,6 +61,8 @@ export function SceneCompositionView({
   canRecord = false,
   onRecord,
   onAcceptVideo,
+  onSaveTimeline,
+  onRenderTimeline,
   current,
 }: {
   asset: Asset;
@@ -79,6 +83,14 @@ export function SceneCompositionView({
   onRecord?: (compositionRunId: string) => void;
   /** Bind a recording to this asset. */
   onAcceptVideo?: (runId: string) => void;
+  /** Save this asset's timeline, or with null drop it. */
+  onSaveTimeline?: (
+    language: string,
+    assetKey: string,
+    timeline: VideoTimeline | null,
+  ) => Promise<void>;
+  /** Render this asset's timeline to its finished video. */
+  onRenderTimeline?: (language: string, assetKey: string) => void;
   /** The asset's video now, shown beside a new recording. */
   current?: ReactNode;
 }) {
@@ -86,7 +98,12 @@ export function SceneCompositionView({
   const composing = compositions.some((run) => run.status === "running");
   const shown = compositions.find(isShowable) ?? null;
   const recordings = videoRuns(runs, language, asset.key);
-  const recording = recordings.some((run) => run.status === "running");
+  const busy = recordings.some((run) => run.status === "running");
+  const recording = recordings.some((run) => run.status === "running" && !run.video?.fromTimeline);
+  const rendering = recordings.some((run) => run.status === "running" && run.video?.fromTimeline);
+  // The newest recording that came out, which a timeline starts from; never a finished video.
+  const newestRecording =
+    recordings.find((run) => run.status === "succeeded" && !run.video?.fromTimeline) ?? null;
   // New recordings the author chose to keep the current video over; they stay in the list.
   const [kept, setKept] = useState<ReadonlySet<string>>(new Set());
   const compared = comparedRecording(recordings, asset, revision, kept);
@@ -126,11 +143,7 @@ export function SceneCompositionView({
       )}
       {editable && onRecord && isRecordable(shown) && (
         <div className="space-y-1">
-          <Button
-            size="sm"
-            disabled={!canRecord || recording}
-            onClick={() => onRecord(shown.runId)}
-          >
+          <Button size="sm" disabled={!canRecord || busy} onClick={() => onRecord(shown.runId)}>
             {recording
               ? S.activities.video.recording
               : recordings.some((run) => run.status === "succeeded")
@@ -139,6 +152,21 @@ export function SceneCompositionView({
           </Button>
           <p className="text-xs text-gray-500">{S.activities.video.renderTime}</p>
         </div>
+      )}
+      {onSaveTimeline && onRenderTimeline && (newestRecording || asset.timeline) && (
+        <SceneTimelineView
+          asset={asset}
+          group={group}
+          language={language}
+          endpoint={endpoint}
+          revision={revision}
+          newestRecording={newestRecording?.runId ?? null}
+          editable={editable}
+          canChange={canRecord && !busy}
+          rendering={rendering}
+          onSave={(timeline) => onSaveTimeline(language, asset.key, timeline)}
+          onRender={() => onRenderTimeline(language, asset.key)}
+        />
       )}
       {compared && editable && onAcceptVideo && (
         <MediaComparison
@@ -174,6 +202,7 @@ export function SceneCompositionView({
                   <p>
                     {new Date(run.createdAt).toLocaleString()} ·{" "}
                     {S.activities.speechStatus[run.status]}
+                    {run.video?.fromTimeline ? ` · ${S.activities.video.finished}` : ""}
                     {run.runId === asset.generatedVideo?.runId
                       ? ` · ${S.activities.video.recorded}`
                       : ""}

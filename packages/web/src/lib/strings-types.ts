@@ -1620,6 +1620,60 @@ export type Strings = {
       noCurrent: string;
       recordFailed: (cause: string) => string;
       noCause: string;
+      /** Beside a video run that rendered the timeline rather than recorded a composition. */
+      finished: string;
+      /** The scene video's timeline: how its finished video is put together. */
+      timeline: {
+        title: string;
+        info: string;
+        /** Badges: the timeline is saved on the video, or started from its newest recording. */
+        saved: string;
+        unsaved: string;
+        length: (seconds: string) => string;
+        cuts: string;
+        cut: (index: number) => string;
+        from: string;
+        to: string;
+        /** How a cut begins, after the first. */
+        into: string;
+        transitions: Record<"cut" | "fade" | "fadeblack", string>;
+        fade: string;
+        narration: string;
+        startsAt: string;
+        addNarration: string;
+        noNarration: string;
+        music: string;
+        noMusic: string;
+        volume: string;
+        percent: (value: number) => string;
+        duck: string;
+        effects: string;
+        addEffect: string;
+        noEffects: string;
+        captions: string;
+        removeButton: string;
+        /** A remove button's accessible name, naming what it removes. */
+        remove: (what: string) => string;
+        save: string;
+        reset: string;
+        render: string;
+        rendering: string;
+        saveFirst: string;
+        /** A time field that does not hold a usable number of seconds. */
+        invalid: string;
+        loadFailed: (cause: string) => string;
+        /** What the server reports a timeline would get wrong, by code, naming the asset. */
+        issues: Record<
+          | "asset_missing"
+          | "asset_kind"
+          | "asset_unbound"
+          | "narration_length_unknown"
+          | "narration_overlap"
+          | "past_end"
+          | "captions_untimed",
+          (asset: string) => string
+        >;
+      };
       /** A failed recording, by the code the server reports for the causes it knows. */
       recordProblems: Record<
         | "video_not_ready"

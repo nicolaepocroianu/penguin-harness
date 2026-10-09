@@ -14,6 +14,7 @@ import type {
   ElevenLabsVoicesProblem,
   UploadedMedia,
   VoiceOption,
+  VideoTimeline,
 } from "@prismshadow/penguin-server/api";
 import { Button } from "../../components/ui/button";
 import { Textarea } from "../../components/ui/input";
@@ -81,6 +82,8 @@ export function AssetEditor({
   onCompose,
   onRecordVideo,
   onAcceptVideo,
+  onSaveTimeline,
+  onRenderTimeline,
   spec,
 }: {
   manifest: AssetManifest;
@@ -153,6 +156,14 @@ export function AssetEditor({
   onCompose?: (language: string, assetKey: string) => void;
   /** Record a kept composition to a video (experimental, like `onCompose`). */
   onRecordVideo?: (compositionRunId: string) => void;
+  /** Save a video's timeline, or with null drop it (experimental). */
+  onSaveTimeline?: (
+    language: string,
+    assetKey: string,
+    timeline: VideoTimeline | null,
+  ) => Promise<void>;
+  /** Render a video's timeline to its finished video (experimental). */
+  onRenderTimeline?: (language: string, assetKey: string) => void;
   /** Bind a recorded video to its asset. */
   onAcceptVideo?: (runId: string) => void;
   /** The saved specification, for the scene-video advisory about learner choices. */
@@ -621,6 +632,8 @@ export function AssetEditor({
                 canRecord={canAccept}
                 onRecord={onRecordVideo}
                 onAcceptVideo={onAcceptVideo}
+                {...(onSaveTimeline ? { onSaveTimeline } : {})}
+                {...(onRenderTimeline ? { onRenderTimeline } : {})}
                 current={currentMedia() ?? undefined}
               />
             )}

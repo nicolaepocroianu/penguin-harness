@@ -8977,6 +8977,32 @@ test("records a composed scene and keeps it as the scene's video", async ({ page
     }
     if (/\/runs\/run_video_\d+\/video$/.test(p))
       return route.fulfill({ contentType: "video/webm", body: webm });
+    // The timeline a kept recording starts; its own test is below.
+    if (p === `${base}/act_test/video-timeline`)
+      return json({
+        timeline: {
+          version: 1,
+          width: 640,
+          height: 480,
+          fps: 30,
+          cuts: [
+            {
+              id: "cut-1",
+              source: { runId: "run_video_1", sha256: "c".repeat(64), format: "mp4" },
+              inMs: 0,
+              outMs: 6000,
+              transition: "cut",
+              transitionMs: 0,
+            },
+          ],
+          narration: [],
+          music: null,
+          effects: [],
+          captions: { enabled: true, maxWords: 8, maxChars: 42 },
+        },
+        saved: false,
+        issues: [],
+      });
     if (/\/runs\/run_video_\d+\/accept-video$/.test(p)) {
       const run = recordings.find((entry) => p.includes(`/${entry.runId}/`));
       if (!run || run.status !== "succeeded")
@@ -9073,6 +9099,202 @@ test("records a composed scene and keeps it as the scene's video", async ({ page
         ),
     ),
   ).toEqual([]);
+});
+
+test("edits, saves and renders a scene video's timeline", async ({ page }) => {
+  const f = await fixture(page);
+  let draft = null;
+  const saves = [];
+  const renders = [];
+  page.on("response", async (response) => {
+    const p = new URL(response.url()).pathname;
+    if ([`${base}/act_test/plan-media`, `${base}/act_test/media`].includes(p) && response.ok())
+      draft = await response.json().catch(() => draft);
+  });
+  const usage = (key) => ({
+    sceneId: "intro",
+    sourceKey: key,
+    occurrence: 1,
+    sceneOccurrenceCount: 1,
+  });
+  await page.route(`**${base}/act_test/plan-media`, (route) =>
+    route.fallback({
+      postData: JSON.stringify({
+        ...route.request().postDataJSON(),
+        manifest: {
+          productCode: "words",
+          refNum: 12,
+          assets: {
+            "en-US": [
+              {
+                key: "intro-video",
+                type: "video",
+                description: "The sky slowly brightens",
+                path: "media/loom/words/words-1/uploads/intro-00000000.webm",
+                usages: [usage("intro-video")],
+              },
+              {
+                key: "sky",
+                type: "image",
+                description: "A blue sky",
+                path: "media/loom/words/words-1/uploads/sky-00000000.png",
+                usages: [usage("sky")],
+              },
+            ],
+          },
+        },
+      }),
+    }),
+  );
+  const source = { runId: "run_video_1", sha256: "c".repeat(64), format: "mp4" };
+  const started = {
+    version: 1,
+    width: 640,
+    height: 480,
+    fps: 30,
+    cuts: [{ id: "cut-1", source, inMs: 0, outMs: 6000, transition: "cut", transitionMs: 0 }],
+    narration: [],
+    music: null,
+    effects: [],
+    captions: { enabled: true, maxWords: 8, maxChars: 42 },
+  };
+  let view = { timeline: started, saved: false, issues: [] };
+  const run = (overrides) => ({
+    kind: "video",
+    video: {
+      language: "en-US",
+      assetKey: "intro-video",
+      compositionRunId: "run_comp_1",
+      width: 640,
+      height: 480,
+      seconds: 6,
+    },
+    runId: "run_video_1",
+    inputRevision: "an-earlier-revision",
+    activityId: "act_test",
+    projectId,
+    agentId: "",
+    sessionId: null,
+    status: "succeeded",
+    createdAt: "2026-09-28T11:00:00Z",
+    finishedAt: "2026-09-28T11:00:09Z",
+    hasCandidate: true,
+    error: null,
+    ...overrides,
+  });
+  const runs = [run({})];
+  await page.route("**/*", (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const p = url.pathname;
+    const json = (value, status = 200) =>
+      route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
+    if (p === `${base}/video-setup`) return json({ enabled: true });
+    if (p === `${base}/act_test/media-upload` || p === `${base}/act_test/media-image`)
+      return route.fulfill({ contentType: "image/png", body: PIXEL });
+    if (p === `${base}/act_test/runs` && request.method() === "GET") return json({ runs });
+    if (p === `${base}/act_test/video-timeline` && request.method() === "GET") {
+      expect(url.searchParams.get("assetKey")).toBe("intro-video");
+      return json(view);
+    }
+    if (p === `${base}/act_test/video-timeline` && request.method() === "PUT") {
+      const body = request.postDataJSON();
+      saves.push(body);
+      view = {
+        timeline: body.timeline,
+        saved: true,
+        issues: [{ code: "past_end", asset: "intro-line" }],
+      };
+      const manifest = structuredClone(draft.mediaPlan.manifest);
+      manifest.assets["en-US"][0].timeline = body.timeline;
+      draft = {
+        ...draft,
+        contentRevision: `${draft.contentRevision}-timeline`,
+        mediaPlan: { ...draft.mediaPlan, manifest },
+      };
+      return json(draft);
+    }
+    if (p === `${base}/act_test/render-timeline`) {
+      const body = request.postDataJSON();
+      renders.push(body);
+      runs.unshift(
+        run({
+          runId: "run_video_2",
+          video: { ...runs[0].video, seconds: 4, fromTimeline: true },
+          inputRevision: body.expectedRevision,
+          status: "running",
+          createdAt: "2026-09-28T11:05:00Z",
+          finishedAt: null,
+          hasCandidate: false,
+        }),
+      );
+      return json(runs[0], 202);
+    }
+    return route.fallback();
+  });
+  await create(page);
+  await openSection(page, "Specification");
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify(spec));
+  await page.getByRole("button", { name: "Save Spec", exact: true }).click();
+  await openSection(page, "Scenes and media");
+  await planMedia(page);
+  await page.getByRole("treeitem", { name: "Videos", exact: true, level: 3 }).click();
+  await page
+    .getByRole("treeitem", { name: /intro-video/ })
+    .first()
+    .click();
+
+  const timeline = page.getByRole("region", { name: "Timeline", exact: true });
+  await expect(timeline.getByText("From the newest recording", { exact: true })).toBeVisible();
+  await expect(timeline.getByText("Plays for 6 s", { exact: true })).toBeVisible();
+  const render = timeline.getByRole("button", { name: "Render finished video", exact: true });
+  await expect(render).toBeEnabled();
+
+  // A change must be saved before it is rendered. The field's name gains its error once wrong.
+  const to = timeline.getByRole("textbox", { name: /^To \(s\)/ });
+  await to.fill("4");
+  await expect(timeline.getByText("Plays for 4 s", { exact: true })).toBeVisible();
+  await expect(render).toBeDisabled();
+  await expect(
+    timeline.getByText("Save the timeline before rendering it.", { exact: true }),
+  ).toBeVisible();
+  await to.fill("4.x");
+  await expect(timeline.getByText("Enter a number of seconds, 0 or more.")).toBeVisible();
+  await to.fill("4");
+
+  await timeline.getByRole("button", { name: "Save timeline", exact: true }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(saves[0]).toMatchObject({
+    language: "en-US",
+    assetKey: "intro-video",
+    timeline: { cuts: [{ inMs: 0, outMs: 4000 }] },
+  });
+  // Saved, the server's view of it shows, with what it would get wrong in the App's words.
+  await expect(timeline.getByText("Saved", { exact: true })).toBeVisible();
+  await expect(
+    timeline.getByText("intro-line runs past the end of the video.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    timeline.getByRole("button", { name: "Start from the recording again", exact: true }),
+  ).toBeVisible();
+
+  await render.click();
+  await expect.poll(() => renders.length).toBe(1);
+  expect(renders[0]).toMatchObject({ language: "en-US", assetKey: "intro-video" });
+  expect(renders[0].expectedRevision).toBe(draft.contentRevision);
+  await expect(timeline.getByRole("button", { name: "Rendering…", exact: true })).toBeDisabled();
+
+  runs[0] = {
+    ...runs[0],
+    status: "succeeded",
+    hasCandidate: true,
+    finishedAt: "2026-09-28T11:06:00Z",
+  };
+  const recordings = page.getByRole("region", { name: "Recordings", exact: true });
+  await expect(recordings.getByText(/· Finished video/)).toBeVisible({ timeout: 15_000 });
+  expect(f.errors).toEqual([]);
 });
 
 test("opens a product that is in the modules into the project", async ({ page }) => {
