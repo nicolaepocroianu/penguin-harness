@@ -1793,6 +1793,8 @@ export type Strings = {
     saved: string;
     unsaved: string;
     discard: string;
+    /** Leaving a section whose editor holds unsaved text. */
+    discardSection: string;
     discardTitle: string;
     discardConfirm: string;
     remoteChanged: string;

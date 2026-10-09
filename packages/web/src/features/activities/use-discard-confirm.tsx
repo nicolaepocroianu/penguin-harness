@@ -7,7 +7,11 @@ import { useCallback, useRef, useState, type ReactNode } from "react";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { S } from "../../lib/strings";
 
-export function useDiscardConfirm(dirty: () => boolean): {
+/** `body` says what is lost; by default, the draft for another one. */
+export function useDiscardConfirm(
+  dirty: () => boolean,
+  body?: () => string,
+): {
   ask: (then: () => void, onCancel?: () => void) => void;
   modal: ReactNode;
 } {
@@ -49,7 +53,7 @@ export function useDiscardConfirm(dirty: () => boolean): {
       onClose={close}
       onConfirm={confirm}
     >
-      <p className="text-sm">{S.activities.discard}</p>
+      <p className="text-sm">{body ? body() : S.activities.discard}</p>
     </ConfirmModal>
   );
   return { ask, modal };

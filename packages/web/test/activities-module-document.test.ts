@@ -9,6 +9,7 @@ import {
   filePresence,
   moduleFileUrl,
   modulePath,
+  hasUnsavedText,
   parseDocument,
   readDefinition,
 } from "../src/features/activities/module-document";
@@ -178,5 +179,18 @@ describe("the definition summary", () => {
     expect(filePresence(404)).toBe("missing");
     expect(filePresence(400)).toBe("unknown");
     expect(filePresence(409)).toBe("unknown");
+  });
+});
+
+describe("hasUnsavedText", () => {
+  it("compares with the last read, ignoring layout", () => {
+    expect(hasUnsavedText('{"a":1}', { a: 1 })).toBe(false);
+    expect(hasUnsavedText('{"a":2}', { a: 1 })).toBe(true);
+    expect(hasUnsavedText("{ nope", { a: 1 })).toBe(true);
+  });
+
+  it("treats text just saved as saved before the next read shows it", () => {
+    expect(hasUnsavedText('{"a":2}', { a: 1 }, { a: 2 })).toBe(false);
+    expect(hasUnsavedText('{"a":3}', { a: 1 }, { a: 2 })).toBe(true);
   });
 });

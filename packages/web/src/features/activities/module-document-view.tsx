@@ -28,6 +28,7 @@ import { AssessmentItemsEditor } from "./assessment-items-editor";
 import { assessmentRunState, readItems } from "./assessment-items";
 import {
   assessmentItemCount,
+  hasUnsavedText,
   documentOrigin,
   documentText,
   parseDocument,
@@ -35,7 +36,6 @@ import {
 } from "./module-document";
 import { EDITOR_HEADER, EDITOR_NOTICES, JsonEditor } from "./json-editor";
 import { SpecDiffView } from "./spec-diff-view";
-import { useDiscardConfirm } from "./use-discard-confirm";
 import { DefinitionSummaryView } from "./definition-summary-view";
 
 /** What the Assessment Data section needs to generate an assessment and offer the result. */
@@ -59,6 +59,7 @@ export function ModuleDocumentView({
   revision,
   editable,
   onSaved,
+  onDirty,
   generation,
   onOpenSection,
 }: {
@@ -72,6 +73,8 @@ export function ModuleDocumentView({
   editable: boolean;
   /** A save or a discard changed the draft; `text` is what to announce. */
   onSaved: (draft: ActivityDraft, text: string) => void;
+  /** Whether the text differs from the document, so leaving can ask before throwing it away. */
+  onDirty?: (dirty: boolean) => void;
   /** For the assessment: generating it, and the result waiting to be used. */
   generation?: AssessmentGenerationProps;
   /** How to open another build document's section from the definition's summary, when it is open. */
@@ -90,10 +93,8 @@ export function ModuleDocumentView({
   // The text the editor last loaded; while the author has not changed it, a fresh read
   // replaces it, and once they have, their words stay.
   const loaded = useRef<string | null>(null);
-  // Opening another section unmounts this editor, so unsaved text asks first, through the
-  // same confirmation the rest of the studio uses.
-  const unsaved = useRef(false);
-  const leave = useDiscardConfirm(() => unsaved.current);
+  // What the last save sent, until the next read shows it: saved text is not unsaved.
+  const [savedValue, setSavedValue] = useState<unknown>(undefined);
   useEffect(() => {
     let cancelled = false;
     apiFetch<ModuleDocuments>(`${endpoint}/module-documents`)
@@ -101,6 +102,7 @@ export function ModuleDocumentView({
         if (cancelled) return;
         setDocuments(value);
         setError(null);
+        setSavedValue(undefined);
         const next = value[kind] ? documentText(value[kind]!.value) : "";
         const previous = loaded.current;
         setText((current) => (previous === null || current === previous ? next : current));
@@ -113,6 +115,13 @@ export function ModuleDocumentView({
       cancelled = true;
     };
   }, [endpoint, revision, kind]);
+
+  const shown = documents?.source ? documents[kind] : null;
+  const dirty = !!shown && hasUnsavedText(text, shown.value, savedValue);
+  useEffect(() => {
+    onDirty?.(dirty);
+  }, [onDirty, dirty]);
+  useEffect(() => () => onDirty?.(false), [onDirty]);
 
   // Each document fills the pane, so what stands in for one is padded.
   const pad = "p-4";
@@ -150,7 +159,6 @@ export function ModuleDocumentView({
   const title =
     kind === "definition" ? S.activities.sectionNames.module : S.activities.sectionNames[kind];
   const saved = documentText(document.value);
-  unsaved.current = text !== saved;
   const parsedDraft = parseDocument(text);
   const canonicalRefNum = documents.canonicalRefNum;
 
@@ -164,6 +172,7 @@ export function ModuleDocumentView({
       });
       // The next read shows the document as saved.
       loaded.current = null;
+      setSavedValue(value);
       onSaved(draft, words.saved);
       return true;
     } catch (cause) {
@@ -349,10 +358,7 @@ export function ModuleDocumentView({
               unsaved={text !== saved}
               documents={documents}
               onShowJson={() => setView("json")}
-              onOpenSection={(target) => {
-                const open = onOpenSection?.(target);
-                return open && (() => leave.ask(open));
-              }}
+              onOpenSection={onOpenSection}
             />
             {problem && <p className={`text-xs ${toneInk.danger}`}>{problem}</p>}
           </div>
@@ -377,7 +383,6 @@ export function ModuleDocumentView({
         )}
       </div>
       {discardModal}
-      {leave.modal}
     </div>
   );
 }

@@ -16,6 +16,7 @@ import {
   readRailWidth,
   resolveSection,
   sectionFromParam,
+  sectionSwitchDiscards,
   workspaceSections,
   writeRailCollapsed,
   writeRailWidth,
@@ -37,10 +38,18 @@ function memory(seed: Record<string, string> = {}) {
 describe("workspace sections", () => {
   it("lists sections in phase order", () => {
     expect(workspaceSections(full).map((entry) => entry.key)).toEqual([
-      "description", "specification", "features",
-      "scenes", "speech", "library",
-      "module", "configuration", "assessment", "deploy",
-      "stats", "history",
+      "description",
+      "specification",
+      "features",
+      "scenes",
+      "speech",
+      "library",
+      "module",
+      "configuration",
+      "assessment",
+      "deploy",
+      "stats",
+      "history",
       "newRef",
     ]);
   });
@@ -49,10 +58,18 @@ describe("workspace sections", () => {
     const rail = workspaceSections(full).filter((entry) => entry.key !== "newRef");
     const phases = rail.map((entry) => phaseOf(entry.key as Exclude<WorkspaceSection, "newRef">));
     expect(phases).toEqual([
-      "write", "write", "write",
-      "media", "media", "media",
-      "build", "build", "build", "build",
-      "more", "more",
+      "write",
+      "write",
+      "write",
+      "media",
+      "media",
+      "media",
+      "build",
+      "build",
+      "build",
+      "build",
+      "more",
+      "more",
     ]);
     expect(STUDIO_PHASES).toEqual(["write", "media", "build", "more"]);
   });
@@ -194,5 +211,38 @@ describe("sectionFromParam", () => {
     expect(sectionFromParam("speech")).toBe("speech");
     expect(sectionFromParam("nope")).toBeNull();
     expect(sectionFromParam(null)).toBeNull();
+  });
+});
+
+describe("sectionSwitchDiscards", () => {
+  it("asks only when leaving a module document with unsaved text", () => {
+    for (const current of ["configuration", "assessment", "module"] as const) {
+      expect(sectionSwitchDiscards(current, "description", true)).toBe(true);
+      expect(sectionSwitchDiscards(current, "description", false)).toBe(false);
+      // Choosing the open section again keeps its editor.
+      expect(sectionSwitchDiscards(current, current, true)).toBe(false);
+    }
+    expect(sectionSwitchDiscards("module", "configuration", true)).toBe(true);
+  });
+
+  it("never asks for the script or the specification, whose text the page keeps", () => {
+    expect(sectionSwitchDiscards("description", "module", true)).toBe(false);
+    expect(sectionSwitchDiscards("specification", "scenes", true)).toBe(false);
+  });
+});
+
+describe("resolveSection with an unsaved module document", () => {
+  const noModule = { hasSpec: true, hasPlan: true, hasModule: false };
+  it("keeps the document open when its availability lapses", () => {
+    expect(resolveSection("configuration", noModule)).not.toBe("configuration");
+    expect(resolveSection("configuration", noModule, true)).toBe("configuration");
+    expect(resolveSection("module", noModule, true)).toBe("module");
+  });
+
+  it("holds only the documents whose editors keep their own text", () => {
+    expect(
+      resolveSection("stats", { hasSpec: true, hasPlan: false, hasModule: false }, true),
+    ).not.toBe("stats");
+    expect(resolveSection(null, noModule, true)).toBe(resolveSection(null, noModule));
   });
 });

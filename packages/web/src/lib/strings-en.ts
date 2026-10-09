@@ -2112,6 +2112,7 @@ export const en: Strings = {
     saved: "Saved",
     unsaved: "Unsaved changes",
     discard: "Discard your unsaved edits and load another draft?",
+    discardSection: "Discard your unsaved edits to this document and open another section?",
     discardTitle: "Discard unsaved changes?",
     discardConfirm: "Discard",
     remoteChanged:
