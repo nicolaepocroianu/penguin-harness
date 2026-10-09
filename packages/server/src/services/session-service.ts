@@ -22,6 +22,7 @@ import type {
   MessagingChannel,
   SessionCategory,
   SessionCategoryCounts,
+  ServerEvent,
   SessionInfo,
   SessionSource,
 } from "../api/types.js";
@@ -111,6 +112,13 @@ export interface SessionServiceDeps {
   /** The activity whose run a Session is, for `SessionInfo.activityId` (see orgIdOfSession). */
   activityIdOfSession?: (sessionId: string) => string | undefined;
   activityIdsOfProject?: (projectId: string) => ReadonlyMap<string, string>;
+  /**
+   * Publishes on the user channels of the Project's owner and members (SessionManager's dep
+   * of the same name): a created Session is announced there as `session_created`, so every
+   * open list shows it without a reload — an activity run started on the server included.
+   * Absent (tests) means nothing is announced.
+   */
+  notifyProjectUsers?: (projectId: string, event: ServerEvent) => void;
   /** Spawn-confinement getter (the sandbox module's), forwarded into core beside proxyEnv. */
   confineSpawn?: () => SpawnConfiner | null;
 }
@@ -506,7 +514,9 @@ export class SessionService {
     };
     this.deps.sessions.insert(row);
     this.deps.manager.adopt(row, session);
-    return this.toInfo(row, false);
+    const info = await this.toInfo(row, false);
+    this.announce(info);
+    return info;
   }
 
   /**
@@ -561,7 +571,25 @@ export class SessionService {
     };
     this.deps.sessions.insert(row);
     this.deps.manager.adopt(row, opened.runtime);
-    return this.toInfo(row, false);
+    const info = await this.toInfo(row, false);
+    this.announce(info);
+    return info;
+  }
+
+  /**
+   * Tells every open list a Session exists. A caller that files the Session somewhere right
+   * after this returns (an activity run records its sessionId synchronously after the await)
+   * is still in time: a list only learns the row's grouping from the fetch the event
+   * triggers, which the server answers after that synchronous write.
+   */
+  private announce(info: SessionInfo): void {
+    this.deps.notifyProjectUsers?.(info.projectId, {
+      type: "session_created",
+      projectId: info.projectId,
+      agentId: info.agentId,
+      sessionId: info.sessionId,
+      ...(info.source !== undefined ? { source: info.source } : {}),
+    });
   }
 
   /**

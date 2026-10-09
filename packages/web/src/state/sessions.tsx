@@ -712,6 +712,17 @@ export function applyUserEvent(
       );
     return;
   }
+  // A Session was created somewhere other than this tab's own composer — an activity run the
+  // server started, a subagent, another tab. The row's grouping (category, activity, folder)
+  // is the list fetch's to decide, so refetch rather than guess; a Session this list already
+  // holds (the one this tab just created) needs nothing.
+  if (ev.type === "session_created") {
+    const { projectId, sessions, reload } = store.getState();
+    if (ev.projectId !== projectId) return;
+    if (sessions.some((s) => s.sessionId === ev.sessionId)) return;
+    void reload();
+    return;
+  }
   // The reconnect landed outside the channel's replay buffer, so an unknown number of the flips
   // above were lost — away long enough and a row sits on an hourglass that will never stop.
   // Refetch once, on the event that says so, rather than polling for it. The remembered

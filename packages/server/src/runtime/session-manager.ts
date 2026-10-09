@@ -2091,15 +2091,18 @@ export class SessionManager {
       lastActiveAt: createdAt,
       createdAt,
     });
-    // Make the subagent appear immediately in the sidebar: notify via the parent
-    // Session's channel (a frontend currently watching the parent run refreshes its list in place).
-    this.publishEvent(entry, {
+    // Make the subagent appear immediately in the sidebar: notify via the parent Session's
+    // channel (a frontend watching the parent run refreshes its list in place) and the
+    // Project's user channels (every other list, e.g. a subagent of an unattended activity run).
+    const created: ServerEvent = {
       type: "session_created",
       projectId: entry.projectId,
       agentId,
       sessionId: childSid,
       source,
-    });
+    };
+    this.publishEvent(entry, created);
+    this.deps.notifyProjectUsers?.(entry.projectId, created);
     const child: ChildSession = {
       sessionId: childSid,
       agentId,
@@ -2441,6 +2444,7 @@ export class SessionsModule {
       orgIdsOfProject: (projectId) => orgCache.orgIdsOfProject(projectId),
       activityIdOfSession: (sessionId) => sessionsRepo.activityIdOfSession(sessionId),
       activityIdsOfProject: (projectId) => sessionsRepo.activityIdsOfProject(projectId),
+      notifyProjectUsers,
       pathPrepend: env.pathPrepend,
       confineSpawn: env.confineSpawn,
     });
