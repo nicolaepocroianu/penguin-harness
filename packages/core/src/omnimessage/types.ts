@@ -29,7 +29,7 @@ export type Role = "user" | "assistant";
  *     tool output;
  *   - `completed`: the request (or the segment it closed) ended normally;
  *   - `aborted`: user-initiated interruption or cancellation;
- *   - `retryable`: a failure worth retrying — transport drops, timeouts, 408/429/5xx,
+ *   - `retryable`: a failure worth retrying — transport drops, timeouts, 408/429/499/5xx,
  *     malformed or truncated responses, and anything unclassifiable. The engine reconnects
  *     on its backoff ladder; the specific error rides on `error_message`
  *     (`LLMOutcome.errorMessage` / `request_end.error_message`), never on the reason value;
@@ -314,7 +314,7 @@ export type ErrorCode =
   | "network" // transport drops, provider 429/5xx, and anything unclassifiable
   | "malformed" // response failed parsing/validation, or the stream was truncated
   | "auth" // the provider rejected the credentials
-  | "rejected" // a definitive provider 4xx rejection (params, quota; 408/429 excluded)
+  | "rejected" // a definitive provider 4xx rejection (params, quota; 408/429/499 excluded)
   | "unsupported" // a deterministic client-side rejection (fast mode without a fast tier)
   | "invalid_input" // the input failed to assemble into a request
   // MCP connect failures.
