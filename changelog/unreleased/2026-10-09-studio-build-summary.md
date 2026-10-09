@@ -3,6 +3,7 @@
 - **Date:** 2026-10-09
 - **Type:** feat
 - **Scope:** `web`
+- **PR:** [#91](https://github.com/nicolaepocroianu/penguin-harness/pull/91)
 
 Module Definition opens on a summary, with a Summary | JSON toggle beside its title. The summary
 shows the engine, the schema and specification versions, the theme names, and how many
