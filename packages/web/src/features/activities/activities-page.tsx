@@ -478,6 +478,8 @@ function ActivityEditor({
   const [refreshVersion, setRefreshVersion] = useState(0);
   // The activity's run of its stages, as the server last reported it (pipeline-run.ts).
   const [pipeline, setPipeline] = useState<PipelineState | null>(null);
+  /** Every sequence the activity has run, newest first, for the Stages panel's history. */
+  const [pipelineHistory, setPipelineHistory] = useState<PipelineState[]>([]);
   const [pipelineChoice, setPipelineChoice] = useState<PipelineSelection>("all");
   // The languages the product supports: what the activity may be translated into.
   const [languageSetup, setLanguageSetup] = useState<{
@@ -692,7 +694,7 @@ function ActivityEditor({
       const revisionAtStart = state.current.revision;
       let active = false;
       try {
-        const [value, history, sandbox, stages] = await Promise.all([
+        const [value, history, sandbox, stages, sequences] = await Promise.all([
           apiFetch<ActivityDetail>(endpoint),
           apiFetch<{ runs: ActivityRunSummary[] }>(`${endpoint}/runs`),
           // A module this project never assembled -- one Loom generated -- still has a
@@ -700,12 +702,15 @@ function ActivityEditor({
           apiFetch<SandboxStatusLike>(`${endpoint}/sandbox/status`).catch(() => null),
           // Following a run is a courtesy over the history, which stands without it.
           apiFetch<{ pipeline: PipelineState | null }>(`${endpoint}/pipeline`).catch(() => null),
+          // So is the stages' history.
+          apiFetch<{ pipelines: PipelineState[] }>(`${endpoint}/pipelines`).catch(() => null),
         ]);
         if (cancelled) return;
         setLoadError("");
         setRuns(history.runs);
         setSandboxModule(sandboxHasModule(sandbox));
         if (stages) setPipeline(pipelineOrNull(stages.pipeline));
+        if (sequences && Array.isArray(sequences.pipelines)) setPipelineHistory(sequences.pipelines);
         active =
           history.runs.some((run) => run.status === "running") ||
           stages?.pipeline?.status === "running";
@@ -1430,6 +1435,7 @@ function ActivityEditor({
               <div className="min-h-0 flex-1">
                 <PipelinePanel
                   pipeline={pipeline}
+                  history={pipelineHistory}
                   runs={runs}
                   agentLabel={agentLabel}
                   onAddExcerpt={(text) => {
