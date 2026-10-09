@@ -1,6 +1,6 @@
 import { stageAgent } from "./stage-agent";
 import { OpenModuleDialog } from "./open-module-dialog";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Link,
   Navigate,
@@ -77,6 +77,8 @@ import {
 } from "./workspace-model";
 import { assetForPick, buildStudioTree, sectionTrails } from "./studio-tree";
 import { sceneRanges } from "./script-model";
+import { buildScriptMedia } from "./script-media";
+import type { ScriptReview } from "./script-editor";
 import { ConversationPanel } from "./conversation-panel";
 import { focusFor, latestConversation } from "./conversation";
 import { applyMediaChange, type ProposalChange } from "./proposal";
@@ -94,10 +96,10 @@ import { renumberManifestText } from "./ref-number";
 import { ImplementationFeaturesView } from "./implementation-features-view";
 import { GenerationHistory } from "./history-section";
 import { DeployPanel } from "./deploy-panel";
-import { useAssistProposal } from "./use-assist-proposal";
+import { useAssistProposal, type ProposalRead } from "./use-assist-proposal";
 import { StudioTreeView } from "./studio-tree-view";
 import { SessionsPanel } from "./sessions-panel";
-import { DraftStatus, RunningChip, runPanel } from "./studio-status";
+import { ProgressSteps, ProposalWaiting, RunningChip, runPanel } from "./studio-status";
 import { SandboxPanel } from "./sandbox-panel";
 import { sandboxHasModule, type SandboxStatusLike } from "./sandbox";
 import { JsonEditor } from "./json-editor";
@@ -480,6 +482,15 @@ function ActivityEditor({
   const [board, setBoard] = useState(true);
   /** A scene the rail asked the script to show; `at` tells a second ask from the first. */
   const [revealScene, setRevealScene] = useState<{ scene: number; at: number } | null>(null);
+  /** A request to review the agent's proposed script, from the header or the chat. */
+  const [reviewRequest, setReviewRequest] = useState<{ scene?: number; at: number } | null>(null);
+  /** Where the script editor's review of a proposal stands, for the chat to say. */
+  const [scriptReview, setScriptReview] = useState<ScriptReview | null>(null);
+  /**
+   * A proposed script the author has finished with, though its proposal stays open for its
+   * other changes: once applied in part, it no longer waits on the author.
+   */
+  const [settledScript, setSettledScript] = useState<string | null>(null);
   const [boardScene, setBoardScene] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState<{ key: StudioPanel; at: number } | null>(null);
   // An excerpt on its way to the conversation's composer, from another panel.
@@ -584,7 +595,10 @@ function ActivityEditor({
     (change) => change.target === "description",
   );
   const scriptProposal =
-    proposedScript && detail && proposedScript.text !== detail.draft.description
+    proposedScript &&
+    detail &&
+    proposedScript.text !== detail.draft.description &&
+    proposedScript.text !== settledScript
       ? proposedScript.text
       : null;
   useLayoutEffect(() => {
@@ -1034,36 +1048,38 @@ function ActivityEditor({
    * overwritten: the card will not offer Accept while there are any.
    */
   async function acceptProposal(change: ProposalChange): Promise<void> {
-    await action(async () => {
-      if (!detail || state.current.dirty) throw new Error(S.activities.studioProposal.saveFirst);
-      const [path, method, body] =
-        change.target === "description"
-          ? (["description", "PATCH", { description: change.text }] as const)
-          : change.target === "spec"
-            ? (["apply-generated-spec", "POST", { spec: change.spec }] as const)
-            : ([
-                "media",
-                "PUT",
-                {
-                  manifest: applyMediaChange(
-                    detail.draft.mediaPlan?.manifest ??
-                      fail(S.activities.studioProposal.missingAsset(change.assetKey)),
-                    change,
-                  ),
-                },
-              ] as const);
-      const draft = await apiFetch<ActivityDraft>(`${endpoint}/${path}`, {
-        method,
-        body: { expectedRevision: detail.draft.contentRevision, ...body },
-      });
-      if (!alive.current) return;
-      accept({
-        ...detail,
-        title: draft.status === "valid" ? String(draft.spec?.title) : detail.title,
-        draft,
-      });
-      toastSuccess(S.activities.saved);
+    await action(() => landChange(change));
+  }
+  /** Put one proposed change into the draft. Callers run it inside `action`. */
+  async function landChange(change: ProposalChange): Promise<void> {
+    if (!detail || state.current.dirty) throw new Error(S.activities.studioProposal.saveFirst);
+    const [path, method, body] =
+      change.target === "description"
+        ? (["description", "PATCH", { description: change.text }] as const)
+        : change.target === "spec"
+          ? (["apply-generated-spec", "POST", { spec: change.spec }] as const)
+          : ([
+              "media",
+              "PUT",
+              {
+                manifest: applyMediaChange(
+                  detail.draft.mediaPlan?.manifest ??
+                    fail(S.activities.studioProposal.missingAsset(change.assetKey)),
+                  change,
+                ),
+              },
+            ] as const);
+    const draft = await apiFetch<ActivityDraft>(`${endpoint}/${path}`, {
+      method,
+      body: { expectedRevision: detail.draft.contentRevision, ...body },
     });
+    if (!alive.current) return;
+    accept({
+      ...detail,
+      title: draft.status === "valid" ? String(draft.spec?.title) : detail.title,
+      draft,
+    });
+    toastSuccess(S.activities.saved);
   }
   /**
    * Apply the conversation's whole proposal as one draft change, read fresh from its run
@@ -1085,13 +1101,40 @@ function ActivityEditor({
       toastSuccess(S.activities.saved);
     });
   }
+  /**
+   * Apply the proposed script as the author's review left it. A proposal that changed only
+   * the script is then done with and set aside; one with other changes stays open for them.
+   */
+  async function applyReviewedScript(text: string): Promise<void> {
+    const read = proposal.read;
+    if (!proposedScript || !read) return;
+    const onlyScript = changesOnlyScript(read);
+    // One action, so the proposal is set aside only once the script has landed.
+    const done = await action(async () => {
+      await landChange({ target: "description", text });
+      if (onlyScript) await discardRun(read.runId);
+    });
+    if (!done) return;
+    if (onlyScript) proposal.reload();
+    else setSettledScript(proposedScript.text);
+  }
+  /** The proposed script needs nothing more from the author. */
+  function settleScriptProposal() {
+    const read = proposal.read;
+    if (!proposedScript || !read) return;
+    if (changesOnlyScript(read)) void discardProposal(read.runId);
+    else setSettledScript(proposedScript.text);
+  }
   async function discardProposal(runId: string): Promise<void> {
     await action(async () => {
-      await apiFetch(`${endpoint}/runs/${encodeURIComponent(runId)}/proposal/discard`, {
-        method: "POST",
-        body: {},
-      });
+      await discardRun(runId);
       proposal.reload();
+    });
+  }
+  function discardRun(runId: string) {
+    return apiFetch(`${endpoint}/runs/${encodeURIComponent(runId)}/proposal/discard`, {
+      method: "POST",
+      body: {},
     });
   }
   /** Accept a candidate, which replaces the draft rather than starting anything. */
@@ -1164,6 +1207,35 @@ function ActivityEditor({
   const fullTree = buildSceneTree(
     detail?.draft.spec ?? null,
     editedManifest?.assets[language] ?? [],
+  );
+  // What the media plan says about each line and scene of the script, for the editor's chips.
+  // Keyed on the texts the manifest and tree are read from, so a render that changes neither
+  // keeps the same object and the editor's review state is left alone.
+  const scriptMedia = useMemo(
+    () =>
+      detail?.draft.mediaPlan
+        ? buildScriptMedia(
+            editedManifest?.assets[language] ?? [],
+            fullTree,
+            sceneRanges(description),
+          )
+        : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [detail?.draft.mediaPlan, detail?.draft.spec, media, language, description],
+  );
+  const latestTree = useRef(fullTree);
+  latestTree.current = fullTree;
+  const openClip = useCallback(
+    (key: string) => {
+      const scene = latestTree.current.scenes.find((node) =>
+        node.categories.some((category) => category.assets.some((asset) => asset.key === key)),
+      );
+      if (!scene) return;
+      setSelected({ sceneId: scene.sceneId, key });
+      setBoard(false);
+      setSection("scenes");
+    },
+    [setSection],
   );
   const frames = storyboardFrames(
     fullTree,
@@ -1399,6 +1471,11 @@ function ActivityEditor({
                 proposal.read ? () => applyWholeProposal(proposal.read!.runId) : undefined
               }
               onDiscard={proposal.read ? () => discardProposal(proposal.read!.runId) : undefined}
+              review={scriptReview}
+              onReviewScript={(scene) => {
+                setSection("description");
+                setReviewRequest({ ...(scene !== undefined ? { scene } : {}), at: Date.now() });
+              }}
               onThread={setThreadRunId}
             />
           ),
@@ -1516,7 +1593,25 @@ function ActivityEditor({
                         )
                 }
               />
-              <DraftStatus status={detail.draft.status} dirty={dirty} />
+              <ProgressSteps
+                facts={{
+                  status: detail.draft.status,
+                  scriptDirty: description !== detail.draft.description,
+                  specDirty: spec !== pretty(detail.draft.spec),
+                  media: scriptMedia?.totals ?? null,
+                  hasModule: !!latestModuleRun(runs) || sandboxModule,
+                }}
+                canOpen={(key) => sections.some((entry) => entry.key === key && entry.enabled)}
+                onOpen={setSection}
+              />
+              {scriptProposal !== null && editable && (
+                <ProposalWaiting
+                  onReview={() => {
+                    setSection("description");
+                    setReviewRequest({ at: Date.now() });
+                  }}
+                />
+              )}
               {runningRun && (
                 <RunningChip
                   run={runningRun}
@@ -1763,6 +1858,14 @@ function ActivityEditor({
               saveDisabled={busy || description === detail.draft.description}
               acceptBlocked={dirty ? S.activities.studioProposal.saveFirst : null}
               reveal={revealScene}
+              review={reviewRequest}
+              media={scriptMedia}
+              onOpenClip={openClip}
+              onReview={setScriptReview}
+              onApplyReviewed={
+                editable && available ? (text) => void applyReviewedScript(text) : undefined
+              }
+              onDiscardProposal={editable && available ? settleScriptProposal : undefined}
               onChange={setDescription}
               onSave={() => void save("description")}
               onAcceptProposal={
@@ -2263,6 +2366,11 @@ function ActivityEditor({
 
 function fail(message: string): never {
   throw new Error(message);
+}
+
+/** A proposal whose only change is the script, which is done with once the script is. */
+function changesOnlyScript(read: ProposalRead): boolean {
+  return !!read.proposal?.changes.every((change) => change.target === "description");
 }
 
 function summarize({ candidate, ...run }: ActivityRun): ActivityRunSummary {

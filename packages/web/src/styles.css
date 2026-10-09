@@ -921,9 +921,10 @@ html.dark .shiki span {
 .script-editor .cm-editor .cm-scene-number {
   @apply font-mono text-[11px] text-gray-500 uppercase dark:text-gray-400;
 }
-/* Prose wraps at a readable width however wide the pane is. */
+/* Prose wraps at a readable width however wide the pane is: room for a line of narration and
+   the clip chip after it, without the eye crossing an empty half of the pane. */
 .activity-script .cm-editor .cm-content {
-  max-width: 92ch;
+  max-width: 84ch;
 }
 /* Media elements in two categorical hues: what is heard (audio) and what is seen (video, image,
    animation). They say which kind of element a span is, never a status. The words carry the hue
@@ -1028,7 +1029,73 @@ html.dark .script-editor .cm-editor .cm-json-punctuation {
 .script-editor .cm-editor .cm-chunkButtons {
   right: 0.5rem;
 }
-.script-editor .cm-editor .cm-revert {
+/* In the Activity Script the lines stop at a reading width, so a change's buttons sit just
+   past the change they decide rather than at the far edge of a wide pane. */
+.activity-script .cm-editor .cm-deletedChunk {
+  position: relative;
+}
+.activity-script .cm-editor .cm-chunkButtons {
+  right: auto;
+  left: calc(100% + 0.5rem);
+  white-space: nowrap;
+}
+.script-editor .cm-editor .cm-revert,
+.script-editor .cm-editor .cm-review-reject,
+.script-editor .cm-editor .cm-review-accept {
   padding: 0 0.5rem;
+  margin-left: 0.25rem;
   @apply rounded border border-gray-300 bg-white font-sans text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800;
+}
+/* Accepting is the review's way forward, so it takes the accent like any primary action. */
+.script-editor .cm-editor .cm-review-accept {
+  border-color: var(--accent-bg);
+  background-color: var(--accent-bg);
+  color: var(--accent-fg);
+}
+.script-editor .cm-editor .cm-review-accept:hover {
+  filter: brightness(1.08);
+  background-color: var(--accent-bg);
+}
+/* An element's opening tag, away from the cursor: a small word naming the kind of element,
+   in that element's hue (see the media hues above). Its closing tag is not drawn. */
+.script-editor .cm-editor .cm-media-mark {
+  margin-right: 0.375rem;
+  padding: 0 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+  @apply rounded-sm font-sans;
+}
+.script-editor .cm-editor .cm-media-mark-audio {
+  @apply bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300;
+}
+.script-editor .cm-editor .cm-media-mark-video,
+.script-editor .cm-editor .cm-media-mark-image,
+.script-editor .cm-editor .cm-media-mark-animation {
+  @apply bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300;
+}
+/* The clip a line became, after the line: its length, or that it still needs a file. */
+.script-editor .cm-editor .cm-clip {
+  margin-left: 0.5rem;
+  padding: 0 0.375rem;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  @apply rounded-full border border-gray-200 font-sans tabular-nums dark:border-gray-800;
+}
+.script-editor .cm-editor .cm-clip-bound {
+  @apply text-gray-500 dark:text-gray-400;
+}
+.script-editor .cm-editor button.cm-clip {
+  cursor: pointer;
+}
+.script-editor .cm-editor button.cm-clip:hover {
+  @apply border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900;
+}
+.script-editor .cm-editor .cm-scene-facts {
+  margin-left: 0.75rem;
+  font-weight: 400;
+  font-size: 0.7rem;
+  @apply font-sans text-gray-500 dark:text-gray-400;
 }

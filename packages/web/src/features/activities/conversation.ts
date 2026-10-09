@@ -117,3 +117,15 @@ export function threadTime(iso: string, now: Date = new Date()): string {
     return S.activities.studioConversation.today(time);
   return `${when.toLocaleDateString(undefined, { month: "short", day: "numeric" })} ${time}`;
 }
+
+/**
+ * Questions an author often starts with, for where they are; one fills the composer for
+ * editing, never sends itself.
+ */
+export function suggestionsFor(focus: AssistFocus): readonly string[] {
+  const words = S.activities.studioConversation.suggestions;
+  if (focus.assetKey) return words.asset;
+  if (focus.section === "description") return words.script;
+  if (focus.section === "specification") return words.spec;
+  return [];
+}
