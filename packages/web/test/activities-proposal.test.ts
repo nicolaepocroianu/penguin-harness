@@ -7,6 +7,7 @@ import {
   changeLabel,
   changeSummary,
   changeTexts,
+  openSummaries,
   type ProposalBase,
 } from "../src/features/activities/proposal";
 
@@ -92,5 +93,22 @@ describe("proposals", () => {
       scenes: [],
     });
     expect(changeSummary(media("lost", "script", "x"), base)).toBeNull();
+  });
+
+  it("sums up only the changes not yet in the draft", () => {
+    const summaries = openSummaries(
+      {
+        summary: "",
+        changes: [
+          { target: "description", text: "Teach words" },
+          media("hello", "script", "Hi there"),
+          media("lost", "script", "x"),
+        ],
+      },
+      base,
+    );
+    expect([...summaries.keys()]).toEqual(["media:en-US:hello", "media:en-US:lost"]);
+    expect(summaries.get("media:en-US:hello")?.text).toBe("2 lines changed");
+    expect(summaries.get("media:en-US:lost")).toBeNull();
   });
 });

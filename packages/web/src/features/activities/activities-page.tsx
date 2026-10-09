@@ -1647,6 +1647,7 @@ function ActivityEditor({
                   qa: deployState ? qaFact(deployState) : null,
                 }}
                 canOpen={(key) => sections.some((entry) => entry.key === key && entry.enabled)}
+                canAct={editable && available}
                 onOpen={setSection}
                 onNext={(go) => {
                   if (go.kind === "section") setSection(go.section);

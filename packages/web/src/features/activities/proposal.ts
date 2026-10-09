@@ -98,6 +98,21 @@ export function changeSummary(
   return { text: words.linesChanged(lines), scenes };
 }
 
+/**
+ * The summaries the card shows, by change key: only for changes not yet in the draft, since
+ * an applied row shows none and a summary costs a line diff.
+ */
+export function openSummaries(
+  proposal: AssistProposal,
+  base: ProposalBase,
+): Map<string, { text: string; scenes: number[] } | null> {
+  const summaries = new Map<string, { text: string; scenes: number[] } | null>();
+  for (const change of proposal.changes)
+    if (!changeIsApplied(change, base))
+      summaries.set(changeKey(change), changeSummary(change, base));
+  return summaries;
+}
+
 /** Whether accepting would change nothing, as when it was accepted already. */
 export function changeIsApplied(change: ProposalChange, base: ProposalBase): boolean {
   const texts = changeTexts(change, base);

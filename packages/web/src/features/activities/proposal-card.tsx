@@ -4,7 +4,7 @@
  * through the same route an author's own save does, with the same revision check, so an
  * accepted proposal is an ordinary draft change.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { S } from "../../lib/strings";
@@ -13,8 +13,8 @@ import {
   changeIsApplied,
   changeKey,
   changeLabel,
-  changeSummary,
   changeTexts,
+  openSummaries,
   type AssistProposal,
   type ProposalBase,
   type ProposalChange,
@@ -53,6 +53,13 @@ export function ProposalCard({
     (change) => changeTexts(change, base) && !changeIsApplied(change, base),
   );
   const inDraft = proposal.changes.filter((change) => changeIsApplied(change, base)).length;
+  // Diffed once per proposal and saved draft, not on every re-render: the page rebuilds the
+  // base object each render, so the memo keys on what it holds.
+  const { description, spec, manifest } = base;
+  const summaries = useMemo(
+    () => openSummaries(proposal, { description, spec, manifest }),
+    [proposal, description, spec, manifest],
+  );
   const footer = (onApplyAll && open.length > 0) || onDiscard;
   return (
     <section
@@ -81,7 +88,7 @@ export function ProposalCard({
             const key = changeKey(change);
             const texts = changeTexts(change, base);
             const applied = changeIsApplied(change, base);
-            const summary = changeSummary(change, base);
+            const summary = summaries.get(key) ?? null;
             const reviewable =
               change.target === "description" && texts && !applied && !!onReviewScript;
             return (

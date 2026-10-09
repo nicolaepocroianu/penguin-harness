@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  nextAction,
   nextStep,
   progressSteps,
   qaFact,
@@ -55,6 +56,13 @@ describe("the header's next step", () => {
   it("takes the earlier step first", () => {
     const steps = progressSteps({ ...facts, scriptDirty: true, status: "draft", qa: "none" });
     expect(nextStep(steps)?.section).toBe("description");
+  });
+
+  it("offers the action only to someone who can act, while the step still stands out", () => {
+    const steps = progressSteps({ ...facts, hasModule: false });
+    expect(nextAction(steps, true)?.action).toBe("build the module");
+    expect(nextAction(steps, false)).toBeNull();
+    expect(nextStep(steps)?.section).toBe("module");
   });
 });
 

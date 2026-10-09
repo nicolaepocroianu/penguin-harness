@@ -176,6 +176,15 @@ export function nextStep(steps: readonly ProgressStep[]): ProgressStep | null {
 }
 
 /**
+ * What the Next button offers: the next step's action, or nothing for a viewer who cannot
+ * act on this activity (every action saves, validates, builds or deploys). The highlight
+ * stays either way; it says where the activity stands, not what the viewer may do.
+ */
+export function nextAction(steps: readonly ProgressStep[], canAct: boolean): ProgressStep["todo"] {
+  return canAct ? (nextStep(steps)?.todo ?? null) : null;
+}
+
+/**
  * The activity's way from script to QA, one step each, as one segmented bar in the header:
  * each says where it stands and opens its section, the first unfinished one stands out, and
  * a button beside the bar goes where that step is done.
@@ -183,19 +192,22 @@ export function nextStep(steps: readonly ProgressStep[]): ProgressStep | null {
 export function ProgressSteps({
   facts,
   canOpen,
+  canAct,
   onOpen,
   onNext,
 }: {
   facts: ProgressFacts;
   /** Whether a step's section can be opened yet. */
   canOpen: (section: WorkspaceSection) => boolean;
+  /** Whether the viewer may do the next step's action; a member only reads. */
+  canAct: boolean;
   onOpen: (section: WorkspaceSection) => void;
   /** Go where the next step is done: its section, or the panel that runs it. */
   onNext: (go: NextTarget) => void;
 }) {
   const steps = progressSteps(facts);
   const next = nextStep(steps);
-  const todo = next?.todo ?? null;
+  const todo = nextAction(steps, canAct);
   const last = steps.length - 1;
   return (
     // Neither the bar nor its steps may refuse to shrink: on a phone the header's row is
