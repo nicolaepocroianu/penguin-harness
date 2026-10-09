@@ -671,6 +671,25 @@ export const en: Strings = {
       workflowTitle: "Deploy to QA",
       workflowSummary: "Release the module and deploy every ref to QA.",
       diagnostics: "Repository & branch details",
+      checksSummary: (total, attention) => {
+        const checks = `${total} ${total === 1 ? "check" : "checks"}`;
+        if (attention === 0) return `${checks}, none needs attention`;
+        return `${checks}, ${attention} ${attention === 1 ? "needs" : "need"} attention`;
+      },
+      openWorkspaceSettings: "Open WAF workspace settings",
+      waitingOnReadiness: "Waits for what is missing above.",
+      phaseCount: (done, total) => `${done}/${total}`,
+      blocked: "Blocked",
+      mediaFiles: (n) => `${n} media ${n === 1 ? "file" : "files"}`,
+      qaTitle: "QA",
+      qaStates: {
+        notDeployed: "Not deployed",
+        deploying: "Deploying",
+        onQa: "On QA",
+        failed: "Last deploy failed",
+      },
+      qaExplain:
+        "Deploy to QA releases the module when it changed, publishes the media and the activity data, and deploys them to QA.",
       phaseLabels: { module: "Module release", data: "Activity data & media", qa: "QA deployment" },
       stageProgress: (done, total) => `${done} of ${total} stages complete`,
       releaseAbout:
@@ -832,6 +851,12 @@ export const en: Strings = {
         adminOnly: "Only an admin who owns the project can deploy to PROD.",
         ready: "Ready to deploy what QA has to PROD.",
         never: "Not deployed to PROD yet.",
+        states: {
+          notDeployed: "Not deployed",
+          deploying: "Deploying",
+          onProd: "On PROD",
+          failed: "Last deploy failed",
+        },
         last: (when, frameworkVersion) =>
           frameworkVersion
             ? `Last deployed to PROD on ${when}, with framework ${frameworkVersion}.`

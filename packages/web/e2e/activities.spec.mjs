@@ -7300,7 +7300,6 @@ test("shows what a deploy still needs", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /^Deploy More info/, level: 3 })).toBeVisible();
   const status = page.getByTestId("deploy-readiness");
   await expect(status).toHaveText("Not ready to deploy: 4 things are missing.");
-  await page.locator("summary").filter({ hasText: "What is missing" }).click();
   const problems = page.getByRole("region", { name: "What is missing" });
   await expect(problems.getByText("QA Jenkins address is empty.", { exact: true })).toBeVisible();
   await expect(
@@ -7321,6 +7320,12 @@ test("shows what a deploy still needs", async ({ page }) => {
   await expect(checks.getByRole("row", { name: /^Media clone/ })).toContainText("Not cloned yet");
   await expect(checks.getByRole("row", { name: /^Ref/ })).toContainText("The canonical ref");
 
+  // Deploy to QA waits on what is missing, and says so beside it.
+  await expect(page.getByRole("button", { name: "Deploy to QA", exact: true })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Deploy to QA", exact: true }),
+  ).toHaveAccessibleDescription("Waits for what is missing above.");
+
   // Prepare clones makes the three clones; only the settings are left.
   await page.getByRole("button", { name: "Prepare clones", exact: true }).click();
   await expect(status).toHaveText("Not ready to deploy: 1 thing is missing.");
@@ -7328,7 +7333,8 @@ test("shows what a deploy still needs", async ({ page }) => {
   await expect(checks.getByRole("row", { name: /^Media clone/ })).toContainText(
     "Cloned, on main, clean",
   );
-  await expect(page.getByRole("button", { name: "Prepare clones", exact: true })).toBeDisabled();
+  // Nothing is left for Prepare clones to make, so it is no longer offered.
+  await expect(page.getByRole("button", { name: "Prepare clones", exact: true })).toHaveCount(0);
   expect(prepares).toBe(1);
   await expect(checks.getByRole("row", { name: /^Branch loom\/words-deploy/ })).toContainText(
     "remote not checked",
@@ -7439,7 +7445,6 @@ test("an admin opens the deploy settings from what a deploy still needs", async 
   });
   await create(page);
   await openSection(page, "Deploy");
-  await page.locator("summary").filter({ hasText: "What is missing" }).click();
   const problems = page.getByRole("region", { name: "What is missing" });
   await expect(problems.getByText("QA Jenkins address is empty.", { exact: true })).toBeVisible();
 

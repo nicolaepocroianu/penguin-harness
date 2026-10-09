@@ -581,6 +581,22 @@ export type Strings = {
       workflowTitle: string;
       workflowSummary: string;
       diagnostics: string;
+      /** The folded checks' summary: how many, and how many want a look. */
+      checksSummary: (total: number, attention: number) => string;
+      /** The admin's way to the WAF workspace page, where the shared clones are prepared. */
+      openWorkspaceSettings: string;
+      /** Why Deploy to QA waits while the readiness strip lists problems. */
+      waitingOnReadiness: string;
+      /** A phase's stages done out of all of them. */
+      phaseCount: (done: number, total: number) => string;
+      /** The stage the pipeline stopped at, which cannot run now. */
+      blocked: string;
+      /** How many media files the media stage checked. */
+      mediaFiles: (n: number) => string;
+      qaTitle: string;
+      qaStates: { notDeployed: string; deploying: string; onQa: string; failed: string };
+      /** What a QA deploy does, under the QA card's status while it has not been deployed. */
+      qaExplain: string;
       phaseLabels: { module: string; data: string; qa: string };
       stageProgress: (done: number, total: number) => string;
       releaseAbout: string;
@@ -736,6 +752,7 @@ export type Strings = {
         /** Nothing stands in the way. */
         ready: string;
         never: string;
+        states: { notDeployed: string; deploying: string; onProd: string; failed: string };
         /** The last PROD deploy: when, and the framework version when known. */
         last: (when: string, frameworkVersion: string | null) => string;
         openDeploy: string;
