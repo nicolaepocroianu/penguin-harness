@@ -37,6 +37,7 @@ import type {
   SessionProcessesResponse,
   SessionResponse,
   SessionsResponse,
+  ActivityRunSessionsResponse,
   SubagentMessageResponse,
   RetryNowResponse,
   TaskCreateResponse,
@@ -510,6 +511,12 @@ export function agentSessionsRoutes(deps: SessionsRouteDeps): Hono<AppEnv> {
     if (rawExcludeOrg !== undefined && rawExcludeOrg !== "1") {
       throw badRequest("excludeOrg only accepts 1.");
     }
+    // Optional: leaves activity runs out of the page and the totals (the sidebar lists them
+    // Project-wide from /activity-sessions instead).
+    const rawExcludeActivity = c.req.query("excludeActivity");
+    if (rawExcludeActivity !== undefined && rawExcludeActivity !== "1") {
+      throw badRequest("excludeActivity only accepts 1.");
+    }
     const { sessions, counts, workspaceCounts, workspaceLatest } =
       await deps.sessionService.listSessions(projectId, agentId, {
         ...(paging ? { paging } : {}),
@@ -517,6 +524,7 @@ export function agentSessionsRoutes(deps: SessionsRouteDeps): Hono<AppEnv> {
         ...(rawWorkspaceGroup !== undefined ? { workspaceGroup: rawWorkspaceGroup } : {}),
         ...(rawCounts !== undefined ? { withCounts: true } : {}),
         ...(rawExcludeOrg !== undefined ? { excludeOrg: true } : {}),
+        ...(rawExcludeActivity !== undefined ? { excludeActivityRuns: true } : {}),
       });
     return c.json({
       sessions,
@@ -568,6 +576,26 @@ export function agentSessionsRoutes(deps: SessionsRouteDeps): Hono<AppEnv> {
     return c.json({ session } satisfies SessionCreateResponse, 201);
   });
 
+  return app;
+}
+
+/**
+ * /api/projects/:projectId/activity-sessions: the Project's activity-run Sessions across
+ * every Agent, newest first, paged (`offset` / `limit`, default the first 50) — the
+ * sidebar's "Activity runs" folder.
+ */
+export function activitySessionsRoutes(deps: SessionsRouteDeps): Hono<AppEnv> {
+  const app = new Hono<AppEnv>();
+  app.get("/", async (c) => {
+    const projectId = requireValidId(c, "projectId");
+    deps.access.requireProjectAccess(c.var.user.userId, projectId);
+    const paging = optionalPagingQuery(c) ?? { offset: 0, limit: 50 };
+    const { sessions, total } = await deps.sessionService.listActivityRunSessions(
+      projectId,
+      paging,
+    );
+    return c.json({ sessions, total } satisfies ActivityRunSessionsResponse);
+  });
   return app;
 }
 
@@ -1653,6 +1681,12 @@ export function sessionsRoutes(deps: SessionsRouteDeps): Hono<AppEnv> {
         order: 250,
       },
       {
+        id: "session-api.activity-sessions",
+        prefix: "/api/projects/:projectId/activity-sessions",
+        auth: "user",
+        order: 255,
+      },
+      {
         id: "session-api.usage",
         prefix: "/api/projects/:projectId/usage",
         auth: "user",
@@ -1703,6 +1737,7 @@ export class SessionApiRoutes {
   @Bind("session-api.agent-config") agentConfigRoutes!: Hono<AppEnv>;
   @Bind("session-api.vault") vaultRoutes!: Hono<AppEnv>;
   @Bind("session-api.agent-sessions") agentSessionsRoutes!: Hono<AppEnv>;
+  @Bind("session-api.activity-sessions") activitySessionsRoutes!: Hono<AppEnv>;
   @Bind("session-api.usage") usageRoutes!: Hono<AppEnv>;
   @Bind("session-api.sessions") sessionsRoutes!: Hono<AppEnv>;
   setup() {
@@ -1776,6 +1811,7 @@ export class SessionApiRoutes {
     this.agentConfigRoutes = agentConfigRoutes({ agentConfigService, manager, access });
     this.vaultRoutes = vaultRoutes({ agentConfigService, manager, access });
     this.agentSessionsRoutes = agentSessionsRoutes(sessionsDeps);
+    this.activitySessionsRoutes = activitySessionsRoutes(sessionsDeps);
     this.usageRoutes = usageRoutes({ access, usageService: this.usage });
     this.sessionsRoutes = sessionsRoutes(sessionsDeps);
   }

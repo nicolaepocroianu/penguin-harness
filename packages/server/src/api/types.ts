@@ -1483,6 +1483,14 @@ export type SessionCategory = "active" | SessionSource | "archived";
 /** Per-category totals across an Agent's whole Session list (returned when the list is requested with counts). */
 export type SessionCategoryCounts = Record<SessionCategory, number>;
 
+/** GET /api/projects/:projectId/activity-sessions: the Project's activity-run Sessions, newest first. */
+export interface ActivityRunSessionsResponse {
+  /** The page (`offset` / `limit`); archived runs and an organization's rows are never listed. */
+  sessions: SessionInfo[];
+  /** Every run Session the stream holds, not only the returned page. */
+  total: number;
+}
+
 export interface SessionsResponse {
   /**
    * The page. With `excludeOrg=1` on the request, the rows an organization owns — its desk

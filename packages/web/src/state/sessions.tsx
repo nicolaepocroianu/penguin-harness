@@ -94,6 +94,12 @@ interface SessionsContextValue {
     category: SessionCategory,
     workspaceGroup?: string,
   ) => Promise<void>;
+  /** The Project's activity-run Sessions as the server counts them (the "Activity runs" folder's label); 0 until known. */
+  activityRunTotal: number;
+  /** Whether the server holds activity runs past the ones loaded. */
+  activityRunsHasMore: boolean;
+  /** Fetches the next page of the Project-wide activity-run stream (no-op when nothing is left). */
+  loadMoreActivityRuns: () => Promise<void>;
   /** Prepend to the list on success (draft materialized by the first message, or explicit creation via dialog). */
   add: (session: SessionInfo) => void;
   /** Remove from the list in place after deletion (also tombstones the id — see isDeleted). */
@@ -199,9 +205,16 @@ interface SessionsStoreState {
    * Cleared on `resync_required`, which says flips were lost (see applyUserEvent).
    */
   liveStatuses: ReadonlyMap<string, SessionStatus>;
+  /**
+   * The Project-wide activity-run stream's cursor and total (null until its first page
+   * lands). Runs are not paged per Agent: the Agents' pages leave them out
+   * (`excludeActivityRuns`), and the sidebar's one "Activity runs" folder pages this stream.
+   */
+  activityRuns: { total: number; fetched: number; hasMore: boolean } | null;
   loading: boolean;
 
   reload: () => Promise<void>;
+  loadMoreActivityRuns: () => Promise<void>;
   loadMoreFor: (
     agentIds: string[],
     category: SessionCategory,
@@ -269,7 +282,8 @@ export function createSessionsStore() {
      * counted out.
      */
     const adjustCount = (session: SessionInfo, category: SessionCategory, delta: number) => {
-      if (isOrgSession(session)) return;
+      // Activity runs are counted by their own stream, never in an Agent's totals.
+      if (isOrgSession(session) || session.activityId !== undefined) return;
       const { agentId, workspace } = session;
       const counts = get().countsByAgent;
       const cur = counts.get(agentId);
@@ -308,6 +322,7 @@ export function createSessionsStore() {
       workspaceCountsByAgent: new Map(),
       workspaceLatestByAgent: new Map(),
       liveStatuses: new Map(),
+      activityRuns: null,
       loading: true,
 
       reload: async () => {
@@ -320,6 +335,12 @@ export function createSessionsStore() {
         const g = ++gen;
         set({ loading: true });
         try {
+          // The activity-run stream refetches as far as it was already read (a new run lands
+          // on top, and an open folder must not snap back to its first page), at least a page.
+          const runLimit = Math.max(SIDEBAR_PAGE_SIZE, get().activityRuns?.fetched ?? 0);
+          const runsRequest = api
+            .listActivityRunSessions(projectId, { offset: 0, limit: runLimit })
+            .catch(() => null);
           const results = await Promise.all(
             agentIds.map(async (agentId) => {
               // The Agent's whole-stream active first page (with per-category totals)
@@ -343,6 +364,7 @@ export function createSessionsStore() {
                       limit: SIDEBAR_PAGE_SIZE + 1,
                       category,
                       excludeOrg: true,
+                      excludeActivityRuns: true,
                       ...(scope === "" ? {} : { workspaceGroup: scope }),
                       ...(category === "active" && scope === "" ? { withCounts: true } : {}),
                     });
@@ -363,6 +385,12 @@ export function createSessionsStore() {
               }
             }),
           );
+          const answer = await runsRequest;
+          // Only a well-formed answer moves the folder (a stub or proxy can answer `{}`).
+          const runs =
+            answer && Array.isArray(answer.sessions) && typeof answer.total === "number"
+              ? answer
+              : null;
           if (g !== gen) return;
           const nextSessions: SessionInfo[] = [];
           const seen = new Set<string>();
@@ -390,6 +418,12 @@ export function createSessionsStore() {
               }
             }
           }
+          for (const s of runs?.sessions ?? []) {
+            if (!seen.has(s.sessionId)) {
+              seen.add(s.sessionId);
+              nextSessions.push(s);
+            }
+          }
           // No fetch returns an organization row (`excludeOrg`), so one held here entered
           // through add() for the page showing it (an open desk or ticket session) and no
           // reload can bring it back: carry it over, or that page's writes stop reaching it.
@@ -400,6 +434,13 @@ export function createSessionsStore() {
             countsByAgent: nextCounts,
             workspaceCountsByAgent: nextWorkspaceCounts,
             workspaceLatestByAgent: nextWorkspaceLatest,
+            activityRuns: runs
+              ? {
+                  total: runs.total,
+                  fetched: runs.sessions.length,
+                  hasMore: runs.sessions.length < runs.total,
+                }
+              : null,
           });
         } finally {
           if (g === gen) set({ loading: false });
@@ -466,6 +507,7 @@ export function createSessionsStore() {
                   limit: SIDEBAR_PAGE_SIZE + 1,
                   category,
                   excludeOrg: true,
+                  excludeActivityRuns: true,
                   ...(scope === "" ? {} : { workspaceGroup: scope }),
                 })
               ).sessions;
@@ -499,6 +541,35 @@ export function createSessionsStore() {
         });
       },
 
+      /**
+       * The next page of the Project-wide activity-run stream, from the rows already read.
+       * A run created since shifts the offsets by one, so rows are deduplicated by id like
+       * loadMoreFor's; a failed fetch leaves the cursor for a retry.
+       */
+      loadMoreActivityRuns: async () => {
+        const { projectId, activityRuns } = get();
+        if (!projectId || !activityRuns?.hasMore) return;
+        const g = gen;
+        let res;
+        try {
+          res = await api.listActivityRunSessions(projectId, {
+            offset: activityRuns.fetched,
+            limit: SIDEBAR_PAGE_SIZE,
+          });
+        } catch {
+          return;
+        }
+        if (g !== gen) return;
+        const prev = get().sessions;
+        const seen = new Set(prev.map((s) => s.sessionId));
+        const appended = res.sessions.filter((s) => !seen.has(s.sessionId));
+        const fetched = activityRuns.fetched + res.sessions.length;
+        set({
+          ...(appended.length > 0 ? { sessions: [...prev, ...appended] } : {}),
+          activityRuns: { total: res.total, fetched, hasMore: fetched < res.total },
+        });
+      },
+
       add: (session) => {
         // Invalidate any in-flight reload: the newly created entry mustn't be wiped by a stale snapshot.
         gen += 1;
@@ -523,6 +594,16 @@ export function createSessionsStore() {
         gen += 1;
         const row = get().sessions.find((s) => s.sessionId === sessionId);
         if (row) adjustCount(row, sessionCategory(row), -1);
+        const runs = get().activityRuns;
+        if (row?.activityId !== undefined && runs) {
+          set({
+            activityRuns: {
+              ...runs,
+              total: Math.max(0, runs.total - 1),
+              fetched: Math.max(0, runs.fetched - 1),
+            },
+          });
+        }
         // Tombstone BEFORE pruning the list, in the same update: consumers re-render on the
         // pruned list, and any of them that reacts to the row's disappearance (the chat
         // page's deep-link lookup) must already be able to see that the id is dead rather
@@ -788,6 +869,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       countsByAgent: new Map(),
       workspaceCountsByAgent: new Map(),
       workspaceLatestByAgent: new Map(),
+      activityRuns: null,
       // The pages were just cleared, so the list is loading from this instant — including
       // the window where the Agent set itself is still being refetched (a Project switch
       // empties it, which makes reload() below return without fetching or clearing the
@@ -873,6 +955,9 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       loading: state.loading,
       reload: state.reload,
       loadMoreFor: state.loadMoreFor,
+      activityRunTotal: state.activityRuns?.total ?? 0,
+      activityRunsHasMore: state.activityRuns?.hasMore ?? false,
+      loadMoreActivityRuns: state.loadMoreActivityRuns,
       add: state.add,
       remove: state.remove,
       isDeleted,

@@ -257,6 +257,7 @@ export class SessionService {
       workspaceGroup?: string;
       withCounts?: boolean;
       excludeOrg?: boolean;
+      excludeActivityRuns?: boolean;
     } = {},
   ): Promise<{
     sessions: SessionInfo[];
@@ -264,7 +265,7 @@ export class SessionService {
     workspaceCounts?: Record<string, SessionCategoryCounts>;
     workspaceLatest?: Record<string, string>;
   }> {
-    const { paging, category, workspaceGroup, withCounts, excludeOrg } = opts;
+    const { paging, category, workspaceGroup, withCounts, excludeOrg, excludeActivityRuns } = opts;
     const rows = new Map(
       this.deps.sessions.listByAgent(projectId, agentId).map((r) => [r.sessionId, r]),
     );
@@ -279,6 +280,10 @@ export class SessionService {
       // reconcile pass has not stamped yet.
       for (const [id, row] of rows) if (row.client === "org" || orgIds.has(id)) rows.delete(id);
     }
+    // Activity runs leave the stream the same way when asked: the sidebar lists them
+    // Project-wide (listActivityRunSessions), so in an Agent's pages they would only take the
+    // slots and inflate the totals of the conversations the groups draw.
+    if (excludeActivityRuns) for (const id of activityIds.keys()) rows.delete(id);
 
     let traces: ReadonlySet<string> | undefined;
     if ([...rows.values()].some((r) => this.deps.sources.get(r.sessionId) === undefined)) {
@@ -346,6 +351,36 @@ export class SessionService {
     }
     const sessions = await toPage(paging ? matched.slice(paging.offset, want) : matched);
     return withCounts ? { sessions, counts, workspaceCounts, workspaceLatest } : { sessions };
+  }
+
+  /**
+   * The Project's activity-run Sessions across every Agent, newest first, for the sidebar's
+   * "Activity runs" folder: one stream and one total, so the folder pages on its own instead
+   * of holding whatever the Agents' conversation pages happened to carry. Archived runs and
+   * an organization's rows stay out, as they do from the folder.
+   */
+  async listActivityRunSessions(
+    projectId: string,
+    paging: { offset: number; limit: number },
+  ): Promise<{ sessions: SessionInfo[]; total: number }> {
+    const activityIds = this.deps.activityIdsOfProject?.(projectId) ?? EMPTY_ACTIVITY_IDS;
+    const orgIds = this.deps.orgIdsOfProject?.(projectId) ?? EMPTY_ORG_IDS;
+    const rows: SessionRow[] = [];
+    for (const sessionId of activityIds.keys()) {
+      const row = this.deps.sessions.findById(sessionId);
+      if (!row || row.projectId !== projectId) continue;
+      if ((row.archivedAt ?? null) !== null || row.client === "org" || orgIds.has(sessionId))
+        continue;
+      rows.push(row);
+    }
+    rows.sort(
+      (a, b) => b.createdAt.localeCompare(a.createdAt) || b.sessionId.localeCompare(a.sessionId),
+    );
+    const page = rows.slice(paging.offset, paging.offset + paging.limit);
+    const sessions = await Promise.all(
+      page.map((row) => this.toInfo(row, row.hasTrace === true, orgIds, activityIds)),
+    );
+    return { sessions, total: rows.length };
   }
 
   /**

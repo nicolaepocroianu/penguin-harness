@@ -604,11 +604,13 @@ The paths below omit the `/api/projects/:projectId` prefix.
 | --- | --- | --- |
 | GET | `/agents/:agentId/sessions` | Lists the agent's Sessions with their run state, whichever client created them, unless `excludeOrg=1` asks for the user's own rows only |
 | POST | `/agents/:agentId/sessions` | Creates a Session: `{modelId?, provider?, workspace?, approvalMode?, client?, source?}` → 201 `{session}` |
+| GET | `/activity-sessions` | The Project's activity-run Sessions across every agent, newest first: `{sessions, total}` |
 | GET | `/dirs?path=` | Server-side directory browser behind the Workspace picker |
 | GET | `/dir-skills?path=` | The Skills a directory carries, for importing them into a new agent |
 
 - The Session list accepts optional query parameters. `limit` and `offset` page the list (`offset` requires `limit`). `category` (`active`, `subagent`, `schedule`, `benchmark` or `archived`) filters it before paging, and `workspaceGroup` filters it to one Workspace. `counts=1` adds `counts` (totals per category over the whole list), `workspaceCounts` (the same totals per Workspace path) and `workspaceLatest` (each Workspace's newest Session). Without paging parameters, the full list is returned.
 - `excludeOrg=1` leaves an organization's desk, ticket and subagent Sessions out of the page and out of the `counts=1` totals together, which is what development mode's list asks for. Any other value is a 400.
+- `excludeActivity=1` leaves activity-run Sessions out of the page and the totals the same way. The sidebar lists them from `GET /activity-sessions` instead, which pages them with `limit` and `offset` (the first 50 by default) and leaves archived runs and an organization's rows out.
 - On creation, `modelId` and `provider` go together: send the complete pair to pick a model, or omit both to use the Project's default model. Sending only one is a 400.
 - An explicit `workspace` must be an existing directory; it is never created. When omitted, the Workspace is a temporary one created automatically. The approval mode defaults to `allow-all`.
 - `client` is a provenance hint stored on the row: `"cli"` from the CLI, `"web"` by default. The server itself writes `"org"` on an organization's desk and ticket sessions, and a client cannot send that value. Only `excludeOrg` reads it as a filter, and only to drop those rows.

@@ -260,10 +260,21 @@ export class SessionsRepo implements SessionIndex {
       .run(archivedAt, sessionId);
   }
 
-  /** Self-healing: after rebuilding a broken Session with no Trace, update the primary key to the new id. */
+  /**
+   * Self-healing: after rebuilding a broken Session with no Trace, update the primary key to
+   * the new id — and the activity run that names the Session, so a run's conversation (a
+   * studio chat continued after a restart) stays that run's rather than becoming an
+   * ordinary one.
+   */
   replaceId(oldSessionId: string, newSessionId: string): void {
     this.db
       .prepare("UPDATE sessions SET session_id = ? WHERE session_id = ?")
+      .run(newSessionId, oldSessionId);
+    this.db
+      .prepare(
+        `UPDATE activity_runs SET record_json = json_set(record_json, '$.sessionId', ?)
+          WHERE json_extract(record_json, '$.sessionId') = ?`,
+      )
       .run(newSessionId, oldSessionId);
   }
 

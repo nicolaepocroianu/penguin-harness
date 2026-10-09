@@ -1748,6 +1748,15 @@ export class SessionManager {
       // channel and pending state are naturally empty for it.
       this.deps.sessions.replaceId(row.sessionId, session.sessionId);
       currentId = session.sessionId;
+      // The lists hold the old id: announce the new one so they refetch and swap the row.
+      const source = this.deps.sources.get(row.sessionId) ?? undefined;
+      this.deps.notifyProjectUsers?.(row.projectId, {
+        type: "session_created",
+        projectId: row.projectId,
+        agentId: row.agentId,
+        sessionId: currentId,
+        ...(source ? { source } : {}),
+      });
     }
     const entry: RuntimeEntry = {
       sessionId: currentId,
@@ -2286,6 +2295,7 @@ export abstract class SessionServiceIface extends Interface<
     | "toInfo"
     | "hasTrace"
     | "listSessions"
+    | "listActivityRunSessions"
     | "sessionStats"
     | "createSession"
     | "latestTracePath"

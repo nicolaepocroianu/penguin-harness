@@ -409,6 +409,9 @@ export function Sidebar({
     isLoadedFor,
     hasMoreFor,
     loadMoreFor,
+    activityRunTotal,
+    activityRunsHasMore,
+    loadMoreActivityRuns,
     loading,
     remove,
     replace,
@@ -446,7 +449,8 @@ export function Sidebar({
   );
   const byAgent = useMemo(() => {
     const map = new Map<string, SessionInfo[]>();
-    for (const [agentId, rows] of allByAgent) map.set(agentId, withoutActivityRuns(withoutOrgSessions(rows)));
+    for (const [agentId, rows] of allByAgent)
+      map.set(agentId, withoutActivityRuns(withoutOrgSessions(rows)));
     return map;
   }, [allByAgent]);
 
@@ -459,7 +463,9 @@ export function Sidebar({
    * group per run.
    */
   const activityRunIds = useMemo(
-    () => [...new Set(allSessions.flatMap((s) => (s.activityId === undefined ? [] : [s.activityId])))],
+    () => [
+      ...new Set(allSessions.flatMap((s) => (s.activityId === undefined ? [] : [s.activityId]))),
+    ],
     [allSessions],
   );
   const activityLabels = useActivityLabels(currentProjectId, activityRunIds);
@@ -468,6 +474,7 @@ export function Sidebar({
     [allSessions, activityLabels],
   );
   const [activityRunsOpen, setActivityRunsOpen] = useState(false);
+  const [activityRunsPending, setActivityRunsPending] = useState(false);
   /** This Project's read markers; re-renders the rows whenever one is stamped. */
   const sessionSeen = useSessionSeen(currentProjectId);
   // The Project's scheduled tasks, shared with the dock's schedules panel through one store, so
@@ -1571,20 +1578,22 @@ export function Sidebar({
   /**
    * The Project-wide "Activity runs" folder (see activityRuns): collapsed by default, each
    * activity's name a link back to it, its runs as ordinary rows that open the transcript.
-   * It holds only what the loaded pages carried — the activity's own Sessions panel is the
-   * complete list — so it pages nothing; searching forces it open on its matches, like the
-   * other folders.
+   * Its runs are one Project-wide stream (the store pages it apart from the Agents' pages),
+   * so the label names the server's total and "More" reads the next page; searching forces
+   * it open on its loaded matches, like the other folders.
    */
   const renderActivityRuns = () => {
     // A query naming a product code or an activity keeps that heading's runs, not only
     // the runs whose own titles match.
     const products = searchActivityRuns(activityRuns, searching ? searchQuery : "");
-    const total = products.reduce(
-      (sum, product) =>
-        sum + product.activities.reduce((n, group) => n + group.sessions.length, 0),
+    const loaded = products.reduce(
+      (sum, product) => sum + product.activities.reduce((n, group) => n + group.sessions.length, 0),
       0,
     );
+    // Loaded rows win a disagreement with the total (it refreshes only on reload).
+    const total = searching ? loaded : Math.max(activityRunTotal, loaded);
     if (total === 0) return null;
+    const hidden = searching || !activityRunsHasMore ? 0 : total - loaded;
     return (
       <div className="pt-2.5">
         <FolderSection
@@ -1592,6 +1601,13 @@ export function Sidebar({
           open={searching || activityRunsOpen}
           onToggle={() => {
             if (!searching) setActivityRunsOpen((open) => !open);
+          }}
+          more={hidden > 0}
+          moreLabel={S.chat.expandRestSessions(hidden)}
+          pending={activityRunsPending}
+          onMore={() => {
+            setActivityRunsPending(true);
+            void loadMoreActivityRuns().finally(() => setActivityRunsPending(false));
           }}
         >
           {products.map((product) => (

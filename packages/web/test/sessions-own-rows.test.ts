@@ -15,12 +15,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServerEvent, SessionInfo, SessionsResponse } from "@prismshadow/penguin-server/api";
 
-vi.mock("../src/api/endpoints", () => ({ listSessions: vi.fn() }));
+vi.mock("../src/api/endpoints", () => ({
+  listSessions: vi.fn(),
+  listActivityRunSessions: vi.fn(),
+}));
 
 import * as api from "../src/api/endpoints";
 import { applyUserEvent, createSessionsStore, liveSessionStatuses } from "../src/state/sessions";
 
 const listSessions = vi.mocked(api.listSessions);
+const listActivityRunSessions = vi.mocked(api.listActivityRunSessions);
 
 const NO_ROWS: SessionsResponse = { sessions: [] };
 const COUNTS = { active: 1, subagent: 1, schedule: 0, benchmark: 0, archived: 0 };
@@ -55,6 +59,8 @@ const stateEvent = (sessionId: string, state: "running" | "idle"): ServerEvent =
 
 beforeEach(() => {
   listSessions.mockReset();
+  listActivityRunSessions.mockReset();
+  listActivityRunSessions.mockResolvedValue({ sessions: [], total: 0 });
 });
 
 describe("the list fetches the user's own rows only", () => {
@@ -66,7 +72,12 @@ describe("the list fetches the user's own rows only", () => {
     expect(listSessions).toHaveBeenCalledTimes(2);
     for (const call of listSessions.mock.calls) {
       expect(call[0]).toBe("proj");
-      expect(call[2]).toMatchObject({ category: "active", withCounts: true, excludeOrg: true });
+      expect(call[2]).toMatchObject({
+        category: "active",
+        withCounts: true,
+        excludeOrg: true,
+        excludeActivityRuns: true,
+      });
     }
   });
 
@@ -180,5 +191,56 @@ describe("live statuses outlive the rows", () => {
     const state = store.getState();
     expect(state.sessions.map((s) => s.sessionId)).toEqual(["s-desk"]);
     expect(liveSessionStatuses(state.sessions, state.liveStatuses).has("s-desk")).toBe(false);
+  });
+});
+
+describe("activity runs page as one Project-wide stream", () => {
+  const run = (n: number) =>
+    session(`run-${n}`, {
+      activityId: "act-1",
+      agentId: n % 2 ? "activity_agent" : "default_agent",
+    });
+
+  it("reload() loads the newest runs with their total, and loadMoreActivityRuns() reads on", async () => {
+    listSessions.mockResolvedValue({ ...NO_ROWS, counts: COUNTS });
+    listActivityRunSessions.mockResolvedValueOnce({
+      sessions: Array.from({ length: 10 }, (_, i) => run(25 - i)),
+      total: 25,
+    });
+    const store = createSessionsStore();
+    store.setState({ projectId: "proj", agentIds: ["default_agent"] });
+    await store.getState().reload();
+    expect(listActivityRunSessions).toHaveBeenCalledWith("proj", { offset: 0, limit: 10 });
+    expect(store.getState().activityRuns).toEqual({ total: 25, fetched: 10, hasMore: true });
+
+    listActivityRunSessions.mockResolvedValueOnce({
+      sessions: Array.from({ length: 10 }, (_, i) => run(15 - i)),
+      total: 25,
+    });
+    await store.getState().loadMoreActivityRuns();
+    expect(listActivityRunSessions).toHaveBeenLastCalledWith("proj", { offset: 10, limit: 10 });
+    expect(store.getState().sessions.filter((s) => s.activityId)).toHaveLength(20);
+    expect(store.getState().activityRuns).toEqual({ total: 25, fetched: 20, hasMore: true });
+  });
+
+  it("a reload keeps as many runs as were already read, so an open folder does not shrink", async () => {
+    listSessions.mockResolvedValue({ ...NO_ROWS, counts: COUNTS });
+    const store = createSessionsStore();
+    store.setState({
+      projectId: "proj",
+      agentIds: ["default_agent"],
+      activityRuns: { total: 30, fetched: 20, hasMore: true },
+    });
+    await store.getState().reload();
+    expect(listActivityRunSessions).toHaveBeenCalledWith("proj", { offset: 0, limit: 20 });
+  });
+
+  it("a run row never moves an Agent's totals", async () => {
+    listSessions.mockResolvedValue({ sessions: [session("own")], counts: COUNTS });
+    const store = createSessionsStore();
+    store.setState({ projectId: "proj", agentIds: ["default_agent"] });
+    await store.getState().reload();
+    store.getState().add(run(2));
+    expect(store.getState().countsByAgent.get("default_agent")?.active).toBe(1);
   });
 });
