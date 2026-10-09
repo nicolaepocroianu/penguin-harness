@@ -130,9 +130,13 @@ class ClipChip extends WidgetType {
       chip.setAttribute("aria-label", `${chip.textContent}: ${words.openClip(key)}`);
       const open = this.open;
       // Mouse down, not click: the editor would otherwise take the press as a cursor move.
+      // Enter and Space arrive as a click with no pointer behind it (detail 0).
       chip.onmousedown = (event) => {
         event.preventDefault();
         open(key);
+      };
+      chip.onclick = (event) => {
+        if (event.detail === 0) open(key);
       };
     }
     return chip;

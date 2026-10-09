@@ -78,7 +78,7 @@ import {
 import { assetForPick, buildStudioTree, sectionTrails } from "./studio-tree";
 import { sceneRanges } from "./script-model";
 import { buildScriptMedia } from "./script-media";
-import type { ScriptReview } from "./script-editor";
+import type { SavedReview, ScriptReview } from "./script-editor";
 import { ConversationPanel } from "./conversation-panel";
 import { focusFor, latestConversation } from "./conversation";
 import { applyMediaChange, type ProposalChange } from "./proposal";
@@ -486,6 +486,8 @@ function ActivityEditor({
   const [reviewRequest, setReviewRequest] = useState<{ scene?: number; at: number } | null>(null);
   /** Where the script editor's review of a proposal stands, for the chat to say. */
   const [scriptReview, setScriptReview] = useState<ScriptReview | null>(null);
+  /** A review of the proposed script set aside, kept while the author is elsewhere. */
+  const savedReview = useRef<SavedReview | null>(null);
   /**
    * A proposed script the author has finished with, though its proposal stays open for its
    * other changes: once applied in part, it no longer waits on the author.
@@ -594,6 +596,21 @@ function ActivityEditor({
   const proposedScript = proposal.read?.proposal?.changes.find(
     (change) => change.target === "description",
   );
+  // A script the author reviewed and applied in part is done with: the card shows only the
+  // proposal's other changes.
+  const scriptSettled = !!proposedScript && proposedScript.text === settledScript;
+  const cardProposal: ProposalRead | null =
+    scriptSettled && proposal.read?.proposal
+      ? {
+          ...proposal.read,
+          proposal: {
+            ...proposal.read.proposal,
+            changes: proposal.read.proposal.changes.filter(
+              (change) => change.target !== "description",
+            ),
+          },
+        }
+      : proposal.read;
   const scriptProposal =
     proposedScript &&
     detail &&
@@ -1463,12 +1480,16 @@ function ActivityEditor({
               }}
               dirty={dirty}
               onAccept={acceptProposal}
-              proposal={proposal.read}
+              proposal={cardProposal}
               onReplyEnded={proposal.reload}
               seed={excerpt}
               onSeedTaken={takeExcerpt}
+              // Applying the whole proposal would bring back a reviewed script's rejected
+              // changes, so once the script is settled the rest are accepted one by one.
               onApplyAll={
-                proposal.read ? () => applyWholeProposal(proposal.read!.runId) : undefined
+                proposal.read && !scriptSettled
+                  ? () => applyWholeProposal(proposal.read!.runId)
+                  : undefined
               }
               onDiscard={proposal.read ? () => discardProposal(proposal.read!.runId) : undefined}
               review={scriptReview}
@@ -1862,6 +1883,7 @@ function ActivityEditor({
               media={scriptMedia}
               onOpenClip={openClip}
               onReview={setScriptReview}
+              memory={savedReview}
               onApplyReviewed={
                 editable && available ? (text) => void applyReviewedScript(text) : undefined
               }

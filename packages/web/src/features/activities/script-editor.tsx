@@ -107,7 +107,13 @@ function controlButton(className: string, label: string, action: (event: MouseEv
   button.type = "button";
   button.className = className;
   button.textContent = label;
+  // A press acts on mouse down, before the editor can take it as a cursor move. Enter and
+  // Space reach a button only as a click with no pointer behind it (detail 0), so that click
+  // acts too, and a mouse's own click, which follows its mouse down, does not act twice.
   button.onmousedown = action;
+  button.onclick = (event) => {
+    if (event.detail === 0) action(event);
+  };
   return button;
 }
 
@@ -149,6 +155,20 @@ function proposalReview(original: string, decided: (verdict: "accept" | "reject"
 /** How many changes a review state still holds. */
 function chunksLeft(state: EditorState): number {
   return getChunks(state)?.chunks.length ?? 0;
+}
+
+/**
+ * A review set aside, to pick up where the author left it: the proposal and script it was
+ * made against, the text it has come to, the original with the accepted changes in it, and
+ * what was decided. Held by the page, so it outlives the editor when another section opens.
+ */
+export interface SavedReview {
+  proposal: string;
+  value: string;
+  text: string;
+  original: string;
+  total: number;
+  rejected: number;
 }
 
 /** A review in progress: the text it has come to, and what the author decided so far. */
@@ -193,6 +213,7 @@ export function ScriptEditor({
   onDiscardProposal,
   onOpenClip,
   onReview,
+  memory,
 }: {
   value: string;
   /** The script as last saved. */
@@ -225,6 +246,8 @@ export function ScriptEditor({
   onOpenClip?: (key: string) => void;
   /** Where the review stands, or null when no proposal is being reviewed. */
   onReview?: (review: ScriptReview | null) => void;
+  /** Where a review is kept while it is set aside, so leaving it loses no decision. */
+  memory?: { current: SavedReview | null };
 }) {
   const words = S.activities.studioScript;
   const host = useRef<HTMLDivElement>(null);
@@ -248,8 +271,26 @@ export function ScriptEditor({
   const [cursorLine, setCursorLine] = useState(1);
   // The review in progress: the text it has come to, and what the author decided so far.
   const [review, setReview] = useState<ReviewState | null>(null);
+  // The same, readable when the review is set aside, and what the review was made against.
+  const reviewNow = useRef<ReviewState | null>(null);
+  reviewNow.current = review;
+  const reviewBasis = useRef<{ proposal: string; value: string } | null>(null);
   // A scene to show once the proposal's state is in place.
   const reviewScene = useRef<number | null>(null);
+
+  /** Keep the review the view holds, before it is put away. */
+  function rememberReview(view: EditorView) {
+    const basis = reviewBasis.current;
+    const current = reviewNow.current;
+    if (!memory || !basis || !current) return;
+    memory.current = {
+      ...basis,
+      text: view.state.doc.toString(),
+      original: getOriginalDoc(view.state).toString(),
+      total: current.total,
+      rejected: current.rejected,
+    };
+  }
 
   // What the diff reads: the base's text against the text the editor shows.
   const [before, after] =
@@ -299,9 +340,13 @@ export function ScriptEditor({
     });
     viewRef.current = view;
     return () => {
+      // Opening another section takes the editor away; a review in progress is kept.
+      if (stash.current) rememberReview(view);
       view.destroy();
       viewRef.current = null;
     };
+    // rememberReview reads only refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compartments]);
 
   const mediaExtension = useMemo(
@@ -313,23 +358,29 @@ export function ScriptEditor({
     const view = viewRef.current;
     if (!view) return;
     if (base === "proposal") {
-      if (!stash.current) stash.current = view.state;
+      // Already reviewing, and rebuilt for a new setting: carry the decisions over.
+      if (stash.current) rememberReview(view);
+      else stash.current = view.state;
       const decided = (verdict: "accept" | "reject") => {
         if (verdict === "reject")
           setReview((current) =>
             current ? { ...current, rejected: current.rejected + 1 } : current,
           );
       };
+      // The review the author set aside, if it was made against this proposal and this script.
+      const kept = memory?.current;
+      const resume = kept && kept.proposal === proposal && kept.value === value ? kept : null;
+      reviewBasis.current = { proposal: proposal ?? "", value };
       view.setState(
         EditorState.create({
-          doc: proposal ?? "",
+          doc: resume?.text ?? proposal ?? "",
           extensions: [
             common(),
             mediaExtension,
             // Read-only to typing; the review's own controls are what change it.
             EditorState.readOnly.of(true),
             EditorView.editable.of(false),
-            proposalReview(value, decided),
+            proposalReview(resume?.original ?? value, decided),
             EditorView.updateListener.of((update) => {
               if (!update.docChanged && !update.transactions.length) return;
               const left = chunksLeft(update.state);
@@ -339,8 +390,13 @@ export function ScriptEditor({
           ],
         }),
       );
-      const total = chunksLeft(view.state);
-      setReview({ text: proposal ?? "", left: total, total, rejected: 0 });
+      const left = chunksLeft(view.state);
+      setReview({
+        text: view.state.doc.toString(),
+        left,
+        total: resume?.total ?? left,
+        rejected: resume?.rejected ?? 0,
+      });
       if (reviewScene.current !== null) {
         const scene = scenesOf(view.state.doc).list.find(
           (entry) => entry.number === reviewScene.current,
@@ -352,6 +408,7 @@ export function ScriptEditor({
     }
     setReview(null);
     if (stash.current) {
+      rememberReview(view);
       view.setState(stash.current);
       stash.current = null;
       // The stashed state carries whatever was configured when it was set aside, so

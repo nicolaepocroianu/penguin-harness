@@ -2396,7 +2396,17 @@ test("reviews an agent's proposed script change by change and applies what was k
   // Reject the first change where it stands; the second stays and counts as kept.
   await box.locator(".cm-review-reject").first().click();
   await expect(review).toContainText("1 of 2 changes from the agent to review");
-  await box.locator(".cm-review-accept").first().click();
+
+  // Leaving the review and coming back keeps what was decided.
+  const compare = page.getByRole("group", { name: "Compare", exact: true });
+  await compare.getByRole("button", { name: "Off", exact: true }).click();
+  await expect(review).toHaveCount(0);
+  await compare.getByRole("button", { name: "Agent proposal", exact: true }).click();
+  await expect(review).toContainText("1 of 2 changes from the agent to review");
+
+  // The change controls answer the keyboard as well as the mouse.
+  await box.locator(".cm-review-accept").first().focus();
+  await page.keyboard.press("Enter");
   await expect(review).toContainText("All 2 reviewed: 1 kept.");
   await review.getByRole("button", { name: "Apply to the script", exact: true }).click();
 
