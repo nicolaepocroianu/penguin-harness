@@ -310,18 +310,21 @@ function checkoutRoot(wafRoot: string) {
  * staged (the test browser is not installed), or the agent never ran the one it was given.
  */
 async function playerCheckGap(workspace: string): Promise<ActivityRun["unchecked"]> {
-  const present = (file: string) =>
-    fs.stat(file).then(
-      () => true,
-      () => false,
-    );
   const dir = path.join(workspace, PLAYER_CHECK_DIR);
-  if (!(await present(dir))) return "noBrowser";
-  return (await present(path.join(dir, ACCEPTANCE_RESULTS_FILE))) ? undefined : "notRun";
+  if (!(await isPresent(dir))) return "noBrowser";
+  if (!(await isPresent(path.join(dir, ACCEPTANCE_RESULTS_FILE)))) return "notRun";
+  return undefined;
+}
+
+async function isPresent(file: string): Promise<boolean> {
+  return fs.stat(file).then(
+    () => true,
+    () => false,
+  );
 }
 
 /** Where a WAF module scaffold's packages are installed once and linked into each run. */
-function modulePackagesRoot(root: string) {
+function modulePackagesRoot(root: string): string {
   return path.join(root, "module-packages-cache");
 }
 

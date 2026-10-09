@@ -326,6 +326,11 @@ export interface PipelineDeps {
   newId?: () => string;
 }
 
+/**
+ * How often a stage looks at the run it waits on: soon at first, since a speech clip or image
+ * is often done within a second, then backing off to once a second for an agent's long run.
+ */
+const FIRST_POLL_MS = 100;
 const POLL_MS = 1000;
 
 export class PipelineRunner {
@@ -836,7 +841,7 @@ export class PipelineRunner {
     step.runIds.push(run.runId);
     state.currentRunId = run.runId;
     state.currentSessionId = run.sessionId;
-    for (;;) {
+    for (let wait = FIRST_POLL_MS; ; wait = Math.min(wait * 2, POLL_MS)) {
       const latest = (await this.deps.generation.list(state.projectId, state.activityId)).find(
         (entry) => entry.runId === run.runId,
       );
@@ -849,7 +854,7 @@ export class PipelineRunner {
           throw new Stopped();
         throw new Error(latest.error ?? `The ${latest.kind} run ended as ${latest.status}.`);
       }
-      await this.pause(POLL_MS);
+      await this.pause(wait);
     }
   }
 }

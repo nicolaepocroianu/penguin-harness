@@ -35,7 +35,14 @@ import { moduleContentType, moduleFileHeaders, moduleFilePath } from "./sandbox-
 import { describeBuild, SandboxBuilder, type BuildResult } from "./sandbox-builder.js";
 import { spawnModuleBuild, spawnNodeScript } from "./sandbox-build-runner.js";
 import { spawnCheckoutBuild } from "./sandbox-checkout-build.js";
-import { PLAYER_BUILD_SCRIPT, PLAYER_SOURCE, playerPage, playerStamp } from "./sandbox-player.js";
+import {
+  LOADING_VIDEO_FOLDER,
+  LOADING_VIDEO_PATH,
+  PLAYER_BUILD_SCRIPT,
+  PLAYER_SOURCE,
+  playerPage,
+  playerStamp,
+} from "./sandbox-player.js";
 import {
   aliasesByRefKey,
   applyAliasesToLanguageGroups,
@@ -1074,22 +1081,39 @@ export class ActivitySandboxService implements ActivitySandbox {
 
     const definition = await readJsonFile(path.join(source.root, "definition.json"));
     const runtime = (spec.runtime ?? {}) as Record<string, unknown>;
+    const loadingVideo = await this.loadingVideo();
     return {
       status: 200,
-      html: playerPage({
-        base,
-        title: String(spec.title ?? activity.title),
-        moduleId: typeof definition?.id === "string" ? definition.id : activity.productCode,
-        productCode: activity.productCode,
-        refNum: activity.refNum,
-        hasAssessment: runtime.usesAssessment === true,
-        resolution: typeof runtime.resolution === "string" ? runtime.resolution : null,
-        languageCode: options.languageCode ?? null,
-        startSceneId: options.startSceneId ?? null,
-        expiresAt,
-        parentOrigin,
-      }),
+      html: playerPage(
+        {
+          base,
+          title: String(spec.title ?? activity.title),
+          moduleId: typeof definition?.id === "string" ? definition.id : activity.productCode,
+          productCode: activity.productCode,
+          refNum: activity.refNum,
+          hasAssessment: runtime.usesAssessment === true,
+          resolution: typeof runtime.resolution === "string" ? runtime.resolution : null,
+          languageCode: options.languageCode ?? null,
+          startSceneId: options.startSceneId ?? null,
+          expiresAt,
+          parentOrigin,
+        },
+        { loadingVideo },
+      ),
     };
+  }
+
+  /**
+   * Whether the media checkout holds the loading animation, fetched with the activity's media
+   * when it can be. Only a nicety: a fetch that fails leaves it out of the page, never the
+   * preview.
+   */
+  private async loadingVideo(): Promise<boolean> {
+    const wafRoot = await this.locateWafRoot();
+    if (!wafRoot) return false;
+    await this.wafWorkspace.ensureMedia([LOADING_VIDEO_FOLDER]).catch(() => undefined);
+    const file = await fs.stat(path.join(wafRoot, LOADING_VIDEO_PATH)).catch(() => null);
+    return !!file?.isFile();
   }
 
   /**

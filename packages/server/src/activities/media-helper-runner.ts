@@ -394,7 +394,9 @@ export async function linkModuleDependencies(
       devDependencies: sorted(manifest.devDependencies ?? {}),
       npmrc: await fs.readFile(path.join(moduleDir, ".npmrc"), "utf8").catch(() => ""),
     };
-    if (packageNames(set) === "[]") return false;
+    const nothingToInstall =
+      !Object.keys(set.dependencies).length && !Object.keys(set.devDependencies ?? {}).length;
+    if (nothingToInstall) return false;
     if (await exists(path.join(moduleDir, "node_modules"))) return false;
     const { dir, shared } = await cachedInstall(set, cacheDir, env, install);
     if (shared) {
