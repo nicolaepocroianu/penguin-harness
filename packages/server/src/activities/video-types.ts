@@ -29,6 +29,11 @@ export interface VideoTarget {
   height: number;
   /** How long the composition says it plays, in seconds. */
   seconds: number;
+  /**
+   * Set when the run rendered the asset's timeline (see video-timeline.ts) rather than recorded
+   * a composition; `compositionRunId` is then its first cut's.
+   */
+  fromTimeline?: true;
   /** Set when the run failed for a cause Penguin knows. */
   problem?: VideoProblemCode;
 }
@@ -46,4 +51,6 @@ export interface VideoResult {
   bytes: number;
   /** Absent on recordings from before the frame renderer, which are WebM. */
   format?: VideoFormat;
+  /** Set when captions were written beside it, as WebVTT. */
+  captions?: true;
 }

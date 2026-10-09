@@ -293,6 +293,60 @@ export class ActivityRoutes {
         ),
       ),
     );
+    app.put("/:activityId/video-timeline", async (c) => {
+      const body = await readJson(c);
+      if (!this.generation.videoExperiment())
+        throw new HttpError(
+          403,
+          "experiment_off",
+          "Scene videos are an experiment an admin has not turned on.",
+        );
+      return c.json(
+        await this.activities.saveVideoTimeline(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          {
+            language: requireString(body, "language", { minLen: 1, maxLen: 32 }),
+            assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
+            timeline: body.timeline ?? null,
+            expectedRevision: requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
+          },
+        ),
+      );
+    });
+    // Renders a video or animation's timeline to its finished video (experimental).
+    app.post("/:activityId/render-timeline", async (c) => {
+      const body = await readJson(c);
+      return c.json(
+        await this.videoRenders.startTimeline(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          {
+            language: requireString(body, "language", { minLen: 1, maxLen: 32 }),
+            assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
+            expectedRevision: requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
+          },
+        ),
+        202,
+      );
+    });
+    // A video run's captions, as WebVTT for the studio's player; 404 when it has none.
+    app.get("/:activityId/runs/:runId/captions", async (c) => {
+      const vtt = await this.activities.readCaptions(
+        requireValidId(c, "projectId"),
+        pathParam(c, "activityId"),
+        pathParam(c, "runId"),
+      );
+      if (vtt === null)
+        throw new HttpError(404, "captions_not_found", "This video has no captions.");
+      return new Response(vtt, {
+        headers: {
+          "Content-Type": "text/vtt; charset=utf-8",
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    });
     // An agent composes an animated scene for a video or animation asset (experimental).
     app.post("/:activityId/compose-video", async (c) => {
       const body = await readJson(c);

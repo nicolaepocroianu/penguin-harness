@@ -1757,7 +1757,9 @@ export class ActivityGenerationService implements ActivityGeneration {
         summary.kind !== "video" ||
         summary.status !== "succeeded" ||
         summary.video?.language !== language ||
-        summary.video.assetKey !== assetKey
+        summary.video.assetKey !== assetKey ||
+        // A finished video is what a timeline makes, never what it starts from.
+        summary.video.fromTimeline
       )
         continue;
       const run = await this.getRun(projectId, activityId, summary.runId);

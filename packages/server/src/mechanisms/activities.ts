@@ -301,6 +301,21 @@ export abstract class ActivityAuthoring extends Interface<{
     sha256: string,
     format: VideoFormat,
   ): Promise<Uint8Array>;
+  /**
+   * Save a video or animation's timeline on its asset, or with `timeline: null` drop it so the
+   * video starts from its newest recording again. 422 `timeline_invalid` with what is wrong.
+   */
+  saveVideoTimeline(
+    projectId: string,
+    activityId: string,
+    input: { language: string; assetKey: string; timeline: unknown; expectedRevision: string },
+  ): Promise<ActivityDraft>;
+  /** Keep a timeline render's captions (WebVTT) beside its video, as the run's candidate. */
+  storeCaptions(projectId: string, activityId: string, runId: string, vtt: string): Promise<void>;
+  /** A video run's captions, kept or bound; null when it has none. */
+  readCaptions(projectId: string, activityId: string, runId: string): Promise<string | null>;
+  /** The file a media reference names in the media repository, when it is a regular file. */
+  mediaFilePath(projectId: string, activityId: string, reference: string): Promise<string | null>;
   /** Bind a kept recording to its video or animation asset. */
   applyVideo(
     projectId: string,

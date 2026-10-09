@@ -30,13 +30,25 @@ import {
   RenderError,
   VideoFileError,
   readVideoFile,
+  RENDER_MAX_MS,
   renderComposition,
   type EncoderStarter,
 } from "./video-render.js";
-import type { VideoProblemCode, VideoTarget } from "./video-types.js";
+import { runFfmpeg } from "./ffmpeg.js";
+import { timelineRenderArgs } from "./timeline-render.js";
+import { captionCues, timelineLengthMs, webVtt } from "./video-timeline.js";
+import type { VideoTimeline } from "./video-timeline-types.js";
+import type { VideoProblemCode, VideoResult, VideoTarget } from "./video-types.js";
 
 /** Where a run's recorder writes, inside its workspace; removed once the recording is kept. */
 export const RECORDING_DIR = "recording";
+/** Where a timeline render gathers its inputs and writes; removed once the video is kept. */
+export const TIMELINE_DIR = "timeline";
+
+/** Runs FFmpeg with a timeline render's arguments. */
+const renderWithFfmpeg = async (args: string[]): Promise<void> => {
+  await runFfmpeg(args, { purpose: "to render a scene video", timeoutMs: RENDER_MAX_MS });
+};
 
 /**
  * The parts of a recording that touch the outside world. Absent, the real ones are used; a
@@ -51,6 +63,8 @@ export abstract class VideoRenderPorts extends Interface<{
   pageTimeoutMs?: number;
   /** Frames per second; 30 by default. A test lowers it. */
   fps?: number;
+  /** Runs FFmpeg with a timeline render's arguments; the real FFmpeg by default. */
+  renderTimeline?: (args: string[]) => Promise<void>;
 }>() {}
 
 /** The code a failed recording is worded by, for the causes Penguin knows; null otherwise. */
@@ -77,6 +91,17 @@ export abstract class ActivityVideoRenders extends Interface<{
     projectId: string,
     activityId: string,
     input: { compositionRunId: string; expectedRevision: string },
+  ): Promise<ActivityRun>;
+  /**
+   * Starts rendering a video or animation's timeline (saved, or started from its newest
+   * recording) to its finished video, captions beside it, and answers at once with the run.
+   * 403 `experiment_off`; 409 `draft_conflict`; 409 `timeline_blocked` when it names audio that
+   * cannot be played; 409 `timeline_source_missing`; 409 `generation_running`.
+   */
+  startTimeline(
+    projectId: string,
+    activityId: string,
+    input: { language: string; assetKey: string; expectedRevision: string },
   ): Promise<ActivityRun>;
 }>() {}
 
@@ -202,10 +227,9 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
     url: string,
     target: VideoTarget,
   ): Promise<void> {
-    const { projectId, activityId, runId } = run;
-    const dir = path.join(this.config.root, "activity-runs", runId, RECORDING_DIR);
-    try {
-      const file = await renderComposition({
+    const dir = path.join(this.config.root, "activity-runs", run.runId, RECORDING_DIR);
+    await this.produce(run, dir, async () => ({
+      file: await renderComposition({
         executablePath: executable,
         compositionUrl: url,
         width: target.width,
@@ -216,18 +240,160 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         ...(this.ports.encoder ? { encoder: this.ports.encoder } : {}),
         ...(this.ports.pageTimeoutMs ? { pageTimeoutMs: this.ports.pageTimeoutMs } : {}),
         ...(this.ports.fps ? { fps: this.ports.fps } : {}),
-      });
+      }),
+      captions: null,
+    }));
+  }
+
+  async startTimeline(
+    projectId: string,
+    activityId: string,
+    input: { language: string; assetKey: string; expectedRevision: string },
+  ): Promise<ActivityRun> {
+    if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
+    if (!this.generation.videoExperiment())
+      throw new HttpError(
+        403,
+        "experiment_off",
+        "Scene videos are an experiment an admin has not turned on.",
+      );
+    const activity = await this.activities.getActivity(projectId, activityId);
+    if (activity.draft.contentRevision !== input.expectedRevision)
+      throw new HttpError(
+        409,
+        "draft_conflict",
+        "The draft changed. Reload it before rendering the video.",
+      );
+    const { timeline, issues } = await this.generation.videoTimeline(
+      projectId,
+      activityId,
+      input.language,
+      input.assetKey,
+    );
+    const unplayable = [
+      ...new Set(
+        issues
+          .filter((issue) => ["asset_missing", "asset_kind", "asset_unbound"].includes(issue.code))
+          .map((issue) => issue.asset),
+      ),
+    ];
+    if (unplayable.length)
+      throw new HttpError(
+        409,
+        "timeline_blocked",
+        `The timeline names audio that cannot be played yet: ${unplayable.join(", ")}.`,
+      );
+    const first = await this.generation
+      .run(projectId, activityId, timeline.cuts[0]!.source.runId)
+      .catch(() => null);
+    if (!first?.video)
+      throw new HttpError(
+        409,
+        "timeline_source_missing",
+        "The recording the timeline starts with is no longer in the run history.",
+      );
+    if (this.recording.has(activityId))
+      throw new HttpError(
+        409,
+        "generation_running",
+        "This activity already has a running generation.",
+      );
+    const target: VideoTarget = {
+      language: input.language,
+      assetKey: input.assetKey,
+      compositionRunId: first.video.compositionRunId,
+      width: timeline.width,
+      height: timeline.height,
+      seconds: timelineLengthMs(timeline) / 1000,
+      fromTimeline: true,
+    };
+    const run = await this.generation.openDeterministic(projectId, activityId, "video", {
+      video: target,
+    });
+    this.recording.add(activityId);
+    const dir = path.join(this.config.root, "activity-runs", run.runId, TIMELINE_DIR);
+    void this.produce(run, dir, () =>
+      this.renderTimeline(run, dir, timeline, input.language),
+    ).finally(() => this.recording.delete(activityId));
+    return run;
+  }
+
+  /** Gathers a timeline's recordings and clips and renders it; answers the MP4 and captions. */
+  private async renderTimeline(
+    run: ActivityRun,
+    dir: string,
+    timeline: VideoTimeline,
+    language: string,
+  ): Promise<{ file: string; captions: string | null }> {
+    const { projectId, activityId } = run;
+    await fs.mkdir(dir, { recursive: true });
+    const sources = new Map<string, string>();
+    const cuts: string[] = [];
+    for (const cut of timeline.cuts) {
+      let file = sources.get(cut.source.runId);
+      if (!file) {
+        file = path.join(dir, `source-${sources.size}.${cut.source.format}`);
+        const bytes = await this.activities.readVideo(
+          projectId,
+          activityId,
+          cut.source.runId,
+          cut.source.sha256,
+          cut.source.format,
+        );
+        await fs.writeFile(file, bytes);
+        sources.set(cut.source.runId, file);
+      }
+      cuts.push(file);
+    }
+    const activity = await this.activities.getActivity(projectId, activityId);
+    const assets = activity.draft.mediaPlan?.manifest.assets[language] ?? [];
+    const audio = new Map<string, string>();
+    const keys = [
+      ...timeline.narration.map((entry) => entry.asset),
+      ...(timeline.music ? [timeline.music.asset] : []),
+      ...timeline.effects.map((entry) => entry.asset),
+    ];
+    for (const key of keys) {
+      if (audio.has(key)) continue;
+      const bound = assets.find((asset) => asset.key === key)?.path;
+      const file = bound && (await this.activities.mediaFilePath(projectId, activityId, bound));
+      if (!file) throw new RenderError(`The clip of ${key} is not in the media repository.`);
+      audio.set(key, file);
+    }
+    const file = path.join(dir, "finished.mp4");
+    const args = timelineRenderArgs(timeline, { cuts, audio, assets }, file);
+    await (this.ports.renderTimeline ?? renderWithFfmpeg)(args);
+    const cues = captionCues(timeline, assets);
+    return { file, captions: cues.length ? webVtt(cues) : null };
+  }
+
+  /**
+   * Makes a video run's file with `make` and keeps it as the run's candidate, captions beside
+   * it, or settles the run failed with why. Whatever happens, `dir` is removed.
+   */
+  private async produce(
+    run: ActivityRun,
+    dir: string,
+    make: () => Promise<{ file: string; captions: string | null }>,
+  ): Promise<void> {
+    const { projectId, activityId, runId } = run;
+    try {
+      const made = await make();
       if (this.stopped)
         throw new RecordingStopped("The server stopped before the recording finished.");
-      // Cancelled by the author while it played: nothing is kept.
+      // Cancelled by the author while it was being made: nothing is kept.
       if (!(await this.generation.isRunning(projectId, activityId, runId))) return;
-      const result = await this.activities.storeVideo(
+      let result: VideoResult = await this.activities.storeVideo(
         projectId,
         activityId,
         runId,
-        await readVideoFile(file),
+        await readVideoFile(made.file),
         "mp4",
       );
+      if (made.captions !== null) {
+        await this.activities.storeCaptions(projectId, activityId, runId, made.captions);
+        result = { ...result, captions: true };
+      }
       const settled = await this.generation.settleDeterministic(
         projectId,
         activityId,
@@ -241,7 +407,7 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         await this.activities.discardVideo(projectId, activityId, runId, "mp4").catch(() => {});
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.log.line(`[activities] Video recording ${runId} failed: ${message}`);
+      this.log.line(`[activities] Video run ${runId} failed: ${message}`);
       const problem = error instanceof RecordingStopped ? "video_stopped" : problemOf(error);
       await this.generation
         .settleDeterministic(
@@ -255,7 +421,7 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         )
         .catch(() => {});
     } finally {
-      // The recording was copied into the draft, or is not wanted.
+      // What was made was copied into the media repository, or is not wanted.
       await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
     }
   }

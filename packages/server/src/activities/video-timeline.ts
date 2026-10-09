@@ -413,3 +413,8 @@ export function webVtt(cues: CaptionCue[]): string {
       .join("\n")
   );
 }
+
+/** Where a video's captions are kept: beside it, as `<name>.vtt`. */
+export function captionsPath(videoPath: string): string {
+  return videoPath.replace(/\.[^./]+$/, "") + ".vtt";
+}

@@ -228,6 +228,8 @@ describe("scene video recording", () => {
       },
     });
     const browser = fakeBrowser();
+    /** FFmpeg's arguments for each timeline render; the fake writes a finished MP4. */
+    const rendered: string[][] = [];
     const t = await createTestApp({
       testBrowserPorts: { locateExecutable: async (dir) => executableIn(dir) },
       // Two frames a second, so a 6 s composition is 12 frames.
@@ -236,6 +238,10 @@ describe("scene video recording", () => {
         encoder: browser.encoder,
         pageTimeoutMs: 200,
         fps: 2,
+        renderTimeline: async (args) => {
+          rendered.push(args);
+          await fs.writeFile(args.at(-1)!, mp4(64));
+        },
       },
     });
     const adopt = t.deps.manager.adopt.bind(t.deps.manager);
@@ -361,11 +367,23 @@ describe("scene video recording", () => {
       }
       throw new Error("The recording did not settle.");
     }
+    async function settled(response: Response): Promise<ActivityRunSummary> {
+      expect(response.status, await response.clone().text()).toBe(202);
+      const run = (await response.json()) as ActivityRun;
+      for (let tries = 0; tries < 400; tries += 1) {
+        const summary = (await runs()).find((entry) => entry.runId === run.runId);
+        if (summary && summary.status !== "running") return summary;
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      throw new Error("The run did not settle.");
+    }
     return {
       t,
       client,
       endpoint,
       browser,
+      rendered,
+      settled,
       current,
       runs,
       experiment,
@@ -558,6 +576,125 @@ describe("scene video recording", () => {
       saved: true,
       issues: [],
     });
+  });
+
+  it("renders a timeline to a finished video, and keeps the recording it cuts from", async () => {
+    const f = await fixture();
+    await f.experiment(true);
+    const recording = await f.recorded(await f.composed());
+    const revision = async () => (await f.current()).draft.contentRevision;
+    // The recording is kept first, as an author would before editing.
+    expect(
+      (
+        await f.client.post(`${f.endpoint}/runs/${recording.runId}/accept-video`, {
+          expectedRevision: await revision(),
+        })
+      ).status,
+    ).toBe(200);
+    const render = () =>
+      f.client.post(`${f.endpoint}/render-timeline`, {
+        language: "en-US",
+        assetKey: "intro-video",
+        expectedRevision: "",
+      });
+    const stale = await f.client.post(`${f.endpoint}/render-timeline`, {
+      language: "en-US",
+      assetKey: "intro-video",
+      expectedRevision: "not-the-current-revision",
+    });
+    expect(stale.status).toBe(409);
+    expect((await render()).status).toBe(400);
+
+    const finished = await f.settled(
+      await f.client.post(`${f.endpoint}/render-timeline`, {
+        language: "en-US",
+        assetKey: "intro-video",
+        expectedRevision: await revision(),
+      }),
+    );
+    expect(finished.status, finished.error ?? "").toBe("succeeded");
+    expect(finished.video).toMatchObject({
+      assetKey: "intro-video",
+      compositionRunId: recording.video!.compositionRunId,
+      seconds: 6,
+      fromTimeline: true,
+    });
+    // FFmpeg was given the kept recording, written out for it, and an MP4 to write.
+    expect(f.rendered).toHaveLength(1);
+    expect(f.rendered[0]!.some((arg) => /source-0\.mp4$/.test(arg))).toBe(true);
+    expect(f.rendered[0]!.at(-1)).toMatch(/finished\.mp4$/);
+    const served = await f.client.get(`${f.endpoint}/runs/${finished.runId}/video`);
+    expect(served.headers.get("content-type")).toBe("video/mp4");
+    expect(Buffer.from(await served.arrayBuffer())).toEqual(mp4(64));
+    // No narration, so no captions.
+    expect((await f.client.get(`${f.endpoint}/runs/${finished.runId}/captions`)).status).toBe(404);
+
+    // Keeping the finished video replaces the recording at the asset's path, but the recording
+    // stays readable, and a new timeline still starts from it rather than from the finished one.
+    const kept = await f.client.post(`${f.endpoint}/runs/${finished.runId}/accept-video`, {
+      expectedRevision: await revision(),
+    });
+    expect(kept.status, await kept.clone().text()).toBe(200);
+    const draft = (await kept.json()) as ActivityDraft;
+    expect(
+      draft.mediaPlan!.manifest.assets["en-US"]!.find((entry) => entry.key === "intro-video")!
+        .generatedVideo?.runId,
+    ).toBe(finished.runId);
+    const source = await f.client.get(`${f.endpoint}/runs/${recording.runId}/video`);
+    expect(source.status).toBe(200);
+    expect(Buffer.from(await source.arrayBuffer())).toEqual(mp4());
+    const view = (await (
+      await f.client.get(`${f.endpoint}/video-timeline?language=en-US&assetKey=intro-video`)
+    ).json()) as VideoTimelineView;
+    expect(view.timeline.cuts[0]!.source.runId).toBe(recording.runId);
+    // And it renders again from there.
+    const again = await f.settled(
+      await f.client.post(`${f.endpoint}/render-timeline`, {
+        language: "en-US",
+        assetKey: "intro-video",
+        expectedRevision: await revision(),
+      }),
+    );
+    expect(again.status, again.error ?? "").toBe("succeeded");
+  });
+
+  it("saves and drops a timeline, and refuses to render one naming audio it cannot play", async () => {
+    const f = await fixture();
+    await f.experiment(true);
+    await f.recorded(await f.composed());
+    const timelineOf = async () =>
+      (await (
+        await f.client.get(`${f.endpoint}/video-timeline?language=en-US&assetKey=intro-video`)
+      ).json()) as VideoTimelineView;
+    const save = async (timeline: unknown) =>
+      f.client.put(`${f.endpoint}/video-timeline`, {
+        language: "en-US",
+        assetKey: "intro-video",
+        timeline,
+        expectedRevision: (await f.current()).draft.contentRevision,
+      });
+    const start = await timelineOf();
+    const malformed = await save({ ...start.timeline, cuts: [] });
+    expect(malformed.status).toBe(422);
+    expect(JSON.stringify(await malformed.json())).toContain("no cuts");
+    const named = { ...start.timeline, narration: [{ asset: "gone", startMs: 0 }] };
+    expect((await save(named)).status).toBe(200);
+    expect(await timelineOf()).toEqual({
+      timeline: named,
+      saved: true,
+      issues: [{ code: "asset_missing", asset: "gone" }],
+    });
+    const blocked = await f.client.post(`${f.endpoint}/render-timeline`, {
+      language: "en-US",
+      assetKey: "intro-video",
+      expectedRevision: (await f.current()).draft.contentRevision,
+    });
+    expect(blocked.status).toBe(409);
+    expect(JSON.stringify(await blocked.json())).toContain("timeline_blocked");
+    expect(f.rendered).toEqual([]);
+    // Dropped, the video starts from its newest recording again.
+    expect((await save(null)).status).toBe(200);
+    expect((await timelineOf()).saved).toBe(false);
   });
 
   it("stops a recording whose page never gets ready, and lets the activity record again", async () => {
