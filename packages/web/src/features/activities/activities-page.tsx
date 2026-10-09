@@ -70,6 +70,7 @@ import { buildSceneTree, filterTree, treeSelections, type SceneAssetType } from 
 import { firstSelection, sameSelection, type SceneAssetSelection } from "./scene-asset-tree";
 import {
   resolveSection,
+  sectionSwitchDiscards,
   workspaceSections,
   type StudioPanel,
   sectionFromParam,
@@ -426,19 +427,34 @@ function ActivityEditor({
   const [sectionChoice, setSectionChoice] = useState<WorkspaceSection | null>(() =>
     sectionFromParam(searchParams.get("section")),
   );
+  // A module document's editor holds its own text, and leaving its section unmounts it, so
+  // every way of changing section asks first while that text is unsaved.
+  const [documentDirty, setDocumentDirty] = useState(false);
+  const leaving = useRef({ section: "description" as WorkspaceSection, documentDirty: false });
+  const isDocumentDirty = useCallback(() => leaving.current.documentDirty, []);
+  const leaveDocument = useDiscardConfirm(isDocumentDirty, () => S.activities.discardSection);
   const setSection = useCallback(
     (next: WorkspaceSection) => {
-      setSectionChoice(next);
-      setSearchParams(
-        (prev) => {
-          const params = new URLSearchParams(prev);
-          params.set("section", next);
-          return params;
-        },
-        { replace: true },
-      );
+      const open = () => {
+        setSectionChoice(next);
+        setSearchParams(
+          (prev) => {
+            const params = new URLSearchParams(prev);
+            params.set("section", next);
+            return params;
+          },
+          { replace: true },
+        );
+      };
+      const { section: current, documentDirty: unsaved } = leaving.current;
+      if (!sectionSwitchDiscards(current, next, unsaved)) return open();
+      leaveDocument.ask(() => {
+        leaving.current.documentDirty = false;
+        setDocumentDirty(false);
+        open();
+      });
     },
-    [setSearchParams],
+    [setSearchParams, leaveDocument.ask],
   );
   const [languageChoice, setLanguage] = useState("");
   const [kind, setKind] = useState<SceneAssetType | "all">("all");
@@ -619,7 +635,8 @@ function ActivityEditor({
       ? proposedScript.text
       : null;
   useLayoutEffect(() => {
-    onDirty(dirty);
+    // An unsaved module document is lost by leaving the activity too.
+    onDirty(dirty || documentDirty);
   });
   useEffect(() => {
     alive.current = true;
@@ -1187,6 +1204,7 @@ function ActivityEditor({
     hasModule: !!latestModuleRun(runs) || sandboxModule,
     usesAssessment,
   });
+  leaving.current = { section, documentDirty };
   // The saved draft's media stats, read once per revision while the scenes are open, for
   // the file details of a bound clip. Null when they could not be read.
   const statsRevision = detail?.draft.contentRevision ?? "";
@@ -1921,6 +1939,7 @@ function ActivityEditor({
               subject={panelSubject}
               revision={detail.draft.contentRevision}
               editable={editable && available}
+              onDirty={setDocumentDirty}
               onSaved={(draft, text) => {
                 // Only the draft changed; unsaved script or specification text stays.
                 setDetail((current) => (current ? { ...current, draft } : current));
@@ -2380,6 +2399,7 @@ function ActivityEditor({
         )}
       </WorkspaceShell>
       {discard.modal}
+      {leaveDocument.modal}
     </>
   );
 }

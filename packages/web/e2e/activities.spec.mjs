@@ -3105,10 +3105,21 @@ test("edits the module's configuration, saves it, and discards the edit", async 
     page.getByText("Edited here: the preview and the next assembly use this version."),
   ).toHaveCount(0);
 
-  // Unsaved text in one document does not carry into the other.
+  // Leaving a document with unsaved text asks first: Cancel keeps the text, Discard leaves,
+  // and the text does not carry into the other document.
   await field.fill('{ "maxRounds": 9 }');
   await expect(save).toBeEnabled();
   await openSection(page, "Assessment Data");
+  const leave = page.getByRole("dialog");
+  await expect(
+    leave.getByText("Discard your unsaved edits to this document and open another section?"),
+  ).toBeVisible();
+  await leave.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(leave).toHaveCount(0);
+  await expect(field).toHaveText('{ "maxRounds": 9 }');
+  await expect(save).toBeEnabled();
+  await openSection(page, "Assessment Data");
+  await leave.getByRole("button", { name: "Discard", exact: true }).click();
   await expect(
     page.getByText("assessments/words-12.json, from the module in the WAF checkout. 2 items."),
   ).toBeVisible();

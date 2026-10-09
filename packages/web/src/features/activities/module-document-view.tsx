@@ -27,6 +27,7 @@ import { AssessmentItemsEditor } from "./assessment-items-editor";
 import { assessmentRunState, readItems } from "./assessment-items";
 import {
   assessmentItemCount,
+  documentChanged,
   documentOrigin,
   documentText,
   parseDocument,
@@ -56,6 +57,7 @@ export function ModuleDocumentView({
   revision,
   editable,
   onSaved,
+  onDirty,
   generation,
 }: {
   endpoint: string;
@@ -68,6 +70,8 @@ export function ModuleDocumentView({
   editable: boolean;
   /** A save or a discard changed the draft; `text` is what to announce. */
   onSaved: (draft: ActivityDraft, text: string) => void;
+  /** Whether the text differs from the document, so leaving can ask before throwing it away. */
+  onDirty?: (dirty: boolean) => void;
   /** For the assessment: generating it, and the result waiting to be used. */
   generation?: AssessmentGenerationProps;
 }) {
@@ -102,6 +106,13 @@ export function ModuleDocumentView({
       cancelled = true;
     };
   }, [endpoint, revision, kind]);
+
+  const shown = documents?.source ? documents[kind] : null;
+  const dirty = !!shown && documentChanged(text, shown.value);
+  useEffect(() => {
+    onDirty?.(dirty);
+  }, [onDirty, dirty]);
+  useEffect(() => () => onDirty?.(false), [onDirty]);
 
   // Each document fills the pane, so what stands in for one is padded.
   const pad = "p-4";

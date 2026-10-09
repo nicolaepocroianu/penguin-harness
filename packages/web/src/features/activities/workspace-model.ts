@@ -361,3 +361,23 @@ export function writeSidePanel(
     // A remembered panel is a convenience, as the rail width is.
   }
 }
+
+/** The sections whose editor holds its text itself, so the text goes when the section does. */
+const SELF_HELD_SECTIONS: ReadonlySet<WorkspaceSection> = new Set([
+  "configuration",
+  "assessment",
+  "module",
+]);
+
+/**
+ * Whether opening `next` throws away unsaved text: the open section's editor holds it, and
+ * leaving unmounts that editor. The script and the specification are held by the page and
+ * survive a switch, so they never ask.
+ */
+export function sectionSwitchDiscards(
+  current: WorkspaceSection,
+  next: WorkspaceSection,
+  unsavedDocument: boolean,
+): boolean {
+  return unsavedDocument && next !== current && SELF_HELD_SECTIONS.has(current);
+}
