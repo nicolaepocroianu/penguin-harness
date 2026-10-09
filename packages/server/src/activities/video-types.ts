@@ -34,6 +34,8 @@ export interface VideoTarget {
    * a composition; `compositionRunId` is then its first cut's.
    */
   fromTimeline?: true;
+  /** What the final check found in the video the run made (see video-check.ts). */
+  check?: VideoCheck;
   /** Set when the run failed for a cause Penguin knows. */
   problem?: VideoProblemCode;
 }
@@ -53,4 +55,52 @@ export interface VideoResult {
   format?: VideoFormat;
   /** Set when captions were written beside it, as WebVTT. */
   captions?: true;
+}
+
+/** What the final check of a made video can find. */
+export type VideoCheckCode =
+  /** FFmpeg could not read its length or its picture. */
+  | "unreadable"
+  /** It plays for noticeably longer or shorter than it should. */
+  | "duration_off"
+  /** Its picture is not the size it should be. */
+  | "size_off"
+  /** It should have sound and has none. */
+  | "audio_missing"
+  /** It has sound, but almost none can be heard. */
+  | "silent"
+  /** Its loudest moment is at the edge of distorting. */
+  | "clipping"
+  /** A narration should be speaking, and the sound is silent there. */
+  | "narration_silent"
+  /** The picture is black for a stretch. */
+  | "black";
+
+export interface VideoCheckFinding {
+  code: VideoCheckCode;
+  /** An error is something to fix before keeping the video; a warning is worth a look. */
+  severity: "error" | "warning";
+  /** Where in the video, when it is about a stretch of it. */
+  startMs?: number;
+  endMs?: number;
+  /** The narration it is about. */
+  asset?: string;
+}
+
+/**
+ * The final check of a made video, read from FFmpeg's own report of it: what it measured, and
+ * what it found against what the video should be. `fail` when it could not be read at all,
+ * `revise` when anything is an error, `pass` otherwise.
+ */
+export interface VideoCheck {
+  status: "pass" | "revise" | "fail";
+  durationMs: number | null;
+  width: number | null;
+  height: number | null;
+  fps: number | null;
+  hasAudio: boolean;
+  /** Mean and peak loudness in dB, when it has sound. */
+  meanDb: number | null;
+  peakDb: number | null;
+  findings: VideoCheckFinding[];
 }

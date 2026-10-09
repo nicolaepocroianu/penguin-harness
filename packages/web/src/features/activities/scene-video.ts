@@ -6,9 +6,12 @@
 import type {
   ActivityRunSummary,
   AssetManifest,
+  VideoCheck,
+  VideoCheckFinding,
   VideoProblemCode,
 } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
+import type { Tone } from "../../lib/tone";
 
 type Asset = AssetManifest["assets"][string][number];
 
@@ -78,4 +81,42 @@ export function recordingFailure(run: ActivityRunSummary): string | null {
   if (run.status === "failed")
     return S.activities.video.recordFailed(run.error ?? S.activities.video.noCause);
   return run.error;
+}
+
+/** A made video's final check in one line, with the tone it reads in. */
+export function checkLine(check: VideoCheck): { text: string; tone: Tone } {
+  const tone: Record<VideoCheck["status"], Tone> = {
+    pass: "success",
+    revise: "attention",
+    fail: "danger",
+  };
+  return { text: S.activities.video.check[check.status], tone: tone[check.status] };
+}
+
+/** One thing the check found, in the App's words, its times in seconds. */
+export function findingText(finding: VideoCheckFinding): string {
+  const seconds = (ms: number | undefined) => String(Math.round((ms ?? 0) / 100) / 10);
+  return S.activities.video.check.findings[finding.code](
+    seconds(finding.startMs),
+    seconds(finding.endMs),
+    finding.asset ?? "",
+  );
+}
+
+/**
+ * How many videos the draft binds whose final check found something to fix: the Media step
+ * asks for a look at them. A video checked before checks existed, or not in the runs read,
+ * is not counted.
+ */
+export function videosToCheck(
+  assets: AssetManifest["assets"] | undefined,
+  runs: readonly ActivityRunSummary[],
+): number {
+  const checks = new Map(runs.map((run) => [run.runId, run.video?.check]));
+  return Object.values(assets ?? {})
+    .flat()
+    .filter((asset) => {
+      const check = asset.generatedVideo && checks.get(asset.generatedVideo.runId);
+      return !!check && check.status !== "pass";
+    }).length;
 }

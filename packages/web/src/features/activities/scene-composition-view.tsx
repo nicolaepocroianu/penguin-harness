@@ -12,6 +12,7 @@ import type {
   ActivityRunSummary,
   AssetManifest,
   CompositionCandidate,
+  VideoCheck,
   VideoTimeline,
 } from "@prismshadow/penguin-server/api";
 import { apiFetch } from "../../api/client";
@@ -38,7 +39,9 @@ import { MediaComparison } from "./media-comparison";
 import { MediaPlayer } from "./media-player";
 import { SceneTimelineView } from "./scene-timeline-view";
 import {
+  checkLine,
   comparedRecording,
+  findingText,
   isRecordable,
   recordingFailure,
   recordingUrl,
@@ -210,6 +213,9 @@ export function SceneCompositionView({
                   {run.status === "succeeded" && run.inputRevision !== revision && (
                     <p className="text-gray-500">{S.activities.video.olderRecording}</p>
                   )}
+                  {run.status === "succeeded" && run.video?.check && (
+                    <VideoCheckNote check={run.video.check} />
+                  )}
                   {failure && (
                     <p
                       className={`break-words ${run.status === "failed" ? toneInk.danger : "text-gray-500"}`}
@@ -252,6 +258,23 @@ export function SceneCompositionView({
         </section>
       )}
     </section>
+  );
+}
+
+/** What a made video's final check found: its outcome, then each finding. */
+function VideoCheckNote({ check }: { check: VideoCheck }) {
+  const line = checkLine(check);
+  return (
+    <div className="space-y-0.5">
+      <p className={toneInk[line.tone]}>{line.text}</p>
+      {check.findings.length > 0 && (
+        <ul className="list-disc space-y-0.5 pl-4 text-gray-600 dark:text-gray-400">
+          {check.findings.map((finding, index) => (
+            <li key={`${finding.code}-${index}`}>{findingText(finding)}</li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

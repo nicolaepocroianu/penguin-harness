@@ -82,6 +82,8 @@ export interface ProgressFacts {
   specDirty: boolean;
   /** Clips with files, of all the plan holds; null before there is a plan. */
   media: { bound: number; total: number } | null;
+  /** Kept scene videos whose final check found something to fix. */
+  videosToCheck?: number;
   hasModule: boolean;
   /** Where the activity stands on QA; null until the deploy state has been read. */
   qa: QaFact | null;
@@ -101,6 +103,43 @@ export interface ProgressStep {
 }
 
 const section = (section: WorkspaceSection): NextTarget => ({ kind: "section", section });
+
+/**
+ * The Media step: how many clips have files; once all do, whether a kept scene video failed its
+ * final check and wants a look.
+ */
+function mediaStep(media: ProgressFacts["media"], videosToCheck: number): ProgressStep {
+  const words = S.activities.progress;
+  const act = words.actions;
+  const base = { section: "scenes" as const, label: words.media };
+  if (!media)
+    return {
+      ...base,
+      state: words.noPlan,
+      tone: "muted",
+      todo: { action: act.planMedia, go: section("scenes") },
+    };
+  if (media.bound < media.total)
+    return {
+      ...base,
+      state: words.clips(media.bound, media.total),
+      tone: "attention",
+      todo: { action: act.finishMedia, go: section("scenes") },
+    };
+  if (videosToCheck > 0)
+    return {
+      ...base,
+      state: words.videosToCheck(videosToCheck),
+      tone: "attention",
+      todo: { action: act.checkVideos, go: section("scenes") },
+    };
+  return {
+    ...base,
+    state: words.clips(media.bound, media.total),
+    tone: media.total ? "success" : "muted",
+    todo: null,
+  };
+}
 
 export function progressSteps(facts: ProgressFacts): ProgressStep[] {
   const words = S.activities.progress;
@@ -139,17 +178,7 @@ export function progressSteps(facts: ProgressFacts): ProgressStep[] {
       tone: facts.specDirty ? "attention" : DRAFT_TONE[facts.status],
       todo: specTodo ? { action: specTodo, go: section("specification") } : null,
     },
-    {
-      section: "scenes",
-      label: words.media,
-      state: media ? words.clips(media.bound, media.total) : words.noPlan,
-      tone: !media || !media.total ? "muted" : media.bound < media.total ? "attention" : "success",
-      todo: !media
-        ? { action: act.planMedia, go: section("scenes") }
-        : media.bound < media.total
-          ? { action: act.finishMedia, go: section("scenes") }
-          : null,
-    },
+    mediaStep(media, facts.videosToCheck ?? 0),
     {
       section: "module",
       label: words.module,

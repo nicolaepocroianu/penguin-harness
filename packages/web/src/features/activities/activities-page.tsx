@@ -113,6 +113,7 @@ import { ProjectMediaView } from "./project-media-view";
 import type { GroupSort } from "./activity-groups";
 import { useDiscardConfirm } from "./use-discard-confirm";
 import { usePanelBadges } from "./panel-badges";
+import { videosToCheck } from "./scene-video";
 import { applyVoice, optionsFromVoices } from "./voice-catalogue";
 import {
   applyProvider,
@@ -1695,6 +1696,7 @@ function ActivityEditor({
                   scriptDirty: description !== detail.draft.description,
                   specDirty: spec !== pretty(detail.draft.spec),
                   media: scriptMedia?.totals ?? null,
+                  videosToCheck: videosToCheck(detail.draft.mediaPlan?.manifest.assets, runs),
                   hasModule: !!latestModuleRun(runs) || sandboxModule,
                   qa: deployState ? qaFact(deployState) : null,
                 }}

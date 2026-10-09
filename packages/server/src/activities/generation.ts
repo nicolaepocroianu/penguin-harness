@@ -157,7 +157,7 @@ import {
 } from "./composition.js";
 import { IMAGE_MAX_BYTES as COMPOSITION_IMAGE_MAX_BYTES } from "./image.js";
 import type { CompositionCandidate, CompositionTarget } from "./composition-types.js";
-import type { VideoProblemCode, VideoResult, VideoTarget } from "./video-types.js";
+import type { VideoCheck, VideoProblemCode, VideoResult, VideoTarget } from "./video-types.js";
 import { RENDER_FPS } from "./video-render.js";
 import { defaultTimeline, timelineIssues } from "./video-timeline.js";
 import type { VideoTimelineView } from "./video-timeline-types.js";
@@ -1576,6 +1576,7 @@ export class ActivityGenerationService implements ActivityGeneration {
     error: string | null,
     candidate?: string,
     videoProblem?: VideoProblemCode,
+    videoCheck?: VideoCheck,
   ): Promise<boolean> {
     return this.track(
       this.locks.run(activityId, async () => {
@@ -1585,6 +1586,8 @@ export class ActivityGenerationService implements ActivityGeneration {
         if (status === "succeeded" && candidate !== undefined) run.candidate = candidate;
         if (status === "failed" && videoProblem && run.video)
           run.video = { ...run.video, problem: videoProblem };
+        if (status === "succeeded" && videoCheck && run.video)
+          run.video = { ...run.video, check: videoCheck };
         this.finish(run, status, error);
         return true;
       }),

@@ -36,12 +36,20 @@ import {
 } from "./video-render.js";
 import { runFfmpeg } from "./ffmpeg.js";
 import { timelineRenderArgs } from "./timeline-render.js";
-import { captionCues, timelineLengthMs, webVtt } from "./video-timeline.js";
+import { checkVideo, type VideoExpectation } from "./video-check.js";
+import { captionCues, narrationLengthMs, timelineLengthMs, webVtt } from "./video-timeline.js";
 import type { VideoTimeline } from "./video-timeline-types.js";
-import type { VideoProblemCode, VideoResult, VideoTarget } from "./video-types.js";
+import type { VideoCheck, VideoProblemCode, VideoResult, VideoTarget } from "./video-types.js";
 
 /** Where a run's recorder writes, inside its workspace; removed once the recording is kept. */
 export const RECORDING_DIR = "recording";
+/** What a video run made: the MP4, its captions, and what the final check holds it to. */
+interface Made {
+  file: string;
+  captions: string | null;
+  expected: VideoExpectation;
+}
+
 /** Where a timeline render gathers its inputs and writes; removed once the video is kept. */
 export const TIMELINE_DIR = "timeline";
 
@@ -65,6 +73,8 @@ export abstract class VideoRenderPorts extends Interface<{
   fps?: number;
   /** Runs FFmpeg with a timeline render's arguments; the real FFmpeg by default. */
   renderTimeline?: (args: string[]) => Promise<void>;
+  /** Checks a made video; FFmpeg's analysis by default (see video-check.ts). */
+  checkVideo?: (file: string, expected: VideoExpectation) => Promise<VideoCheck>;
 }>() {}
 
 /** The code a failed recording is worded by, for the causes Penguin knows; null otherwise. */
@@ -242,6 +252,14 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         ...(this.ports.fps ? { fps: this.ports.fps } : {}),
       }),
       captions: null,
+      // A recording is the composition's picture alone.
+      expected: {
+        durationMs: Math.round(target.seconds * 1000),
+        width: target.width,
+        height: target.height,
+        audio: false,
+        narration: [],
+      },
     }));
   }
 
@@ -324,7 +342,7 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
     dir: string,
     timeline: VideoTimeline,
     language: string,
-  ): Promise<{ file: string; captions: string | null }> {
+  ): Promise<Made> {
     const { projectId, activityId } = run;
     await fs.mkdir(dir, { recursive: true });
     const sources = new Map<string, string>();
@@ -364,18 +382,31 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
     const args = timelineRenderArgs(timeline, { cuts, audio, assets }, file);
     await (this.ports.renderTimeline ?? renderWithFfmpeg)(args);
     const cues = captionCues(timeline, assets);
-    return { file, captions: cues.length ? webVtt(cues) : null };
+    const narration = timeline.narration.flatMap((entry) => {
+      const asset = assets.find((candidate) => candidate.key === entry.asset);
+      const length = asset ? narrationLengthMs(asset) : null;
+      return length === null
+        ? []
+        : [{ asset: entry.asset, startMs: entry.startMs, endMs: entry.startMs + length }];
+    });
+    return {
+      file,
+      captions: cues.length ? webVtt(cues) : null,
+      expected: {
+        durationMs: timelineLengthMs(timeline),
+        width: timeline.width,
+        height: timeline.height,
+        audio: keys.length > 0,
+        narration,
+      },
+    };
   }
 
   /**
    * Makes a video run's file with `make` and keeps it as the run's candidate, captions beside
    * it, or settles the run failed with why. Whatever happens, `dir` is removed.
    */
-  private async produce(
-    run: ActivityRun,
-    dir: string,
-    make: () => Promise<{ file: string; captions: string | null }>,
-  ): Promise<void> {
+  private async produce(run: ActivityRun, dir: string, make: () => Promise<Made>): Promise<void> {
     const { projectId, activityId, runId } = run;
     try {
       const made = await make();
@@ -390,6 +421,13 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         await readVideoFile(made.file),
         "mp4",
       );
+      // The check says what it finds; a check that cannot run leaves the video unchecked.
+      const check = await (this.ports.checkVideo ?? checkVideo)(made.file, made.expected).catch(
+        (error: unknown) => {
+          this.log.line(`[activities] Checking video run ${runId} failed: ${String(error)}`);
+          return undefined;
+        },
+      );
       if (made.captions !== null) {
         await this.activities.storeCaptions(projectId, activityId, runId, made.captions);
         result = { ...result, captions: true };
@@ -401,6 +439,8 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         "succeeded",
         null,
         JSON.stringify(result),
+        undefined,
+        check,
       );
       // Cancelled, or the server stopped, while it was being kept: the run does not own it.
       if (!settled)

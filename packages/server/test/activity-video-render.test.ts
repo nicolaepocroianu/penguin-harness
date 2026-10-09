@@ -38,6 +38,7 @@ import {
   type EncoderStarter,
 } from "../src/activities/video-render.js";
 import { ownedMediaPaths } from "../src/activities/version-manifest.js";
+import type { VideoExpectation } from "../src/activities/video-check.js";
 import type { VideoTimelineView } from "../src/activities/video-timeline-types.js";
 import type { RuntimeSession } from "../src/runtime/session-manager.js";
 import type { SessionRow } from "../src/db/repos/sessions.js";
@@ -147,6 +148,7 @@ function fakeBrowser() {
       kill: () => {
         calls.killed += 1;
       },
+      stderr: () => "",
     };
     return run;
   };
@@ -230,6 +232,8 @@ describe("scene video recording", () => {
     const browser = fakeBrowser();
     /** FFmpeg's arguments for each timeline render; the fake writes a finished MP4. */
     const rendered: string[][] = [];
+    /** What each made video's final check was held to; the fake passes them all. */
+    const checked: VideoExpectation[] = [];
     const t = await createTestApp({
       testBrowserPorts: { locateExecutable: async (dir) => executableIn(dir) },
       // Two frames a second, so a 6 s composition is 12 frames.
@@ -238,6 +242,20 @@ describe("scene video recording", () => {
         encoder: browser.encoder,
         pageTimeoutMs: 200,
         fps: 2,
+        checkVideo: async (_file, expected) => {
+          checked.push(expected);
+          return {
+            status: "pass",
+            durationMs: expected.durationMs,
+            width: expected.width,
+            height: expected.height,
+            fps: 30,
+            hasAudio: expected.audio,
+            meanDb: null,
+            peakDb: null,
+            findings: [],
+          };
+        },
         renderTimeline: async (args) => {
           rendered.push(args);
           await fs.writeFile(args.at(-1)!, mp4(64));
@@ -383,6 +401,7 @@ describe("scene video recording", () => {
       endpoint,
       browser,
       rendered,
+      checked,
       settled,
       current,
       runs,
@@ -430,8 +449,14 @@ describe("scene video recording", () => {
       width: 640,
       height: 480,
       seconds: 6,
+      check: expect.objectContaining({ status: "pass" }),
     });
     expect(summary.hasCandidate).toBe(true);
+    // The recording was checked against the composition's length and canvas, with no sound.
+    expect(f.checked).toEqual([
+      { durationMs: 6000, width: 640, height: 480, audio: false, narration: [] },
+    ]);
+    expect(summary.video?.check).toMatchObject({ status: "pass", durationMs: 6000 });
 
     // The browser opened the composition on a link that really serves it, at the canvas size,
     // with no page recorder.
@@ -618,6 +643,15 @@ describe("scene video recording", () => {
       compositionRunId: recording.video!.compositionRunId,
       seconds: 6,
       fromTimeline: true,
+      check: { status: "pass" },
+    });
+    // The finished video was checked against the timeline: its length, size, and no sound.
+    expect(f.checked.at(-1)).toEqual({
+      durationMs: 6000,
+      width: 640,
+      height: 480,
+      audio: false,
+      narration: [],
     });
     // FFmpeg was given the kept recording, written out for it, and an MP4 to write.
     expect(f.rendered).toHaveLength(1);

@@ -11,6 +11,7 @@ import type { ImageRequest } from "../activities/image.js";
 import type { CompositionFileContent } from "../activities/composition.js";
 import type { VideoTimelineView } from "../activities/video-timeline-types.js";
 import type {
+  VideoCheck,
   VideoFormat,
   VideoProblemCode,
   VideoResult,
@@ -140,6 +141,8 @@ export abstract class ActivityGeneration extends Interface<{
     candidate?: string,
     /** Why a failed video run failed, when Penguin knows the cause; kept on its target. */
     videoProblem?: VideoProblemCode,
+    /** A succeeded video run's final check (see video-check.ts). */
+    videoCheck?: VideoCheck,
   ): Promise<boolean>;
   /** Whether a run is still going: false once it has settled, been cancelled or interrupted. */
   isRunning(projectId: string, activityId: string, runId: string): Promise<boolean>;

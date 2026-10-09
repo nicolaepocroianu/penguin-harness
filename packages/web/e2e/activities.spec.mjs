@@ -9291,9 +9291,34 @@ test("edits, saves and renders a scene video's timeline", async ({ page }) => {
     status: "succeeded",
     hasCandidate: true,
     finishedAt: "2026-09-28T11:06:00Z",
+    // The final check found the picture black for a moment, and no sound where there should be.
+    video: {
+      ...runs[0].video,
+      check: {
+        status: "revise",
+        durationMs: 4000,
+        width: 640,
+        height: 480,
+        fps: 30,
+        hasAudio: false,
+        meanDb: null,
+        peakDb: null,
+        findings: [
+          { code: "audio_missing", severity: "error" },
+          { code: "black", severity: "warning", startMs: 1000, endMs: 1600 },
+        ],
+      },
+    },
   };
   const recordings = page.getByRole("region", { name: "Recordings", exact: true });
   await expect(recordings.getByText(/· Finished video/)).toBeVisible({ timeout: 15_000 });
+  await expect(recordings.getByText("Checked: needs a look", { exact: true })).toBeVisible();
+  await expect(
+    recordings.getByText("It has no sound, but it should.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    recordings.getByText("The picture is black from 1 s to 1.6 s.", { exact: true }),
+  ).toBeVisible();
   expect(f.errors).toEqual([]);
 });
 

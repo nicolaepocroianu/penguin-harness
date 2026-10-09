@@ -64,6 +64,8 @@ export interface FfmpegRun {
   finish(): Promise<Buffer>;
   /** Stops FFmpeg; `finish` then rejects. */
   kill(): void;
+  /** What FFmpeg has written to stderr so far, at most `stderrLimit` characters of its end. */
+  stderr(): string;
 }
 
 /**
@@ -72,7 +74,13 @@ export interface FfmpegRun {
  */
 export function startFfmpeg(
   args: string[],
-  options: { purpose: string; timeoutMs: number; executable?: string },
+  options: {
+    purpose: string;
+    timeoutMs: number;
+    executable?: string;
+    /** How much of the end of stderr is kept; 4 000 characters unless a caller reads it all. */
+    stderrLimit?: number;
+  },
 ): Promise<FfmpegRun> {
   return new Promise((resolve, reject) => {
     let child;
@@ -95,7 +103,10 @@ export function startFfmpeg(
       child.kill();
     }, options.timeoutMs);
     child.stdout.on("data", (chunk: Buffer) => out.push(chunk));
-    child.stderr.on("data", (chunk: Buffer) => (err = (err + chunk.toString()).slice(-4000)));
+    child.stderr.on(
+      "data",
+      (chunk: Buffer) => (err = (err + chunk.toString()).slice(-(options.stderrLimit ?? 4000))),
+    );
     // A closed pipe after FFmpeg failed is reported by its exit, not here.
     child.stdin.on("error", () => {});
     const exited = new Promise<number | null>((settle, fail) => {
@@ -150,6 +161,7 @@ export function startFfmpeg(
           return Buffer.concat(out);
         },
         kill: () => child.kill(),
+        stderr: () => err,
       });
     });
   });
@@ -163,4 +175,17 @@ export async function runFfmpeg(
   const run = await startFfmpeg(args, options);
   if (options.input) await run.write(options.input).catch(() => {});
   return run.finish();
+}
+
+/**
+ * Runs FFmpeg for what it reports rather than what it writes: an analysis (`-f null -`) whose
+ * findings are on stderr. Answers all of stderr, up to 1 MB.
+ */
+export async function ffmpegReport(
+  args: string[],
+  options: { purpose: string; timeoutMs: number; executable?: string },
+): Promise<string> {
+  const run = await startFfmpeg(args, { ...options, stderrLimit: 1_000_000 });
+  await run.finish();
+  return run.stderr();
 }

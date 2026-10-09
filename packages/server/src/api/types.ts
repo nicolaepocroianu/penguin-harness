@@ -5247,6 +5247,9 @@ export type {
   VideoSetup,
 } from "../activities/composition-types.js";
 export type {
+  VideoCheck,
+  VideoCheckCode,
+  VideoCheckFinding,
   VideoFormat,
   VideoProblemCode,
   VideoResult,

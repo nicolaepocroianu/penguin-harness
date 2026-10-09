@@ -1904,6 +1904,22 @@ export const en: Strings = {
       recordFailed: (cause: string) => `The recording failed: ${cause}`,
       noCause: "no reason was given.",
       finished: "Finished video",
+      check: {
+        pass: "Checked: nothing wrong found",
+        revise: "Checked: needs a look",
+        fail: "Checked: the file could not be read back",
+        findings: {
+          unreadable: () => "FFmpeg could not read the file back.",
+          duration_off: () => "It plays for a different length than it should.",
+          size_off: () => "Its picture is not the size it should be.",
+          audio_missing: () => "It has no sound, but it should.",
+          silent: () => "Its sound can hardly be heard.",
+          clipping: () => "Its loudest moment is close to distorting.",
+          narration_silent: (from: string, to: string, asset: string) =>
+            `${asset} should be speaking from ${from} s to ${to} s, but it is silent there.`,
+          black: (from: string, to: string) => `The picture is black from ${from} s to ${to} s.`,
+        },
+      },
       timeline: {
         title: "Timeline",
         info: "How the finished video is put together: which stretches of the recording play, the narration, music and sound effects over them, and captions from the narration's word timings. Render finished video makes it; it then appears under Recordings to compare and keep. Until a timeline is saved, it starts from the newest recording.",
@@ -2191,6 +2207,8 @@ export const en: Strings = {
       saved: "saved",
       unsaved: "unsaved",
       clips: (bound: number, total: number) => `${bound}/${total}`,
+      videosToCheck: (count: number) =>
+        count === 1 ? "a video needs a look" : `${count} videos need a look`,
       noPlan: "no plan yet",
       built: "built",
       notBuilt: "not built",
@@ -2209,6 +2227,7 @@ export const en: Strings = {
         fixSpec: "fix the spec",
         planMedia: "plan the media",
         finishMedia: "finish the media",
+        checkVideos: "look at the scene videos",
         buildModule: "build the module",
         deployQa: "deploy to QA",
       },

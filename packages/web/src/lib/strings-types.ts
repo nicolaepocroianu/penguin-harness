@@ -1622,6 +1622,23 @@ export type Strings = {
       noCause: string;
       /** Beside a video run that rendered the timeline rather than recorded a composition. */
       finished: string;
+      /** A made video's final check: its outcome, and each finding, with times in seconds. */
+      check: {
+        pass: string;
+        revise: string;
+        fail: string;
+        findings: Record<
+          | "unreadable"
+          | "duration_off"
+          | "size_off"
+          | "audio_missing"
+          | "silent"
+          | "clipping"
+          | "narration_silent"
+          | "black",
+          (from: string, to: string, asset: string) => string
+        >;
+      };
       /** The scene video's timeline: how its finished video is put together. */
       timeline: {
         title: string;
@@ -1878,6 +1895,8 @@ export type Strings = {
       saved: string;
       unsaved: string;
       clips: (bound: number, total: number) => string;
+      /** The Media step once every clip has a file, while kept scene videos failed their check. */
+      videosToCheck: (count: number) => string;
       noPlan: string;
       built: string;
       notBuilt: string;
@@ -1896,6 +1915,7 @@ export type Strings = {
         | "fixSpec"
         | "planMedia"
         | "finishMedia"
+        | "checkVideos"
         | "buildModule"
         | "deployQa",
         string
