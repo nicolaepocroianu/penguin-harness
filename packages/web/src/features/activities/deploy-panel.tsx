@@ -1,8 +1,8 @@
 /**
- * Deploy: whether a deploy of this activity could start now, and what is still missing, each
- * in words, then the module release, the QA deploy and the PROD deploy. The owner can make the missing clones (Prepare clones),
- * ask the remote whether the branches are there (Check remote), and release the module; each
- * is an explicit press, and the release asks before it pushes anything.
+ * Deploy: whether a deploy of this activity could start now and, when it cannot, what is
+ * missing, each problem beside the press that clears it (Prepare clones, Check remote, or the
+ * settings page an admin fills in). Then the QA pipeline, QA and PROD side by side, and the
+ * repository checks, folded. Every press is explicit, and a release asks before it pushes.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
@@ -29,13 +29,14 @@ import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneStrip } from "../../lib/tone";
 import { useAuth } from "../../state/auth";
 import {
-  clonesMissing,
-  needsSettings,
-  problemText,
+  checksSummary,
+  readinessGroups,
   readinessLine,
   readinessRows,
+  type ReadinessAction,
 } from "./deploy-model";
 import { DeployProd } from "./deploy-prod";
+import { DeployQa } from "./deploy-qa";
 import { DeployRelease } from "./deploy-release";
 import type { Announcement } from "./run-toasts";
 
@@ -155,6 +156,52 @@ export function DeployPanel({
 
   const line = context ? readinessLine(context) : null;
   const rows = context ? readinessRows(context) : [];
+  const groups = context ? readinessGroups(context.problems) : [];
+  const isAdmin = user?.isAdmin === true;
+
+  /** The press that clears a group of problems, when this viewer may make it. */
+  function actionButton(action: ReadinessAction | null) {
+    switch (action) {
+      case "prepareClones":
+        return editable ? (
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={busy !== null}
+            aria-busy={busy === "prepare"}
+            onClick={() => void prepare()}
+          >
+            {busy === "prepare" ? words.preparing : words.prepareClones}
+          </Button>
+        ) : null;
+      case "checkRemote":
+        return editable ? (
+          <Button
+            size="sm"
+            disabled={busy !== null}
+            aria-busy={busy === "remote"}
+            onClick={() => void checkRemote()}
+          >
+            {busy === "remote" ? words.checkingRemote : words.checkRemote}
+          </Button>
+        ) : null;
+      case "deploySettings":
+        return isAdmin ? (
+          <Button size="sm" onClick={() => settingsDialog.getState().open("deploy")}>
+            {words.openSettings}
+          </Button>
+        ) : null;
+      case "workspaceSettings":
+        return isAdmin ? (
+          <Button size="sm" onClick={() => settingsDialog.getState().open("wafWorkspace")}>
+            {words.openWorkspaceSettings}
+          </Button>
+        ) : null;
+      case null:
+        return null;
+    }
+  }
+
   return (
     <section className="space-y-5" aria-labelledby="activity-deploy-title">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -168,24 +215,14 @@ export function DeployPanel({
           </InfoPopover>
         </h3>
         {editable && (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              disabled={context === null || busy !== null || !clonesMissing(context)}
-              aria-busy={busy === "prepare"}
-              onClick={() => void prepare()}
-            >
-              {busy === "prepare" ? words.preparing : words.prepareClones}
-            </Button>
-            <Button
-              size="sm"
-              disabled={context === null || busy !== null}
-              aria-busy={busy === "remote"}
-              onClick={() => void checkRemote()}
-            >
-              {busy === "remote" ? words.checkingRemote : words.checkRemote}
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            disabled={context === null || busy !== null}
+            aria-busy={busy === "remote"}
+            onClick={() => void checkRemote()}
+          >
+            {busy === "remote" ? words.checkingRemote : words.checkRemote}
+          </Button>
         )}
       </div>
       {loadError && (
@@ -205,13 +242,55 @@ export function DeployPanel({
       )}
       {context && line && (
         <>
-          <p
-            role="status"
-            className={`text-sm font-medium ${toneInk[line.tone]}`}
-            data-testid="deploy-readiness"
-          >
-            {line.text}
-          </p>
+          {groups.length > 0 ? (
+            <section
+              aria-label={words.problemsTitle}
+              className={`overflow-hidden rounded-xl border ${toneStrip.attention}`}
+            >
+              <p
+                role="status"
+                className="flex items-center gap-2 px-4 py-3 text-sm font-semibold"
+                data-testid="deploy-readiness"
+              >
+                <span
+                  aria-hidden
+                  className={`size-1.5 shrink-0 rounded-full ${toneDot.attention}`}
+                />
+                {line.text}
+              </p>
+              <ul className="divide-y divide-gray-200 border-t border-gray-200 bg-white text-gray-900 dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100">
+                {groups.map((group, index) => {
+                  const action = actionButton(group.action);
+                  return (
+                    <li
+                      key={`${group.action ?? "none"}:${index}`}
+                      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3"
+                    >
+                      <div className="min-w-0 flex-1 space-y-1 text-sm">
+                        {group.texts.map((text, at) => (
+                          <p key={at}>{text}</p>
+                        ))}
+                        {group.action === "deploySettings" && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {words.settingsHint}
+                          </p>
+                        )}
+                      </div>
+                      {action}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ) : (
+            <p
+              role="status"
+              className={`text-sm font-medium ${toneInk[line.tone]}`}
+              data-testid="deploy-readiness"
+            >
+              {line.text}
+            </p>
+          )}
           {pinnedBuild && (
             <p
               role="status"
@@ -220,43 +299,6 @@ export function DeployPanel({
             >
               {words.pinnedBuild}
             </p>
-          )}
-          {context.problems.length > 0 && (
-            <details className="rounded-xl border border-gray-200 dark:border-gray-800">
-              <summary className="cursor-pointer rounded-xl px-4 py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2">
-                {words.problemsTitle}{" "}
-                <span className="ml-2 text-xs tabular-nums text-gray-500 dark:text-gray-400">
-                  {context.problems.length}
-                </span>
-              </summary>
-              <div className="border-t border-gray-200 p-4 dark:border-gray-800">
-                {context.problems.length > 0 && (
-                  <section aria-labelledby="activity-deploy-problems" className="space-y-1">
-                    <h4 id="activity-deploy-problems" className="text-xs font-semibold">
-                      {words.problemsTitle}
-                    </h4>
-                    <ul className="list-disc space-y-1 pl-5 text-sm">
-                      {context.problems.map((problem, index) => (
-                        <li key={`${problem.code}:${index}`}>{problemText(problem)}</li>
-                      ))}
-                    </ul>
-                    {needsSettings(context) && (
-                      <p className="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                        {words.settingsHint}
-                        {user?.isAdmin === true && (
-                          <Button
-                            size="sm"
-                            onClick={() => settingsDialog.getState().open("deploy")}
-                          >
-                            {words.openSettings}
-                          </Button>
-                        )}
-                      </p>
-                    )}
-                  </section>
-                )}
-              </div>
-            </details>
           )}
           {state && context.branches.deploy && (
             <DeployRelease
@@ -267,14 +309,37 @@ export function DeployPanel({
               branch={context.branches.deploy}
               activityDataBranch={context.branches.activityData}
               productCode={productCode}
+              readinessBlocker={context.ready ? null : words.waitingOnReadiness}
               onRun={setRun}
               onSettled={reload}
               onAnnounce={onAnnounce}
             />
           )}
+          {state && context.branches.deploy && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <DeployQa run={state.run} stages={state.stages} />
+              {state.production && (
+                <DeployProd
+                  endpoint={endpoint}
+                  editable={editable}
+                  isAdmin={isAdmin}
+                  production={state.production}
+                  run={state.run}
+                  productCode={productCode}
+                  activityDataBranch={context.branches.activityData}
+                  onRun={setRun}
+                  onSettled={reload}
+                  onAnnounce={onAnnounce}
+                />
+              )}
+            </div>
+          )}
           <details className="rounded-xl border border-gray-200 dark:border-gray-800">
-            <summary className="cursor-pointer rounded-xl px-4 py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2">
-              {words.diagnostics}
+            <summary className="cursor-pointer rounded-xl px-4 py-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2">
+              <span className="font-medium">{words.diagnostics}</span>{" "}
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                · {checksSummary(rows)}
+              </span>
             </summary>
             <div className="px-4 pb-4">
               <div className={TABLE_WRAP}>
@@ -305,20 +370,6 @@ export function DeployPanel({
               </div>
             </div>
           </details>
-          {state?.production && context.branches.deploy && (
-            <DeployProd
-              endpoint={endpoint}
-              editable={editable}
-              isAdmin={user?.isAdmin === true}
-              production={state.production}
-              run={state.run}
-              productCode={productCode}
-              activityDataBranch={context.branches.activityData}
-              onRun={setRun}
-              onSettled={reload}
-              onAnnounce={onAnnounce}
-            />
-          )}
         </>
       )}
     </section>
