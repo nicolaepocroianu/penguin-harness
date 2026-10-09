@@ -59,8 +59,13 @@ describe("the Tests chip", () => {
     });
   });
 
-  it("lets a report for an older spec recede, and says nothing without one", () => {
+  it("lets a report for an older spec recede, failures included, and says nothing without one", () => {
     expect(testBadge(tests(["passed"], true), false)?.tone).toBe("muted");
+    expect(testBadge(tests(["passed", "failed"], true), false)).toMatchObject({
+      text: "1",
+      tone: "muted",
+      label: "1 failed on an older spec",
+    });
     expect(testBadge(null, false)).toBeNull();
     expect(testBadge(tests([]), false)).toBeNull();
   });

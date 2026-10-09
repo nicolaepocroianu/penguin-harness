@@ -152,6 +152,7 @@ export const en: Strings = {
       failed: (n: number) => `${n} failed`,
       passed: (n: number) => `${n} passed`,
       stale: (n: number) => `${n} passed on an older spec`,
+      staleFailed: (n: number) => `${n} failed on an older spec`,
       findings: (n: number) => `${n} ${n === 1 ? "finding" : "findings"} open`,
     },
     studioPanels: {
