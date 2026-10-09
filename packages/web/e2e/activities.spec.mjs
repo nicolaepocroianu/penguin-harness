@@ -731,6 +731,16 @@ async function openSection(page, name) {
   // Clicking the section already showing re-renders the rail under the click, but a rail
   // opened just now is covering the work and has to be dismissed by choosing anyway.
   if (opened || (await button.getAttribute("aria-current")) !== "true") await button.click();
+  // The spec opens as scenes once one is saved; the JSON is one step further, which is
+  // where these tests work.
+  if (name === "Specification") {
+    const json = page.getByRole("group", { name: "View", exact: true }).getByRole("button", {
+      name: "JSON",
+      exact: true,
+    });
+    await expect(json).toBeVisible();
+    if ((await json.getAttribute("aria-pressed")) !== "true") await json.click();
+  }
   // Scenes opens on the storyboard once there is a media plan; the media itself is one
   // step further, which is where these tests work.
   if (name === "Scenes and media") {
@@ -919,6 +929,71 @@ test("reviews specification edits against the saved specification before saving"
   await editor.fill("{ not json");
   await expect(page.getByText(/^This is not valid JSON/)).toBeVisible();
   await expect(save).toBeDisabled();
+  expect(f.errors).toEqual([]);
+});
+
+test("reads the specification as scenes, checks narration against the script, and fixes the draft", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  await page.getByRole("textbox", { name: "Specification JSON", exact: true }).fill(
+    JSON.stringify({
+      ...spec,
+      activityDescription: "usesAssessment=true\nPractice words",
+      acceptance_criterias: ["Every word is read."],
+      scenes: [
+        {
+          id: "scene-1",
+          description: "Choose a word",
+          media: { images: [{ key: "cat", description: "A cat" }] },
+          audio: { tracks: [{ key: "hello", description: "", script: "Hello friend." }] },
+        },
+      ],
+    }),
+  );
+  await page.getByRole("button", { name: "Save Spec", exact: true }).click();
+  await openSection(page, "Description");
+  await page
+    .getByRole("textbox", { name: "Activity Script", exact: true })
+    .fill("Scene 1: Intro\n<audio>Hello there, friend!</audio>");
+  await page.getByRole("button", { name: "Save script", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Save script", exact: true })).toBeDisabled();
+
+  await openSection(page, "Specification");
+  const view = page.getByRole("group", { name: "View", exact: true });
+  await view.getByRole("button", { name: "Scenes", exact: true }).click();
+  await expect(page.getByText("Engine html", { exact: true })).toBeVisible();
+  await expect(page.getByText("Assessment off", { exact: true })).toBeVisible();
+  await expect(page.getByText("Every word is read.", { exact: true })).toBeVisible();
+  const card = page.getByRole("article", { name: "Scene 1: Intro", exact: true });
+  await expect(card.getByText("1 line differs", { exact: true })).toBeVisible();
+  await expect(card.getByText("Script says: “Hello there, friend!”")).toBeVisible();
+  await expect(card.getByText("A cat", { exact: true })).toBeVisible();
+
+  // Both fixes are unsaved edits of the JSON: Save Spec sends them together.
+  await page.getByRole("button", { name: "Remove it", exact: true }).click();
+  await expect(page.getByText(/^The description starts with/)).toHaveCount(0);
+  await card.getByRole("button", { name: "Use the script", exact: true }).click();
+  await expect(card.getByText("Matches the script", { exact: true })).toBeVisible();
+  const saved = page.waitForRequest(
+    (request) => request.url().endsWith("/apply-generated-spec") && request.method() === "POST",
+  );
+  await page.getByRole("button", { name: "Save Spec", exact: true }).click();
+  const body = (await saved).postDataJSON().spec;
+  expect(body.activityDescription).toBe("Practice words");
+  expect(body.scenes[0].audio.tracks[0].script).toBe("Hello there, friend!");
+  await expect(page.getByRole("button", { name: "Save Spec", exact: true })).toBeDisabled();
+
+  // Diff is a reading of the text, so it opens the JSON.
+  await page.getByRole("button", { name: "Diff", exact: true }).click();
+  await expect(view.getByRole("button", { name: "JSON", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+  ).toBeVisible();
   expect(f.errors).toEqual([]);
 });
 

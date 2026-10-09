@@ -1068,6 +1068,55 @@ export const en: Strings = {
       savedSide: "Saved specification",
       save: "Save Spec",
     },
+    specScenes: {
+      view: "View",
+      scenes: "Scenes",
+      json: "JSON",
+      unreadable: "The text is not a specification yet, so it cannot be read as scenes.",
+      openJson: "Open JSON",
+      runtime: "Runtime",
+      engine: (value) => `Engine ${value}`,
+      layout: (value) => `Layout ${value}`,
+      theme: (value) => `Theme ${value}`,
+      assessment: (on) => `Assessment ${on ? "on" : "off"}`,
+      description: "Description",
+      noDescription: "No description yet.",
+      prefixNotice: (prefix) =>
+        `The description starts with “${prefix}”. That setting already lives in Runtime.`,
+      removePrefix: "Remove it",
+      criteria: "Acceptance criteria",
+      noCriteria:
+        "No criteria yet. The tests and quality checks have nothing to hold this activity to.",
+      scenesHelp:
+        "Each scene's narration lines are compared with the <audio> lines under the same scene number in the Activity Script, word for word, ignoring case and punctuation. A line that differs offers the script's line in its place; a scene the script does not number is not compared.",
+      noScenes: "No scenes yet.",
+      summary: (matching, differing) =>
+        differing === 0
+          ? `${matching} match the script`
+          : `${matching} match the script · ${differing} ${differing === 1 ? "differs" : "differ"}`,
+      videos: (n) => `${n} ${n === 1 ? "video" : "videos"}`,
+      images: (n) => `${n} ${n === 1 ? "image" : "images"}`,
+      animations: (n) => `${n} ${n === 1 ? "animation" : "animations"}`,
+      sounds: (n) => `${n} ${n === 1 ? "sound" : "sounds"}`,
+      narrationLines: (n) => `${n} narration ${n === 1 ? "line" : "lines"}`,
+      noNarration: "no narration",
+      matches: "Matches the script",
+      differs: (n) => (n === 1 ? "1 line differs" : `${n} lines differ`),
+      notInScript: "Not in the script",
+      lineNotInScript: "The script has no line for this.",
+      scriptSays: (text) => `Script says: “${text}”`,
+      useScript: "Use the script",
+      extraInScript: (n) =>
+        n === 1
+          ? "The script has 1 more narration line than the spec."
+          : `The script has ${n} more narration lines than the spec.`,
+      narration: "Narration",
+      media: "Media",
+      kinds: { image: "image", video: "video", animation: "animation", sound: "sound" },
+      bound: "Bound",
+      needsFile: "Needs a file",
+      scene: (n, title) => `Scene ${n}: ${title}`,
+    },
     jsonEditor: {
       diff: "Diff",
       diffHelp: "Show the changes since the last save",
