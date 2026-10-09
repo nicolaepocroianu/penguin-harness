@@ -972,8 +972,39 @@ export type Strings = {
       changedScenes: string;
       scene: (n: number) => string;
       proposed: string;
-      proposalShown: string;
-      acceptProposal: string;
+      marks: Record<"audio" | "video" | "image" | "animation", string>;
+      clipBound: string;
+      clipUnbound: string;
+      openClip: (key: string) => string;
+      seconds: (value: string) => string;
+      minutes: (minutes: number, seconds: string) => string;
+      sceneFacts: {
+        heard: (n: number) => string;
+        seen: (n: number) => string;
+        unbound: (n: number) => string;
+      };
+      acceptChange: string;
+      rejectChange: string;
+      reviewLabel: string;
+      reviewLeft: (left: number, total: number) => string;
+      reviewDone: (kept: number, total: number) => string;
+      reviewNoneKept: string;
+      previousChange: string;
+      nextChange: string;
+      rejectRest: string;
+      acceptRest: string;
+      applyReview: string;
+      closeProposal: string;
+      status: {
+        label: string;
+        scene: (n: number, total: number, title: string) => string;
+        noScene: string;
+        line: (n: number) => string;
+        words: (n: number) => string;
+        narrationSeconds: (s: number) => string;
+        narrationMinutes: (m: number, s: number) => string;
+        clips: (bound: number, total: number) => string;
+      };
       save: string;
       minimap: string;
       jump: (line: number) => string;
@@ -998,6 +1029,9 @@ export type Strings = {
       applyAll: (n: number) => string;
       discard: string;
       discardConfirm: string;
+      reviewInScript: string;
+      reviewLeft: (left: number, total: number) => string;
+      reviewDone: string;
     };
     /** The conversation panel: an agent asked about what the author has open. */
     studioConversation: {
@@ -1013,6 +1047,7 @@ export type Strings = {
       threads: string;
       thread: (about: string, when: string) => string;
       today: (time: string) => string;
+      suggestions: Record<"script" | "spec" | "asset", readonly string[]>;
       empty: string;
       readOnly: string;
       noAgent: string;
@@ -1682,6 +1717,20 @@ export type Strings = {
       conflict: string;
       cancelled: string;
       interrupted: string;
+    };
+    progress: {
+      label: string;
+      script: string;
+      spec: string;
+      media: string;
+      module: string;
+      saved: string;
+      unsaved: string;
+      clips: (bound: number, total: number) => string;
+      noPlan: string;
+      built: string;
+      notBuilt: string;
+      proposalWaiting: string;
     };
     draftStatus: { draft: string; valid: string; invalid: string };
   };

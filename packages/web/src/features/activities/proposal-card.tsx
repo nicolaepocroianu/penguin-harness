@@ -17,7 +17,15 @@ import {
   type ProposalBase,
   type ProposalChange,
 } from "./proposal";
+import type { ScriptReview } from "./script-editor";
+import { sceneRanges, scenesTouched } from "./script-model";
+import { diffLines } from "./spec-diff";
 import { SpecDiffView } from "./spec-diff-view";
+
+/** The script's scenes a proposed script changes, in order. */
+function changedScenes(before: string, after: string): number[] {
+  return scenesTouched(diffLines(before, after), sceneRanges(after));
+}
 
 export function ProposalCard({
   proposal,
@@ -26,6 +34,8 @@ export function ProposalCard({
   onAccept,
   onApplyAll,
   onDiscard,
+  review = null,
+  onReviewScript,
 }: {
   proposal: AssistProposal;
   base: ProposalBase;
@@ -35,6 +45,10 @@ export function ProposalCard({
   /** Apply every change as one draft change, all or none. */
   onApplyAll?: () => Promise<void>;
   onDiscard?: () => Promise<void>;
+  /** Where the script editor's review of the proposed script stands, while one is open. */
+  review?: ScriptReview | null;
+  /** Open the proposed script for review in the editor, at a scene when one is given. */
+  onReviewScript?: (scene?: number) => void;
 }) {
   const words = S.activities.studioProposal;
   const [accepting, setAccepting] = useState<string | null>(null);
@@ -121,6 +135,31 @@ export function ProposalCard({
                   )
                 )}
               </div>
+              {change.target === "description" && texts && !applied && onReviewScript && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+                  <Button size="sm" variant="secondary" onClick={() => onReviewScript()}>
+                    {words.reviewInScript}
+                  </Button>
+                  {changedScenes(texts.before, texts.after).map((number) => (
+                    <button
+                      key={number}
+                      type="button"
+                      onClick={() => onReviewScript(number)}
+                      className="rounded px-1.5 py-0.5 text-brand-700 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-950"
+                    >
+                      {S.activities.studioScript.scene(number)}
+                    </button>
+                  ))}
+                  {review && (
+                    <span
+                      aria-live="polite"
+                      className={review.left ? toneInk.attention : toneInk.success}
+                    >
+                      {review.left ? words.reviewLeft(review.left, review.total) : words.reviewDone}
+                    </span>
+                  )}
+                </div>
+              )}
               {!texts ? (
                 <p className={`mt-1 text-xs ${toneInk.attention}`}>{words.nothingToApply}</p>
               ) : (

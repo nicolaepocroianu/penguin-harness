@@ -26,12 +26,14 @@ import {
   followUpText,
   latestConversation,
   splitStudioBrief,
+  suggestionsFor,
   threadTime,
   type AssistFocus,
 } from "./conversation";
 import { Select } from "../../components/ui/select";
 import type { ProposalBase, ProposalChange } from "./proposal";
 import { ProposalCard } from "./proposal-card";
+import type { ScriptReview } from "./script-editor";
 import type { ProposalRead } from "./use-assist-proposal";
 import { useSessionTranscript } from "./use-session-transcript";
 import { ShowReasoningSwitch } from "./show-reasoning-switch";
@@ -55,6 +57,8 @@ export function ConversationPanel({
   onApplyAll,
   onDiscard,
   onThread,
+  review = null,
+  onReviewScript,
 }: {
   /** The activity's API path. */
   endpoint: string;
@@ -84,6 +88,10 @@ export function ConversationPanel({
   onDiscard?: () => Promise<void>;
   /** The conversation now open, so the page reads that one's proposal; null for a new one. */
   onThread?: (runId: string | null) => void;
+  /** Where the script editor's review of the proposed script stands. */
+  review?: ScriptReview | null;
+  /** Open the proposed script for review in the editor. */
+  onReviewScript?: (scene?: number) => void;
 }) {
   const latest = latestConversation(runs);
   const threads = conversationThreads(runs);
@@ -110,6 +118,8 @@ export function ConversationPanel({
       onSeedTaken={onSeedTaken}
       onApplyAll={onApplyAll}
       onDiscard={onDiscard}
+      review={review}
+      onReviewScript={onReviewScript}
       initialStatus={startedRunning}
       endpoint={endpoint}
       runner={runner}
@@ -134,6 +144,8 @@ function Conversation({
   onSeedTaken,
   onApplyAll,
   onDiscard,
+  review,
+  onReviewScript,
   initialStatus,
   endpoint,
   runner,
@@ -159,6 +171,8 @@ function Conversation({
   onSeedTaken?: () => void;
   onApplyAll?: () => Promise<void>;
   onDiscard?: () => Promise<void>;
+  review: ScriptReview | null;
+  onReviewScript?: (scene?: number) => void;
   initialStatus: "idle" | "running";
   endpoint: string;
   runner: Record<string, string> | null;
@@ -305,6 +319,8 @@ function Conversation({
               onAccept={editable ? onAccept : undefined}
               onApplyAll={editable && onApplyAll ? onApplyAll : undefined}
               onDiscard={editable && onDiscard ? onDiscard : undefined}
+              review={review}
+              onReviewScript={editable ? onReviewScript : undefined}
             />
           ) : (
             <p role="status" className={`text-xs ${toneInk.attention}`}>
@@ -318,7 +334,26 @@ function Conversation({
           onSubmit={(event) => void send(event)}
           className="space-y-2 border-t border-gray-200 p-3 dark:border-gray-800"
         >
-          <p className="truncate text-xs text-gray-500">{words.about(focusLabel(focus))}</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {/* What the agent will be told the author is looking at, as a scope, not a sentence. */}
+            <span
+              title={words.about(focusLabel(focus))}
+              className="inline-flex max-w-full min-w-0 items-center truncate rounded bg-brand-50 px-1.5 py-0.5 text-xs text-brand-700 dark:bg-brand-950 dark:text-brand-200"
+            >
+              {words.about(focusLabel(focus))}
+            </span>
+            {!draft.trim() &&
+              suggestionsFor(focus).map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => setDraft(suggestion)}
+                  className="rounded-full border border-gray-200 px-2 py-0.5 text-xs text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-900"
+                >
+                  {suggestion}
+                </button>
+              ))}
+          </div>
           <Textarea
             aria-label={words.placeholder}
             placeholder={words.placeholder}

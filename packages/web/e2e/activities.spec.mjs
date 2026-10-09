@@ -1904,8 +1904,8 @@ test("the studio header wraps its controls instead of overlapping them", async (
   const headerControls = () => [
     page.locator('nav[aria-label="Breadcrumb"] h2'),
     refMenu(page),
-    // The draft/unsaved status pill beside the ref.
-    page.locator('nav[aria-label="Breadcrumb"] span[aria-live]'),
+    // The progress steps beside the ref, which carry the draft's state.
+    page.getByRole("list", { name: "Progress", exact: true }),
     page.getByRole("button", { name: "Layout", exact: true }),
   ];
 
@@ -2225,6 +2225,9 @@ test("the script editor folds scenes, diffs against the last save and shows an a
   await box.fill(script);
   await save.click();
   await expect(save).toBeDisabled();
+  // Away from the cursor an element's tags draw as a small mark; on the cursor's line, as written.
+  await expect(box.locator(".cm-media-mark").first()).toHaveText("Video");
+  await box.locator(".cm-media-mark").first().click();
   await expect(box.locator(".cm-media-tag").first()).toHaveText("<video>");
 
   // Scenes fold to their headings and open again.
@@ -2292,14 +2295,129 @@ test("the script editor folds scenes, diffs against the last save and shows an a
     .getByRole("group", { name: "Compare", exact: true })
     .getByRole("button", { name: "Agent proposal", exact: true })
     .click();
-  await expect(page.getByText("Agent proposal, read-only", { exact: true })).toBeVisible();
+  const review = page.getByRole("region", { name: "Agent proposal review", exact: true });
+  await expect(review).toContainText(/of \d+ changes? from the agent to review/);
   await expect(box).toContainText("Scene 1: Welcome");
   await expect(box).toHaveAttribute("contenteditable", "false");
-  await page.getByRole("button", { name: "Accept the proposed script", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Accept the proposed script" })).toHaveCount(0);
+  await review.getByRole("button", { name: "Accept the rest", exact: true }).click();
+  await expect(review).toHaveCount(0);
   await expect(box).toHaveAttribute("contenteditable", "true");
   await expect(box).toContainText("Scene 1: Welcome");
   await expect(box.locator(".cm-proposed-hint")).toHaveCount(0);
+  expect(f.errors).toEqual([]);
+});
+
+test("reviews an agent's proposed script change by change and applies what was kept", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  await openSection(page, "Description");
+  const script = [
+    "Description",
+    "",
+    "Scene 1: Intro",
+    "<video>An island.</video>",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Scene 2: Rocks",
+    "The narrator says <audio>Find d.</audio>",
+  ].join("\n");
+  const box = page.getByRole("textbox", { name: "Activity Script", exact: true });
+  const save = page.getByRole("button", { name: "Save script", exact: true });
+  await box.fill(script);
+  await save.click();
+  await expect(save).toBeDisabled();
+
+  // Two changes far enough apart to be reviewed one at a time.
+  const proposed = script
+    .replace("Scene 1: Intro", "Scene 1: Welcome")
+    .replace("Find d.", "Find lowercase d.");
+  let discarded = false;
+  const patches = [];
+  page.on("request", (request) => {
+    if (request.method() === "PATCH" && request.url().endsWith("/act_test/description"))
+      patches.push(request.postDataJSON());
+  });
+  await page.route("**/*", async (route) => {
+    const p = new URL(route.request().url()).pathname;
+    if (p === `${base}/act_test/runs`)
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          runs: [
+            {
+              kind: "assist",
+              inputRevision: "1",
+              runId: "run_assist",
+              activityId: "act_test",
+              projectId,
+              sessionId: "session_assist",
+              status: "succeeded",
+              createdAt: "2026-09-19T11:00:00Z",
+              hasCandidate: false,
+              error: null,
+            },
+          ],
+        }),
+      });
+    if (p === `${base}/act_test/runs/run_assist/proposal/discard`) {
+      discarded = true;
+      return route.fulfill({ contentType: "application/json", body: "{}" });
+    }
+    if (p === `${base}/act_test/runs/run_assist/proposal`)
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          proposal: discarded
+            ? null
+            : { summary: "Two edits", changes: [{ target: "description", text: proposed }] },
+          error: null,
+        }),
+      });
+    return route.fallback();
+  });
+  await page.reload();
+  await openSection(page, "Description");
+
+  // The header says a proposal is waiting, and opens the review.
+  await page.getByRole("button", { name: "Proposal waiting", exact: true }).click();
+  const review = page.getByRole("region", { name: "Agent proposal review", exact: true });
+  await expect(review).toContainText("2 of 2 changes from the agent to review");
+
+  // Reject the first change where it stands; the second stays and counts as kept.
+  await box.locator(".cm-review-reject").first().click();
+  await expect(review).toContainText("1 of 2 changes from the agent to review");
+
+  // Leaving the review and coming back keeps what was decided.
+  const compare = page.getByRole("group", { name: "Compare", exact: true });
+  await compare.getByRole("button", { name: "Off", exact: true }).click();
+  await expect(review).toHaveCount(0);
+  await compare.getByRole("button", { name: "Agent proposal", exact: true }).click();
+  await expect(review).toContainText("1 of 2 changes from the agent to review");
+
+  // The change controls answer the keyboard as well as the mouse.
+  await box.locator(".cm-review-accept").first().focus();
+  await page.keyboard.press("Enter");
+  await expect(review).toContainText("All 2 reviewed: 1 kept.");
+  await review.getByRole("button", { name: "Apply to the script", exact: true }).click();
+
+  await expect(review).toHaveCount(0);
+  await expect
+    .poll(() => patches.at(-1)?.description)
+    .toBe(script.replace("Find d.", "Find lowercase d."));
+  // A proposal that only changed the script is done with once applied.
+  await expect.poll(() => discarded).toBe(true);
+  await expect(page.getByRole("button", { name: "Proposal waiting", exact: true })).toHaveCount(0);
+  await expect(box).toContainText("Scene 1: Intro");
   expect(f.errors).toEqual([]);
 });
 

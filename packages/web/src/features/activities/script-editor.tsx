@@ -1,28 +1,21 @@
 /**
  * The Activity Script editor: one monospace surface where scenes fold to
- * their headings, media elements stand out from the prose around them, and a diff against
- * a chosen base is drawn in place rather than in a second view.
+ * their headings, media elements read as narration and footage rather than markup, and a diff
+ * against a chosen base is drawn in place rather than in a second view.
  *
- * There are two bases. "Since last save" is the author's own edits, each change revertible
- * where it stands. "Agent proposal" swaps in the proposed script, read-only, drawn against
- * what the author has now; the author's editor state is kept aside meanwhile, undo history
- * and all, and comes back untouched. A draft keeps no history, so there is no base older
- * than the last save.
+ * There are two bases. "Last save" is the author's own edits, each change revertible where it
+ * stands. "Agent proposal" swaps in the proposed script for review: each change the agent made
+ * can be accepted or rejected where it stands, and what is left once the author is done is what
+ * gets applied. Changes left undecided count as accepted, since the proposal is what put them
+ * there. The author's editor state is kept aside meanwhile, undo history and all, and comes back
+ * untouched. A draft keeps no history, so there is no base older than the last save.
  *
  * CodeMirror owns the document while the author types; `value` is pushed in only when it
  * changes from outside, as after a reload or an accepted proposal.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Compartment, EditorState, Facet, RangeSetBuilder, type Text } from "@codemirror/state";
-import {
-  Decoration,
-  EditorView,
-  ViewPlugin,
-  WidgetType,
-  keymap,
-  type DecorationSet,
-  type ViewUpdate,
-} from "@codemirror/view";
+import { Compartment, EditorState } from "@codemirror/state";
+import { EditorView, keymap } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import {
   codeFolding,
@@ -34,22 +27,27 @@ import {
   unfoldAll,
   unfoldEffect,
 } from "@codemirror/language";
-import { goToNextChunk, goToPreviousChunk, unifiedMergeView } from "@codemirror/merge";
+import {
+  getChunks,
+  getOriginalDoc,
+  goToNextChunk,
+  goToPreviousChunk,
+  unifiedMergeView,
+} from "@codemirror/merge";
 import { search, searchKeymap } from "@codemirror/search";
 import { Button } from "../../components/ui/button";
 import { ChipGroup } from "../../components/ui/chip-group";
 import { S } from "../../lib/strings";
-import { toneInk } from "../../lib/tone";
+import { toneDot, toneInk, toneStrip } from "../../lib/tone";
 import {
-  diffMarkers,
-  mediaElementSpans,
-  mediaTagSpans,
-  sceneHeadingPrefix,
-  sceneRanges,
-  scenesTouched,
-  type MediaElement,
-  type ScriptScene,
-} from "./script-model";
+  mediaContext,
+  proposedScenes,
+  sceneFold,
+  scenesOf,
+  scriptDecorations,
+} from "./script-decorations";
+import { scriptFigures, type ScriptMedia } from "./script-media";
+import { diffMarkers, sceneRanges, scenesTouched } from "./script-model";
 import { diffLines, diffStats } from "./spec-diff";
 
 export type ScriptDiffBase = "off" | "saved" | "proposal";
@@ -60,6 +58,12 @@ export type ScriptDiffBase = "off" | "saved" | "proposal";
  */
 export type ScriptAccess = "edit" | "read" | "disabled";
 
+/** Where a proposal's review stands: changes the author has not decided yet, of how many. */
+export interface ScriptReview {
+  left: number;
+  total: number;
+}
+
 function accessExtensions(access: ScriptAccess) {
   return [
     EditorState.readOnly.of(access !== "edit"),
@@ -68,132 +72,13 @@ function accessExtensions(access: ScriptAccess) {
   ];
 }
 
-/** A document's scenes, worked out once per document rather than once per line asked about. */
-const scenesByDoc = new WeakMap<
-  Text,
-  { list: ScriptScene[]; byHeading: Map<number, ScriptScene> }
->();
-function scenesOf(doc: Text) {
-  let entry = scenesByDoc.get(doc);
-  if (!entry) {
-    const list = sceneRanges(doc.toString());
-    entry = { list, byHeading: new Map(list.map((scene) => [scene.heading, scene])) };
-    scenesByDoc.set(doc, entry);
-  }
-  return entry;
-}
-
-/** A scene folds from the end of its heading to the end of its last line. */
-const sceneFolding = foldService.of((state, lineStart) => {
-  const line = state.doc.lineAt(lineStart);
-  const scene = scenesOf(state.doc).byHeading.get(line.number);
-  if (!scene || scene.last <= scene.heading) return null;
-  return { from: line.to, to: state.doc.line(scene.last).to };
-});
-
-/** Scene numbers an open proposal changes, marked on their headings. */
-const proposedScenes = Facet.define<number[], ReadonlySet<number>>({
-  combine: (values) => new Set(values.flat()),
-});
-
-class ProposedHint extends WidgetType {
-  constructor(readonly text: string) {
-    super();
-  }
-  override eq(other: ProposedHint) {
-    return other.text === this.text;
-  }
-  toDOM() {
-    const hint = document.createElement("span");
-    // A proposal waiting on the author is an attention state; its ink comes from tone.ts.
-    hint.className = `cm-proposed-hint ${toneInk.attention}`;
-    hint.textContent = this.text;
-    return hint;
-  }
-}
-
-const headingLine = Decoration.line({ class: "cm-scene-heading" });
-const headingNumber = Decoration.mark({ class: "cm-scene-number" });
-/**
- * What is heard and what is seen keep a hue each, tag and all, so narration and footage read
- * apart in a long scene. The hues are categorical (which element this is), never a status.
- */
-const tagMarks = Object.fromEntries(
-  (["audio", "video", "image", "animation"] as const).map((element) => [
-    element,
-    Decoration.mark({ class: `cm-media-tag cm-media-${element}` }),
-  ]),
-) as Record<MediaElement, Decoration>;
-const spanMarks = Object.fromEntries(
-  (["audio", "video", "image", "animation"] as const).map((element) => [
-    element,
-    Decoration.mark({ class: `cm-media-span cm-media-span-${element}` }),
-  ]),
-) as Record<MediaElement, Decoration>;
-
-function decorate(view: EditorView): DecorationSet {
-  const builder = new RangeSetBuilder<Decoration>();
-  const { doc } = view.state;
-  const scenes = scenesOf(doc).byHeading;
-  const proposed = view.state.facet(proposedScenes);
-  let done = 0;
-  for (const { from, to } of view.visibleRanges) {
-    for (let pos = from; pos <= to;) {
-      const line = doc.lineAt(pos);
-      pos = line.to + 1;
-      // Two visible ranges can share a line either side of a fold.
-      if (line.number <= done) continue;
-      done = line.number;
-      const scene = scenes.get(line.number);
-      if (scene) builder.add(line.from, line.from, headingLine);
-      const prefix = scene ? sceneHeadingPrefix(line.text) : 0;
-      // Marks go in by where they start, a whole element before the tag that opens it.
-      const marks = [
-        ...(prefix ? [{ from: 0, to: prefix, mark: headingNumber }] : []),
-        ...mediaElementSpans(line.text).map((span) => ({ ...span, mark: spanMarks[span.element] })),
-        ...mediaTagSpans(line.text).map((span) => ({ ...span, mark: tagMarks[span.element] })),
-      ].sort((left, right) => left.from - right.from || right.to - left.to);
-      for (const { from: start, to: end, mark } of marks)
-        builder.add(line.from + start, line.from + end, mark);
-      if (scene && proposed.has(scene.number))
-        builder.add(
-          line.to,
-          line.to,
-          Decoration.widget({
-            widget: new ProposedHint(S.activities.studioScript.proposed),
-            side: 1,
-          }),
-        );
-    }
-  }
-  return builder.finish();
-}
-
-const scriptDecorations = ViewPlugin.fromClass(
-  class {
-    decorations: DecorationSet;
-    constructor(view: EditorView) {
-      this.decorations = decorate(view);
-    }
-    update(update: ViewUpdate) {
-      if (
-        update.docChanged ||
-        update.viewportChanged ||
-        update.startState.facet(proposedScenes) !== update.state.facet(proposedScenes)
-      )
-        this.decorations = decorate(update.view);
-    }
-  },
-  { decorations: (plugin) => plugin.decorations },
-);
-
 /** What every state of this editor shares, author's or proposal's. */
 function common() {
   return [
     history(),
     codeFolding({ placeholderText: "…" }),
     foldGutter(),
-    sceneFolding,
+    foldService.of(sceneFold),
     scriptDecorations,
     search({ top: true }),
     EditorView.lineWrapping,
@@ -217,6 +102,21 @@ const STALE = "\u0000stale";
 /** Unchanged stretches longer than this fold away in a diff, leaving a few lines of context. */
 export const COLLAPSE = { margin: 3, minSize: 8 };
 
+function controlButton(className: string, label: string, action: (event: MouseEvent) => void) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = className;
+  button.textContent = label;
+  // A press acts on mouse down, before the editor can take it as a cursor move. Enter and
+  // Space reach a button only as a click with no pointer behind it (detail 0), so that click
+  // acts too, and a mouse's own click, which follows its mouse down, does not act twice.
+  button.onmousedown = action;
+  button.onclick = (event) => {
+    if (event.detail === 0) action(event);
+  };
+  return button;
+}
+
 export function savedDiff(saved: string, editable: boolean) {
   return unifiedMergeView({
     original: saved,
@@ -225,17 +125,73 @@ export function savedDiff(saved: string, editable: boolean) {
     // Only "revert" means anything against the last save: accepting an edit into the saved
     // text is what Save does, for the whole script at once.
     mergeControls: editable
-      ? (type, action) => {
-          if (type === "accept") return document.createElement("span");
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "cm-revert";
-          button.textContent = S.activities.studioScript.revert;
-          button.onmousedown = action;
-          return button;
-        }
+      ? (type, action) =>
+          type === "accept"
+            ? document.createElement("span")
+            : controlButton("cm-revert", S.activities.studioScript.revert, action)
       : false,
   });
+}
+
+/** Each of the agent's changes, with Accept and Reject where it stands. */
+function proposalReview(original: string, decided: (verdict: "accept" | "reject") => void) {
+  const words = S.activities.studioScript;
+  return unifiedMergeView({
+    original,
+    gutter: true,
+    collapseUnchanged: COLLAPSE,
+    mergeControls: (type, action) =>
+      controlButton(
+        type === "accept" ? "cm-review-accept" : "cm-review-reject",
+        type === "accept" ? words.acceptChange : words.rejectChange,
+        (event) => {
+          action(event);
+          decided(type);
+        },
+      ),
+  });
+}
+
+/** How many changes a review state still holds. */
+function chunksLeft(state: EditorState): number {
+  return getChunks(state)?.chunks.length ?? 0;
+}
+
+/**
+ * A review set aside, to pick up where the author left it: the proposal and script it was
+ * made against, the text it has come to, the original with the accepted changes in it, and
+ * what was decided. Held by the page, so it outlives the editor when another section opens.
+ */
+export interface SavedReview {
+  proposal: string;
+  value: string;
+  text: string;
+  original: string;
+  total: number;
+  rejected: number;
+}
+
+/** A review in progress: the text it has come to, and what the author decided so far. */
+interface ReviewState {
+  text: string;
+  left: number;
+  total: number;
+  rejected: number;
+}
+
+/** What the review strip says, by how far the review has come. */
+function reviewSummary(review: ReviewState, nothingKept: boolean): string {
+  const words = S.activities.studioScript;
+  if (review.left) return words.reviewLeft(review.left, review.total);
+  if (nothingKept) return words.reviewNoneKept;
+  return words.reviewDone(review.total - review.rejected, review.total);
+}
+
+/** "about 2 min 55 s" of narration, or seconds alone under a minute. */
+function narrationText(seconds: number): string {
+  const words = S.activities.studioScript.status;
+  if (seconds < 60) return words.narrationSeconds(seconds);
+  return words.narrationMinutes(Math.floor(seconds / 60), seconds % 60);
 }
 
 export function ScriptEditor({
@@ -248,9 +204,16 @@ export function ScriptEditor({
   status = null,
   acceptBlocked,
   reveal = null,
+  review: reviewRequest = null,
+  media = null,
   onChange,
   onSave,
   onAcceptProposal,
+  onApplyReviewed,
+  onDiscardProposal,
+  onOpenClip,
+  onReview,
+  memory,
 }: {
   value: string;
   /** The script as last saved. */
@@ -267,9 +230,24 @@ export function ScriptEditor({
   acceptBlocked: string | null;
   /** A scene to bring into view, by its number in the script; `at` repeats a request. */
   reveal?: { scene: number; at: number } | null;
+  /** Open the proposal for review, at a scene when one is given; `at` repeats a request. */
+  review?: { scene?: number; at: number } | null;
+  /** What the media plan says about the script's elements and scenes. */
+  media?: ScriptMedia | null;
   onChange: (value: string) => void;
   onSave: () => void;
+  /** Apply the whole proposed script, as the agent wrote it. */
   onAcceptProposal?: () => void;
+  /** Apply the script as the review left it: accepted changes in, rejected ones out. */
+  onApplyReviewed?: (text: string) => void;
+  /** Set the proposal aside, when every change was rejected. */
+  onDiscardProposal?: () => void;
+  /** Open a clip's asset, from the chip at the end of its line. */
+  onOpenClip?: (key: string) => void;
+  /** Where the review stands, or null when no proposal is being reviewed. */
+  onReview?: (review: ScriptReview | null) => void;
+  /** Where a review is kept while it is set aside, so leaving it loses no decision. */
+  memory?: { current: SavedReview | null };
 }) {
   const words = S.activities.studioScript;
   const host = useRef<HTMLDivElement>(null);
@@ -277,17 +255,42 @@ export function ScriptEditor({
   // The author's own state, set aside while the proposal is shown in its place.
   const stash = useRef<EditorState | null>(null);
   const applied = useRef({ base: STALE, saved: STALE, access: STALE, hints: STALE });
+  const appliedMedia = useRef<unknown>(STALE);
   const compartments = useRef({
     diff: new Compartment(),
     access: new Compartment(),
     hints: new Compartment(),
+    media: new Compartment(),
   }).current;
-  const latest = useRef({ value, onChange });
-  latest.current = { value, onChange };
+  const latest = useRef({ value, onChange, onReview });
+  latest.current = { value, onChange, onReview };
 
   const [choice, setChoice] = useState<ScriptDiffBase>("off");
   const base: ScriptDiffBase = choice === "proposal" && proposal === null ? "off" : choice;
   const [folded, setFolded] = useState(false);
+  const [cursorLine, setCursorLine] = useState(1);
+  // The review in progress: the text it has come to, and what the author decided so far.
+  const [review, setReview] = useState<ReviewState | null>(null);
+  // The same, readable when the review is set aside, and what the review was made against.
+  const reviewNow = useRef<ReviewState | null>(null);
+  reviewNow.current = review;
+  const reviewBasis = useRef<{ proposal: string; value: string } | null>(null);
+  // A scene to show once the proposal's state is in place.
+  const reviewScene = useRef<number | null>(null);
+
+  /** Keep the review the view holds, before it is put away. */
+  function rememberReview(view: EditorView) {
+    const basis = reviewBasis.current;
+    const current = reviewNow.current;
+    if (!memory || !basis || !current) return;
+    memory.current = {
+      ...basis,
+      text: view.state.doc.toString(),
+      original: getOriginalDoc(view.state).toString(),
+      total: current.total,
+      rejected: current.rejected,
+    };
+  }
 
   // What the diff reads: the base's text against the text the editor shows.
   const [before, after] =
@@ -308,6 +311,11 @@ export function ScriptEditor({
         : scenesTouched(diffLines(value, proposal), sceneRanges(proposal)),
     [proposal, base, value],
   );
+  const figures = useMemo(() => scriptFigures(value), [value]);
+  const scenes = useMemo(() => sceneRanges(value), [value]);
+  const cursorScene = scenes.find(
+    (scene) => scene.heading <= cursorLine && cursorLine <= scene.last,
+  );
 
   useEffect(() => {
     const view = new EditorView({
@@ -319,7 +327,10 @@ export function ScriptEditor({
           compartments.diff.of([]),
           compartments.access.of([]),
           compartments.hints.of([]),
+          compartments.media.of([]),
           EditorView.updateListener.of((update) => {
+            if (update.selectionSet || update.docChanged)
+              setCursorLine(update.state.doc.lineAt(update.state.selection.main.head).number);
             if (!update.docChanged) return;
             const text = update.state.doc.toString();
             if (text !== latest.current.value) latest.current.onChange(text);
@@ -329,40 +340,81 @@ export function ScriptEditor({
     });
     viewRef.current = view;
     return () => {
+      // Opening another section takes the editor away; a review in progress is kept.
+      if (stash.current) rememberReview(view);
       view.destroy();
       viewRef.current = null;
     };
+    // rememberReview reads only refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compartments]);
+
+  const mediaExtension = useMemo(
+    () => mediaContext.of({ media, open: onOpenClip ?? null }),
+    [media, onOpenClip],
+  );
 
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
     if (base === "proposal") {
-      if (!stash.current) stash.current = view.state;
+      // Already reviewing, and rebuilt for a new setting: carry the decisions over.
+      if (stash.current) rememberReview(view);
+      else stash.current = view.state;
+      const decided = (verdict: "accept" | "reject") => {
+        if (verdict === "reject")
+          setReview((current) =>
+            current ? { ...current, rejected: current.rejected + 1 } : current,
+          );
+      };
+      // The review the author set aside, if it was made against this proposal and this script.
+      const kept = memory?.current;
+      const resume = kept && kept.proposal === proposal && kept.value === value ? kept : null;
+      reviewBasis.current = { proposal: proposal ?? "", value };
       view.setState(
         EditorState.create({
-          doc: proposal ?? "",
+          doc: resume?.text ?? proposal ?? "",
           extensions: [
             common(),
+            mediaExtension,
+            // Read-only to typing; the review's own controls are what change it.
             EditorState.readOnly.of(true),
             EditorView.editable.of(false),
-            unifiedMergeView({
-              original: value,
-              gutter: true,
-              collapseUnchanged: COLLAPSE,
-              mergeControls: false,
+            proposalReview(resume?.original ?? value, decided),
+            EditorView.updateListener.of((update) => {
+              if (!update.docChanged && !update.transactions.length) return;
+              const left = chunksLeft(update.state);
+              const text = update.state.doc.toString();
+              setReview((current) => (current ? { ...current, left, text } : current));
             }),
           ],
         }),
       );
+      const left = chunksLeft(view.state);
+      setReview({
+        text: view.state.doc.toString(),
+        left,
+        total: resume?.total ?? left,
+        rejected: resume?.rejected ?? 0,
+      });
+      if (reviewScene.current !== null) {
+        const scene = scenesOf(view.state.doc).list.find(
+          (entry) => entry.number === reviewScene.current,
+        );
+        reviewScene.current = null;
+        if (scene) goTo(scene.heading);
+      }
       return;
     }
+    setReview(null);
     if (stash.current) {
+      rememberReview(view);
       view.setState(stash.current);
       stash.current = null;
       // The stashed state carries whatever was configured when it was set aside, so
       // nothing it holds can be assumed current: mark every setting as needing a write.
       applied.current = { base: STALE, saved: STALE, access: STALE, hints: STALE };
+      appliedMedia.current = STALE;
     }
     if (view.state.doc.toString() !== value)
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value } });
@@ -383,8 +435,24 @@ export function ScriptEditor({
     const hints = hinted.join(",");
     if (last.hints !== hints)
       view.dispatch({ effects: compartments.hints.reconfigure(proposedScenes.of(hinted)) });
+    if (appliedMedia.current !== mediaExtension) {
+      view.dispatch({ effects: compartments.media.reconfigure(mediaExtension) });
+      appliedMedia.current = mediaExtension;
+    }
     applied.current = { base, saved, access, hints };
-  }, [base, proposal, saved, value, access, hinted, compartments]);
+    // goTo reads only the view, which the ref holds.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, proposal, saved, value, access, hinted, compartments, mediaExtension]);
+
+  // The page hears where the review stands, so the chat's proposal card can say it too.
+  const reviewLeft = review?.left ?? null;
+  const reviewTotal = review?.total ?? null;
+  useEffect(() => {
+    latest.current.onReview?.(
+      reviewLeft === null || reviewTotal === null ? null : { left: reviewLeft, total: reviewTotal },
+    );
+  }, [reviewLeft, reviewTotal]);
+  useEffect(() => () => latest.current.onReview?.(null), []);
 
   // Runs after the document is in place, so a scene asked for as the editor opens is found.
   useEffect(() => {
@@ -392,9 +460,25 @@ export function ScriptEditor({
     if (!reveal || !view) return;
     const scene = scenesOf(view.state.doc).list.find((entry) => entry.number === reveal.scene);
     if (scene) goTo(scene.heading);
-    // goTo reads only the view, which the ref holds.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reveal]);
+
+  useEffect(() => {
+    if (!reviewRequest || proposal === null) return;
+    if (base === "proposal") {
+      const view = viewRef.current;
+      const scene =
+        view && reviewRequest.scene !== undefined
+          ? scenesOf(view.state.doc).list.find((entry) => entry.number === reviewRequest.scene)
+          : undefined;
+      if (scene) goTo(scene.heading);
+      return;
+    }
+    reviewScene.current = reviewRequest.scene ?? null;
+    setChoice("proposal");
+    // Only a new request moves the review; the base changing under it does not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewRequest]);
 
   function goTo(line: number) {
     const view = viewRef.current;
@@ -419,6 +503,50 @@ export function ScriptEditor({
     setFolded(!folded);
   }
 
+  function step(command: typeof goToNextChunk) {
+    const view = viewRef.current;
+    if (!view) return;
+    command(view);
+    view.focus();
+  }
+
+  /** Every change still waiting goes back to the author's text, in one step. */
+  function rejectRest() {
+    const view = viewRef.current;
+    if (!view) return;
+    const chunks = getChunks(view.state)?.chunks ?? [];
+    if (!chunks.length) return;
+    const original = getOriginalDoc(view.state);
+    view.dispatch({
+      changes: chunks.map((chunk) => ({
+        from: chunk.fromB,
+        to: Math.min(chunk.toB, view.state.doc.length),
+        insert: original.sliceString(chunk.fromA, Math.min(chunk.toA, original.length)),
+      })),
+    });
+    setReview((current) =>
+      current ? { ...current, rejected: current.rejected + chunks.length } : current,
+    );
+  }
+
+  const reviewing = base === "proposal" && review !== null;
+  const nothingKept = reviewing && review.text === value;
+  const blocked = acceptBlocked !== null;
+  // The way out of a review: close it when nothing was kept; otherwise apply what it holds,
+  // as the agent's own proposal when nothing was rejected.
+  let finish: { label: string; primary: boolean; run: () => void } | null = null;
+  if (reviewing && nothingKept && !review.left) {
+    if (onDiscardProposal)
+      finish = { label: words.closeProposal, primary: false, run: onDiscardProposal };
+  } else if (reviewing) {
+    const run =
+      review.text === proposal
+        ? onAcceptProposal
+        : onApplyReviewed && (() => onApplyReviewed(review.text));
+    if (run)
+      finish = { label: review.left ? words.acceptRest : words.applyReview, primary: true, run };
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 px-4 py-2 dark:border-gray-800">
@@ -432,7 +560,7 @@ export function ScriptEditor({
         >
           {status}
         </span>
-        {base !== "off" && (
+        {base !== "off" && !reviewing && (
           <span aria-live="polite" className="text-xs text-gray-500 tabular-nums">
             {stats.added || stats.removed
               ? words.stats(stats.added, stats.removed)
@@ -476,23 +604,62 @@ export function ScriptEditor({
           </Button>
         )}
       </div>
-      {base === "proposal" && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 px-4 py-2 dark:border-gray-800">
-          <p className="min-w-0 flex-1 text-xs text-gray-500">{words.proposalShown}</p>
-          {acceptBlocked && <p className={`text-xs ${toneInk.attention}`}>{acceptBlocked}</p>}
-          {onAcceptProposal && (
+      {reviewing && (
+        <div
+          role="region"
+          aria-label={words.reviewLabel}
+          className={`mx-4 mt-2 flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-xs ${
+            review.left ? toneStrip.attention : toneStrip.success
+          }`}
+        >
+          <span aria-live="polite" className="inline-flex min-w-0 flex-1 items-center gap-1.5">
+            <span
+              aria-hidden
+              className={`size-1.5 shrink-0 rounded-full ${toneDot[review.left ? "attention" : "success"]}`}
+            />
+            {reviewSummary(review, nothingKept)}
+          </span>
+          {blocked && <span className={toneInk.attention}>{acceptBlocked}</span>}
+          {review.left > 0 && (
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label={words.previousChange}
+                title={words.previousChange}
+                onClick={() => step(goToPreviousChunk)}
+              >
+                ↑
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label={words.nextChange}
+                title={words.nextChange}
+                onClick={() => step(goToNextChunk)}
+              >
+                ↓
+              </Button>
+            </>
+          )}
+          {review.left > 0 && (
+            <Button size="sm" variant="secondary" onClick={rejectRest}>
+              {words.rejectRest}
+            </Button>
+          )}
+          {finish && (
             <Button
               size="sm"
-              variant="primary"
-              disabled={!!acceptBlocked}
-              onClick={onAcceptProposal}
+              variant={finish.primary ? "primary" : "secondary"}
+              disabled={finish.primary && blocked}
+              onClick={finish.run}
             >
-              {words.acceptProposal}
+              {finish.label}
             </Button>
           )}
         </div>
       )}
-      {changed.length > 0 && (
+      {changed.length > 0 && !reviewing && (
         <div className="flex flex-wrap items-center gap-1.5 border-b border-gray-200 px-4 py-1.5 dark:border-gray-800">
           <span className="text-xs text-gray-500">{words.changedScenes}</span>
           {changed.map((number) => (
@@ -529,6 +696,29 @@ export function ScriptEditor({
               />
             ))}
           </div>
+        )}
+      </div>
+      <div
+        role="group"
+        aria-label={words.status.label}
+        className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-0.5 border-t border-gray-200 bg-gray-50 px-4 py-1 text-xs text-gray-500 tabular-nums dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400"
+      >
+        <span>
+          {cursorScene
+            ? words.status.scene(
+                scenes.indexOf(cursorScene) + 1,
+                scenes.length,
+                cursorScene.title || words.scene(cursorScene.number),
+              )
+            : words.status.noScene}
+        </span>
+        <span>{words.status.line(cursorLine)}</span>
+        <span>{words.status.words(figures.words)}</span>
+        {figures.narrationSeconds > 0 && <span>{narrationText(figures.narrationSeconds)}</span>}
+        {media && media.totals.total > 0 && (
+          <span className="ml-auto">
+            {words.status.clips(media.totals.bound, media.totals.total)}
+          </span>
         )}
       </div>
     </div>
