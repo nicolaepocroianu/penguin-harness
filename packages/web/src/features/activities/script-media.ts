@@ -136,3 +136,19 @@ export function formatClipLength(ms: number): string {
     String(whole % 60).padStart(2, "0"),
   );
 }
+
+/**
+ * Where a clip's chip opens it in Scenes: under the first scene that asks for it, or, for a
+ * clip no scene asks for, among the unassigned media, which the tree keys by an empty scene.
+ */
+export function clipSelection(
+  tree: SceneAssetTree,
+  key: string,
+): { sceneId: string; key: string } | null {
+  const scene = tree.scenes.find((node) =>
+    node.categories.some((category) => category.assets.some((asset) => asset.key === key)),
+  );
+  if (scene) return { sceneId: scene.sceneId, key };
+  if (tree.unassigned.some((asset) => asset.key === key)) return { sceneId: "", key };
+  return null;
+}

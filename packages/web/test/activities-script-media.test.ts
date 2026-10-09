@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AssetManifest } from "@prismshadow/penguin-server/api";
 import {
   buildScriptMedia,
+  clipSelection,
   elementText,
   formatClipLength,
   normalizeWords,
@@ -129,5 +130,22 @@ describe("the header's progress steps", () => {
     expect(steps[0]).toMatchObject({ state: "unsaved", tone: "attention" });
     expect(steps[1]).toMatchObject({ state: "unsaved", tone: "attention" });
     expect(steps[2]).toMatchObject({ state: "no plan yet", tone: "muted" });
+  });
+});
+
+describe("opening a clip from its chip", () => {
+  const orphan = asset({ key: "lost", type: "audio", script: "Nobody asks for me" });
+  const tree = buildSceneTree(spec, [...assets, orphan]);
+
+  it("opens a clip under the scene that asks for it", () => {
+    expect(clipSelection(tree, "s2_hunt")).toEqual({ sceneId: "scene-2", key: "s2_hunt" });
+  });
+
+  it("opens a clip no scene asks for among the unassigned media", () => {
+    expect(clipSelection(tree, "lost")).toEqual({ sceneId: "", key: "lost" });
+  });
+
+  it("finds nothing for a key the plan does not hold", () => {
+    expect(clipSelection(tree, "missing")).toBeNull();
   });
 });

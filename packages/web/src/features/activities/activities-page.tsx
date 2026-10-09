@@ -77,7 +77,7 @@ import {
 } from "./workspace-model";
 import { assetForPick, buildStudioTree, sectionTrails } from "./studio-tree";
 import { sceneRanges } from "./script-model";
-import { buildScriptMedia } from "./script-media";
+import { buildScriptMedia, clipSelection } from "./script-media";
 import type { SavedReview, ScriptReview } from "./script-editor";
 import { ConversationPanel } from "./conversation-panel";
 import { focusFor, latestConversation } from "./conversation";
@@ -1244,11 +1244,9 @@ function ActivityEditor({
   latestTree.current = fullTree;
   const openClip = useCallback(
     (key: string) => {
-      const scene = latestTree.current.scenes.find((node) =>
-        node.categories.some((category) => category.assets.some((asset) => asset.key === key)),
-      );
-      if (!scene) return;
-      setSelected({ sceneId: scene.sceneId, key });
+      const found = clipSelection(latestTree.current, key);
+      if (!found) return;
+      setSelected(found);
       setBoard(false);
       setSection("scenes");
     },
