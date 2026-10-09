@@ -137,7 +137,7 @@ export function SceneCompositionView({
                 ? S.activities.video.rerecord
                 : S.activities.video.record}
           </Button>
-          <p className="text-xs text-gray-500">{S.activities.video.leadIn}</p>
+          <p className="text-xs text-gray-500">{S.activities.video.renderTime}</p>
         </div>
       )}
       {compared && editable && onAcceptVideo && (

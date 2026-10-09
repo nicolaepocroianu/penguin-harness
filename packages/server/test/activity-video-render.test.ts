@@ -1,10 +1,12 @@
 /**
  * Recording a scene composition to a video (experimental). What this proves: the experiment
  * switch, a missing composition and a missing test browser each refuse with a code; the
- * recorder opens the composition through a working signed link at the canvas size, plays it for
- * its length, and keeps what it wrote only when it is a WebM; the recording is served as
- * video/webm, and accepting it binds it to the asset, where the player serves it. The Session
- * and the browser are fakes: nothing reaches a model and no browser starts.
+ * renderer opens the composition through a working signed link at the canvas size, steps its
+ * paused timeline frame by frame, pipes one screenshot per frame to the encoder, and keeps what
+ * the encoder wrote only when it is an MP4; the recording is served as video/mp4, and accepting
+ * it binds it to the asset, where the player serves it. Recordings bound before the frame
+ * renderer (WebM) still validate. The Session, the browser and FFmpeg are fakes: nothing
+ * reaches a model, no browser starts and nothing is encoded.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -22,12 +24,18 @@ import type { ActivityGenerationService } from "../src/activities/generation.js"
 import type { ActivityAuthoring } from "../src/mechanisms/activities.js";
 import { validateManifest, wafManifest, type AssetManifest } from "../src/activities/media.js";
 import { INSTALL_MARKER } from "../src/activities/test-browser.js";
+import type { FfmpegRun } from "../src/activities/ffmpeg.js";
 import {
-  RENDER_MAX_MS,
+  RENDER_FPS,
+  RENDER_MAX_SECONDS,
   VIDEO_MAX_BYTES,
-  WebmError,
+  VideoFileError,
+  encodeArgs,
+  frameCount,
+  inspectMp4,
   inspectWebm,
-  recordingMs,
+  videoMimeType,
+  type EncoderStarter,
 } from "../src/activities/video-render.js";
 import { ownedMediaPaths } from "../src/activities/version-manifest.js";
 import type { RuntimeSession } from "../src/runtime/session-manager.js";
@@ -65,6 +73,22 @@ function webm(extra = 16): Buffer {
   ]);
 }
 
+/** A minimal MP4: an `ftyp` box naming the `isom` brand, then an empty `mdat` box. */
+function mp4(extra = 16): Buffer {
+  const ftyp = Buffer.concat([
+    Buffer.from([0, 0, 0, 20]),
+    Buffer.from("ftypisom", "latin1"),
+    Buffer.from([0, 0, 2, 0]),
+    Buffer.from("isom", "latin1"),
+  ]);
+  const mdat = Buffer.concat([
+    Buffer.from([0, 0, 0, 8 + extra]),
+    Buffer.from("mdat", "latin1"),
+    Buffer.alloc(extra),
+  ]);
+  return Buffer.concat([ftyp, mdat]);
+}
+
 /** A page the way an agent should write it: the template, one image and one timeline. */
 function goodPage() {
   return compositionTemplate(640, 480)
@@ -88,29 +112,48 @@ const FRAMES = {
 const executableIn = (dir: string) => path.join(dir, "chromium-0000", "chrome");
 
 /**
- * A launcher whose page plays along: the bridge reports a 6 s composition, the timeline plays,
- * and closing the context writes `output` where the recorder was told to.
+ * A launcher whose page plays along — the bridge reports a 6 s composition, the timeline
+ * pauses and seeks, and each screenshot is the frame's number — and an encoder that collects
+ * the frames and, once finished, writes `output` where it was told to.
  */
 function fakeBrowser() {
   const calls = {
     urls: [] as string[],
     contexts: [] as Record<string, unknown>[],
     scripts: [] as string[],
-    waited: [] as number[],
+    shots: [] as Record<string, unknown>[],
+    encoded: [] as string[],
+    encoderArgs: [] as string[][],
+    finished: 0,
+    killed: 0,
     closed: 0,
     fetched: null as Response | null,
   };
-  let output: Buffer = webm();
+  let output: Buffer = mp4();
   let hang = false;
   let fetchPage: ((url: string) => Promise<Response>) | null = null;
+  const encoder: EncoderStarter = async (args) => {
+    calls.encoderArgs.push(args);
+    const run: FfmpegRun = {
+      write: async (chunk) => {
+        calls.encoded.push(Buffer.from(chunk).toString());
+      },
+      finish: async () => {
+        calls.finished += 1;
+        await fs.writeFile(args.at(-1)!, output);
+        return Buffer.alloc(0);
+      },
+      kill: () => {
+        calls.killed += 1;
+      },
+    };
+    return run;
+  };
   const launcher = (async () => ({
-    newContext: async (options: { recordVideo?: { dir: string } }) => {
-      calls.contexts.push(options as Record<string, unknown>);
-      const file = path.join(options.recordVideo!.dir, "recorded.webm");
+    newContext: async (options: Record<string, unknown>) => {
+      calls.contexts.push(options);
       const context = {
-        close: async () => {
-          await fs.writeFile(file, output);
-        },
+        close: async () => {},
         newPage: async () => ({
           setDefaultTimeout: () => {},
           goto: async (url: string) => {
@@ -123,11 +166,11 @@ function fakeBrowser() {
             if (hang && script.includes("ready")) return new Promise(() => {});
             return script.includes("ready") ? 6 : true;
           },
-          waitForTimeout: async (ms: number) => {
-            calls.waited.push(ms);
+          screenshot: async (options: Record<string, unknown>) => {
+            calls.shots.push(options);
+            return Buffer.from(`frame ${calls.shots.length - 1}`);
           },
           context: () => context,
-          video: () => ({ path: async () => file }),
         }),
       };
       return context;
@@ -138,6 +181,7 @@ function fakeBrowser() {
   })) as unknown as BrowserLauncher;
   return {
     launcher,
+    encoder,
     calls,
     output: (bytes: Buffer) => {
       output = bytes;
@@ -185,7 +229,13 @@ describe("scene video recording", () => {
     const browser = fakeBrowser();
     const t = await createTestApp({
       testBrowserPorts: { locateExecutable: async (dir) => executableIn(dir) },
-      videoRenderPorts: { launcher: browser.launcher, pageTimeoutMs: 200 },
+      // Two frames a second, so a 6 s composition is 12 frames.
+      videoRenderPorts: {
+        launcher: browser.launcher,
+        encoder: browser.encoder,
+        pageTimeoutMs: 200,
+        fps: 2,
+      },
     });
     const adopt = t.deps.manager.adopt.bind(t.deps.manager);
     vi.spyOn(t.deps.manager, "adopt").mockImplementation((row) => adopt(row, fakeSession(row)));
@@ -347,7 +397,7 @@ describe("scene video recording", () => {
     expect(f.browser.calls.urls).toEqual([]);
   });
 
-  it("records a composition, serves the recording as video/webm, and binds it on accept", async () => {
+  it("renders a composition frame by frame, serves it as video/mp4, and binds it on accept", async () => {
     const f = await fixture();
     await f.experiment(true);
     const composition = await f.composed();
@@ -365,24 +415,37 @@ describe("scene video recording", () => {
     expect(summary.hasCandidate).toBe(true);
 
     // The browser opened the composition on a link that really serves it, at the canvas size,
-    // recorded at that size, and played it for its length and half a second more.
+    // with no page recorder.
     expect(f.browser.calls.urls).toHaveLength(1);
     expect(f.browser.calls.urls[0]).toMatch(
       /^http:\/\/127\.0\.0\.1:\d+\/preview\/composition\/[^/]+\/composition\.html$/,
     );
     expect(f.browser.calls.fetched?.status).toBe(200);
     expect(await f.browser.calls.fetched!.text()).toBe(goodPage());
-    expect(f.browser.calls.contexts[0]).toMatchObject({
-      viewport: { width: 640, height: 480 },
-      recordVideo: { size: { width: 640, height: 480 } },
+    expect(f.browser.calls.contexts[0]).toEqual({ viewport: { width: 640, height: 480 } });
+    // The timeline was paused at its start, then sought to each frame's time in order, and
+    // each frame was captured at the canvas size and handed to the encoder.
+    const seeks = f.browser.calls.scripts
+      .filter((script) => script.includes(".seek("))
+      .map((script) => /\.seek\(([^,]+), false\)/.exec(script)?.[1]);
+    expect(seeks).toEqual(["0", ...Array.from({ length: 12 }, (_, index) => String(index / 2))]);
+    expect(f.browser.calls.shots).toHaveLength(12);
+    expect(f.browser.calls.shots[0]).toMatchObject({
+      type: "png",
+      clip: { x: 0, y: 0, width: 640, height: 480 },
     });
-    expect(f.browser.calls.waited).toEqual([6500]);
+    expect(f.browser.calls.encoded).toEqual(
+      Array.from({ length: 12 }, (_, index) => `frame ${index}`),
+    );
+    expect(f.browser.calls.encoderArgs[0]).toContain("libx264");
+    expect(f.browser.calls.encoderArgs[0]!.at(-1)).toMatch(/render\.mp4$/);
+    expect(f.browser.calls.finished).toBe(1);
     expect(f.browser.calls.closed).toBe(1);
 
     const served = await f.client.get(`${f.endpoint}/runs/${summary.runId}/video`);
     expect(served.status).toBe(200);
-    expect(served.headers.get("content-type")).toBe("video/webm");
-    expect(Buffer.from(await served.arrayBuffer())).toEqual(webm());
+    expect(served.headers.get("content-type")).toBe("video/mp4");
+    expect(Buffer.from(await served.arrayBuffer())).toEqual(mp4());
 
     const before = await f.current();
     expect(before.draft.contentRevision).toBe(summary.inputRevision);
@@ -394,29 +457,31 @@ describe("scene video recording", () => {
     const asset = draft.mediaPlan!.manifest.assets["en-US"]!.find(
       (entry) => entry.key === "intro-video",
     )!;
-    expect(asset.path).toBe("media/loom/p/p-1/videos/english/intro-video.webm");
+    expect(asset.path).toBe("media/loom/p/p-1/videos/english/intro-video.mp4");
     expect(asset.generatedVideo).toEqual({
       runId: summary.runId,
-      sha256: inspectWebm(webm()).sha256,
+      sha256: inspectMp4(mp4()).sha256,
+      format: "mp4",
     });
     // The player finds the bound recording where the media plan says it is.
     const played = await f.client.get(`${f.endpoint}/sandbox/${asset.path}`);
     expect(played.status).toBe(200);
-    expect(played.headers.get("content-type")).toBe("video/webm");
-    expect(Buffer.from(await played.arrayBuffer())).toEqual(webm());
+    expect(played.headers.get("content-type")).toBe("video/mp4");
+    expect(Buffer.from(await played.arrayBuffer())).toEqual(mp4());
     // So does the studio's own preview of the bound file.
     expect((await f.client.get(`${f.endpoint}/runs/${summary.runId}/video`)).status).toBe(200);
     // Assembly stages it at its bound path, where the collector checks it.
     const authoring = f.t.deps.tree.api<ActivityAuthoring>("ActivitiesModule", "ActivityAuthoring");
     const staging = path.join(f.t.root, "assembly-staging");
     await authoring.prepareVideoMedia(PROJECT, summary.activityId, staging, draft.contentRevision);
-    expect(await fs.readFile(path.join(staging, asset.path!))).toEqual(webm());
+    expect(await fs.readFile(path.join(staging, asset.path!))).toEqual(mp4());
 
     // A binding cannot be forged by saving the media plan by hand.
     const forged = structuredClone(draft.mediaPlan!.manifest) as AssetManifest;
     forged.assets["en-US"]!.find((entry) => entry.key === "intro-video")!.generatedVideo = {
       runId: summary.runId,
       sha256: "0".repeat(64),
+      format: "mp4",
     };
     const refused = await f.client.put(`${f.endpoint}/media`, {
       manifest: forged,
@@ -425,7 +490,7 @@ describe("scene video recording", () => {
     expect(refused.status).toBe(422);
   });
 
-  it("fails a recording that is not a WebM and keeps nothing", async () => {
+  it("fails a recording that is not an MP4 and keeps nothing", async () => {
     const f = await fixture();
     await f.experiment(true);
     const composition = await f.composed();
@@ -434,7 +499,7 @@ describe("scene video recording", () => {
     expect(summary.status).toBe("failed");
     // The App words the failure by its code; the sentence stays for the trace.
     expect(summary.video?.problem).toBe("video_invalid");
-    expect(summary.error).toContain("WebM");
+    expect(summary.error).toContain("MP4");
     expect(summary.hasCandidate).toBe(false);
     expect((await f.client.get(`${f.endpoint}/runs/${summary.runId}/video`)).status).toBe(404);
     const accept = await f.client.post(`${f.endpoint}/runs/${summary.runId}/accept-video`, {
@@ -452,8 +517,9 @@ describe("scene video recording", () => {
     expect(stuck.status).toBe("failed");
     expect(stuck.video?.problem).toBe("video_not_ready");
     expect(stuck.hasCandidate).toBe(false);
-    // The browser was closed, so nothing holds the activity.
+    // The browser was closed, so nothing holds the activity, and no encoder was started.
     expect(f.browser.calls.closed).toBe(1);
+    expect(f.browser.calls.encoderArgs).toEqual([]);
     f.browser.hang(false);
     // The run settles a moment before its recorder lets go of the activity.
     let again: ActivityRunSummary | null = null;
@@ -476,7 +542,7 @@ describe("scene video recording", () => {
   });
 });
 
-describe("WebM recordings", () => {
+describe("recording files", () => {
   it("accepts a WebM header and refuses anything else", () => {
     expect(inspectWebm(webm()).bytes).toBe(webm().length);
     const code = (bytes: Buffer) => {
@@ -484,7 +550,7 @@ describe("WebM recordings", () => {
         inspectWebm(bytes);
         return null;
       } catch (error) {
-        return error instanceof WebmError ? "invalid" : "other";
+        return error instanceof VideoFileError ? "invalid" : "other";
       }
     };
     expect(code(Buffer.from("not a video"))).toBe("invalid");
@@ -496,11 +562,33 @@ describe("WebM recordings", () => {
     expect(code(Buffer.alloc(VIDEO_MAX_BYTES + 1))).toBe("invalid");
   });
 
-  it("plays a composition for its length and half a second more, never past 65 s", () => {
-    expect(recordingMs(6)).toBe(6500);
-    expect(recordingMs(60)).toBe(60500);
-    expect(recordingMs(600)).toBe(RENDER_MAX_MS);
-    expect(recordingMs(Number.NaN)).toBe(500);
+  it("accepts an MP4 header and refuses anything else", () => {
+    expect(inspectMp4(mp4()).bytes).toBe(mp4().length);
+    const code = (bytes: Buffer) => {
+      try {
+        inspectMp4(bytes);
+        return null;
+      } catch (error) {
+        return error instanceof VideoFileError ? error.code : "other";
+      }
+    };
+    expect(code(Buffer.from("not a video"))).toBe("video_invalid");
+    expect(code(webm())).toBe("video_invalid");
+    // An ftyp box claiming more bytes than there are.
+    expect(code(mp4().subarray(0, 12))).toBe("video_invalid");
+    expect(code(Buffer.alloc(VIDEO_MAX_BYTES + 1))).toBe("video_too_large");
+    expect(videoMimeType(mp4())).toBe("video/mp4");
+    expect(videoMimeType(webm())).toBe("video/webm");
+  });
+
+  it("renders a composition's length in frames, at least one and never past 65 s", () => {
+    expect(frameCount(6, RENDER_FPS)).toBe(180);
+    expect(frameCount(6.01, 2)).toBe(13);
+    expect(frameCount(600, RENDER_FPS)).toBe(RENDER_MAX_SECONDS * RENDER_FPS);
+    expect(frameCount(Number.NaN, RENDER_FPS)).toBe(1);
+    expect(encodeArgs(30, "out.mp4")).toEqual(
+      expect.arrayContaining(["image2pipe", "libx264", "yuv420p", "+faststart"]),
+    );
   });
 
   it("allows a generated video only on a video or animation asset at its own path", () => {
@@ -540,6 +628,21 @@ describe("WebM recordings", () => {
         address,
       ),
     ).not.toThrow();
+    // A rendered MP4 says so, and is bound at the .mp4 path.
+    const rendered = { ...generatedVideo, format: "mp4" };
+    expect(
+      validateManifest(manifest({ path: `${video}.mp4`, generatedVideo: rendered }), address)
+        .assets["en-US"]![0]!.generatedVideo,
+    ).toEqual(rendered);
+    expect(() =>
+      validateManifest(manifest({ path: `${video}.webm`, generatedVideo: rendered }), address),
+    ).toThrow("Invalid generated video binding.");
+    expect(() =>
+      validateManifest(
+        manifest({ path: `${video}.mp4`, generatedVideo: { ...generatedVideo, format: "mov" } }),
+        address,
+      ),
+    ).toThrow("Invalid generated video binding.");
     for (const wrong of [
       // Another extension, where a take used to be bound, and an animation's folder for a video.
       { path: `${video}.mp4` },

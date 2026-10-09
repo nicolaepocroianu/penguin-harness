@@ -33,9 +33,17 @@ export interface VideoTarget {
   problem?: VideoProblemCode;
 }
 
-/** A kept recording: a WebM in the draft workspace, `videos/<runId>.webm`. */
+/**
+ * A recording's file format: an H.264 MP4 from the frame renderer, or a WebM from the page
+ * recorder that came before it.
+ */
+export type VideoFormat = "mp4" | "webm";
+
+/** A kept recording: the run's candidate in the ref's media folder. */
 export interface VideoResult {
   runId: string;
   sha256: string;
   bytes: number;
+  /** Absent on recordings from before the frame renderer, which are WebM. */
+  format?: VideoFormat;
 }

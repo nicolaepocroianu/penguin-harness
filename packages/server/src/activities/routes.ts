@@ -9,6 +9,7 @@ import type { AppEnv } from "../auth/middleware.js";
 import type { Access } from "../mechanisms/projects.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import type { ActivitySandbox } from "./sandbox-service.js";
+import { videoMimeType } from "./video-render.js";
 import type { ModuleDocumentKind } from "./domain.js";
 import type { ActivitySummaries } from "./summary-service.js";
 import type { Config } from "../hmr/capabilities.js";
@@ -343,7 +344,7 @@ export class ActivityRoutes {
       );
       return new Response(new Uint8Array(bytes), {
         headers: {
-          "Content-Type": "video/webm",
+          "Content-Type": videoMimeType(bytes),
           "Content-Length": String(bytes.byteLength),
           "Cache-Control": "private, no-store",
           "X-Content-Type-Options": "nosniff",

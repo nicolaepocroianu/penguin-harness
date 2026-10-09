@@ -249,7 +249,7 @@ export abstract class ActivitySandbox extends Interface<{
 }>() {}
 
 /** The media path a recorded scene video is bound to, below `media/`. */
-const RECORDING_PATH = /^generated\/run_[a-f0-9]{32}\.webm$/;
+const RECORDING_PATH = /^generated\/run_[a-f0-9]{32}\.(?:mp4|webm)$/;
 
 @Component({})
 export class ActivitySandboxService implements ActivitySandbox {

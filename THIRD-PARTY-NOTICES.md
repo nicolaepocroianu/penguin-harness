@@ -7,7 +7,8 @@ licenses. This file records those, and how to obtain their source.
 Nothing listed here is source code of this repository. The programs below are downloaded by the
 release workflow (`.github/workflows/release.yml`) and placed alongside the application inside the
 release archives; the fonts are copied out of an npm dependency into the built web assets.
-Installing from npm (`@prismshadow/penguin-cli`) bundles none of them.
+Installing from npm (`@prismshadow/penguin-cli`) bundles none of them; the one it fetches, FFmpeg,
+is downloaded on the installing machine by an install script (see below).
 
 What earns an entry is a third-party work redistributed **as its own file**. An npm package whose
 JavaScript is compiled and minified into the application bundle (React, Shiki, xterm.js, KaTeX's own
@@ -51,6 +52,30 @@ MinGit is published by the Git for Windows project at:
 The bundled binaries are byte-identical to the `MinGit-<version>-64-bit.zip` asset of that tag;
 no patches are applied. If you need the corresponding source and cannot obtain it from the URLs
 above, open an issue on this repository and we will provide it.
+
+## FFmpeg — `node_modules/ffmpeg-static/`
+
+Present in the desktop application (staged by `packages/desktop/scripts/build-assets.mjs`). An npm
+install of the server gets the same binary through its optional `ffmpeg-static` dependency, whose
+install script downloads it on the installing machine. FFmpeg encodes activity scene videos and
+converts generated speech to MP3. It is a separate program the server starts; it is not linked into
+PenguinHarness.
+
+**License: GNU General Public License version 3** (the build enables GPL components such as x264).
+The license text ships beside the binary as `ffmpeg.LICENSE` (`ffmpeg.exe.LICENSE` on Windows), and
+the build's own notes, naming its exact version, configuration and libraries, as `ffmpeg.README`
+(`ffmpeg.exe.README`).
+
+Version bundled: the binary that `ffmpeg-static` at the version pinned in
+`packages/server/package.json` downloads, unmodified, from the builds it names: gyan.dev
+(Windows), John Van Sickle's static builds (Linux) and the macOS static builds listed in
+<https://github.com/eugeneware/ffmpeg-static>.
+
+**Written offer / source availability.** The complete corresponding source code for FFmpeg is
+published by the FFmpeg project at <https://ffmpeg.org/download.html> and
+<https://git.ffmpeg.org/ffmpeg.git>, tagged per release; each build's README names the sources of
+the libraries it includes. If you need the corresponding source for the bundled binary and cannot
+obtain it from these, open an issue on this repository and we will provide it.
 
 ## KaTeX fonts — `KaTeX_*.woff2` in the web assets
 

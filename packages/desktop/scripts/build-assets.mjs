@@ -13,6 +13,8 @@
  *   run, and core's bundled loader resolves them by name from the bundle's own location. The
  *   server's web-dist lookup is likewise satisfied by electron-builder's file mapping when
  *   packaging; a source run falls back to packages/web/dist on its own.)
+ * - `dist/node_modules/ffmpeg-static` — the FFmpeg binary activity videos are encoded with,
+ *   staged as its package so the bundled server resolves it by name (see below).
  * - `dist/icon.png`, `dist/tray/*.png` — the runtime window and tray icons, read
  *   app-path-relative (see src/app-icon.ts). build/ is electron-builder's buildResources
  *   directory and does not ship inside the app.
@@ -118,6 +120,36 @@ if (hostBinding(ptyFiles) === undefined) {
   process.exit(1);
 }
 
+// FFmpeg, as the server's optional ffmpeg-static dependency installed it: the package's own
+// files and this platform's binary, beside its licence and build notes (GPL; a separate
+// program the server runs, never linked). The bundled server finds it by package name from
+// dist/server.js (packages/server/src/activities/ffmpeg.ts), as an npm install would.
+let ffmpegSrc;
+try {
+  ffmpegSrc = path.dirname(serverRequire.resolve("ffmpeg-static/package.json"));
+} catch {
+  console.error(
+    "[build-assets] ffmpeg-static is not installed — run `pnpm install` at the repo root.",
+  );
+  process.exit(1);
+}
+const ffmpegBinary = `ffmpeg${process.platform === "win32" ? ".exe" : ""}`;
+if (!fs.existsSync(path.join(ffmpegSrc, ffmpegBinary))) {
+  console.error(
+    `[build-assets] the ffmpeg-static install at ${ffmpegSrc} has no ${ffmpegBinary} — reinstall it so its install script runs (pnpm-workspace.yaml allows it).`,
+  );
+  process.exit(1);
+}
+const ffmpegDir = path.join(distDir, "node_modules", "ffmpeg-static");
+fs.rmSync(ffmpegDir, { recursive: true, force: true });
+fs.mkdirSync(ffmpegDir, { recursive: true });
+const ffmpegFiles = ["package.json", "index.js", "LICENSE", ffmpegBinary];
+for (const name of [`${ffmpegBinary}.LICENSE`, `${ffmpegBinary}.README`])
+  if (fs.existsSync(path.join(ffmpegSrc, name))) ffmpegFiles.push(name);
+for (const name of ffmpegFiles)
+  fs.copyFileSync(path.join(ffmpegSrc, name), path.join(ffmpegDir, name));
+fs.chmodSync(path.join(ffmpegDir, ffmpegBinary), 0o755);
+
 const { posixLauncherScript, windowsLauncherScript } = await import(
   pathToFileURL(launcherModule).href
 );
@@ -129,5 +161,5 @@ fs.chmodSync(path.join(binDir, "penguin"), 0o755);
 fs.writeFileSync(path.join(binDir, "penguin.cmd"), windowsLauncherScript());
 
 console.log(
-  `[build-assets] done: plugins/ (${builtPlugins.plugins.length} builtin plugins), dist/icon.png, dist/tray/ (${trayIcons.length} icons), dist/install.{sh,ps1}, bin/, ${NODE_PTY_RELDIR.join("/")} (${ptyFiles.length} files, bindings: ${bindings.join(", ")})`,
+  `[build-assets] done: plugins/ (${builtPlugins.plugins.length} builtin plugins), dist/icon.png, dist/tray/ (${trayIcons.length} icons), dist/install.{sh,ps1}, bin/, ${NODE_PTY_RELDIR.join("/")} (${ptyFiles.length} files, bindings: ${bindings.join(", ")}), dist/node_modules/ffmpeg-static (${ffmpegBinary})`,
 );

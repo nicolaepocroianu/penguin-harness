@@ -1614,8 +1614,8 @@ export type Strings = {
       recorded: string;
       useNew: string;
       keepCurrent: string;
-      /** The recording's known limit: a blank moment before the animation starts. */
-      leadIn: string;
+      /** Under Record video: rendering steps through every frame, so it takes a while. */
+      renderTime: string;
       olderRecording: string;
       noCurrent: string;
       recordFailed: (cause: string) => string;

@@ -1707,14 +1707,26 @@ export class ActivityGenerationService implements ActivityGeneration {
         .flat()
         .find((asset) => asset.generatedVideo?.runId === runId)?.generatedVideo;
       if (!bound) throw new HttpError(404, "run_not_found", "Video candidate not available.");
-      return this.activities.readVideo(projectId, activityId, runId, bound.sha256);
+      return this.activities.readVideo(
+        projectId,
+        activityId,
+        runId,
+        bound.sha256,
+        bound.format ?? "webm",
+      );
     }
     if (run.kind !== "video" || !run.candidate || !["succeeded", "conflict"].includes(run.status))
       throw new HttpError(404, "run_not_found", "Video candidate not available.");
     const result = JSON.parse(run.candidate) as VideoResult;
     if (result.runId !== runId)
       throw new HttpError(409, "video_changed", "Video candidate metadata changed.");
-    return this.activities.readVideo(projectId, activityId, runId, result.sha256);
+    return this.activities.readVideo(
+      projectId,
+      activityId,
+      runId,
+      result.sha256,
+      result.format ?? "webm",
+    );
   }
   acceptVideo(projectId: string, activityId: string, runId: string, expectedRevision: string) {
     return this.track(
@@ -2305,7 +2317,9 @@ export class ActivityGenerationService implements ActivityGeneration {
               const current = await this.activities.getActivity(run.projectId, run.activityId);
               let spec: Record<string, unknown>;
               try {
-                spec = validateActivitySpec(specOfPass(run.kind, JSON.parse(run.candidate), current));
+                spec = validateActivitySpec(
+                  specOfPass(run.kind, JSON.parse(run.candidate), current),
+                );
               } catch (error) {
                 // What the agent wrote failed its checks: the one failure a repair run can fix.
                 run.repairable = true;

@@ -9014,7 +9014,7 @@ test("records a composed scene and keeps it as the scene's video", async ({ page
   await expect(record).toBeEnabled();
   await expect(
     section.getByText(
-      "A recording opens with a short blank moment while the page loads, before the animation starts. It is not trimmed.",
+      "Every frame is rendered in turn, so a long animation takes a minute or two to record.",
       { exact: true },
     ),
   ).toBeVisible();

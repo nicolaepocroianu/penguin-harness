@@ -1860,7 +1860,7 @@ export const en: Strings = {
     },
     video: {
       title: "Scene video",
-      info: "An agent composes a short animation for this scene from its description and the images bound to it. Watch it here and ask again until it fits. Record video then plays it once in the test browser and records it as a WebM video; nothing is bound to the asset until you choose Use new. The composition runs on the preview origin and may use only the scene's images.",
+      info: "An agent composes a short animation for this scene from its description and the images bound to it. Watch it here and ask again until it fits. Record video then renders it frame by frame in the test browser as an MP4 video; nothing is bound to the asset until you choose Use new. The composition runs on the preview origin and may use only the scene's images.",
       experimental: "Experimental",
       compose: "Compose from storyboard",
       recompose: "Compose again",
@@ -1897,8 +1897,8 @@ export const en: Strings = {
       recorded: "Recorded video",
       useNew: "Use new",
       keepCurrent: "Keep current",
-      leadIn:
-        "A recording opens with a short blank moment while the page loads, before the animation starts. It is not trimmed.",
+      renderTime:
+        "Every frame is rendered in turn, so a long animation takes a minute or two to record.",
       olderRecording: "Recorded from an earlier draft. Record again to keep it.",
       noCurrent: "No video is bound yet.",
       recordFailed: (cause: string) => `The recording failed: ${cause}`,

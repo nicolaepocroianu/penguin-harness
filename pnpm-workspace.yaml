@@ -54,6 +54,9 @@ allowBuilds:
   onnxruntime-node: true
   # Transformers.js imports sharp, whose installer checks its platform binary.
   sharp: true
+  # ffmpeg-static downloads the FFmpeg binary for this platform on install; activity videos
+  # are encoded with it (packages/server/src/activities/ffmpeg.ts).
+  ffmpeg-static: true
 # pnpm 11 withholds freshly published versions by default (supply-chain gate), which
 # would resolve agenthub back to the previous release and lose the fix the bump is for.
 # This package is first-party, so the exemption carries no third-party risk.

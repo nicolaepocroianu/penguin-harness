@@ -1,43 +1,106 @@
 /**
- * Recording a scene composition to a video (experimental, behind `activityVideoExperiment`).
+ * Rendering a scene composition to a video (experimental, behind `activityVideoExperiment`).
  *
  * The composition (see composition.ts) is opened once in the test browser (see
- * browser-session.ts) with Playwright's own page recorder on, at the composition's canvas
- * size; once its bridge says it is ready, the timeline is sought to its start and played, and
- * the page is left to play for the composition's length and half a second more. Closing the
- * page's context is what finishes the file. What comes out is a WebM: there is no FFmpeg and no
- * other encoder, and the file is kept as the recorder wrote it.
+ * browser-session.ts) at its canvas size. Once its bridge says it is ready, its paused
+ * timeline is stepped through frame by frame: seek to the frame's time, let the page paint,
+ * take a screenshot. The screenshots are piped to FFmpeg (see ffmpeg.ts), which encodes them
+ * as an H.264 MP4 at a fixed frame rate. Nothing plays in real time, so the video has no
+ * blank lead-in, every frame is the timeline's own, and a slow machine renders slower rather
+ * than dropping frames.
  *
- * Known limit: the recorder starts with the page, so a recording opens with a short blank
- * lead-in (the page loading, before the timeline plays). Trimming it would need an encoder,
- * which Penguin does not ship; the App says so beside the recording.
+ * The seek-and-capture loop and the encode follow open-design's deterministic frame renderer
+ * (apps/desktop/src/main/frame-capture.ts and `encodeHyperFramesMp4` in
+ * apps/daemon/src/media/index.ts, Apache-2.0), moved from Electron to Playwright and to
+ * Penguin's `window.__composition` bridge.
+ *
+ * Recordings made before this renderer are WebM files from Playwright's page recorder; they
+ * are still read and checked here (`inspectWebm`).
  */
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { openPage, type BrowserLauncher } from "./browser-session.js";
-import type { VideoProblemCode } from "./video-types.js";
+import { FfmpegError, startFfmpeg, type FfmpegRun } from "./ffmpeg.js";
+import type { VideoFormat, VideoProblemCode } from "./video-types.js";
 
 /** How long the browser may take to start and the composition to load, and each page action. */
 export const RENDER_PAGE_TIMEOUT_MS = 30_000;
-/** Played past the composition's end, so its last frame is on the recording. */
-export const RENDER_TAIL_MS = 500;
-/** The longest a recording plays: the longest composition (60 s), its tail, and some slack. */
-export const RENDER_MAX_MS = 65_000;
+/** The longest a whole render may take, capture and encode together. */
+export const RENDER_MAX_MS = 10 * 60_000;
+/** Frames per second of a rendered video. */
+export const RENDER_FPS = 30;
+/** The longest composition rendered (composition.ts allows 60 s), with some slack. */
+export const RENDER_MAX_SECONDS = 65;
 /** The largest recording kept. */
 export const VIDEO_MAX_BYTES = 100 * 1024 * 1024;
-
+/** The file a render writes in its directory. */
+export const RENDER_FILE = "render.mp4";
 
 /** Waits for the bridge's promise and answers the length the page says it plays for. */
 const READY_SCRIPT =
   "Promise.resolve(window.__composition && window.__composition.ready).then(function () {" +
   " var c = window.__composition; return c && typeof c.duration === 'number' ? c.duration : 0; })";
 
-/** Seeks the timeline to its start and plays it; false when the page has no timeline. */
-const PLAY_SCRIPT =
+/** Pauses the timeline at its start; false when the page has no timeline to seek. */
+const PREPARE_SCRIPT =
   "(function () { var c = window.__composition; var t = c && c.timeline;" +
-  " if (!t || typeof t.play !== 'function') return false;" +
-  " if (typeof t.seek === 'function') t.seek(0); t.play(); return true; })()";
+  " if (!t || typeof t.pause !== 'function' || typeof t.seek !== 'function') return false;" +
+  " t.pause(); t.seek(0, false); return true; })()";
+
+/**
+ * Seeks the timeline to `time` (callbacks on the way fire, as they would in playback) and
+ * resolves once the page has painted it: two animation frames, or 100 ms when the page is not
+ * painting at all.
+ */
+export function seekScript(time: number): string {
+  return (
+    `(function () { window.__composition.timeline.seek(${JSON.stringify(time)}, false);` +
+    " return new Promise(function (resolve) { var done = false;" +
+    " function finish() { if (!done) { done = true; resolve(true); } }" +
+    " setTimeout(finish, 100);" +
+    " requestAnimationFrame(function () { requestAnimationFrame(finish); }); }); })()"
+  );
+}
+
+/** Starts the encoder: FFmpeg with these arguments, PNG frames written to its stdin. */
+export type EncoderStarter = (args: string[], timeoutMs: number) => Promise<FfmpegRun>;
+
+const ffmpegEncoder: EncoderStarter = (args, timeoutMs) =>
+  startFfmpeg(args, { purpose: "to render a scene video", timeoutMs });
+
+/** FFmpeg's arguments for PNG frames on stdin at `fps` to an H.264 MP4 at `file`. */
+export function encodeArgs(fps: number, file: string): string[] {
+  return [
+    "-y",
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-f",
+    "image2pipe",
+    "-framerate",
+    String(fps),
+    "-c:v",
+    "png",
+    "-i",
+    "pipe:0",
+    // H.264 in yuv420p needs even dimensions.
+    "-vf",
+    "pad=ceil(iw/2)*2:ceil(ih/2)*2",
+    "-c:v",
+    "libx264",
+    "-preset",
+    "veryfast",
+    "-crf",
+    "20",
+    "-pix_fmt",
+    "yuv420p",
+    "-movflags",
+    "+faststart",
+    "-an",
+    file,
+  ];
+}
 
 export interface RenderRequest {
   executablePath: string;
@@ -47,11 +110,15 @@ export interface RenderRequest {
   height: number;
   /** How long the composition was checked to play, used when the page says nothing. */
   seconds: number;
-  /** Where the recorder writes; the caller's to remove. */
+  /** Where the render writes; the caller's to remove. */
   dir: string;
   launcher?: BrowserLauncher;
+  /** Starts FFmpeg; the real one unless a test stands in. */
+  encoder?: EncoderStarter;
   /** How long each page step may take; `RENDER_PAGE_TIMEOUT_MS` unless a test shortens it. */
   pageTimeoutMs?: number;
+  /** Frames per second; `RENDER_FPS` unless a test lowers it. */
+  fps?: number;
 }
 
 /** Why a recording did not come out, with the code the App words it by when Penguin knows it. */
@@ -67,7 +134,7 @@ export class RenderError extends Error {
 /**
  * Bounds a page step. `page.evaluate` does not honour the page's default timeout, and the page is
  * agent-written: a `ready` promise that never settles, or a page that blocks its main thread,
- * would otherwise hold the recording (and its browser) forever.
+ * would otherwise hold the render (and its browser) forever.
  */
 function within<T>(work: Promise<T>, ms: number, error: () => Error): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
@@ -77,61 +144,68 @@ function within<T>(work: Promise<T>, ms: number, error: () => Error): Promise<T>
   return Promise.race([work, late]).finally(() => clearTimeout(timer));
 }
 
-/** How long a recording plays for a composition of this length: its length and a tail, bounded. */
-export function recordingMs(seconds: number): number {
-  const ms = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 0;
-  return Math.min(Math.round(ms) + RENDER_TAIL_MS, RENDER_MAX_MS);
+/** How many frames a composition of this length renders to: at least one, bounded. */
+export function frameCount(seconds: number, fps: number): number {
+  const length = Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+  return Math.max(1, Math.ceil(Math.min(length, RENDER_MAX_SECONDS) * fps));
 }
 
 /**
- * Plays the composition once in the test browser and records it. Answers the path of the WebM
- * the recorder wrote. The browser is closed whatever happens.
+ * Renders the composition frame by frame in the test browser and encodes it. Answers the path
+ * of the MP4. The browser is closed, and FFmpeg stopped, whatever happens.
  */
 export async function renderComposition(request: RenderRequest): Promise<string> {
   await fs.mkdir(request.dir, { recursive: true });
   const stepMs = request.pageTimeoutMs ?? RENDER_PAGE_TIMEOUT_MS;
+  const fps = request.fps ?? RENDER_FPS;
+  const deadline = Date.now() + RENDER_MAX_MS;
   const late = () =>
     new RenderError("The recording took longer than it may and was stopped.", "video_timeout");
+  const step = <T>(work: Promise<T>, error: () => Error = late) =>
+    within(work, Math.min(stepMs, Math.max(0, deadline - Date.now())), error);
   const session = await openPage(
     request.executablePath,
     request.compositionUrl,
     { width: request.width, height: request.height },
-    {
-      timeoutMs: stepMs,
-      recordVideoDir: request.dir,
-      ...(request.launcher ? { launcher: request.launcher } : {}),
-    },
+    { timeoutMs: stepMs, ...(request.launcher ? { launcher: request.launcher } : {}) },
   );
+  let encoder: FfmpegRun | null = null;
   try {
     const { page } = session;
     const reported = Number(
-      await within(
+      await step(
         page.evaluate(READY_SCRIPT),
-        stepMs,
         () => new RenderError("The composition did not become ready to play.", "video_not_ready"),
       ),
     );
     const seconds = Number.isFinite(reported) && reported > 0 ? reported : request.seconds;
-    if (!(await within(page.evaluate(PLAY_SCRIPT), stepMs, late)))
+    if (!(await step(page.evaluate(PREPARE_SCRIPT))))
       throw new RenderError("The composition has no timeline to play.", "video_no_timeline");
-    const playMs = recordingMs(seconds);
-    await within(page.waitForTimeout(playMs), playMs + stepMs, late);
-    const video = page.video();
-    // The recorder finishes its file when the page's context closes.
-    await within(page.context().close(), stepMs, late);
-    if (!video) throw new RenderError("The browser did not record the composition.");
-    const file = await video.path();
-    const inside = path.relative(path.resolve(request.dir), path.resolve(file));
-    if (inside.startsWith("..") || path.isAbsolute(inside))
-      throw new RenderError("The recording was written outside its directory.");
+    const file = path.join(request.dir, RENDER_FILE);
+    encoder = await (request.encoder ?? ffmpegEncoder)(encodeArgs(fps, file), RENDER_MAX_MS);
+    const frames = frameCount(seconds, fps);
+    const clip = { x: 0, y: 0, width: request.width, height: request.height };
+    for (let index = 0; index < frames; index += 1) {
+      await step(page.evaluate(seekScript(index / fps)));
+      const shot = await step(page.screenshot({ type: "png", clip, scale: "css" }));
+      await step(encoder.write(shot));
+    }
+    const running = encoder;
+    encoder = null;
+    await within(running.finish(), Math.max(0, deadline - Date.now()), late);
     return file;
+  } catch (error) {
+    if (error instanceof FfmpegError)
+      throw new RenderError(`Encoding the video failed: ${error.message}`);
+    throw error;
   } finally {
+    encoder?.kill();
     await session.close();
   }
 }
 
 /** Why a file is not a recording Penguin keeps. */
-export class WebmError extends Error {
+export class VideoFileError extends Error {
   constructor(
     message: string,
     readonly code: "video_invalid" | "video_too_large" = "video_invalid",
@@ -160,13 +234,14 @@ const DOC_TYPE_ID = 0x4282;
 
 /**
  * Checks that bytes are a WebM Penguin keeps: an EBML header whose document type is `webm`, at
- * most 100 MB. Answers its digest and size; throws a `WebmError` otherwise.
+ * most 100 MB. Answers its digest and size; throws a `VideoFileError` otherwise.
  */
 export function inspectWebm(input: Uint8Array): { sha256: string; bytes: number } {
   const bytes = input;
-  const invalid = (detail: string) => new WebmError(`The recording is not a WebM video: ${detail}`);
+  const invalid = (detail: string) =>
+    new VideoFileError(`The recording is not a WebM video: ${detail}`);
   if (bytes.length > VIDEO_MAX_BYTES)
-    throw new WebmError("The recording is larger than 100 MB.", "video_too_large");
+    throw new VideoFileError("The recording is larger than 100 MB.", "video_too_large");
   if (bytes.length < 8 || EBML_MAGIC.some((byte, index) => bytes[index] !== byte))
     throw invalid("it has no EBML header.");
   const size = vint(bytes, 4, false);
@@ -192,15 +267,44 @@ export function inspectWebm(input: Uint8Array): { sha256: string; bytes: number 
   return { sha256: createHash("sha256").update(bytes).digest("hex"), bytes: bytes.length };
 }
 
+/** Checks a recording of either format; see `inspectMp4` and `inspectWebm`. */
+export function inspectVideo(bytes: Uint8Array, format: VideoFormat) {
+  return format === "mp4" ? inspectMp4(bytes) : inspectWebm(bytes);
+}
+
+/** The media type of a recording: MP4 when it opens with an `ftyp` box, WebM otherwise. */
+export function videoMimeType(bytes: Uint8Array): "video/mp4" | "video/webm" {
+  return isoBox(bytes) === "ftyp" ? "video/mp4" : "video/webm";
+}
+
+/** The type of the ISO media box at the start of `bytes`, or null when there is none. */
+function isoBox(bytes: Uint8Array): string | null {
+  if (bytes.length < 8) return null;
+  return Buffer.from(bytes.subarray(4, 8)).toString("latin1");
+}
+
+/**
+ * Checks that bytes are an MP4 Penguin keeps: an ISO media file that opens with its `ftyp`
+ * box, at most 100 MB. Answers its digest and size; throws a `VideoFileError` otherwise.
+ */
+export function inspectMp4(bytes: Uint8Array): { sha256: string; bytes: number } {
+  if (bytes.length > VIDEO_MAX_BYTES)
+    throw new VideoFileError("The recording is larger than 100 MB.", "video_too_large");
+  const size = bytes.length >= 8 ? Buffer.from(bytes.subarray(0, 4)).readUInt32BE(0) : 0;
+  if (isoBox(bytes) !== "ftyp" || size < 8 || size > bytes.length)
+    throw new VideoFileError("The recording is not an MP4 video: it has no ftyp box.");
+  return { sha256: createHash("sha256").update(bytes).digest("hex"), bytes: bytes.length };
+}
+
 /** Reads a recording from disk: a regular file, never a link, and at most 100 MB. */
 export async function readVideoFile(file: string): Promise<Buffer> {
   const stat = await fs.lstat(file);
   if (!stat.isFile() || stat.isSymbolicLink())
-    throw new WebmError("The recording is not a regular file.");
+    throw new VideoFileError("The recording is not a regular file.");
   if (stat.size > VIDEO_MAX_BYTES)
-    throw new WebmError("The recording is larger than 100 MB.", "video_too_large");
+    throw new VideoFileError("The recording is larger than 100 MB.", "video_too_large");
   const bytes = await fs.readFile(file);
   if (bytes.length > VIDEO_MAX_BYTES)
-    throw new WebmError("The recording is larger than 100 MB.", "video_too_large");
+    throw new VideoFileError("The recording is larger than 100 MB.", "video_too_large");
   return bytes;
 }

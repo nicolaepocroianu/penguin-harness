@@ -9,7 +9,12 @@ import type {
 } from "../activities/speech-types.js";
 import type { ImageRequest } from "../activities/image.js";
 import type { CompositionFileContent } from "../activities/composition.js";
-import type { VideoProblemCode, VideoResult, VideoTarget } from "../activities/video-types.js";
+import type {
+  VideoFormat,
+  VideoProblemCode,
+  VideoResult,
+  VideoTarget,
+} from "../activities/video-types.js";
 import type { ImageTarget, ImageResult } from "../activities/generated-image.js";
 import type { MediaTextTarget } from "../activities/media-text.js";
 import type { AssistFocus, AssistProposal, ProposalChange } from "../activities/assist.js";
@@ -257,21 +262,31 @@ export abstract class ActivityAuthoring extends Interface<{
     workspace: string,
     expectedRevision: string,
   ): Promise<void>;
-  /** Keep a video run's recording in the draft workspace; 422 `video_invalid` if not a WebM. */
+  /**
+   * Keep a video run's recording as the run's candidate; 422 `video_invalid` if it is not a
+   * video of `format`.
+   */
   storeVideo(
     projectId: string,
     activityId: string,
     runId: string,
     bytes: Uint8Array,
+    format: VideoFormat,
   ): Promise<VideoResult>;
   /** Remove a recording kept for a run that was not settled with it (cancelled or stopped). */
-  discardVideo(projectId: string, activityId: string, runId: string): Promise<void>;
+  discardVideo(
+    projectId: string,
+    activityId: string,
+    runId: string,
+    format: VideoFormat,
+  ): Promise<void>;
   /** A kept recording, while its bytes are the ones kept; 409 `video_changed` otherwise. */
   readVideo(
     projectId: string,
     activityId: string,
     runId: string,
     sha256: string,
+    format: VideoFormat,
   ): Promise<Uint8Array>;
   /** Bind a kept recording to its video or animation asset. */
   applyVideo(

@@ -1,16 +1,17 @@
 /**
  * Record video (experimental, behind `activityVideoExperiment`): a kept scene composition is
- * played once in the test browser and recorded to a WebM (see video-render.ts), which the
- * author may then bind to the video or animation asset it was composed for.
+ * rendered frame by frame in the test browser and encoded to an MP4 (see video-render.ts),
+ * which the author may then bind to the video or animation asset it was composed for.
  *
  * A deterministic run, like a quality check: no Session and no agent, recorded in the
  * activity's run history as kind `video` under the one-run-per-activity rule. The browser
  * opens the composition on this server's loopback address through a signed composition link
  * (see composition-service.ts), the way a quality check opens the player. The recording is
- * checked (a WebM, 100 MB at most) and kept in the draft workspace as the run's candidate;
+ * checked (an MP4, 100 MB at most) and kept in the media repository as the run's candidate;
  * nothing is bound until the author accepts it (`ActivityGeneration.acceptVideo`).
  *
- * The browser launcher is a port, so a test drives a fake and never starts a browser.
+ * The browser launcher and the encoder are ports, so a test drives fakes and never starts a
+ * browser or FFmpeg.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -25,7 +26,13 @@ import { compositionBase, type ActivityCompositions } from "./composition-servic
 import type { CompositionCandidate } from "./composition-types.js";
 import type { ActivityRun } from "./domain.js";
 import { loopbackAuthority, type TestBrowser } from "./test-browser.js";
-import { RenderError, WebmError, readVideoFile, renderComposition } from "./video-render.js";
+import {
+  RenderError,
+  VideoFileError,
+  readVideoFile,
+  renderComposition,
+  type EncoderStarter,
+} from "./video-render.js";
 import type { VideoProblemCode, VideoTarget } from "./video-types.js";
 
 /** Where a run's recorder writes, inside its workspace; removed once the recording is kept. */
@@ -38,13 +45,17 @@ export const RECORDING_DIR = "recording";
 export abstract class VideoRenderPorts extends Interface<{
   /** Starts the browser; `playwright-core`'s Chromium by default. */
   launcher?: BrowserLauncher;
+  /** Starts the encoder; FFmpeg by default (see ffmpeg.ts). */
+  encoder?: EncoderStarter;
   /** How long each page step may take; 30 s by default. A test shortens it. */
   pageTimeoutMs?: number;
+  /** Frames per second; 30 by default. A test lowers it. */
+  fps?: number;
 }>() {}
 
 /** The code a failed recording is worded by, for the causes Penguin knows; null otherwise. */
 function problemOf(error: unknown): VideoProblemCode | null {
-  if (error instanceof RenderError || error instanceof WebmError) return error.code;
+  if (error instanceof RenderError || error instanceof VideoFileError) return error.code;
   if (error instanceof HttpError && error.code === "video_invalid") return "video_invalid";
   return null;
 }
@@ -202,7 +213,9 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         seconds: target.seconds,
         dir,
         ...(this.ports.launcher ? { launcher: this.ports.launcher } : {}),
+        ...(this.ports.encoder ? { encoder: this.ports.encoder } : {}),
         ...(this.ports.pageTimeoutMs ? { pageTimeoutMs: this.ports.pageTimeoutMs } : {}),
+        ...(this.ports.fps ? { fps: this.ports.fps } : {}),
       });
       if (this.stopped)
         throw new RecordingStopped("The server stopped before the recording finished.");
@@ -213,6 +226,7 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         activityId,
         runId,
         await readVideoFile(file),
+        "mp4",
       );
       const settled = await this.generation.settleDeterministic(
         projectId,
@@ -224,7 +238,7 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
       );
       // Cancelled, or the server stopped, while it was being kept: the run does not own it.
       if (!settled)
-        await this.activities.discardVideo(projectId, activityId, runId).catch(() => {});
+        await this.activities.discardVideo(projectId, activityId, runId, "mp4").catch(() => {});
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.log.line(`[activities] Video recording ${runId} failed: ${message}`);
