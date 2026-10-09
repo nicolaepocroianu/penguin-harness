@@ -8,6 +8,8 @@
  */
 import type { AssetManifest } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
+import { sceneRanges, scenesTouched } from "./script-model";
+import { diffLines } from "./spec-diff";
 
 export type ProposalChange =
   | { target: "description"; text: string }
@@ -67,6 +69,33 @@ export function changeTexts(
     before: (change.field === "script" ? asset.script : asset.description) ?? "",
     after: change.text,
   };
+}
+
+/**
+ * A change in one line: how much of the saved draft it touches, counted from the diff the
+ * card shows (lines of script or text; a spec's top-level fields), and, for the script, the
+ * scenes those lines fall in. Null when the change has nothing to apply to.
+ */
+export function changeSummary(
+  change: ProposalChange,
+  base: ProposalBase,
+): { text: string; scenes: number[] } | null {
+  const words = S.activities.studioProposal;
+  const texts = changeTexts(change, base);
+  if (!texts) return null;
+  if (change.target === "spec") {
+    const before = base.spec ?? {};
+    const keys = new Set([...Object.keys(before), ...Object.keys(change.spec)]);
+    let fields = 0;
+    for (const key of keys)
+      if (JSON.stringify(before[key]) !== JSON.stringify(change.spec[key])) fields += 1;
+    return { text: words.fieldsChanged(fields), scenes: [] };
+  }
+  const rows = diffLines(texts.before, texts.after);
+  const lines = rows.filter((row) => row.kind !== "same").length;
+  const scenes =
+    change.target === "description" ? scenesTouched(rows, sceneRanges(texts.after)) : [];
+  return { text: words.linesChanged(lines), scenes };
 }
 
 /** Whether accepting would change nothing, as when it was accepted already. */

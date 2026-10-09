@@ -1027,6 +1027,12 @@ export type Strings = {
       saveFirst: string;
       unreadable: (reason: string) => string;
       applyAll: (n: number) => string;
+      inDraft: (done: number, total: number) => string;
+      linesChanged: (n: number) => string;
+      fieldsChanged: (n: number) => string;
+      inScenes: string;
+      reviewed: (done: number, total: number) => string;
+      reviewProgress: string;
       discard: string;
       discardConfirm: string;
       reviewInScript: string;
@@ -1035,7 +1041,6 @@ export type Strings = {
     };
     /** The conversation panel: an agent asked about what the author has open. */
     studioConversation: {
-      about: (focus: string) => string;
       wholeActivity: string;
       asset: (key: string, scene: string | null) => string;
       scene: (scene: string) => string;
@@ -1052,6 +1057,10 @@ export type Strings = {
       readOnly: string;
       noAgent: string;
       movedTo: (focus: string) => string;
+      viewing: (focus: string) => string;
+      context: (focus: string) => string;
+      removeContext: (focus: string) => string;
+      addContext: (focus: string) => string;
     };
     railCollapse: string;
     railExpand: string;
@@ -1730,6 +1739,25 @@ export type Strings = {
       noPlan: string;
       built: string;
       notBuilt: string;
+      specDraft: string;
+      qa: string;
+      qaDeployed: string;
+      qaDeploying: string;
+      qaFailed: string;
+      qaNotDeployed: string;
+      qaUnknown: string;
+      next: (action: string) => string;
+      actions: Record<
+        | "saveScript"
+        | "saveSpec"
+        | "validateSpec"
+        | "fixSpec"
+        | "planMedia"
+        | "finishMedia"
+        | "buildModule"
+        | "deployQa",
+        string
+      >;
       proposalWaiting: string;
     };
     draftStatus: { draft: string; valid: string; invalid: string };

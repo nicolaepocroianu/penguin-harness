@@ -7,7 +7,9 @@ import {
   followUpText,
   latestConversation,
   sameFocus,
+  splitMovedTo,
   splitStudioBrief,
+  splitStudioContext,
   threadTime,
 } from "../src/features/activities/conversation";
 import { runTitle } from "../src/features/activities/sessions-panel";
@@ -102,7 +104,17 @@ describe("the studio brief", () => {
       body: "What is this activity about?",
       context:
         "Context from the activity studio: the author is looking at the activity script.\nRead them.",
+      viewing: "the activity script",
     });
+  });
+
+  it("reads the moved-to line off a follow-up, as the panel wrote it", () => {
+    const sent = followUpText("And this?", { section: "specification" }, null);
+    expect(splitMovedTo(sent)).toEqual({ body: "And this?", viewing: "Activity Spec" });
+    expect(splitStudioContext(sent)).toEqual({ body: "And this?", viewing: "Activity Spec" });
+    expect(splitMovedTo("And this?")).toBeNull();
+    // A line the author typed in the middle of a message is theirs.
+    expect(splitMovedTo("(I am now looking at X.)\n\nMore")).toBeNull();
   });
 
   it("leaves a rule the author typed alone", () => {

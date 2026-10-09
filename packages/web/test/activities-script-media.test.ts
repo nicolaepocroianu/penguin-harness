@@ -114,6 +114,7 @@ describe("the header's progress steps", () => {
     specDirty: false,
     media: { bound: 21, total: 27 },
     hasModule: false,
+    qa: null,
   };
 
   it("says where each step stands, in a tone by meaning", () => {
@@ -122,6 +123,7 @@ describe("the header's progress steps", () => {
       ["Spec", "Validated", "success"],
       ["Media", "21/27", "attention"],
       ["Module", "not built", "muted"],
+      ["QA", "not checked", "muted"],
     ]);
   });
 

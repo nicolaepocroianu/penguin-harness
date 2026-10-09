@@ -1,31 +1,26 @@
 /**
- * The agent's current proposal, one change per row: what it changes, the diff against the
- * saved draft, and Accept. Accepting goes through the same route an author's own save does,
- * with the same revision check, so an accepted proposal is an ordinary draft change.
+ * The agent's current proposal, one change per row: what it changes and by how much, where
+ * the script review stands, the diff against the saved draft, and Accept. Accepting goes
+ * through the same route an author's own save does, with the same revision check, so an
+ * accepted proposal is an ordinary draft change.
  */
 import { useState } from "react";
 import { Button } from "../../components/ui/button";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { S } from "../../lib/strings";
-import { toneInk } from "../../lib/tone";
+import { toneDot, toneInk, toneSurface } from "../../lib/tone";
 import {
   changeIsApplied,
   changeKey,
   changeLabel,
+  changeSummary,
   changeTexts,
   type AssistProposal,
   type ProposalBase,
   type ProposalChange,
 } from "./proposal";
 import type { ScriptReview } from "./script-editor";
-import { sceneRanges, scenesTouched } from "./script-model";
-import { diffLines } from "./spec-diff";
 import { SpecDiffView } from "./spec-diff-view";
-
-/** The script's scenes a proposed script changes, in order. */
-function changedScenes(before: string, after: string): number[] {
-  return scenesTouched(diffLines(before, after), sceneRanges(after));
-}
 
 export function ProposalCard({
   proposal,
@@ -57,16 +52,166 @@ export function ProposalCard({
   const open = proposal.changes.filter(
     (change) => changeTexts(change, base) && !changeIsApplied(change, base),
   );
+  const inDraft = proposal.changes.filter((change) => changeIsApplied(change, base)).length;
+  const footer = (onApplyAll && open.length > 0) || onDiscard;
   return (
-    <section aria-label={words.title} className="space-y-2">
-      <h4 className="text-sm font-semibold">{words.title}</h4>
-      {proposal.summary && (
-        <p className="text-sm text-gray-600 dark:text-gray-300">{proposal.summary}</p>
-      )}
-      {dirty && onAccept && <p className={`text-xs ${toneInk.attention}`}>{words.saveFirst}</p>}
-      {(onApplyAll || onDiscard) && (
-        <div className="flex flex-wrap items-center gap-2">
-          {onApplyAll && open.length > 1 && (
+    <section
+      aria-label={words.title}
+      className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950"
+    >
+      <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2 dark:border-gray-800/60">
+        <span
+          aria-hidden
+          className={`size-1.5 shrink-0 rounded-full ${open.length ? toneDot.attention : toneDot.success}`}
+        />
+        <h4 className="min-w-0 flex-1 truncate text-sm font-semibold">{words.title}</h4>
+        <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
+          {words.inDraft(inDraft, proposal.changes.length)}
+        </span>
+      </div>
+      <div className="space-y-2 px-3 py-2.5">
+        {proposal.summary && (
+          <p className="text-sm text-gray-600 dark:text-gray-300">{proposal.summary}</p>
+        )}
+        {dirty && onAccept && open.length > 0 && (
+          <p className={`text-xs ${toneInk.attention}`}>{words.saveFirst}</p>
+        )}
+        <ul className="space-y-2">
+          {proposal.changes.map((change) => {
+            const key = changeKey(change);
+            const texts = changeTexts(change, base);
+            const applied = changeIsApplied(change, base);
+            const summary = changeSummary(change, base);
+            const reviewable =
+              change.target === "description" && texts && !applied && !!onReviewScript;
+            return (
+              <li
+                key={key}
+                className="space-y-1.5 rounded-md border border-gray-200 px-2.5 py-2 dark:border-gray-800"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {changeLabel(change)}
+                  </span>
+                  {applied ? (
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${toneSurface.success}`}
+                    >
+                      {words.accepted}
+                    </span>
+                  ) : (
+                    onAccept &&
+                    texts && (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        aria-label={`${words.accept}: ${changeLabel(change)}`}
+                        disabled={dirty || accepting !== null}
+                        onClick={() => {
+                          setAccepting(key);
+                          void onAccept(change).finally(() => setAccepting(null));
+                        }}
+                      >
+                        {words.accept}
+                      </Button>
+                    )
+                  )}
+                </div>
+                {!texts ? (
+                  <p className={`text-xs ${toneInk.attention}`}>{words.nothingToApply}</p>
+                ) : (
+                  !applied &&
+                  summary && (
+                    <p className="flex flex-wrap items-center gap-x-1 text-xs text-gray-600 dark:text-gray-300">
+                      <span>{summary.text}</span>
+                      {summary.scenes.length > 0 && (
+                        <>
+                          <span>{words.inScenes}</span>
+                          {summary.scenes.map((number, index) => (
+                            <span key={number}>
+                              {reviewable ? (
+                                <button
+                                  type="button"
+                                  aria-label={S.activities.studioScript.scene(number)}
+                                  onClick={() => onReviewScript?.(number)}
+                                  className="text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:decoration-brand-700"
+                                >
+                                  {number}
+                                </button>
+                              ) : (
+                                number
+                              )}
+                              {index < summary.scenes.length - 1 ? "," : ""}
+                            </span>
+                          ))}
+                        </>
+                      )}
+                    </p>
+                  )
+                )}
+                {reviewable && review && (
+                  <div className="flex items-center gap-2">
+                    <div
+                      role="progressbar"
+                      aria-label={words.reviewProgress}
+                      aria-valuemin={0}
+                      aria-valuemax={review.total}
+                      aria-valuenow={review.total - review.left}
+                      className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"
+                    >
+                      <div
+                        className={`h-full rounded-full ${toneDot.success}`}
+                        style={{
+                          width: `${review.total ? ((review.total - review.left) / review.total) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                    <span
+                      aria-live="polite"
+                      className={`shrink-0 text-xs ${review.left ? "text-gray-500 dark:text-gray-400" : toneInk.success}`}
+                    >
+                      {review.left
+                        ? words.reviewed(review.total - review.left, review.total)
+                        : words.reviewDone}
+                    </span>
+                  </div>
+                )}
+                {texts && !applied && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    {reviewable && (
+                      <Button size="sm" variant="secondary" onClick={() => onReviewScript?.()}>
+                        {words.reviewInScript}
+                      </Button>
+                    )}
+                    <details className="min-w-0">
+                      <summary className="cursor-pointer text-xs text-brand-700 hover:text-brand-800 dark:text-brand-300">
+                        {words.showChange}
+                      </summary>
+                      <div className="mt-2">
+                        <SpecDiffView compact saved={texts.before} edited={texts.after} />
+                      </div>
+                    </details>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      {footer && (
+        <div className="flex items-center gap-2 rounded-b-xl border-t border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-800/60 dark:bg-gray-900">
+          {onDiscard && (
+            <Button
+              size="sm"
+              variant="ghostDanger"
+              disabled={accepting !== null}
+              onClick={() => setDiscarding(true)}
+            >
+              {words.discard}
+            </Button>
+          )}
+          <span className="flex-1" />
+          {onApplyAll && open.length > 0 && (
             <Button
               size="sm"
               variant="primary"
@@ -77,16 +222,6 @@ export function ProposalCard({
               }}
             >
               {words.applyAll(open.length)}
-            </Button>
-          )}
-          {onDiscard && (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={accepting !== null}
-              onClick={() => setDiscarding(true)}
-            >
-              {words.discard}
             </Button>
           )}
         </div>
@@ -106,78 +241,6 @@ export function ProposalCard({
           <p>{words.discardConfirm}</p>
         </ConfirmModal>
       )}
-      <ul className="space-y-2">
-        {proposal.changes.map((change) => {
-          const key = changeKey(change);
-          const texts = changeTexts(change, base);
-          const applied = changeIsApplied(change, base);
-          return (
-            <li key={key} className="rounded-md border border-gray-200 p-2 dark:border-gray-800">
-              <div className="flex items-center gap-2">
-                <span className="min-w-0 flex-1 truncate text-sm">{changeLabel(change)}</span>
-                {applied ? (
-                  <span className="text-xs text-gray-500">{words.accepted}</span>
-                ) : (
-                  onAccept &&
-                  texts && (
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      aria-label={`${words.accept}: ${changeLabel(change)}`}
-                      disabled={dirty || accepting !== null}
-                      onClick={() => {
-                        setAccepting(key);
-                        void onAccept(change).finally(() => setAccepting(null));
-                      }}
-                    >
-                      {words.accept}
-                    </Button>
-                  )
-                )}
-              </div>
-              {change.target === "description" && texts && !applied && onReviewScript && (
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
-                  <Button size="sm" variant="secondary" onClick={() => onReviewScript()}>
-                    {words.reviewInScript}
-                  </Button>
-                  {changedScenes(texts.before, texts.after).map((number) => (
-                    <button
-                      key={number}
-                      type="button"
-                      onClick={() => onReviewScript(number)}
-                      className="rounded px-1.5 py-0.5 text-brand-700 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-950"
-                    >
-                      {S.activities.studioScript.scene(number)}
-                    </button>
-                  ))}
-                  {review && (
-                    <span
-                      aria-live="polite"
-                      className={review.left ? toneInk.attention : toneInk.success}
-                    >
-                      {review.left ? words.reviewLeft(review.left, review.total) : words.reviewDone}
-                    </span>
-                  )}
-                </div>
-              )}
-              {!texts ? (
-                <p className={`mt-1 text-xs ${toneInk.attention}`}>{words.nothingToApply}</p>
-              ) : (
-                !applied && (
-                  <details className="mt-1">
-                    <summary className="cursor-pointer text-xs text-gray-500">
-                      {words.showChange}
-                    </summary>
-                    <div className="mt-2">
-                      <SpecDiffView compact saved={texts.before} edited={texts.after} />
-                    </div>
-                  </details>
-                )
-              )}
-            </li>
-          );
-        })}
-      </ul>
     </section>
   );
 }
