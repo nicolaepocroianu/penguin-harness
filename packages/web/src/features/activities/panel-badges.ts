@@ -36,14 +36,15 @@ export function testBadge(state: TestState | null, inProgress: boolean): PanelBa
   if (!report || !report.results.length) return null;
   const words = S.activities.panelBadges;
   const failed = report.results.filter((result) => result.status === "failed").length;
-  if (failed) return { text: String(failed), tone: "danger", label: words.failed(failed) };
+  if (failed)
+    return state.stale
+      ? { text: String(failed), tone: "muted", label: words.staleFailed(failed) }
+      : { text: String(failed), tone: "danger", label: words.failed(failed) };
   const passed = report.results.filter((result) => result.status === "passed").length;
   if (!passed) return null;
-  return {
-    text: String(passed),
-    tone: state.stale ? "muted" : "success",
-    label: state.stale ? words.stale(passed) : words.passed(passed),
-  };
+  return state.stale
+    ? { text: String(passed), tone: "muted", label: words.stale(passed) }
+    : { text: String(passed), tone: "success", label: words.passed(passed) };
 }
 
 /** Open findings across both checks; waived ones are settled and do not count. */

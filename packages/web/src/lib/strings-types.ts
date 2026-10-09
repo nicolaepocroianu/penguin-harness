@@ -140,6 +140,7 @@ export type Strings = {
       failed: (n: number) => string;
       passed: (n: number) => string;
       stale: (n: number) => string;
+      staleFailed: (n: number) => string;
       findings: (n: number) => string;
     };
     studioPanels: {
