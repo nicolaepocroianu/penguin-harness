@@ -1921,6 +1921,11 @@ function ActivityEditor({
               subject={panelSubject}
               revision={detail.draft.contentRevision}
               editable={editable && available}
+              onOpenSection={(target) =>
+                sections.some((entry) => entry.key === target && entry.enabled)
+                  ? () => setSection(target)
+                  : undefined
+              }
               onSaved={(draft, text) => {
                 // Only the draft changed; unsaved script or specification text stays.
                 setDetail((current) => (current ? { ...current, draft } : current));

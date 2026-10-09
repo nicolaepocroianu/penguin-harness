@@ -53,3 +53,105 @@ export function assessmentItemCount(value: unknown): number | null {
     ? (value as { items: unknown[] }).items.length
     : null;
 }
+
+/** One file a definition's `require` names. */
+export interface DefinitionFile {
+  /** The `require` key: entry, layout, style, or whatever else the module names. */
+  role: string;
+  /** The URL as written, or null when the entry names none. */
+  url: string | null;
+  type: string | null;
+  /**
+   * The file's path inside the module, for a URL relative to it; null for an absolute URL or
+   * none, which nothing here can open or look for.
+   */
+  path: string | null;
+}
+
+export interface DefinitionTheme {
+  name: string;
+  properties: { key: string; value: string }[];
+}
+
+/** What a definition says at a glance; every field tolerates the definition leaving it out. */
+export interface DefinitionSummary {
+  engine: string | null;
+  schemaVersion: string | null;
+  specificationVersion: string | null;
+  themes: DefinitionTheme[];
+  /** The module-wide `assets` and `properties`, as counts of their keys. */
+  assets: number;
+  properties: number;
+  files: DefinitionFile[];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function scalar(value: unknown): string | null {
+  if (typeof value === "string") return value.trim() ? value : null;
+  return typeof value === "number" || typeof value === "boolean" ? String(value) : null;
+}
+
+/** The path a module-relative URL names, without `./`, a query or a fragment. */
+export function modulePath(url: string): string | null {
+  const bare = url
+    .trim()
+    .split(/[?#]/, 1)[0]!
+    .replace(/^(\.\/)+/, "");
+  // A scheme, a protocol-relative or root-relative URL, or a step out names no module file.
+  if (!bare || /^[a-z][a-z0-9+.-]*:/i.test(bare) || bare.startsWith("/")) return null;
+  if (bare.split("/").some((part) => part === ".." || part === "")) return null;
+  return bare;
+}
+
+function definitionFile(role: string, entry: unknown): DefinitionFile {
+  const url = typeof entry === "string" ? entry : isRecord(entry) ? scalar(entry.url) : null;
+  const type = isRecord(entry) ? scalar(entry.type) : null;
+  return { role, url, type, path: url ? modulePath(url) : null };
+}
+
+/** A property's value as one line of text: strings as written, anything else as JSON. */
+function propertyText(value: unknown): string {
+  return typeof value === "string" ? value : (JSON.stringify(value) ?? String(value));
+}
+
+/** The summary of a parsed definition. */
+export function definitionSummary(value: Record<string, unknown>): DefinitionSummary {
+  const themes = isRecord(value.themes) ? value.themes : {};
+  return {
+    engine: scalar(value.engine),
+    schemaVersion: scalar(value.schemaVersion),
+    specificationVersion: scalar(value.specificationVersion),
+    themes: Object.entries(themes).map(([name, theme]) => ({
+      name,
+      properties:
+        isRecord(theme) && isRecord(theme.properties)
+          ? Object.entries(theme.properties).map(([key, item]) => ({
+              key,
+              value: propertyText(item),
+            }))
+          : [],
+    })),
+    assets: isRecord(value.assets) ? Object.keys(value.assets).length : 0,
+    properties: isRecord(value.properties) ? Object.keys(value.properties).length : 0,
+    files: isRecord(value.require)
+      ? Object.entries(value.require).map(([role, entry]) => definitionFile(role, entry))
+      : [],
+  };
+}
+
+/** The summary of a definition's text, or why the text is not one. */
+export function readDefinition(text: string): { summary: DefinitionSummary } | { error: string } {
+  const parsed = parseDocument(text);
+  return "error" in parsed ? parsed : { summary: definitionSummary(parsed.value) };
+}
+
+/** Whether a module file a definition names is there, from the status the preview served. */
+export type FilePresence = "found" | "missing" | "unknown";
+
+export function filePresence(status: number): FilePresence {
+  if (status >= 200 && status < 300) return "found";
+  return status === 404 ? "missing" : "unknown";
+}

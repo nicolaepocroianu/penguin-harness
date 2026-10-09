@@ -149,6 +149,7 @@ export function JsonEditor({
   leading,
   actions,
   notices,
+  wrapLines = false,
   onChange,
   onSave,
 }: {
@@ -177,6 +178,8 @@ export function JsonEditor({
   actions?: ReactNode;
   /** Lines about the document, under the header. */
   notices?: ReactNode;
+  /** Soft-wrap long lines instead of scrolling sideways, for documents with prose values. */
+  wrapLines?: boolean;
   onChange: (value: string) => void;
   onSave: () => void;
 }) {
@@ -232,6 +235,7 @@ export function JsonEditor({
           compartments.diff.of([]),
           compartments.access.of([]),
           reportEdits,
+          wrapLines ? EditorView.lineWrapping : [],
         ],
       }),
     });
@@ -240,7 +244,7 @@ export function JsonEditor({
       view.destroy();
       viewRef.current = null;
     };
-  }, [compartments, editorLabel]);
+  }, [compartments, editorLabel, wrapLines]);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -275,6 +279,7 @@ export function JsonEditor({
           common(),
           EditorState.readOnly.of(true),
           EditorView.contentAttributes.of({ "aria-label": savedLabel }),
+          wrapLines ? EditorView.lineWrapping : [],
         ],
       },
       b: {
@@ -284,6 +289,7 @@ export function JsonEditor({
           accessExtensions(access),
           EditorView.contentAttributes.of({ "aria-label": editorLabel }),
           reportEdits,
+          wrapLines ? EditorView.lineWrapping : [],
         ],
       },
       ...(access === "edit"
@@ -304,7 +310,7 @@ export function JsonEditor({
       merge.destroy();
       mergeRef.current = null;
     };
-  }, [sideBySide, saved, access, editorLabel, savedLabel, reportEdits]);
+  }, [sideBySide, saved, access, editorLabel, savedLabel, reportEdits, wrapLines]);
 
   useEffect(() => {
     const b = mergeRef.current?.b;

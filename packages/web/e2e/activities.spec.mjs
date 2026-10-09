@@ -3129,6 +3129,126 @@ test("edits the module's configuration, saves it, and discards the edit", async 
   expect(f.errors).toEqual([]);
 });
 
+test("summarises the module definition and checks the files it loads", async ({ page }) => {
+  const f = await fixture(page);
+  await create(page);
+  const description = `Find the capital letters. ${"A long treasure hunt. ".repeat(10)}`;
+  const definition = {
+    id: "words",
+    schemaVersion: "2.0.0",
+    specificationVersion: "2.0.0",
+    engine: "html",
+    require: {
+      entry: { type: "javascript", url: "entry.js" },
+      layout: { type: "html", url: "layout.html" },
+      style: { type: "css", url: "style.css" },
+    },
+    assets: {},
+    properties: {},
+    themes: {
+      park: { properties: { key: "park", title: "Words", activityDescription: description } },
+    },
+  };
+  const checked = [];
+  await page.route("**/*", (route) => {
+    const request = route.request();
+    const p = new URL(request.url()).pathname;
+    const json = (value, status = 200) =>
+      route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
+    if (p === `${base}/act_test/sandbox/status`)
+      return json({
+        state: "ready",
+        playable: true,
+        buildable: true,
+        message: "Ready.",
+        buildLog: null,
+      });
+    if (p.startsWith(`${base}/act_test/sandbox/module/`)) {
+      const file = p.slice(`${base}/act_test/sandbox/module/`.length);
+      checked.push(`${request.method()} ${file}`);
+      return route.fulfill({ status: file === "style.css" ? 404 : 200, body: "" });
+    }
+    if (p === `${base}/act_test/module-documents`)
+      return json({
+        source: "checkout",
+        canonicalRefNum: 12,
+        configuration: {
+          file: "configurations/words-12.json",
+          value: { words: { telemetry: false } },
+          edited: false,
+          stale: false,
+          editable: true,
+        },
+        assessment: {
+          file: "assessments/words-12.json",
+          value: { items: [{ id: "q1" }, { id: "q2" }] },
+          edited: false,
+          stale: false,
+          editable: true,
+        },
+        definition: {
+          file: "definition.json",
+          value: definition,
+          edited: false,
+          stale: false,
+          editable: true,
+        },
+      });
+    return route.fallback();
+  });
+  await openSection(page, "Specification");
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify(spec));
+  await page.getByRole("button", { name: "Save Spec", exact: true }).click();
+  await page.reload();
+  await openSection(page, "Module definition");
+  const view = page.getByRole("group", { name: "Definition view", exact: true });
+  await expect(view.getByRole("button", { name: "Summary", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(page.getByRole("definition").first()).toHaveText("html");
+  await expect(page.getByText("2.0.0 · 2.0.0", { exact: true })).toBeVisible();
+
+  // Each file the definition requires, and whether the module has it.
+  const files = page.getByRole("table");
+  await expect(files.getByRole("row")).toHaveText([
+    /Role\s*File\s*Type\s*In the module/,
+    /Entry\s*entry\.js\s*javascript\s*Found/,
+    /Layout\s*layout\.html\s*html\s*Found/,
+    /Style\s*style\.css\s*css\s*Missing/,
+  ]);
+  expect(checked.sort()).toEqual(["HEAD entry.js", "HEAD layout.html", "HEAD style.css"]);
+  await expect(files.getByRole("link", { name: "entry.js", exact: true })).toHaveAttribute(
+    "href",
+    `${base}/act_test/sandbox/module/entry.js`,
+  );
+
+  // A long property is clamped until asked for.
+  await expect(page.getByText("Theme “park”", { exact: true })).toBeVisible();
+  const showAll = page.getByRole("button", { name: "Show all", exact: true });
+  await expect(showAll).toHaveAttribute("aria-expanded", "false");
+  await showAll.click();
+  await expect(page.getByRole("button", { name: "Show less", exact: true })).toBeVisible();
+
+  // The raw document is the JSON view.
+  await view.getByRole("button", { name: "JSON", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: /^Document JSON/ })).toContainText(
+    '"engine": "html"',
+  );
+  await view.getByRole("button", { name: "Summary", exact: true }).click();
+
+  // Its neighbours open from their cards, with what they hold.
+  const assessment = page.getByRole("button", { name: /^Assessment data/ });
+  await expect(assessment).toContainText("assessments/words-12.json · 2 items");
+  await assessment.click();
+  await expect(
+    page.getByText("assessments/words-12.json, from the module in the WAF checkout. 2 items."),
+  ).toBeVisible();
+  expect(f.errors).toEqual([]);
+});
+
 test("shows the shared assessment read-only on a ref that is not canonical", async ({ page }) => {
   const f = await fixture(page);
   await create(page);

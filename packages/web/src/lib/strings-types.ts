@@ -1178,6 +1178,34 @@ export type Strings = {
       notJson: (reason: string) => string;
       notObject: string;
       fromDraft: string;
+      /** The Module Definition's at-a-glance view, beside its JSON. */
+      summary: {
+        view: { label: string; summary: string; json: string };
+        engine: string;
+        versions: string;
+        themes: string;
+        counts: string;
+        none: string;
+        unsaved: string;
+        unreadable: (reason: string) => string;
+        openJson: string;
+        files: string;
+        filesAbout: string;
+        role: string;
+        file: string;
+        type: string;
+        presence: string;
+        presenceState: Record<"checking" | "found" | "missing" | "unknown", string>;
+        noFiles: string;
+        noUrl: string;
+        openFile: (file: string) => string;
+        theme: (name: string) => string;
+        noThemes: string;
+        noProperties: string;
+        showAll: string;
+        showLess: string;
+        related: string;
+      };
     };
     librarySectionEmpty: string;
     sceneAssetTree: string;

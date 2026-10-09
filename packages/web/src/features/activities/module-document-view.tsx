@@ -6,7 +6,8 @@
  * so only the canonical ref edits them.
  *
  * Each is Loom's full-height JSON editor. The assessment is also generated here, and a toggle
- * in its header switches between editing its items without JSON and that same JSON editor.
+ * in its header switches between editing its items without JSON and that same JSON editor;
+ * the definition's switches between a read-only summary and the JSON.
  */
 import { useEffect, useRef, useState } from "react";
 import type {
@@ -34,6 +35,7 @@ import {
 } from "./module-document";
 import { EDITOR_HEADER, EDITOR_NOTICES, JsonEditor } from "./json-editor";
 import { SpecDiffView } from "./spec-diff-view";
+import { DefinitionSummaryView } from "./definition-summary-view";
 
 /** What the Assessment Data section needs to generate an assessment and offer the result. */
 export interface AssessmentGenerationProps {
@@ -57,6 +59,7 @@ export function ModuleDocumentView({
   editable,
   onSaved,
   generation,
+  onOpenSection,
 }: {
   endpoint: string;
   kind: ModuleDocumentKind;
@@ -70,6 +73,8 @@ export function ModuleDocumentView({
   onSaved: (draft: ActivityDraft, text: string) => void;
   /** For the assessment: generating it, and the result waiting to be used. */
   generation?: AssessmentGenerationProps;
+  /** How to open another build document's section from the definition's summary, when it is open. */
+  onOpenSection?: (section: "configuration" | "assessment") => (() => void) | undefined;
 }) {
   const words = S.activities.moduleDocuments;
   const [documents, setDocuments] = useState<ModuleDocuments | null>(null);
@@ -78,8 +83,9 @@ export function ModuleDocumentView({
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [discarding, setDiscarding] = useState(false);
-  // The assessment's view, once the author picks one; until then, whichever shows the document.
-  const [view, setView] = useState<"items" | "json" | null>(null);
+  // The view the author picked; until then the assessment shows whichever view holds the
+  // document, and the definition its summary.
+  const [view, setView] = useState<"items" | "summary" | "json" | null>(null);
   // The text the editor last loaded; while the author has not changed it, a fresh read
   // replaces it, and once they have, their words stay.
   const loaded = useRef<string | null>(null);
@@ -219,14 +225,31 @@ export function ModuleDocumentView({
     </>
   );
   // A document the items editor cannot show whole opens as JSON.
-  const shownView = view ?? (readItems(document.value) === null ? "json" : "items");
-  const viewToggle = kind === "assessment" && (
-    <div role="group" aria-label={S.activities.assessment.view.label} className="w-36">
+  const shownView =
+    view ??
+    (kind === "definition"
+      ? "summary"
+      : kind === "assessment" && readItems(document.value) !== null
+        ? "items"
+        : "json");
+  const toggleWords =
+    kind === "assessment"
+      ? { ...S.activities.assessment.view, first: "items" as const }
+      : kind === "definition"
+        ? {
+            label: words.summary.view.label,
+            items: words.summary.view.summary,
+            json: words.summary.view.json,
+            first: "summary" as const,
+          }
+        : null;
+  const viewToggle = toggleWords && (
+    <div role="group" aria-label={toggleWords.label} className="w-36">
       <Segmented
         cols={2}
         options={[
-          { value: "items", label: S.activities.assessment.view.items },
-          { value: "json", label: S.activities.assessment.view.json },
+          { value: toggleWords.first, label: toggleWords.items },
+          { value: "json", label: toggleWords.json },
         ]}
         value={shownView}
         onChange={setView}
@@ -248,6 +271,7 @@ export function ModuleDocumentView({
       about={about}
       leading={viewToggle}
       actions={discardButton}
+      wrapLines
       notices={
         <>
           {notices}
@@ -276,15 +300,15 @@ export function ModuleDocumentView({
     </ConfirmModal>
   );
 
-  if (kind !== "assessment" || shownView === "json")
+  if (shownView === "json")
     return (
       <>
         {jsonEditor}
         {discardModal}
       </>
     );
-  // The items, under the JSON editor's own header and notes strip, so switching views moves
-  // neither the toggle nor the content.
+  // The items or the summary, under the JSON editor's own header and notes strip, so switching
+  // views moves neither the toggle nor the content.
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className={EDITOR_HEADER}>
@@ -295,29 +319,53 @@ export function ModuleDocumentView({
         {viewToggle}
         <span className="flex-1" />
         {discardButton}
+        {kind === "definition" && canEdit && (
+          <Button
+            size="sm"
+            onClick={() => void save()}
+            disabled={busy || text === saved || "error" in parsedDraft}
+          >
+            {words.saveLabel[kind]}
+          </Button>
+        )}
       </div>
       <div className={EDITOR_NOTICES}>
         {notices}
         {generate}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        <div className="max-w-4xl space-y-3">
-          <AssessmentItemsEditor
-            // A saved or generated document starts the items over; unsaved item edits of
-            // the same document survive a re-read.
-            key={saved}
-            value={"error" in parsedDraft ? null : parsedDraft.value}
-            savedValue={document.value}
-            onChange={(value) => {
-              setText(documentText(value));
-              setProblem(null);
-            }}
-            editable={canEdit}
-            busy={busy}
-            onSave={(value) => void put(value)}
-          />
-          {problem && <p className={`text-xs ${toneInk.danger}`}>{problem}</p>}
-        </div>
+        {kind === "definition" ? (
+          <div className="max-w-5xl space-y-3">
+            <DefinitionSummaryView
+              endpoint={endpoint}
+              revision={revision}
+              text={text}
+              unsaved={text !== saved}
+              documents={documents}
+              onShowJson={() => setView("json")}
+              onOpenSection={onOpenSection}
+            />
+            {problem && <p className={`text-xs ${toneInk.danger}`}>{problem}</p>}
+          </div>
+        ) : (
+          <div className="max-w-4xl space-y-3">
+            <AssessmentItemsEditor
+              // A saved or generated document starts the items over; unsaved item edits of
+              // the same document survive a re-read.
+              key={saved}
+              value={"error" in parsedDraft ? null : parsedDraft.value}
+              savedValue={document.value}
+              onChange={(value) => {
+                setText(documentText(value));
+                setProblem(null);
+              }}
+              editable={canEdit}
+              busy={busy}
+              onSave={(value) => void put(value)}
+            />
+            {problem && <p className={`text-xs ${toneInk.danger}`}>{problem}</p>}
+          </div>
+        )}
       </div>
       {discardModal}
     </div>
