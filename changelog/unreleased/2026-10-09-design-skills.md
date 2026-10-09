@@ -3,6 +3,7 @@
 - **Date:** 2026-10-09
 - **Type:** process
 - **Scope:** `repo`
+- **PR:** [#95](https://github.com/nicolaepocroianu/penguin-harness/pull/95)
 
 Agents working in this repository now share two third-party design skills under `.agents/skills/`,
 pinned in `skills-lock.json`: `impeccable` (pbakaus/impeccable) for critique, audit, polish,
