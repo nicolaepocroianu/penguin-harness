@@ -3,6 +3,7 @@
 - **Date:** 2026-10-09
 - **Type:** fix
 - **Scope:** `web`
+- **PR:** [#94](https://github.com/nicolaepocroianu/penguin-harness/pull/94)
 
 Configuration Data, Assessment Data and Module Definition no longer lose unsaved edits silently
 when another section opens. Choosing a section in the rail, or anywhere else that opens one,
