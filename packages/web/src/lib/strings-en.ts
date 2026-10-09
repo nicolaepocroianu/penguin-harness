@@ -671,6 +671,25 @@ export const en: Strings = {
       workflowTitle: "Deploy to QA",
       workflowSummary: "Release the module and deploy every ref to QA.",
       diagnostics: "Repository & branch details",
+      checksSummary: (total, attention) => {
+        const checks = `${total} ${total === 1 ? "check" : "checks"}`;
+        if (attention === 0) return `${checks}, none needs attention`;
+        return `${checks}, ${attention} ${attention === 1 ? "needs" : "need"} attention`;
+      },
+      openWorkspaceSettings: "Open WAF workspace settings",
+      waitingOnReadiness: "Waits for what is missing above.",
+      phaseCount: (done, total) => `${done}/${total}`,
+      blocked: "Blocked",
+      mediaFiles: (n) => `${n} media ${n === 1 ? "file" : "files"}`,
+      qaTitle: "QA",
+      qaStates: {
+        notDeployed: "Not deployed",
+        deploying: "Deploying",
+        onQa: "On QA",
+        failed: "Last deploy failed",
+      },
+      qaExplain:
+        "Deploy to QA releases the module when it changed, publishes the media and the activity data, and deploys them to QA.",
       phaseLabels: { module: "Module release", data: "Activity data & media", qa: "QA deployment" },
       stageProgress: (done, total) => `${done} of ${total} stages complete`,
       releaseAbout:
@@ -832,6 +851,12 @@ export const en: Strings = {
         adminOnly: "Only an admin who owns the project can deploy to PROD.",
         ready: "Ready to deploy what QA has to PROD.",
         never: "Not deployed to PROD yet.",
+        states: {
+          notDeployed: "Not deployed",
+          deploying: "Deploying",
+          onProd: "On PROD",
+          failed: "Last deploy failed",
+        },
         last: (when, frameworkVersion) =>
           frameworkVersion
             ? `Last deployed to PROD on ${when}, with framework ${frameworkVersion}.`
@@ -1405,6 +1430,39 @@ export const en: Strings = {
       notJson: (reason: string) => `This is not valid JSON: ${reason}`,
       notObject: "The document must be a JSON object.",
       fromDraft: "Edited in this activity; no module has been assembled yet.",
+      summary: {
+        view: { label: "Definition view", summary: "Summary", json: "JSON" },
+        engine: "Engine",
+        versions: "Schema · Specification",
+        themes: "Themes",
+        counts: "Module assets · properties",
+        none: "None",
+        unsaved: "Shows your unsaved edit.",
+        unreadable: (reason: string) => `The summary cannot be shown. ${reason}`,
+        openJson: "Fix it in the JSON view",
+        files: "Files the module loads",
+        filesAbout:
+          "The files the definition's require names, which the player loads before the activity starts. In the module says whether the module the preview plays has each file.",
+        role: "Role",
+        file: "File",
+        type: "Type",
+        presence: "In the module",
+        presenceState: {
+          checking: "Checking…",
+          found: "Found",
+          missing: "Missing",
+          unknown: "Not checked",
+        },
+        noFiles: "The definition names no files to load.",
+        noUrl: "No URL",
+        openFile: (file: string) => `Open ${file} from the module`,
+        theme: (name: string) => `Theme “${name}”`,
+        noThemes: "The definition has no themes.",
+        noProperties: "This theme sets no properties.",
+        showAll: "Show all",
+        showLess: "Show less",
+        related: "Related build data",
+      },
     },
     librarySectionEmpty: "Nothing has been uploaded for this activity yet.",
     sceneAssetTree: "Scenes and their media",
