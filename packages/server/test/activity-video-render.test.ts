@@ -38,6 +38,7 @@ import {
   type EncoderStarter,
 } from "../src/activities/video-render.js";
 import { ownedMediaPaths } from "../src/activities/version-manifest.js";
+import type { VideoTimelineView } from "../src/activities/video-timeline-types.js";
 import type { RuntimeSession } from "../src/runtime/session-manager.js";
 import type { SessionRow } from "../src/db/repos/sessions.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser, waitFor } from "./helpers.js";
@@ -506,6 +507,57 @@ describe("scene video recording", () => {
       expectedRevision: (await f.current()).draft.contentRevision,
     });
     expect(accept.status).toBe(409);
+  });
+
+  it("starts a timeline from the newest recording, and keeps one saved on the video", async () => {
+    const f = await fixture();
+    const timelineOf = () =>
+      f.client.get(`${f.endpoint}/video-timeline?language=en-US&assetKey=intro-video`);
+    expect((await timelineOf()).status).toBe(403);
+    await f.experiment(true);
+    const none = await timelineOf();
+    expect(none.status).toBe(409);
+    expect(JSON.stringify(await none.json())).toContain("video_recording_missing");
+    expect(
+      (await f.client.get(`${f.endpoint}/video-timeline?language=en-US&assetKey=sky`)).status,
+    ).toBe(404);
+
+    const summary = await f.recorded(await f.composed());
+    const started = await timelineOf();
+    expect(started.status, await started.clone().text()).toBe(200);
+    const view = (await started.json()) as VideoTimelineView;
+    expect(view.saved).toBe(false);
+    expect(view.issues).toEqual([]);
+    expect(view.timeline).toMatchObject({
+      width: 640,
+      height: 480,
+      fps: RENDER_FPS,
+      cuts: [
+        {
+          source: { runId: summary.runId, sha256: inspectMp4(mp4()).sha256, format: "mp4" },
+          inMs: 0,
+          outMs: 6000,
+        },
+      ],
+      narration: [],
+      music: null,
+    });
+
+    // Saved with the media plan, it is the video's own from then on.
+    const draft = (await f.current()).draft;
+    const manifest = structuredClone(draft.mediaPlan!.manifest) as AssetManifest;
+    const shorter = { ...view.timeline, cuts: [{ ...view.timeline.cuts[0]!, outMs: 4000 }] };
+    manifest.assets["en-US"]!.find((entry) => entry.key === "intro-video")!.timeline = shorter;
+    const saved = await f.client.put(`${f.endpoint}/media`, {
+      manifest,
+      expectedRevision: draft.contentRevision,
+    });
+    expect(saved.status, await saved.clone().text()).toBe(200);
+    expect(await (await timelineOf()).json()).toEqual({
+      timeline: shorter,
+      saved: true,
+      issues: [],
+    });
   });
 
   it("stops a recording whose page never gets ready, and lets the activity record again", async () => {

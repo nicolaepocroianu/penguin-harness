@@ -282,6 +282,17 @@ export class ActivityRoutes {
     app.get("/video-setup", (c) =>
       c.json({ enabled: this.generation.videoExperiment() } satisfies VideoSetup),
     );
+    // A video or animation's timeline: saved, or started from its newest recording.
+    app.get("/:activityId/video-timeline", async (c) =>
+      c.json(
+        await this.generation.videoTimeline(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          c.req.query("language") ?? DEFAULT_LANGUAGE_CODE,
+          c.req.query("assetKey") ?? "",
+        ),
+      ),
+    );
     // An agent composes an animated scene for a video or animation asset (experimental).
     app.post("/:activityId/compose-video", async (c) => {
       const body = await readJson(c);

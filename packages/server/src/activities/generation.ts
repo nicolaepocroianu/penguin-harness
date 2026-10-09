@@ -158,6 +158,9 @@ import {
 import { IMAGE_MAX_BYTES as COMPOSITION_IMAGE_MAX_BYTES } from "./image.js";
 import type { CompositionCandidate, CompositionTarget } from "./composition-types.js";
 import type { VideoProblemCode, VideoResult, VideoTarget } from "./video-types.js";
+import { RENDER_FPS } from "./video-render.js";
+import { defaultTimeline, timelineIssues } from "./video-timeline.js";
+import type { VideoTimelineView } from "./video-timeline-types.js";
 import { mediaContentType } from "./media-origin.js";
 import {
   newId,
@@ -1726,6 +1729,55 @@ export class ActivityGenerationService implements ActivityGeneration {
       runId,
       result.sha256,
       result.format ?? "webm",
+    );
+  }
+  async videoTimeline(
+    projectId: string,
+    activityId: string,
+    language: string,
+    assetKey: string,
+  ): Promise<VideoTimelineView> {
+    if (!this.videoExperiment()) throw experimentOff();
+    const activity = await this.activities.getActivity(projectId, activityId);
+    const assets = activity.draft.mediaPlan?.manifest.assets[language] ?? [];
+    const asset = assets.find(
+      (entry) => entry.key === assetKey && (entry.type === "video" || entry.type === "animation"),
+    );
+    if (!asset)
+      throw new HttpError(404, "asset_not_found", "The media plan has no such video or animation.");
+    if (asset.timeline)
+      return {
+        timeline: asset.timeline,
+        saved: true,
+        issues: timelineIssues(asset.timeline, assets),
+      };
+    // The newest recording of this asset that came out; runs are listed newest first.
+    for (const summary of await this.list(projectId, activityId)) {
+      if (
+        summary.kind !== "video" ||
+        summary.status !== "succeeded" ||
+        summary.video?.language !== language ||
+        summary.video.assetKey !== assetKey
+      )
+        continue;
+      const run = await this.getRun(projectId, activityId, summary.runId);
+      if (!run.candidate || !run.video) continue;
+      const result = JSON.parse(run.candidate) as VideoResult;
+      const timeline = defaultTimeline(assets, assetKey, {
+        runId: result.runId,
+        sha256: result.sha256,
+        format: result.format ?? "webm",
+        seconds: run.video.seconds,
+        width: run.video.width,
+        height: run.video.height,
+        fps: RENDER_FPS,
+      });
+      return { timeline, saved: false, issues: timelineIssues(timeline, assets) };
+    }
+    throw new HttpError(
+      409,
+      "video_recording_missing",
+      "Record the scene's video first: a timeline starts from a recording.",
     );
   }
   acceptVideo(projectId: string, activityId: string, runId: string, expectedRevision: string) {

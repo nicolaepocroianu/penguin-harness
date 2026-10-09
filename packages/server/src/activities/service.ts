@@ -3060,6 +3060,7 @@ export class ActivityService implements ActivityAuthoring {
                 generatedAudio: _audio,
                 generatedImage: _image,
                 generatedVideo: _video,
+                timeline: _timeline,
                 translatedFrom: _from,
                 wordTimings: _timings,
                 durationMs: _duration,

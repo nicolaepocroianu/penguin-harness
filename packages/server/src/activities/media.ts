@@ -9,6 +9,8 @@ import {
 } from "./playback.js";
 import { mediaTargetPath } from "./languages.js";
 import type { SpeechProviderId } from "./speech-types.js";
+import { parseTimeline } from "./video-timeline.js";
+import type { VideoTimeline } from "./video-timeline-types.js";
 import type { VideoFormat } from "./video-types.js";
 import {
   SPEECH_PROVIDER_IDS,
@@ -115,6 +117,12 @@ export interface MediaAsset {
    * on a video or animation asset, bound to its path in the media repository (see generatedMediaPath).
    */
   generatedVideo?: { runId: string; sha256: string; format?: VideoFormat };
+  /**
+   * How a video or animation's finished video is put together from recordings, narration,
+   * music, effects and captions (experimental; see video-timeline.ts). Penguin's own: the
+   * module never sees it.
+   */
+  timeline?: VideoTimeline;
   usages: {
     sceneId: string;
     sourceKey: string;
@@ -270,6 +278,7 @@ export function validateManifest(value: unknown, address: ActivityAddress): Asse
               "generatedAudio",
               "generatedImage",
               "generatedVideo",
+              "timeline",
             ].includes(key),
         )
       )
@@ -513,6 +522,8 @@ export function validateManifest(value: unknown, address: ActivityAddress): Asse
         )
           throw new Error("Invalid generated video binding.");
       }
+      if (asset.timeline !== undefined && asset.type !== "video" && asset.type !== "animation")
+        throw new Error("Only a video or animation has a timeline.");
       const usages = asset.usages.map((value) => {
         const usage = object(value);
         if (
@@ -611,6 +622,7 @@ export function validateManifest(value: unknown, address: ActivityAddress): Asse
               },
             }
           : {}),
+        ...(asset.timeline !== undefined ? { timeline: parseTimeline(asset.timeline) } : {}),
         usages,
       };
     });
@@ -804,6 +816,7 @@ export function wafManifest(manifest: AssetManifest): AssetManifest {
             generatedAudio: _audio,
             generatedImage: _image,
             generatedVideo: _video,
+            timeline: _timeline,
             phonemeSource: _source,
             customScript: _script,
             phonemeTimings: _sounds,

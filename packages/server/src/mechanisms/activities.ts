@@ -9,6 +9,7 @@ import type {
 } from "../activities/speech-types.js";
 import type { ImageRequest } from "../activities/image.js";
 import type { CompositionFileContent } from "../activities/composition.js";
+import type { VideoTimelineView } from "../activities/video-timeline-types.js";
 import type {
   VideoFormat,
   VideoProblemCode,
@@ -181,6 +182,18 @@ export abstract class ActivityGeneration extends Interface<{
   ): Promise<ActivityDraft>;
   /** A video run's recording, or a recording the draft binds; 404 when there is none. */
   videoContent(projectId: string, activityId: string, runId: string): Promise<Uint8Array>;
+  /**
+   * A video or animation's timeline (experimental): the one saved on its asset, or else one
+   * started from its newest recording, with what either would get wrong. 404 `asset_not_found`
+   * when the media plan has no such video; 409 `video_recording_missing` when nothing saved and
+   * nothing recorded.
+   */
+  videoTimeline(
+    projectId: string,
+    activityId: string,
+    language: string,
+    assetKey: string,
+  ): Promise<VideoTimelineView>;
   /** Bind a successful video run's recording to its asset (experimental). */
   acceptVideo(
     projectId: string,
