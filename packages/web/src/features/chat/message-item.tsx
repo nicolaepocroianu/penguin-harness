@@ -238,13 +238,18 @@ export function MessageItem({ item, ctx }: { item: ChatItem; ctx: StreamRenderCo
           {skills && <SkillsBanner names={skills.skills} />}
           {text && (
             <div className="anim-msg group my-4 flex flex-col items-end">
+              {split?.viewing && (
+                <span className="mb-1 inline-flex max-w-[88%] items-center truncate rounded-full border border-gray-200 px-2 py-0.5 text-xs text-gray-500 md:max-w-[75%] dark:border-gray-800 dark:text-gray-400">
+                  {split.viewing}
+                </span>
+              )}
               <div className="max-w-[88%] rounded-lg bg-gray-100 px-4 py-2.5 md:max-w-[75%] dark:bg-gray-800">
                 {/* wrap-anywhere: long unbroken strings like attachment paths/long URLs wrap within the bubble on narrow (mobile) screens instead of overflowing; unlike break-words it also shrinks min-content, so a pathological token can't stretch the flex bubble itself. Normal words still only break when a token can't fit on a line. */}
                 <p className="wrap-anywhere whitespace-pre-wrap text-base leading-relaxed text-gray-900 dark:text-gray-100">
                   {text}
                 </p>
               </div>
-              {split && (
+              {split?.context && (
                 <HelpFold
                   title={S.chat.contextSent}
                   flush

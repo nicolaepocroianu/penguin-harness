@@ -19,6 +19,7 @@ import type {
   ActivitySummary,
   AssetManifest,
   BookWordsRefresh,
+  DeployStateResponse,
   MediaStat,
   PipelineSelection,
   PipelineState,
@@ -101,7 +102,7 @@ import { DeployPanel } from "./deploy-panel";
 import { useAssistProposal, type ProposalRead } from "./use-assist-proposal";
 import { StudioTreeView } from "./studio-tree-view";
 import { SessionsPanel } from "./sessions-panel";
-import { ProgressSteps, ProposalWaiting, RunningChip, runPanel } from "./studio-status";
+import { ProgressSteps, ProposalWaiting, RunningChip, qaFact, runPanel } from "./studio-status";
 import { SandboxPanel } from "./sandbox-panel";
 import { sandboxHasModule, type SandboxStatusLike } from "./sandbox";
 import { JsonEditor } from "./json-editor";
@@ -585,6 +586,27 @@ function ActivityEditor({
     if (!available || !editable) return;
     void loadUploads();
   }, [projectId, available, editable]);
+  // The header's QA step reads the same deploy state the Deploy section does: once when the
+  // activity opens, and again each time the author leaves that section, where a deploy may
+  // have run. The section keeps its own state and is left alone.
+  const [deployState, setDeployState] = useState<DeployStateResponse | null>(null);
+  const inDeploy = sectionChoice === "deploy";
+  useEffect(() => {
+    if (!available || inDeploy) return;
+    let cancelled = false;
+    apiFetch<DeployStateResponse>(`${endpoint}/deploy`)
+      .then((value) => {
+        // An answer without stages says nothing about QA, and the step stays unchecked.
+        if (!cancelled) setDeployState(Array.isArray(value?.stages) ? value : null);
+      })
+      .catch(() => {
+        if (!cancelled) setDeployState(null);
+        // The header says the step is unchecked; the Deploy section reports the error itself.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [endpoint, available, inDeploy]);
   const dirty =
     detail !== null &&
     (description !== detail.draft.description ||
@@ -1563,9 +1585,12 @@ function ActivityEditor({
         layout={{ section, onSection: setSection }}
         header={
           <>
+            {/* On a phone the breadcrumb and the progress bar take the whole first row and
+                the Layout menu and panel tabs wrap under them; a nav squeezed beside them
+                would stack its words and run the bar under the menu. */}
             <nav
               aria-label={S.activities.breadcrumb}
-              className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-sm"
+              className="flex min-w-0 flex-1 basis-full flex-wrap items-center gap-1.5 text-sm sm:basis-0"
             >
               <Link
                 to="/activities"
@@ -1649,9 +1674,15 @@ function ActivityEditor({
                   specDirty: spec !== pretty(detail.draft.spec),
                   media: scriptMedia?.totals ?? null,
                   hasModule: !!latestModuleRun(runs) || sandboxModule,
+                  qa: deployState ? qaFact(deployState) : null,
                 }}
                 canOpen={(key) => sections.some((entry) => entry.key === key && entry.enabled)}
+                canAct={editable && available}
                 onOpen={setSection}
+                onNext={(go) => {
+                  if (go.kind === "section") setSection(go.section);
+                  else setShowPanel({ key: go.panel, at: Date.now() });
+                }}
               />
               {scriptProposal !== null && editable && (
                 <ProposalWaiting

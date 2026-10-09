@@ -5,7 +5,9 @@ import {
   changeIsApplied,
   changeKey,
   changeLabel,
+  changeSummary,
   changeTexts,
+  openSummaries,
   type ProposalBase,
 } from "../src/features/activities/proposal";
 
@@ -72,5 +74,41 @@ describe("proposals", () => {
     expect(changeLabel({ target: "description", text: "" })).toBe("Activity Script");
     expect(changeLabel(media("hello", "script", ""))).toBe("hello script (en-US)");
     expect(changeKey(media("hello", "script", ""))).toBe("media:en-US:hello");
+  });
+
+  it("sums a change up: lines and the scenes they fall in, or a spec's fields", () => {
+    const script = "Scene 1: Intro\nHello.\n\nScene 2: Rocks\nFind d.\n";
+    const scriptBase = { ...base, description: script };
+    expect(
+      changeSummary(
+        { target: "description", text: script.replace("Find d.", "Find lowercase d.") },
+        scriptBase,
+      ),
+    ).toEqual({ text: "2 lines changed", scenes: [2] });
+    expect(
+      changeSummary({ target: "spec", spec: { id: "words", title: "Word play", age: 5 } }, base),
+    ).toEqual({ text: "2 fields changed", scenes: [] });
+    expect(changeSummary(media("hello", "script", "Hi there"), base)).toEqual({
+      text: "2 lines changed",
+      scenes: [],
+    });
+    expect(changeSummary(media("lost", "script", "x"), base)).toBeNull();
+  });
+
+  it("sums up only the changes not yet in the draft", () => {
+    const summaries = openSummaries(
+      {
+        summary: "",
+        changes: [
+          { target: "description", text: "Teach words" },
+          media("hello", "script", "Hi there"),
+          media("lost", "script", "x"),
+        ],
+      },
+      base,
+    );
+    expect([...summaries.keys()]).toEqual(["media:en-US:hello", "media:en-US:lost"]);
+    expect(summaries.get("media:en-US:hello")?.text).toBe("2 lines changed");
+    expect(summaries.get("media:en-US:lost")).toBeNull();
   });
 });

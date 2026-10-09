@@ -15,6 +15,7 @@ import { apiFetch } from "../../api/client";
 import * as api from "../../api/endpoints";
 import { Button } from "../../components/ui/button";
 import { EmptyState } from "../../components/ui/empty-state";
+import { CloseIcon } from "../../components/ui/icons";
 import { Textarea } from "../../components/ui/input";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
@@ -25,7 +26,7 @@ import {
   focusLabel,
   followUpText,
   latestConversation,
-  splitStudioBrief,
+  splitStudioContext,
   suggestionsFor,
   threadTime,
   type AssistFocus,
@@ -199,13 +200,21 @@ function Conversation({
       ...transcriptCtx,
       hideReasoning: !showReasoning,
       toolOutputActions: true,
-      splitUserContext: splitStudioBrief,
+      splitUserContext: (text: string) => {
+        const split = splitStudioContext(text);
+        return split?.viewing
+          ? { ...split, viewing: S.activities.studioConversation.viewing(split.viewing) }
+          : split;
+      },
       plainWorkHeader: true,
     }),
     [transcriptCtx, showReasoning],
   );
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  // Whether the next message tells the agent what the author has open. Taking the chip off
+  // holds for that one message; the page context is back for the one after.
+  const [withContext, setWithContext] = useState(true);
   useEffect(() => {
     if (!seed) return;
     setDraft((text) => `${text}${text ? "\n" : ""}${seed}\n`);
@@ -230,25 +239,38 @@ function Conversation({
     setError(null);
     try {
       if (!sessionId) {
+        // Without the page context the agent is briefed on the activity as a whole.
         const run = await apiFetch<ActivityRun>(`${endpoint}/assist`, {
           method: "POST",
-          body: { ...runner, expectedRevision: revision, message, focus },
+          body: {
+            ...runner,
+            expectedRevision: revision,
+            message,
+            focus: withContext ? focus : null,
+          },
         });
         if (run.status !== "running" || !run.sessionId)
           throw new Error(run.error ?? S.activities.status[run.status]);
         onStarted(run);
-        lastSent.current = focus;
+        lastSent.current = withContext ? focus : null;
         setDraft("");
+        setWithContext(true);
         onSession(run.sessionId);
         return;
       }
       // A reply still being written takes the message next, rather than refusing it.
       const result = await api.postTask(sessionId, {
-        input: [{ type: "text", text: followUpText(message, focus, lastSent.current) }],
+        input: [
+          {
+            type: "text",
+            text: withContext ? followUpText(message, focus, lastSent.current) : message,
+          },
+        ],
         queueIfBusy: true,
       });
-      lastSent.current = focus;
+      if (withContext) lastSent.current = focus;
       setDraft("");
+      setWithContext(true);
       if (result.sessionId !== sessionId) onSession(result.sessionId);
     } catch (cause) {
       setError(apiErrorText(cause));
@@ -335,13 +357,30 @@ function Conversation({
           className="space-y-2 border-t border-gray-200 p-3 dark:border-gray-800"
         >
           <div className="flex flex-wrap items-center gap-1.5">
-            {/* What the agent will be told the author is looking at, as a scope, not a sentence. */}
-            <span
-              title={words.about(focusLabel(focus))}
-              className="inline-flex max-w-full min-w-0 items-center truncate rounded bg-brand-50 px-1.5 py-0.5 text-xs text-brand-700 dark:bg-brand-950 dark:text-brand-200"
-            >
-              {words.about(focusLabel(focus))}
-            </span>
+            {/* What the agent will be told the author is looking at: a chip the author can
+                take off the next message, never a sentence in it. */}
+            {withContext ? (
+              <span className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-full bg-gray-100 py-0.5 pr-1 pl-2 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                <span className="truncate">{words.context(focusLabel(focus))}</span>
+                <button
+                  type="button"
+                  aria-label={words.removeContext(focusLabel(focus))}
+                  title={words.removeContext(focusLabel(focus))}
+                  onClick={() => setWithContext(false)}
+                  className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                >
+                  <CloseIcon />
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setWithContext(true)}
+                className="rounded-full border border-dashed border-gray-300 px-2 py-0.5 text-xs text-gray-500 hover:border-gray-400 hover:text-gray-700 dark:border-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                {words.addContext(focusLabel(focus))}
+              </button>
+            )}
             {!draft.trim() &&
               suggestionsFor(focus).map((suggestion) => (
                 <button
