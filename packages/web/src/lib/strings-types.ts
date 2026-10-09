@@ -581,6 +581,22 @@ export type Strings = {
       workflowTitle: string;
       workflowSummary: string;
       diagnostics: string;
+      /** The folded checks' summary: how many, and how many want a look. */
+      checksSummary: (total: number, attention: number) => string;
+      /** The admin's way to the WAF workspace page, where the shared clones are prepared. */
+      openWorkspaceSettings: string;
+      /** Why Deploy to QA waits while the readiness strip lists problems. */
+      waitingOnReadiness: string;
+      /** A phase's stages done out of all of them. */
+      phaseCount: (done: number, total: number) => string;
+      /** The stage the pipeline stopped at, which cannot run now. */
+      blocked: string;
+      /** How many media files the media stage checked. */
+      mediaFiles: (n: number) => string;
+      qaTitle: string;
+      qaStates: { notDeployed: string; deploying: string; onQa: string; failed: string };
+      /** What a QA deploy does, under the QA card's status while it has not been deployed. */
+      qaExplain: string;
       phaseLabels: { module: string; data: string; qa: string };
       stageProgress: (done: number, total: number) => string;
       releaseAbout: string;
@@ -736,6 +752,7 @@ export type Strings = {
         /** Nothing stands in the way. */
         ready: string;
         never: string;
+        states: { notDeployed: string; deploying: string; onProd: string; failed: string };
         /** The last PROD deploy: when, and the framework version when known. */
         last: (when: string, frameworkVersion: string | null) => string;
         openDeploy: string;
@@ -930,6 +947,47 @@ export type Strings = {
       editor: string;
       savedSide: string;
       save: string;
+    };
+    /** The Activity Spec read as scenes beside its JSON. */
+    specScenes: {
+      view: string;
+      scenes: string;
+      json: string;
+      unreadable: string;
+      openJson: string;
+      runtime: string;
+      engine: (value: string) => string;
+      layout: (value: string) => string;
+      theme: (value: string) => string;
+      assessment: (on: boolean) => string;
+      description: string;
+      noDescription: string;
+      prefixNotice: (prefix: string) => string;
+      removePrefix: string;
+      criteria: string;
+      noCriteria: string;
+      scenesHelp: string;
+      noScenes: string;
+      summary: (matching: number, differing: number) => string;
+      videos: (n: number) => string;
+      images: (n: number) => string;
+      animations: (n: number) => string;
+      sounds: (n: number) => string;
+      narrationLines: (n: number) => string;
+      noNarration: string;
+      matches: string;
+      differs: (n: number) => string;
+      notInScript: string;
+      lineNotInScript: string;
+      scriptSays: (text: string) => string;
+      useScript: string;
+      extraInScript: (n: number) => string;
+      narration: string;
+      media: string;
+      kinds: Record<"image" | "video" | "animation" | "sound", string>;
+      bound: string;
+      needsFile: string;
+      scene: (n: number, title: string) => string;
     };
     /** The JSON editor Loom shows for a document: Diff and its toolbar, and why text cannot save. */
     jsonEditor: {
@@ -1187,6 +1245,34 @@ export type Strings = {
       notJson: (reason: string) => string;
       notObject: string;
       fromDraft: string;
+      /** The Module Definition's at-a-glance view, beside its JSON. */
+      summary: {
+        view: { label: string; summary: string; json: string };
+        engine: string;
+        versions: string;
+        themes: string;
+        counts: string;
+        none: string;
+        unsaved: string;
+        unreadable: (reason: string) => string;
+        openJson: string;
+        files: string;
+        filesAbout: string;
+        role: string;
+        file: string;
+        type: string;
+        presence: string;
+        presenceState: Record<"checking" | "found" | "missing" | "unknown", string>;
+        noFiles: string;
+        noUrl: string;
+        openFile: (file: string) => string;
+        theme: (name: string) => string;
+        noThemes: string;
+        noProperties: string;
+        showAll: string;
+        showLess: string;
+        related: string;
+      };
     };
     librarySectionEmpty: string;
     sceneAssetTree: string;

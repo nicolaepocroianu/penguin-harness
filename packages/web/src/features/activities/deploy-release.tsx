@@ -2,7 +2,8 @@
  * The module release and the QA deploy, in the Deploy section: each stage with its state and
  * why it cannot run now, Deploy to QA and Release module (each behind a confirmation, since
  * they push branches and start Jenkins jobs), one stage at a time under "Run one stage", Stop,
- * the log, followed every second while a run goes, and once QA has the activity, a link to it.
+ * and the log, followed every second while a run goes. Deploy to QA waits while the readiness
+ * checks list problems, and says so beside it.
  */
 import { useEffect, useRef, useState } from "react";
 import type {
@@ -21,13 +22,14 @@ import { InfoPopover } from "../../components/ui/info-popover";
 import { Input } from "../../components/ui/input";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
-import { toneDot, toneInk } from "../../lib/tone";
+import { toneInk } from "../../lib/tone";
 import { DeployTimeline } from "./deploy-timeline";
 import {
   appendLog,
   isProdRun,
+  deployPhases,
+  markBlocked,
   preflightFindings,
-  qaResult,
   refusalText,
   runLine,
   stageConfirmText,
@@ -51,6 +53,7 @@ export function DeployRelease({
   branch,
   activityDataBranch,
   productCode,
+  readinessBlocker,
   onRun,
   onSettled,
   onAnnounce,
@@ -64,6 +67,8 @@ export function DeployRelease({
   /** The activity-data branch a QA deploy pushes, which its confirmation names. */
   activityDataBranch: string;
   productCode: string;
+  /** Why Deploy to QA waits on the readiness checks; null when they pass. */
+  readinessBlocker: string | null;
   /** A run started, or the log poll brought a newer state of it. */
   onRun: (run: DeployRun) => void;
   /** A followed run ended: the stage states and readiness are read again. */
@@ -77,6 +82,7 @@ export function DeployRelease({
   const [error, setError] = useState<string | null>(null);
   const [advanced, setAdvanced] = useState(false);
   const [lines, setLines] = useState<DeployLogLine[]>([]);
+  const [logOpen, setLogOpen] = useState(false);
   const logRef = useRef<HTMLPreElement | null>(null);
   const follow = useRef(true);
   const callbacks = useRef({ onRun, onSettled, onAnnounce });
@@ -139,6 +145,13 @@ export function DeployRelease({
       clearTimeout(timer);
     };
   }, [endpoint, runId]);
+
+  // The log opens by itself once a run goes or has written something, and again for each new
+  // run; within a run the reader may fold it.
+  const logging = running || lines.length > 0;
+  useEffect(() => {
+    if (logging) setLogOpen(true);
+  }, [logging, runId]);
 
   // Keeps the newest line in view unless the reader scrolled up to read an older one.
   useEffect(() => {
@@ -210,24 +223,31 @@ export function DeployRelease({
     else void start(stage);
   }
 
-  const rows = stageRows(run, stages);
-  // A PROD run's line is the PROD bar's.
+  const rows = markBlocked(stageRows(run, stages));
+  const phases = deployPhases(rows);
+  const done = rows.filter((row) => row.status === "done").length;
+  // A PROD run's line is the PROD card's.
   const line = run && isProdRun(run) ? null : runLine(run);
   const first = rows[0];
   const canRelease = editable && !running && busy === null && first !== undefined && !first.blocker;
+  const canDeployQa = canRelease && readinessBlocker === null;
+  const startBlocker = running ? null : (readinessBlocker ?? first?.blocker ?? null);
   const versionError = versionProblem(version);
   const buildUrl = run?.metadata.moduleBuildUrl;
   const resolved = run?.metadata.resolvedModuleVersion;
-  const onQa = qaResult(stages);
   const findings = preflightFindings(run, stages);
   const confirmText =
     confirm === null || confirm === "release" || confirm === "qa"
       ? null
       : stageConfirmText(confirm, branches);
+  const hasLog = lines.length > 0;
   return (
-    <section className="space-y-4" aria-labelledby="activity-deploy-release-title">
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-200 bg-gray-50/60 p-4 dark:border-gray-800 dark:bg-gray-900/40">
-        <div>
+    <section
+      className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800"
+      aria-labelledby="activity-deploy-release-title"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 p-4">
+        <div className="min-w-0">
           <h4
             id="activity-deploy-release-title"
             className="flex items-center gap-2 text-base font-semibold"
@@ -238,7 +258,9 @@ export function DeployRelease({
               <p className="mt-2">{words.qaAbout}</p>
             </InfoPopover>
           </h4>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{words.workflowSummary}</p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {words.workflowSummary} {words.stageProgress(done, rows.length)}.
+          </p>
         </div>
         {editable && (
           <div className="flex flex-wrap gap-2">
@@ -252,6 +274,9 @@ export function DeployRelease({
                 {busy === "stop" ? words.stopping : words.stop}
               </Button>
             )}
+            <Button size="sm" aria-pressed={advanced} onClick={() => setAdvanced(!advanced)}>
+              {words.advanced}
+            </Button>
             <Button
               size="sm"
               disabled={!canRelease}
@@ -261,10 +286,10 @@ export function DeployRelease({
               {running && run?.selection === "release" ? words.releasing : words.releaseModule}
             </Button>
             <Button
-              size="md"
+              size="sm"
               variant="primary"
-              disabled={!canRelease}
-              aria-describedby={!canRelease && first?.blocker ? "deploy-start-blocker" : undefined}
+              disabled={!canDeployQa}
+              aria-describedby={!canDeployQa && startBlocker ? "deploy-start-blocker" : undefined}
               aria-busy={busy === "start" && confirm === "qa"}
               onClick={() => setConfirm("qa")}
             >
@@ -273,178 +298,132 @@ export function DeployRelease({
           </div>
         )}
       </div>
-      {!running && first?.blocker && (
-        <p id="deploy-start-blocker" className="text-xs text-gray-500 dark:text-gray-400">
-          {first.blocker}
-        </p>
-      )}
-      {line && (
+      {startBlocker && (
         <p
-          role="status"
-          className={`text-sm font-medium ${toneInk[line.tone]}`}
-          data-testid="deploy-run-status"
+          id="deploy-start-blocker"
+          className="border-t border-gray-200 bg-gray-50 px-4 py-2 text-xs text-gray-600 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-300"
         >
-          {line.text}
+          {startBlocker}
         </p>
       )}
-      {error && (
-        <p role="alert" className={`text-xs ${toneInk.danger}`}>
-          {error}
-        </p>
-      )}
-      {run?.skipped?.length ? (
-        <p className="text-xs text-gray-500 dark:text-gray-400">{words.releaseSkipped}</p>
-      ) : null}
-      {onQa && (
-        <p className="flex flex-wrap items-center gap-x-3 text-sm" data-testid="deploy-qa-result">
-          <a
-            href={onQa.url}
-            target="_blank"
-            rel="noreferrer"
-            className="font-medium underline underline-offset-2"
-          >
-            {words.openQa}
-          </a>
-          {onQa.version && <span>{words.qaVersion(onQa.version)}</span>}
-        </p>
-      )}
-      {(resolved || buildUrl) && (
-        <p className="flex flex-wrap gap-x-3 text-sm">
-          {resolved && <span>{words.resolvedVersion(resolved)}</span>}
-          {buildUrl && (
-            <a
-              href={buildUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="underline underline-offset-2"
+      {(line || error || run?.skipped?.length || resolved || buildUrl) && (
+        <div className="space-y-2 border-t border-gray-200 px-4 py-3 dark:border-gray-800">
+          {line && (
+            <p
+              role="status"
+              className={`text-sm font-medium ${toneInk[line.tone]}`}
+              data-testid="deploy-run-status"
             >
-              {words.openBuild}
-            </a>
+              {line.text}
+            </p>
           )}
-        </p>
-      )}
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,0.7fr)]">
-        <div className="min-w-0 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-800">
-            <h5 className="text-xs font-semibold">{words.stagesLabel}</h5>
-            {editable && (
-              <Button size="sm" aria-pressed={advanced} onClick={() => setAdvanced(!advanced)}>
-                {words.advanced}
-              </Button>
-            )}
-          </div>
-          <div className="grid grid-cols-3 gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-800">
-            {(
-              [
-                { key: "module", stages: rows.slice(0, 4) },
-                { key: "data", stages: rows.slice(4, 8) },
-                { key: "qa", stages: rows.slice(8) },
-              ] as const
-            ).map((phase) => (
-              <div key={phase.key} className="min-w-0">
-                <p className="text-xs font-medium">{words.phaseLabels[phase.key]}</p>
-                <div
-                  role="progressbar"
-                  aria-valuemin={0}
-                  aria-valuemax={phase.stages.length}
-                  aria-valuenow={phase.stages.filter((row) => row.status === "done").length}
-                  className="mt-2 flex gap-1"
-                  aria-label={words.phaseLabels[phase.key]}
-                  aria-valuetext={words.stageProgress(
-                    phase.stages.filter((row) => row.status === "done").length,
-                    phase.stages.length,
-                  )}
+          {error && (
+            <p role="alert" className={`text-xs ${toneInk.danger}`}>
+              {error}
+            </p>
+          )}
+          {run?.skipped?.length ? (
+            <p className="text-xs text-gray-500 dark:text-gray-400">{words.releaseSkipped}</p>
+          ) : null}
+          {(resolved || buildUrl) && (
+            <p className="flex flex-wrap gap-x-3 text-sm">
+              {resolved && <span>{words.resolvedVersion(resolved)}</span>}
+              {buildUrl && (
+                <a
+                  href={buildUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline underline-offset-2"
                 >
-                  {phase.stages.map((row) => (
-                    <span
-                      key={row.stage}
-                      aria-hidden
-                      className={`h-1 flex-1 rounded-full ${row.status === "pending" ? "bg-gray-200 dark:bg-gray-800" : toneDot[row.tone]}`}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          <DeployTimeline
-            rows={rows}
-            advanced={advanced && editable}
-            disabled={running || busy !== null}
-            onRun={runStage}
-          />
-        </div>
-        <div className="min-w-0 space-y-4">
-          {findings && (
-            <section aria-labelledby="activity-deploy-preflight-title" className="space-y-1">
-              <h5 id="activity-deploy-preflight-title" className="text-xs font-semibold">
-                {words.preflightTitle}
-              </h5>
-              {findings.errors.length > 0 && (
-                <>
-                  <h6 id="activity-deploy-preflight-errors" className={`text-xs ${toneInk.danger}`}>
-                    {words.preflightErrors}
-                  </h6>
-                  <ul
-                    aria-labelledby="activity-deploy-preflight-errors"
-                    className="list-disc space-y-1 pl-5 text-xs"
-                  >
-                    {findings.errors.map((text, index) => (
-                      <li key={index} className={toneInk.danger}>
-                        {text}
-                      </li>
-                    ))}
-                  </ul>
-                </>
+                  {words.openBuild}
+                </a>
               )}
-              {findings.warnings.length > 0 && (
-                <>
-                  <h6
-                    id="activity-deploy-preflight-warnings"
-                    className="text-xs text-gray-600 dark:text-gray-300"
-                  >
-                    {words.preflightWarnings}
-                  </h6>
-                  <ul
-                    aria-labelledby="activity-deploy-preflight-warnings"
-                    className="list-disc space-y-1 pl-5 text-xs"
-                  >
-                    {findings.warnings.map((text, index) => (
-                      <li key={index} className="text-gray-600 dark:text-gray-300">
-                        {text}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </section>
+            </p>
           )}
-          <section
-            aria-labelledby="activity-deploy-log-title"
-            className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800"
-          >
-            <h5
-              id="activity-deploy-log-title"
-              className="border-b border-gray-200 px-4 py-3 text-xs font-semibold dark:border-gray-800"
-            >
-              {words.log}
-            </h5>
-            <pre
-              ref={logRef}
-              data-testid="deploy-log"
-              onScroll={(event) => {
-                const element = event.currentTarget;
-                follow.current =
-                  element.scrollTop + element.clientHeight >= element.scrollHeight - 8;
-              }}
-              tabIndex={0}
-              aria-labelledby="activity-deploy-log-title"
-              className="min-h-40 max-h-[32rem] overflow-auto whitespace-pre-wrap break-words bg-gray-50/50 p-4 font-mono text-xs leading-relaxed dark:bg-gray-900/40"
-            >
-              {lines.length ? lines.map((entry) => entry.text).join("\n") : words.logEmpty}
-            </pre>
-          </section>
         </div>
+      )}
+      <div className="border-t border-gray-200 dark:border-gray-800">
+        <DeployTimeline
+          phases={phases}
+          advanced={advanced && editable}
+          disabled={running || busy !== null}
+          onRun={runStage}
+        />
       </div>
+      {findings && (
+        <section
+          aria-labelledby="activity-deploy-preflight-title"
+          className="space-y-1 border-t border-gray-200 px-4 py-3 dark:border-gray-800"
+        >
+          <h5 id="activity-deploy-preflight-title" className="text-xs font-semibold">
+            {words.preflightTitle}
+          </h5>
+          {findings.errors.length > 0 && (
+            <>
+              <h6 id="activity-deploy-preflight-errors" className={`text-xs ${toneInk.danger}`}>
+                {words.preflightErrors}
+              </h6>
+              <ul
+                aria-labelledby="activity-deploy-preflight-errors"
+                className="list-disc space-y-1 pl-5 text-xs"
+              >
+                {findings.errors.map((text, index) => (
+                  <li key={index} className={toneInk.danger}>
+                    {text}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {findings.warnings.length > 0 && (
+            <>
+              <h6
+                id="activity-deploy-preflight-warnings"
+                className="text-xs text-gray-600 dark:text-gray-300"
+              >
+                {words.preflightWarnings}
+              </h6>
+              <ul
+                aria-labelledby="activity-deploy-preflight-warnings"
+                className="list-disc space-y-1 pl-5 text-xs"
+              >
+                {findings.warnings.map((text, index) => (
+                  <li key={index} className="text-gray-600 dark:text-gray-300">
+                    {text}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+      )}
+      <details
+        open={logOpen}
+        onToggle={(event) => setLogOpen(event.currentTarget.open)}
+        className="border-t border-gray-200 dark:border-gray-800"
+      >
+        <summary className="flex cursor-pointer items-baseline gap-2 px-4 py-2.5 focus-visible:outline-2 focus-visible:outline-offset-2">
+          <span id="activity-deploy-log-title" className="text-xs font-semibold">
+            {words.log}
+          </span>
+          {!hasLog && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">{words.logEmpty}</span>
+          )}
+        </summary>
+        <pre
+          ref={logRef}
+          data-testid="deploy-log"
+          onScroll={(event) => {
+            const element = event.currentTarget;
+            follow.current = element.scrollTop + element.clientHeight >= element.scrollHeight - 8;
+          }}
+          tabIndex={0}
+          aria-labelledby="activity-deploy-log-title"
+          className="max-h-[32rem] min-h-24 overflow-auto whitespace-pre-wrap break-words border-t border-gray-200 bg-gray-50/50 p-4 font-mono text-xs leading-relaxed dark:border-gray-800 dark:bg-gray-900/40"
+        >
+          {hasLog ? lines.map((entry) => entry.text).join("\n") : words.logEmpty}
+        </pre>
+      </details>
       <ConfirmModal
         open={confirm !== null}
         title={

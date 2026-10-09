@@ -119,6 +119,12 @@ describe("native activity authoring API", () => {
     ).toBe(201);
     const reader = apiClient(t.app, member.cookie);
     expect((await reader.get(`${base}/${one.id}`)).status).toBe(200);
+    // A HEAD asks what a GET would, so a member may make it too.
+    const head = await t.app.request(`${base}/${one.id}`, {
+      method: "HEAD",
+      headers: { cookie: member.cookie },
+    });
+    expect(head.status).toBe(200);
     expect(
       (
         await reader.patch(`${base}/${one.id}/description`, {
