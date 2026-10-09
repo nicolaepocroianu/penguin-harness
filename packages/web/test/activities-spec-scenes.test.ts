@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { sceneRanges } from "../src/features/activities/script-model";
 import {
   checkNarration,
+  mediaBound,
   readSpec,
   sceneAgrees,
+  scriptSceneByNumber,
   scriptNarration,
   stripDescriptionPrefix,
   takeScriptLine,
@@ -239,5 +241,32 @@ describe("the fixes", () => {
     ).toBeNull();
     expect(takeScriptLine(text, "scene-9", "s2_chest", "x")).toBeNull();
     expect(takeScriptLine(text, "scene-2", "missing", "x")).toBeNull();
+  });
+});
+
+describe("the review fixes", () => {
+  it("checks a scene the script numbers but does not name", () => {
+    const untitled = sceneRanges("Scene 1:\n<audio>Hello.</audio>");
+    const reading = readSpec(
+      JSON.stringify({
+        scenes: [
+          { id: "scene-1", description: "", audio: { tracks: [{ key: "a", script: "Hello." }] } },
+        ],
+      }),
+      untitled,
+    )!;
+    expect(reading.scenes[0]!.title).toBe("scene-1");
+    expect(scriptSceneByNumber("scene-1", untitled)?.number).toBe(1);
+    expect(scriptSceneByNumber("bonus", untitled)).toBeUndefined();
+    const check = checkNarration(reading.scenes[0]!, "Scene 1:\n<audio>Hello.</audio>", untitled);
+    expect(check.known).toBe(true);
+    expect(sceneAgrees(check)).toBe(true);
+  });
+
+  it("marks a key the plan does not hold as needing a file, and nothing before a plan", () => {
+    const bindings = new Map([["cat", true]]);
+    expect(mediaBound(bindings, "cat")).toBe(true);
+    expect(mediaBound(bindings, "dog")).toBe(false);
+    expect(mediaBound(null, "cat")).toBeUndefined();
   });
 });

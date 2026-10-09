@@ -208,6 +208,13 @@ export function JsonEditor({
   const [diffMode, setDiffMode] = useState(false);
   const [layout, setLayout] = useState<Layout>(readLayout);
   const [active, setActive] = useState(-1);
+  // The diff is a reading of the text, so it closes while another reading takes its place.
+  const alternateShown = alternate?.shown ?? false;
+  useEffect(() => {
+    if (!alternateShown) return;
+    setDiffMode(false);
+    setActive(-1);
+  }, [alternateShown]);
   const sideBySide = diffMode && layout === "side-by-side";
   const changed = value !== saved;
   const problem = useMemo(() => (changed ? parseProblem(value) : null), [changed, value]);

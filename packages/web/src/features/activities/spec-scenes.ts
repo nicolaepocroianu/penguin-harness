@@ -182,12 +182,38 @@ export function scriptNarration(scriptText: string, scene: ScriptScene): string[
   return spoken;
 }
 
+/**
+ * The script scene a spec scene's id numbers (`scene-3` is `Scene 3:`), named or not: a
+ * heading without a title still holds narration to compare. Naming is stricter, so it
+ * keeps using `scriptSceneFor`.
+ */
+export function scriptSceneByNumber(
+  sceneId: string,
+  script: readonly ScriptScene[],
+): ScriptScene | undefined {
+  const match = /(\d+)$/.exec(sceneId);
+  if (!match) return undefined;
+  const number = Number(match[1]);
+  return script.find((scene) => scene.number === number);
+}
+
+/**
+ * Whether a media key has a file: undefined before there is a plan, and false for a key
+ * the plan does not hold, since a clip the plan never registered has no file either.
+ */
+export function mediaBound(
+  bindings: ReadonlyMap<string, boolean> | null,
+  key: string,
+): boolean | undefined {
+  return bindings ? (bindings.get(key) ?? false) : undefined;
+}
+
 export function checkNarration(
   scene: SpecSceneReading,
   scriptText: string,
   script: readonly ScriptScene[],
 ): SceneCheck {
-  const named = scriptSceneFor(scene.id, script);
+  const named = scriptSceneByNumber(scene.id, script);
   if (!named)
     return {
       known: false,

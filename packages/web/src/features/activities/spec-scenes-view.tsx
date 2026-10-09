@@ -16,6 +16,7 @@ import { toneDot, toneInk, toneStrip, type Tone } from "../../lib/tone";
 import { sceneRanges } from "./script-model";
 import {
   checkNarration,
+  mediaBound,
   readSpec,
   sceneAgrees,
   stripDescriptionPrefix,
@@ -187,7 +188,7 @@ function SceneCard({
             <p className="text-xs text-gray-500 dark:text-gray-400">—</p>
           )}
           {scene.media.map((item) => {
-            const bound = bindings?.get(item.key);
+            const bound = mediaBound(bindings, item.key);
             return (
               <div
                 key={`${item.kind}:${item.key}`}
