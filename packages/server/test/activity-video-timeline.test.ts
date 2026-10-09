@@ -274,6 +274,27 @@ describe("video timelines", () => {
     ).toEqual([]);
   });
 
+  it("takes each captioned word's punctuation from the script, and breaks at its sentences", () => {
+    // ElevenLabs' timings, as test16's narration came back: no punctuation at all.
+    const line: MediaAsset = {
+      key: "line",
+      type: "audio",
+      description: "A line",
+      script: "Each treasure is a letter. Listen — and find the right letter!",
+      path: "media/x.mp3",
+      wordTimings: words("Each treasure is a letter Listen and find the right letter"),
+      usages: [],
+    };
+    const value = timeline({ narration: [{ asset: "line", startMs: 0 }] });
+    expect(captionCues(value, [line]).map((cue) => cue.text)).toEqual([
+      "Each treasure is a letter.",
+      "Listen and find the right letter!",
+    ]);
+    // A timed word the script does not have keeps its own form.
+    const odd = { ...line, wordTimings: words("Each treasure is a ladder") };
+    expect(captionCues(value, [odd]).map((cue) => cue.text)).toEqual(["Each treasure is a ladder"]);
+  });
+
   it("keeps a timeline on a video in the media plan, refuses one elsewhere, and never ships it", () => {
     const address = { productCode: "p", refNum: 1 };
     const video = (extra: Record<string, unknown>) => ({

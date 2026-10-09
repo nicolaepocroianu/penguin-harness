@@ -378,8 +378,9 @@ export function captionCues(timeline: VideoTimeline, assets: MediaAsset[]): Capt
       });
       words = [];
     };
+    const written = writtenWords(asset);
     for (const timing of asset.wordTimings ?? []) {
-      const word = timing.word.trim();
+      const word = written(timing.word.trim());
       if (!word) continue;
       const text = [...words.map((taken) => taken.word), word].join(" ");
       if (words.length && (words.length >= maxWords || text.length > maxChars)) close();
@@ -389,6 +390,30 @@ export function captionCues(timeline: VideoTimeline, assets: MediaAsset[]): Capt
     close();
   }
   return cues.sort((a, b) => a.startMs - b.startMs);
+}
+
+/** A word stripped to its letters and digits, lowercased, for comparing. */
+function bare(word: string): string {
+  return word.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+/**
+ * Gives each timed word back the spelling and punctuation it has in the narration's script.
+ * Word timings often come without punctuation ("letter" where the script says "letter."), and
+ * a caption reads, and breaks at a sentence's end, by the script's. A timed word that does not
+ * match the next written ones keeps its own form.
+ */
+function writtenWords(asset: MediaAsset): (word: string) => string {
+  const script = (asset.script ?? "").split(/\s+/).filter((token) => bare(token));
+  let next = 0;
+  return (word) => {
+    for (let ahead = next; ahead < Math.min(next + 3, script.length); ahead += 1)
+      if (bare(script[ahead]!) === bare(word)) {
+        next = ahead + 1;
+        return script[ahead]!;
+      }
+    return word;
+  };
 }
 
 /** A time as WebVTT writes it: `hh:mm:ss.mmm`. */
