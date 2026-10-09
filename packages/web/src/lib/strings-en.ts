@@ -1866,8 +1866,7 @@ export const en: Strings = {
       recompose: "Compose again",
       composing: "Composing…",
       run: "Scene composition",
-      noImages:
-        "Bind an image to this scene first: the composition is made from the scene's images.",
+      noImages: "This scene has no images, so the agent draws it with HTML, CSS and SVG.",
       candidates: "Compositions",
       frames: "Frames",
       frame: (index: number, seconds: string) => `Frame ${index} · ${seconds} s`,

@@ -1983,8 +1983,8 @@ export class ActivityGenerationService implements ActivityGeneration {
 
   /**
    * Everything a composition run stages, read before the run is recorded so a refusal leaves
-   * no run behind: the scene, and the bytes of each of its bound images. 403 while the
-   * experiment is off; 409 `composition_no_images` for a scene with no image to compose from.
+   * no run behind: the scene, and the bytes of each of its bound images. A scene with no image
+   * is composed from HTML, CSS and SVG alone. 403 while the experiment is off.
    */
   private async compositionStage(
     projectId: string,
@@ -1994,12 +1994,6 @@ export class ActivityGenerationService implements ActivityGeneration {
   ): Promise<CompositionStage> {
     if (!this.videoExperiment()) throw experimentOff();
     const scene = compositionScene(activity, input);
-    if (!scene.images.length)
-      throw new HttpError(
-        409,
-        "composition_no_images",
-        "Bind an image to this scene before composing its video.",
-      );
     const images: CompositionTarget["images"] = [];
     const bytes: Uint8Array[] = [];
     for (const image of scene.images) {

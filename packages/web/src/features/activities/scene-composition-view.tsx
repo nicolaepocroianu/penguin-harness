@@ -124,7 +124,7 @@ export function SceneCompositionView({
         <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"
-            disabled={!canGenerate || !hasImage || composing}
+            disabled={!canGenerate || composing}
             onClick={() => onCompose(language, asset.key)}
           >
             {composing
