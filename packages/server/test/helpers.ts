@@ -414,7 +414,11 @@ export function replacementsFor(o: TestAppOptions): Replacements {
   if (o.videoRenderPorts) out.push([DefaultVideoRenderPorts, o.videoRenderPorts]);
   if (o.mediaLibraryPorts) out.push([DefaultMediaLibraryPorts, o.mediaLibraryPorts]);
   if (o.soundModelPorts) out.push([DefaultSoundModelPorts, o.soundModelPorts]);
-  if (o.mediaHelperPorts) out.push([DefaultMediaHelperPorts, o.mediaHelperPorts]);
+  // A test never installs a module scaffold's packages unless it asks to.
+  out.push([
+    DefaultMediaHelperPorts,
+    { linkModuleDependencies: async () => false, ...o.mediaHelperPorts },
+  ]);
   if (o.espeakPorts) out.push([DefaultEspeakPorts, o.espeakPorts]);
   if (o.deployPorts) out.push([DefaultDeployPorts, o.deployPorts]);
   // Nothing clones at boot in a test: a test that wants preparing asks for it.

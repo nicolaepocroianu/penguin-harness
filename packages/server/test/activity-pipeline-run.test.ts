@@ -191,6 +191,8 @@ describe("choosing the work", () => {
 function world(
   options: {
     fail?: ActivityRun["kind"];
+    /** What a succeeding module run reports about its player check. */
+    unchecked?: ActivityRun["unchecked"];
     description?: string;
     romanian?: boolean;
     usesAssessment?: boolean;
@@ -310,6 +312,7 @@ function world(
           continue;
         }
         run.status = "succeeded";
+        if (run.kind === "module" && options.unchecked) run.unchecked = options.unchecked;
         if (run.kind === "spec") {
           activity.draft.spec = spec;
           activity.draft.status = "valid";
@@ -527,6 +530,18 @@ describe("running the stages", () => {
     expect(w.activity.draft.mediaPlan!.manifest.assets["es-MX"]![0]!.path).toBe("run_4.wav");
     expect(final.currentRunId).toBeNull();
     expect(final.finishedAt).toBe("2026-09-23T12:00:00Z");
+  });
+
+  it("says when the module was built but not checked in the player", async () => {
+    for (const [unchecked, note] of [
+      ["noBrowser", "moduleNotChecked"],
+      ["notRun", "moduleCheckSkipped"],
+    ] as const) {
+      const w = world({ unchecked });
+      await w.runner.start("proj", "act", { selection: "module", agentId: "agent" }).done;
+      const module = w.runner.status("act")!.steps.find((step) => step.step === "module")!;
+      expect(module).toMatchObject({ status: "succeeded", note });
+    }
   });
 
   it("keeps a current media plan instead of rebuilding it", async () => {

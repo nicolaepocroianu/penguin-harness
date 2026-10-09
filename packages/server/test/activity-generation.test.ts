@@ -1136,9 +1136,14 @@ describe("activity generation through Harness sessions", () => {
       JSON.parse(await fs.readFile(path.join(session.workspace!, "module/definition.json"), "utf8"))
         .engine,
     ).toBe("html");
+    // Without the shared packages linked in, the agent is not told they are installed.
+    await waitFor(() => f.prompts.length > 0);
+    expect(f.prompts.at(-1)).not.toContain("module/node_modules is already installed");
     const result = await f.finish(run);
     expect(result.status).toBe("succeeded");
     expect(result.kind).toBe("module");
+    // No test browser here, so the module was only built: the run says it was not checked.
+    expect(result.unchecked).toBe("noBrowser");
     expect(JSON.parse(result.candidate!).files).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ path: "module/dist/entry.js", sha256: expect.any(String) }),

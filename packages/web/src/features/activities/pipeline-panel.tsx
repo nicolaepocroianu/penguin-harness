@@ -251,6 +251,10 @@ function StepRow({
             {step.detail}
           </p>
         )}
+        {/* A finished stage with a caveat, such as a module never checked in the player. */}
+        {step.status === "succeeded" && step.note && (
+          <p className={`text-xs ${toneInk.attention}`}>{words.notes[step.note]}</p>
+        )}
       </div>
     </>
   );

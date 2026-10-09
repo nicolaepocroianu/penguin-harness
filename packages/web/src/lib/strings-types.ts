@@ -918,7 +918,9 @@ export type Strings = {
         | "noAssessment"
         | "notCanonical"
         | "noCriteria"
-        | "noBrowser",
+        | "noBrowser"
+        | "moduleNotChecked"
+        | "moduleCheckSkipped",
         string
       >;
       running: (step: string) => string;

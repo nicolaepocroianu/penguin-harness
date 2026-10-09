@@ -1044,6 +1044,10 @@ export const en: Strings = {
         notCanonical: "The assessment is shared by every ref and is written on the canonical ref.",
         noCriteria: "The specification has no acceptance criteria to test.",
         noBrowser: "The test browser is not installed.",
+        moduleNotChecked:
+          "Built and type-checked, but not checked in the player: an admin has not installed the test browser in System settings.",
+        moduleCheckSkipped:
+          "Built and type-checked, but the agent did not run the player check. Run the module stage again.",
       },
       running: (step: string) => `${step}…`,
       finished: "All chosen stages finished.",

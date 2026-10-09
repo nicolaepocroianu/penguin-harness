@@ -37,7 +37,12 @@ import {
 import { SOUND_OUTPUT_FILES, soundTarget } from "./sound.js";
 import { AGENTHUB_VERSION, SoundModelPorts } from "./sound-models.js";
 import { LocalAudio, type LocalAudioRequest } from "./local-audio.js";
-import { MediaHelperPorts, runMediaHelper, type MediaHelperScript } from "./media-helper-runner.js";
+import {
+  linkModuleDependencies,
+  MediaHelperPorts,
+  runMediaHelper,
+  type MediaHelperScript,
+} from "./media-helper-runner.js";
 import { isLocalAudioProvider } from "./local-audio-models.js";
 import { soundProviderFor, soundSetup, speechProviderFor, speechSetup } from "./audio-providers.js";
 import type { SoundFormat, SoundSetup } from "./sound-types.js";
@@ -76,6 +81,7 @@ import {
   prepareModule,
   collectModule,
   moduleBookClause,
+  modulePackagesClause,
   modulePrompt,
   syncAssembledStateMachine,
   verifyMediaArtifacts,
@@ -297,6 +303,26 @@ interface Observer {
 /** The shared WAF checkout, as an assembly may read it but never change it. */
 function checkoutRoot(wafRoot: string) {
   return { root: wafRoot, label: "the shared WAF checkout" };
+}
+
+/**
+ * Why a module run's module was not checked in the player, if it was not: no player check was
+ * staged (the test browser is not installed), or the agent never ran the one it was given.
+ */
+async function playerCheckGap(workspace: string): Promise<ActivityRun["unchecked"]> {
+  const present = (file: string) =>
+    fs.stat(file).then(
+      () => true,
+      () => false,
+    );
+  const dir = path.join(workspace, PLAYER_CHECK_DIR);
+  if (!(await present(dir))) return "noBrowser";
+  return (await present(path.join(dir, ACCEPTANCE_RESULTS_FILE))) ? undefined : "notRun";
+}
+
+/** Where a WAF module scaffold's packages are installed once and linked into each run. */
+function modulePackagesRoot(root: string) {
+  return path.join(root, "module-packages-cache");
 }
 
 @Component()
@@ -1044,6 +1070,7 @@ export class ActivityGenerationService implements ActivityGeneration {
               activity.draft.description,
               "utf8",
             );
+            let modulePackagesLinked = false;
             if (wafRoot) {
               await this.activities.prepareAudioMedia(
                 projectId,
@@ -1070,6 +1097,14 @@ export class ActivityGenerationService implements ActivityGeneration {
                 expectedRevision,
               );
               await prepareModule(workspace, activity, wafRoot, bookMode);
+              // Every stage stages the scaffold, so the stages before a module run install its
+              // packages in the background and the module run links them in rather than
+              // spending minutes installing its own.
+              const linkModule = this.mediaHelper.linkModuleDependencies ?? linkModuleDependencies;
+              modulePackagesLinked = await linkModule(
+                path.join(workspace, "module"),
+                modulePackagesRoot(this.config.root),
+              );
               if (run.kind === "module")
                 await this.stagePlayerCheck(workspace, projectId, activityId, run.runId);
             }
@@ -1271,6 +1306,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                               )
                             : run.kind === "module"
                               ? modulePrompt +
+                                (modulePackagesLinked ? modulePackagesClause : "") +
                                 (bookMode ? moduleBookClause : "") +
                                 featureClause(features)
                               : activitySpecPrompt(
@@ -1293,7 +1329,18 @@ export class ActivityGenerationService implements ActivityGeneration {
               // it and must leave it exactly as it found it — a refusal rather than an
               // instruction, because an instruction is not a permission system and the
               // people approving these Sessions are not all engineers.
-              ...(wafRoot ? { protectedRoots: [checkoutRoot(wafRoot)] } : {}),
+              // The linked packages are shared by every run, so they are refused the same way.
+              ...(wafRoot
+                ? {
+                    protectedRoots: [
+                      checkoutRoot(wafRoot),
+                      {
+                        root: modulePackagesRoot(this.config.root),
+                        label: "the shared module packages",
+                      },
+                    ],
+                  }
+                : {}),
               // Stages run unattended, so every tool call is approved; the protected checkout
               // above is still refused, whatever the approval mode allows.
               approvalMode: "allow-all",
@@ -2343,6 +2390,8 @@ export class ActivityGenerationService implements ActivityGeneration {
                   readCandidate,
                   requiredMediaFiles,
                 );
+                const unchecked = await playerCheckGap(this.workspace(run));
+                if (unchecked) run.unchecked = unchecked;
                 run.candidate = JSON.stringify(result);
                 this.save(run);
                 if (this.stopped) return;
