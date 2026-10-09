@@ -112,8 +112,11 @@ export function modulePath(url: string): string | null {
     // The module route refuses a malformed escape too.
     return null;
   }
-  if (decoded.split("/").some((part) => part === ".." || part === "." || part === "")) return null;
-  return decoded;
+  // The browser drops a `.` segment before it requests the file, so it names the same file;
+  // a step out, or an empty segment the module route refuses, names none.
+  const parts = decoded.split("/").filter((part) => part !== ".");
+  if (!parts.length || parts.some((part) => part === ".." || part === "")) return null;
+  return parts.join("/");
 }
 
 /** Where the preview serves a module file, each segment encoded once. */

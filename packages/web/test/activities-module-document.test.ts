@@ -166,6 +166,13 @@ describe("the definition summary", () => {
     expect(modulePath("%2e%2e/secret.js")).toBeNull();
   });
 
+  it("drops harmless dot segments, as the browser does", () => {
+    expect(modulePath("res/./style.css")).toBe("res/style.css");
+    expect(modulePath("./entry.js")).toBe("entry.js");
+    expect(modulePath("a/../b")).toBeNull();
+    expect(modulePath("a//b.js")).toBeNull();
+  });
+
   it("reads a file's presence from the preview's status", () => {
     expect(filePresence(200)).toBe("found");
     expect(filePresence(404)).toBe("missing");
