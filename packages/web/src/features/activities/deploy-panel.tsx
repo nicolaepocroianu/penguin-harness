@@ -32,6 +32,7 @@ import {
   checksSummary,
   readinessGroups,
   readinessLine,
+  readinessBlocksStart,
   readinessRows,
   type ReadinessAction,
 } from "./deploy-model";
@@ -309,7 +310,9 @@ export function DeployPanel({
               branch={context.branches.deploy}
               activityDataBranch={context.branches.activityData}
               productCode={productCode}
-              readinessBlocker={context.ready ? null : words.waitingOnReadiness}
+              readinessBlocker={
+                readinessBlocksStart(state.stages) ? words.waitingOnReadiness : null
+              }
               onRun={setRun}
               onSettled={reload}
               onAnnounce={onAnnounce}

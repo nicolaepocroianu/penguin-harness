@@ -478,7 +478,8 @@ export function markBlocked(rows: readonly StageRow[]): StageRow[] {
   if (rows.some((row) => row.status === "running")) return [...rows];
   const index = rows.findIndex((row) => row.status !== "done");
   const row = rows[index];
-  if (!row || row.status === "failed" || row.blocker === null) return [...rows];
+  // A failed or stopped stage keeps its own words; only one never run is Blocked.
+  if (!row || row.status !== "pending" || row.blocker === null) return [...rows];
   const out = [...rows];
   out[index] = { ...row, tone: "attention", statusText: S.activities.deploy.blocked };
   return out;
@@ -509,6 +510,25 @@ export function deployPhases(rows: readonly StageRow[]): DeployPhase[] {
     const mine = rows.filter((row) => PHASE_STAGES[key].includes(row.stage));
     return { key, rows: mine, done: mine.filter((row) => row.status === "done").length };
   });
+}
+
+const READINESS_BLOCKERS: ReadonlySet<DeployBlocker["code"]> = new Set<DeployBlocker["code"]>([
+  "settings_missing",
+  "clone_missing",
+  "clone_dirty",
+  "not_ready",
+]);
+
+/**
+ * Whether the readiness problems keep the stages from starting. The server decides which
+ * problems a stage tolerates (an export that failed half way leaves the activity-data clone
+ * dirty, and a retry must still start), so this reads the stages' own blockers rather than
+ * every problem the readiness checks list.
+ */
+export function readinessBlocksStart(stages: readonly DeployStageState[]): boolean {
+  return stages.some(
+    (state) => state.blocker !== null && READINESS_BLOCKERS.has(state.blocker.code),
+  );
 }
 
 /** Where the activity stands on QA, as a short status for the QA card. */

@@ -146,11 +146,12 @@ export function DeployRelease({
     };
   }, [endpoint, runId]);
 
-  // The log opens by itself once a run goes or has written something; the reader may fold it.
+  // The log opens by itself once a run goes or has written something, and again for each new
+  // run; within a run the reader may fold it.
   const logging = running || lines.length > 0;
   useEffect(() => {
     if (logging) setLogOpen(true);
-  }, [logging]);
+  }, [logging, runId]);
 
   // Keeps the newest line in view unless the reader scrolled up to read an older one.
   useEffect(() => {

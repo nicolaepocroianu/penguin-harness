@@ -21,6 +21,7 @@ import {
   problemAction,
   prodStatus,
   qaStatus,
+  readinessBlocksStart,
   readinessGroups,
   stageRows,
   type ReadinessRow,
@@ -127,6 +128,19 @@ describe("the pipeline", () => {
     expect(rows.slice(1).every((row) => row.statusText === "Not run")).toBe(true);
   });
 
+  it("keeps a stopped stage Stopped, even when it cannot run again yet", () => {
+    const stopped = stored({
+      verify_module: { status: "done", blocker: null },
+      prepare_deploy: {
+        status: "cancelled",
+        blocker: { code: "previous_rerun", stage: "verify_module" },
+      },
+    });
+    const rows = markBlocked(stageRows(null, stopped));
+    expect(rows[1]!.statusText).toBe("Stopped");
+    expect(rows.map((row) => row.statusText)).not.toContain("Blocked");
+  });
+
   it("marks nothing when the next stage can run, while a run goes, or after a failure", () => {
     expect(markBlocked(stageRows(null, stored())).map((row) => row.statusText)).not.toContain(
       "Blocked",
@@ -167,6 +181,31 @@ describe("the pipeline", () => {
     // The media count shows only once the media stage recorded it.
     expect(phases[1]!.rows.map((row) => row.detail)).toEqual([null, null, "35 media files", null]);
     expect(stageRows(null, stored()).every((row) => row.detail === null)).toBe(true);
+  });
+});
+
+describe("what keeps Deploy to QA waiting", () => {
+  it("is the stages' readiness blockers, not every problem the checks list", () => {
+    // A dirty activity-data clone (an export that failed half way) is listed but tolerated:
+    // the server leaves the stages unblocked, so a retry may start.
+    expect(readinessBlocksStart(stored())).toBe(false);
+    expect(
+      readinessBlocksStart(
+        stored({
+          verify_module: { blocker: { code: "settings_missing", field: "qa.jenkinsUrl" } },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      readinessBlocksStart(
+        stored({
+          verify_module: { blocker: { code: "not_ready", problem: { code: "git_unavailable" } } },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      readinessBlocksStart(stored({ verify_module: { blocker: { code: "run_active" } } })),
+    ).toBe(false);
   });
 });
 
