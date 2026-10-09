@@ -230,3 +230,19 @@ describe("sectionSwitchDiscards", () => {
     expect(sectionSwitchDiscards("specification", "scenes", true)).toBe(false);
   });
 });
+
+describe("resolveSection with an unsaved module document", () => {
+  const noModule = { hasSpec: true, hasPlan: true, hasModule: false };
+  it("keeps the document open when its availability lapses", () => {
+    expect(resolveSection("configuration", noModule)).not.toBe("configuration");
+    expect(resolveSection("configuration", noModule, true)).toBe("configuration");
+    expect(resolveSection("module", noModule, true)).toBe("module");
+  });
+
+  it("holds only the documents whose editors keep their own text", () => {
+    expect(
+      resolveSection("stats", { hasSpec: true, hasPlan: false, hasModule: false }, true),
+    ).not.toBe("stats");
+    expect(resolveSection(null, noModule, true)).toBe(resolveSection(null, noModule));
+  });
+});

@@ -22,6 +22,14 @@ export function documentChanged(text: string, value: unknown): boolean {
   }
 }
 
+/**
+ * Whether the text holds edits not yet saved: it says something other than the document as
+ * last read, or, after a save the next read has not caught up with, than what was saved.
+ */
+export function hasUnsavedText(text: string, read: unknown, saved?: unknown): boolean {
+  return documentChanged(text, saved === undefined ? read : saved);
+}
+
 /** What the text parses to, or why it cannot be saved. */
 export function parseDocument(
   text: string,

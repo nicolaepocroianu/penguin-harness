@@ -127,11 +127,17 @@ export function sectionFromParam(value: string | null): WorkspaceSection | null 
   return SECTION_KEYS.find((key) => key === value) ?? null;
 }
 
-/** The section to open, honouring a choice only while it is still available. */
+/**
+ * The section to open, honouring a choice only while it is still available. A module
+ * document holding unsaved text stays open whatever its availability does: a status read
+ * that fails for a moment must not unmount the editor and lose the edits.
+ */
 export function resolveSection(
   chosen: WorkspaceSection | null,
   state: WorkspaceState,
+  unsavedDocument = false,
 ): WorkspaceSection {
+  if (unsavedDocument && chosen !== null && SELF_HELD_SECTIONS.has(chosen)) return chosen;
   const sections = workspaceSections(state);
   const wanted = sections.find((section) => section.key === chosen);
   if (wanted?.enabled) return wanted.key;

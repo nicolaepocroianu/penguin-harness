@@ -5,6 +5,7 @@ import {
   documentChanged,
   documentOrigin,
   documentText,
+  hasUnsavedText,
   parseDocument,
 } from "../src/features/activities/module-document";
 
@@ -50,5 +51,18 @@ describe("a module document in the editor", () => {
     expect(assessmentItemCount({ items: [{}, {}] })).toBe(2);
     expect(assessmentItemCount({ maxRounds: 3 })).toBeNull();
     expect(assessmentItemCount(null)).toBeNull();
+  });
+});
+
+describe("hasUnsavedText", () => {
+  it("compares with the last read, ignoring layout", () => {
+    expect(hasUnsavedText('{"a":1}', { a: 1 })).toBe(false);
+    expect(hasUnsavedText('{"a":2}', { a: 1 })).toBe(true);
+    expect(hasUnsavedText("{ nope", { a: 1 })).toBe(true);
+  });
+
+  it("treats text just saved as saved before the next read shows it", () => {
+    expect(hasUnsavedText('{"a":2}', { a: 1 }, { a: 2 })).toBe(false);
+    expect(hasUnsavedText('{"a":3}', { a: 1 }, { a: 2 })).toBe(true);
   });
 });

@@ -1198,12 +1198,16 @@ function ActivityEditor({
     hasModule: !!latestModuleRun(runs) || sandboxModule,
     usesAssessment,
   });
-  const section = resolveSection(sectionChoice, {
-    hasSpec: !!detail?.draft.spec,
-    hasPlan: !!detail?.draft.mediaPlan,
-    hasModule: !!latestModuleRun(runs) || sandboxModule,
-    usesAssessment,
-  });
+  const section = resolveSection(
+    sectionChoice,
+    {
+      hasSpec: !!detail?.draft.spec,
+      hasPlan: !!detail?.draft.mediaPlan,
+      hasModule: !!latestModuleRun(runs) || sandboxModule,
+      usesAssessment,
+    },
+    documentDirty,
+  );
   leaving.current = { section, documentDirty };
   // The saved draft's media stats, read once per revision while the scenes are open, for
   // the file details of a bound clip. Null when they could not be read.

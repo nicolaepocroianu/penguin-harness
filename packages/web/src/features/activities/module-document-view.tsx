@@ -27,7 +27,7 @@ import { AssessmentItemsEditor } from "./assessment-items-editor";
 import { assessmentRunState, readItems } from "./assessment-items";
 import {
   assessmentItemCount,
-  documentChanged,
+  hasUnsavedText,
   documentOrigin,
   documentText,
   parseDocument,
@@ -87,6 +87,8 @@ export function ModuleDocumentView({
   // The text the editor last loaded; while the author has not changed it, a fresh read
   // replaces it, and once they have, their words stay.
   const loaded = useRef<string | null>(null);
+  // What the last save sent, until the next read shows it: saved text is not unsaved.
+  const [savedValue, setSavedValue] = useState<unknown>(undefined);
   useEffect(() => {
     let cancelled = false;
     apiFetch<ModuleDocuments>(`${endpoint}/module-documents`)
@@ -94,6 +96,7 @@ export function ModuleDocumentView({
         if (cancelled) return;
         setDocuments(value);
         setError(null);
+        setSavedValue(undefined);
         const next = value[kind] ? documentText(value[kind]!.value) : "";
         const previous = loaded.current;
         setText((current) => (previous === null || current === previous ? next : current));
@@ -108,7 +111,7 @@ export function ModuleDocumentView({
   }, [endpoint, revision, kind]);
 
   const shown = documents?.source ? documents[kind] : null;
-  const dirty = !!shown && documentChanged(text, shown.value);
+  const dirty = !!shown && hasUnsavedText(text, shown.value, savedValue);
   useEffect(() => {
     onDirty?.(dirty);
   }, [onDirty, dirty]);
@@ -163,6 +166,7 @@ export function ModuleDocumentView({
       });
       // The next read shows the document as saved.
       loaded.current = null;
+      setSavedValue(value);
       onSaved(draft, words.saved);
       return true;
     } catch (cause) {
