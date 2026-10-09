@@ -35,6 +35,7 @@ import {
 } from "./module-document";
 import { EDITOR_HEADER, EDITOR_NOTICES, JsonEditor } from "./json-editor";
 import { SpecDiffView } from "./spec-diff-view";
+import { useDiscardConfirm } from "./use-discard-confirm";
 import { DefinitionSummaryView } from "./definition-summary-view";
 
 /** What the Assessment Data section needs to generate an assessment and offer the result. */
@@ -89,6 +90,10 @@ export function ModuleDocumentView({
   // The text the editor last loaded; while the author has not changed it, a fresh read
   // replaces it, and once they have, their words stay.
   const loaded = useRef<string | null>(null);
+  // Opening another section unmounts this editor, so unsaved text asks first, through the
+  // same confirmation the rest of the studio uses.
+  const unsaved = useRef(false);
+  const leave = useDiscardConfirm(() => unsaved.current);
   useEffect(() => {
     let cancelled = false;
     apiFetch<ModuleDocuments>(`${endpoint}/module-documents`)
@@ -145,6 +150,7 @@ export function ModuleDocumentView({
   const title =
     kind === "definition" ? S.activities.sectionNames.module : S.activities.sectionNames[kind];
   const saved = documentText(document.value);
+  unsaved.current = text !== saved;
   const parsedDraft = parseDocument(text);
   const canonicalRefNum = documents.canonicalRefNum;
 
@@ -343,7 +349,10 @@ export function ModuleDocumentView({
               unsaved={text !== saved}
               documents={documents}
               onShowJson={() => setView("json")}
-              onOpenSection={onOpenSection}
+              onOpenSection={(target) => {
+                const open = onOpenSection?.(target);
+                return open && (() => leave.ask(open));
+              }}
             />
             {problem && <p className={`text-xs ${toneInk.danger}`}>{problem}</p>}
           </div>
@@ -368,6 +377,7 @@ export function ModuleDocumentView({
         )}
       </div>
       {discardModal}
+      {leave.modal}
     </div>
   );
 }

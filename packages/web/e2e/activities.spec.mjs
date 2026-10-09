@@ -3237,12 +3237,23 @@ test("summarises the module definition and checks the files it loads", async ({ 
   await expect(page.getByRole("textbox", { name: /^Document JSON/ })).toContainText(
     '"engine": "html"',
   );
+  // An unsaved edit shows in the summary, and leaving for a neighbour asks first.
+  await page
+    .getByRole("textbox", { name: /^Document JSON/ })
+    .fill(JSON.stringify({ ...definition, engine: "canvas" }));
   await view.getByRole("button", { name: "Summary", exact: true }).click();
+  await expect(page.getByText("Shows your unsaved edit.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("definition").first()).toHaveText("canvas");
 
   // Its neighbours open from their cards, with what they hold.
   const assessment = page.getByRole("button", { name: /^Assessment data/ });
   await expect(assessment).toContainText("assessments/words-12.json · 2 items");
   await assessment.click();
+  const leave = page.getByRole("dialog");
+  await leave.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("definition").first()).toHaveText("canvas");
+  await assessment.click();
+  await leave.getByRole("button", { name: "Discard", exact: true }).click();
   await expect(
     page.getByText("assessments/words-12.json, from the module in the WAF checkout. 2 items."),
   ).toBeVisible();

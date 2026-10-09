@@ -7,6 +7,7 @@ import {
   documentText,
   definitionSummary,
   filePresence,
+  moduleFileUrl,
   modulePath,
   parseDocument,
   readDefinition,
@@ -153,6 +154,16 @@ describe("the definition summary", () => {
     expect(modulePath("data:text/css,")).toBeNull();
     expect(modulePath("../other/entry.js")).toBeNull();
     expect(modulePath("  ")).toBeNull();
+  });
+
+  it("decodes an escaped file name once and links it encoded once", () => {
+    expect(modulePath("res/my%20layout.html")).toBe("res/my layout.html");
+    expect(moduleFileUrl("/api/a", modulePath("res/my%20layout.html")!)).toBe(
+      "/api/a/sandbox/module/res/my%20layout.html",
+    );
+    // A malformed escape, or an escaped step out, names no file rather than throwing.
+    expect(modulePath("bad%E0%A4%A.js")).toBeNull();
+    expect(modulePath("%2e%2e/secret.js")).toBeNull();
   });
 
   it("reads a file's presence from the preview's status", () => {

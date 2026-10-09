@@ -22,6 +22,7 @@ import {
 import {
   assessmentItemCount,
   filePresence,
+  moduleFileUrl,
   readDefinition,
   type DefinitionFile,
   type FilePresence,
@@ -38,11 +39,6 @@ const PRESENCE_TONE: Record<FilePresence | "checking", Tone> = {
 };
 
 const CARD = "rounded-lg border border-gray-200 dark:border-gray-800";
-
-/** Where the preview serves a module file. */
-function moduleFileUrl(endpoint: string, path: string): string {
-  return `${endpoint}/sandbox/module/${path.split("/").map(encodeURIComponent).join("/")}`;
-}
 
 /** Each file's presence in the module, by path; absent while it is being asked. */
 function usePresence(endpoint: string, revision: string, paths: readonly string[], on: boolean) {

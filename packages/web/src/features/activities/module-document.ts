@@ -94,16 +94,31 @@ function scalar(value: unknown): string | null {
   return typeof value === "number" || typeof value === "boolean" ? String(value) : null;
 }
 
-/** The path a module-relative URL names, without `./`, a query or a fragment. */
+/**
+ * The file a module-relative URL names, decoded once as the module route decodes it, without
+ * `./`, a query or a fragment; null for a URL that names no module file.
+ */
 export function modulePath(url: string): string | null {
   const bare = url
     .trim()
     .split(/[?#]/, 1)[0]!
     .replace(/^(\.\/)+/, "");
-  // A scheme, a protocol-relative or root-relative URL, or a step out names no module file.
+  // A scheme, a protocol-relative or root-relative URL names no module file.
   if (!bare || /^[a-z][a-z0-9+.-]*:/i.test(bare) || bare.startsWith("/")) return null;
-  if (bare.split("/").some((part) => part === ".." || part === "")) return null;
-  return bare;
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(bare);
+  } catch {
+    // The module route refuses a malformed escape too.
+    return null;
+  }
+  if (decoded.split("/").some((part) => part === ".." || part === "." || part === "")) return null;
+  return decoded;
+}
+
+/** Where the preview serves a module file, each segment encoded once. */
+export function moduleFileUrl(endpoint: string, path: string): string {
+  return `${endpoint}/sandbox/module/${path.split("/").map(encodeURIComponent).join("/")}`;
 }
 
 function definitionFile(role: string, entry: unknown): DefinitionFile {
