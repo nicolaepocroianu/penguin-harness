@@ -69,7 +69,7 @@ describe("telling the agent what the last recording got wrong", () => {
         endMs: 11500,
       }),
     ).toBe(
-      "#chest and #palm cover each other from 0 s to 11.5 s: move them apart, or mark the one meant to sit over the other with data-allow-overlap.",
+      "#chest and #palm cover each other from 0 s to 11.5 s: move them apart without lifting either off the ground it stands on, or mark the one meant to sit over the other with data-allow-overlap.",
     );
     expect(told({ code: "duration_off", severity: "warning" })).toContain(
       "The timeline played for 8.2 s",
