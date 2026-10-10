@@ -254,6 +254,12 @@ export function ProgressSteps({
           const surface = current
             ? `relative z-10 ${toneStrip[step.tone === "danger" ? "danger" : "attention"]}`
             : "border-gray-200 text-gray-700 hover:bg-gray-100 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-900";
+          let stateClass = "";
+          if (!current) {
+            const ink =
+              step.tone === "muted" ? "text-gray-500 dark:text-gray-400" : toneInk[step.tone];
+            stateClass = step.tone === "danger" ? ink : `sr-only sm:not-sr-only ${ink}`;
+          }
           return (
             <li key={step.section} className="flex items-center">
               <button
@@ -272,17 +278,10 @@ export function ProgressSteps({
                   }`}
                 />
                 <span className={current ? "font-semibold" : ""}>{step.label}</span>
-                <span
-                  className={
-                    current
-                      ? ""
-                      : step.tone === "muted"
-                        ? "text-gray-500 dark:text-gray-400"
-                        : toneInk[step.tone]
-                  }
-                >
-                  {step.state}
-                </span>
+                {/* On a phone a settled step drops its words to keep the bar to two rows: a
+                    filled dot is done, a hollow one not started. The highlighted step and a
+                    failed one keep them, and a screen reader hears every step's. */}
+                <span className={stateClass}>{step.state}</span>
               </button>
             </li>
           );

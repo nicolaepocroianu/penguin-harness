@@ -57,6 +57,8 @@ import { Input, Textarea } from "../../components/ui/input";
 import { Select } from "../../components/ui/select";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { EmptyState } from "../../components/ui/empty-state";
+import { GlyphIcon } from "../../components/ui/glyph-icon";
+import { ICON_SIZE } from "../../lib/icon-scale";
 import { AssetLibraryView } from "./asset-library-view";
 import { settledPipeline, settledRuns, type Announcement } from "./run-toasts";
 import { CreateActivityDialog } from "./create-activity-dialog";
@@ -127,6 +129,8 @@ const basePath = (projectId: string) => `/api/projects/${encodeURIComponent(proj
 const pretty = (value: unknown) => (value ? JSON.stringify(value, null, 2) : "");
 /** Speech, sound and image runs belong to the builtin Media Agent, whoever runs the stages. */
 const MEDIA_RUNNER = { agentId: "media_agent" };
+/** The phone header's way back to the list, an arrow pointing left. */
+const BACK_ICON = "M15 18l-6-6 6-6M9 12h12";
 
 /** A stage sequence the panels can draw, or null for an answer that is not one. */
 function pipelineOrNull(value: unknown): PipelineState | null {
@@ -1615,81 +1619,97 @@ function ActivityEditor({
               aria-label={S.activities.breadcrumb}
               className="flex min-w-0 flex-1 basis-full flex-wrap items-center gap-1.5 text-sm sm:basis-0"
             >
-              <Link
-                to="/activities"
-                className="shrink-0 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                {S.activities.backToActivities}
-              </Link>
-              <span aria-hidden className="shrink-0 text-gray-300 dark:text-gray-600">
-                /
-              </span>
-              {/* The product code earns its place only when the title does not already say it. */}
-              {detail.productCode !== detail.title && (
-                <>
-                  <span
-                    className="shrink-0 font-mono text-xs text-gray-500 dark:text-gray-400"
-                    title={`${S.activities.collection}: ${detail.collectionId}`}
-                  >
-                    {detail.productCode}
-                  </span>
-                  <span aria-hidden className="shrink-0 text-gray-300 dark:text-gray-600">
-                    /
-                  </span>
-                </>
-              )}
-              <h2 className="min-w-0 truncate font-semibold" title={detail.title}>
-                {detail.title}
-              </h2>
-              <RefSwitcher
-                base={basePath(projectId)}
-                activity={detail}
-                editable={editable && available}
-                onIdentity={(record) => {
-                  setDetail((current) => (current ? { ...current, ...record } : current));
-                  // A name or tags change shows on the list's cards, for every ref of the
-                  // product; the list is kept while an activity is open, so refresh it now.
-                  void onSaved();
-                }}
-                revision={detail.draft.contentRevision}
-                onRenumbered={(value, from) => {
-                  // Only the number and the manifest's address changed; unsaved script or
-                  // specification text stays in its editor. The manifest editor follows the
-                  // new address, and unsaved manifest edits are moved to the new number so
-                  // they can still be saved.
-                  setMedia(
-                    media === pretty(detail.draft.mediaPlan?.manifest)
-                      ? pretty(value.draft.mediaPlan?.manifest)
-                      : renumberManifestText(media, from, value.refNum),
-                  );
-                  setDetail(value);
-                  announce({
-                    kind: "success",
-                    text: S.activities.studioRefs.renumbered(from, value.refNum),
-                  });
-                  // An assembled module keeps the old number in its file names.
-                  if (latestModuleRun(runs) || sandboxModule)
-                    announce({ kind: "attention", text: S.activities.studioRefs.reassemble });
-                  void onSaved();
-                }}
-                onDeleted={() => onDeleted(detail.title)}
-                // The new-ref table walks the media plan, so the way in waits for one.
-                onNewRef={detail.draft.mediaPlan ? () => setSection("newRef") : undefined}
-                // Reloading can throw edits away, so it sits in the ref's menu behind the
-                // discard confirmation rather than in the header's busiest row.
-                onReload={
-                  busy || !available
-                    ? undefined
-                    : () =>
-                        discard.ask(
-                          () =>
-                            void action(async () => {
-                              const value = await apiFetch<ActivityDetail>(endpoint);
-                              if (alive.current) accept(value);
-                            }),
-                        )
-                }
-              />
+              {/* The way back, the title and the ref stay on one row: a crumb wrapped alone
+                  leaves its "/" hanging at a line's end. On a phone the way back is an arrow
+                  and the product code, which the ref menu also names, steps aside. */}
+              <div className="flex min-w-0 basis-full items-center gap-1.5 sm:basis-auto">
+                <Link
+                  to="/activities"
+                  title={S.activities.backToActivities}
+                  className="-ml-1 shrink-0 rounded p-1 text-gray-500 hover:text-gray-800 sm:ml-0 sm:p-0 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <GlyphIcon d={BACK_ICON} size={ICON_SIZE.rowLead} className="sm:hidden" />
+                  <span className="sr-only sm:not-sr-only">{S.activities.backToActivities}</span>
+                </Link>
+                <span
+                  aria-hidden
+                  className="hidden shrink-0 text-gray-300 sm:inline dark:text-gray-600"
+                >
+                  /
+                </span>
+                {/* The product code earns its place only when the title does not already say it. */}
+                {detail.productCode !== detail.title && (
+                  <>
+                    <span
+                      className="hidden shrink-0 font-mono text-xs text-gray-500 sm:inline dark:text-gray-400"
+                      title={`${S.activities.collection}: ${detail.collectionId}`}
+                    >
+                      {detail.productCode}
+                    </span>
+                    <span
+                      aria-hidden
+                      className="hidden shrink-0 text-gray-300 sm:inline dark:text-gray-600"
+                    >
+                      /
+                    </span>
+                  </>
+                )}
+                <h2
+                  className="min-w-0 flex-1 truncate font-semibold sm:flex-none"
+                  title={detail.title}
+                >
+                  {detail.title}
+                </h2>
+                <RefSwitcher
+                  base={basePath(projectId)}
+                  activity={detail}
+                  editable={editable && available}
+                  onIdentity={(record) => {
+                    setDetail((current) => (current ? { ...current, ...record } : current));
+                    // A name or tags change shows on the list's cards, for every ref of the
+                    // product; the list is kept while an activity is open, so refresh it now.
+                    void onSaved();
+                  }}
+                  revision={detail.draft.contentRevision}
+                  onRenumbered={(value, from) => {
+                    // Only the number and the manifest's address changed; unsaved script or
+                    // specification text stays in its editor. The manifest editor follows the
+                    // new address, and unsaved manifest edits are moved to the new number so
+                    // they can still be saved.
+                    setMedia(
+                      media === pretty(detail.draft.mediaPlan?.manifest)
+                        ? pretty(value.draft.mediaPlan?.manifest)
+                        : renumberManifestText(media, from, value.refNum),
+                    );
+                    setDetail(value);
+                    announce({
+                      kind: "success",
+                      text: S.activities.studioRefs.renumbered(from, value.refNum),
+                    });
+                    // An assembled module keeps the old number in its file names.
+                    if (latestModuleRun(runs) || sandboxModule)
+                      announce({ kind: "attention", text: S.activities.studioRefs.reassemble });
+                    void onSaved();
+                  }}
+                  onDeleted={() => onDeleted(detail.title)}
+                  // The new-ref table walks the media plan, so the way in waits for one.
+                  onNewRef={detail.draft.mediaPlan ? () => setSection("newRef") : undefined}
+                  // Reloading can throw edits away, so it sits in the ref's menu behind the
+                  // discard confirmation rather than in the header's busiest row.
+                  onReload={
+                    busy || !available
+                      ? undefined
+                      : () =>
+                          discard.ask(
+                            () =>
+                              void action(async () => {
+                                const value = await apiFetch<ActivityDetail>(endpoint);
+                                if (alive.current) accept(value);
+                              }),
+                          )
+                  }
+                />
+              </div>
               <ProgressSteps
                 facts={{
                   status: detail.draft.status,
