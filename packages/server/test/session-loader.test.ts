@@ -6,8 +6,14 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createAgent, saveProjectConfig, sessionMeta, userText } from "@prismshadow/penguin-core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  Agent,
+  createAgent,
+  saveProjectConfig,
+  sessionMeta,
+  userText,
+} from "@prismshadow/penguin-core";
 import type { SessionMetaPayload } from "@prismshadow/penguin-core";
 import { createCoreSessionLoader } from "../src/runtime/session-manager.js";
 import { SessionSources } from "../src/runtime/session-sources.js";
@@ -61,7 +67,32 @@ describe("session-loader", () => {
     });
   });
   afterEach(async () => {
+    vi.restoreAllMocks();
     await fs.rm(root, { recursive: true, force: true });
+  });
+
+  it("asks again for a resumed Session's confinement floor, which core does not keep", async () => {
+    const workspace = path.join(root, "ws-floor");
+    await fs.mkdir(workspace, { recursive: true });
+    await writeTraceFile(root, PROJECT, AGENT, "2026-07-06", SID, 1, [
+      sessionMeta(meta({ workspace, model_id: "m1" })),
+      userText("hi"),
+    ]);
+    // What the loader asks core for is the subject, not the resumed Session itself.
+    const resume = vi
+      .spyOn(Agent.prototype, "resumeSession")
+      .mockResolvedValue({ dispose: () => {} } as never);
+    const asked: string[] = [];
+    const loader = createCoreSessionLoader(root, undefined, {
+      sandboxModeOf: (sessionId) => {
+        asked.push(sessionId);
+        return "workspace-write";
+      },
+    });
+    const session = await loader.load(row(workspace));
+    session.dispose?.();
+    expect(asked).toEqual([SID]);
+    expect(resume).toHaveBeenCalledWith({ sessionId: SID, sandboxMode: "workspace-write" });
   });
 
   it("Trace exists but the Workspace was deleted → 409 session_unrecoverable, original message preserved", async () => {

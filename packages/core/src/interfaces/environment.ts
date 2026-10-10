@@ -14,6 +14,7 @@
  * Docs: packages/docs/content/interfaces.{zh,en}.md (site path /docs/interfaces).
  */
 import type { ProtectedRoot } from "../environment/tools/path-guard.js";
+import type { ConfinedSandboxMode } from "../plugin/sandbox.js";
 import type { OmniMessage, ToolCallPayload, ToolDefinition } from "../omnimessage/types.js";
 import type { ApproveFn, RunCutoff, ThinkingLevelName } from "./shared.js";
 import type { LLMInterface } from "./llm.js";
@@ -374,12 +375,22 @@ export type ProxyEnvPolicy = { mode: "strip" } | { mode: "inject"; url: string; 
  *   may differ from the workspace); `workspaceDir` is the Session's Workspace root — the
  *   directory a workspace-scoped confinement policy should treat as writable, never
  *   inferred from `cwd` (a command may run in a workdir outside the Workspace).
+ *   `sessionMode`, when present, is the least confinement the Session was created with
+ *   (see {@link SessionSandboxMode}): the confiner may confine more, never less.
  * @returns the argv to spawn instead.
  */
 export type SpawnConfiner = (
   argv: readonly string[],
-  opts: { cwd: string; workspaceDir: string },
+  opts: { cwd: string; workspaceDir: string; sessionMode?: SessionSandboxMode },
 ) => readonly string[];
+
+/**
+ * The least confinement one Session's commands may run under, whatever the host's own
+ * setting is: `workspace-write` keeps everything outside the Workspace read-only,
+ * `read-only` keeps the Workspace read-only too. There is no unconfined value — a Session
+ * without one simply follows the host.
+ */
+export type SessionSandboxMode = ConfinedSandboxMode;
 
 /**
  * An approved tool-call execution request.

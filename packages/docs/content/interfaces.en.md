@@ -265,10 +265,17 @@ type ProxyEnvPolicy = { mode: "strip" } | { mode: "inject"; url: string; noProxy
 
 // Rewrites the exact argv a command is about to spawn so it runs confined. Fail-closed: a
 // confiner that cannot enforce its policy throws, and the command fails to spawn.
+// `sessionMode` is the Session's own floor (createSession's `sandboxMode`): the confiner may
+// confine more than it asks, never less.
 type SpawnConfiner = (
   argv: readonly string[],
-  opts: { cwd: string; workspaceDir: string },
+  opts: { cwd: string; workspaceDir: string; sessionMode?: SessionSandboxMode },
 ) => readonly string[];
+
+// The least confinement one Session's commands may run under. Set with
+// `createSession({ sandboxMode })`, inherited by its subagents, and not persisted: pass it
+// again to `resumeSession`. With no confiner at all, such a Session's commands fail to spawn.
+type SessionSandboxMode = "read-only" | "workspace-write";
 
 interface EnvironmentServices {
   subagentRunner?: SubagentRunner;          // needed by run_subagent
@@ -382,6 +389,7 @@ interface VisionDescriberService {
 | Swap or customize model access | Implement `LLMInterface` (or just set `client_type` for OpenAI-compatible endpoints) |
 | Swap the execution sandbox | Implement `EnvironmentInterface` |
 | Confine the commands an agent runs | Supply `confineSpawn` with a `SpawnConfiner` |
+| Confine one Session more than the rest | Pass `sandboxMode` to `createSession` (and again to `resumeSession`) |
 | Add a tool | Implement `BuiltinTool`, register a factory, and list the tool under `tools.builtin` in `system_config.yaml` (entries without a registered factory are skipped); or connect an MCP server under `tools.mcpServers` |
 | Customize approval policy | Inject an `ApproveFn` (the CLI and Web approval modes are wrappers over it) |
 | Change an agent's behavior | Edit its Agent State (`system_config.yaml`, `AGENTS.md`, Skills); see the [Configuration Reference](/configuration) |

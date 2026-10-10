@@ -52,6 +52,7 @@ import type {
   ControlEnvContext,
   OmniMessage,
   ProxyEnvPolicy,
+  SessionSandboxMode,
   SpawnConfiner,
   SessionMetaPayload,
   SessionTitleResult,
@@ -261,6 +262,12 @@ export function createCoreSessionLoader(
     controlEnv?: (ctx: ControlEnvContext) => Record<string, string>;
     pathPrepend?: () => string[];
     confineSpawn?: () => SpawnConfiner | null;
+    /**
+     * A Session's confinement floor, asked again at every resume because core does not
+     * persist it (see core's CreateSessionOptions.sandboxMode). Without it, an activity
+     * run's Session reopened after a restart would run its commands unconfined.
+     */
+    sandboxModeOf?: (sessionId: string) => SessionSandboxMode | undefined;
   } = {},
 ): SessionLoader {
   return {
@@ -285,7 +292,11 @@ export function createCoreSessionLoader(
         // config / Trace missing session_meta, etc.) are converged to 409, preserving
         // the original message rather than bubbling up as 500.
         try {
-          const session = await agent.resumeSession({ sessionId: row.sessionId });
+          const sandboxMode = opts.sandboxModeOf?.(row.sessionId);
+          const session = await agent.resumeSession({
+            sessionId: row.sessionId,
+            ...(sandboxMode !== undefined ? { sandboxMode } : {}),
+          });
           // The row's stored level — the knob position the user last chose — restored onto
           // the runtime as a plain assignment: it rides the resumed Session's requests.
           if (row.thinkingLevel) session.thinkingLevel = row.thinkingLevel;
@@ -2377,6 +2388,11 @@ export class SessionsModule {
           // --org-id inside it. Looked up per spawn from the cache the ledger and the tickets
           // project into.
           ...(orgId !== null ? { PENGUIN_ORG_ID: orgId } : {}),
+          // A confined Session can write only its Workspace, and npm keeps its cache in the
+          // user profile: there it could not install anything, so its cache moves in.
+          ...(ctx.sandboxMode !== undefined
+            ? { npm_config_cache: path.join(ctx.workspaceDir, ".npm-cache") }
+            : {}),
         };
       },
       // The directory core puts at the FRONT of PATH for every command an Agent runs (and for
@@ -2408,6 +2424,12 @@ export class SessionsModule {
           controlEnv: env.controlEnv,
           pathPrepend: env.pathPrepend,
           confineSpawn: env.confineSpawn,
+          // An activity run's Session is created confined (see generation.ts); one reopened
+          // later in chat stays confined. Coding-agent Sessions never reach this loader.
+          sandboxModeOf: (sessionId) =>
+            sessionsRepo.activityIdOfSession(sessionId) !== undefined
+              ? "workspace-write"
+              : undefined,
         }),
         this.codingAgents,
       ),

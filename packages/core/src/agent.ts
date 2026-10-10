@@ -94,6 +94,7 @@ import type {
   CommandPolicyConfig,
   GenerativeModelConfig,
   ProxyEnvPolicy,
+  SessionSandboxMode,
   SpawnConfiner,
   SubagentHandle,
   SubagentRunner,
@@ -185,6 +186,10 @@ export interface ControlEnvContext {
   projectId: string;
   agentId: string;
   sessionId: string;
+  /** The Session's Workspace: under a confinement floor, the only place its commands may write. */
+  workspaceDir: string;
+  /** The Session's confinement floor (CreateSessionOptions.sandboxMode), when it has one. */
+  sandboxMode?: SessionSandboxMode;
 }
 
 export interface CreateSessionOptions {
@@ -198,6 +203,13 @@ export interface CreateSessionOptions {
    * after a resume must pass them again.
    */
   protectedRoots?: readonly ProtectedRoot[];
+  /**
+   * The least confinement this Session's commands may run under (see SessionSandboxMode).
+   * Handed to the host's confiner with every spawn; with no confiner at all, a command
+   * fails rather than running unconfined. Subagents inherit it. Like `protectedRoots` it
+   * is not persisted: a caller that needs it after a resume passes it again.
+   */
+  sandboxMode?: SessionSandboxMode;
   /**
    * Model used for this Session (upstream model_id); must be given together with `provider`.
    * Omit both to use the Project's default Model.
@@ -235,6 +247,8 @@ export interface CreateSessionOptions {
 export interface ResumeSessionOptions {
   /** Id of the Session to resume. */
   sessionId: string;
+  /** See {@link CreateSessionOptions.sandboxMode}; not read back from disk, so pass it again. */
+  sandboxMode?: SessionSandboxMode;
   /** Explicit credentials; if unspecified, falls back to credentials in the Project config, then to AgentHub reading environment variables. */
   apiKey?: string;
   baseUrl?: string;
@@ -250,6 +264,8 @@ interface SessionSpec {
   workspaceDir: string;
   /** See {@link CreateSessionOptions.protectedRoots}; absent on a resumed Session. */
   protectedRoots?: readonly ProtectedRoot[];
+  /** See {@link CreateSessionOptions.sandboxMode}; on a resumed Session, only when the caller passed it again. */
+  sandboxMode?: SessionSandboxMode;
   /** The Session's model entry as resolved from the Project config at creation (or recorded at resume): reference, credentials, window and per-model annotations. */
   modelEntry: ModelEntry;
   apiKey: string | undefined;
@@ -636,6 +652,7 @@ export class Agent {
       sessionId,
       workspaceDir,
       ...(opts.protectedRoots?.length ? { protectedRoots: opts.protectedRoots } : {}),
+      ...(opts.sandboxMode !== undefined ? { sandboxMode: opts.sandboxMode } : {}),
       modelEntry,
       apiKey,
       baseUrl,
@@ -734,6 +751,7 @@ export class Agent {
     const spec: SessionSpec = {
       sessionId,
       workspaceDir,
+      ...(opts.sandboxMode !== undefined ? { sandboxMode: opts.sandboxMode } : {}),
       modelEntry,
       apiKey,
       baseUrl,
@@ -929,7 +947,12 @@ export class Agent {
    */
   private buildRuntime(spec: SessionSpec, initial: AssembledContext): SessionRuntime {
     const { sessionId, workspaceDir, modelEntry, apiKey, baseUrl, subagentDepth } = spec;
-    const protectedRoots = spec.protectedRoots;
+    const { protectedRoots, sandboxMode } = spec;
+    // A Session with a floor binds it into every spawn; one without keeps the host's getter.
+    const confineSpawn =
+      sandboxMode === undefined
+        ? this.confineSpawn
+        : () => confinerWithFloor(this.confineSpawn?.() ?? null, sandboxMode);
     // The context the Session is running: the initial one, then whatever `openNextContext` last
     // assembled.
     let current = initial;
@@ -1003,8 +1026,12 @@ export class Agent {
         // state and is not inherited — the spawn argument exists for explicit control.
         const parentLevel =
           spec.thinkingLevel === undefined ? current.thinkingLevel : spec.thinkingLevel;
+        // The child works in the parent's Workspace, so it is held to the parent's limits:
+        // a subagent must not be the way around a protected checkout or a confinement floor.
         const childSession = await childAgent.createSession({
           workspaceDir,
+          ...(protectedRoots?.length ? { protectedRoots } : {}),
+          ...(sandboxMode !== undefined ? { sandboxMode } : {}),
           ...childModel,
           thinkingLevel: spawnThinkingLevel ?? parentLevel ?? null,
           subagentDepth: subagentDepth + 1,
@@ -1032,7 +1059,10 @@ export class Agent {
                 ...(parentAgent.confineSpawn ? { confineSpawn: parentAgent.confineSpawn } : {}),
                 ...(parentAgent.assembly ? { assembly: parentAgent.assembly } : {}),
               });
-        const childSession = await childAgent.resumeSession({ sessionId });
+        const childSession = await childAgent.resumeSession({
+          sessionId,
+          ...(sandboxMode !== undefined ? { sandboxMode } : {}),
+        });
         return subagentHandleFor(childSession);
       },
     };
@@ -1197,11 +1227,13 @@ export class Agent {
                 projectId: this.state.projectId,
                 agentId: this.state.agentId,
                 sessionId,
+                workspaceDir,
+                ...(sandboxMode !== undefined ? { sandboxMode } : {}),
               }),
           }
         : {}),
       ...(this.pathPrepend ? { pathPrepend: this.pathPrepend } : {}),
-      ...(this.confineSpawn ? { confineSpawn: this.confineSpawn } : {}),
+      ...(confineSpawn ? { confineSpawn } : {}),
     });
 
     // The tool_call_id uniqueness registry is shared by every context's LLM object: its
@@ -1415,3 +1447,23 @@ function runDetached(handle: SubagentHandle, messages: OmniMessage[], approve?: 
   })();
 }
 import { projectChatGPTCredentials } from "./state/chatgpt-credentials.js";
+
+/**
+ * The host's confiner with one Session's confinement floor bound into every spawn. With no
+ * confiner at all the floor cannot be honoured, and a command that cannot be confined as
+ * asked must not run (the SpawnConfiner contract): it fails with the reason instead.
+ */
+function confinerWithFloor(
+  confiner: SpawnConfiner | null,
+  sessionMode: SessionSandboxMode,
+): SpawnConfiner {
+  if (confiner === null) {
+    return () => {
+      throw new Error(
+        `This Session's commands must run confined (${sessionMode}), but the host provides no ` +
+          "sandbox; refusing to run the command unconfined.",
+      );
+    };
+  }
+  return (argv, opts) => confiner(argv, { ...opts, sessionMode });
+}

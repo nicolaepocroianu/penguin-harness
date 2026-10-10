@@ -56,6 +56,7 @@ import { ADMIN_USER_ID } from "../src/auth/service.js";
 import type { ServerConfig } from "../src/config.js";
 import type { UserInfo } from "../src/api/types.js";
 import { wire } from "@prismshadow/penguin-core/kernel";
+import { SandboxModule, SandboxService } from "../src/sandbox/service.js";
 import type { PluginHost } from "../src/plugin/host.js";
 import type { Replacements } from "../src/hmr/capabilities.js";
 import { ConsoleLog, SystemClock } from "../src/hmr/capabilities.js";
@@ -265,6 +266,12 @@ export interface TestApp {
  * Replacement (the platform boots the given instance instead of the class it names).
  */
 export interface TestAppOptions {
+  /**
+   * Test double: the sandbox. Defaults to one with a stand-in backend that leaves every
+   * command as it is: activity runs refuse to start where nothing can confine them, and a
+   * test is not the place to need a real backend.
+   */
+  sandbox?: SandboxService;
   /** Test double: session-manager's underlying loader (avoids the real LLM/SDK path). */
   loader?: SessionLoader;
   /** Test double: Session title generator (avoids real LLM requests). */
@@ -347,6 +354,7 @@ function accessDouble(): Access {
 
 export function replacementsFor(o: TestAppOptions): Replacements {
   const out: Array<readonly [ModuleClass, object]> = [];
+  out.push([SandboxModule, { sandbox: o.sandbox ?? standInSandbox() }]);
   if (o.log) out.push([ConsoleLog, { line: o.log }]);
   if (o.now) out.push([SystemClock, { now: o.now }]);
   if (o.passwordHashCost !== undefined) {
@@ -429,6 +437,24 @@ export function replacementsFor(o: TestAppOptions): Replacements {
   out.push([DefaultWafWorkspacePorts, { autoPrepare: false, ...o.wafWorkspacePorts }]);
   if (o.audioEncodePorts) out.push([DefaultAudioEncodePorts, o.audioEncodePorts]);
   return out;
+}
+
+/** A sandbox whose one backend covers file writes and confines nothing. */
+export function standInSandbox(): SandboxService {
+  return new SandboxService([
+    [
+      "stand-in",
+      {
+        dimensions: ["fs-write"],
+        confine: (argv) => ({
+          argv: [...argv],
+          enforcement: "full",
+          denialSignatures: [],
+          runnerFailureRules: [],
+        }),
+      },
+    ],
+  ]);
 }
 
 export async function createTestApp(options: TestAppOptions = {}): Promise<TestApp> {

@@ -15,6 +15,7 @@ import {
   loadAgentVault,
   MEDIA_AGENT_ID,
   userText,
+  type SessionSandboxMode,
 } from "@prismshadow/penguin-core";
 import { Component, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
 import type { Config, Db, Channels, Log, Paths } from "../hmr/capabilities.js";
@@ -237,8 +238,12 @@ import {
   mediaSpecPrompt,
   repairPrompt,
 } from "./spec-prompts.js";
+import { Sandbox, SandboxModule } from "../sandbox/service.js";
 
 const MAX_CANDIDATE_BYTES = 2 * 1024 * 1024;
+
+/** The confinement every activity run's own agent works under: its workspace, and only that. */
+const RUN_SANDBOX_MODE: SessionSandboxMode = "workspace-write";
 
 /**
  * Whether a test run left the test file it was handed as it was: only then did it reuse the
@@ -390,6 +395,7 @@ export class ActivityGenerationService implements ActivityGeneration {
   @Use() private readonly settings!: Settings;
   @Use() private readonly wafWorkspace!: WafWorkspace;
   @Use() private readonly browser!: TestBrowser;
+  @Use(SandboxModule) private readonly sandbox!: Sandbox;
   private readonly locks = new ActivityLocks();
   private readonly observers = new Map<string, Observer>();
   private readonly operations = new Set<Promise<unknown>>();
@@ -1097,6 +1103,24 @@ export class ActivityGenerationService implements ActivityGeneration {
             candidate: null,
           };
           const { candidate: _candidate, kind: _kind, ...metadata } = run;
+          // Penguin's own agent runs a stage's commands confined to the run's workspace, so
+          // the WAF checkout is read-only to them by enforcement, not by the prompt's word.
+          // With nothing able to confine, the run is refused here rather than left to fail
+          // at its first command. A local audio model runs no agent, and a coding agent
+          // runs its commands itself, outside Penguin's sandbox.
+          const localProvider = sound?.sound.provider ?? audio?.provider;
+          const localRun = Boolean(localProvider && isLocalAudioProvider(localProvider));
+          if (!codingAgentId && !localRun) {
+            const problem = this.sandbox.confinementProblem(RUN_SANDBOX_MODE);
+            if (problem !== null)
+              throw new HttpError(
+                409,
+                "sandbox_unavailable",
+                "Activity runs need a sandbox so the WAF checkout stays read-only. Enable a " +
+                  "sandbox plugin for this project on the Plugins page (sandbox-dsh works on " +
+                  `Windows, macOS and Linux), then try again. (${problem})`,
+              );
+          }
           this.db.exec("BEGIN");
           try {
             this.db
@@ -1120,7 +1144,6 @@ export class ActivityGenerationService implements ActivityGeneration {
           try {
             const workspace = this.workspace(run);
             await fs.mkdir(workspace, { recursive: true });
-            const localProvider = sound?.sound.provider ?? audio?.provider;
             if (localProvider && isLocalAudioProvider(localProvider) && run.audio) {
               const request: LocalAudioRequest = {
                 provider: localProvider,
@@ -1449,6 +1472,8 @@ export class ActivityGenerationService implements ActivityGeneration {
               // Stages run unattended, so every tool call is approved; the protected checkout
               // above is still refused, whatever the approval mode allows.
               approvalMode: "allow-all",
+              // A coding agent runs its own commands; Penguin's sandbox cannot reach them.
+              ...(codingAgentId ? {} : { sandboxMode: RUN_SANDBOX_MODE }),
             });
             run.sessionId = session.sessionId;
             this.save(run);

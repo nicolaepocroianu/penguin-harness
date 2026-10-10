@@ -11,9 +11,10 @@
  * covers fails closed — never a silent unconfined run, and never a silently dropped
  * dimension.
  */
-import type { SpawnConfiner } from "@prismshadow/penguin-core";
+import type { SessionSandboxMode, SpawnConfiner } from "@prismshadow/penguin-core";
 import type {
   SandboxDimension,
+  SandboxMode,
   SandboxPolicy,
   SandboxProvider,
   SandboxProviderSource,
@@ -101,13 +102,30 @@ export class SandboxService {
   }
 
   /**
+   * Why commands asked to run under `mode` could not be confined right now, or null when a
+   * mounted backend covers it. For a caller that would rather refuse to start work than
+   * have every command of it fail later.
+   */
+  confinementProblem(mode: SessionSandboxMode): string | null {
+    try {
+      // The dimensions a spawn needs do not depend on its mode, only on network and masking.
+      this.pick(requestedDimensions(this.settings), mode);
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  /**
    * The closure handed to the runtime: rewrites each spawn's argv under the active
-   * settings. Pure and self-contained, so the previous platform's confiner keeps
-   * serving during a hot-swap freeze window.
+   * settings, or under the Session's own floor where that is stricter. Pure and
+   * self-contained, so the previous platform's confiner keeps serving during a hot-swap
+   * freeze window.
    */
   confiner(): SpawnConfiner {
     return (argv, opts) => {
-      const settings = this.settings;
+      const mode = stricterMode(this.settings.mode, opts.sessionMode);
+      const settings: SandboxSettings = { ...this.settings, mode };
       if (settings.mode === "danger-full-access") return argv;
       const required = requestedDimensions(settings);
       const provider = this.pick(required, settings.mode);
@@ -154,6 +172,18 @@ export class SandboxService {
   }
 }
 
+/** Modes from least to most confining; a Session's floor can only move a spawn rightwards. */
+const MODE_STRICTNESS: readonly SandboxMode[] = [
+  "danger-full-access",
+  "workspace-write",
+  "read-only",
+];
+
+function stricterMode(host: SandboxMode, session: SessionSandboxMode | undefined): SandboxMode {
+  if (session === undefined) return host;
+  return MODE_STRICTNESS.indexOf(session) > MODE_STRICTNESS.indexOf(host) ? session : host;
+}
+
 function copySettings(settings: SandboxSettings): SandboxSettings {
   return {
     mode: settings.mode,
@@ -166,7 +196,13 @@ function copySettings(settings: SandboxSettings): SandboxSettings {
 export abstract class Sandbox extends Interface<
   Pick<
     SandboxService,
-    "configure" | "currentSettings" | "parkedSettings" | "backends" | "confiner" | "whenReady"
+    | "configure"
+    | "currentSettings"
+    | "parkedSettings"
+    | "backends"
+    | "confiner"
+    | "confinementProblem"
+    | "whenReady"
   >
 >() {}
 
