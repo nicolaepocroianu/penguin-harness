@@ -36,6 +36,7 @@ export const TEST_FILE_MAX_BYTES = 256 * 1024;
 
 export const activityHarnessSource = `// Penguin's acceptance harness: drive the played activity in the test browser.
 // Tests import only from this file. Do not edit it.
+import { AsyncLocalStorage } from "node:async_hooks";
 import fs from "node:fs";
 
 const input = JSON.parse(
@@ -51,6 +52,8 @@ export const DEFAULT_TIMEOUT_MS = 15000;
 
 const registered = [];
 const open = new Set();
+/** The activities the check running in this async context opened, so each check closes its own. */
+const checkScope = new AsyncLocalStorage();
 let browser = null;
 
 /**
@@ -216,6 +219,7 @@ class Activity {
 
   async close() {
     open.delete(this);
+    checkScope.getStore()?.delete(this);
     await this.context.close().catch(() => {});
   }
 }
@@ -228,6 +232,7 @@ export async function openActivity({ url = input.playUrl, viewport = input.viewp
   page.setDefaultTimeout(DEFAULT_TIMEOUT_MS);
   const activity = new Activity(page, context);
   open.add(activity);
+  checkScope.getStore()?.add(activity);
   const target = new URL(url);
   if (scene) target.searchParams.set("scene", scene);
   if (language) target.searchParams.set("language", language);
@@ -243,6 +248,17 @@ export const runner = {
   },
   registered: () => [...registered],
   isSkip: (error) => error instanceof Skipped,
+  /** Runs one check, then closes the activities it opened, whatever other checks are doing. */
+  run(fn) {
+    const owned = new Set();
+    return checkScope.run(owned, async () => {
+      try {
+        return await fn();
+      } finally {
+        for (const activity of [...owned]) await activity.close();
+      }
+    });
+  },
   async closeAll() {
     for (const activity of [...open]) await activity.close();
   },
@@ -259,6 +275,11 @@ const input = JSON.parse(
   fs.readFileSync(new URL("./${ACCEPTANCE_INPUT_FILE}", import.meta.url), "utf8"),
 );
 const CHECK_TIMEOUT_MS = 120000;
+/**
+ * Checks run side by side, each in its own browser context: they play media in real time, so
+ * one after another they took minutes. Few enough that a slow machine keeps its timing.
+ */
+const PARALLEL_CHECKS = 3;
 
 function withTimeout(promise) {
   let timer;
@@ -293,23 +314,30 @@ try {
   process.exit(1);
 }
 
-const results = [];
-for (const entry of runner.registered()) {
-  const started = performance.now();
-  let status = "passed";
-  let error = null;
-  try {
-    await withTimeout(Promise.resolve().then(() => entry.fn()));
-  } catch (caught) {
-    status = runner.isSkip(caught) ? "skipped" : "failed";
-    error = message(caught).slice(0, 2000);
-  } finally {
-    await runner.closeAll();
+const entries = runner.registered();
+// In registration order, however the checks finish.
+const results = new Array(entries.length);
+let next = 0;
+async function worker() {
+  while (next < entries.length) {
+    const index = next++;
+    const entry = entries[index];
+    const started = performance.now();
+    let status = "passed";
+    let error = null;
+    try {
+      await withTimeout(runner.run(() => entry.fn()));
+    } catch (caught) {
+      status = runner.isSkip(caught) ? "skipped" : "failed";
+      error = message(caught).slice(0, 2000);
+    }
+    const durationMs = Math.max(0, Math.round(performance.now() - started));
+    results[index] = { criterion: entry.criterion, testName: entry.testName, status, durationMs, error };
+    console.log(status.toUpperCase() + "  " + entry.testName + (error ? "  - " + error : ""));
   }
-  const durationMs = Math.max(0, Math.round(performance.now() - started));
-  results.push({ criterion: entry.criterion, testName: entry.testName, status, durationMs, error });
-  console.log(status.toUpperCase() + "  " + entry.testName + (error ? "  - " + error : ""));
 }
+await Promise.all(Array.from({ length: Math.min(PARALLEL_CHECKS, entries.length) }, worker));
+await runner.closeAll();
 await browser.close().catch(() => {});
 fs.writeFileSync(
   new URL("./${ACCEPTANCE_RESULTS_FILE}", import.meta.url),
