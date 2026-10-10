@@ -88,3 +88,20 @@ export interface CompositionLintFinding {
 export interface VideoSetup {
   enabled: boolean;
 }
+
+/** What a critique run looked at: the video, and the recording and composition it critiqued. */
+export interface SceneCritiqueTarget {
+  language: string;
+  assetKey: string;
+  recordingRunId: string;
+  compositionRunId: string;
+}
+
+/** A critique of a recorded scene (see scene-critique.ts): its scores, mean, and fixes. */
+export interface SceneCritique {
+  recordingRunId: string;
+  scores: Record<"story" | "layout" | "readability" | "motion" | "learners", number>;
+  /** The mean of the scores, to one decimal. */
+  score: number;
+  fixes: string[];
+}

@@ -5255,6 +5255,7 @@ export type {
   VideoResult,
   VideoTarget,
 } from "../activities/video-types.js";
+export type { SceneCritique, SceneCritiqueTarget } from "../activities/composition-types.js";
 export type {
   TimelineCut,
   TimelineIssue,

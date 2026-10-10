@@ -1639,6 +1639,22 @@ export type Strings = {
       noCause: string;
       /** Beside a video run that rendered the timeline rather than recorded a composition. */
       finished: string;
+      /** An agent's scored critique of the newest recording, with what to fix. */
+      critique: {
+        title: string;
+        info: string;
+        /** The run's name in the run history and toasts. */
+        run: string;
+        critique: string;
+        critiquing: string;
+        score: (score: string) => string;
+        rubric: Record<"story" | "layout" | "readability" | "motion" | "learners", string>;
+        fixes: string;
+        noFixes: string;
+        composeAgain: string;
+        older: string;
+        failed: (cause: string) => string;
+      };
       /** A made video's final check: its outcome, and each finding, with times in seconds. */
       check: {
         pass: string;

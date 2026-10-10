@@ -39,6 +39,7 @@ import { MediaComparison } from "./media-comparison";
 import { MediaPlayer } from "./media-player";
 import { refineRuns } from "./scene-timeline";
 import { SceneTimelineView } from "./scene-timeline-view";
+import { critiqueRuns, SceneCritiqueView } from "./scene-critique-view";
 import {
   checkLine,
   comparedRecording,
@@ -68,6 +69,7 @@ export function SceneCompositionView({
   onSaveTimeline,
   onRenderTimeline,
   onRefineTimeline,
+  onCritique,
   current,
 }: {
   asset: Asset;
@@ -98,6 +100,8 @@ export function SceneCompositionView({
   onRenderTimeline?: (language: string, assetKey: string) => void;
   /** Ask an agent to refine this asset's timeline. */
   onRefineTimeline?: (language: string, assetKey: string) => void;
+  /** Ask an agent to critique this asset's newest recording. */
+  onCritique?: (language: string, assetKey: string) => void;
   /** The asset's video now, shown beside a new recording. */
   current?: ReactNode;
 }) {
@@ -159,6 +163,15 @@ export function SceneCompositionView({
           </Button>
           <p className="text-xs text-gray-500">{S.activities.video.renderTime}</p>
         </div>
+      )}
+      {newestRecording && onCritique && (
+        <SceneCritiqueView
+          endpoint={endpoint}
+          critiques={critiqueRuns(runs, language, asset.key)}
+          newestRecording={newestRecording.runId}
+          canCritique={canGenerate && canRecord && !busy}
+          {...(editable ? { onCritique: () => onCritique(language, asset.key) } : {})}
+        />
       )}
       {onSaveTimeline && onRenderTimeline && (newestRecording || asset.timeline) && (
         <SceneTimelineView

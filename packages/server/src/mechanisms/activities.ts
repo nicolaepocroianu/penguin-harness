@@ -93,6 +93,8 @@ export abstract class ActivityGeneration extends Interface<{
       composition?: { language: string; assetKey: string };
       /** An agent refining a video or animation's timeline (experimental). */
       timeline?: { language: string; assetKey: string };
+      /** An agent critiquing a video or animation's newest recording (experimental). */
+      critique?: { language: string; assetKey: string };
       /** The media pass: list the media the scenes' tags ask for (`generate_media_spec`). */
       mediaSpec?: true;
       /** A specification or media pass run again, told why the previous attempt failed. */
