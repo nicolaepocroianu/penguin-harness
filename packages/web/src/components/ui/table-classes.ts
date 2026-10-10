@@ -6,3 +6,5 @@ export const TABLE_HEAD_ROW =
 export const TH = "whitespace-nowrap px-3 py-2 font-medium";
 export const TBODY = "divide-y divide-gray-100 dark:divide-gray-800/60";
 export const TD = "px-3 py-2 align-top";
+/** A cell centred on its row, for a table whose rows hold controls that must line up across columns. */
+export const TD_MIDDLE = "px-3 py-2 align-middle";

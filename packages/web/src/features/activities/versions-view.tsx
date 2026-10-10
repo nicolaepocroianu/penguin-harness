@@ -38,11 +38,14 @@ import {
   versionName,
   versionRows,
 } from "./versions-model";
-
-const HEAD =
-  "border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-400";
-const TH = "whitespace-nowrap px-3 py-2 font-medium";
-const TD = "px-3 py-2 align-top";
+import {
+  TABLE,
+  TABLE_HEAD_ROW,
+  TABLE_WRAP,
+  TBODY,
+  TD,
+  TH,
+} from "../../components/ui/table-classes";
 
 /** A version being compared with the current draft, and what the compare found. */
 interface Comparison {
@@ -248,10 +251,10 @@ export function VersionsView({
       ) : !rows.length ? (
         <p className="text-xs text-gray-500">{words.empty}</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-          <table className="w-full text-sm">
+        <div className={TABLE_WRAP}>
+          <table className={TABLE}>
             <thead>
-              <tr className={HEAD}>
+              <tr className={TABLE_HEAD_ROW}>
                 <th className={TH}>{words.columns.version}</th>
                 <th className={TH}>{words.columns.name}</th>
                 <th className={TH}>{words.columns.kind}</th>
@@ -264,7 +267,7 @@ export function VersionsView({
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+            <tbody className={TBODY}>
               {rows.map((row) => (
                 <tr key={row.versionId}>
                   <td className={`${TD} whitespace-nowrap font-medium`}>
@@ -460,17 +463,17 @@ function CompareView({
           {media.length > 0 && (
             <div className="space-y-2">
               <h5 className="text-sm font-semibold">{words.mediaTitle}</h5>
-              <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-                <table className="w-full text-sm">
+              <div className={TABLE_WRAP}>
+                <table className={TABLE}>
                   <thead>
-                    <tr className={HEAD}>
+                    <tr className={TABLE_HEAD_ROW}>
                       <th className={TH}>{words.mediaColumns.file}</th>
                       <th className={TH}>{words.mediaColumns.change}</th>
                       <th className={TH}>{words.mediaColumns.before}</th>
                       <th className={TH}>{words.mediaColumns.after}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+                  <tbody className={TBODY}>
                     {media.map((row) => (
                       <tr key={row.path}>
                         <td className={`${TD} break-all font-mono text-xs`}>{row.path}</td>

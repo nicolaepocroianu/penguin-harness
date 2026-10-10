@@ -30,11 +30,14 @@ import {
 import type { Announcement } from "./run-toasts";
 import { SpecDiffView } from "./spec-diff-view";
 import { localTime } from "./versions-model";
-
-const HEAD =
-  "border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-400";
-const TH = "whitespace-nowrap px-3 py-2 font-medium";
-const TD = "px-3 py-2 align-top";
+import {
+  TABLE,
+  TABLE_HEAD_ROW,
+  TABLE_WRAP,
+  TBODY,
+  TD,
+  TH,
+} from "../../components/ui/table-classes";
 
 interface Comparison {
   from: string;
@@ -221,10 +224,10 @@ export function ModuleBuildsView({
       ) : (
         <>
           {rows.length > 1 && <p className="text-xs text-gray-500">{words.selectHint}</p>}
-          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-            <table className="w-full text-sm">
+          <div className={TABLE_WRAP}>
+            <table className={TABLE}>
               <thead>
-                <tr className={HEAD}>
+                <tr className={TABLE_HEAD_ROW}>
                   <th className={TH}>
                     <span className="sr-only">{words.columns.select}</span>
                   </th>
@@ -237,7 +240,7 @@ export function ModuleBuildsView({
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+              <tbody className={TBODY}>
                 {rows.map((row) => (
                   <tr key={row.runId}>
                     <td className={TD}>
@@ -351,17 +354,17 @@ function BuildCompare({
         <p className="text-xs text-gray-500">{words.noChanges}</p>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-            <table className="w-full text-sm">
+          <div className={TABLE_WRAP}>
+            <table className={TABLE}>
               <thead>
-                <tr className={HEAD}>
+                <tr className={TABLE_HEAD_ROW}>
                   <th className={TH}>{words.fileColumns.file}</th>
                   <th className={TH}>{words.fileColumns.change}</th>
                   <th className={TH}>{words.fileColumns.before}</th>
                   <th className={TH}>{words.fileColumns.after}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+              <tbody className={TBODY}>
                 {rows.map((row) => (
                   <tr key={row.path}>
                     <td className={`${TD} break-all font-mono text-xs`}>

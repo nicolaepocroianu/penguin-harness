@@ -16,6 +16,14 @@ import { InfoPopover } from "../../components/ui/info-popover";
 import { Input } from "../../components/ui/input";
 import { Segmented } from "../../components/ui/segmented";
 import { Select } from "../../components/ui/select";
+import {
+  TABLE,
+  TABLE_HEAD_ROW,
+  TABLE_WRAP,
+  TBODY,
+  TD,
+  TH,
+} from "../../components/ui/table-classes";
 import { toastError } from "../../components/ui/toast";
 import { apiErrorText } from "../../lib/api-error";
 import { ICON_SIZE } from "../../lib/icon-scale";
@@ -42,10 +50,6 @@ import {
 } from "./project-media";
 import { SCENE_ASSET_ICON } from "./scene-asset-icons";
 
-const HEAD =
-  "border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-400";
-const TH = "whitespace-nowrap px-3 py-2 font-medium";
-const TD = "px-3 py-2 align-top";
 const LINK = "text-left font-medium text-brand-600 hover:text-brand-700 dark:text-brand-300";
 
 const basePath = (projectId: string) => `/api/projects/${encodeURIComponent(projectId)}/activities`;
@@ -320,10 +324,10 @@ export function ProjectMediaView({
                 })}
               </ul>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-                <table className="w-full text-sm">
+              <div className={TABLE_WRAP}>
+                <table className={TABLE}>
                   <thead>
-                    <tr className={HEAD}>
+                    <tr className={TABLE_HEAD_ROW}>
                       <th className={TH}>{words.columns.select}</th>
                       <th className={TH}>{words.columns.name}</th>
                       <th className={TH}>{words.columns.type}</th>
@@ -332,7 +336,7 @@ export function ProjectMediaView({
                       <th className={TH}>{words.columns.updated}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+                  <tbody className={TBODY}>
                     {shown.map((file) => (
                       <tr key={selectionKey(file)}>
                         <td className={TD}>{checkbox(file)}</td>

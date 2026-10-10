@@ -45,18 +45,15 @@ import { useDocumentTitle } from "../../lib/use-document-title";
 import { useLocale } from "../../state/locale";
 import { useProject } from "../../state/project";
 import { useSessions } from "../../state/sessions";
-import {
-  RUNNING_POLL_MS,
-  settledActivityRuns,
-  shouldPollSummaries,
-  startedUnlistedRuns,
-  shouldReloadList,
-} from "../../lib/activity-sessions";
+import { startedUnlistedRuns, shouldReloadList } from "../../lib/activity-sessions";
+import { subscribeActivityListStale } from "../../lib/activity-run-events";
 import { Button } from "../../components/ui/button";
 import { Input, Textarea } from "../../components/ui/input";
 import { Select } from "../../components/ui/select";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { EmptyState } from "../../components/ui/empty-state";
+import { GlyphIcon } from "../../components/ui/glyph-icon";
+import { ICON_SIZE } from "../../lib/icon-scale";
 import { AssetLibraryView } from "./asset-library-view";
 import { settledPipeline, settledRuns, type Announcement } from "./run-toasts";
 import { CreateActivityDialog } from "./create-activity-dialog";
@@ -127,6 +124,10 @@ const basePath = (projectId: string) => `/api/projects/${encodeURIComponent(proj
 const pretty = (value: unknown) => (value ? JSON.stringify(value, null, 2) : "");
 /** Speech, sound and image runs belong to the builtin Media Agent, whoever runs the stages. */
 const MEDIA_RUNNER = { agentId: "media_agent" };
+/** How long the list waits after a run finishes for others finishing with it, before one reload. */
+const RUN_FINISHED_SETTLE_MS = 300;
+/** The phone header's way back to the list, an arrow pointing left. */
+const BACK_ICON = "M15 18l-6-6 6-6M9 12h12";
 
 /** A stage sequence the panels can draw, or null for an answer that is not one. */
 function pipelineOrNull(value: unknown): PipelineState | null {
@@ -239,42 +240,43 @@ function ActivityWorkspace({
   useEffect(() => {
     void reload();
   }, [reload]);
-  // Live refresh: no server event exists for activity runs, so the home list rides the
-  // sessions store instead — an activity-run session going idle (or otherwise settling)
-  // is the signal that this list may be stale. Only while looking at the list itself
-  // (not a single activity's own workspace), and only on the running -> settled edge, so a
-  // page that never had a run in flight does not reload on every unrelated session tick.
-  const { sessions, liveStatuses } = useSessions();
-  const seenRunStatus = useRef(new Map<string, string>());
+  // Live refresh: the server says when one of this Project's activity runs finishes, and the
+  // list re-reads its cards then, only while it is shown (not inside an activity); so it does
+  // when the event stream lost events it cannot replay, since a finish may be among them. A
+  // pipeline can finish several runs at once, so the signals in a short window share one reload.
   useEffect(() => {
-    if (!activityId && settledActivityRuns(seenRunStatus.current, sessions)) void reload();
-    seenRunStatus.current = new Map(sessions.map((session) => [session.sessionId, session.status]));
-  }, [sessions, activityId, reload]);
+    if (activityId) return;
+    let timer: number | undefined;
+    const unsubscribe = subscribeActivityListStale((staleProjectId) => {
+      if (staleProjectId !== null && staleProjectId !== projectId) return;
+      if (timer !== undefined) return;
+      timer = window.setTimeout(() => {
+        timer = undefined;
+        void reload();
+      }, RUN_FINISHED_SETTLE_MS);
+    });
+    return () => {
+      unsubscribe();
+      window.clearTimeout(timer);
+    };
+  }, [activityId, projectId, reload]);
   // A run started elsewhere after the store loaded has no row, only a live status: reload on
-  // its start, so its summary says "running" and the poll below takes it to its end.
+  // its start, so its card says it is running until the server says it finished.
+  const { sessions, liveStatuses } = useSessions();
   const seenLive = useRef<ReadonlyMap<string, string>>(liveStatuses);
   useEffect(() => {
     if (!activityId && startedUnlistedRuns(seenLive.current, liveStatuses, sessions)) void reload();
     seenLive.current = liveStatuses;
   }, [liveStatuses, sessions, activityId, reload]);
-  // A run can settle while the user is still inside that activity's own workspace — the
-  // effect above never fires then, since it only watches while `!activityId`, so the run
-  // "settling" is missed there. Coming back to the list is itself a reason to check again:
+  // A run can finish while the user is still inside that activity's own workspace — the list
+  // does not listen then, since it only listens while `!activityId`, so that finish is
+  // missed there. Coming back to the list is itself a reason to check again:
   // `prevActivityId` starts undefined, so the list's own first mount does not double-reload.
   const prevActivityId = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (shouldReloadList(prevActivityId.current, activityId)) void reload();
     prevActivityId.current = activityId;
   }, [activityId, reload]);
-  // A run started after the sessions store loaded never reaches the settle signal above, so
-  // while the list is shown and some summary says a run is in flight, re-read it every few
-  // seconds; the poll stops once nothing is running or an activity is opened.
-  const polling = shouldPollSummaries(activityId, summaries);
-  useEffect(() => {
-    if (!polling) return;
-    const timer = window.setInterval(() => void reload(), RUNNING_POLL_MS);
-    return () => window.clearInterval(timer);
-  }, [polling, reload]);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
       if (dirty.current) event.preventDefault();
@@ -1621,81 +1623,97 @@ function ActivityEditor({
               aria-label={S.activities.breadcrumb}
               className="flex min-w-0 flex-1 basis-full flex-wrap items-center gap-1.5 text-sm sm:basis-0"
             >
-              <Link
-                to="/activities"
-                className="shrink-0 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                {S.activities.backToActivities}
-              </Link>
-              <span aria-hidden className="shrink-0 text-gray-300 dark:text-gray-600">
-                /
-              </span>
-              {/* The product code earns its place only when the title does not already say it. */}
-              {detail.productCode !== detail.title && (
-                <>
-                  <span
-                    className="shrink-0 font-mono text-xs text-gray-500 dark:text-gray-400"
-                    title={`${S.activities.collection}: ${detail.collectionId}`}
-                  >
-                    {detail.productCode}
-                  </span>
-                  <span aria-hidden className="shrink-0 text-gray-300 dark:text-gray-600">
-                    /
-                  </span>
-                </>
-              )}
-              <h2 className="min-w-0 truncate font-semibold" title={detail.title}>
-                {detail.title}
-              </h2>
-              <RefSwitcher
-                base={basePath(projectId)}
-                activity={detail}
-                editable={editable && available}
-                onIdentity={(record) => {
-                  setDetail((current) => (current ? { ...current, ...record } : current));
-                  // A name or tags change shows on the list's cards, for every ref of the
-                  // product; the list is kept while an activity is open, so refresh it now.
-                  void onSaved();
-                }}
-                revision={detail.draft.contentRevision}
-                onRenumbered={(value, from) => {
-                  // Only the number and the manifest's address changed; unsaved script or
-                  // specification text stays in its editor. The manifest editor follows the
-                  // new address, and unsaved manifest edits are moved to the new number so
-                  // they can still be saved.
-                  setMedia(
-                    media === pretty(detail.draft.mediaPlan?.manifest)
-                      ? pretty(value.draft.mediaPlan?.manifest)
-                      : renumberManifestText(media, from, value.refNum),
-                  );
-                  setDetail(value);
-                  announce({
-                    kind: "success",
-                    text: S.activities.studioRefs.renumbered(from, value.refNum),
-                  });
-                  // An assembled module keeps the old number in its file names.
-                  if (latestModuleRun(runs) || sandboxModule)
-                    announce({ kind: "attention", text: S.activities.studioRefs.reassemble });
-                  void onSaved();
-                }}
-                onDeleted={() => onDeleted(detail.title)}
-                // The new-ref table walks the media plan, so the way in waits for one.
-                onNewRef={detail.draft.mediaPlan ? () => setSection("newRef") : undefined}
-                // Reloading can throw edits away, so it sits in the ref's menu behind the
-                // discard confirmation rather than in the header's busiest row.
-                onReload={
-                  busy || !available
-                    ? undefined
-                    : () =>
-                        discard.ask(
-                          () =>
-                            void action(async () => {
-                              const value = await apiFetch<ActivityDetail>(endpoint);
-                              if (alive.current) accept(value);
-                            }),
-                        )
-                }
-              />
+              {/* The way back, the title and the ref stay on one row: a crumb wrapped alone
+                  leaves its "/" hanging at a line's end. On a phone the way back is an arrow
+                  and the product code, which the ref menu also names, steps aside. */}
+              <div className="flex min-w-0 basis-full items-center gap-1.5 sm:basis-auto">
+                <Link
+                  to="/activities"
+                  title={S.activities.backToActivities}
+                  className="-ml-1 shrink-0 rounded p-1 text-gray-500 hover:text-gray-800 sm:ml-0 sm:p-0 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <GlyphIcon d={BACK_ICON} size={ICON_SIZE.rowLead} className="sm:hidden" />
+                  <span className="sr-only sm:not-sr-only">{S.activities.backToActivities}</span>
+                </Link>
+                <span
+                  aria-hidden
+                  className="hidden shrink-0 text-gray-300 sm:inline dark:text-gray-600"
+                >
+                  /
+                </span>
+                {/* The product code earns its place only when the title does not already say it. */}
+                {detail.productCode !== detail.title && (
+                  <>
+                    <span
+                      className="hidden shrink-0 font-mono text-xs text-gray-500 sm:inline dark:text-gray-400"
+                      title={`${S.activities.collection}: ${detail.collectionId}`}
+                    >
+                      {detail.productCode}
+                    </span>
+                    <span
+                      aria-hidden
+                      className="hidden shrink-0 text-gray-300 sm:inline dark:text-gray-600"
+                    >
+                      /
+                    </span>
+                  </>
+                )}
+                <h2
+                  className="min-w-0 flex-1 truncate font-semibold sm:flex-initial"
+                  title={detail.title}
+                >
+                  {detail.title}
+                </h2>
+                <RefSwitcher
+                  base={basePath(projectId)}
+                  activity={detail}
+                  editable={editable && available}
+                  onIdentity={(record) => {
+                    setDetail((current) => (current ? { ...current, ...record } : current));
+                    // A name or tags change shows on the list's cards, for every ref of the
+                    // product; the list is kept while an activity is open, so refresh it now.
+                    void onSaved();
+                  }}
+                  revision={detail.draft.contentRevision}
+                  onRenumbered={(value, from) => {
+                    // Only the number and the manifest's address changed; unsaved script or
+                    // specification text stays in its editor. The manifest editor follows the
+                    // new address, and unsaved manifest edits are moved to the new number so
+                    // they can still be saved.
+                    setMedia(
+                      media === pretty(detail.draft.mediaPlan?.manifest)
+                        ? pretty(value.draft.mediaPlan?.manifest)
+                        : renumberManifestText(media, from, value.refNum),
+                    );
+                    setDetail(value);
+                    announce({
+                      kind: "success",
+                      text: S.activities.studioRefs.renumbered(from, value.refNum),
+                    });
+                    // An assembled module keeps the old number in its file names.
+                    if (latestModuleRun(runs) || sandboxModule)
+                      announce({ kind: "attention", text: S.activities.studioRefs.reassemble });
+                    void onSaved();
+                  }}
+                  onDeleted={() => onDeleted(detail.title)}
+                  // The new-ref table walks the media plan, so the way in waits for one.
+                  onNewRef={detail.draft.mediaPlan ? () => setSection("newRef") : undefined}
+                  // Reloading can throw edits away, so it sits in the ref's menu behind the
+                  // discard confirmation rather than in the header's busiest row.
+                  onReload={
+                    busy || !available
+                      ? undefined
+                      : () =>
+                          discard.ask(
+                            () =>
+                              void action(async () => {
+                                const value = await apiFetch<ActivityDetail>(endpoint);
+                                if (alive.current) accept(value);
+                              }),
+                          )
+                  }
+                />
+              </div>
               <ProgressSteps
                 facts={{
                   status: detail.draft.status,

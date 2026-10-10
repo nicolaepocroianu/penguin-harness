@@ -84,7 +84,6 @@ import {
   groupActivityRunsByProduct,
   searchActivityRuns,
   withoutActivityRuns,
-  withoutActivityRunWorkspaces,
 } from "../../lib/activity-sessions";
 import { useActivityLabels } from "../../state/use-activity-labels";
 import {
@@ -642,14 +641,14 @@ export function Sidebar({
 
   /** Workspace-mode per-group exact server totals (folded from the per-Agent per-Workspace counts). */
   const workspaceGroupCounts = useMemo(
-    // Activity runs' own Workspaces form no group: their runs live in the Activity runs folder.
-    () => aggregateWorkspaceCounts(withoutActivityRunWorkspaces(workspaceCountsByAgent)),
+    // Activity runs' own Workspaces form no group: the server leaves them out of the tallies.
+    () => aggregateWorkspaceCounts(workspaceCountsByAgent),
     [workspaceCountsByAgent],
   );
 
   /** Workspace-mode per-group newest-Session stamps (folded the same way): a group's recency before any of its rows are loaded. */
   const workspaceGroupLatest = useMemo(
-    () => aggregateWorkspaceLatest(withoutActivityRunWorkspaces(workspaceLatestByAgent)),
+    () => aggregateWorkspaceLatest(workspaceLatestByAgent),
     [workspaceLatestByAgent],
   );
 

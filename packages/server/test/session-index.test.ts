@@ -12,6 +12,7 @@ import type {
   ProjectCreateResponse,
   ServerEvent,
   SessionCreateResponse,
+  SessionInfo,
   SessionResponse,
   SessionsResponse,
 } from "../src/api/types.js";
@@ -887,6 +888,77 @@ describe("session-index", () => {
     expect(ids(await list("?excludeOrg=1&limit=1&offset=1"))).toEqual([]);
 
     expect((await api.get(`${base()}?excludeOrg=yes`)).status).toBe(400);
+  });
+
+  it("excludeActivityRuns=1 serves runs beside the page, outside its totals and its paging", async () => {
+    await configureModels();
+    const own = ((await (await api.post(base(), {})).json()) as SessionCreateResponse).session
+      .sessionId;
+    // Two runs, both newer than the conversation, and one of them archived. Each run has a
+    // Workspace of its own, as the generation service makes them.
+    const run = "session-2027-01-01-09-00-00-0abc0021";
+    const archivedRun = "session-2027-01-01-09-30-00-0abc0022";
+    // The runs point at an activity this test never makes: only the run's session id and
+    // activity id matter to the list.
+    t.deps.db.exec("PRAGMA foreign_keys = OFF");
+    for (const [sessionId, createdAt] of [
+      [run, "2027-01-01T09:00:00.000Z"],
+      [archivedRun, "2027-01-01T09:30:00.000Z"],
+    ] as const) {
+      t.deps.sessionsRepo.insert({
+        sessionId,
+        projectId,
+        agentId: "default_agent",
+        provider: "custom",
+        modelId: "m-run",
+        workspace: `/tmp/activity-runs/run_${sessionId.slice(-4)}`,
+        approvalMode: "allow-all",
+        title: null,
+        createdAt,
+        lastActiveAt: createdAt,
+      });
+      t.deps.db
+        .prepare(
+          "INSERT INTO activity_runs (run_id, project_id, activity_id, status, created_at, kind, record_json) VALUES (?, ?, 'act_1', ?, 'now', 'spec', ?)",
+        )
+        .run(
+          `run_${sessionId.slice(-4)}`,
+          projectId,
+          // An activity has one run in flight at most.
+          sessionId === run ? "running" : "succeeded",
+          JSON.stringify({ sessionId }),
+        );
+    }
+    t.deps.db.exec("PRAGMA foreign_keys = ON");
+    t.deps.sessionsRepo.setArchived(archivedRun, "2027-01-02T00:00:00.000Z");
+    const list = async (qs: string) => {
+      const res = await api.get(`${base()}${qs}`);
+      expect(res.status, qs).toBe(200);
+      return (await res.json()) as SessionsResponse;
+    };
+    const ids = (sessions: SessionInfo[] | undefined) => sessions?.map((s) => s.sessionId);
+
+    // Without the flag a run is a conversation like any other, and nothing comes beside it.
+    const full = await list("?counts=1&category=active&limit=10&offset=0");
+    expect(ids(full.sessions)).toEqual([run, own]);
+    expect(full.counts!.active).toBe(2);
+    expect(full.activityRuns).toBeUndefined();
+
+    // With it the page, the totals and the Workspace tallies hold conversations only, and the
+    // run that is not archived comes back on its own, stamped with its activity.
+    const own1 = await list("?counts=1&category=active&excludeActivityRuns=1&limit=10&offset=0");
+    expect(ids(own1.sessions)).toEqual([own]);
+    expect(own1.counts).toMatchObject({ active: 1, archived: 0 });
+    expect(Object.keys(own1.workspaceCounts!).some((w) => w.includes("activity-runs"))).toBe(false);
+    expect(ids(own1.activityRuns)).toEqual([run]);
+    expect(own1.activityRuns![0]!.activityId).toBe("act_1");
+    // Paging walks the conversation stream, and a later page does not repeat the runs.
+    expect(ids((await list("?excludeActivityRuns=1&limit=1&offset=0")).sessions)).toEqual([own]);
+    const later = await list("?counts=1&category=active&excludeActivityRuns=1&limit=10&offset=1");
+    expect(ids(later.sessions)).toEqual([]);
+    expect(later.activityRuns).toBeUndefined();
+
+    expect((await api.get(`${base()}?excludeActivityRuns=yes`)).status).toBe(400);
   });
 
   it("PATCH approval mode persists and reads back", async () => {

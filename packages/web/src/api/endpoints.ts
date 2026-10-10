@@ -664,7 +664,7 @@ export const listSessions = (
     withCounts?: boolean;
     /** The user's own rows only: an organization's desk, ticket and sub-sessions leave the page and the totals together (the development list's contract). */
     excludeOrg?: boolean;
-    /** Leave activity runs out of the page and the totals (the sidebar lists them from listActivityRunSessions). */
+    /** Conversations only: activity runs leave the page and the totals (with `withCounts` on the first page the newest of them come back as `activityRuns`); the sidebar pages all of them from listActivityRunSessions. */
     excludeActivityRuns?: boolean;
   },
 ) => {
@@ -674,7 +674,7 @@ export const listSessions = (
       (opts.workspaceGroup ? `&workspaceGroup=${encodeURIComponent(opts.workspaceGroup)}` : "") +
       (opts.withCounts ? "&counts=1" : "") +
       (opts.excludeOrg ? "&excludeOrg=1" : "") +
-      (opts.excludeActivityRuns ? "&excludeActivity=1" : "")
+      (opts.excludeActivityRuns ? "&excludeActivityRuns=1" : "")
     : "";
   return apiFetch<SessionsResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/agents/${encodeURIComponent(agentId)}/sessions${qs}`,

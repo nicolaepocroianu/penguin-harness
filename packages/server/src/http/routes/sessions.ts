@@ -511,23 +511,24 @@ export function agentSessionsRoutes(deps: SessionsRouteDeps): Hono<AppEnv> {
     if (rawExcludeOrg !== undefined && rawExcludeOrg !== "1") {
       throw badRequest("excludeOrg only accepts 1.");
     }
-    // Optional: leaves activity runs out of the page and the totals (the sidebar lists them
-    // Project-wide from /activity-sessions instead).
-    const rawExcludeActivity = c.req.query("excludeActivity");
-    if (rawExcludeActivity !== undefined && rawExcludeActivity !== "1") {
-      throw badRequest("excludeActivity only accepts 1.");
+    // Optional conversations-only filter: activity runs leave the page and the totals, and
+    // the newest of them come back on their own beside the first counted page.
+    const rawExcludeRuns = c.req.query("excludeActivityRuns");
+    if (rawExcludeRuns !== undefined && rawExcludeRuns !== "1") {
+      throw badRequest("excludeActivityRuns only accepts 1.");
     }
-    const { sessions, counts, workspaceCounts, workspaceLatest } =
+    const { sessions, activityRuns, counts, workspaceCounts, workspaceLatest } =
       await deps.sessionService.listSessions(projectId, agentId, {
         ...(paging ? { paging } : {}),
         ...(rawCategory !== undefined ? { category: rawCategory as SessionCategory } : {}),
         ...(rawWorkspaceGroup !== undefined ? { workspaceGroup: rawWorkspaceGroup } : {}),
         ...(rawCounts !== undefined ? { withCounts: true } : {}),
         ...(rawExcludeOrg !== undefined ? { excludeOrg: true } : {}),
-        ...(rawExcludeActivity !== undefined ? { excludeActivityRuns: true } : {}),
+        ...(rawExcludeRuns !== undefined ? { excludeActivityRuns: true } : {}),
       });
     return c.json({
       sessions,
+      ...(activityRuns ? { activityRuns } : {}),
       ...(counts ? { counts } : {}),
       ...(workspaceCounts ? { workspaceCounts } : {}),
       ...(workspaceLatest ? { workspaceLatest } : {}),

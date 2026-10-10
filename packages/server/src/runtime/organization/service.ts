@@ -52,7 +52,7 @@ import { TICKET_SLUG_PATTERN } from "../../api/types.js";
 import { Interface, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
 import type { ClassCtx } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../../http/errors.js";
-import { userChannelKey } from "../../http/routes/events.js";
+import { publishToProjectUsers } from "../../http/routes/events.js";
 import type { Channels, Clock, Config, Log } from "../../hmr/capabilities.js";
 import type { ChannelHub } from "../channel.js";
 import type { OrgCache } from "../../mechanisms/organization.js";
@@ -2719,17 +2719,8 @@ export class OrganizationModule {
       usage: this.usage,
       messagingChannel: (sessionId) => enabledMessagingChannel(this.messagingRepo, sessionId),
       errors: this.errors,
-      notifyProject: (projectId, event) => {
-        const ownerUserId = this.projects.findById(projectId)?.ownerUserId;
-        if (ownerUserId === undefined) return;
-        const audience = new Set([
-          ownerUserId,
-          ...this.members.list(projectId).map((m) => m.userId),
-        ]);
-        for (const userId of audience) {
-          channels.peek(userChannelKey(userId))?.publish(event, "server_event");
-        }
-      },
+      notifyProject: (projectId, event) =>
+        publishToProjectUsers(channels, this.projects, this.members, projectId, event),
       companyModeEnabled: () => this.settings.getCompanyMode(),
       now: () => this.clock.now().getTime(),
       log: (line: string) => this.log.line(line),

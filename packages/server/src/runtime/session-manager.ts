@@ -90,7 +90,7 @@ import { SessionService } from "../services/session-service.js";
 import { TitleGenerator } from "./title-generator.js";
 import { loopbackHostRoles } from "../services/preview-token.js";
 import { mergedNoProxy } from "../net/proxy.js";
-import { userChannelKey } from "../http/routes/events.js";
+import { publishToProjectUsers } from "../http/routes/events.js";
 import type { SandboxService } from "../sandbox/service.js";
 import type { AuthState, Channels, Clock, Config, Log } from "../hmr/capabilities.js";
 import type { Members, ProjectConfigStore, Projects } from "../mechanisms/projects.js";
@@ -2389,17 +2389,8 @@ export class SessionsModule {
       confineSpawn: () => sandbox.confiner(),
     };
 
-    const notifyProjectUsers = (projectId: string, event: ServerEvent): void => {
-      const ownerUserId = this.projectsRepo.findById(projectId)?.ownerUserId;
-      if (ownerUserId === undefined) return;
-      const audience = new Set([
-        ownerUserId,
-        ...this.membersRepo.list(projectId).map((m) => m.userId),
-      ]);
-      for (const userId of audience) {
-        channels.peek(userChannelKey(userId))?.publish(event, "server_event");
-      }
-    };
+    const notifyProjectUsers = (projectId: string, event: ServerEvent): void =>
+      publishToProjectUsers(channels, this.projectsRepo, this.membersRepo, projectId, event);
     const titles = this.titleGenerators.create({
       sessions: sessionsRepo,
       channels,

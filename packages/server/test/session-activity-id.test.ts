@@ -148,7 +148,7 @@ describe("session -> activity", () => {
       const withRuns = (await (await client.get(base)).json()) as SessionsResponse;
       expect(withRuns.counts?.active).toBe(12);
       const own = (await (
-        await client.get(`${base}&excludeActivity=1`)
+        await client.get(`${base}&excludeActivityRuns=1`)
       ).json()) as SessionsResponse;
       expect(own.sessions.map((s) => s.sessionId)).toEqual(["plain-chat"]);
       expect(own.counts?.active).toBe(1);

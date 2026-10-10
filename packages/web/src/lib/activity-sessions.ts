@@ -2,36 +2,11 @@
  * Sessions that are an activity's generation runs belong to that activity: they live in
  * its studio, not in the global session list, and opening one goes back to the activity.
  */
-import type { ActivitySummary, SessionInfo } from "@prismshadow/penguin-server/api";
+import type { SessionInfo } from "@prismshadow/penguin-server/api";
 import { latestConversation, matchesSessionQuery, withoutOrgSessions } from "./session-grouping";
 
 export function withoutActivityRuns(sessions: readonly SessionInfo[]): SessionInfo[] {
   return sessions.filter((session) => session.activityId === undefined);
-}
-
-/** A run's own Workspace, which the server always makes at `<home>/activity-runs/<runId>`. */
-export function isActivityRunWorkspace(workspace: string): boolean {
-  return /[\\/]activity-runs[\\/]run_[^\\/]+[\\/]?$/.test(workspace.trim());
-}
-
-/**
- * Per-Agent per-Workspace server tallies (counts or newest stamps) without the runs' own
- * Workspaces. The server counts activity runs like any conversation, and every run has a
- * Workspace of its own, so without this workspace mode grows one empty group per run.
- */
-export function withoutActivityRunWorkspaces<V>(
-  byAgent: ReadonlyMap<string, Readonly<Record<string, V>>>,
-): Map<string, Record<string, V>> {
-  const out = new Map<string, Record<string, V>>();
-  for (const [agentId, byWorkspace] of byAgent) {
-    out.set(
-      agentId,
-      Object.fromEntries(
-        Object.entries(byWorkspace).filter(([workspace]) => !isActivityRunWorkspace(workspace)),
-      ),
-    );
-  }
-  return out;
 }
 
 /** What the activity list says about one activity: its card name and its product. */
@@ -152,24 +127,11 @@ export function sessionHref(session: Pick<SessionInfo, "sessionId" | "activityId
 
 const LIVE = new Set(["running", "compacting"]);
 
-/** `before` is sessionId -> the status last seen. */
-export function settledActivityRuns(
-  before: ReadonlyMap<string, string>,
-  sessions: readonly SessionInfo[],
-): boolean {
-  return sessions.some(
-    (session) =>
-      session.activityId !== undefined &&
-      LIVE.has(before.get(session.sessionId) ?? "") &&
-      !LIVE.has(session.status),
-  );
-}
-
 /**
  * A run this tab has no row for — started from another tab after the list loaded — reaches
- * the store only as a live status, so `settledActivityRuns` never sees it settle and no
- * summary says "running" to start the poll. Its start is the signal instead: a session this
- * list does not hold going live may be an activity run, and one reload tells.
+ * the store only as a live status, so the activity list would not show it running until it
+ * finished. Its start is the signal instead: a session this list does not hold going live may
+ * be an activity run, and one reload tells.
  */
 export function startedUnlistedRuns(
   before: ReadonlyMap<string, string>,
@@ -186,8 +148,8 @@ export function startedUnlistedRuns(
 
 /**
  * The list can go stale while the user is inside an activity's own workspace: a run may
- * settle there (its session leaves the "live" set) without the list-level effect ever
- * seeing it, because that effect only fires while `!activityId`. Returning to the list is
+ * finish there without the list ever hearing it, because the list only listens for finished
+ * runs while `!activityId`. Returning to the list is
  * therefore itself a reason to reload — but only a genuine return from an activity, not the
  * list's own first mount (`prevActivityId` starts undefined) and not while still inside one.
  */
@@ -196,20 +158,4 @@ export function shouldReloadList(
   activityId: string | undefined,
 ): boolean {
   return prevActivityId !== undefined && activityId === undefined;
-}
-
-/** How often the home list re-reads its summaries while a run is in flight. */
-export const RUNNING_POLL_MS = 5000;
-
-/**
- * Whether the home list should poll: only while the list itself is shown (no activity open)
- * and some activity's summary says a run is in flight. A run started after the sessions store
- * loaded never reaches the store's settle signal, so polling is what notices it finishing.
- */
-export function shouldPollSummaries(
-  activityId: string | undefined,
-  summaries: Readonly<Record<string, Pick<ActivitySummary, "status">>>,
-): boolean {
-  if (activityId !== undefined) return false;
-  return Object.values(summaries).some((summary) => summary.status.kind === "running");
 }
