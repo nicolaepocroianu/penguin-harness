@@ -103,7 +103,7 @@ Score the video from 1 (poor) to 5 (excellent) on each of:
 - story: the stills show what the storyboard and the video's description ask, in that order;
 - layout: every object has its own space and stands on its ground, nothing floats, is cut off or covers something it should not;
 - readability: any text is large, clear and stands out from what is behind it;
-- motion: the stills suggest calm, purposeful movement, with a clear still picture at the start and the end;
+- motion: the stills suggest calm movement that shows what the narration is about rather than decorating, with a clear still picture at the start and the end, and nothing that would flash or pulse;
 - learners: friendly, clear and right for young children, nothing confusing or frightening.
 Write ${CRITIQUE_OUTPUT_FILE}: {"scores": {"story": 4, "layout": 3, "readability": 5, "motion": 4, "learners": 5}, "fixes": ["one concrete change to the scene, naming what to change and how"]} with at most ${CRITIQUE_MAX_FIXES} fixes, the most important first; leave fixes empty only when every score is ${CRITIQUE_GOOD} or more. Judge only what the stills show. If your tools cannot show you the stills (images cannot be read), do not guess: write {"unseen": true} to ${CRITIQUE_OUTPUT_FILE} instead.
 Do not edit ${CRITIQUE_INPUT_FILE} or the stills. Do not delegate this task.

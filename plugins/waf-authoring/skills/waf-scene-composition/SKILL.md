@@ -84,6 +84,25 @@ design-system package format of open-design.
 - No `repeat: -1`, no `Math.random`, no `Date.now`, no timers or event handlers of your own.
   A pulsing element needs clear space at its largest.
 
+## Motion for learning
+
+Movement has to earn its place. Studies of animation in teaching find it does not help learners
+understand better than a clear still picture, and can make them remember less. So:
+
+- Move things to show a change the narration is about: something opening, arriving, growing or
+  turning into something else. Do not move things only to decorate or to fill time.
+- After each change, hold the result still long enough to look at, at least a second, before the
+  next one.
+- Pair every important change with something that stays: a label, an arrow, or the narration
+  naming it. Movement alone is easy to miss.
+- Never flash. Nothing brightens and dims more than three times in any second (WCAG 2.3.1).
+  Sparkles and glows rise and settle once rather than pulsing.
+- Celebrations (stars, confetti, a glow on the answer) play once and come to rest; nothing loops
+  for the whole scene.
+
+These rules are adapted from open-design's `craft/animation-discipline.md` (Apache-2.0), itself
+adapted from refero_skill (MIT, © Refero Design).
+
 ## Self-score before finishing
 
 Score each from 1 to 5. Revise anything below 3:
