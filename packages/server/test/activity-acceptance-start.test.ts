@@ -107,8 +107,25 @@ describe("acceptance test runs", () => {
     });
     const previous = process.env.WAF_ROOT_DIR;
     process.env.WAF_ROOT_DIR = root;
+    // The browser server a confined run's checks connect to: a stand-in that records its life.
+    const browserServers: { endpoint: string; closed: boolean }[] = [];
     const t = await createTestApp({
-      testBrowserPorts: { locateExecutable: async (dir) => executableIn(dir) },
+      testBrowserPorts: {
+        locateExecutable: async (dir) => executableIn(dir),
+        launchServer: async () => {
+          const server = {
+            endpoint: `ws://127.0.0.1:1/browser-${browserServers.length + 1}`,
+            closed: false,
+          };
+          browserServers.push(server);
+          return {
+            endpoint: server.endpoint,
+            close: async () => {
+              server.closed = true;
+            },
+          };
+        },
+      },
     });
     cleanups.push(async () => {
       if (previous === undefined) delete process.env.WAF_ROOT_DIR;
@@ -216,6 +233,7 @@ describe("acceptance test runs", () => {
       home,
       revision,
       useAgent,
+      browserServers,
     };
   }
 
@@ -477,5 +495,21 @@ describe("acceptance test runs", () => {
     const unchecked = await assemble(bare);
     const files = await fs.readdir(path.join(bare.t.root, "activity-runs", unchecked.runId));
     expect(files).not.toContain(PLAYER_CHECK_DIR);
+  });
+
+  it("connects a confined run's checks to a browser the server started, and stops it after", async () => {
+    const { runToEnd, browserServers } = await setup();
+    let input: { browserEndpoint?: string } = {};
+    const { settled } = await runToEnd(async (workspace) => {
+      input = JSON.parse(await fs.readFile(path.join(workspace, "acceptance-input.json"), "utf8"));
+      await writesResults({ results: [] })(workspace);
+    });
+    expect(settled.status).not.toBe("running");
+    expect(browserServers).toHaveLength(1);
+    expect(input.browserEndpoint).toBe(browserServers[0]!.endpoint);
+    expect(browserServers[0]!.closed).toBe(true);
+    // The staged runner connects when it is given an address, and starts the browser otherwise.
+    expect(runAcceptanceSource).toContain("chromium.connect(input.browserEndpoint)");
+    expect(runAcceptanceSource).toContain("chromium.launch(");
   });
 });

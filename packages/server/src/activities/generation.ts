@@ -129,7 +129,7 @@ import {
   testFileHash,
 } from "./acceptance-collect.js";
 import { playwrightVersion } from "./acceptance-service.js";
-import { playwrightCoreDir, type TestBrowser } from "./test-browser.js";
+import { playwrightCoreDir, type BrowserServerHandle, type TestBrowser } from "./test-browser.js";
 import { viewportOf } from "./quality-check.js";
 import type { AcceptanceStage } from "./acceptance-types.js";
 import {
@@ -398,6 +398,8 @@ export class ActivityGenerationService implements ActivityGeneration {
   @Use(SandboxModule) private readonly sandbox!: Sandbox;
   private readonly locks = new ActivityLocks();
   private readonly observers = new Map<string, Observer>();
+  /** The test browser started for a confined run's checks, by run id; stopped when it ends. */
+  private readonly browserServers = new Map<string, BrowserServerHandle>();
   private readonly operations = new Set<Promise<unknown>>();
   private stopped = false;
   private drained: Promise<void> | null = null;
@@ -448,6 +450,30 @@ export class ActivityGenerationService implements ActivityGeneration {
   async shutdown(): Promise<void> {
     this.stop();
     await this.drained;
+    await Promise.all(
+      [...this.browserServers.values()].map((server) => server.close().catch(() => {})),
+    );
+    this.browserServers.clear();
+  }
+
+  /**
+   * Starts the test browser for a confined run and returns where its checks connect, or
+   * undefined when there is none to start. Its commands cannot start a browser themselves:
+   * on Windows Chromium's process channel is refused to a restricted token.
+   */
+  private async serveBrowser(runId: string): Promise<string | undefined> {
+    try {
+      const server = (await this.browser.launchServer()) as BrowserServerHandle | null;
+      if (server === null) return undefined;
+      this.browserServers.set(runId, server);
+      return server.endpoint;
+    } catch (error) {
+      // The checks then try to start the browser themselves and report why they could not.
+      this.log.line(
+        `[activities] test browser server for ${runId} did not start: ${String(error)}`,
+      );
+      return undefined;
+    }
   }
 
   private workspace(run: ActivityRun): string {
@@ -465,11 +491,13 @@ export class ActivityGenerationService implements ActivityGeneration {
     projectId: string,
     activityId: string,
     runId: string,
+    confined: boolean,
   ): Promise<void> {
     const browserPath = await this.browser.executablePath();
     if (!browserPath) return;
     const version = await playwrightVersion(playwrightCoreDir());
     if (!version) return;
+    const browserEndpoint = confined ? await this.serveBrowser(runId) : undefined;
     const spec = (await this.activities.getActivity(projectId, activityId)).draft.spec;
     const dir = path.join(workspace, PLAYER_CHECK_DIR);
     await fs.mkdir(dir, { recursive: true });
@@ -478,6 +506,7 @@ export class ActivityGenerationService implements ActivityGeneration {
       viewport: viewportOf(spec),
       criteria: acceptanceCriteria(spec),
       browserPath,
+      ...(browserEndpoint ? { browserEndpoint } : {}),
       scenes: specSceneIds(spec),
     });
     await atomicJson(path.join(dir, "package.json"), {
@@ -534,6 +563,11 @@ export class ActivityGenerationService implements ActivityGeneration {
     this.save(run);
     this.observers.get(run.runId)?.unsubscribe();
     this.observers.delete(run.runId);
+    const server = status === "running" ? undefined : this.browserServers.get(run.runId);
+    if (server) {
+      this.browserServers.delete(run.runId);
+      void server.close().catch(() => {});
+    }
     if (status !== "running") {
       publishToProjectUsers(
         this.channels as ChannelHub,
@@ -1110,7 +1144,9 @@ export class ActivityGenerationService implements ActivityGeneration {
           // runs its commands itself, outside Penguin's sandbox.
           const localProvider = sound?.sound.provider ?? audio?.provider;
           const localRun = Boolean(localProvider && isLocalAudioProvider(localProvider));
-          if (!codingAgentId && !localRun) {
+          // Penguin's own agent runs this stage, so its commands run confined.
+          const confined = !codingAgentId && !localRun;
+          if (confined) {
             const problem = this.sandbox.confinementProblem(RUN_SANDBOX_MODE);
             if (problem !== null)
               throw new HttpError(
@@ -1216,7 +1252,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                 modulePackagesRoot(this.config.root),
               );
               if (run.kind === "module")
-                await this.stagePlayerCheck(workspace, projectId, activityId, run.runId);
+                await this.stagePlayerCheck(workspace, projectId, activityId, run.runId, confined);
             }
             if (audio || image) {
               const helperName = image ? "generate-image.mjs" : "generate-speech.mjs";
@@ -1345,7 +1381,11 @@ export class ActivityGenerationService implements ActivityGeneration {
             }
             if (test) {
               await atomicJson(path.join(workspace, "activity-spec.json"), activity.draft.spec);
-              await atomicJson(path.join(workspace, ACCEPTANCE_INPUT_FILE), test.input);
+              const browserEndpoint = confined ? await this.serveBrowser(run.runId) : undefined;
+              await atomicJson(path.join(workspace, ACCEPTANCE_INPUT_FILE), {
+                ...test.input,
+                ...(browserEndpoint ? { browserEndpoint } : {}),
+              });
               await atomicJson(path.join(workspace, "package.json"), {
                 private: true,
                 type: "module",
@@ -1473,7 +1513,7 @@ export class ActivityGenerationService implements ActivityGeneration {
               // above is still refused, whatever the approval mode allows.
               approvalMode: "allow-all",
               // A coding agent runs its own commands; Penguin's sandbox cannot reach them.
-              ...(codingAgentId ? {} : { sandboxMode: RUN_SANDBOX_MODE }),
+              ...(confined ? { sandboxMode: RUN_SANDBOX_MODE } : {}),
             });
             run.sessionId = session.sessionId;
             this.save(run);

@@ -20,11 +20,18 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
+import {
+  Component,
+  Interface,
+  Use,
+  type ClassCtx,
+  type Opaque,
+} from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
 import type { Config } from "../hmr/capabilities.js";
 import type { Settings } from "../mechanisms/settings.js";
 import { hostOnly } from "../services/preview-token.js";
+import { PLAYER_BROWSER_ARGS } from "./browser-session.js";
 import { playBase } from "./play-routes.js";
 import { clampLog, stopTree } from "./sandbox-build-runner.js";
 import type { ActivityPlayLinks } from "./play-links.js";
@@ -110,7 +117,50 @@ export abstract class TestBrowserPorts extends Interface<{
   bundledDir?: string | null;
   /** The `playwright-core` package directory; null stands for a Penguin that ships none. */
   playwrightCoreDir?: string | null;
+  /** Starts the browser as a Playwright server (see `launchPlaywrightServer`). */
+  launchServer?: (executable: string, coreDir: string) => Promise<BrowserServerHandle>;
 }>() {}
+
+/** A test browser this server runs for one activity run: where to reach it, and how to stop it. */
+export interface BrowserServerHandle {
+  /** The Playwright protocol address the run's checks connect to (`chromium.connect`). */
+  endpoint: string;
+  close(): Promise<void>;
+}
+
+/**
+ * Starts Chromium as a Playwright browser server, outside any sandbox. A confined run's agent
+ * cannot start Chromium itself (on Windows its process channel is refused to a restricted
+ * token), so the server starts it and the agent's checks, still confined, connect to it.
+ *
+ * Bound to the loopback address: by default Playwright listens on every interface, which would
+ * hand the browser to anyone on the network. A connection speaks Playwright's own protocol, not
+ * raw DevTools, so a download comes back to the confined client rather than being written by
+ * the browser wherever it is told. The path in the address is Playwright's random one.
+ */
+export async function launchPlaywrightServer(
+  executable: string,
+  coreDir: string,
+): Promise<BrowserServerHandle> {
+  const { chromium } = createRequire(import.meta.url)(path.join(coreDir, "index.js")) as {
+    chromium: {
+      launchServer(options: {
+        executablePath: string;
+        headless: boolean;
+        host: string;
+        args: string[];
+      }): Promise<{ wsEndpoint(): string; close(): Promise<void> }>;
+    };
+  };
+  const server = await chromium.launchServer({
+    executablePath: executable,
+    headless: true,
+    host: "127.0.0.1",
+    // Started as every other player check's browser is, or the activity pauses for audio.
+    args: PLAYER_BROWSER_ARGS,
+  });
+  return { endpoint: server.wsEndpoint(), close: () => server.close() };
+}
 
 @Component()
 export class DefaultTestBrowserPorts implements TestBrowserPorts {}
@@ -276,6 +326,11 @@ export abstract class TestBrowser extends Interface<{
   executablePath(): Promise<string | null>;
   /** A signed link that plays an activity, for the test browser on this machine to open. */
   playUrl(projectId: string, activityId: string, options?: PlayUrlOptions): Promise<string>;
+  /**
+   * Starts the test browser as a server for one run, or null when it is not installed. The
+   * caller stops it when the run ends.
+   */
+  launchServer(): Promise<Opaque<"BrowserServerHandle", BrowserServerHandle> | null>;
 }>() {}
 
 @Component()
@@ -358,6 +413,13 @@ export class TestBrowserService implements TestBrowser {
 
   async executablePath(): Promise<string | null> {
     return (await this.resolve()).executable;
+  }
+
+  async launchServer(): Promise<BrowserServerHandle | null> {
+    const coreDir = this.coreDir();
+    const executable = await this.executablePath();
+    if (coreDir === null || executable === null) return null;
+    return (this.ports.launchServer ?? launchPlaywrightServer)(executable, coreDir);
   }
 
   async install(): Promise<TestBrowserStatus> {

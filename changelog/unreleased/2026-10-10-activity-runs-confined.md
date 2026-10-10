@@ -24,6 +24,10 @@ deployment's sandbox setting does not change: other Sessions run exactly as befo
 - On Windows a confined Session runs its commands in PowerShell (PowerShell 7 where installed),
   and its system prompt says so. Git Bash cannot start inside a Windows sandbox. A `PENGUIN_SHELL`
   naming PowerShell or cmd is still honoured. Linux and macOS keep bash.
+- A confined run's player check and acceptance tests connect to a test browser that Penguin starts
+  for the run and stops when it ends. Its own commands cannot start Chromium inside a sandbox. The
+  browser listens on the loopback address only, and the checks reach it through Playwright's own
+  protocol.
 - Git Bash is started by its full path on Windows. A sandbox looks in the Windows system folder
   first, where a bare `bash` is the WSL launcher.
 - A subagent is held to its parent's limits: the same confinement floor and the same protected

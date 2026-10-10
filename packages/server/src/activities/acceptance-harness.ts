@@ -3,10 +3,12 @@
  *
  * A test run's workspace holds, beside the activity's own inputs:
  *   acceptance-input.json   what to test and where: the signed play link, the viewport, the
- *                           criteria, the test browser's executable and the scene ids
+ *                           criteria, the test browser's executable, the scene ids, and for a
+ *                           confined run the browser server Penguin started for it
  *   activity-harness.mjs    Penguin's harness API over `playwright-core`, the only thing the
  *                           agent's tests may use to drive the player
- *   run-acceptance.mjs      starts the test browser, runs the agent's `acceptance.test.mjs`
+ *   run-acceptance.mjs      starts the test browser (or connects to that server), runs the
+ *                           agent's `acceptance.test.mjs`
  *                           criterion by criterion, and writes `acceptance-results.json`
  *   package.json            pins `playwright-core` to the version this server drives
  *
@@ -316,11 +318,15 @@ const message = (error) =>
 
 let browser;
 try {
-  browser = await chromium.launch({
-    executablePath: input.browserPath,
-    headless: true,
-    args: ${JSON.stringify(PLAYER_BROWSER_ARGS)},
-  });
+  // A confined run's server started the browser (its commands cannot): connect to it. For a
+  // connected browser close() only disconnects, so the checks can be run again.
+  browser = input.browserEndpoint
+    ? await chromium.connect(input.browserEndpoint)
+    : await chromium.launch({
+        executablePath: input.browserPath,
+        headless: true,
+        args: ${JSON.stringify(PLAYER_BROWSER_ARGS)},
+      });
   runner.attach(browser);
   await import("./${ACCEPTANCE_TEST_FILE}");
 } catch (error) {
