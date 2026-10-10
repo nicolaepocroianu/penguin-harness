@@ -9,31 +9,6 @@ export function withoutActivityRuns(sessions: readonly SessionInfo[]): SessionIn
   return sessions.filter((session) => session.activityId === undefined);
 }
 
-/** A run's own Workspace, which the server always makes at `<home>/activity-runs/<runId>`. */
-export function isActivityRunWorkspace(workspace: string): boolean {
-  return /[\\/]activity-runs[\\/]run_[^\\/]+[\\/]?$/.test(workspace.trim());
-}
-
-/**
- * Per-Agent per-Workspace server tallies (counts or newest stamps) without the runs' own
- * Workspaces. The server counts activity runs like any conversation, and every run has a
- * Workspace of its own, so without this workspace mode grows one empty group per run.
- */
-export function withoutActivityRunWorkspaces<V>(
-  byAgent: ReadonlyMap<string, Readonly<Record<string, V>>>,
-): Map<string, Record<string, V>> {
-  const out = new Map<string, Record<string, V>>();
-  for (const [agentId, byWorkspace] of byAgent) {
-    out.set(
-      agentId,
-      Object.fromEntries(
-        Object.entries(byWorkspace).filter(([workspace]) => !isActivityRunWorkspace(workspace)),
-      ),
-    );
-  }
-  return out;
-}
-
 /** What the activity list says about one activity: its card name and its product. */
 export interface ActivityLabel {
   name: string;

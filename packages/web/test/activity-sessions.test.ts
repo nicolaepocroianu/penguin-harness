@@ -4,8 +4,6 @@ import {
   groupActivityRuns,
   groupActivityRunsByProduct,
   searchActivityRuns,
-  isActivityRunWorkspace,
-  withoutActivityRunWorkspaces,
   latestOwnConversation,
   sessionHref,
   settledActivityRuns,
@@ -86,17 +84,6 @@ describe("activity sessions", () => {
       ["act-b", null, ["b1"]],
       ["act-a", "Letter hunt", ["a1", "a2"]],
     ]);
-  });
-
-  it("recognises a run's own workspace, on either path separator", () => {
-    expect(isActivityRunWorkspace("C:\\Users\\me\\.penguin\\dev-data\\activity-runs\\run_ae24c2f2")).toBe(true);
-    expect(isActivityRunWorkspace("/home/me/.penguin/activity-runs/run_1/")).toBe(true);
-    expect(isActivityRunWorkspace("/home/me/code/activity-runs")).toBe(false);
-    expect(isActivityRunWorkspace("/home/me/activity-runs/run_1/src")).toBe(false);
-  });
-  it("drops run workspaces from the per-workspace tallies", () => {
-    const tallies = new Map([["agent", { "/w/app": 3, "/h/activity-runs/run_1": 1 }]]);
-    expect(withoutActivityRunWorkspaces(tallies)).toEqual(new Map([["agent", { "/w/app": 3 }]]));
   });
 
   it("groups activity runs by product code, unidentified activities last", () => {

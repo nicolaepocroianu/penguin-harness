@@ -46,6 +46,12 @@ const EMPTY_ORG_IDS: ReadonlyMap<string, string> = new Map();
 /** Stands in for the activity map when no Project's runs are wired in (tests, older assemblies). */
 const EMPTY_ACTIVITY_IDS: ReadonlyMap<string, string> = new Map();
 
+/**
+ * How many of an Agent's activity runs a list served without them still hands over: enough
+ * for every run in flight and the recent ones the sidebar's run folder shows.
+ */
+export const ACTIVITY_RUN_ROWS = 50;
+
 /** Derives creation time from the local timestamp embedded in session_id; returns null if it doesn't match. */
 export function sessionIdCreatedAt(sessionId: string): string | null {
   const m = SESSION_ID_TS_RE.exec(sessionId);
@@ -239,6 +245,13 @@ export class SessionService {
    * user's own conversations, and a total or a stamp that still counted a desk or a ticket
    * session would make its Workspace appear as a group the list can never fill. Without the
    * flag every row is served, whichever client created it.
+   *
+   * `excludeActivityRuns` takes an activity's generation runs out of the same stream the
+   * same way: the page, the totals and the Workspace tallies describe conversations only,
+   * so the sidebar's "More" never counts a run it will not draw. The runs come back on
+   * their own instead, as `activityRuns` beside the first page (offset 0) of a `withCounts`
+   * call: the newest `ACTIVITY_RUN_ROWS` that are not archived, so the list still holds the
+   * rows its run folder and its run-finished notifications need.
    */
   async listSessions(
     projectId: string,
@@ -249,14 +262,16 @@ export class SessionService {
       workspaceGroup?: string;
       withCounts?: boolean;
       excludeOrg?: boolean;
+      excludeActivityRuns?: boolean;
     } = {},
   ): Promise<{
     sessions: SessionInfo[];
+    activityRuns?: SessionInfo[];
     counts?: SessionCategoryCounts;
     workspaceCounts?: Record<string, SessionCategoryCounts>;
     workspaceLatest?: Record<string, string>;
   }> {
-    const { paging, category, workspaceGroup, withCounts, excludeOrg } = opts;
+    const { paging, category, workspaceGroup, withCounts, excludeOrg, excludeActivityRuns } = opts;
     const rows = new Map(
       this.deps.sessions.listByAgent(projectId, agentId).map((r) => [r.sessionId, r]),
     );
@@ -287,9 +302,12 @@ export class SessionService {
       }
     }
 
-    const sorted = [...rows.values()].sort(
+    const newestFirst = [...rows.values()].sort(
       (a, b) => b.createdAt.localeCompare(a.createdAt) || b.sessionId.localeCompare(a.sessionId),
     );
+    const sorted = excludeActivityRuns
+      ? newestFirst.filter((row) => !activityIds.has(row.sessionId))
+      : newestFirst;
     const rowHasTrace = (row: SessionRow): boolean =>
       traces ? traces.has(row.sessionId) : row.hasTrace === true;
     const toPage = (page: SessionRow[]) =>
@@ -337,7 +355,14 @@ export class SessionService {
       if (wanted && matched.length < want) matched.push(row);
     }
     const sessions = await toPage(paging ? matched.slice(paging.offset, want) : matched);
-    return withCounts ? { sessions, counts, workspaceCounts, workspaceLatest } : { sessions };
+    if (!withCounts) return { sessions };
+    if (!excludeActivityRuns || (paging?.offset ?? 0) !== 0) {
+      return { sessions, counts, workspaceCounts, workspaceLatest };
+    }
+    const runs = newestFirst
+      .filter((row) => activityIds.has(row.sessionId) && (row.archivedAt ?? null) === null)
+      .slice(0, ACTIVITY_RUN_ROWS);
+    return { sessions, activityRuns: await toPage(runs), counts, workspaceCounts, workspaceLatest };
   }
 
   /**
