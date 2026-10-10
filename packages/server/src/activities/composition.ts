@@ -288,11 +288,20 @@ export function gsapSource(): Promise<Buffer> {
   return gsap;
 }
 
+// The layout, text, motion and self-check rules follow the authoring guidance in HeyGen
+// HyperFrames' agent skills (github.com/heygen-com/hyperframes, skills/, Apache-2.0), rewritten
+// for young learners and Penguin's own composition bridge.
 export const compositionPrompt = `Compose a short animated scene for this activity. Work in this workspace.
 Read ${COMPOSITION_INPUT_FILE}: the scene's description, the description of the video or animation asset, the canvas size, and the scene's images (each a file under ${COMPOSITION_IMAGE_DIR}/). description.md and input.json describe the whole activity.
 Write two files:
 1. ${COMPOSITION_FILE}: start from ${COMPOSITION_TEMPLATE_FILE} and keep its head as it is (the Content-Security-Policy meta tag, ${COMPOSITION_GSAP_FILE} and ${COMPOSITION_BRIDGE_FILE}) and the #stage element at the canvas size. Build the scene inside #stage from the staged images, when there are any, and plain HTML, CSS and inline SVG; a scene with no images is drawn entirely with HTML, CSS and inline SVG. Animate it with one GSAP timeline created paused, gsap.timeline({ paused: true }), and assign it to window.__composition.timeline; drive every change from that timeline, with no timers or event handlers of your own. It must be deterministic: no Math.random or other randomness. Use only the staged files, referenced by their relative paths (${COMPOSITION_IMAGE_DIR}/<file>, ${COMPOSITION_GSAP_FILE}, ${COMPOSITION_BRIDGE_FILE}); never load anything from the network (no http or https URLs, fonts, CDNs or fetch). Keep it under 512 KB.
 2. ${COMPOSITION_FRAMES_FILE}: {"frames": [{"id": "frame-1", "description": "what this frame shows", "seconds": 3}]} describing each storyboard frame in order, about ${FRAME_SECONDS} seconds each, ${MIN_SECONDS} to ${MAX_SECONDS} seconds in total, matching the timeline.
+How to make it, for young learners watching on a small screen:
+- Lay it out before you animate. At the top of #stage, write a comment listing each main object with its box in stage pixels (left, top, width, height), and give each its own space. Keep at least 24px of clear space around the scene's main object, including its glow and any sparkles, and put no scenery inside another object's box. Position with left and top, never a mix of right and bottom. Keep everything inside the stage, at least 16px from its edges, at every moment.
+- Any text is at least 28px, in one font from the system font stack, with a contrast of at least 4.5:1 against what is behind it, and stays on screen for at least 2 seconds.
+- Animate only transforms and opacity (x, y, scale, rotation, opacity), never width, height, top or left. Use fromTo when an element starts from somewhere other than where its CSS puts it, give everything that rotates a transformOrigin, and never use repeat: -1.
+- Entrances ease out (power3.out, about 0.6 s), exits ease in, ambient movement uses sine.inOut, and bounces are only for playful moments. One idea per frame; the first and the last moment of the timeline are each a clear still picture. The timeline lasts exactly as long as the frames' seconds add up to: when the animation ends sooner, hold the last picture until then (for example timeline.to({}, { duration: 0.8 })).
+- Before you finish, check the boxes of the main objects at the start, middle and end of each frame, and fix any overlap you did not intend.
 Do not edit the staged files. Do not delegate this task.
 Use Harness's normal approval flow for tool actions. Finish only after writing both files.`;
 
