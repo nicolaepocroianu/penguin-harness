@@ -226,12 +226,22 @@ describe("book configuration compiler", () => {
       id: "sight-words",
       initial: "reading",
       states: {
-        reading: { entry: { type: "enterReader" } },
+        reading: { initial: "ready", states: { ready: { entry: { type: "enterReader" } } } },
         activity: {
           states: { complete: { entry: { type: "bookFinalize" }, type: "final" } },
         },
       },
     });
+    // waf-state-machine reports every state as <scene-id>.<phase> and stalls on any other.
+    const leaves: string[] = [];
+    const walk = (states: Record<string, any>, prefix: string) => {
+      for (const [name, state] of Object.entries(states))
+        if (state.states) walk(state.states, `${prefix}${name}.`);
+        else leaves.push(`${prefix}${name}`);
+    };
+    walk(product.stateMachine.states, "");
+    expect(leaves).toEqual(["reading.ready", "activity.complete"]);
+    for (const leaf of leaves) expect(leaf).toMatch(/^.+\.[a-z0-9]+(?:-[a-z0-9]+)*$/);
     expect(product.stateMachine.states.reading.on["BOOK.COMPLETED"].target).toBe(
       "#sight-words.activity.complete",
     );

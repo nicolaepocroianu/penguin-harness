@@ -200,7 +200,7 @@ describe("native WAF module boundary", () => {
     expect(JSON.parse(files["generated/P/refs/P-12/spec/state-machine.json"]!)).toMatchObject({
       initial: "reading",
       states: {
-        reading: { entry: { type: "enterReader" } },
+        reading: { initial: "ready", states: { ready: { entry: { type: "enterReader" } } } },
       },
     });
     expect(files["configurations/P-12.json"]).toBeDefined();
@@ -249,7 +249,14 @@ describe("native WAF module boundary", () => {
     await fs.mkdir(path.join(root, "preview"));
     await fs.writeFile(path.join(root, "preview/index.html"), "<!doctype html><title>WAF</title>");
     await manifest([...files, "preview/index.html"]);
-    await expect(collectModule(root, readCandidate)).rejects.toThrow("Invalid or duplicate");
+    await expect(collectModule(root, readCandidate)).rejects.toThrow(
+      'Invalid or duplicate module artifact path: "preview/index.html"',
+    );
+    // The player check's own files are dropped, not refused: they never ship with the module.
+    await manifest([...files, "player-check/acceptance.test.mjs", "player-check/results.json"]);
+    expect((await collectModule(root, readCandidate)).files.map((file) => file.path)).toEqual(
+      files,
+    );
     await manifest(files);
     const outside = await directory();
     await fs.cp(path.join(root, "module/dist"), outside, { recursive: true });

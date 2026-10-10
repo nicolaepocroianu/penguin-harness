@@ -11,6 +11,15 @@
  */
 import type { Browser, LaunchOptions, Page } from "playwright-core";
 
+/**
+ * What the test browser is started with to play an activity. Headless Chromium keeps audio
+ * from starting until a person taps the page; the WAF framework then pauses "for audio
+ * recovery" and its pause overlay takes every tap, so a played activity looks stuck at its
+ * first choice. Letting media start without a gesture plays it as a learner's device does
+ * once they have tapped in.
+ */
+export const PLAYER_BROWSER_ARGS = ["--autoplay-policy=no-user-gesture-required"];
+
 /** The part of a Playwright browser a session uses. */
 export type SessionBrowser = Pick<Browser, "newContext" | "close">;
 
@@ -57,7 +66,12 @@ export async function openPage(
   options: OpenPageOptions,
 ): Promise<BrowserSession> {
   const launch = options.launcher ?? (await chromiumLauncher());
-  const browser = await launch({ executablePath, headless: true, timeout: options.timeoutMs });
+  const browser = await launch({
+    executablePath,
+    headless: true,
+    args: PLAYER_BROWSER_ARGS,
+    timeout: options.timeoutMs,
+  });
   let closed: Promise<void> | null = null;
   const close = () => (closed ??= browser.close().catch(() => {}));
   try {

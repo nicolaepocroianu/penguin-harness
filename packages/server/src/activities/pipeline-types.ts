@@ -45,6 +45,8 @@ export type PipelineNote =
   | "noSounds"
   /** The sound provider cannot be used by the chosen agent (no key, or no model). */
   | "soundProviderUnavailable"
+  /** The Media Agent has no image provider key, so no image can be drawn. */
+  | "imageProviderUnavailable"
   /** The specification says the activity has no assessment. */
   | "noAssessment"
   /** Only the canonical ref writes the assessment every ref shares. */

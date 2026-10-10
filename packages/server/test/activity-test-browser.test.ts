@@ -363,7 +363,13 @@ describe("browser session", () => {
     );
     expect(session.page).toBe(fake.page);
     expect(fake.calls.launch).toEqual([
-      { executablePath: "/browsers/chrome", headless: true, timeout: 5000 },
+      {
+        executablePath: "/browsers/chrome",
+        headless: true,
+        // Media starts without a tap, or the framework's audio-recovery pause takes every tap.
+        args: ["--autoplay-policy=no-user-gesture-required"],
+        timeout: 5000,
+      },
     ]);
     expect(fake.calls.viewport).toEqual({ width: 1024, height: 768 });
     expect(fake.calls.timeout).toBe(5000);

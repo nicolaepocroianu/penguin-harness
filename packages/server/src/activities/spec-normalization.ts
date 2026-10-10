@@ -15,6 +15,24 @@
 
 type Json = Record<string, unknown>;
 
+/**
+ * Rewrites the sound tags authors reach for into the audio tags the stages read:
+ * `<sound>...</sound>` and `<sfx>...</sfx>` become a one-shot `<audio kind="sfx">`, and
+ * `<music>...</music>` looping `<audio kind="music" loop="true">`, as is a `<sound>` whose prompt
+ * asks for music. Without this the spec stage, told that only <audio>, <image>, <animation> and
+ * <video> count, dropped them without a word. Only applied to what a run is given; the
+ * author's saved description is left as written.
+ */
+export function normalizeMediaTags(description: string): string {
+  const music = (prompt: string) => `<audio kind="music" loop="true">${prompt}</audio>`;
+  return description
+    .replace(/<music>([\s\S]*?)<\/music>/gi, (_tag, prompt: string) => music(prompt))
+    .replace(/<sound>([\s\S]*?)<\/sound>/gi, (_tag, prompt: string) =>
+      /\bmusic\b/i.test(prompt) ? music(prompt) : `<audio kind="sfx">${prompt}</audio>`,
+    )
+    .replace(/<sfx>([\s\S]*?)<\/sfx>/gi, '<audio kind="sfx">$1</audio>');
+}
+
 export interface SpecAsset {
   key: string;
   description: string;
@@ -149,7 +167,8 @@ const ENTITIES: Record<string, string> = {
 function unescapeHtml(value: string): string {
   return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, entity: string) => {
     if (entity[0] === "#") {
-      const code = entity[1]?.toLowerCase() === "x" ? parseInt(entity.slice(2), 16) : Number(entity.slice(1));
+      const code =
+        entity[1]?.toLowerCase() === "x" ? parseInt(entity.slice(2), 16) : Number(entity.slice(1));
       return Number.isFinite(code) ? String.fromCodePoint(code) : whole;
     }
     return ENTITIES[entity.toLowerCase()] ?? whole;

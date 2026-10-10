@@ -19,7 +19,9 @@
  * one are written again rather than reused.
  */
 
-export const HARNESS_VERSION = 1;
+import { PLAYER_BROWSER_ARGS } from "./browser-session.js";
+
+export const HARNESS_VERSION = 2;
 
 export const ACCEPTANCE_INPUT_FILE = "acceptance-input.json";
 export const ACCEPTANCE_HARNESS_FILE = "activity-harness.mjs";
@@ -34,6 +36,7 @@ export const TEST_FILE_MAX_BYTES = 256 * 1024;
 
 export const activityHarnessSource = `// Penguin's acceptance harness: drive the played activity in the test browser.
 // Tests import only from this file. Do not edit it.
+import { AsyncLocalStorage } from "node:async_hooks";
 import fs from "node:fs";
 
 const input = JSON.parse(
@@ -49,6 +52,8 @@ export const DEFAULT_TIMEOUT_MS = 15000;
 
 const registered = [];
 const open = new Set();
+/** The activities the check running in this async context opened, so each check closes its own. */
+const checkScope = new AsyncLocalStorage();
 let browser = null;
 
 /**
@@ -104,6 +109,21 @@ class Activity {
       await pause.click();
       await pause.waitFor({ state: "hidden", timeout: timeoutMs });
     }
+  }
+
+  /**
+   * Pauses the activity as a learner's pause key does (the player's Shift+P), and waits until
+   * the framework's pause overlay shows.
+   */
+  async pause(timeoutMs = DEFAULT_TIMEOUT_MS) {
+    await this.page.keyboard.press("Shift+P");
+    await this.page.locator("#pauseOverlay").first().waitFor({ state: "visible", timeout: timeoutMs });
+  }
+
+  /** Resumes a paused activity with the same key, and waits until the pause overlay is gone. */
+  async resume(timeoutMs = DEFAULT_TIMEOUT_MS) {
+    await this.page.keyboard.press("Shift+P");
+    await this.page.locator("#pauseOverlay").first().waitFor({ state: "hidden", timeout: timeoutMs });
   }
 
   /** The current state: { state, sceneId, phase, index, interactive }. */
@@ -214,6 +234,7 @@ class Activity {
 
   async close() {
     open.delete(this);
+    checkScope.getStore()?.delete(this);
     await this.context.close().catch(() => {});
   }
 }
@@ -226,6 +247,7 @@ export async function openActivity({ url = input.playUrl, viewport = input.viewp
   page.setDefaultTimeout(DEFAULT_TIMEOUT_MS);
   const activity = new Activity(page, context);
   open.add(activity);
+  checkScope.getStore()?.add(activity);
   const target = new URL(url);
   if (scene) target.searchParams.set("scene", scene);
   if (language) target.searchParams.set("language", language);
@@ -241,6 +263,17 @@ export const runner = {
   },
   registered: () => [...registered],
   isSkip: (error) => error instanceof Skipped,
+  /** Runs one check, then closes the activities it opened, whatever other checks are doing. */
+  run(fn) {
+    const owned = new Set();
+    return checkScope.run(owned, async () => {
+      try {
+        return await fn();
+      } finally {
+        for (const activity of [...owned]) await activity.close();
+      }
+    });
+  },
   async closeAll() {
     for (const activity of [...open]) await activity.close();
   },
@@ -257,6 +290,11 @@ const input = JSON.parse(
   fs.readFileSync(new URL("./${ACCEPTANCE_INPUT_FILE}", import.meta.url), "utf8"),
 );
 const CHECK_TIMEOUT_MS = 120000;
+/**
+ * Checks run side by side, each in its own browser context: they play media in real time, so
+ * one after another they took minutes. Few enough that a slow machine keeps its timing.
+ */
+const PARALLEL_CHECKS = 3;
 
 function withTimeout(promise) {
   let timer;
@@ -278,7 +316,11 @@ const message = (error) =>
 
 let browser;
 try {
-  browser = await chromium.launch({ executablePath: input.browserPath, headless: true });
+  browser = await chromium.launch({
+    executablePath: input.browserPath,
+    headless: true,
+    args: ${JSON.stringify(PLAYER_BROWSER_ARGS)},
+  });
   runner.attach(browser);
   await import("./${ACCEPTANCE_TEST_FILE}");
 } catch (error) {
@@ -287,23 +329,30 @@ try {
   process.exit(1);
 }
 
-const results = [];
-for (const entry of runner.registered()) {
-  const started = performance.now();
-  let status = "passed";
-  let error = null;
-  try {
-    await withTimeout(Promise.resolve().then(() => entry.fn()));
-  } catch (caught) {
-    status = runner.isSkip(caught) ? "skipped" : "failed";
-    error = message(caught).slice(0, 2000);
-  } finally {
-    await runner.closeAll();
+const entries = runner.registered();
+// In registration order, however the checks finish.
+const results = new Array(entries.length);
+let next = 0;
+async function worker() {
+  while (next < entries.length) {
+    const index = next++;
+    const entry = entries[index];
+    const started = performance.now();
+    let status = "passed";
+    let error = null;
+    try {
+      await withTimeout(runner.run(() => entry.fn()));
+    } catch (caught) {
+      status = runner.isSkip(caught) ? "skipped" : "failed";
+      error = message(caught).slice(0, 2000);
+    }
+    const durationMs = Math.max(0, Math.round(performance.now() - started));
+    results[index] = { criterion: entry.criterion, testName: entry.testName, status, durationMs, error };
+    console.log(status.toUpperCase() + "  " + entry.testName + (error ? "  - " + error : ""));
   }
-  const durationMs = Math.max(0, Math.round(performance.now() - started));
-  results.push({ criterion: entry.criterion, testName: entry.testName, status, durationMs, error });
-  console.log(status.toUpperCase() + "  " + entry.testName + (error ? "  - " + error : ""));
 }
+await Promise.all(Array.from({ length: Math.min(PARALLEL_CHECKS, entries.length) }, worker));
+await runner.closeAll();
 await browser.close().catch(() => {});
 fs.writeFileSync(
   new URL("./${ACCEPTANCE_RESULTS_FILE}", import.meta.url),
@@ -322,7 +371,9 @@ export const HARNESS_API = `The harness (${ACCEPTANCE_HARNESS_FILE}) exports:
 - activity.state() -> { state, sceneId, phase, index, interactive }; activity.history() and activity.mediaHistory() list the states and media events so far.
 - activity.waitForState(name, { timeoutMs?, afterIndex? }); activity.waitForMedia(key, { kind?: "audio" | "video", status?: "started" | "completed" | "interrupted" | "failed" | "unavailable", timeoutMs?, afterIndex? }).
 - activity.interactables() -> [{ id, inputType, description? }]; activity.tap(id), activity.hold(id, ms), activity.drag(id, toId) act on those tap targets like a learner.
+- activity.pause() and activity.resume() pause and resume the activity as the learner's pause key does, waiting for the framework's pause overlay to show and to go; check pause and resume with these, not with events of your own.
 - activity.page is the Playwright page, for reading what is on screen.
+- To look into the activity outside a check, use openActivity too. A Chromium you launch yourself must be given ${PLAYER_BROWSER_ARGS.join(" ")}, or the framework pauses for audio and its pause overlay takes every tap.
 - expect(condition, message) fails the check with message; skip(reason) marks a criterion that cannot be checked by playing the activity (for example the style of the art) as skipped.`;
 
 /** What a test run's agent is asked to do when no earlier tests fit. */

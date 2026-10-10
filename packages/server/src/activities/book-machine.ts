@@ -2,12 +2,17 @@ import { interpretBookScenes, type BookScene } from "./book.js";
 
 export const BOOK_COMPLETE_EVENT = "BOOK.COMPLETED";
 export const BOOK_READING_STATE = "reading";
+/**
+ * The reader's one phase. waf-state-machine reports every state as <scene-id>.<phase> and
+ * refuses a bare "reading", so the reader's scene is a compound state with this leaf.
+ */
+export const BOOK_READING_PHASE = "ready";
 export const INTRO_VIDEO_KEY = "book-intro-video";
 
 /**
  * The one book machine, shared by the ref specification and the product
  * configuration so a generated module cannot present two different lifecycles.
- * The reader owns the `reading` state for its whole lifetime; completion sends
+ * The reader owns the `reading.ready` state for its whole lifetime; completion sends
  * `BOOK.COMPLETED` once, and the final action must not remove the reader view
  * because Previous and rereading survive activity completion.
  */
@@ -21,7 +26,8 @@ export function bookStateMachineDefinition(activityId: string): Record<string, u
       [BOOK_READING_STATE]: {
         description:
           "Native book reader: optional intro video, artwork and story narration, page navigation, reading delays and word taps.",
-        entry: { type: "enterReader" },
+        initial: BOOK_READING_PHASE,
+        states: { [BOOK_READING_PHASE]: { entry: { type: "enterReader" } } },
         on: {
           [BOOK_COMPLETE_EVENT]: { target: `#${activityId}.activity.complete` },
         },

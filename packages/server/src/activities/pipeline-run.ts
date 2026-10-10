@@ -31,7 +31,8 @@
  * it in the generation history either way. A step that fails stops the sequence; nothing is
  * rolled back, and nothing after it runs.
  */
-import { isBookWord } from "./book-words.js";
+import { isBookWord, wordsMissingPhonemes } from "./book-words.js";
+import { PHONEMES_RUN_MAX_WORDS } from "./phonemes-run.js";
 import { speechModelFor } from "./audio.js";
 import { KOKORO_VOICES } from "./local-audio-models.js";
 import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
@@ -602,13 +603,31 @@ export class PipelineRunner {
         );
         step.detail = target.assetKey;
         const before = await current();
-        const run = await generation.start(
-          projectId,
-          activityId,
-          input.agentId,
-          before.draft.contentRevision,
-          step.step === "speech" ? { audio: { ...target, voice } } : { image: target },
-        );
+        let run: ActivityRun;
+        try {
+          run = await generation.start(
+            projectId,
+            activityId,
+            input.agentId,
+            before.draft.contentRevision,
+            step.step === "speech" ? { audio: { ...target, voice } } : { image: target },
+          );
+        } catch (error) {
+          // No image provider key: the images are left unbound, as missing sounds are, and the
+          // module stage still runs and reports them missing.
+          if (
+            step.step === "images" &&
+            step.done === 0 &&
+            error instanceof HttpError &&
+            error.code === "image_credential_missing"
+          ) {
+            step.status = "skipped";
+            step.note = "imageProviderUnavailable";
+            step.detail = null;
+            return;
+          }
+          throw error;
+        }
         await this.follow(state, step, run);
         const after = await current();
         if (step.step === "speech")
@@ -632,7 +651,7 @@ export class PipelineRunner {
     }
 
     if (step.step === "words") {
-      await this.recordWords(state, step, input);
+      await this.recordWords(state, step, input, runtime);
       return;
     }
 
@@ -778,7 +797,12 @@ export class PipelineRunner {
    * that names no provider is spoken by ElevenLabs when the agent can use it, else by Gemini,
    * and keeps that choice; its script is made for the provider before anything is recorded.
    */
-  private async recordWords(state: PipelineState, step: PipelineStepState, input: PipelineInput) {
+  private async recordWords(
+    state: PipelineState,
+    step: PipelineStepState,
+    input: PipelineInput,
+    runtime?: { codingAgentId: string },
+  ) {
     const { projectId, activityId } = state;
     const { activities, generation } = this.deps;
     const current = () => activities.getActivity(projectId, activityId);
@@ -800,10 +824,42 @@ export class PipelineRunner {
     }
     if (!manifest) throw new Error("Plan media before recording the book's words.");
     validateSpeechLanguages(manifest, { ...input, selection: "words" });
-    const waiting = inScope(unrecordedWithSounds(manifest), input.scope);
+    // For each language, the words are planned from the book's text first, with espeak-ng's
+    // sounds, as the Book words panel's refresh does: a book taken through every stage has none
+    // planned before. Words espeak-ng could not sound out (or every word, where it is not
+    // installed) then get the sounds the stage's agent proposes, as the panel's "ask the
+    // model" does, accepted as they come: a word without sounds cannot be recorded at all.
+    const languages = input.scope?.language ? [input.scope.language] : Object.keys(manifest.assets);
+    const revision = async () => (await current()).draft.contentRevision;
+    for (const language of languages) {
+      step.detail = language;
+      await activities.refreshBookWords(
+        projectId,
+        activityId,
+        language,
+        await revision(),
+        "decodable",
+      );
+      const group = (await current()).draft.mediaPlan!.manifest.assets[language] ?? [];
+      const missing = wordsMissingPhonemes(group).slice(0, PHONEMES_RUN_MAX_WORDS);
+      if (!missing.length) continue;
+      const run = await generation.start(
+        projectId,
+        activityId,
+        input.agentId,
+        await revision(),
+        { phonemes: { language, words: missing } },
+        runtime,
+      );
+      await this.follow(state, step, run);
+      await generation.acceptPhonemes(projectId, activityId, run.runId, await revision());
+    }
+    step.detail = null;
+    const planned = (await current()).draft.mediaPlan!.manifest;
+    const waiting = inScope(unrecordedWithSounds(planned), input.scope);
     if (!waiting.length) {
       step.status = "skipped";
-      step.note = inScope(unrecordedWithoutSounds(manifest), input.scope).length
+      step.note = inScope(unrecordedWithoutSounds(planned), input.scope).length
         ? "wordsMissingSounds"
         : "noWords";
       return;
@@ -818,7 +874,7 @@ export class PipelineRunner {
       projectId,
       activityId,
       fallback,
-      activity.draft.contentRevision,
+      (await current()).draft.contentRevision,
       input.scope?.language,
     );
     const ready = prepared.mediaPlan!.manifest;
