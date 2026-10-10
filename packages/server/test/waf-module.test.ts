@@ -200,7 +200,7 @@ describe("native WAF module boundary", () => {
     expect(JSON.parse(files["generated/P/refs/P-12/spec/state-machine.json"]!)).toMatchObject({
       initial: "reading",
       states: {
-        reading: { entry: { type: "enterReader" } },
+        reading: { initial: "ready", states: { ready: { entry: { type: "enterReader" } } } },
       },
     });
     expect(files["configurations/P-12.json"]).toBeDefined();
