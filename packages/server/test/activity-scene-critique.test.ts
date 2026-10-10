@@ -125,13 +125,34 @@ describe("scene critique", () => {
     expect(await refused(undefined)).toContain("without critique.json");
     expect(await refused({ unseen: true })).toContain("could not see the stills");
     expect(await refused({ scores: { ...scores, motion: 6 }, fixes: [] })).toContain("motion");
-    expect(await refused({ scores, fixes: Array(9).fill("Fix it.") })).toContain("at most 8");
+    expect(await refused({ scores, fixes: "Fix it." })).toContain("list of sentences");
     expect(
       await refused({
         scores: { story: 2, layout: 2, readability: 3, motion: 2, learners: 3 },
         fixes: [],
       }),
     ).toContain("listed nothing to fix");
+  });
+
+  it("keeps a wordy critique: the first eight fixes, each cut to a readable length", async () => {
+    const dir = await workspace();
+    await fs.writeFile(
+      path.join(dir, CRITIQUE_OUTPUT_FILE),
+      JSON.stringify({
+        scores,
+        fixes: [...Array(9).fill("Fix it."), "", `${"word ".repeat(200)}end`],
+      }),
+    );
+    const kept = await collectCritique(dir, target);
+    expect(kept.fixes).toHaveLength(8);
+    const long = await workspace();
+    await fs.writeFile(
+      path.join(long, CRITIQUE_OUTPUT_FILE),
+      JSON.stringify({ scores, fixes: [`${"word ".repeat(200)}end`] }),
+    );
+    const [fix] = (await collectCritique(long, target)).fixes;
+    expect(fix!.length).toBeLessThanOrEqual(601);
+    expect(fix!.endsWith("word…")).toBe(true);
   });
 
   it("words the fixes for the agent composing again", () => {

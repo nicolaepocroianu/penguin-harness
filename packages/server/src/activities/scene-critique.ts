@@ -21,8 +21,9 @@ export const CRITIQUE_OUTPUT_FILE = "critique.json";
 export const CRITIQUE_STILLS_DIR = "stills";
 /** The score at which a scene is good enough, on the rubric's 1 to 5. */
 export const CRITIQUE_GOOD = 4;
-/** The most fixes a critique lists. */
+/** The most fixes a critique lists, and the longest a fix is kept. */
 export const CRITIQUE_MAX_FIXES = 8;
+export const CRITIQUE_FIX_MAX_CHARS = 600;
 /** The rubric, in the order the agent scores it. */
 export const CRITIQUE_RUBRIC = ["story", "layout", "readability", "motion", "learners"] as const;
 
@@ -146,15 +147,18 @@ export async function collectCritique(
       throw new CritiqueProblem(`The critique's ${key} score must be a whole number from 1 to 5.`);
     scores[key] = score;
   }
-  if (
-    !Array.isArray(value.fixes) ||
-    value.fixes.length > CRITIQUE_MAX_FIXES ||
-    value.fixes.some((fix) => typeof fix !== "string" || !fix.trim() || fix.length > 400)
-  )
-    throw new CritiqueProblem(
-      `The critique's fixes must be a list of at most ${CRITIQUE_MAX_FIXES} sentences.`,
+  if (!Array.isArray(value.fixes) || value.fixes.some((fix) => typeof fix !== "string"))
+    throw new CritiqueProblem("The critique's fixes must be a list of sentences.");
+  // A wordy critique is still a critique: the first fixes count, each cut to a readable length.
+  const fixes = (value.fixes as string[])
+    .map((fix) => fix.trim())
+    .filter(Boolean)
+    .slice(0, CRITIQUE_MAX_FIXES)
+    .map((fix) =>
+      fix.length > CRITIQUE_FIX_MAX_CHARS
+        ? `${fix.slice(0, fix.lastIndexOf(" ", CRITIQUE_FIX_MAX_CHARS)).trimEnd()}…`
+        : fix,
     );
-  const fixes = (value.fixes as string[]).map((fix) => fix.trim());
   const score = critiqueScore(scores);
   if (!fixes.length && score < CRITIQUE_GOOD)
     throw new CritiqueProblem("The critique scored the scene low but listed nothing to fix.");
