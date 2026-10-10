@@ -12,7 +12,8 @@ export const LOCAL_AUDIO_WORKER = String.raw`(async () => {
       const runtime = await import(moduleUrl);
       const { pipeline, env } = runtime.default ?? runtime;
       env.cacheDir = cacheDir;
-      const asr = await pipeline("automatic-speech-recognition", model, { cache_dir: cacheDir, device: "cpu" });
+      // 8-bit weights: about 77 MB to download instead of about 291 MB at full precision.
+      const asr = await pipeline("automatic-speech-recognition", model, { cache_dir: cacheDir, device: "cpu", dtype: "q8" });
       try {
         const pcm = workerData.pcm;
         const samples = new Float32Array(pcm.buffer, pcm.byteOffset, Math.floor(pcm.byteLength / 4));
