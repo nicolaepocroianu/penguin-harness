@@ -83,6 +83,7 @@ import {
   PLAYER_CHECK_DIR,
   prepareModule,
   collectModule,
+  restoreApprovedManifest,
   moduleBookClause,
   MODULE_PACKAGES,
   modulePackagesClause,
@@ -2731,6 +2732,9 @@ export class ActivityGenerationService implements ActivityGeneration {
                     "module/src/book-reader/model.ts",
                     "module/src/book-reader/controller.ts",
                   );
+                // Only the plan the run was given: a later one is a conflict, refused below.
+                if (input.draft.contentRevision === run.inputRevision)
+                  await restoreApprovedManifest(this.workspace(run), input);
                 await syncAssembledStateMachine(this.workspace(run), input, run.bookMode);
                 const result = await collectModule(
                   this.workspace(run),

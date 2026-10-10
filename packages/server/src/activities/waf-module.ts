@@ -528,6 +528,26 @@ export async function verifyMediaArtifacts(
  * The run may have completed `spec/state-machine.json`, and the runtime boots from the
  * configuration's copy. A book's reader machine is fixed and checked as it is.
  */
+/**
+ * Writes the approved media manifest back over the module's copy. The scaffold ships it
+ * already, from the approved media plan, and nothing in the module may change it: an agent
+ * that rewrote it (from input.json's draft shape, say) had its whole run refused after it had
+ * built and checked the module. The manifest is the server's data, so it is restored instead.
+ */
+export async function restoreApprovedManifest(
+  workspace: string,
+  activity: ActivityDetail,
+): Promise<void> {
+  if (!activity.draft.mediaPlan) return;
+  const file = path.join(
+    workspace,
+    `module/generated/${activity.productCode}/refs/${activity.productCode}-${activity.refNum}/spec/asset_manifest.json`,
+  );
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  const manifest = wafManifest(validateManifest(activity.draft.mediaPlan.manifest, activity));
+  await fs.writeFile(file, JSON.stringify(manifest, null, 2) + "\n");
+}
+
 export async function syncAssembledStateMachine(
   workspace: string,
   activity: ActivityDetail,
@@ -637,7 +657,7 @@ The module/ directory contains the native WAF scaffold. Read waf-context.json fo
 Before implementing, read the WAF skills in skills/, in the order skills/README.md lists them, and follow them. Where a skill and this message disagree, this message wins. Do not copy skills/ into module/.
 If input.json contains draft.mediaPlan, its manifest and language-specific configuration are approved inputs. Preserve their keys, scripts and paths; do not invent replacements. Paths are relative to wafRoot except assets carrying generatedAudio, generatedImage or generatedVideo and uploaded assets (a path containing /uploads/): their approved bytes have already been copied into this Session's workspace at the same path. Verify bound files and keep the {{MEDIA}} token in the configuration: Penguin's player resolves it to this draft's accepted media and the checkout's media. Assets without paths remain unbound: report them explicitly and do not claim complete media. A binding is a reference, not proof of file availability.
 Work only in this Session workspace. Treat the shared WAF checkout as read-only. Do not modify shared modules or run Loom's pipeline/server. Do not delegate.
-Implement the actual learning interactions and feedback in module/src, preserving waf-state-machine, WAF lifecycle, Interactable input and cleanup. Complete the ref configuration, asset manifest and state machine for the input productCode/refNum. Use existing media when available; report missing media explicitly, never invent successful generation. A video or sound that fails to play is reported through the media lifecycle and the activity moves on; it never leaves a state waiting forever.
+Implement the actual learning interactions and feedback in module/src, preserving waf-state-machine, WAF lifecycle, Interactable input and cleanup. Complete the ref configuration and state machine for the input productCode/refNum. When input.json has draft.mediaPlan, the ref's asset_manifest.json is already written from it in WAF's format and is restored as written after you finish: read it, do not rewrite it. Use existing media when available; report missing media explicitly, never invent successful generation. A video or sound that fails to play is reported through the media lifecycle and the activity moves on; it never leaves a state waiting forever.
 Use normal Harness approvals for installing dependencies and running commands. Run module typecheck and buildDebug in module/; record real command output in module/build.log. Do not publish or deploy packages.
 This workspace is not a git repository. module/package.json declares "type": "module", so a script run inside module/ uses import, not require (or is named .cjs). The typed contracts you implement against are module/node_modules/waf-state-machine/dist/index.d.ts and the files it re-exports, and module/node_modules/input-manager-system/README.md; read them rather than listing whole package or framework trees.
 Check the built module in Penguin's player, which runs module/dist/debug in the real WAF framework with the navbar, this draft's media and an emulated configuration and assessment backend, and rebuilds the module first when module/src, module/res or module/generated changed. Do not write a preview page or a stand-in WAF runtime of your own. ${PLAYER_CHECK_DIR}/ holds the check: ${ACCEPTANCE_INPUT_FILE} (the play link for this run's module, the viewport, the scene ids and the acceptance criteria), the harness ${ACCEPTANCE_HARNESS_FILE}, the runner ${ACCEPTANCE_RUNNER_FILE} and a package.json pinning playwright-core. Do not edit them.
