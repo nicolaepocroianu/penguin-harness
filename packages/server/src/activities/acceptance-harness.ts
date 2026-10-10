@@ -19,6 +19,8 @@
  * one are written again rather than reused.
  */
 
+import { PLAYER_BROWSER_ARGS } from "./browser-session.js";
+
 export const HARNESS_VERSION = 1;
 
 export const ACCEPTANCE_INPUT_FILE = "acceptance-input.json";
@@ -278,7 +280,11 @@ const message = (error) =>
 
 let browser;
 try {
-  browser = await chromium.launch({ executablePath: input.browserPath, headless: true });
+  browser = await chromium.launch({
+    executablePath: input.browserPath,
+    headless: true,
+    args: ${JSON.stringify(PLAYER_BROWSER_ARGS)},
+  });
   runner.attach(browser);
   await import("./${ACCEPTANCE_TEST_FILE}");
 } catch (error) {
@@ -323,6 +329,7 @@ export const HARNESS_API = `The harness (${ACCEPTANCE_HARNESS_FILE}) exports:
 - activity.waitForState(name, { timeoutMs?, afterIndex? }); activity.waitForMedia(key, { kind?: "audio" | "video", status?: "started" | "completed" | "interrupted" | "failed" | "unavailable", timeoutMs?, afterIndex? }).
 - activity.interactables() -> [{ id, inputType, description? }]; activity.tap(id), activity.hold(id, ms), activity.drag(id, toId) act on those tap targets like a learner.
 - activity.page is the Playwright page, for reading what is on screen.
+- To look into the activity outside a check, use openActivity too. A Chromium you launch yourself must be given ${PLAYER_BROWSER_ARGS.join(" ")}, or the framework pauses for audio and its pause overlay takes every tap.
 - expect(condition, message) fails the check with message; skip(reason) marks a criterion that cannot be checked by playing the activity (for example the style of the art) as skipped.`;
 
 /** What a test run's agent is asked to do when no earlier tests fit. */
