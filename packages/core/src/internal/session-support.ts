@@ -59,7 +59,14 @@ export function formatSessionId(date: Date = new Date()): string {
 export function sessionEnvironment(
   workspaceDir: string,
   sessionId: string,
-  ids: { agentId: string; projectDir: string; provider: string; modelId: string },
+  ids: {
+    agentId: string;
+    projectDir: string;
+    provider: string;
+    modelId: string;
+    /** The Session runs its commands confined, and so in the confined shell. */
+    confined?: boolean;
+  },
   date = new Date(),
 ): SessionEnvironment {
   return {
@@ -73,9 +80,10 @@ export function sessionEnvironment(
     modelId: ids.modelId,
     platform: process.platform,
     osVersion: getOsVersion(),
-    // The shell exec_command actually runs, resolved once per process on every platform: the
-    // model must know whether to write bash, PowerShell or plain POSIX syntax.
-    shell: sessionShell().name,
+    // The shell exec_command actually runs, resolved once per process on every platform (a
+    // confined Session's own on Windows): the model must know whether to write bash,
+    // PowerShell or plain POSIX syntax.
+    shell: sessionShell(ids.confined === true).name,
     date: formatLocalDate(date),
   };
 }

@@ -6,6 +6,7 @@ import { access, chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Environment, ManagedSession } from "../src/environment/index.js";
+import { sessionShell } from "../src/environment/tools/command/shell.js";
 import { toolCall } from "../src/omnimessage/index.js";
 import type { OmniMessage } from "../src/omnimessage/index.js";
 import type {
@@ -545,6 +546,29 @@ describe("confineSpawn seam rewrites the exact argv a command spawns", () => {
     expect(res.output).toContain('[spawn error: sandbox mode "workspace-write"');
     // Fail-closed means the command never executed — not even unconfined.
     await expect(access(path.join(tmp, "confine-leak.txt"))).rejects.toThrow();
+  });
+
+  it("a Session with a confinement floor spawns with the shell that starts in a sandbox", async () => {
+    const floored = new Environment({
+      workspaceDir: tmp,
+      toolConfig: sessionConfig(),
+      confineSpawn: () => confiner,
+      sandboxMode: "workspace-write",
+    });
+    const shells: string[] = [];
+    confiner = (argv) => {
+      shells.push(argv[0]!);
+      return argv;
+    };
+    try {
+      const res = await runTool(floored, "exec_command", { cmd: "echo floored-run" });
+      expect(res.output).toContain("floored-run");
+      await runTool(confinedEnv, "exec_command", { cmd: "echo plain-run" });
+      // On Windows these differ (PowerShell for the floored Session); elsewhere both are bash.
+      expect(shells).toEqual([sessionShell(true).command, sessionShell().command]);
+    } finally {
+      floored.dispose();
+    }
   });
 
   it("the getter is re-read at every spawn, so a hot-swapped confiner needs no new Environment", async () => {

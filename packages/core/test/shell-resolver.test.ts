@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { resolveShell } from "../src/environment/tools/command/shell.js";
+import { resolveConfinedShell, resolveShell } from "../src/environment/tools/command/shell.js";
 
 const POWERSHELL_ARGS = ["-NoLogo", "-NoProfile", "-Command"];
 
@@ -173,7 +173,12 @@ describe("resolveShell — win32 probing", () => {
         pwsh: ["C:\\Program Files\\PowerShell\\7\\pwsh.exe"],
       }),
     });
-    expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash" });
+    // By its absolute path: a sandbox runner's CreateProcess would find WSL's bash first.
+    expect(shell).toEqual({
+      command: "C:\\Program Files\\Git\\bin\\bash.exe",
+      args: ["-lc"],
+      name: "bash",
+    });
   });
 
   it("skips the WSL launcher bash under the system root and falls through to pwsh", () => {
@@ -309,7 +314,11 @@ describe("resolveShell — the bundled MinGit bash (PENGUIN_BUNDLED_SHELL)", () 
       whichAll: which({ bash: ["C:\\Program Files\\Git\\bin\\bash.exe"] }),
       exists: bundledExists,
     });
-    expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash" });
+    expect(shell).toEqual({
+      command: "C:\\Program Files\\Git\\bin\\bash.exe",
+      args: ["-lc"],
+      name: "bash",
+    });
   });
 
   it("beats pwsh and powershell — the point of bundling is that neither is reached", () => {
@@ -358,5 +367,61 @@ describe("resolveShell — the bundled MinGit bash (PENGUIN_BUNDLED_SHELL)", () 
       exists: () => true,
     });
     expect(shell.name).toBe("powershell");
+  });
+});
+
+describe("resolveConfinedShell — the shell a sandboxed Session runs", () => {
+  const PWSH = "C:\\Program Files\\PowerShell\\7\\pwsh.exe";
+  const GIT_BASH = "C:\\Program Files\\Git\\bin\\bash.exe";
+
+  it("is never bash on Windows: PowerShell 7 by absolute path, even with Git Bash on PATH", () => {
+    const shell = resolveConfinedShell({
+      platform: "win32",
+      env: {},
+      whichAll: which({ bash: [GIT_BASH], pwsh: [PWSH] }),
+    });
+    expect(shell).toEqual({ command: PWSH, args: POWERSHELL_ARGS, name: "pwsh" });
+  });
+
+  it("falls back to Windows PowerShell, by its path when PATH finds it", () => {
+    const winPs = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+    expect(
+      resolveConfinedShell({
+        platform: "win32",
+        env: {},
+        whichAll: which({ bash: [GIT_BASH], powershell: [winPs] }),
+      }),
+    ).toEqual({ command: winPs, args: POWERSHELL_ARGS, name: "powershell" });
+    expect(resolveConfinedShell({ platform: "win32", env: {}, whichAll: which({}) })).toEqual({
+      command: "powershell",
+      args: POWERSHELL_ARGS,
+      name: "powershell",
+    });
+  });
+
+  it("honours a PENGUIN_SHELL that can start in a sandbox, and ignores one that cannot", () => {
+    expect(
+      resolveConfinedShell({
+        platform: "win32",
+        env: { PENGUIN_SHELL: "cmd" },
+        whichAll: which({}),
+      }),
+    ).toEqual({ command: "cmd", args: ["/d", "/s", "/c"], name: "cmd" });
+    expect(
+      resolveConfinedShell({
+        platform: "win32",
+        env: { PENGUIN_SHELL: GIT_BASH },
+        whichAll: which({ pwsh: [PWSH] }),
+      }).name,
+    ).toBe("pwsh");
+  });
+
+  it("is the ordinary shell everywhere but Windows", () => {
+    const opts = {
+      platform: "linux" as const,
+      env: { PATH: "/usr/bin:/bin" },
+      exists: has("/usr/bin/bash"),
+    };
+    expect(resolveConfinedShell(opts)).toEqual(resolveShell(opts));
   });
 });

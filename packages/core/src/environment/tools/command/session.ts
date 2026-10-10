@@ -80,6 +80,8 @@ export interface SpawnOptions {
    * is spawned exactly as given.
    */
   pathPrepend?: readonly string[];
+  /** The Session runs its commands confined: spawn with the shell that starts in a sandbox. */
+  confined?: boolean;
   /**
    * Sandbox-confinement seam: receives the exact argv about to be spawned and returns
    * the argv to spawn instead. A throw aborts the spawn — fail-closed — and surfaces as
@@ -114,7 +116,7 @@ export class ManagedSession {
   constructor(opts: SpawnOptions) {
     this.cmd = opts.cmd;
     this.cwd = opts.cwd;
-    const shell = sessionShell();
+    const shell = sessionShell(opts.confined === true);
     // `cmd` above keeps the command as the caller wrote it — it is what the host lists and
     // what the model is shown; only the string actually handed to the shell carries the
     // PATH statement in front of it.

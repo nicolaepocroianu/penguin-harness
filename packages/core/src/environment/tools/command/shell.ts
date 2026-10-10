@@ -208,10 +208,12 @@ export function resolveShell(opts: ResolveShellOptions = {}): ShellInvocation {
   const systemRoot = opts.systemRoot ?? env.SystemRoot ?? "C:\\Windows";
   // The WSL launcher lives in <SystemRoot>\System32 (or Sysnative under WOW64); a Git for
   // Windows bash lives under the Git install dir. Only the first PATH match counts — that
-  // is the one spawn("bash") would run.
+  // is the one spawn("bash") would run. It is spawned by that absolute path, not by name:
+  // a sandbox runner starts commands through CreateProcess, which searches System32 BEFORE
+  // PATH, so a bare "bash" there is the WSL launcher this check just refused.
   const bash = whichAll("bash")[0];
   if (bash && !bash.toLowerCase().startsWith(systemRoot.toLowerCase() + path.win32.sep)) {
-    return { command: "bash", args: ["-lc"], name: "bash" };
+    return { command: bash, args: ["-lc"], name: "bash" };
   }
   // Git for Windows with only its cmd folder on PATH (the installer's default): its bash is in
   // the bin folder of the install `git` resolves into (<install>\cmd\git.exe,
@@ -237,10 +239,48 @@ export function resolveShell(opts: ResolveShellOptions = {}): ShellInvocation {
   return { command: "powershell", args: argsForShell("powershell"), name: "powershell" };
 }
 
-let cached: ShellInvocation | null = null;
+/** Shells that are not built on the MSYS/Cygwin runtime, and so start inside a Windows sandbox. */
+const CONFINABLE_WINDOWS_SHELLS = new Set(["pwsh", "powershell", "cmd"]);
 
-/** The process-wide shell for command sessions; resolved once (probing PATH costs a subprocess on Windows). */
-export function sessionShell(): ShellInvocation {
+/**
+ * Resolves the shell for a Session whose commands run confined (see the Session's sandbox
+ * floor). Everywhere but Windows that is the ordinary shell. On Windows it is never bash:
+ * Git for Windows' and MinGit's bash run on the MSYS runtime, which cannot start under a
+ * restricted-token sandbox (its per-user shared memory is refused, "CreateFileMapping ...
+ * Win32 error 5"), and a bare `bash` there resolves to the WSL launcher in System32. So a
+ * `PENGUIN_SHELL` naming PowerShell or cmd is honoured, and otherwise it is `pwsh`, then
+ * `powershell` — by absolute path where PATH finds one, since a sandbox runner's
+ * CreateProcess does not search PATH first.
+ */
+export function resolveConfinedShell(opts: ResolveShellOptions = {}): ShellInvocation {
+  const platform = opts.platform ?? process.platform;
+  if (platform !== "win32") return resolveShell(opts);
+  const env = opts.env ?? process.env;
+  const explicit = env.PENGUIN_SHELL?.trim();
+  if (explicit && CONFINABLE_WINDOWS_SHELLS.has(shellBasename(explicit))) {
+    const name = shellBasename(explicit);
+    return { command: explicit, args: argsForShell(name), name };
+  }
+  const whichAll = opts.whichAll ?? defaultWhichAll;
+  for (const name of ["pwsh", "powershell"]) {
+    const found = whichAll(name)[0];
+    if (found) return { command: found, args: argsForShell(name), name };
+  }
+  return { command: "powershell", args: argsForShell("powershell"), name: "powershell" };
+}
+
+let cached: ShellInvocation | null = null;
+let cachedConfined: ShellInvocation | null = null;
+
+/**
+ * The shell for command sessions; resolved once per process (probing PATH costs a subprocess
+ * on Windows). `confined` picks the shell a sandboxed Session runs (resolveConfinedShell).
+ */
+export function sessionShell(confined = false): ShellInvocation {
+  if (confined) {
+    if (!cachedConfined) cachedConfined = resolveConfinedShell();
+    return cachedConfined;
+  }
   if (!cached) cached = resolveShell();
   return cached;
 }

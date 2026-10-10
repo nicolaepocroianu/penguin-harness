@@ -180,6 +180,7 @@ export class Environment implements EnvironmentInterface {
       ...(config.controlEnv !== undefined ? { controlEnv: config.controlEnv } : {}),
       ...(config.pathPrepend !== undefined ? { pathPrepend: config.pathPrepend } : {}),
       ...(config.confineSpawn !== undefined ? { confineSpawn: config.confineSpawn } : {}),
+      ...(config.sandboxMode !== undefined ? { sandboxMode: config.sandboxMode } : {}),
       workspaceDir: config.workspaceDir,
     });
     this.subagentSessions = new SubagentSessionManager();

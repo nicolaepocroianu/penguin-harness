@@ -341,6 +341,12 @@ export interface EnvironmentConfig {
    * default for SDK/CLI standalone use).
    */
   confineSpawn?: () => SpawnConfiner | null;
+  /**
+   * The Session's confinement floor (see {@link SessionSandboxMode}). The confiner receives it
+   * through `confineSpawn`; here it decides the shell, since on Windows bash cannot start
+   * inside a sandbox and a confined Session runs PowerShell instead.
+   */
+  sandboxMode?: SessionSandboxMode;
 }
 
 /**

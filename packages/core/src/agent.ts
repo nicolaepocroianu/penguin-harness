@@ -497,6 +497,7 @@ export class Agent {
             projectDir: projectDir(root, projectId),
             provider: spec.modelEntry.provider,
             modelId: spec.modelEntry.model_id,
+            confined: spec.sandboxMode !== undefined,
           }),
           Object.keys(vault),
           installedSkills,
@@ -1234,6 +1235,7 @@ export class Agent {
         : {}),
       ...(this.pathPrepend ? { pathPrepend: this.pathPrepend } : {}),
       ...(confineSpawn ? { confineSpawn } : {}),
+      ...(sandboxMode !== undefined ? { sandboxMode } : {}),
     });
 
     // The tool_call_id uniqueness registry is shared by every context's LLM object: its

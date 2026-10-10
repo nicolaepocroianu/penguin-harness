@@ -21,6 +21,11 @@ deployment's sandbox setting does not change: other Sessions run exactly as befo
   recorded for it.
 - A confined Session's npm keeps its cache in the Session's workspace, the only place its
   commands can write, so `npm install` still works there.
+- On Windows a confined Session runs its commands in PowerShell (PowerShell 7 where installed),
+  and its system prompt says so. Git Bash cannot start inside a Windows sandbox. A `PENGUIN_SHELL`
+  naming PowerShell or cmd is still honoured. Linux and macOS keep bash.
+- Git Bash is started by its full path on Windows. A sandbox looks in the Windows system folder
+  first, where a bare `bash` is the WSL launcher.
 - A subagent is held to its parent's limits: the same confinement floor and the same protected
   folders. Before, a subagent of an activity run could write to the checkout through its file
   tools.
