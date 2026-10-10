@@ -151,6 +151,7 @@ import {
   COMPOSITION_TEMPLATE_FILE,
   CompositionProblem,
   compositionInput,
+  findingForAgent,
   compositionProblem,
   compositionPrompt,
   compositionScene,
@@ -2075,6 +2076,18 @@ export class ActivityGenerationService implements ActivityGeneration {
       });
       bytes.push(content.bytes);
     }
+    // What the asset's newest recording was found to get wrong, for the agent to fix this time.
+    const recording = (await this.list(projectId, activityId)).find(
+      (run) =>
+        run.kind === "video" &&
+        run.status === "succeeded" &&
+        run.video?.language === input.language &&
+        run.video.assetKey === input.assetKey &&
+        !run.video.fromTimeline,
+    )?.video?.check;
+    const previous = recording
+      ? recording.findings.flatMap((finding) => findingForAgent(finding, recording) ?? [])
+      : [];
     return {
       scene,
       target: {
@@ -2086,6 +2099,7 @@ export class ActivityGenerationService implements ActivityGeneration {
         images,
       },
       bytes,
+      previous,
     };
   }
 
@@ -2569,12 +2583,17 @@ interface CompositionStage {
   scene: CompositionScene;
   target: CompositionTarget;
   bytes: Uint8Array[];
+  /** What the asset's newest recording was found to get wrong, as instructions to the agent. */
+  previous: string[];
 }
 
 /** Stages a composition run's input, template, scripts and images into its workspace. */
 async function stageComposition(workspace: string, stage: CompositionStage): Promise<void> {
   const { scene, target } = stage;
-  await atomicJson(path.join(workspace, COMPOSITION_INPUT_FILE), compositionInput(scene, target));
+  await atomicJson(
+    path.join(workspace, COMPOSITION_INPUT_FILE),
+    compositionInput(scene, target, stage.previous),
+  );
   await fs.writeFile(
     path.join(workspace, COMPOSITION_TEMPLATE_FILE),
     compositionTemplate(target.width, target.height),

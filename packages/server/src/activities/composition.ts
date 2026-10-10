@@ -16,6 +16,7 @@ import type { Opaque } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
 import { contentRevision, type ActivityDetail } from "./domain.js";
 import type { MediaAsset } from "./media.js";
+import type { VideoCheck, VideoCheckFinding } from "./video-types.js";
 import type {
   CompositionFrame,
   CompositionProblemCode,
@@ -152,8 +153,44 @@ export function sha256(bytes: Uint8Array | string): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+/** Seconds, as a finding tells the agent them. */
+function at(ms: number | undefined): string {
+  return String(Math.round((ms ?? 0) / 100) / 10);
+}
+
+/**
+ * What the final check of the scene's last recording found (see video-check.ts and
+ * layout-audit.ts), as instructions to the agent composing it again; null for what a fresh
+ * composition cannot change (sound, which a recording never has).
+ */
+export function findingForAgent(finding: VideoCheckFinding, check: VideoCheck): string | null {
+  const things = (finding.elements ?? []).join(" and ");
+  const when = `from ${at(finding.startMs)} s to ${at(finding.endMs)} s`;
+  switch (finding.code) {
+    case "layout_overlap":
+      return `${things} cover each other ${when}: move them apart, or mark the one meant to sit over the other with data-allow-overlap.`;
+    case "off_stage":
+      return `${things} reaches outside the stage ${when}: keep it inside.`;
+    case "small_text":
+      return `The text in ${things} is smaller than 28px ${when}: make it larger.`;
+    case "black":
+      return `The picture is black ${when}: show the scene there.`;
+    case "duration_off":
+      return `The timeline played for ${at(check.durationMs ?? 0)} s, which is not what frames.json adds up to: make the timeline last exactly as long as the frames say.`;
+    case "size_off":
+    case "unreadable":
+      return null;
+    default:
+      return null;
+  }
+}
+
 /** The input file the agent reads, as staged. */
-export function compositionInput(scene: CompositionScene, target: CompositionTarget) {
+export function compositionInput(
+  scene: CompositionScene,
+  target: CompositionTarget,
+  previousFindings: readonly string[] = [],
+) {
   return {
     sceneId: scene.sceneId,
     description: scene.description,
@@ -164,6 +201,7 @@ export function compositionInput(scene: CompositionScene, target: CompositionTar
     minSeconds: MIN_SECONDS,
     maxSeconds: MAX_SECONDS,
     images: target.images.map((image) => ({ key: image.key, file: image.file })),
+    ...(previousFindings.length ? { previousRecordingFindings: previousFindings } : {}),
   };
 }
 
@@ -301,6 +339,7 @@ How to make it, for young learners watching on a small screen:
 - Any text is at least 28px, in one font from the system font stack, with a contrast of at least 4.5:1 against what is behind it, and stays on screen for at least 2 seconds.
 - Animate only transforms and opacity (x, y, scale, rotation, opacity), never width, height, top or left. Use fromTo when an element starts from somewhere other than where its CSS puts it, give everything that rotates a transformOrigin, and never use repeat: -1.
 - Entrances ease out (power3.out, about 0.6 s), exits ease in, ambient movement uses sine.inOut, and bounces are only for playful moments. One idea per frame; the first and the last moment of the timeline are each a clear still picture. The timeline lasts exactly as long as the frames' seconds add up to: when the animation ends sooner, hold the last picture until then (for example timeline.to({}, { duration: 0.8 })).
+- When ${COMPOSITION_INPUT_FILE} lists previousRecordingFindings, the last recording of this scene had those problems: fix every one of them.
 - Before you finish, check the boxes of the main objects at the start, middle and end of each frame, and fix any overlap you did not intend.
 Do not edit the staged files. Do not delegate this task.
 Use Harness's normal approval flow for tool actions. Finish only after writing both files.`;
