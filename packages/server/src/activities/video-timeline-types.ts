@@ -75,6 +75,24 @@ export interface VideoTimeline {
   captions: TimelineCaptions;
 }
 
+/**
+ * A timeline run's target (see timeline-edit.ts), recorded when it started: the video, and what
+ * the agent's timeline must keep to.
+ */
+export interface TimelineEditTarget {
+  language: string;
+  assetKey: string;
+  width: number;
+  height: number;
+  fps: number;
+  /** The recordings it may cut from. */
+  sources: TimelineCut["source"][];
+  /** The scene's audio it may name. */
+  narration: string[];
+  music: string[];
+  effects: string[];
+}
+
 /** A video's timeline as the studio reads it (`GET .../video-timeline`). */
 export interface VideoTimelineView {
   timeline: VideoTimeline;

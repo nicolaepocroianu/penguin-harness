@@ -9106,6 +9106,7 @@ test("edits, saves and renders a scene video's timeline", async ({ page }) => {
   let draft = null;
   const saves = [];
   const renders = [];
+  const refines = [];
   page.on("response", async (response) => {
     const p = new URL(response.url()).pathname;
     if ([`${base}/act_test/plan-media`, `${base}/act_test/media`].includes(p) && response.ok())
@@ -9214,6 +9215,27 @@ test("edits, saves and renders a scene video's timeline", async ({ page }) => {
       };
       return json(draft);
     }
+    if (p === `${base}/act_test/refine-timeline`) {
+      refines.push(request.postDataJSON());
+      runs.unshift({
+        ...run({}),
+        kind: "timeline",
+        runId: "run_timeline_1",
+        video: undefined,
+        timelineEdit: { language: "en-US", assetKey: "intro-video" },
+        status: "running",
+        createdAt: "2026-09-28T11:10:00Z",
+        hasCandidate: false,
+      });
+      return json(runs[0], 202);
+    }
+    if (p === `${base}/act_test/runs/run_timeline_1/candidate`)
+      return json({
+        candidate: JSON.stringify({
+          ...view.timeline,
+          narration: [{ asset: "intro-line", startMs: 1200 }],
+        }),
+      });
     if (p === `${base}/act_test/render-timeline`) {
       const body = request.postDataJSON();
       renders.push(body);
@@ -9319,6 +9341,26 @@ test("edits, saves and renders a scene video's timeline", async ({ page }) => {
   await expect(
     recordings.getByText("The picture is black from 1 s to 1.6 s.", { exact: true }),
   ).toBeVisible();
+
+  // An agent refines the timeline; the author loads what it wrote into the editor and saves it.
+  await timeline.getByRole("button", { name: "Refine with agent", exact: true }).click();
+  await expect.poll(() => refines.length).toBe(1);
+  expect(refines[0]).toMatchObject({ language: "en-US", assetKey: "intro-video" });
+  await expect(timeline.getByRole("button", { name: "Refining…", exact: true })).toBeDisabled();
+  runs[0] = { ...runs[0], status: "succeeded", hasCandidate: true };
+  const loadAgent = timeline.getByRole("button", {
+    name: "Load the agent's timeline",
+    exact: true,
+  });
+  await expect(loadAgent).toBeVisible({ timeout: 15_000 });
+  await loadAgent.click();
+  await expect(
+    timeline.getByText("Save the timeline before rendering it.", { exact: true }),
+  ).toBeVisible();
+  await expect(loadAgent).toHaveCount(0);
+  await timeline.getByRole("button", { name: "Save timeline", exact: true }).click();
+  await expect.poll(() => saves.length).toBe(2);
+  expect(saves[1].timeline.narration).toEqual([{ asset: "intro-line", startMs: 1200 }]);
   expect(f.errors).toEqual([]);
 });
 

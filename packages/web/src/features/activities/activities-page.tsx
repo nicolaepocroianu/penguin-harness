@@ -1957,6 +1957,11 @@ function ActivityEditor({
                 ? (lang, assetKey) => startRun("render-timeline", { language: lang, assetKey })
                 : undefined
             }
+            onRefineTimeline={
+              videoSetup?.enabled
+                ? (lang, assetKey) => startRun("refine-timeline", { language: lang, assetKey })
+                : undefined
+            }
             onSaveSounds={(lang, assetKey, phonemes) =>
               void action(async () => {
                 const draft = await apiFetch<ActivityDraft>(

@@ -1680,6 +1680,14 @@ export type Strings = {
         reset: string;
         render: string;
         rendering: string;
+        /** An agent rewrites the timeline so the sound follows the picture. */
+        refine: string;
+        refining: string;
+        /** The run's name in the run history and toasts. */
+        run: string;
+        agentReady: string;
+        loadAgent: string;
+        agentFailed: (cause: string) => string;
         saveFirst: string;
         /** A time field that does not hold a usable number of seconds. */
         invalid: string;

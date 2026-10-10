@@ -166,6 +166,16 @@ import {
 } from "./composition.js";
 import { IMAGE_MAX_BYTES as COMPOSITION_IMAGE_MAX_BYTES } from "./image.js";
 import type { CompositionCandidate, CompositionTarget } from "./composition-types.js";
+import {
+  collectTimelineEdit,
+  placeFrames,
+  stageTimelineEdit,
+  TIMELINE_OUTPUT_FILE,
+  timelineEditInput,
+  timelineEditPrompt,
+  timelineEditTarget,
+  type TimelineEditStage,
+} from "./timeline-edit.js";
 import type { VideoCheck, VideoProblemCode, VideoResult, VideoTarget } from "./video-types.js";
 import { RENDER_FPS } from "./video-render.js";
 import { defaultTimeline, timelineIssues } from "./video-timeline.js";
@@ -699,6 +709,8 @@ export class ActivityGenerationService implements ActivityGeneration {
       phonemes?: { language: string; words: unknown };
       /** A scene composition for a video or animation asset (experimental). */
       composition?: { language: string; assetKey: string };
+      /** An agent refining a video or animation's timeline (experimental). */
+      timeline?: { language: string; assetKey: string };
       /** The media pass: list the media the scenes' tags ask for (`generate_media_spec`). */
       mediaSpec?: true;
       /** A specification or media pass run again, told why the previous attempt failed. */
@@ -717,7 +729,8 @@ export class ActivityGenerationService implements ActivityGeneration {
           if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
           // Scene videos are refused while the experiment is off, before anything about the
           // draft is checked, so an author always learns first that the experiment is off.
-          if (module?.composition && !this.videoExperiment()) throw experimentOff();
+          if ((module?.composition || module?.timeline) && !this.videoExperiment())
+            throw experimentOff();
           const activity = await this.activities.getActivity(projectId, activityId);
           if (activity.draft.contentRevision !== expectedRevision)
             throw new HttpError(
@@ -761,6 +774,7 @@ export class ActivityGenerationService implements ActivityGeneration {
               module.test,
               module.phonemes,
               module.composition,
+              module.timeline,
               module.mediaSpec,
             ].filter(Boolean).length > 1
           )
@@ -781,6 +795,9 @@ export class ActivityGenerationService implements ActivityGeneration {
             : undefined;
           const composition = module?.composition
             ? await this.compositionStage(projectId, activityId, activity, module.composition)
+            : undefined;
+          const timelineEdit = module?.timeline
+            ? await this.timelineEditStage(projectId, activityId, activity, module.timeline)
             : undefined;
           if (assessment) {
             if (!activity.draft.spec || activity.draft.status !== "valid")
@@ -821,6 +838,7 @@ export class ActivityGenerationService implements ActivityGeneration {
             !test &&
             !phonemes &&
             !composition &&
+            !timelineEdit &&
             !mediaSpec &&
             repair === undefined
           ) {
@@ -965,30 +983,33 @@ export class ActivityGenerationService implements ActivityGeneration {
           const run: ActivityRun = {
             kind: composition
               ? "composition"
-              : phonemes
-                ? "phonemes"
-                : test
-                  ? "test"
-                  : assist
-                    ? "assist"
-                    : assessment
-                      ? "assessment"
-                      : mediaText
-                        ? "media-text"
-                        : image
-                          ? "image"
-                          : audio || sound
-                            ? "audio"
-                            : mediaSpec
-                              ? "media-spec"
-                              : module && repair === undefined
-                                ? "module"
-                                : "spec",
+              : timelineEdit
+                ? "timeline"
+                : phonemes
+                  ? "phonemes"
+                  : test
+                    ? "test"
+                    : assist
+                      ? "assist"
+                      : assessment
+                        ? "assessment"
+                        : mediaText
+                          ? "media-text"
+                          : image
+                            ? "image"
+                            : audio || sound
+                              ? "audio"
+                              : mediaSpec
+                                ? "media-spec"
+                                : module && repair === undefined
+                                  ? "module"
+                                  : "spec",
             ...(audio ? { audio } : sound ? { audio: sound } : {}),
             ...(image ? { image } : {}),
             ...(mediaText ? { mediaText } : {}),
             ...(phonemes ? { phonemes } : {}),
             ...(composition ? { composition: composition.target } : {}),
+            ...(timelineEdit ? { timelineEdit: timelineEdit.target } : {}),
             ...(assist ? { assist: { focus: assist.focus } } : {}),
             ...(test
               ? {
@@ -1209,6 +1230,7 @@ export class ActivityGenerationService implements ActivityGeneration {
               await atomicJson(path.join(workspace, "media-text-input.json"), mediaText);
             if (phonemes) await atomicJson(path.join(workspace, PHONEMES_INPUT_FILE), phonemes);
             if (composition) await stageComposition(workspace, composition);
+            if (timelineEdit) await stageTimelineEdit(workspace, timelineEdit);
             if (assessment) {
               const skill = libraryPlugin("waf-authoring")?.skills.find(
                 (entry) => entry.name === ASSESSMENT_SKILL,
@@ -1270,6 +1292,7 @@ export class ActivityGenerationService implements ActivityGeneration {
               !test &&
               !phonemes &&
               !composition &&
+              !timelineEdit &&
               !mediaSpec &&
               repair === undefined
             ) {
@@ -1295,35 +1318,37 @@ export class ActivityGenerationService implements ActivityGeneration {
             const expectedSceneIds = mediaSpec ? normalizedSceneIds(activity.draft.spec) : [];
             const base = composition
               ? compositionPrompt
-              : phonemes
-                ? phonemesPrompt
-                : test
-                  ? test.cachedTest !== null
-                    ? acceptanceReusePrompt
-                    : acceptancePrompt
-                  : assist
-                    ? assistPrompt(assist.message, assist.focus)
-                    : assessment
-                      ? assessmentPrompt
-                      : mediaText
-                        ? mediaTextPrompt(mediaText)
-                        : image
-                          ? imagePrompt
-                          : mediaSpec
-                            ? mediaSpecPrompt(
-                                expectedSceneIds,
-                                specHasMediaEntries(activity.draft.spec),
-                                activity.activityType === "book",
-                              )
-                            : run.kind === "module"
-                              ? modulePrompt +
-                                (modulePackagesLinked ? modulePackagesClause : "") +
-                                (bookMode ? moduleBookClause : "") +
-                                featureClause(features)
-                              : activitySpecPrompt(
-                                  activity.draft.description,
-                                  !!activity.draft.spec,
-                                );
+              : timelineEdit
+                ? timelineEditPrompt
+                : phonemes
+                  ? phonemesPrompt
+                  : test
+                    ? test.cachedTest !== null
+                      ? acceptanceReusePrompt
+                      : acceptancePrompt
+                    : assist
+                      ? assistPrompt(assist.message, assist.focus)
+                      : assessment
+                        ? assessmentPrompt
+                        : mediaText
+                          ? mediaTextPrompt(mediaText)
+                          : image
+                            ? imagePrompt
+                            : mediaSpec
+                              ? mediaSpecPrompt(
+                                  expectedSceneIds,
+                                  specHasMediaEntries(activity.draft.spec),
+                                  activity.activityType === "book",
+                                )
+                              : run.kind === "module"
+                                ? modulePrompt +
+                                  (modulePackagesLinked ? modulePackagesClause : "") +
+                                  (bookMode ? moduleBookClause : "") +
+                                  featureClause(features)
+                                : activitySpecPrompt(
+                                    activity.draft.description,
+                                    !!activity.draft.spec,
+                                  );
             const prompt =
               repair === undefined
                 ? base
@@ -2040,6 +2065,47 @@ export class ActivityGenerationService implements ActivityGeneration {
   }
 
   /**
+   * What a timeline run stages: the timeline the video has (saved, or started from its newest
+   * recording), the storyboard frames of that recording's composition placed in time, and the
+   * scene's audio. 404/409 as `videoTimeline` refuses.
+   */
+  private async timelineEditStage(
+    projectId: string,
+    activityId: string,
+    activity: ActivityDetail,
+    input: { language: string; assetKey: string },
+  ): Promise<TimelineEditStage> {
+    const { timeline } = await this.videoTimeline(
+      projectId,
+      activityId,
+      input.language,
+      input.assetKey,
+    );
+    const assets = activity.draft.mediaPlan?.manifest.assets[input.language] ?? [];
+    // The frames are the composition's whose recording the timeline starts with.
+    const recording = await this.getRun(
+      projectId,
+      activityId,
+      timeline.cuts[0]!.source.runId,
+    ).catch(() => null);
+    const composition = recording?.video
+      ? await this.getRun(projectId, activityId, recording.video.compositionRunId).catch(() => null)
+      : null;
+    const frames = composition?.candidate
+      ? placeFrames((JSON.parse(composition.candidate) as CompositionCandidate).frames)
+      : [];
+    const scene = compositionScene(activity, input);
+    const editInput = timelineEditInput(
+      assets,
+      input.assetKey,
+      scene.description,
+      timeline,
+      frames,
+    );
+    return { target: timelineEditTarget(input.language, editInput), input: editInput };
+  }
+
+  /**
    * Everything a composition run stages, read before the run is recorded so a refusal leaves
    * no run behind: the scene, and the bytes of each of its bound images. A scene with no image
    * is composed from HTML, CSS and SVG alone. 403 while the experiment is off.
@@ -2317,6 +2383,27 @@ export class ActivityGenerationService implements ActivityGeneration {
                 });
                 return;
               }
+              if (run.kind === "timeline") {
+                const observer = this.observers.get(run.runId);
+                if (!observer?.completed)
+                  throw new Error(observer?.error ?? "Timeline Session did not complete.");
+                if (!run.timelineEdit) throw new Error("The timeline run has no video recorded.");
+                const timeline = await collectTimelineEdit(this.workspace(run), run.timelineEdit);
+                run.candidate = JSON.stringify(timeline);
+                this.save(run);
+                if (this.stopped) return;
+                await this.projectWork.run(run.projectId, async () => {
+                  const current = await this.activities.getActivity(run.projectId, run.activityId);
+                  if (current.draft.contentRevision !== run.inputRevision)
+                    throw new HttpError(
+                      409,
+                      "draft_conflict",
+                      "The draft changed while the timeline was being refined.",
+                    );
+                  this.finish(run, "succeeded");
+                });
+                return;
+              }
               if (run.kind === "test") {
                 const observer = this.observers.get(run.runId);
                 if (!observer?.completed)
@@ -2482,7 +2569,9 @@ export class ActivityGenerationService implements ActivityGeneration {
                                   ? PHONEMES_FILE
                                   : run.kind === "composition"
                                     ? `${COMPOSITION_FILE} or ${COMPOSITION_FRAMES_FILE}`
-                                    : "activity-spec.json"
+                                    : run.kind === "timeline"
+                                      ? TIMELINE_OUTPUT_FILE
+                                      : "activity-spec.json"
                     }.`
                   : error instanceof Error
                     ? error.message

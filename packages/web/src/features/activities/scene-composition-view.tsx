@@ -37,6 +37,7 @@ import {
 } from "./scene-composition";
 import { MediaComparison } from "./media-comparison";
 import { MediaPlayer } from "./media-player";
+import { refineRuns } from "./scene-timeline";
 import { SceneTimelineView } from "./scene-timeline-view";
 import {
   checkLine,
@@ -66,6 +67,7 @@ export function SceneCompositionView({
   onAcceptVideo,
   onSaveTimeline,
   onRenderTimeline,
+  onRefineTimeline,
   current,
 }: {
   asset: Asset;
@@ -94,6 +96,8 @@ export function SceneCompositionView({
   ) => Promise<void>;
   /** Render this asset's timeline to its finished video. */
   onRenderTimeline?: (language: string, assetKey: string) => void;
+  /** Ask an agent to refine this asset's timeline. */
+  onRefineTimeline?: (language: string, assetKey: string) => void;
   /** The asset's video now, shown beside a new recording. */
   current?: ReactNode;
 }) {
@@ -167,8 +171,11 @@ export function SceneCompositionView({
           editable={editable}
           canChange={canRecord && !busy}
           rendering={rendering}
+          refinements={refineRuns(runs, language, asset.key)}
           onSave={(timeline) => onSaveTimeline(language, asset.key, timeline)}
           onRender={() => onRenderTimeline(language, asset.key)}
+          canRefine={canGenerate}
+          {...(onRefineTimeline ? { onRefine: () => onRefineTimeline(language, asset.key) } : {})}
         />
       )}
       {compared && editable && onAcceptVideo && (

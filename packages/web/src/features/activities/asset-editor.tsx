@@ -84,6 +84,7 @@ export function AssetEditor({
   onAcceptVideo,
   onSaveTimeline,
   onRenderTimeline,
+  onRefineTimeline,
   spec,
 }: {
   manifest: AssetManifest;
@@ -164,6 +165,8 @@ export function AssetEditor({
   ) => Promise<void>;
   /** Render a video's timeline to its finished video (experimental). */
   onRenderTimeline?: (language: string, assetKey: string) => void;
+  /** Ask an agent to refine a video's timeline (experimental). */
+  onRefineTimeline?: (language: string, assetKey: string) => void;
   /** Bind a recorded video to its asset. */
   onAcceptVideo?: (runId: string) => void;
   /** The saved specification, for the scene-video advisory about learner choices. */
@@ -634,6 +637,7 @@ export function AssetEditor({
                 onAcceptVideo={onAcceptVideo}
                 {...(onSaveTimeline ? { onSaveTimeline } : {})}
                 {...(onRenderTimeline ? { onRenderTimeline } : {})}
+                {...(onRefineTimeline ? { onRefineTimeline } : {})}
                 current={currentMedia() ?? undefined}
               />
             )}

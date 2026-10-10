@@ -314,6 +314,28 @@ export class ActivityRoutes {
         ),
       );
     });
+    // An agent refines a video or animation's timeline (experimental); the author loads what it
+    // wrote into the editor and saves it there.
+    app.post("/:activityId/refine-timeline", async (c) => {
+      const body = await readJson(c);
+      const runner = stageRunner(body);
+      return c.json(
+        await this.generation.start(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          runner.agentId,
+          requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
+          {
+            timeline: {
+              language: requireString(body, "language", { minLen: 5, maxLen: 5 }),
+              assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
+            },
+          },
+          runner.runtime,
+        ),
+        202,
+      );
+    });
     // Renders a video or animation's timeline to its finished video (experimental).
     app.post("/:activityId/render-timeline", async (c) => {
       const body = await readJson(c);

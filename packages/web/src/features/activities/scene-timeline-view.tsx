@@ -10,6 +10,7 @@
  */
 import { useEffect, useId, useState } from "react";
 import type {
+  ActivityRunSummary,
   AssetManifest,
   TimelineTransition,
   VideoTimeline,
@@ -27,6 +28,7 @@ import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import {
   blocksRender,
+  candidateUrl,
   effectChoices,
   fromSeconds,
   issueText,
@@ -52,8 +54,11 @@ export function SceneTimelineView({
   editable,
   canChange,
   rendering,
+  refinements,
+  canRefine = false,
   onSave,
   onRender,
+  onRefine,
 }: {
   asset: Asset;
   /** The assets of the language shown, which the timeline's audio is chosen from. */
@@ -68,14 +73,22 @@ export function SceneTimelineView({
   canChange: boolean;
   /** Whether a finished video is being rendered now. */
   rendering: boolean;
+  /** This video's timeline refinements by an agent, newest first. */
+  refinements: readonly ActivityRunSummary[];
+  /** Whether an agent may be asked now (one is chosen and nothing else runs). */
+  canRefine?: boolean;
   /** Save the timeline on the video, or with null drop it. */
   onSave: (timeline: VideoTimeline | null) => Promise<void>;
   onRender: () => void;
+  /** Ask an agent to refine the timeline; absent where it cannot be offered. */
+  onRefine?: () => void;
 }) {
   const [view, setView] = useState<VideoTimelineView | null>(null);
   const [edited, setEdited] = useState<VideoTimeline | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // The agent's timeline the author last loaded into the editor.
+  const [loaded, setLoaded] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
     setFailure(null);
@@ -93,6 +106,25 @@ export function SceneTimelineView({
     };
   }, [endpoint, language, asset.key, revision, newestRecording]);
 
+  const refinement = refinements[0] ?? null;
+  const refining = refinement?.status === "running";
+  // The agent's timeline is offered until the author has loaded it.
+  const offered =
+    refinement?.status === "succeeded" && refinement.hasCandidate && loaded !== refinement.runId
+      ? refinement
+      : null;
+  const load = async (runId: string) => {
+    try {
+      const { candidate } = await apiFetch<{ candidate: string | null }>(
+        candidateUrl(endpoint, runId),
+      );
+      if (!candidate) return;
+      setEdited(JSON.parse(candidate) as VideoTimeline);
+      setLoaded(runId);
+    } catch (error) {
+      setFailure(words.loadFailed((error as Error).message));
+    }
+  };
   if (failure) return <p className={`text-xs ${toneInk.danger}`}>{failure}</p>;
   if (!view) return null;
   const timeline = edited ?? view.timeline;
@@ -356,8 +388,30 @@ export function SceneTimelineView({
             >
               {rendering ? words.rendering : words.render}
             </Button>
+            {onRefine && (
+              <Button
+                size="sm"
+                disabled={!canRefine || !canChange || refining || dirty}
+                onClick={onRefine}
+              >
+                {refining ? words.refining : words.refine}
+              </Button>
+            )}
           </div>
           {dirty && <p className="text-xs text-gray-500">{words.saveFirst}</p>}
+          {offered && (
+            <div className="space-y-1">
+              <p className="text-xs text-gray-500">{words.agentReady}</p>
+              <Button size="sm" disabled={saving} onClick={() => void load(offered.runId)}>
+                {words.loadAgent}
+              </Button>
+            </div>
+          )}
+          {refinement?.status === "failed" && (
+            <p className={`break-words text-xs ${toneInk.danger}`}>
+              {words.agentFailed(refinement.error ?? S.activities.video.noCause)}
+            </p>
+          )}
         </div>
       )}
     </section>

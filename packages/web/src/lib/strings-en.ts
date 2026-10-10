@@ -1961,6 +1961,13 @@ export const en: Strings = {
         reset: "Start from the recording again",
         render: "Render finished video",
         rendering: "Rendering…",
+        refine: "Refine with agent",
+        refining: "Refining…",
+        run: "Timeline refinement",
+        agentReady:
+          "The agent wrote a timeline that follows the storyboard. Load it into the editor to look it over, then save it.",
+        loadAgent: "Load the agent's timeline",
+        agentFailed: (cause: string) => `The agent's timeline could not be used: ${cause}`,
         saveFirst: "Save the timeline before rendering it.",
         invalid: "Enter a number of seconds, 0 or more.",
         loadFailed: (cause: string) => `The timeline could not be loaded: ${cause}`,

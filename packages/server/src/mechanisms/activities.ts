@@ -91,6 +91,8 @@ export abstract class ActivityGeneration extends Interface<{
        * and bound images (experimental: refused while `activityVideoExperiment` is off).
        */
       composition?: { language: string; assetKey: string };
+      /** An agent refining a video or animation's timeline (experimental). */
+      timeline?: { language: string; assetKey: string };
       /** The media pass: list the media the scenes' tags ask for (`generate_media_spec`). */
       mediaSpec?: true;
       /** A specification or media pass run again, told why the previous attempt failed. */

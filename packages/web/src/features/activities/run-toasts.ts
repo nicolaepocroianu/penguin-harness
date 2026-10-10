@@ -26,12 +26,14 @@ export function runKindLabel(run: Pick<ActivityRunSummary, "kind">): string {
   if (run.kind === "phonemes") return words.bookWords.run;
   if (run.kind === "composition") return words.video.run;
   if (run.kind === "video") return words.video.recordRun;
+  if (run.kind === "timeline") return words.video.timeline.run;
   return words.specRun;
 }
 
 /** The asset a media run worked on, when it worked on one. */
 function subject(run: ActivityRunSummary): string {
-  const target = run.audio ?? run.image ?? run.mediaText ?? run.composition ?? run.video;
+  const target =
+    run.audio ?? run.image ?? run.mediaText ?? run.composition ?? run.video ?? run.timelineEdit;
   return target ? `${runKindLabel(run)} · ${target.assetKey}` : runKindLabel(run);
 }
 
