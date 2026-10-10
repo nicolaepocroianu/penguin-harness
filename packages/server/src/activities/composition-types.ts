@@ -55,6 +55,33 @@ export interface CompositionCandidate {
   seconds: number;
   sha256: string;
   bytes: number;
+  /** What a read of the page's source suggests will go wrong (see composition-lint.ts). */
+  lint?: CompositionLintFinding[];
+}
+
+/** What the static read of a composition can find. */
+export type CompositionLintCode =
+  /** The page reads randomness or the clock. */
+  | "nondeterministic"
+  /** The page runs its own timers or animation frames. */
+  | "own_timers"
+  /** A tween repeats forever. */
+  | "endless_repeat"
+  /** A tween animates width, height, top or left. */
+  | "layout_tween"
+  /** The scene uses an emoji, drawn differently on every machine. */
+  | "emoji"
+  /** Text is in capitals. */
+  | "all_caps"
+  /** A font size is under 28px. */
+  | "small_font"
+  /** Lorem ipsum, "placeholder", TODO. */
+  | "filler";
+
+export interface CompositionLintFinding {
+  code: CompositionLintCode;
+  /** The piece of the source it was found in. */
+  snippet: string;
 }
 
 /** `GET /video-setup`: whether the scene-video experiment is on for this server. */

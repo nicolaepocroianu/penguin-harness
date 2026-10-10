@@ -98,11 +98,19 @@ export function parseCandidate(text: string | null): CompositionCandidate | null
       typeof frame.description === "string" &&
       typeof frame.seconds === "number",
   );
+  // Only findings the studio knows how to word.
+  const lint = (Array.isArray(candidate.lint) ? candidate.lint : []).filter(
+    (finding) =>
+      !!finding &&
+      typeof finding.snippet === "string" &&
+      Object.hasOwn(S.activities.video.lint.findings, finding.code),
+  );
   return {
     frames,
     seconds: candidate.seconds,
     sha256: String(candidate.sha256 ?? ""),
     bytes: Number(candidate.bytes ?? 0),
+    ...(lint.length ? { lint } : {}),
   };
 }
 

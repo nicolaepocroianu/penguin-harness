@@ -414,6 +414,19 @@ function CompositionPreview({
           </ol>
         </section>
       )}
+      {candidate?.lint && candidate.lint.length > 0 && (
+        <section className="space-y-1" aria-label={S.activities.video.lint.title}>
+          <h5 className="text-xs font-semibold">{S.activities.video.lint.title}</h5>
+          <ul className={`list-disc space-y-0.5 pl-4 text-xs ${toneInk.attention}`}>
+            {candidate.lint.map((finding) => (
+              <li key={finding.code}>
+                {S.activities.video.lint.findings[finding.code]}{" "}
+                <code className="text-gray-600 dark:text-gray-300">{finding.snippet}</code>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

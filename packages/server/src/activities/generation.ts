@@ -168,6 +168,7 @@ import {
 } from "./composition.js";
 import { IMAGE_MAX_BYTES as COMPOSITION_IMAGE_MAX_BYTES } from "./image.js";
 import type { CompositionCandidate, CompositionTarget } from "./composition-types.js";
+import { lintComposition, lintForAgent } from "./composition-lint.js";
 import {
   collectTimelineEdit,
   placeFrames,
@@ -2157,8 +2158,10 @@ export class ActivityGenerationService implements ActivityGeneration {
       });
       bytes.push(content.bytes);
     }
-    // What the asset's newest recording was found to get wrong, for the agent to fix this time.
-    const recording = (await this.list(projectId, activityId)).find(
+    // What the asset's newest recording, and its newest composition's source, were found to
+    // get wrong, for the agent to fix this time.
+    const runs = await this.list(projectId, activityId);
+    const recording = runs.find(
       (run) =>
         run.kind === "video" &&
         run.status === "succeeded" &&
@@ -2166,9 +2169,27 @@ export class ActivityGenerationService implements ActivityGeneration {
         run.video.assetKey === input.assetKey &&
         !run.video.fromTimeline,
     )?.video?.check;
-    const previous = recording
-      ? recording.findings.flatMap((finding) => findingForAgent(finding, recording) ?? [])
+    const composed = runs.find(
+      (run) =>
+        run.kind === "composition" &&
+        run.status === "succeeded" &&
+        run.hasCandidate &&
+        run.composition?.language === input.language &&
+        run.composition.assetKey === input.assetKey,
+    );
+    const lint = composed
+      ? ((
+          JSON.parse(
+            (await this.getRun(projectId, activityId, composed.runId)).candidate ?? "{}",
+          ) as Partial<CompositionCandidate>
+        ).lint ?? [])
       : [];
+    const previous = [
+      ...(recording
+        ? recording.findings.flatMap((finding) => findingForAgent(finding, recording) ?? [])
+        : []),
+      ...lint.map(lintForAgent),
+    ];
     return {
       scene,
       target: {
@@ -2750,5 +2771,6 @@ async function collectComposition(
   const problem = compositionProblem(html.toString("utf8"), stagedFiles(target));
   if (problem) throw problem;
   const parsed = parseFrames(frames);
-  return { ...parsed, sha256: sha256(html), bytes: html.length };
+  const lint = lintComposition(html.toString("utf8"));
+  return { ...parsed, sha256: sha256(html), bytes: html.length, ...(lint.length ? { lint } : {}) };
 }

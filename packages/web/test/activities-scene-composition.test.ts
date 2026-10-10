@@ -104,6 +104,20 @@ describe("scene compositions in the studio", () => {
     );
     expect(parsed?.frames).toEqual([{ id: "f1", description: "Dawn", seconds: 3 }]);
     expect(parsed?.seconds).toBe(6);
+    expect(parsed).not.toHaveProperty("lint");
+    // What the lint found is kept when the studio can word it.
+    const linted = parseCandidate(
+      JSON.stringify({
+        frames: [],
+        seconds: 6,
+        lint: [
+          { code: "emoji", snippet: "Treasure 🏴‍☠️" },
+          { code: "from-the-future", snippet: "?" },
+          { code: "all_caps" },
+        ],
+      }),
+    );
+    expect(linted?.lint).toEqual([{ code: "emoji", snippet: "Treasure 🏴‍☠️" }]);
     expect(parseCandidate("not json")).toBeNull();
     expect(parseCandidate(null)).toBeNull();
     expect(parseCandidate(JSON.stringify({ frames: "no" }))).toBeNull();

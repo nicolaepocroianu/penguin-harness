@@ -1593,6 +1593,21 @@ export type Strings = {
       noImages: string;
       candidates: string;
       frames: string;
+      /** What a read of the composition's source found, beside its frames. */
+      lint: {
+        title: string;
+        findings: Record<
+          | "nondeterministic"
+          | "own_timers"
+          | "endless_repeat"
+          | "layout_tween"
+          | "emoji"
+          | "all_caps"
+          | "small_font"
+          | "filler",
+          string
+        >;
+      };
       frame: (index: number, seconds: string) => string;
       seconds: (seconds: string) => string;
       preview: string;
