@@ -231,8 +231,8 @@ describe("coding-agent Sessions", () => {
       reported_cost?: { amount: number; currency: string };
     }[];
     expect(usages.map((u) => u.request)).toEqual([
-      { cache_read: 10, cache_write: 0, output: 20, total: 130 },
-      { cache_read: 10, cache_write: 0, output: 20, total: 130 },
+      { cache_read: 10, cache_write: 100, output: 20, total: 130 },
+      { cache_read: 10, cache_write: 100, output: 20, total: 130 },
     ]);
     // The agent's running total was 0.25 then 0.50: each turn is charged what it added.
     expect(usages.map((u) => u.reported_cost)).toEqual([

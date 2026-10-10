@@ -168,16 +168,38 @@ describe("UsageLedger", () => {
     const second = ledger.turn(usage);
     expect(typed(first!).request).toEqual({
       cache_read: 10,
-      cache_write: 0,
+      cache_write: 100,
       output: 25,
       total: 130,
     });
     expect(typed(second!).session).toEqual({
       cache_read: 30,
-      cache_write: 0,
+      cache_write: 300,
       output: 75,
       total: 390,
     });
+  });
+
+  // ACP's inputTokens leaves out the cached tokens, which come in their own fields. An agent
+  // that reports no cache at all (GitHub Copilot) used to show 0 input for a whole turn.
+  it("counts ACP input tokens, and cache writes, as input that missed the cache", () => {
+    const ledger = new UsageLedger();
+    const copilot = ledger.turn({
+      inputTokens: 72845,
+      outputTokens: 296,
+      totalTokens: 73141,
+      cachedReadTokens: 0,
+      cachedWriteTokens: 0,
+      thoughtTokens: 0,
+    });
+    expect(typed(copilot!).request).toEqual({
+      cache_read: 0,
+      cache_write: 72845,
+      output: 296,
+      total: 73141,
+    });
+    const writing = new UsageLedger().turn({ ...usage, cachedWriteTokens: 40, totalTokens: 170 });
+    expect(typed(writing!).request).toMatchObject({ cache_read: 10, cache_write: 140 });
   });
 
   it("charges each turn what the agent's running cost grew by during it", () => {
