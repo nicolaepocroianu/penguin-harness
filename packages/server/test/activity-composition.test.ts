@@ -312,7 +312,7 @@ describe("scene compositions", () => {
       images: [{ key: "sky", file: "images/sky.png" }],
     });
     const session = f.t.deps.sessionsRepo.findById(run.sessionId!)!;
-    expect(session.approvalMode).toBe("always-ask");
+    expect(session.approvalMode).toBe("allow-all");
     const workspace = session.workspace!;
     expect(
       JSON.parse(await fs.readFile(path.join(workspace, "composition-input.json"), "utf8")),
