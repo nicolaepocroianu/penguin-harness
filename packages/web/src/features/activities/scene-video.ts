@@ -56,6 +56,11 @@ export function comparedRecording(
   );
 }
 
+/** Where a video run's captions are read, when the run kept any. */
+export function captionsUrl(endpoint: string, runId: string): string {
+  return `${endpoint}/runs/${encodeURIComponent(runId)}/captions`;
+}
+
 /** Where a recording, or a recording the draft binds, plays from. */
 export function recordingUrl(endpoint: string, runId: string): string {
   return `${endpoint}/runs/${encodeURIComponent(runId)}/video`;

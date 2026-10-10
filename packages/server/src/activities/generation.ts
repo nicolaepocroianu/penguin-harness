@@ -1718,6 +1718,12 @@ export class ActivityGenerationService implements ActivityGeneration {
           run.video = { ...run.video, problem: videoProblem };
         if (status === "succeeded" && videoCheck && run.video)
           run.video = { ...run.video, check: videoCheck };
+        // The kept result says whether captions were kept beside the video; the run says it too,
+        // so the studio knows without reading the result.
+        if (status === "succeeded" && run.video && candidate !== undefined) {
+          const kept = JSON.parse(candidate) as { captions?: unknown };
+          if (kept.captions === true) run.video = { ...run.video, captions: true };
+        }
         this.finish(run, status, error);
         return true;
       }),

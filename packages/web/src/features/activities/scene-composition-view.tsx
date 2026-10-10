@@ -43,6 +43,7 @@ import { refineRuns } from "./scene-timeline";
 import { SceneTimelineView } from "./scene-timeline-view";
 import { critiqueRuns, SceneCritiqueView } from "./scene-critique-view";
 import {
+  captionsUrl,
   checkLine,
   comparedRecording,
   findingText,
@@ -257,6 +258,9 @@ export function SceneCompositionView({
               kind="video"
               src={recordingUrl(endpoint, compared.runId)}
               label={S.activities.mediaComparison.next}
+              {...(compared.video?.captions
+                ? { captions: { src: captionsUrl(endpoint, compared.runId), language } }
+                : {})}
             />
           }
           disabled={!canRecord}

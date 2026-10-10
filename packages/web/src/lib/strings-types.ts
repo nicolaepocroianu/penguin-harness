@@ -1645,6 +1645,8 @@ export type Strings = {
       noCause: string;
       /** Beside a video run that rendered the timeline rather than recorded a composition. */
       finished: string;
+      /** The captions track of a finished video, as the player lists it. */
+      captionsTrack: string;
       /** An agent's scored critique of the newest recording, with what to fix. */
       critique: {
         title: string;

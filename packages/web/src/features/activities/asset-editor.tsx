@@ -36,7 +36,7 @@ import { BookWordFields } from "./book-word-fields";
 import { PhonemeTimelineView } from "./phoneme-timeline-view";
 import { isBookWord } from "./book-words";
 import { SceneCompositionView } from "./scene-composition-view";
-import { recordingUrl } from "./scene-video";
+import { captionsUrl, recordingUrl } from "./scene-video";
 
 export function AssetEditor({
   manifest,
@@ -265,8 +265,18 @@ export function AssetEditor({
           description={asset.description}
         />
       );
-    if (asset.generatedVideo)
-      return <MediaPlayer kind="video" src={videoUrl(asset.generatedVideo.runId)} label={label} />;
+    if (asset.generatedVideo) {
+      const bound = asset.generatedVideo.runId;
+      const captioned = runs.some((run) => run.runId === bound && run.video?.captions);
+      return (
+        <MediaPlayer
+          kind="video"
+          src={videoUrl(bound)}
+          label={label}
+          {...(captioned ? { captions: { src: captionsUrl(endpoint, bound), language } } : {})}
+        />
+      );
+    }
     if (isUploadPath(asset.path)) return uploadedMedia(asset.path, label);
     if (asset.type === "image" && canPreview)
       return <ImagePreview src={imageUrl} description={asset.description} />;

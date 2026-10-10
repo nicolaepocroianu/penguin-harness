@@ -36,6 +36,8 @@ export interface VideoTarget {
   fromTimeline?: true;
   /** What the final check found in the video the run made (see video-check.ts). */
   check?: VideoCheck;
+  /** Set when captions were kept beside the video the run made, as WebVTT. */
+  captions?: true;
   /** Set when the run failed for a cause Penguin knows. */
   problem?: VideoProblemCode;
 }

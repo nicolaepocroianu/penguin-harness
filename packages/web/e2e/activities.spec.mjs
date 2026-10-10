@@ -9356,6 +9356,7 @@ test("edits, saves and renders a scene video's timeline", async ({ page }) => {
     // The final check found the picture black for a moment, and no sound where there should be.
     video: {
       ...runs[0].video,
+      captions: true,
       check: {
         status: "revise",
         durationMs: 4000,

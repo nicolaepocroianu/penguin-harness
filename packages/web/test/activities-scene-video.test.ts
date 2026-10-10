@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityRunSummary, AssetManifest } from "@prismshadow/penguin-server/api";
 import {
+  captionsUrl,
   checkLine,
   comparedRecording,
   findingText,
@@ -167,6 +168,10 @@ describe("a made video's final check in the studio", () => {
     expect(findingText({ code: "audio_missing", severity: "error" })).toBe(
       "It has no sound, but it should.",
     );
+  });
+
+  it("reads a video run's captions beside its video", () => {
+    expect(captionsUrl("/api/x", "run_1")).toBe("/api/x/runs/run_1/captions");
   });
 
   it("counts the kept videos whose check found something, and only those", () => {
