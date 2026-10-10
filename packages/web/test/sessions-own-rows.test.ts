@@ -244,3 +244,53 @@ describe("activity runs page as one Project-wide stream", () => {
     expect(store.getState().countsByAgent.get("default_agent")?.active).toBe(1);
   });
 });
+
+describe("the Activity runs folder keeps its place", () => {
+  const run = (id: string, over: Partial<SessionInfo> = {}) =>
+    session(id, { activityId: "act", ...over });
+
+  it("archiving a loaded run moves the cursor back, so More still reaches the last run", async () => {
+    listSessions.mockResolvedValue({ ...NO_ROWS, counts: COUNTS });
+    const rows = Array.from({ length: 10 }, (_, i) => run(`run_${i}`));
+    listActivityRunSessions.mockResolvedValue({ sessions: rows, total: 11 });
+    const store = createSessionsStore();
+    store.setState({ projectId: "proj", agentIds: ["default_agent"] });
+    await store.getState().reload();
+    store.getState().replace(run("run_3", { archived: true }));
+    expect(store.getState().activityRuns).toEqual({ total: 10, fetched: 9, hasMore: true });
+    store.getState().replace(run("run_3"));
+    expect(store.getState().activityRuns).toEqual({ total: 11, fetched: 10, hasMore: true });
+  });
+
+  it("refetches more than the server's largest page in pages it accepts", async () => {
+    listSessions.mockResolvedValue({ ...NO_ROWS, counts: COUNTS });
+    listActivityRunSessions.mockImplementation(async (_projectId, paging) => ({
+      sessions: Array.from({ length: paging!.limit }, (_, i) => run(`run_${paging!.offset + i}`)),
+      total: 1500,
+    }));
+    const store = createSessionsStore();
+    store.setState({
+      projectId: "proj",
+      agentIds: ["default_agent"],
+      activityRuns: { total: 1500, fetched: 1200, hasMore: true },
+    });
+    await store.getState().reload();
+    expect(listActivityRunSessions.mock.calls.map((call) => call[1])).toEqual([
+      { offset: 0, limit: 1000 },
+      { offset: 1000, limit: 200 },
+    ]);
+    expect(store.getState().activityRuns).toEqual({ total: 1500, fetched: 1200, hasMore: true });
+  });
+
+  it("a failed refetch keeps the loaded runs and their paging", async () => {
+    listSessions.mockResolvedValue({ ...NO_ROWS, counts: COUNTS });
+    listActivityRunSessions.mockResolvedValueOnce({ sessions: [run("run_a")], total: 30 });
+    const store = createSessionsStore();
+    store.setState({ projectId: "proj", agentIds: ["default_agent"] });
+    await store.getState().reload();
+    listActivityRunSessions.mockRejectedValueOnce(new Error("offline"));
+    await store.getState().reload();
+    expect(store.getState().sessions.map((s) => s.sessionId)).toContain("run_a");
+    expect(store.getState().activityRuns).toEqual({ total: 30, fetched: 1, hasMore: true });
+  });
+});

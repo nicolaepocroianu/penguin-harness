@@ -268,12 +268,56 @@ function rememberStatus(
  * no DOM, so the list's own behaviour is exercised against the store directly rather than
  * through a React tree.
  */
+/** The server's largest page; a longer refetch is read in pages this size. */
+const ACTIVITY_RUNS_PAGE_MAX = 1000;
+
+/**
+ * The first `limit` rows of the Project's activity-run stream, read in pages the server
+ * accepts. Null when any page fails or answers malformed, so the caller keeps what it has.
+ */
+async function listActivityRunsUpTo(
+  projectId: string,
+  limit: number,
+): Promise<{ sessions: SessionInfo[]; total: number } | null> {
+  const sessions: SessionInfo[] = [];
+  let total = 0;
+  try {
+    for (let offset = 0; offset < limit; offset += ACTIVITY_RUNS_PAGE_MAX) {
+      const page = await api.listActivityRunSessions(projectId, {
+        offset,
+        limit: Math.min(ACTIVITY_RUNS_PAGE_MAX, limit - offset),
+      });
+      // Only a well-formed answer moves the folder (a stub or proxy can answer `{}`).
+      if (!page || !Array.isArray(page.sessions) || typeof page.total !== "number") return null;
+      sessions.push(...page.sessions);
+      total = page.total;
+      if (offset + page.sessions.length >= total) break;
+    }
+  } catch {
+    return null;
+  }
+  return { sessions, total };
+}
+
 export function createSessionsStore() {
   // Generation counter: invalidates any in-flight response once the Project/Agent set
   // changes or a reload happens.
   let gen = 0;
 
   return createStore<SessionsStoreState>((set, get) => {
+    /** Moves the activity-run stream's total and cursor when a run joins or leaves it. */
+    const shiftActivityRuns = (delta: number) => {
+      const runs = get().activityRuns;
+      if (!runs) return;
+      set({
+        activityRuns: {
+          ...runs,
+          total: Math.max(0, runs.total + delta),
+          fetched: Math.max(0, runs.fetched + delta),
+        },
+      });
+    };
+
     /**
      * Keeps an Agent's category totals — overall and per Workspace — in step with a local
      * list mutation of `session` (no-op while its counts are unknown). An organization's row
@@ -338,9 +382,7 @@ export function createSessionsStore() {
           // The activity-run stream refetches as far as it was already read (a new run lands
           // on top, and an open folder must not snap back to its first page), at least a page.
           const runLimit = Math.max(SIDEBAR_PAGE_SIZE, get().activityRuns?.fetched ?? 0);
-          const runsRequest = api
-            .listActivityRunSessions(projectId, { offset: 0, limit: runLimit })
-            .catch(() => null);
+          const runsRequest = listActivityRunsUpTo(projectId, runLimit);
           const results = await Promise.all(
             agentIds.map(async (agentId) => {
               // The Agent's whole-stream active first page (with per-category totals)
@@ -385,12 +427,7 @@ export function createSessionsStore() {
               }
             }),
           );
-          const answer = await runsRequest;
-          // Only a well-formed answer moves the folder (a stub or proxy can answer `{}`).
-          const runs =
-            answer && Array.isArray(answer.sessions) && typeof answer.total === "number"
-              ? answer
-              : null;
+          const runs = await runsRequest;
           if (g !== gen) return;
           const nextSessions: SessionInfo[] = [];
           const seen = new Set<string>();
@@ -418,7 +455,11 @@ export function createSessionsStore() {
               }
             }
           }
-          for (const s of runs?.sessions ?? []) {
+          // A failed run fetch keeps the folder as it was rather than emptying it.
+          const runRows = runs
+            ? runs.sessions
+            : get().sessions.filter((s) => s.activityId !== undefined && !isOrgSession(s));
+          for (const s of runRows) {
             if (!seen.has(s.sessionId)) {
               seen.add(s.sessionId);
               nextSessions.push(s);
@@ -440,7 +481,7 @@ export function createSessionsStore() {
                   fetched: runs.sessions.length,
                   hasMore: runs.sessions.length < runs.total,
                 }
-              : null,
+              : get().activityRuns,
           });
         } finally {
           if (g === gen) set({ loading: false });
@@ -594,16 +635,7 @@ export function createSessionsStore() {
         gen += 1;
         const row = get().sessions.find((s) => s.sessionId === sessionId);
         if (row) adjustCount(row, sessionCategory(row), -1);
-        const runs = get().activityRuns;
-        if (row?.activityId !== undefined && runs) {
-          set({
-            activityRuns: {
-              ...runs,
-              total: Math.max(0, runs.total - 1),
-              fetched: Math.max(0, runs.fetched - 1),
-            },
-          });
-        }
+        if (row?.activityId !== undefined) shiftActivityRuns(-1);
         // Tombstone BEFORE pruning the list, in the same update: consumers re-render on the
         // pruned list, and any of them that reacts to the row's disappearance (the chat
         // page's deep-link lookup) must already be able to see that the id is dead rather
@@ -627,6 +659,11 @@ export function createSessionsStore() {
         if (old && sessionCategory(old) !== sessionCategory(session)) {
           adjustCount(session, sessionCategory(old), -1);
           adjustCount(session, sessionCategory(session), 1);
+        }
+        // The run stream holds unarchived runs only: archiving one takes it out of the
+        // server's offsets (as remove() does), restoring one puts it back.
+        if (old && session.activityId !== undefined && old.archived !== session.archived) {
+          shiftActivityRuns(session.archived ? -1 : 1);
         }
         set({
           sessions: get().sessions.map((s) => (s.sessionId === session.sessionId ? session : s)),
