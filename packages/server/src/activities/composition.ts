@@ -171,6 +171,8 @@ export function findingForAgent(finding: VideoCheckFinding, check: VideoCheck): 
       return `${things} cover each other ${when}: move them apart without lifting either off the ground it stands on, or mark the one meant to sit over the other with data-allow-overlap.`;
     case "off_stage":
       return `${things} reaches outside the stage ${when}: keep it inside.`;
+    case "low_contrast":
+      return `The text in ${things} does not stand out enough from what is behind it ${when}: give it a contrast of at least 4.5:1.`;
     case "small_text":
       return `The text in ${things} is smaller than 28px ${when}: make it larger.`;
     case "black":

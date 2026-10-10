@@ -1640,7 +1640,8 @@ export type Strings = {
           | "black"
           | "layout_overlap"
           | "off_stage"
-          | "small_text",
+          | "small_text"
+          | "low_contrast",
           (from: string, to: string, asset: string, elements: string) => string
         >;
       };

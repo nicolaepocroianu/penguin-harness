@@ -80,7 +80,9 @@ export type VideoCheckCode =
   /** A main object is partly outside the stage. */
   | "off_stage"
   /** Text is smaller than learners can read on a small screen. */
-  | "small_text";
+  | "small_text"
+  /** Text does not stand out enough from what is behind it. */
+  | "low_contrast";
 
 export interface VideoCheckFinding {
   code: VideoCheckCode;

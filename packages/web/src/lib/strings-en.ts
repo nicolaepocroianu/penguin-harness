@@ -1925,6 +1925,8 @@ export const en: Strings = {
             `${elements} cover each other, seen from ${from} s to ${to} s.`,
           off_stage: (from: string, to: string, _asset: string, elements: string) =>
             `${elements} reaches outside the stage, seen from ${from} s to ${to} s.`,
+          low_contrast: (from: string, to: string, _asset: string, elements: string) =>
+            `The text in ${elements} does not stand out enough from what is behind it, seen from ${from} s to ${to} s.`,
           small_text: (from: string, to: string, _asset: string, elements: string) =>
             `The text in ${elements} is too small for learners to read, seen from ${from} s to ${to} s.`,
         },

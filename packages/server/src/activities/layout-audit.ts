@@ -7,6 +7,10 @@
  *   tenth of the smaller one, unless either is marked `data-allow-overlap` or holds the other.
  * - A main object reaching more than 2px outside the stage.
  * - Visible text smaller than `SMALL_TEXT_PX`.
+ * - Visible text whose contrast with what is behind it is under WCAG's minimum: 4.5:1, or 3:1
+ *   for large text (24px and up). What is behind it is the nearest solid background colour of
+ *   the text or its containers, or every colour stop of a background gradient there, the worst
+ *   one counting. A shape painted behind the text by another element is not seen.
  *
  * An element too faint to see (opacity under 0.05, all the way up) is not measured. Each finding
  * says which elements and from when to when it was seen; it joins the video's final check (see
@@ -20,6 +24,10 @@ import type { VideoCheckFinding } from "./video-types.js";
 
 /** Text smaller than this, in stage pixels, is too small for learners on a small screen. */
 export const SMALL_TEXT_PX = 28;
+/** WCAG's minimum contrast for text, and for large text. */
+export const MIN_CONTRAST = 4.5;
+export const MIN_CONTRAST_LARGE = 3;
+
 /** How many moments of the timeline are measured. */
 export const AUDIT_SAMPLES = 5;
 
@@ -28,6 +36,8 @@ export interface LayoutSample {
   overlap: string[][];
   offStage: string[];
   smallText: string[];
+  /** Absent from pages measured before contrast was. */
+  lowContrast?: string[];
 }
 
 /**
@@ -79,8 +89,38 @@ export const AUDIT_SCRIPT = `(function () {
       var smaller = Math.min(p.width * p.height, q.width * q.height);
       if (w > 0 && h > 0 && w * h > smaller * 0.1) overlap.push([name(a), name(b)]);
     }
+  function rgba(value) {
+    // Character classes rather than escapes: this script is a template string, which drops
+    // the backslash of an escaped bracket.
+    var match = /rgba?[(]([^)]+)[)]/.exec(value || "");
+    if (!match) return null;
+    var parts = match[1].split(/[ ,/]+/).filter(Boolean).map(parseFloat);
+    return { r: parts[0], g: parts[1], b: parts[2], a: parts.length > 3 ? parts[3] : 1 };
+  }
+  function luminance(c) {
+    function channel(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+    return 0.2126 * channel(c.r) + 0.7152 * channel(c.g) + 0.0722 * channel(c.b);
+  }
+  function contrast(a, b) {
+    var x = luminance(a), y = luminance(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  }
+  function behind(el) {
+    for (var node = el; node; node = node.parentElement) {
+      var style = getComputedStyle(node), colors = [];
+      if (style.backgroundImage && style.backgroundImage !== "none")
+        (style.backgroundImage.match(/rgba?[(][^)]+[)]/g) || []).forEach(function (stop) {
+          var c = rgba(stop); if (c && c.a >= 0.5) colors.push(c);
+        });
+      var solid = rgba(style.backgroundColor);
+      if (solid && solid.a >= 0.5) colors.push(solid);
+      if (colors.length) return colors;
+      if (node === stage) break;
+    }
+    return [{ r: 255, g: 255, b: 255, a: 1 }];
+  }
   var walker = document.createTreeWalker(stage, NodeFilter.SHOW_TEXT);
-  var small = new Set();
+  var small = new Set(), faint = new Set();
   for (var text = walker.nextNode(); text; text = walker.nextNode()) {
     var el = text.parentElement;
     if (!el || !text.textContent.trim() || !seen(el)) continue;
@@ -89,9 +129,16 @@ export const AUDIT_SCRIPT = `(function () {
       ? el.getBoundingClientRect().height / 1.2
       : parseFloat(getComputedStyle(el).fontSize);
     if (size && size < ${SMALL_TEXT_PX}) small.add(name(el));
+    var ink = rgba(el instanceof SVGElement ? getComputedStyle(el).fill : getComputedStyle(el).color);
+    if (ink && ink.a >= 0.5) {
+      var least = Math.min.apply(null, behind(el).map(function (c) { return contrast(ink, c); }));
+      if (least < (size >= 24 ? ${MIN_CONTRAST_LARGE} : ${MIN_CONTRAST})) faint.add(name(el));
+    }
   }
+  var lowContrast = [];
   small.forEach(function (n) { smallText.push(n); });
-  return { overlap: overlap, offStage: offStage, smallText: smallText };
+  faint.forEach(function (n) { lowContrast.push(n); });
+  return { overlap: overlap, offStage: offStage, smallText: smallText, lowContrast: lowContrast };
 })()`;
 
 /** Whether a page's answer is a `LayoutSample`; anything else is no measurement. */
@@ -122,6 +169,7 @@ export function layoutFindings(samples: { atMs: number; sample: unknown }[]): Vi
     for (const pair of sample.overlap) note("layout_overlap", [...pair].sort(), atMs);
     for (const element of sample.offStage) note("off_stage", [element], atMs);
     for (const element of sample.smallText) note("small_text", [element], atMs);
+    for (const element of sample.lowContrast ?? []) note("low_contrast", [element], atMs);
   }
   return [...found.values()];
 }

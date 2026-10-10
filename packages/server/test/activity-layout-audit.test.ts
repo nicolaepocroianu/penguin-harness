@@ -41,6 +41,12 @@ describe("layout audit", () => {
       { code: "off_stage", severity: "warning", elements: ["#sun"], startMs: 3000, endMs: 3000 },
     ]);
     expect(layoutFindings([{ atMs: 0, sample: null }])).toEqual([]);
+    // Text that does not stand out; pages measured before contrast was have no such list.
+    expect(
+      layoutFindings([{ atMs: 500, sample: { ...sample([]), lowContrast: ["#title"] } }]),
+    ).toEqual([
+      { code: "low_contrast", severity: "warning", elements: ["#title"], startMs: 500, endMs: 500 },
+    ]);
   });
 });
 
