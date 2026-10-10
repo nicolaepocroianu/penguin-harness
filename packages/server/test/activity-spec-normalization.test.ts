@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   expectedPrimarySceneCount,
+  normalizeMediaTags,
   extractAcceptanceCriteria,
   mediaContractIssues,
   normalizeActivitySpec,
@@ -469,5 +470,23 @@ describe("the prompts", () => {
     expect(repairPrompt(prompt, "It broke.", ["scene-1"])).toMatch(
       /^Your previous attempt did not preserve the media spec scene list\. It broke\.\n\nRetry now\./,
     );
+  });
+});
+
+describe("normalizeMediaTags", () => {
+  it("turns the sound tags authors write into the audio tags the stages read", () => {
+    expect(
+      normalizeMediaTags(
+        "Music <music>calm music</music>. A sound plays <sound>a cow mooing</sound>, then <SFX>a duck</SFX>.",
+      ),
+    ).toBe(
+      'Music <audio kind="music" loop="true">calm music</audio>. A sound plays <audio kind="sfx">a cow mooing</audio>, then <audio kind="sfx">a duck</audio>.',
+    );
+  });
+
+  it("leaves audio tags, other tags and mismatched pairs alone", () => {
+    const text =
+      '<audio kind="sfx">a bell</audio> <image>a cow</image> <sound>an unclosed sound</music>';
+    expect(normalizeMediaTags(text)).toBe(text);
   });
 });
