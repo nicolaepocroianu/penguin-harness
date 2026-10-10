@@ -150,6 +150,8 @@ import {
   COMPOSITION_MAX_BYTES,
   COMPOSITION_TEMPLATE_FILE,
   CompositionProblem,
+  COMPOSITION_PREVIOUS_FILE,
+  COMPOSITION_PREVIOUS_FRAMES_FILE,
   COMPOSITION_SKILL,
   COMPOSITION_SKILL_FILE,
   compositionInput,
@@ -2255,59 +2257,68 @@ export class ActivityGenerationService implements ActivityGeneration {
       });
       bytes.push(content.bytes);
     }
-    // What the asset's newest recording, and its newest composition's source, were found to
-    // get wrong, for the agent to fix this time.
+    // Compose again builds on the best version so far, as open-design's critique loop keeps its
+    // best round (a ratchet): the composition whose recording a critique scored highest, or else
+    // the newest, with what its recording, its source and that critique found to fix.
     const runs = await this.list(projectId, activityId);
-    const recording = runs.find(
-      (run) =>
-        run.kind === "video" &&
-        run.status === "succeeded" &&
-        run.video?.language === input.language &&
-        run.video.assetKey === input.assetKey &&
-        !run.video.fromTimeline,
-    )?.video?.check;
-    const composed = runs.find(
-      (run) =>
-        run.kind === "composition" &&
-        run.status === "succeeded" &&
-        run.hasCandidate &&
-        run.composition?.language === input.language &&
-        run.composition.assetKey === input.assetKey,
+    const ofAsset = (target: { language: string; assetKey: string } | undefined) =>
+      target?.language === input.language && target.assetKey === input.assetKey;
+    const succeeded = (run: ActivityRunSummary) => run.status === "succeeded" && run.hasCandidate;
+    const compositions = runs.filter(
+      (run) => run.kind === "composition" && succeeded(run) && ofAsset(run.composition),
     );
-    const lint = composed
-      ? ((
-          JSON.parse(
-            (await this.getRun(projectId, activityId, composed.runId)).candidate ?? "{}",
-          ) as Partial<CompositionCandidate>
-        ).lint ?? [])
-      : [];
-    // A critique counts only for the recording it looked at, the newest one.
-    const newestRecording = runs.find(
+    const recordings = runs.filter(
       (run) =>
-        run.kind === "video" &&
-        run.status === "succeeded" &&
-        run.video?.language === input.language &&
-        run.video.assetKey === input.assetKey &&
-        !run.video.fromTimeline,
-    )?.runId;
-    const critiqued = runs.find(
-      (run) =>
-        run.kind === "critique" &&
-        run.status === "succeeded" &&
-        run.hasCandidate &&
-        run.critique?.recordingRunId === newestRecording,
+        run.kind === "video" && succeeded(run) && ofAsset(run.video) && !run.video?.fromTimeline,
     );
-    const critique = critiqued
+    // Runs are listed newest first, so a tie keeps the newer critique.
+    const best = runs
+      .filter(
+        (run) =>
+          run.kind === "critique" &&
+          succeeded(run) &&
+          ofAsset(run.critique) &&
+          run.critique?.score !== undefined,
+      )
+      .reduce<ActivityRunSummary | null>(
+        (top, run) => (!top || run.critique!.score! > top.critique!.score! ? run : top),
+        null,
+      );
+    const base = best
+      ? compositions.find((run) => run.runId === best.critique!.compositionRunId)
+      : compositions[0];
+    const recording = best
+      ? recordings.find((run) => run.runId === best.critique!.recordingRunId)
+      : recordings.find((run) => run.video!.compositionRunId === base?.runId);
+    const check = recording?.video?.check;
+    const kept = base
       ? (JSON.parse(
-          (await this.getRun(projectId, activityId, critiqued.runId)).candidate ?? "null",
+          (await this.getRun(projectId, activityId, base.runId)).candidate ?? "null",
+        ) as CompositionCandidate | null)
+      : null;
+    const critique = best
+      ? (JSON.parse(
+          (await this.getRun(projectId, activityId, best.runId)).candidate ?? "null",
         ) as SceneCritique | null)
       : null;
+    // The page itself, while it is still the one that was kept.
+    let previousPage: CompositionStage["previousPage"];
+    if (base && kept) {
+      const html = await readArtifactBytes(
+        path.join(
+          this.workspace(await this.getRun(projectId, activityId, base.runId)),
+          COMPOSITION_FILE,
+        ),
+        COMPOSITION_MAX_BYTES,
+      ).catch(() => null);
+      if (html && sha256(html) === kept.sha256)
+        previousPage = { html: html.toString("utf8"), frames: kept.frames };
+    }
     const previous = [
-      ...(recording
-        ? recording.findings.flatMap((finding) => findingForAgent(finding, recording) ?? [])
-        : []),
-      ...lint.map(lintForAgent),
-      ...(critique ? critiqueForAgent(critique) : []),
+      ...(check ? check.findings.flatMap((finding) => findingForAgent(finding, check) ?? []) : []),
+      ...(kept?.lint ?? []).map(lintForAgent),
+      // The most important few: a long list of fixes at once tends to break what worked.
+      ...(critique ? critiqueForAgent({ ...critique, fixes: critique.fixes.slice(0, 4) }) : []),
     ];
     return {
       scene,
@@ -2322,6 +2333,7 @@ export class ActivityGenerationService implements ActivityGeneration {
       },
       bytes,
       previous,
+      ...(previousPage ? { previousPage } : {}),
     };
   }
 
@@ -2848,8 +2860,10 @@ interface CompositionStage {
   scene: CompositionScene;
   target: CompositionTarget;
   bytes: Uint8Array[];
-  /** What the asset's newest recording was found to get wrong, as instructions to the agent. */
+  /** What the version built on was found to get wrong, as instructions to the agent. */
   previous: string[];
+  /** The version built on: its page and frames, for the agent to start from. */
+  previousPage?: { html: string; frames: CompositionCandidate["frames"] };
 }
 
 /** Stages a composition run's input, template, scripts and images into its workspace. */
@@ -2871,6 +2885,14 @@ async function stageComposition(workspace: string, stage: CompositionStage): Pro
   await fs.writeFile(path.join(workspace, COMPOSITION_BRIDGE_FILE), COMPOSITION_BRIDGE, {
     flag: "wx",
   });
+  if (stage.previousPage) {
+    await fs.writeFile(path.join(workspace, COMPOSITION_PREVIOUS_FILE), stage.previousPage.html, {
+      flag: "wx",
+    });
+    await atomicJson(path.join(workspace, COMPOSITION_PREVIOUS_FRAMES_FILE), {
+      frames: stage.previousPage.frames,
+    });
+  }
   const look = target.look ? sceneLook(target.look) : null;
   if (look) {
     // Copies for the agent to read; the preview serves look.css from the plugin, not this.
