@@ -19,7 +19,11 @@ import { apiClient, createTestApp, provisionUser, waitFor } from "./helpers.js";
 import { activitySpec, refMediaDir, savedActivitySpec } from "./activity-fixtures.js";
 import { fakeMp3Encoding, fakeMediaHelper, mp3OfWave, speechWave } from "./audio-fixtures.js";
 import { imagePng } from "./image-fixtures.js";
-import { prepareModule, verifyMediaArtifacts } from "../src/activities/waf-module.js";
+import {
+  MODULE_PACKAGES,
+  prepareModule,
+  verifyMediaArtifacts,
+} from "../src/activities/waf-module.js";
 import { IMAGE_STYLE, NARRATION_DELIVERY } from "../src/activities/media-style.js";
 
 function deferred() {
@@ -1136,6 +1140,15 @@ describe("activity generation through Harness sessions", () => {
       JSON.parse(await fs.readFile(path.join(session.workspace!, "module/definition.json"), "utf8"))
         .engine,
     ).toBe("html");
+    // The scaffold names exactly the packages the first stages warm, so it can link them.
+    const scaffold = JSON.parse(
+      await fs.readFile(path.join(session.workspace!, "module/package.json"), "utf8"),
+    );
+    expect(scaffold.dependencies).toEqual(MODULE_PACKAGES.dependencies);
+    expect(scaffold.devDependencies).toEqual(MODULE_PACKAGES.devDependencies);
+    expect(await fs.readFile(path.join(session.workspace!, "module/.npmrc"), "utf8")).toBe(
+      MODULE_PACKAGES.npmrc,
+    );
     // Without the shared packages linked in, the agent is not told they are installed.
     await waitFor(() => f.prompts.length > 0);
     expect(f.prompts.at(-1)).not.toContain("module/node_modules is already installed");

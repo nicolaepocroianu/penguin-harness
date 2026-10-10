@@ -12,6 +12,7 @@ import {
   linkCachedDependencies,
   linkModuleDependencies,
   SCRATCH_STALE_MS,
+  warmModuleDependencies,
   runMediaHelper,
   type DependencyInstaller,
 } from "../src/activities/media-helper-runner.js";
@@ -344,6 +345,30 @@ describe("sharing a WAF module scaffold's packages across runs", () => {
     expect(seen).toHaveLength(1);
     expect((await fs.lstat(path.join(later, "node_modules"))).isSymbolicLink()).toBe(true);
     await fs.access(path.join(later, "node_modules", "waf-state-machine"));
+  });
+
+  it("is warmed from the scaffold's own package set, so the module run links that install", async () => {
+    const cache = await folder();
+    const { install, seen, release } = installer();
+    const dir = await scaffold();
+    const manifest = JSON.parse(await fs.readFile(path.join(dir, "package.json"), "utf8"));
+    await warmModuleDependencies(
+      {
+        // In another key order than the scaffold's: the cache entry is the same.
+        devDependencies: manifest.devDependencies,
+        dependencies: manifest.dependencies,
+        npmrc: await fs.readFile(path.join(dir, ".npmrc"), "utf8"),
+      },
+      cache,
+      process.env,
+      install,
+    );
+    release();
+    await vi.waitFor(async () =>
+      expect((await fs.readdir(cache)).some((entry) => !entry.endsWith(".tmp"))).toBe(true),
+    );
+    expect(await linkModuleDependencies(dir, cache, process.env, install)).toBe(true);
+    expect(seen).toHaveLength(1);
   });
 
   it("leaves a module that already has its packages alone", async () => {

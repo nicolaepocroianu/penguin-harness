@@ -417,7 +417,11 @@ export function replacementsFor(o: TestAppOptions): Replacements {
   // A test never installs a module scaffold's packages unless it asks to.
   out.push([
     DefaultMediaHelperPorts,
-    { linkModuleDependencies: async () => false, ...o.mediaHelperPorts },
+    {
+      linkModuleDependencies: async () => false,
+      warmModuleDependencies: async () => undefined,
+      ...o.mediaHelperPorts,
+    },
   ]);
   if (o.espeakPorts) out.push([DefaultEspeakPorts, o.espeakPorts]);
   if (o.deployPorts) out.push([DefaultDeployPorts, o.deployPorts]);

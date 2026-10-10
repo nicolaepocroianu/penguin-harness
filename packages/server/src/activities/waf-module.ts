@@ -14,6 +14,7 @@ import {
 } from "./media.js";
 import { isUploadReference } from "./upload.js";
 import { HttpError } from "../http/errors.js";
+import type { ModulePackages } from "./media-helper-runner.js";
 import { validateBookSpec } from "./book.js";
 import {
   ACCEPTANCE_HARNESS_FILE,
@@ -83,6 +84,29 @@ export function scaffoldLanguage(activity: ActivityDetail): string {
   const known = groups.find((code) => findLanguage(code));
   return known ?? DEFAULT_LANGUAGE_CODE;
 }
+
+/**
+ * The packages every module scaffold names, from the WAF registry: what its package.json
+ * lists and its `.npmrc`. One set, so the shared install a module run links in is the one its
+ * scaffold asks for.
+ */
+export const MODULE_PACKAGES: ModulePackages = {
+  dependencies: {
+    "input-manager-system": "1.3.15",
+    pubsubsingleton: "1.0.7",
+    "waf-utils": "2.0.20",
+    "waf-state-machine": "1.4.17",
+  },
+  devDependencies: {
+    "@types/node": "24.13.3",
+    typescript: "7.0.2",
+    "waf-module-builder-v2": "1.0.0",
+    webpack: "5.106.1",
+    "webpack-cli": "7.2.2",
+  },
+  npmrc:
+    "registry=https://nexus.waterford.org/repository/npm-group/\nstrict-ssl=true\nignore-scripts=true\n",
+};
 
 export function scaffoldModule(
   activity: ActivityDetail,
@@ -155,19 +179,8 @@ export function scaffoldModule(
       test: "npm run typecheck",
       buildDebug: "tsc --project tsconfig.build.json && webpack --env type=debug",
     },
-    dependencies: {
-      "input-manager-system": "1.3.15",
-      pubsubsingleton: "1.0.7",
-      "waf-utils": "2.0.20",
-      "waf-state-machine": "1.4.17",
-    },
-    devDependencies: {
-      "@types/node": "24.13.3",
-      typescript: "7.0.2",
-      "waf-module-builder-v2": "1.0.0",
-      webpack: "5.106.1",
-      "webpack-cli": "7.2.2",
-    },
+    dependencies: MODULE_PACKAGES.dependencies,
+    devDependencies: MODULE_PACKAGES.devDependencies,
   });
   json("tsconfig.json", {
     compilerOptions: {
@@ -189,8 +202,7 @@ export function scaffoldModule(
   });
   files["webpack.config.cjs"] =
     "const createWafModuleConfig = require('waf-module-builder-v2');\nmodule.exports = (env = {}) => createWafModuleConfig({ buildType: env.type, entry: './.typescript-build/index.js' });\n";
-  files[".npmrc"] =
-    "registry=https://nexus.waterford.org/repository/npm-group/\nstrict-ssl=true\nignore-scripts=true\n";
+  files[".npmrc"] = MODULE_PACKAGES.npmrc;
   files[".gitignore"] = "node_modules/\n.typescript-build/\ndist/\n";
   json("definition.json", {
     id: spec.id,

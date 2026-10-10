@@ -59,6 +59,7 @@ export type MediaHelperResult = { ok: true } | { ok: false; error: string };
 export abstract class MediaHelperPorts extends Interface<{
   runHelper?: (run: MediaHelperRun) => Promise<MediaHelperResult>;
   linkModuleDependencies?: (moduleDir: string, cacheDir: string) => Promise<boolean>;
+  warmModuleDependencies?: (packages: ModulePackages, cacheDir: string) => Promise<void>;
 }>() {}
 
 @Component()
@@ -369,12 +370,47 @@ export async function linkCachedDependencies(
   return { ok: true };
 }
 
+/** A WAF module scaffold's packages: what its package.json names, and its `.npmrc`. */
+export interface ModulePackages {
+  dependencies: Record<string, string>;
+  devDependencies: Record<string, string>;
+  npmrc: string;
+}
+
+/** The one cache entry a scaffold's packages are kept in, however they were read. */
+function modulePackageSet(packages: ModulePackages): DependencySet {
+  return {
+    dependencies: sorted(packages.dependencies),
+    devDependencies: sorted(packages.devDependencies),
+    npmrc: packages.npmrc,
+  };
+}
+
+/**
+ * Starts installing a WAF module scaffold's packages into the cache, unless they are there or
+ * on their way, without waiting. Called as an activity's first stages start, so its module
+ * stage, minutes later, finds them ready. A failed install is tried again by the next call.
+ */
+export async function warmModuleDependencies(
+  packages: ModulePackages,
+  cacheDir: string,
+  env: NodeJS.ProcessEnv = process.env,
+  install: DependencyInstaller = npmInstall,
+): Promise<void> {
+  try {
+    const { shared } = await cachedInstall(modulePackageSet(packages), cacheDir, env, install);
+    shared?.promise.catch(() => undefined);
+  } catch {
+    // Best effort: the module run installs its own.
+  }
+}
+
 /**
  * Gives a WAF module scaffold its packages (dependencies and devDependencies, from the
  * registry its `.npmrc` names) from the same kind of cache, without waiting: linked when the
  * cache already holds them, and otherwise installed there in the background while this run
- * installs its own. Every stage of an activity stages the scaffold, so the stages before its
- * module run warm the cache for it. Whether they were linked.
+ * installs its own. `warmModuleDependencies` starts that install as an activity's first
+ * stages start. Whether they were linked.
  */
 export async function linkModuleDependencies(
   moduleDir: string,
@@ -389,11 +425,11 @@ export async function linkModuleDependencies(
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
     };
-    const set: DependencySet = {
-      dependencies: sorted(manifest.dependencies ?? {}),
-      devDependencies: sorted(manifest.devDependencies ?? {}),
+    const set = modulePackageSet({
+      dependencies: manifest.dependencies ?? {},
+      devDependencies: manifest.devDependencies ?? {},
       npmrc: await fs.readFile(path.join(moduleDir, ".npmrc"), "utf8").catch(() => ""),
-    };
+    });
     const nothingToInstall =
       !Object.keys(set.dependencies).length && !Object.keys(set.devDependencies ?? {}).length;
     if (nothingToInstall) return false;

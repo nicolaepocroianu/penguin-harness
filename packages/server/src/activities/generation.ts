@@ -40,6 +40,7 @@ import { LocalAudio, type LocalAudioRequest } from "./local-audio.js";
 import {
   linkModuleDependencies,
   MediaHelperPorts,
+  warmModuleDependencies,
   runMediaHelper,
   type MediaHelperScript,
 } from "./media-helper-runner.js";
@@ -81,6 +82,7 @@ import {
   prepareModule,
   collectModule,
   moduleBookClause,
+  MODULE_PACKAGES,
   modulePackagesClause,
   modulePrompt,
   syncAssembledStateMachine,
@@ -858,6 +860,12 @@ export class ActivityGenerationService implements ActivityGeneration {
             }
             wafRoot = await this.wafWorkspace.requireRoot();
           }
+          // The module stage comes minutes after the first stages: its packages are installed
+          // into the shared cache meanwhile, so it links them rather than waiting on npm.
+          void (this.mediaHelper.warmModuleDependencies ?? warmModuleDependencies)(
+            MODULE_PACKAGES,
+            modulePackagesRoot(this.config.root),
+          );
           if (media) await this.provisionMediaAgent(projectId);
           // A coding agent's run is still a Session, filed under a Penguin Agent: the one
           // named, or the Project's default Agent when only the coding agent was.
@@ -1100,9 +1108,8 @@ export class ActivityGenerationService implements ActivityGeneration {
                 expectedRevision,
               );
               await prepareModule(workspace, activity, wafRoot, bookMode);
-              // Every stage stages the scaffold, so the stages before a module run install its
-              // packages in the background and the module run links them in rather than
-              // spending minutes installing its own.
+              // The packages the first stages started installing, linked in rather than
+              // installed again by the agent.
               const linkModule = this.mediaHelper.linkModuleDependencies ?? linkModuleDependencies;
               modulePackagesLinked = await linkModule(
                 path.join(workspace, "module"),
