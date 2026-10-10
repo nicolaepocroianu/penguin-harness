@@ -2,7 +2,7 @@ import { Interface, Module, Provide, Use } from "@prismshadow/penguin-core/kerne
 import type { Opaque, Slot, ClassCtx } from "@prismshadow/penguin-core/kernel";
 import { Hono } from "hono";
 import type { AppEnv } from "../auth/middleware.js";
-import { Config, Log } from "../hmr/capabilities.js";
+import { Config } from "../hmr/capabilities.js";
 import type { MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { authMiddleware, jsonOnlyWrites } from "../auth/middleware.js";
@@ -40,7 +40,6 @@ export interface HttpSlots {
 @Module()
 export class HttpModule {
   @Use() private readonly config!: Config;
-  @Use() private readonly log!: Log;
   @Use() private readonly auth!: Auth;
   @Use() private readonly errors!: Errors;
   @Use() private readonly settings!: Settings;
@@ -60,13 +59,8 @@ export class HttpModule {
       return handleError(err, c);
     });
     app.notFound(() => declined());
-    app.use("*", async (c, next) => {
-      const start = performance.now();
-      await next();
-      this.log.line(
-        `${c.req.method} ${c.req.path} ${c.res.status} ${Math.round(performance.now() - start)}ms`,
-      );
-    });
+    // No request log here: the layer in front of the seam (app.ts) logs every request once,
+    // with the status the caller actually got. A line here also logged each decline as 404.
     let capped: { size: number; mw: MiddlewareHandler } | null = null;
     app.use("/api/*", (c, next) => {
       const size = bodyLimitBytes(this.settings.getAttachmentLimitsMb());
