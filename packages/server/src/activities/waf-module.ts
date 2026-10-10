@@ -567,7 +567,11 @@ export async function collectModule(
   };
   if (!Array.isArray(manifest.files) || !manifest.files.length || manifest.files.length > 200)
     throw new Error("module-result.json requires between 1 and 200 file paths.");
-  const names = manifest.files;
+  // The player check sits beside the module and never ships with it; an agent that lists its
+  // test or results was being thorough, not naming a module file, so those entries are dropped.
+  const names = manifest.files.filter(
+    (name) => !(typeof name === "string" && name.startsWith(`${PLAYER_CHECK_DIR}/`)),
+  );
   for (const required of [
     ...requiredFiles,
     "module/package.json",
@@ -589,7 +593,9 @@ export async function collectModule(
       name.includes("/node_modules/") ||
       names.indexOf(name) !== artifacts.length
     )
-      throw new Error("Invalid or duplicate module artifact path.");
+      throw new Error(
+        `Invalid or duplicate module artifact path: ${JSON.stringify(name).slice(0, 200)}. Every entry must be a file under module/, listed once.`,
+      );
     // Reject linked ancestor directories as well as linked leaf files.
     let parent = workspace;
     for (const segment of name.split("/").slice(0, -1)) {
