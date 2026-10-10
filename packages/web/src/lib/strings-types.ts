@@ -1637,8 +1637,11 @@ export type Strings = {
           | "silent"
           | "clipping"
           | "narration_silent"
-          | "black",
-          (from: string, to: string, asset: string) => string
+          | "black"
+          | "layout_overlap"
+          | "off_stage"
+          | "small_text",
+          (from: string, to: string, asset: string, elements: string) => string
         >;
       };
       /** The scene video's timeline: how its finished video is put together. */

@@ -167,6 +167,9 @@ function fakeBrowser() {
             calls.scripts.push(script);
             // An agent-written page whose `ready` never settles.
             if (hang && script.includes("ready")) return new Promise(() => {});
+            // The layout audit: the chest covers the palm at every moment measured.
+            if (script.includes("data-focal"))
+              return { overlap: [["#chest", "#palm"]], offStage: [], smallText: [] };
             return script.includes("ready") ? 6 : true;
           },
           screenshot: async (options: Record<string, unknown>) => {
@@ -457,6 +460,20 @@ describe("scene video recording", () => {
       { durationMs: 6000, width: 640, height: 480, audio: false, narration: [] },
     ]);
     expect(summary.video?.check).toMatchObject({ status: "pass", durationMs: 6000 });
+    // The layout audit measured five moments, first frame to last, and its finding joined the
+    // check as a warning.
+    expect(f.browser.calls.scripts.filter((script) => script.includes("data-focal"))).toHaveLength(
+      5,
+    );
+    expect(summary.video?.check?.findings).toEqual([
+      {
+        code: "layout_overlap",
+        severity: "warning",
+        elements: ["#chest", "#palm"],
+        startMs: 0,
+        endMs: 5500,
+      },
+    ]);
 
     // The browser opened the composition on a link that really serves it, at the canvas size,
     // with no page recorder.

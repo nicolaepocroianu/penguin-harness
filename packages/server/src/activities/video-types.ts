@@ -74,7 +74,13 @@ export type VideoCheckCode =
   /** A narration should be speaking, and the sound is silent there. */
   | "narration_silent"
   /** The picture is black for a stretch. */
-  | "black";
+  | "black"
+  /** Two of the composition's main objects cover each other (see the layout audit). */
+  | "layout_overlap"
+  /** A main object is partly outside the stage. */
+  | "off_stage"
+  /** Text is smaller than learners can read on a small screen. */
+  | "small_text";
 
 export interface VideoCheckFinding {
   code: VideoCheckCode;
@@ -85,6 +91,8 @@ export interface VideoCheckFinding {
   endMs?: number;
   /** The narration it is about. */
   asset?: string;
+  /** The composition's elements it is about, by id (or tag when they have none). */
+  elements?: string[];
 }
 
 /**

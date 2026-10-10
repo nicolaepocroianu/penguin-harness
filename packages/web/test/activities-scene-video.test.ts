@@ -147,6 +147,15 @@ describe("a made video's final check in the studio", () => {
         endMs: 2500,
       }),
     ).toBe("intro-line should be speaking from 0.5 s to 2.5 s, but it is silent there.");
+    expect(
+      findingText({
+        code: "layout_overlap",
+        severity: "warning",
+        elements: ["#chest", "#palm"],
+        startMs: 0,
+        endMs: 11500,
+      }),
+    ).toBe("#chest and #palm cover each other, seen from 0 s to 11.5 s.");
     expect(findingText({ code: "audio_missing", severity: "error" })).toBe(
       "It has no sound, but it should.",
     );

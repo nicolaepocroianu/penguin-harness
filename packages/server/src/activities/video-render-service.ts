@@ -39,7 +39,13 @@ import { timelineRenderArgs } from "./timeline-render.js";
 import { checkVideo, type VideoExpectation } from "./video-check.js";
 import { captionCues, narrationLengthMs, timelineLengthMs, webVtt } from "./video-timeline.js";
 import type { VideoTimeline } from "./video-timeline-types.js";
-import type { VideoCheck, VideoProblemCode, VideoResult, VideoTarget } from "./video-types.js";
+import type {
+  VideoCheck,
+  VideoCheckFinding,
+  VideoProblemCode,
+  VideoResult,
+  VideoTarget,
+} from "./video-types.js";
 
 /** Where a run's recorder writes, inside its workspace; removed once the recording is kept. */
 export const RECORDING_DIR = "recording";
@@ -48,6 +54,8 @@ interface Made {
   file: string;
   captions: string | null;
   expected: VideoExpectation;
+  /** What the layout audit found while a composition was recorded (see layout-audit.ts). */
+  layout?: VideoCheckFinding[];
 }
 
 /** Where a timeline render gathers its inputs and writes; removed once the video is kept. */
@@ -238,8 +246,8 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
     target: VideoTarget,
   ): Promise<void> {
     const dir = path.join(this.config.root, "activity-runs", run.runId, RECORDING_DIR);
-    await this.produce(run, dir, async () => ({
-      file: await renderComposition({
+    await this.produce(run, dir, async () => {
+      const { file, layout } = await renderComposition({
         executablePath: executable,
         compositionUrl: url,
         width: target.width,
@@ -250,17 +258,21 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         ...(this.ports.encoder ? { encoder: this.ports.encoder } : {}),
         ...(this.ports.pageTimeoutMs ? { pageTimeoutMs: this.ports.pageTimeoutMs } : {}),
         ...(this.ports.fps ? { fps: this.ports.fps } : {}),
-      }),
-      captions: null,
-      // A recording is the composition's picture alone.
-      expected: {
-        durationMs: Math.round(target.seconds * 1000),
-        width: target.width,
-        height: target.height,
-        audio: false,
-        narration: [],
-      },
-    }));
+      });
+      return {
+        file,
+        captions: null,
+        layout,
+        // A recording is the composition's picture alone.
+        expected: {
+          durationMs: Math.round(target.seconds * 1000),
+          width: target.width,
+          height: target.height,
+          audio: false,
+          narration: [],
+        },
+      };
+    });
   }
 
   async startTimeline(
@@ -422,12 +434,15 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         "mp4",
       );
       // The check says what it finds; a check that cannot run leaves the video unchecked.
-      const check = await (this.ports.checkVideo ?? checkVideo)(made.file, made.expected).catch(
+      let check = await (this.ports.checkVideo ?? checkVideo)(made.file, made.expected).catch(
         (error: unknown) => {
           this.log.line(`[activities] Checking video run ${runId} failed: ${String(error)}`);
           return undefined;
         },
       );
+      // The layout audit's findings are warnings: they join the check without changing it.
+      if (check && made.layout?.length)
+        check = { ...check, findings: [...check.findings, ...made.layout] };
       if (made.captions !== null) {
         await this.activities.storeCaptions(projectId, activityId, runId, made.captions);
         result = { ...result, captions: true };

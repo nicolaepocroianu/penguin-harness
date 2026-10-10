@@ -1921,6 +1921,12 @@ export const en: Strings = {
           narration_silent: (from: string, to: string, asset: string) =>
             `${asset} should be speaking from ${from} s to ${to} s, but it is silent there.`,
           black: (from: string, to: string) => `The picture is black from ${from} s to ${to} s.`,
+          layout_overlap: (from: string, to: string, _asset: string, elements: string) =>
+            `${elements} cover each other, seen from ${from} s to ${to} s.`,
+          off_stage: (from: string, to: string, _asset: string, elements: string) =>
+            `${elements} reaches outside the stage, seen from ${from} s to ${to} s.`,
+          small_text: (from: string, to: string, _asset: string, elements: string) =>
+            `The text in ${elements} is too small for learners to read, seen from ${from} s to ${to} s.`,
         },
       },
       timeline: {

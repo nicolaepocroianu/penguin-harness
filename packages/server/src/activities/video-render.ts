@@ -22,7 +22,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { openPage, type BrowserLauncher } from "./browser-session.js";
 import { FfmpegError, startFfmpeg, type FfmpegRun } from "./ffmpeg.js";
-import type { VideoFormat, VideoProblemCode } from "./video-types.js";
+import { AUDIT_SCRIPT, auditFrames, layoutFindings } from "./layout-audit.js";
+import type { VideoCheckFinding, VideoFormat, VideoProblemCode } from "./video-types.js";
 
 /** How long the browser may take to start and the composition to load, and each page action. */
 export const RENDER_PAGE_TIMEOUT_MS = 30_000;
@@ -150,11 +151,18 @@ export function frameCount(seconds: number, fps: number): number {
   return Math.max(1, Math.ceil(Math.min(length, RENDER_MAX_SECONDS) * fps));
 }
 
+/** A rendered composition: its MP4, and what the layout audit found while it was captured. */
+export interface Rendered {
+  file: string;
+  layout: VideoCheckFinding[];
+}
+
 /**
- * Renders the composition frame by frame in the test browser and encodes it. Answers the path
- * of the MP4. The browser is closed, and FFmpeg stopped, whatever happens.
+ * Renders the composition frame by frame in the test browser and encodes it, measuring its layout
+ * at a few of those frames on the way (see layout-audit.ts). The browser is closed, and FFmpeg
+ * stopped, whatever happens.
  */
-export async function renderComposition(request: RenderRequest): Promise<string> {
+export async function renderComposition(request: RenderRequest): Promise<Rendered> {
   await fs.mkdir(request.dir, { recursive: true });
   const stepMs = request.pageTimeoutMs ?? RENDER_PAGE_TIMEOUT_MS;
   const fps = request.fps ?? RENDER_FPS;
@@ -185,15 +193,23 @@ export async function renderComposition(request: RenderRequest): Promise<string>
     encoder = await (request.encoder ?? ffmpegEncoder)(encodeArgs(fps, file), RENDER_MAX_MS);
     const frames = frameCount(seconds, fps);
     const clip = { x: 0, y: 0, width: request.width, height: request.height };
+    const audited = auditFrames(frames);
+    const samples: { atMs: number; sample: unknown }[] = [];
     for (let index = 0; index < frames; index += 1) {
       await step(page.evaluate(seekScript(index / fps)));
+      // A page that breaks its own measuring is not measured there; the video still renders.
+      if (audited.has(index))
+        samples.push({
+          atMs: Math.round((index / fps) * 1000),
+          sample: await step(page.evaluate(AUDIT_SCRIPT)).catch(() => null),
+        });
       const shot = await step(page.screenshot({ type: "png", clip, scale: "css" }));
       await step(encoder.write(shot));
     }
     const running = encoder;
     encoder = null;
     await within(running.finish(), Math.max(0, deadline - Date.now()), late);
-    return file;
+    return { file, layout: layoutFindings(samples) };
   } catch (error) {
     if (error instanceof FfmpegError)
       throw new RenderError(`Encoding the video failed: ${error.message}`);

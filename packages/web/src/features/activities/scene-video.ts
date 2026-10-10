@@ -100,6 +100,7 @@ export function findingText(finding: VideoCheckFinding): string {
     seconds(finding.startMs),
     seconds(finding.endMs),
     finding.asset ?? "",
+    (finding.elements ?? []).join(" and "),
   );
 }
 
