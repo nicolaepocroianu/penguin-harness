@@ -63,7 +63,7 @@ import {
   workspaceGroupQuery,
 } from "../lib/session-grouping";
 import { noteScheduleEvent } from "../features/schedules/schedule-store";
-import { publishActivityRunFinished } from "../lib/activity-run-events";
+import { publishActivityRunFinished, publishActivityRunsResync } from "../lib/activity-run-events";
 import { useProject } from "./project";
 
 interface SessionsContextValue {
@@ -731,6 +731,8 @@ export function applyUserEvent(
     store.setState({ liveStatuses: new Map() });
     void store.getState().reload();
     publishCompanyResync();
+    // A lost `activity_run_finished` would leave an activity card saying "running" forever.
+    publishActivityRunsResync();
     return;
   }
   // An activity run ended: the activity list re-reads its cards. The run's own row, if this

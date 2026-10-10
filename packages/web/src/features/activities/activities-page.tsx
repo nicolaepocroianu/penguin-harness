@@ -46,7 +46,7 @@ import { useLocale } from "../../state/locale";
 import { useProject } from "../../state/project";
 import { useSessions } from "../../state/sessions";
 import { startedUnlistedRuns, shouldReloadList } from "../../lib/activity-sessions";
-import { subscribeActivityRunFinished } from "../../lib/activity-run-events";
+import { subscribeActivityListStale } from "../../lib/activity-run-events";
 import { Button } from "../../components/ui/button";
 import { Input, Textarea } from "../../components/ui/input";
 import { Select } from "../../components/ui/select";
@@ -241,13 +241,15 @@ function ActivityWorkspace({
     void reload();
   }, [reload]);
   // Live refresh: the server says when one of this Project's activity runs finishes, and the
-  // list re-reads its cards then, only while it is shown (not inside an activity). A pipeline
-  // can finish several runs at once, so the finishes inside a short window share one reload.
+  // list re-reads its cards then, only while it is shown (not inside an activity); so it does
+  // when the event stream lost events it cannot replay, since a finish may be among them. A
+  // pipeline can finish several runs at once, so the signals in a short window share one reload.
   useEffect(() => {
     if (activityId) return;
     let timer: number | undefined;
-    const unsubscribe = subscribeActivityRunFinished((event) => {
-      if (event.projectId !== projectId || timer !== undefined) return;
+    const unsubscribe = subscribeActivityListStale((staleProjectId) => {
+      if (staleProjectId !== null && staleProjectId !== projectId) return;
+      if (timer !== undefined) return;
       timer = window.setTimeout(() => {
         timer = undefined;
         void reload();
@@ -1651,7 +1653,7 @@ function ActivityEditor({
                   </>
                 )}
                 <h2
-                  className="min-w-0 flex-1 truncate font-semibold sm:flex-none"
+                  className="min-w-0 flex-1 truncate font-semibold sm:flex-initial"
                   title={detail.title}
                 >
                   {detail.title}
