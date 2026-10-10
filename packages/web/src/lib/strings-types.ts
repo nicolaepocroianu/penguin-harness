@@ -1671,6 +1671,8 @@ export type Strings = {
       /** A made video's final check: its outcome, and each finding, with times in seconds. */
       check: {
         pass: string;
+        /** A pass whose check still found warnings. */
+        warnings: string;
         revise: string;
         fail: string;
         findings: Record<
@@ -1750,6 +1752,7 @@ export type Strings = {
           | "narration_length_unknown"
           | "narration_overlap"
           | "past_end"
+          | "cut_past_recording"
           | "captions_untimed",
           (asset: string) => string
         >;

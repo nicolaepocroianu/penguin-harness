@@ -8,7 +8,7 @@
  * its newest recording. What it would get wrong is the server's to say, and is shown as it
  * says it after each save.
  */
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type {
   ActivityRunSummary,
   AssetManifest,
@@ -85,6 +85,16 @@ export function SceneTimelineView({
 }) {
   const [view, setView] = useState<VideoTimelineView | null>(null);
   const [edited, setEdited] = useState<VideoTimeline | null>(null);
+  // Time fields whose text does not read as seconds: what they show is not what would be saved.
+  const [invalid, setInvalid] = useState<ReadonlySet<string>>(new Set());
+  const validity = (key: string) => (valid: boolean) =>
+    setInvalid((prev) => {
+      if (valid ? !prev.has(key) : prev.has(key)) return prev;
+      const next = new Set(prev);
+      if (valid) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   const [failure, setFailure] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   // The agent's timeline the author last loaded into the editor.
@@ -132,6 +142,7 @@ export function SceneTimelineView({
   const change = (next: VideoTimeline) => setEdited(next);
   const locked = !editable || saving;
   const blocked = view.issues.some(blocksRender);
+  const mistyped = invalid.size > 0;
   const save = async (next: VideoTimeline | null) => {
     setSaving(true);
     try {
@@ -159,11 +170,13 @@ export function SceneTimelineView({
             <SecondsField
               label={words.from}
               ms={cut.inMs}
+              onValid={validity(`cut-${index}-in`)}
               onChange={(inMs) => change(withCut(timeline, index, { inMs }))}
             />
             <SecondsField
               label={words.to}
               ms={cut.outMs}
+              onValid={validity(`cut-${index}-out`)}
               onChange={(outMs) => change(withCut(timeline, index, { outMs }))}
             />
             {index > 0 && (
@@ -189,6 +202,7 @@ export function SceneTimelineView({
                   <SecondsField
                     label={words.fade}
                     ms={cut.transitionMs}
+                    onValid={validity(`cut-${index}-fade`)}
                     onChange={(transitionMs) => change(withCut(timeline, index, { transitionMs }))}
                   />
                 )}
@@ -209,6 +223,7 @@ export function SceneTimelineView({
             <SecondsField
               label={words.startsAt}
               ms={entry.startMs}
+              onValid={validity(`narration-${index}`)}
               onChange={(startMs) =>
                 change({
                   ...timeline,
@@ -314,6 +329,7 @@ export function SceneTimelineView({
               <SecondsField
                 label={words.startsAt}
                 ms={effect.startMs}
+                onValid={validity(`effect-${index}`)}
                 onChange={(startMs) => set({ startMs })}
               />
               <Volume value={effect.volume} onChange={(volume) => set({ volume })} />
@@ -365,7 +381,7 @@ export function SceneTimelineView({
           <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
-              disabled={!dirty || !canChange || saving}
+              disabled={!dirty || mistyped || !canChange || saving}
               onClick={() => void save(timeline)}
             >
               {words.save}
@@ -383,7 +399,7 @@ export function SceneTimelineView({
             <Button
               size="sm"
               variant="primary"
-              disabled={dirty || blocked || !canChange || rendering}
+              disabled={dirty || mistyped || blocked || !canChange || rendering}
               onClick={onRender}
             >
               {rendering ? words.rendering : words.render}
@@ -391,7 +407,7 @@ export function SceneTimelineView({
             {onRefine && (
               <Button
                 size="sm"
-                disabled={!canRefine || !canChange || refining || dirty}
+                disabled={!canRefine || !canChange || refining || dirty || mistyped}
                 onClick={onRefine}
               >
                 {refining ? words.refining : words.refine}
@@ -418,18 +434,29 @@ export function SceneTimelineView({
   );
 }
 
-/** A time in seconds, kept as typed until it reads as a number of seconds. */
+/**
+ * A time in seconds, kept as typed until it reads as a number of seconds. `onValid` hears
+ * whether the text reads as one; a field that goes away no longer counts as mistyped.
+ */
 function SecondsField({
   label,
   ms,
   onChange,
+  onValid,
 }: {
   label: string;
   ms: number;
   onChange: (ms: number) => void;
+  onValid: (valid: boolean) => void;
 }) {
   const [text, setText] = useState(toSeconds(ms));
-  useEffect(() => setText(toSeconds(ms)), [ms]);
+  const report = useRef(onValid);
+  report.current = onValid;
+  useEffect(() => {
+    setText(toSeconds(ms));
+    report.current(true);
+  }, [ms]);
+  useEffect(() => () => report.current(true), []);
   const value = fromSeconds(text);
   return (
     <div className="w-24">
@@ -441,6 +468,7 @@ function SecondsField({
         onChange={(event) => {
           setText(event.target.value);
           const next = fromSeconds(event.target.value);
+          onValid(next !== null);
           if (next !== null && next !== ms) onChange(next);
         }}
       />

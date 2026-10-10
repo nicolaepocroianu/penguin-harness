@@ -356,6 +356,15 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         "timeline_blocked",
         `The timeline names audio that cannot be played yet: ${unplayable.join(", ")}.`,
       );
+    const overlong = issues
+      .filter((issue) => issue.code === "cut_past_recording")
+      .map((issue) => issue.asset);
+    if (overlong.length)
+      throw new HttpError(
+        409,
+        "timeline_blocked",
+        `These cuts end after their recording does: ${overlong.join(", ")}.`,
+      );
     const first = await this.generation
       .run(projectId, activityId, timeline.cuts[0]!.source.runId)
       .catch(() => null);
@@ -549,8 +558,9 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
   }
 
   /**
-   * Waits for an agent's step of an Improve; one that fails is started once more, since an
-   * agent's connection can drop mid-turn. The step that succeeded, or null.
+   * Waits for an agent's step of an Improve; one that failed is started once more, since an
+   * agent's connection can drop mid-turn. One the author cancelled is not. The step that
+   * succeeded, or null.
    */
   private async agentStep(
     projectId: string,
@@ -558,8 +568,9 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
     run: ActivityRun,
     again: () => Promise<ActivityRun>,
   ): Promise<ActivityRun | null> {
-    if (await this.succeeds(projectId, activityId, run.runId)) return run;
-    if (this.stopped) return null;
+    const status = await this.settled(projectId, activityId, run.runId);
+    if (status === "succeeded") return run;
+    if (status !== "failed") return null;
     this.log.line(`[activities] Improving ${activityId}: ${run.kind} run failed; trying it again.`);
     const retry = await again();
     return (await this.succeeds(projectId, activityId, retry.runId)) ? retry : null;
@@ -567,10 +578,19 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
 
   /** Waits for a run to settle; whether it succeeded. False once the server stops. */
   private async succeeds(projectId: string, activityId: string, runId: string): Promise<boolean> {
+    return (await this.settled(projectId, activityId, runId)) === "succeeded";
+  }
+
+  /** Waits for a run to settle; how it ended, or null once the server stops. */
+  private async settled(
+    projectId: string,
+    activityId: string,
+    runId: string,
+  ): Promise<ActivityRun["status"] | null> {
     for (;;) {
-      if (this.stopped) return false;
+      if (this.stopped) return null;
       const run = await this.generation.run(projectId, activityId, runId);
-      if (run.status !== "running") return run.status === "succeeded";
+      if (run.status !== "running") return run.status;
       await new Promise((resolve) => setTimeout(resolve, this.ports.pollMs ?? 2000));
     }
   }

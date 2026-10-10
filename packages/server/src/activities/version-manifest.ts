@@ -9,6 +9,7 @@
 import { canonical, contentRevision, type ActivityDraft } from "./domain.js";
 import type { AssetManifest, MediaPlan } from "./media.js";
 import { isUploadReference } from "./upload.js";
+import { captionsPath } from "./video-timeline.js";
 
 export interface VersionMedia {
   /** The manifest's path, relative to the WAF root: `media/loom/<pc>/<pc>-<ref>/...`. */
@@ -37,6 +38,8 @@ export interface VersionManifest {
 export interface OwnedMedia {
   path: string;
   expectedSha256: string | null;
+  /** A file that may not be there: a generated video's captions, which only a timeline makes. */
+  optional?: boolean;
 }
 
 const RUN_ID = /^run_[a-f0-9]{32}$/;
@@ -56,6 +59,11 @@ export function ownedMediaPaths(manifest: AssetManifest | undefined): {
     const generated = asset.generatedAudio ?? asset.generatedImage ?? asset.generatedVideo;
     if (generated && RUN_ID.test(generated.runId) && asset.path) {
       owned.set(asset.path, { path: asset.path, expectedSha256: generated.sha256 });
+      // A finished video's captions sit beside it, and belong to the version with it.
+      if (asset.generatedVideo) {
+        const captions = captionsPath(asset.path);
+        owned.set(captions, { path: captions, expectedSha256: null, optional: true });
+      }
     } else if (isUploadReference(asset.path)) {
       if (!owned.has(asset.path!))
         owned.set(asset.path!, { path: asset.path!, expectedSha256: null });

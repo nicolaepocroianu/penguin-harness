@@ -90,7 +90,9 @@ export function candidateUrl(endpoint: string, runId: string): string {
 
 /** Issues that stop a render: the server refuses while any is reported. */
 export function blocksRender(issue: TimelineIssue): boolean {
-  return ["asset_missing", "asset_kind", "asset_unbound"].includes(issue.code);
+  return ["asset_missing", "asset_kind", "asset_unbound", "cut_past_recording"].includes(
+    issue.code,
+  );
 }
 
 /**

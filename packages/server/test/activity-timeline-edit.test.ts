@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { MediaAsset } from "../src/activities/media.js";
 import {
   collectTimelineEdit,
+  framesOnTimeline,
   placeFrames,
   TIMELINE_OUTPUT_FILE,
   timelineEditInput,
@@ -93,6 +94,26 @@ describe("refining a timeline", () => {
       await fs.writeFile(path.join(dir, TIMELINE_OUTPUT_FILE), JSON.stringify(value));
     return dir;
   }
+
+  it("moves the frames to where the timeline shows them, after trims and cuts", () => {
+    // The first 1.5 s trimmed off; then the recording again from 6 s, after a 0.5 s fade.
+    const edited = {
+      cuts: [
+        { ...timeline.cuts[0]!, inMs: 1500, outMs: 4000 },
+        { ...timeline.cuts[0]!, id: "cut-2", inMs: 6000, outMs: 7500 },
+        { ...timeline.cuts[0]!, id: "cut-3", source: { ...source, runId: "run_other" } },
+      ].map((cut, index) =>
+        index === 1 ? { ...cut, transition: "fade" as const, transitionMs: 500 } : cut,
+      ),
+    };
+    expect(framesOnTimeline(frames, edited, source.runId)).toEqual([
+      { id: "frame-1", description: "Closed", startMs: 0, endMs: 1500 },
+      { id: "frame-2", description: "Opens", startMs: 1500, endMs: 2500 },
+      { id: "frame-2", description: "Opens", startMs: 2000, endMs: 3500 },
+    ]);
+    // Uncut, the frames stay where they were.
+    expect(framesOnTimeline(frames, timeline, source.runId)).toEqual(frames);
+  });
 
   it("keeps a refined timeline that stays within what it was given", async () => {
     const refined: VideoTimeline = {

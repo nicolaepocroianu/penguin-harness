@@ -134,6 +134,9 @@ describe("a made video's final check in the studio", () => {
       text: "Checked: nothing wrong found",
       tone: "success",
     });
+    expect(
+      checkLine({ ...check("pass"), findings: [{ code: "near_edge", severity: "warning" }] }),
+    ).toEqual({ text: "Checked: some things are worth a look", tone: "attention" });
     expect(checkLine(check("revise")).tone).toBe("attention");
     expect(checkLine(check("fail")).tone).toBe("danger");
     expect(findingText({ code: "black", severity: "warning", startMs: 1000, endMs: 1840 })).toBe(
@@ -184,9 +187,19 @@ describe("a made video's final check in the studio", () => {
       recording({ runId: "run_ok", video: { ...recording({}).video!, check: check("pass") } }),
       recording({ runId: "run_bad", video: { ...recording({}).video!, check: check("revise") } }),
       recording({ runId: "run_old" }),
+      recording({
+        runId: "run_warned",
+        video: {
+          ...recording({}).video!,
+          check: { ...check("pass"), findings: [{ code: "near_edge", severity: "warning" }] },
+        },
+      }),
     ];
-    const assets = { "en-US": [bound("run_ok"), bound("run_bad"), bound("run_old"), video] };
-    expect(videosToCheck(assets, runs)).toBe(1);
+    const assets = {
+      "en-US": [bound("run_ok"), bound("run_bad"), bound("run_old"), bound("run_warned"), video],
+    };
+    // A pass with warnings counts too.
+    expect(videosToCheck(assets, runs)).toBe(2);
     expect(videosToCheck(undefined, runs)).toBe(0);
   });
 });

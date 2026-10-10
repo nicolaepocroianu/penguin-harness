@@ -187,6 +187,7 @@ import {
 } from "./scene-critique.js";
 import {
   collectTimelineEdit,
+  framesOnTimeline,
   placeFrames,
   stageTimelineEdit,
   TIMELINE_OUTPUT_FILE,
@@ -198,7 +199,10 @@ import {
 import type { VideoCheck, VideoProblemCode, VideoResult, VideoTarget } from "./video-types.js";
 import { RENDER_FPS } from "./video-render.js";
 import { defaultTimeline, timelineIssues } from "./video-timeline.js";
-import type { VideoTimelineView } from "./video-timeline-types.js";
+import type { TimelineIssue, VideoTimeline, VideoTimelineView } from "./video-timeline-types.js";
+
+/** How far a cut may end past its recording, for rounding. */
+const CUT_SLACK_MS = 50;
 import { mediaContentType } from "./media-origin.js";
 import {
   newId,
@@ -1872,6 +1876,29 @@ export class ActivityGenerationService implements ActivityGeneration {
       result.format ?? "webm",
     );
   }
+  /**
+   * The cuts of a timeline that end after their recording does: FFmpeg would stop at the
+   * recording's end while every later cut and fade counted on the time asked for.
+   */
+  private async cutIssues(
+    projectId: string,
+    activityId: string,
+    timeline: VideoTimeline,
+  ): Promise<TimelineIssue[]> {
+    const lengths = new Map<string, number | null>();
+    const issues: TimelineIssue[] = [];
+    for (const cut of timeline.cuts) {
+      if (!lengths.has(cut.source.runId)) {
+        const run = await this.getRun(projectId, activityId, cut.source.runId).catch(() => null);
+        lengths.set(cut.source.runId, run?.video ? Math.round(run.video.seconds * 1000) : null);
+      }
+      const length = lengths.get(cut.source.runId);
+      if (length != null && cut.outMs > length + CUT_SLACK_MS)
+        issues.push({ code: "cut_past_recording", asset: cut.id });
+    }
+    return issues;
+  }
+
   async videoTimeline(
     projectId: string,
     activityId: string,
@@ -1890,7 +1917,10 @@ export class ActivityGenerationService implements ActivityGeneration {
       return {
         timeline: asset.timeline,
         saved: true,
-        issues: timelineIssues(asset.timeline, assets),
+        issues: [
+          ...timelineIssues(asset.timeline, assets),
+          ...(await this.cutIssues(projectId, activityId, asset.timeline)),
+        ],
       };
     // The newest recording of this asset that came out; runs are listed newest first.
     for (const summary of await this.list(projectId, activityId)) {
@@ -2204,8 +2234,13 @@ export class ActivityGenerationService implements ActivityGeneration {
     const composition = recording?.video
       ? await this.getRun(projectId, activityId, recording.video.compositionRunId).catch(() => null)
       : null;
+    // Placed where the timeline shows them, after its trims, cuts and fades.
     const frames = composition?.candidate
-      ? placeFrames((JSON.parse(composition.candidate) as CompositionCandidate).frames)
+      ? framesOnTimeline(
+          placeFrames((JSON.parse(composition.candidate) as CompositionCandidate).frames),
+          timeline,
+          timeline.cuts[0]!.source.runId,
+        )
       : [];
     const scene = compositionScene(activity, input);
     const editInput = timelineEditInput(

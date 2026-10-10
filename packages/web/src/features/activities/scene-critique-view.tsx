@@ -44,6 +44,19 @@ export function parseCritique(text: string | null): SceneCritique | null {
   }
 }
 
+/** The score at which a scene is good enough, as the server's Improve holds it. */
+const CRITIQUE_GOOD = 4;
+
+/**
+ * Whether a critique says the newest recording is good enough to stop improving it: only one
+ * of that recording counts, since an older recording's good score says nothing of this one.
+ */
+export function critiqueSettles(critique: SceneCritique | null, newestRecording: string): boolean {
+  return (
+    !!critique && critique.score >= CRITIQUE_GOOD && critique.recordingRunId === newestRecording
+  );
+}
+
 export function SceneCritiqueView({
   endpoint,
   critiques,
@@ -79,14 +92,15 @@ export function SceneCritiqueView({
       live = false;
     };
   }, [endpoint, shownRun]);
-  const good = critique ? critique.score >= 4 : false;
+  const scoredWell = critique ? critique.score >= CRITIQUE_GOOD : false;
+  const good = critiqueSettles(critique, newestRecording);
   return (
     <section className="space-y-2" aria-label={words.title}>
       <h5 className="flex items-center gap-2 text-xs font-semibold">
         {words.title}
         <InfoPopover label={words.title}>{words.info}</InfoPopover>
         {critique && (
-          <Badge tone={good ? "green" : "amber"}>{words.score(String(critique.score))}</Badge>
+          <Badge tone={scoredWell ? "green" : "amber"}>{words.score(String(critique.score))}</Badge>
         )}
       </h5>
       {critique && latest && madeBy(latest) && (

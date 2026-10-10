@@ -22,6 +22,7 @@ import type {
 } from "../src/activities/domain.js";
 import type { ActivityGenerationService } from "../src/activities/generation.js";
 import type { ActivityAuthoring } from "../src/mechanisms/activities.js";
+import type { VersionSaveResult } from "../src/activities/version-types.js";
 import { validateManifest, wafManifest, type AssetManifest } from "../src/activities/media.js";
 import { INSTALL_MARKER } from "../src/activities/test-browser.js";
 import { runFfmpeg, type FfmpegRun } from "../src/activities/ffmpeg.js";
@@ -212,7 +213,10 @@ describe("scene video recording", () => {
    * session's workspace, rather than waiting for the test to `complete` it.
    */
   async function fixture(
-    options: { installed?: boolean; agent?: (workspace: string) => Promise<void> } = {},
+    options: {
+      installed?: boolean;
+      agent?: (workspace: string, signal: AbortSignal) => Promise<void>;
+    } = {},
   ) {
     let complete: () => void = () => {};
     const waiting = new Set<string>();
@@ -228,7 +232,7 @@ describe("scene video recording", () => {
       async *run(_input, runOptions) {
         yield requestBegin();
         if (options.agent) {
-          await options.agent(row.workspace!);
+          await options.agent(row.workspace!, runOptions.signal);
           yield requestEnd("completed");
           return;
         }
@@ -703,6 +707,24 @@ describe("scene video recording", () => {
       draft.mediaPlan!.manifest.assets["en-US"]!.find((entry) => entry.key === "intro-video")!
         .generatedVideo?.runId,
     ).toBe(finished.runId);
+    // A version keeps the finished video without captions, and its captions once it has them.
+    const version = async () =>
+      ((await (await f.client.post(`${f.endpoint}/versions`, {})).json()) as VersionSaveResult)
+        .version;
+    const without = (await version()).mediaBytes;
+    const bound = draft.mediaPlan!.manifest.assets["en-US"]!.find(
+      (entry) => entry.key === "intro-video",
+    )!.path!;
+    const authoring = f.t.deps.tree.api<ActivityAuthoring>("ActivitiesModule", "ActivityAuthoring");
+    const vtt = "WEBVTT\n\n00:00:00.000 --> 00:00:01.200\nThe sky.\n";
+    await fs.writeFile(
+      (await authoring.mediaFilePath(PROJECT, (await f.current()).id, bound))!.replace(
+        /\.mp4$/,
+        ".vtt",
+      ),
+      vtt,
+    );
+    expect((await version()).mediaBytes).toBe(without + Buffer.byteLength(vtt));
     const source = await f.client.get(`${f.endpoint}/runs/${recording.runId}/video`);
     expect(source.status).toBe(200);
     expect(Buffer.from(await source.arrayBuffer())).toEqual(mp4());
@@ -754,6 +776,19 @@ describe("scene video recording", () => {
     });
     expect(blocked.status).toBe(409);
     expect(JSON.stringify(await blocked.json())).toContain("timeline_blocked");
+    expect(f.rendered).toEqual([]);
+    // A cut asking for more than its 6 s recording holds is reported, and stops a render.
+    const cut = start.timeline.cuts[0]!;
+    const overlong = { ...start.timeline, cuts: [{ ...cut, outMs: 10_000 }] };
+    expect((await save(overlong)).status).toBe(200);
+    expect((await timelineOf()).issues).toEqual([{ code: "cut_past_recording", asset: cut.id }]);
+    const tooLong = await f.client.post(`${f.endpoint}/render-timeline`, {
+      language: "en-US",
+      assetKey: "intro-video",
+      expectedRevision: (await f.current()).draft.contentRevision,
+    });
+    expect(tooLong.status).toBe(409);
+    expect(JSON.stringify(await tooLong.json())).toContain(cut.id);
     expect(f.rendered).toEqual([]);
     // Dropped, the video starts from its newest recording again.
     expect((await save(null)).status).toBe(200);
@@ -861,6 +896,38 @@ describe("scene video recording", () => {
       "critique:succeeded",
     ]);
   }, 60_000);
+
+  it("stops improving when the author cancels a step, without starting it again", async () => {
+    let composing = 0;
+    const f = await fixture({
+      // Every composing turn waits until it is cancelled.
+      agent: async (_workspace, signal) => {
+        composing += 1;
+        await new Promise<void>((resolve) => {
+          if (signal.aborted) resolve();
+          else signal.addEventListener("abort", () => resolve(), { once: true });
+        });
+      },
+    });
+    await f.experiment(true);
+    const started = await f.client.post(`${f.endpoint}/improve-scene`, {
+      agentId: "default_agent",
+      expectedRevision: (await f.current()).draft.contentRevision,
+      language: "en-US",
+      assetKey: "intro-video",
+      rounds: 3,
+    });
+    expect(started.status, await started.clone().text()).toBe(202);
+    const first = (await started.json()) as ActivityRun;
+    const cancelled = await f.client.post(`${f.endpoint}/runs/${first.runId}/cancel`, {});
+    expect(cancelled.status, await cancelled.clone().text()).toBe(200);
+    // Long enough for Improve to notice, at its 10 ms poll, and to start a retry if it would.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect((await f.runs()).map((run) => `${run.kind}:${run.status}`)).toEqual([
+      "composition:cancelled",
+    ]);
+    expect(composing).toBe(1);
+  }, 30_000);
 });
 
 describe("recording files", () => {
@@ -936,7 +1003,9 @@ describe("recording files", () => {
     // The runtime never sees Penguin's provenance.
     expect(wafManifest(valid).assets["en-US"]![0]).not.toHaveProperty("generatedVideo");
     // A version keeps the recording's bytes.
+    // Its captions, when a timeline made them, belong to a version with it.
     expect(ownedMediaPaths(valid).owned).toEqual([
+      { path: `${video}.vtt`, expectedSha256: null, optional: true },
       { path: `${video}.webm`, expectedSha256: generatedVideo.sha256 },
     ]);
     expect(() =>

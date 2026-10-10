@@ -120,4 +120,6 @@ export type TimelineIssue =
   /** Narration or an effect runs past the end of the video. */
   | { code: "past_end"; asset: string }
   /** Captions are on, but a narration has no word timings to caption it by. */
-  | { code: "captions_untimed"; asset: string };
+  | { code: "captions_untimed"; asset: string }
+  /** A cut ends after its recording does (`asset` is the cut's id); it stops a render. */
+  | { code: "cut_past_recording"; asset: string };

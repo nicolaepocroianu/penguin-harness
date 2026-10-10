@@ -1951,6 +1951,7 @@ export const en: Strings = {
       },
       check: {
         pass: "Checked: nothing wrong found",
+        warnings: "Checked: some things are worth a look",
         revise: "Checked: needs a look",
         fail: "Checked: the file could not be read back",
         findings: {
@@ -2036,6 +2037,8 @@ export const en: Strings = {
           narration_overlap: (asset: string) =>
             `${asset} starts before the narration before it ends.`,
           past_end: (asset: string) => `${asset} runs past the end of the video.`,
+          cut_past_recording: (cut: string) =>
+            `${cut} ends after its recording does. Shorten it to fit.`,
           captions_untimed: (asset: string) =>
             `${asset} has no word timings, so it gets no captions.`,
         },

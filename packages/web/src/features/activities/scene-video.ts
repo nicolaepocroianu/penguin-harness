@@ -95,6 +95,9 @@ export function recordingFailure(run: ActivityRunSummary): string | null {
 
 /** A made video's final check in one line, with the tone it reads in. */
 export function checkLine(check: VideoCheck): { text: string; tone: Tone } {
+  // A pass with warnings found something: it reads as worth a look, not as nothing wrong.
+  if (check.status === "pass" && check.findings.length)
+    return { text: S.activities.video.check.warnings, tone: "attention" };
   const tone: Record<VideoCheck["status"], Tone> = {
     pass: "success",
     revise: "attention",
@@ -116,7 +119,7 @@ export function findingText(finding: VideoCheckFinding): string {
 }
 
 /**
- * How many videos the draft binds whose final check found something to fix: the Media step
+ * How many videos the draft binds whose final check found something, warnings too: the Media step
  * asks for a look at them. A video checked before checks existed, or not in the runs read,
  * is not counted.
  */
@@ -129,6 +132,6 @@ export function videosToCheck(
     .flat()
     .filter((asset) => {
       const check = asset.generatedVideo && checks.get(asset.generatedVideo.runId);
-      return !!check && check.status !== "pass";
+      return !!check && (check.status !== "pass" || check.findings.length > 0);
     }).length;
 }

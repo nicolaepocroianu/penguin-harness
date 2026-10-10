@@ -18,7 +18,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { MediaAsset } from "./media.js";
-import { isNarration, narrationLengthMs, parseTimeline } from "./video-timeline.js";
+import { cutStarts, isNarration, narrationLengthMs, parseTimeline } from "./video-timeline.js";
 import type { TimelineEditTarget, VideoTimeline } from "./video-timeline-types.js";
 
 export const TIMELINE_INPUT_FILE = "timeline-input.json";
@@ -92,6 +92,31 @@ export function placeFrames(
     at = placed.endMs;
     return placed;
   });
+}
+
+/**
+ * Frames placed in their recording's time, moved to where the timeline shows them: each cut
+ * of that recording shows the part of a frame between its in and out points, from where the
+ * cut starts. A frame trimmed away is left out; one shown by two cuts appears twice.
+ */
+export function framesOnTimeline(
+  frames: TimelineEditInput["frames"],
+  timeline: Pick<VideoTimeline, "cuts">,
+  recordingRunId: string,
+): TimelineEditInput["frames"] {
+  const starts = cutStarts(timeline);
+  const shown: TimelineEditInput["frames"] = [];
+  timeline.cuts.forEach((cut, index) => {
+    if (cut.source.runId !== recordingRunId) return;
+    for (const frame of frames) {
+      const from = Math.max(frame.startMs, cut.inMs);
+      const to = Math.min(frame.endMs, cut.outMs);
+      if (to <= from) continue;
+      const offset = starts[index]! - cut.inMs;
+      shown.push({ ...frame, startMs: from + offset, endMs: to + offset });
+    }
+  });
+  return shown.sort((a, b) => a.startMs - b.startMs);
 }
 
 /** Stages a timeline run's input into its workspace. */

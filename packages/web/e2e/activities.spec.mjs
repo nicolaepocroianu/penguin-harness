@@ -9329,7 +9329,11 @@ test("edits, saves and renders a scene video's timeline", async ({ page }) => {
   ).toBeVisible();
   await to.fill("4.x");
   await expect(timeline.getByText("Enter a number of seconds, 0 or more.")).toBeVisible();
+  // What the field shows is not what would be saved, so nothing can be saved or rendered.
+  const saveTimeline = timeline.getByRole("button", { name: "Save timeline", exact: true });
+  await expect(saveTimeline).toBeDisabled();
   await to.fill("4");
+  await expect(saveTimeline).toBeEnabled();
 
   await timeline.getByRole("button", { name: "Save timeline", exact: true }).click();
   await expect.poll(() => saves.length).toBe(1);
