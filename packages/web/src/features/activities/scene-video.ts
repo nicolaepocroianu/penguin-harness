@@ -100,7 +100,8 @@ export function findingText(finding: VideoCheckFinding): string {
     seconds(finding.startMs),
     seconds(finding.endMs),
     finding.asset ?? "",
-    (finding.elements ?? []).join(" and "),
+    // Elements a layout finding is about, or the words a narration finding is about.
+    finding.elements?.join(" and ") ?? finding.words?.map((word) => `"${word}"`).join(", ") ?? "",
   );
 }
 

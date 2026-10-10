@@ -82,7 +82,11 @@ export type VideoCheckCode =
   /** Text is smaller than learners can read on a small screen. */
   | "small_text"
   /** Text does not stand out enough from what is behind it. */
-  | "low_contrast";
+  | "low_contrast"
+  /** The narration heard does not match its script (see transcript-check.ts). */
+  | "narration_mismatch"
+  /** The voice reads punctuation aloud ("dot", "comma"). */
+  | "punctuation_spoken";
 
 export interface VideoCheckFinding {
   code: VideoCheckCode;
@@ -95,6 +99,10 @@ export interface VideoCheckFinding {
   asset?: string;
   /** The composition's elements it is about, by id (or tag when they have none). */
   elements?: string[];
+  /** The words it is about: script words not heard, or punctuation read aloud. */
+  words?: string[];
+  /** For a narration mismatch: the share of the script's words heard, from 0 to 1. */
+  accuracy?: number;
 }
 
 /**

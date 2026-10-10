@@ -1678,7 +1678,9 @@ export type Strings = {
           | "layout_overlap"
           | "off_stage"
           | "small_text"
-          | "low_contrast",
+          | "low_contrast"
+          | "narration_mismatch"
+          | "punctuation_spoken",
           (from: string, to: string, asset: string, elements: string) => string
         >;
       };

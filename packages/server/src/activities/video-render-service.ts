@@ -37,6 +37,12 @@ import {
 import { runFfmpeg } from "./ffmpeg.js";
 import { timelineRenderArgs } from "./timeline-render.js";
 import { checkVideo, type VideoExpectation } from "./video-check.js";
+import type { LocalAudio } from "./local-audio.js";
+import {
+  compareTranscript,
+  NARRATION_ACCURACY,
+  type TranscriptComparison,
+} from "./transcript-check.js";
 import { captionCues, narrationLengthMs, timelineLengthMs, webVtt } from "./video-timeline.js";
 import type { VideoTimeline } from "./video-timeline-types.js";
 import type {
@@ -56,6 +62,8 @@ interface Made {
   expected: VideoExpectation;
   /** What the layout audit found while a composition was recorded (see layout-audit.ts). */
   layout?: VideoCheckFinding[];
+  /** The narration a finished video should say, to check what is heard against it. */
+  narration?: { language: string; scripts: string[] };
 }
 
 /** Where a timeline render gathers its inputs and writes; removed once the video is kept. */
@@ -83,6 +91,11 @@ export abstract class VideoRenderPorts extends Interface<{
   renderTimeline?: (args: string[]) => Promise<void>;
   /** Checks a made video; FFmpeg's analysis by default (see video-check.ts). */
   checkVideo?: (file: string, expected: VideoExpectation) => Promise<VideoCheck>;
+  /**
+   * What a made video's sound says, or null when it cannot be transcribed here; local Whisper
+   * by default (see `LocalAudio.transcribe`).
+   */
+  transcribe?: (file: string, language: string) => Promise<string | null>;
 }>() {}
 
 /** The code a failed recording is worded by, for the causes Penguin knows; null otherwise. */
@@ -132,6 +145,7 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
   @Use() private readonly compositions!: ActivityCompositions;
   @Use() private readonly ports!: VideoRenderPorts;
   @Use() private readonly log!: Log;
+  @Use() private readonly localAudio!: LocalAudio;
 
   private stopped = false;
   /**
@@ -394,6 +408,10 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
     const args = timelineRenderArgs(timeline, { cuts, audio, assets }, file);
     await (this.ports.renderTimeline ?? renderWithFfmpeg)(args);
     const cues = captionCues(timeline, assets);
+    const spoken = [...timeline.narration]
+      .sort((a, b) => a.startMs - b.startMs)
+      .map((entry) => assets.find((asset) => asset.key === entry.asset)?.script ?? "")
+      .filter((script) => script.trim());
     const narration = timeline.narration.flatMap((entry) => {
       const asset = assets.find((candidate) => candidate.key === entry.asset);
       const length = asset ? narrationLengthMs(asset) : null;
@@ -404,6 +422,7 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
     return {
       file,
       captions: cues.length ? webVtt(cues) : null,
+      ...(spoken.length ? { narration: { language, scripts: spoken } } : {}),
       expected: {
         durationMs: timelineLengthMs(timeline),
         width: timeline.width,
@@ -412,6 +431,20 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         narration,
       },
     };
+  }
+
+  /** What a made video's sound says, by local Whisper; null when it is not installed. */
+  private async heard(file: string, language: string): Promise<string | null> {
+    if (!this.localAudio.canTranscribe()) return null;
+    const pcm = await runFfmpeg(
+      ["-hide_banner", "-loglevel", "error", "-i", file, "-vn", "-ac", "1", "-ar", "16000"].concat([
+        "-f",
+        "f32le",
+        "pipe:1",
+      ]),
+      { purpose: "to hear a scene video's narration", timeoutMs: 120_000 },
+    );
+    return this.localAudio.transcribe(pcm, language, AbortSignal.timeout(30 * 60_000));
   }
 
   /**
@@ -443,6 +476,19 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
       // The layout audit's findings are warnings: they join the check without changing it.
       if (check && made.layout?.length)
         check = { ...check, findings: [...check.findings, ...made.layout] };
+      // What the narration says, heard against its scripts; skipped where nothing transcribes.
+      if (check && made.narration?.scripts.length) {
+        const heard = await (
+          this.ports.transcribe ?? ((file, language) => this.heard(file, language))
+        )(made.file, made.narration.language).catch((error: unknown) => {
+          this.log.line(`[activities] Transcribing video run ${runId} failed: ${String(error)}`);
+          return null;
+        });
+        if (heard !== null) {
+          const findings = transcriptFindings(compareTranscript(heard, made.narration.scripts));
+          if (findings.length) check = withFindings(check, findings);
+        }
+      }
       if (made.captions !== null) {
         await this.activities.storeCaptions(projectId, activityId, runId, made.captions);
         result = { ...result, captions: true };
@@ -480,4 +526,38 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
       await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
     }
   }
+}
+
+/** What hearing the narration found, as check findings. */
+function transcriptFindings(compared: TranscriptComparison): VideoCheckFinding[] {
+  const findings: VideoCheckFinding[] = [];
+  if (compared.accuracy < NARRATION_ACCURACY)
+    findings.push({
+      code: "narration_mismatch",
+      severity: "warning",
+      accuracy: compared.accuracy,
+      words: compared.missing.slice(0, 12),
+    });
+  if (compared.spokenPunctuation.length)
+    findings.push({
+      code: "punctuation_spoken",
+      severity: "error",
+      words: compared.spokenPunctuation,
+    });
+  return findings;
+}
+
+/** A check with more findings: an error among them makes it one to revise. */
+function withFindings(check: VideoCheck, findings: VideoCheckFinding[]): VideoCheck {
+  const all = [...check.findings, ...findings];
+  return {
+    ...check,
+    findings: all,
+    status:
+      check.status === "fail"
+        ? "fail"
+        : all.some((finding) => finding.severity === "error")
+          ? "revise"
+          : check.status,
+  };
 }

@@ -6,6 +6,16 @@ export const LOCAL_AUDIO_MODELS = {
   audioldm: { model: "cvssp/audioldm-s-full-v2", package: "@huggingface/transformers" },
 } as const;
 export type LocalAudioProvider = keyof typeof LOCAL_AUDIO_MODELS;
+
+/**
+ * Local speech recognition, which checks narration against its script (see transcript-check.ts):
+ * Whisper through the same Transformers runtime as the music models, English-only for English
+ * narration (smaller and more accurate there) and multilingual otherwise.
+ */
+export const LOCAL_SPEECH_RECOGNITION = {
+  english: "Xenova/whisper-base.en",
+  multilingual: "Xenova/whisper-base",
+} as const;
 export function isLocalAudioProvider(value: string): value is LocalAudioProvider {
   return Object.hasOwn(LOCAL_AUDIO_MODELS, value);
 }

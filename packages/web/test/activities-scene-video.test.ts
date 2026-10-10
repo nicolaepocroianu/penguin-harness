@@ -156,6 +156,14 @@ describe("a made video's final check in the studio", () => {
         endMs: 11500,
       }),
     ).toBe("#chest and #palm cover each other, seen from 0 s to 11.5 s.");
+    expect(
+      findingText({
+        code: "narration_mismatch",
+        severity: "warning",
+        accuracy: 0.82,
+        words: ["letter", "right"],
+      }),
+    ).toBe('The narration does not say all of its script: "letter", "right" could not be heard.');
     expect(findingText({ code: "audio_missing", severity: "error" })).toBe(
       "It has no sound, but it should.",
     );

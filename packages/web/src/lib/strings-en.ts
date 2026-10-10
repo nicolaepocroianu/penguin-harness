@@ -1962,6 +1962,12 @@ export const en: Strings = {
             `${elements} cover each other, seen from ${from} s to ${to} s.`,
           off_stage: (from: string, to: string, _asset: string, elements: string) =>
             `${elements} reaches outside the stage, seen from ${from} s to ${to} s.`,
+          narration_mismatch: (_from: string, _to: string, _asset: string, words: string) =>
+            words
+              ? `The narration does not say all of its script: ${words} could not be heard.`
+              : "The narration does not say all of its script.",
+          punctuation_spoken: (_from: string, _to: string, _asset: string, words: string) =>
+            `The voice reads punctuation aloud: ${words}. Make the narration again.`,
           low_contrast: (from: string, to: string, _asset: string, elements: string) =>
             `The text in ${elements} does not stand out enough from what is behind it, seen from ${from} s to ${to} s.`,
           small_text: (from: string, to: string, _asset: string, elements: string) =>
