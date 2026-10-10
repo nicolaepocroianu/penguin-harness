@@ -210,7 +210,8 @@ describe("activity runs page as one Project-wide stream", () => {
     const store = createSessionsStore();
     store.setState({ projectId: "proj", agentIds: ["default_agent"] });
     await store.getState().reload();
-    expect(listActivityRunSessions).toHaveBeenCalledWith("proj", { offset: 0, limit: 10 });
+    // The first page holds every run in flight; later pages are the sidebar's size.
+    expect(listActivityRunSessions).toHaveBeenCalledWith("proj", { offset: 0, limit: 50 });
     expect(store.getState().activityRuns).toEqual({ total: 25, fetched: 10, hasMore: true });
 
     listActivityRunSessions.mockResolvedValueOnce({
@@ -229,10 +230,10 @@ describe("activity runs page as one Project-wide stream", () => {
     store.setState({
       projectId: "proj",
       agentIds: ["default_agent"],
-      activityRuns: { total: 30, fetched: 20, hasMore: true },
+      activityRuns: { total: 90, fetched: 70, hasMore: true },
     });
     await store.getState().reload();
-    expect(listActivityRunSessions).toHaveBeenCalledWith("proj", { offset: 0, limit: 20 });
+    expect(listActivityRunSessions).toHaveBeenCalledWith("proj", { offset: 0, limit: 70 });
   });
 
   it("a run row never moves an Agent's totals", async () => {
@@ -294,6 +295,38 @@ describe("the Activity runs folder keeps its place", () => {
     await pending;
     expect(store.getState().loading).toBe(false);
     expect(store.getState().sessions.map((s) => s.sessionId)).toEqual(["fresh"]);
+  });
+
+  it("a Project switch while a cancelled reload is in flight leaves the new Project loading", async () => {
+    listSessions.mockResolvedValue({ ...NO_ROWS, counts: COUNTS });
+    let answer!: (value: { sessions: SessionInfo[]; total: number }) => void;
+    listActivityRunSessions.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    const store = createSessionsStore();
+    store.setState({ projectId: "proj", agentIds: ["default_agent"] });
+    const old = store.getState().reload();
+    store.getState().add(session("fresh"));
+    // The Provider's reset for the next Project: rows cleared, loading raised, no Agents yet.
+    store.setState({ projectId: "other", agentIds: [], sessions: [], loading: true });
+    await store.getState().reload();
+    answer({ sessions: [run("run_old")], total: 1 });
+    await old;
+    expect(store.getState().loading).toBe(true);
+    expect(store.getState().sessions).toEqual([]);
+  });
+
+  it("holds runs from the run stream only, so More reads on from the rows shown", async () => {
+    listSessions.mockResolvedValue({
+      ...NO_ROWS,
+      counts: COUNTS,
+      // An Agent's page can also serve its newest runs; the folder does not take them.
+      activityRuns: [run("agent_only")],
+    });
+    listActivityRunSessions.mockResolvedValue({ sessions: [run("run_a")], total: 30 });
+    const store = createSessionsStore();
+    store.setState({ projectId: "proj", agentIds: ["default_agent"] });
+    await store.getState().reload();
+    expect(store.getState().sessions.map((s) => s.sessionId)).toEqual(["run_a"]);
+    expect(store.getState().activityRuns).toEqual({ total: 30, fetched: 1, hasMore: true });
   });
 
   it("refetches more than the server's largest page in pages it accepts", async () => {

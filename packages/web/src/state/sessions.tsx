@@ -21,10 +21,10 @@
  *
  * **Activity runs beside the pages**: every fetch also leaves an activity's generation runs
  * out (`excludeActivityRuns`), so no total or "More" counts a run the sidebar will not draw
- * among the conversations. The Agent's newest runs come back on their own beside the first
- * active page, and the Project's run stream (listActivityRunSessions) pages the rest for the
- * run folder; both are held with the rows, which is what the run folder, the run-finished
- * notifications and the activity list's settle signal read; the totals never move for them.
+ * among the conversations. The Project's run stream (listActivityRunSessions) serves them
+ * instead, newest first, its first page large enough for every run in flight, and its rows
+ * are held with the others: the run folder, the run-finished notifications and the activity
+ * list's settle signal read them; the totals never move for them.
  *
  * Live statuses are remembered for
  * EVERY `session_state` the user channel reports (`liveStatuses`), row or no row — company
@@ -282,6 +282,12 @@ function rememberStatus(
 const ACTIVITY_RUNS_PAGE_MAX = 1000;
 
 /**
+ * The run stream's first page. The rows held come from this stream only (not the runs an
+ * Agent's page also serves), so the folder's cursor always matches the rows it shows.
+ */
+const ACTIVITY_RUNS_FIRST_PAGE = 50;
+
+/**
  * The first `limit` rows of the Project's activity-run stream, read in pages the server
  * accepts. Null when any page fails or answers malformed, so the caller keeps what it has.
  */
@@ -388,15 +394,21 @@ export function createSessionsStore() {
         // No context to fetch against yet. `loading` is deliberately left alone rather than
         // cleared: nothing was loaded, so reporting "done" here would be a lie — and one the
         // empty state renders. The Provider's reset step raised it and a later reload,
-        // once an Agent set exists, is what clears it.
-        if (!projectId || agentIds.length === 0) return;
+        // once an Agent set exists, is what clears it. The context did change, though: a
+        // reload still in flight for the old one must neither land nor end this cycle.
+        if (!projectId || agentIds.length === 0) {
+          gen += 1;
+          latestReload += 1;
+          return;
+        }
         const g = ++gen;
         const r = ++latestReload;
         set({ loading: true });
         try {
           // The activity-run stream refetches as far as it was already read (a new run lands
-          // on top, and an open folder must not snap back to its first page), at least a page.
-          const runLimit = Math.max(SIDEBAR_PAGE_SIZE, get().activityRuns?.fetched ?? 0);
+          // on top, and an open folder must not snap back to its first page), at least the
+          // first page: enough for every run in flight and the recent ones the folder shows.
+          const runLimit = Math.max(ACTIVITY_RUNS_FIRST_PAGE, get().activityRuns?.fetched ?? 0);
           const runsRequest = listActivityRunsUpTo(projectId, runLimit);
           const results = await Promise.all(
             agentIds.map(async (agentId) => {
@@ -428,7 +440,6 @@ export function createSessionsStore() {
                     return {
                       category,
                       scope,
-                      activityRuns: res.activityRuns ?? [],
                       counts: res.counts,
                       workspaceCounts: res.workspaceCounts,
                       workspaceLatest: res.workspaceLatest,
@@ -463,7 +474,7 @@ export function createSessionsStore() {
               if (p.counts) nextCounts.set(r.agentId, p.counts);
               if (p.workspaceCounts) nextWorkspaceCounts.set(r.agentId, p.workspaceCounts);
               if (p.workspaceLatest) nextWorkspaceLatest.set(r.agentId, p.workspaceLatest);
-              for (const s of [...p.items, ...p.activityRuns]) {
+              for (const s of p.items) {
                 if (!seen.has(s.sessionId)) {
                   seen.add(s.sessionId);
                   nextSessions.push(s);
