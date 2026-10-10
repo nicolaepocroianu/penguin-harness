@@ -67,7 +67,16 @@ export const AUDIT_SCRIPT = `(function () {
       opacity *= parseFloat(getComputedStyle(up).opacity || "1");
     return opacity >= 0.05;
   }
-  function name(el) { return el.id ? "#" + el.id : el.tagName.toLowerCase(); }
+  // An element by its id; else by its tag and first class, inside its nearest parent with an id.
+  function name(el) {
+    if (el.id) return "#" + el.id;
+    var tag = el.tagName.toLowerCase();
+    var cls = typeof el.className === "string" ? el.className.trim().split(/ +/)[0] : "";
+    var own = cls ? tag + "." + cls : tag;
+    for (var up = el.parentElement; up && up !== stage; up = up.parentElement)
+      if (up.id) return "#" + up.id + " " + own;
+    return own;
+  }
   var focal = Array.prototype.filter.call(stage.querySelectorAll("[data-focal]"), function (el) {
     var box = el.getBoundingClientRect();
     return box.width > 0 && box.height > 0 && seen(el);
