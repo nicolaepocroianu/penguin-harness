@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS usage_records (
   cache_write       INTEGER NOT NULL,
   output            INTEGER NOT NULL,
   total             INTEGER NOT NULL,         -- from token_usage.request (one row per Request)
-  status            TEXT NOT NULL DEFAULT 'completed', -- request outcome: completed=success (with tokens); others=failure (0 tokens, for success rate)
+  status            TEXT NOT NULL DEFAULT 'completed', -- request outcome: completed=success with tokens; others=failure with 0 tokens for success rate
   reported_cost_usd REAL                      -- what the runner itself said the request cost (coding agents); NULL = none reported
 );                                            -- cost is otherwise not stored: computed at query time from current pricing
 CREATE INDEX IF NOT EXISTS idx_usage_project_date ON usage_records(project_id, date);
