@@ -862,6 +862,7 @@ export class PipelineRunner {
     step.runIds.push(run.runId);
     state.currentRunId = run.runId;
     state.currentSessionId = run.sessionId;
+    step.sessionId = run.sessionId;
     this.save(state);
     for (let wait = FIRST_POLL_MS; ; wait = Math.min(wait * 2, POLL_MS)) {
       const latest = (await this.deps.generation.list(state.projectId, state.activityId)).find(
@@ -869,6 +870,7 @@ export class PipelineRunner {
       );
       if (!latest) throw new Error(`Run ${run.runId} is no longer in the history.`);
       state.currentSessionId = latest.sessionId;
+      if (latest.sessionId) step.sessionId = latest.sessionId;
       if (this.disposed) throw new Stopped();
       if (TERMINAL.has(latest.status)) {
         if (latest.status === "succeeded") return latest;

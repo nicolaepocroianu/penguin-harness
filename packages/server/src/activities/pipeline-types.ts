@@ -69,6 +69,11 @@ export interface PipelineStepState {
   done: number;
   total: number;
   runIds: string[];
+  /**
+   * The session of the step's latest run, so its conversation stays reachable once the run
+   * leaves the activity's recent runs. Absent on sequences recorded before it was kept.
+   */
+  sessionId?: string | null;
 }
 
 export interface PipelineState {

@@ -205,6 +205,33 @@ const STEP_ICON: Partial<Record<PipelineStepStatus, RunState>> = {
   cancelled: "stopped",
 };
 
+/**
+ * The session each stage's conversation lives in. The step's own record comes first: an
+ * earlier sequence's runs can fall out of the activity's recent runs while it is still listed.
+ */
+export function stepSessions(
+  pipeline: PipelineState | null,
+  runs: Pick<ActivityRunSummary, "runId" | "sessionId">[],
+): Map<PipelineStep, string> {
+  const byRun = new Map(runs.map((run) => [run.runId, run.sessionId]));
+  const result = new Map<PipelineStep, string>();
+  for (const step of pipeline?.steps ?? []) {
+    // A media step runs many times; its latest session is the one worth reading.
+    const session =
+      step.sessionId ??
+      [...step.runIds]
+        .reverse()
+        .map((runId) => byRun.get(runId))
+        .find(Boolean);
+    if (session) result.set(step.step, session);
+  }
+  if (pipeline?.status === "running" && pipeline.currentSessionId) {
+    const step = pipeline.steps.find((entry) => entry.status === "running");
+    if (step) result.set(step.step, pipeline.currentSessionId);
+  }
+  return result;
+}
+
 /** When a stage's runs started and, once every one has settled, when the last finished. */
 export interface StepSpan {
   startMs: number;
@@ -460,23 +487,7 @@ export function PipelinePanel({
       (pipeline?.steps ?? []).map((step) => [step.step, stepSpan(step, byRun)] as const),
     );
   }, [pipeline, runs]);
-  const sessions = useMemo(() => {
-    const byRun = new Map(runs.map((run) => [run.runId, run.sessionId]));
-    const result = new Map<PipelineStep, string>();
-    for (const step of pipeline?.steps ?? []) {
-      // A media step runs many times; its latest session is the one worth reading.
-      const session = [...step.runIds]
-        .reverse()
-        .map((runId) => byRun.get(runId))
-        .find(Boolean);
-      if (session) result.set(step.step, session);
-    }
-    if (pipeline?.status === "running" && pipeline.currentSessionId) {
-      const step = pipeline.steps.find((entry) => entry.status === "running");
-      if (step) result.set(step.step, pipeline.currentSessionId);
-    }
-    return result;
-  }, [pipeline, runs]);
+  const sessions = useMemo(() => stepSessions(pipeline, runs), [pipeline, runs]);
   if (!pipeline)
     return (
       <div className="space-y-2 p-4 text-sm text-gray-500">

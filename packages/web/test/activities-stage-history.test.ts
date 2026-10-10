@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { PipelineState } from "@prismshadow/penguin-server/api";
-import { PipelinePanel } from "../src/features/activities/pipeline-panel";
+import { PipelinePanel, stepSessions } from "../src/features/activities/pipeline-panel";
 import { formatDateTime } from "../src/lib/format";
 import { S } from "../src/lib/strings";
 
@@ -74,5 +74,42 @@ describe("the Stages panel's history", () => {
   it("shows no history list while there is only the latest", () => {
     const latest = sequence("p1");
     expect(render(latest, [latest])).not.toContain(words.earlier(0));
+  });
+});
+
+describe("a stage's conversation", () => {
+  it("is found from the step's own record once its run has left the recent runs", () => {
+    const earlier = sequence("pipe_old", {
+      steps: [
+        {
+          step: "spec",
+          status: "succeeded",
+          detail: null,
+          note: null,
+          done: 0,
+          total: 0,
+          runIds: ["run_gone"],
+          sessionId: "sess_kept",
+        },
+      ],
+    });
+    expect(stepSessions(earlier, []).get("spec")).toBe("sess_kept");
+  });
+
+  it("falls back to the runs for a sequence recorded before steps kept their session", () => {
+    const old = sequence("pipe_old", {
+      steps: [
+        {
+          step: "spec",
+          status: "succeeded",
+          detail: null,
+          note: null,
+          done: 0,
+          total: 0,
+          runIds: ["run_1"],
+        },
+      ],
+    });
+    expect(stepSessions(old, [{ runId: "run_1", sessionId: "sess_1" }]).get("spec")).toBe("sess_1");
   });
 });
