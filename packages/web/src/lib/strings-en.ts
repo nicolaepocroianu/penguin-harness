@@ -1040,6 +1040,8 @@ export const en: Strings = {
         noSounds: "No music or sound effect is missing.",
         soundProviderUnavailable:
           "The sound provider cannot be used by the Media Agent. Add its key to the Media Agent's Vault.",
+        imageProviderUnavailable:
+          "Images cannot be drawn: add GEMINI_API_KEY to the Media Agent's Vault. The module reports them missing.",
         noAssessment: "The specification says this activity has no assessment.",
         notCanonical: "The assessment is shared by every ref and is written on the canonical ref.",
         noCriteria: "The specification has no acceptance criteria to test.",

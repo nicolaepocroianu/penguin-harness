@@ -1,3 +1,4 @@
+import { HttpError } from "../src/http/errors.js";
 import { describe, expect, it, vi } from "vitest";
 import {
   PipelineRunner,
@@ -193,6 +194,8 @@ function world(
     fail?: ActivityRun["kind"];
     /** What a succeeding module run reports about its player check. */
     unchecked?: ActivityRun["unchecked"];
+    /** The Media Agent has no image provider key: an image run is refused. */
+    noImageKey?: boolean;
     /** How many looks each run stays running for before it settles (none when absent). */
     looks?: number;
     /** Records how long each wait between looks was asked to be. */
@@ -266,6 +269,8 @@ function world(
       runtime?: any,
     ) {
       if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
+      if (module?.image && options.noImageKey)
+        throw new HttpError(400, "image_credential_missing", "Add GEMINI_API_KEY first.");
       if (module?.assessment) assessmentInputs.push(module.assessment);
       const kind: ActivityRun["kind"] = module?.assessment
         ? "assessment"
@@ -548,6 +553,18 @@ describe("running the stages", () => {
     const w = world({ looks: 6, pauses });
     await w.runner.start("proj", "act", { selection: "spec", agentId: "agent" }).done;
     expect(pauses).toEqual([100, 200, 400, 800, 1000, 1000]);
+  });
+
+  it("skips the images without an image provider key and still builds the module", async () => {
+    const w = world({ noImageKey: true });
+    await w.runner.start("proj", "act", { selection: "all", agentId: "agent" }).done;
+    const final = w.runner.status("act")!;
+    expect(final.status).toBe("succeeded");
+    expect(final.steps.find((step) => step.step === "images")).toMatchObject({
+      status: "skipped",
+      note: "imageProviderUnavailable",
+    });
+    expect(final.steps.find((step) => step.step === "module")!.status).toBe("succeeded");
   });
 
   it("says when the module was built but not checked in the player", async () => {

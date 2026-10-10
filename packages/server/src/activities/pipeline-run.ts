@@ -602,13 +602,31 @@ export class PipelineRunner {
         );
         step.detail = target.assetKey;
         const before = await current();
-        const run = await generation.start(
-          projectId,
-          activityId,
-          input.agentId,
-          before.draft.contentRevision,
-          step.step === "speech" ? { audio: { ...target, voice } } : { image: target },
-        );
+        let run: ActivityRun;
+        try {
+          run = await generation.start(
+            projectId,
+            activityId,
+            input.agentId,
+            before.draft.contentRevision,
+            step.step === "speech" ? { audio: { ...target, voice } } : { image: target },
+          );
+        } catch (error) {
+          // No image provider key: the images are left unbound, as missing sounds are, and the
+          // module stage still runs and reports them missing.
+          if (
+            step.step === "images" &&
+            step.done === 0 &&
+            error instanceof HttpError &&
+            error.code === "image_credential_missing"
+          ) {
+            step.status = "skipped";
+            step.note = "imageProviderUnavailable";
+            step.detail = null;
+            return;
+          }
+          throw error;
+        }
         await this.follow(state, step, run);
         const after = await current();
         if (step.step === "speech")
