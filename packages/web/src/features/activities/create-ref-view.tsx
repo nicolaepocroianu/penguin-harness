@@ -23,6 +23,14 @@ import { HiddenFileInput } from "../../components/ui/hidden-file-input";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { Input, Textarea } from "../../components/ui/input";
 import { Select } from "../../components/ui/select";
+import {
+  TABLE,
+  TABLE_HEAD_ROW,
+  TABLE_WRAP,
+  TBODY,
+  TD,
+  TH,
+} from "../../components/ui/table-classes";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneStrip } from "../../lib/tone";
@@ -53,10 +61,6 @@ import {
   type RowAction,
 } from "./ref-plan";
 
-const HEAD =
-  "border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-400";
-const TH = "whitespace-nowrap px-3 py-2 font-medium";
-const TD = "px-3 py-2 align-top";
 const ACTIONS: readonly RowAction[] = ["keep", "regenerate", "upload", "library"];
 
 /** A blocker in the author's words. */
@@ -437,10 +441,10 @@ export function CreateRefView({
         </Button>
       </div>
       {rows.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-          <table className="w-full text-sm">
+        <div className={TABLE_WRAP}>
+          <table className={TABLE}>
             <thead>
-              <tr className={HEAD}>
+              <tr className={TABLE_HEAD_ROW}>
                 <th className={TH}>{words.columns.asset}</th>
                 <th className={TH}>{words.columns.type}</th>
                 <th className={TH}>{words.columns.current}</th>
@@ -448,7 +452,7 @@ export function CreateRefView({
                 <th className={TH}>{words.columns.details}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+            <tbody className={TBODY}>
               {groupRows(rows).flatMap((group) =>
                 group.rows.map((row) => (
                   <tr key={row.key}>
