@@ -12,6 +12,7 @@ import { InfoPopover } from "../../components/ui/info-popover";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { candidateUrl } from "./scene-timeline";
+import { madeBy } from "./scene-video";
 
 const words = S.activities.video.critique;
 const RUBRIC = ["story", "layout", "readability", "motion", "learners"] as const;
@@ -85,6 +86,9 @@ export function SceneCritiqueView({
           <Badge tone={good ? "green" : "amber"}>{words.score(String(critique.score))}</Badge>
         )}
       </h5>
+      {critique && latest && madeBy(latest) && (
+        <p className="text-xs text-gray-500">{S.activities.video.madeBy(madeBy(latest)!)}</p>
+      )}
       {critique && (
         <>
           {critique.recordingRunId !== newestRecording && (

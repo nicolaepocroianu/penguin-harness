@@ -1925,6 +1925,7 @@ export const en: Strings = {
       noCause: "no reason was given.",
       finished: "Finished video",
       captionsTrack: "Captions",
+      madeBy: (agent: string) => `by ${agent}`,
       critique: {
         title: "Critique",
         info: "An agent looks at stills from the newest recording, one from each storyboard frame plus the first and last moments, and scores it from 1 to 5 on its story, layout, readability, motion and fit for young learners, listing what to fix. Compose again hands the fixes to the agent that composes the scene.",

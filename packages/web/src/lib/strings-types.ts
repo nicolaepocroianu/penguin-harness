@@ -1647,6 +1647,8 @@ export type Strings = {
       finished: string;
       /** The captions track of a finished video, as the player lists it. */
       captionsTrack: string;
+      /** Which agent made a composition or critique, beside it. */
+      madeBy: (agent: string) => string;
       /** An agent's scored critique of the newest recording, with what to fix. */
       critique: {
         title: string;

@@ -56,6 +56,11 @@ export function comparedRecording(
   );
 }
 
+/** Which agent made a run: its coding agent, else its Penguin agent; null for none. */
+export function madeBy(run: Pick<ActivityRunSummary, "agentId" | "codingAgentId">): string | null {
+  return run.codingAgentId || run.agentId || null;
+}
+
 /** Where a video run's captions are read, when the run kept any. */
 export function captionsUrl(endpoint: string, runId: string): string {
   return `${endpoint}/runs/${encodeURIComponent(runId)}/captions`;

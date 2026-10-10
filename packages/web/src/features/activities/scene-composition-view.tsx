@@ -45,6 +45,7 @@ import { critiqueRuns, SceneCritiqueView } from "./scene-critique-view";
 import {
   captionsUrl,
   checkLine,
+  madeBy,
   comparedRecording,
   findingText,
   isRecordable,
@@ -329,6 +330,10 @@ export function SceneCompositionView({
                   <p>
                     {new Date(run.createdAt).toLocaleString()} ·{" "}
                     {S.activities.speechStatus[run.status]}
+                    {madeBy(run) ? ` · ${S.activities.video.madeBy(madeBy(run)!)}` : ""}
+                    {run.composition?.look
+                      ? ` · ${looks.find((entry) => entry.id === run.composition!.look)?.name ?? run.composition.look}`
+                      : ""}
                   </p>
                   {failure && (
                     <p
