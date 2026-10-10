@@ -21,7 +21,7 @@
 
 import { PLAYER_BROWSER_ARGS } from "./browser-session.js";
 
-export const HARNESS_VERSION = 1;
+export const HARNESS_VERSION = 2;
 
 export const ACCEPTANCE_INPUT_FILE = "acceptance-input.json";
 export const ACCEPTANCE_HARNESS_FILE = "activity-harness.mjs";
@@ -109,6 +109,21 @@ class Activity {
       await pause.click();
       await pause.waitFor({ state: "hidden", timeout: timeoutMs });
     }
+  }
+
+  /**
+   * Pauses the activity as a learner's pause key does (the player's Shift+P), and waits until
+   * the framework's pause overlay shows.
+   */
+  async pause(timeoutMs = DEFAULT_TIMEOUT_MS) {
+    await this.page.keyboard.press("Shift+P");
+    await this.page.locator("#pauseOverlay").first().waitFor({ state: "visible", timeout: timeoutMs });
+  }
+
+  /** Resumes a paused activity with the same key, and waits until the pause overlay is gone. */
+  async resume(timeoutMs = DEFAULT_TIMEOUT_MS) {
+    await this.page.keyboard.press("Shift+P");
+    await this.page.locator("#pauseOverlay").first().waitFor({ state: "hidden", timeout: timeoutMs });
   }
 
   /** The current state: { state, sceneId, phase, index, interactive }. */
@@ -356,6 +371,7 @@ export const HARNESS_API = `The harness (${ACCEPTANCE_HARNESS_FILE}) exports:
 - activity.state() -> { state, sceneId, phase, index, interactive }; activity.history() and activity.mediaHistory() list the states and media events so far.
 - activity.waitForState(name, { timeoutMs?, afterIndex? }); activity.waitForMedia(key, { kind?: "audio" | "video", status?: "started" | "completed" | "interrupted" | "failed" | "unavailable", timeoutMs?, afterIndex? }).
 - activity.interactables() -> [{ id, inputType, description? }]; activity.tap(id), activity.hold(id, ms), activity.drag(id, toId) act on those tap targets like a learner.
+- activity.pause() and activity.resume() pause and resume the activity as the learner's pause key does, waiting for the framework's pause overlay to show and to go; check pause and resume with these, not with events of your own.
 - activity.page is the Playwright page, for reading what is on screen.
 - To look into the activity outside a check, use openActivity too. A Chromium you launch yourself must be given ${PLAYER_BROWSER_ARGS.join(" ")}, or the framework pauses for audio and its pause overlay takes every tap.
 - expect(condition, message) fails the check with message; skip(reason) marks a criterion that cannot be checked by playing the activity (for example the style of the art) as skipped.`;
