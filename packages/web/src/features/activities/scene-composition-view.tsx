@@ -7,11 +7,12 @@
  * origin (the link route redirects there) and is driven only by messages: Play, Pause and
  * Restart are posted to it, and what it reports back is read as one of a few known states.
  */
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type {
   ActivityRunSummary,
   AssetManifest,
   CompositionCandidate,
+  SceneLookSummary,
   VideoCheck,
   VideoTimeline,
 } from "@prismshadow/penguin-server/api";
@@ -19,6 +20,7 @@ import { apiFetch } from "../../api/client";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { InfoPopover } from "../../components/ui/info-popover";
+import { Select } from "../../components/ui/select";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import {
@@ -83,7 +85,7 @@ export function SceneCompositionView({
   canGenerate: boolean;
   /** The saved specification, which says whether the scene asks the learner to choose. */
   spec: unknown;
-  onCompose: (language: string, assetKey: string) => void;
+  onCompose: (language: string, assetKey: string, look?: string) => void;
   /** Whether a composition may be recorded or a recording kept now (no unsaved edits, no run). */
   canRecord?: boolean;
   /** Record a kept composition to a video. */
@@ -119,6 +121,42 @@ export function SceneCompositionView({
   const [kept, setKept] = useState<ReadonlySet<string>>(new Set());
   const compared = comparedRecording(recordings, asset, revision, kept);
   const hasImage = sceneHasImage(group, asset);
+  const [looks, setLooks] = useState<SceneLookSummary[]>([]);
+  useEffect(() => {
+    let live = true;
+    apiFetch<{ looks: SceneLookSummary[] }>(`${endpoint.replace(/\/[^/]+$/, "")}/scene-looks`)
+      .then((value) => {
+        // A server without looks answers something else; the picker then stays hidden.
+        if (live) setLooks(Array.isArray(value?.looks) ? value.looks : []);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [endpoint]);
+  // The activity's most recent look, so its scenes keep one look unless the author changes it.
+  const lastLook = useMemo(
+    () =>
+      [...runs]
+        .filter((run) => run.kind === "composition")
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .find((run) => run.composition?.look)?.composition?.look ?? "",
+    [runs],
+  );
+  const [chosenLook, setLook] = useState<string | null>(null);
+  const look = chosenLook ?? lastLook;
+  // Each recording's best critique, and the best of them.
+  const critiqueScores = useMemo(() => {
+    const scores = new Map<string, number>();
+    for (const run of runs)
+      if (run.kind === "critique" && run.critique?.score !== undefined) {
+        const seen = scores.get(run.critique.recordingRunId);
+        if (seen === undefined || run.critique.score > seen)
+          scores.set(run.critique.recordingRunId, run.critique.score);
+      }
+    return scores;
+  }, [runs]);
+  const bestScore = Math.max(-1, ...critiqueScores.values());
   const choice = sceneHasLearnerChoice(spec, compositionScene(asset));
   return (
     <section className="space-y-3" aria-label={S.activities.video.title}>
@@ -130,10 +168,27 @@ export function SceneCompositionView({
       {choice && <p className="text-xs text-gray-500">{S.activities.video.choiceWarning}</p>}
       {editable && (
         <div className="flex flex-wrap items-center gap-2">
+          {looks.length > 0 && (
+            <div className="w-44">
+              <Select
+                aria-label={S.activities.video.look}
+                value={look}
+                disabled={!canGenerate || composing}
+                onChange={(event) => setLook(event.target.value)}
+              >
+                <option value="">{S.activities.video.noLook}</option>
+                {looks.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
           <Button
             size="sm"
             disabled={!canGenerate || composing}
-            onClick={() => onCompose(language, asset.key)}
+            onClick={() => onCompose(language, asset.key, look || undefined)}
           >
             {composing
               ? S.activities.video.composing
@@ -226,6 +281,13 @@ export function SceneCompositionView({
                     {new Date(run.createdAt).toLocaleString()} ·{" "}
                     {S.activities.speechStatus[run.status]}
                     {run.video?.fromTimeline ? ` · ${S.activities.video.finished}` : ""}
+                    {critiqueScores.has(run.runId)
+                      ? ` · ${S.activities.video.critiqued(String(critiqueScores.get(run.runId)))}${
+                          critiqueScores.size > 1 && critiqueScores.get(run.runId) === bestScore
+                            ? ` (${S.activities.video.best})`
+                            : ""
+                        }`
+                      : ""}
                     {run.runId === asset.generatedVideo?.runId
                       ? ` · ${S.activities.video.recorded}`
                       : ""}

@@ -1,0 +1,15 @@
+/* Bright flat: bold, flat and clear. See DESIGN.md beside this file. */
+:root {
+  --look-sky: #6ec6ff;
+  --look-water: #1e88e5;
+  --look-ground: #ffcc4d;
+  --look-leaf: #2ebd59;
+  --look-wood: #8d5524;
+  --look-hero: #ff5a36;
+  --look-accent: #8e44ff;
+  --look-glow: #fff176;
+  --look-ink: #1b1b3a;
+  --look-paper: #ffffff;
+  --look-font: "Segoe UI", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --look-radius: 8px;
+}

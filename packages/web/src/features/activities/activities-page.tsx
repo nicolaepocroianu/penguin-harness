@@ -1915,10 +1915,11 @@ function ActivityEditor({
             spec={detail?.draft.spec}
             onCompose={
               videoSetup?.enabled
-                ? (lang, assetKey) =>
+                ? (lang, assetKey, look) =>
                     startRun("compose-video", {
                       language: lang,
                       assetKey,
+                      ...(look ? { look } : {}),
                       // Scene images bound to checkout media are read from the chosen checkout.
                     })
                 : undefined

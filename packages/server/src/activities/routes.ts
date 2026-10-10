@@ -10,6 +10,7 @@ import type { Access } from "../mechanisms/projects.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import type { ActivitySandbox } from "./sandbox-service.js";
 import { videoMimeType } from "./video-render.js";
+import { sceneLooks } from "./scene-looks.js";
 import type { ModuleDocumentKind } from "./domain.js";
 import type { ActivitySummaries } from "./summary-service.js";
 import type { Config } from "../hmr/capabilities.js";
@@ -279,6 +280,8 @@ export class ActivityRoutes {
       c.json(await this.generation.soundSetup(requireValidId(c, "projectId"))),
     );
     // Whether the scene-video experiment is on: the studio shows nothing of it when it is not.
+    // The looks a scene can be composed in (experimental).
+    app.get("/scene-looks", (c) => c.json({ looks: sceneLooks() }));
     app.get("/video-setup", (c) =>
       c.json({ enabled: this.generation.videoExperiment() } satisfies VideoSetup),
     );
@@ -404,6 +407,9 @@ export class ActivityRoutes {
             composition: {
               language: requireString(body, "language", { minLen: 5, maxLen: 5 }),
               assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
+              ...(optionalString(body, "look", { maxLen: 64 })
+                ? { look: optionalString(body, "look", { maxLen: 64 })! }
+                : {}),
             },
           },
           runner.runtime,

@@ -46,6 +46,20 @@ A scene with no images is drawn entirely with HTML, CSS and inline SVG.
    Fix any overlap you did not intend, anything leaving the stage, and any text that is too small.
 7. **Score it and submit.** Score it with the self-score below, then finish.
 
+## Looks
+
+A scene can be made in a look: a small design system shared by every scene of the activity. When
+`composition-input.json` names one, `look.md` describes it and `look.css` holds its colours, font
+and radius as CSS variables. Link it with `<link rel="stylesheet" href="look.css">` in the head
+and take every main colour from `var(--look-...)`, never raw colours. The looks are:
+
+- `storybook`: warm and rounded;
+- `bright-flat`: bold and flat;
+- `chalkboard`: chalk on a classroom board.
+
+Each is in `looks/<id>/` beside this skill: `manifest.json`, `DESIGN.md` and `look.css`, the
+design-system package format of open-design.
+
 ## For young learners on a small screen
 
 - Text is at least 28px, in one font from the system font stack, with contrast of at least 4.5:1

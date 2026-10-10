@@ -173,6 +173,7 @@ import type {
   SceneCritique,
 } from "./composition-types.js";
 import { lintComposition, lintForAgent } from "./composition-lint.js";
+import { COMPOSITION_LOOK_FILE, COMPOSITION_LOOK_GUIDE, sceneLook } from "./scene-looks.js";
 import {
   collectCritique,
   CRITIQUE_OUTPUT_FILE,
@@ -724,7 +725,7 @@ export class ActivityGenerationService implements ActivityGeneration {
       /** A phonemes run: sounds for a decodable book's words of one language. */
       phonemes?: { language: string; words: unknown };
       /** A scene composition for a video or animation asset (experimental). */
-      composition?: { language: string; assetKey: string };
+      composition?: { language: string; assetKey: string; look?: string };
       /** An agent refining a video or animation's timeline (experimental). */
       timeline?: { language: string; assetKey: string };
       /** An agent critiquing a video or animation's newest recording (experimental). */
@@ -2218,10 +2219,12 @@ export class ActivityGenerationService implements ActivityGeneration {
     projectId: string,
     activityId: string,
     activity: ActivityDetail,
-    input: { language: string; assetKey: string },
+    input: { language: string; assetKey: string; look?: string },
   ): Promise<CompositionStage> {
     if (!this.videoExperiment()) throw experimentOff();
     const scene = compositionScene(activity, input);
+    if (input.look !== undefined && !sceneLook(input.look))
+      throw new HttpError(400, "scene_look_unknown", "There is no such scene look.");
     const images: CompositionTarget["images"] = [];
     const bytes: Uint8Array[] = [];
     for (const image of scene.images) {
@@ -2309,6 +2312,7 @@ export class ActivityGenerationService implements ActivityGeneration {
         width: scene.width,
         height: scene.height,
         images,
+        ...(input.look ? { look: input.look } : {}),
       },
       bytes,
       previous,
@@ -2349,6 +2353,11 @@ export class ActivityGenerationService implements ActivityGeneration {
         contentType: "text/javascript; charset=utf-8",
         body: Buffer.from(COMPOSITION_BRIDGE, "utf8"),
       };
+    if (file === COMPOSITION_LOOK_FILE) {
+      const look = run.composition.look ? sceneLook(run.composition.look) : null;
+      if (!look) throw missing();
+      return { contentType: "text/css; charset=utf-8", body: Buffer.from(look.css, "utf8") };
+    }
     const expected =
       file === COMPOSITION_FILE
         ? (JSON.parse(run.candidate) as CompositionCandidate).sha256
@@ -2536,6 +2545,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                 if (!run.critique) throw new Error("The critique run has no recording recorded.");
                 const critiqued = await collectCritique(this.workspace(run), run.critique);
                 run.candidate = JSON.stringify(critiqued);
+                run.critique = { ...run.critique, score: critiqued.score };
                 this.save(run);
                 if (this.stopped) return;
                 this.finish(run, "succeeded");
@@ -2855,6 +2865,12 @@ async function stageComposition(workspace: string, stage: CompositionStage): Pro
   await fs.writeFile(path.join(workspace, COMPOSITION_BRIDGE_FILE), COMPOSITION_BRIDGE, {
     flag: "wx",
   });
+  const look = target.look ? sceneLook(target.look) : null;
+  if (look) {
+    // Copies for the agent to read; the preview serves look.css from the plugin, not this.
+    await fs.writeFile(path.join(workspace, COMPOSITION_LOOK_GUIDE), look.design, { flag: "wx" });
+    await fs.writeFile(path.join(workspace, COMPOSITION_LOOK_FILE), look.css, { flag: "wx" });
+  }
   await fs.mkdir(path.join(workspace, COMPOSITION_IMAGE_DIR), { recursive: true });
   for (const [index, image] of target.images.entries())
     await fs.writeFile(path.join(workspace, ...image.file.split("/")), stage.bytes[index]!, {

@@ -45,6 +45,8 @@ export interface CompositionTarget {
   width: number;
   height: number;
   images: CompositionImage[];
+  /** The scene look it was made in (see scene-looks.ts); absent for none. */
+  look?: string;
   /** Set when the run failed a check of what the agent wrote. */
   problem?: CompositionProblemCode;
 }
@@ -95,6 +97,15 @@ export interface SceneCritiqueTarget {
   assetKey: string;
   recordingRunId: string;
   compositionRunId: string;
+  /** The critique's score once it is kept, so a run list can compare recordings. */
+  score?: number;
+}
+
+/** A look a scene can be composed in (`GET .../scene-looks`). */
+export interface SceneLookSummary {
+  id: string;
+  name: string;
+  description: string;
 }
 
 /** A critique of a recorded scene (see scene-critique.ts): its scores, mean, and fixes. */

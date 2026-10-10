@@ -16,6 +16,7 @@ import type { Opaque } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
 import { contentRevision, type ActivityDetail } from "./domain.js";
 import type { MediaAsset } from "./media.js";
+import { COMPOSITION_LOOK_FILE, COMPOSITION_LOOK_GUIDE } from "./scene-looks.js";
 import type { VideoCheck, VideoCheckFinding } from "./video-types.js";
 import type {
   CompositionFrame,
@@ -203,6 +204,7 @@ export function compositionInput(
     minSeconds: MIN_SECONDS,
     maxSeconds: MAX_SECONDS,
     images: target.images.map((image) => ({ key: image.key, file: image.file })),
+    ...(target.look ? { look: target.look } : {}),
     ...(previousFindings.length ? { previousRecordingFindings: previousFindings } : {}),
   };
 }
@@ -338,6 +340,7 @@ Write two files:
 1. ${COMPOSITION_FILE}: start from ${COMPOSITION_TEMPLATE_FILE} and keep its head as it is (the Content-Security-Policy meta tag, ${COMPOSITION_GSAP_FILE} and ${COMPOSITION_BRIDGE_FILE}) and the #stage element at the canvas size. Build the scene inside #stage from the staged images, when there are any, and plain HTML, CSS and inline SVG; a scene with no images is drawn entirely with HTML, CSS and inline SVG. Animate it with one GSAP timeline created paused, gsap.timeline({ paused: true }), and assign it to window.__composition.timeline; drive every change from that timeline, with no timers or event handlers of your own. It must be deterministic: no Math.random or other randomness. Use only the staged files, referenced by their relative paths (${COMPOSITION_IMAGE_DIR}/<file>, ${COMPOSITION_GSAP_FILE}, ${COMPOSITION_BRIDGE_FILE}); never load anything from the network (no http or https URLs, fonts, CDNs or fetch). Keep it under 512 KB.
 2. ${COMPOSITION_FRAMES_FILE}: {"frames": [{"id": "frame-1", "description": "what this frame shows", "seconds": 3}]} describing each storyboard frame in order, about ${FRAME_SECONDS} seconds each, ${MIN_SECONDS} to ${MAX_SECONDS} seconds in total, matching the timeline.
 Read ${COMPOSITION_SKILL_FILE} and follow it: how to plan the frames, lay out the stage, write text and motion for young learners, mark the main objects with data-focal, time the timeline to the frames, and check the scene before finishing.
+When ${COMPOSITION_INPUT_FILE} names a look, the scene is made in it: read ${COMPOSITION_LOOK_GUIDE}, link <link rel="stylesheet" href="${COMPOSITION_LOOK_FILE}"> in the head, and take every main colour, the font and the corner radius from its variables (var(--look-...)).
 When ${COMPOSITION_INPUT_FILE} lists previousRecordingFindings, the last recording of this scene had those problems: fix every one of them.
 Do not edit the staged files. Do not delegate this task.
 Use Harness's normal approval flow for tool actions. Finish only after writing both files.`;
@@ -476,6 +479,7 @@ export function stagedFiles(target: CompositionTarget): Set<string> {
   return new Set([
     COMPOSITION_GSAP_FILE,
     COMPOSITION_BRIDGE_FILE,
+    ...(target.look ? [COMPOSITION_LOOK_FILE] : []),
     ...target.images.map((image) => image.file),
   ]);
 }

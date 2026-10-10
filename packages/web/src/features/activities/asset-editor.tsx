@@ -155,7 +155,7 @@ export function AssetEditor({
    * Ask an agent to compose the scene of a video or animation asset. Given only while the
    * scene-video experiment is on; absent, the editor shows nothing of it.
    */
-  onCompose?: (language: string, assetKey: string) => void;
+  onCompose?: (language: string, assetKey: string, look?: string) => void;
   /** Record a kept composition to a video (experimental, like `onCompose`). */
   onRecordVideo?: (compositionRunId: string) => void;
   /** Save a video's timeline, or with null drop it (experimental). */

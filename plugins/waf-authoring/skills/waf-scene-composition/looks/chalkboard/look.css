@@ -1,0 +1,12 @@
+/* Chalkboard: chalk drawn on a classroom board. See DESIGN.md beside this file. */
+:root {
+  --look-board: #24433a;
+  --look-frame: #8b5a2b;
+  --look-chalk: #f4f1e8;
+  --look-chalk-yellow: #f7e27a;
+  --look-chalk-blue: #9fd4f5;
+  --look-chalk-pink: #f5a9c4;
+  --look-chalk-green: #a8e2a0;
+  --look-font: "Comic Sans MS", "Segoe Print", "Chalkboard SE", system-ui, sans-serif;
+  --look-radius: 6px;
+}

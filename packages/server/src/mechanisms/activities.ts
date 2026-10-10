@@ -90,7 +90,7 @@ export abstract class ActivityGeneration extends Interface<{
        * An animated composition of a video or animation asset's scene, from its description
        * and bound images (experimental: refused while `activityVideoExperiment` is off).
        */
-      composition?: { language: string; assetKey: string };
+      composition?: { language: string; assetKey: string; look?: string };
       /** An agent refining a video or animation's timeline (experimental). */
       timeline?: { language: string; assetKey: string };
       /** An agent critiquing a video or animation's newest recording (experimental). */

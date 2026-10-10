@@ -1586,6 +1586,12 @@ export type Strings = {
       info: string;
       experimental: string;
       compose: string;
+      /** The scene look a composition is made in, chosen beside Compose. */
+      look: string;
+      noLook: string;
+      /** Beside a recording an agent critiqued, and the best-scoring one. */
+      critiqued: (score: string) => string;
+      best: string;
       recompose: string;
       composing: string;
       /** The run's name in the history and the sessions panel. */
