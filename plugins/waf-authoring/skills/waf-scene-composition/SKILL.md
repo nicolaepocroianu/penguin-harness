@@ -138,3 +138,18 @@ Score each from 1 to 5. Revise anything below 3:
 - **Timeline shorter than the storyboard.** The recording then runs short of what the frames
   promise.
 - **Network loads.** Loading fonts or scripts from the network fails: only staged files load.
+
+These come up again and again when scenes are critiqued:
+
+- **Lids and doors that float.** Draw a lid as its own shape that sits flush on the body when
+  closed. Set its `transformOrigin` to the hinge edge (for a chest, the lid's bottom back corner)
+  and open it by rotating, so it stays attached. Never draw an open lid as a separate arc.
+- **Things that come out of something.** Stones rising out of a chest overlap it while they rise.
+  Mark them `data-allow-overlap` for that moment, and make sure they end clear of it, each in its
+  own space.
+- **Two lines of text at once.** Show one caption or instruction at a time. Fade the old one out
+  completely before the new one fades in, in the same place.
+- **Landing.** Something that hops or drops ends standing on its ground line, with a small contact
+  shadow under it, and holds still before the scene ends.
+- **A lonely word.** Keep a short title or instruction on one line, or wrap it so the last line has
+  more than one word.
