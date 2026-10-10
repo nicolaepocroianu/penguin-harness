@@ -236,7 +236,9 @@ export class UsageLedger {
     if (usage === undefined) return null;
     const request: TokenCounts = {
       cache_read: usage.cachedReadTokens,
-      cache_write: usage.cachedWriteTokens,
+      // ACP's inputTokens leaves out the cached tokens; cache_write is all input that missed
+      // the cache, so it takes those plus the tokens written to the cache.
+      cache_write: usage.inputTokens + usage.cachedWriteTokens,
       // Thinking is output the model produced, as a core Session's usage counts it.
       output: usage.outputTokens + usage.thoughtTokens,
       total: usage.totalTokens,
