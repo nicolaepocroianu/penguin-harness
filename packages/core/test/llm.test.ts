@@ -1202,9 +1202,11 @@ describe("isFatalProviderRejection (the fatal allowlist; everything it misses st
     expect(isFatalProviderRejection({ status: 401 })).toBe(true);
   });
 
-  it("leaves the transient statuses out: 408, 429 and 5xx keep their retries", () => {
+  it("leaves the transient statuses out: 408, 429, 499 and 5xx keep their retries", () => {
     expect(isFatalProviderRejection({ status: 408 })).toBe(false);
     expect(isFatalProviderRejection({ status: 429 })).toBe(false);
+    // A proxy's "client closed request": the connection dropped, the request was never judged.
+    expect(isFatalProviderRejection({ status: 499 })).toBe(false);
     expect(isFatalProviderRejection({ status: 500 })).toBe(false);
     expect(isFatalProviderRejection({ statusCode: 503 })).toBe(false);
   });

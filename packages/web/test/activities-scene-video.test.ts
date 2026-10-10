@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityRunSummary, AssetManifest } from "@prismshadow/penguin-server/api";
 import {
+  captionsUrl,
+  checkLine,
   comparedRecording,
+  findingText,
   isRecordable,
   recordingFailure,
   recordingUrl,
   videoRuns,
+  videosToCheck,
 } from "../src/features/activities/scene-video";
 import { runKindLabel } from "../src/features/activities/run-toasts";
 import { S } from "../src/lib/strings";
@@ -109,5 +113,93 @@ describe("scene video recordings in the studio", () => {
       recordingFailure(recording({ status: "cancelled", error: "Generation cancelled." })),
     ).toBe("Generation cancelled.");
     expect(runKindLabel(recording({}))).toBe(S.activities.video.recordRun);
+  });
+});
+
+describe("a made video's final check in the studio", () => {
+  const check = (status: "pass" | "revise" | "fail") => ({
+    status,
+    durationMs: 6000,
+    width: 640,
+    height: 480,
+    fps: 30,
+    hasAudio: false,
+    meanDb: null,
+    peakDb: null,
+    findings: [],
+  });
+
+  it("words its outcome in the tone it reads in, and each finding with its times", () => {
+    expect(checkLine(check("pass"))).toEqual({
+      text: "Checked: nothing wrong found",
+      tone: "success",
+    });
+    expect(
+      checkLine({ ...check("pass"), findings: [{ code: "near_edge", severity: "warning" }] }),
+    ).toEqual({ text: "Checked: some things are worth a look", tone: "attention" });
+    expect(checkLine(check("revise")).tone).toBe("attention");
+    expect(checkLine(check("fail")).tone).toBe("danger");
+    expect(findingText({ code: "black", severity: "warning", startMs: 1000, endMs: 1840 })).toBe(
+      "The picture is black from 1 s to 1.8 s.",
+    );
+    expect(
+      findingText({
+        code: "narration_silent",
+        severity: "warning",
+        asset: "intro-line",
+        startMs: 500,
+        endMs: 2500,
+      }),
+    ).toBe("intro-line should be speaking from 0.5 s to 2.5 s, but it is silent there.");
+    expect(
+      findingText({
+        code: "layout_overlap",
+        severity: "warning",
+        elements: ["#chest", "#palm"],
+        startMs: 0,
+        endMs: 11500,
+      }),
+    ).toBe("#chest and #palm cover each other, seen from 0 s to 11.5 s.");
+    expect(
+      findingText({
+        code: "narration_mismatch",
+        severity: "warning",
+        accuracy: 0.82,
+        words: ["letter", "right"],
+      }),
+    ).toBe('The narration does not say all of its script: "letter", "right" could not be heard.');
+    expect(findingText({ code: "audio_missing", severity: "error" })).toBe(
+      "It has no sound, but it should.",
+    );
+  });
+
+  it("reads a video run's captions beside its video", () => {
+    expect(captionsUrl("/api/x", "run_1")).toBe("/api/x/runs/run_1/captions");
+  });
+
+  it("counts the kept videos whose check found something, and only those", () => {
+    const bound = (runId: string): Asset => ({
+      ...video,
+      key: runId,
+      generatedVideo: { runId, sha256: "a".repeat(64), format: "mp4" },
+    });
+    const runs = [
+      recording({ runId: "run_ok", video: { ...recording({}).video!, check: check("pass") } }),
+      recording({ runId: "run_bad", video: { ...recording({}).video!, check: check("revise") } }),
+      recording({ runId: "run_old" }),
+      recording({
+        runId: "run_warned",
+        video: {
+          ...recording({}).video!,
+          check: { ...check("pass"), findings: [{ code: "near_edge", severity: "warning" }] },
+        },
+      }),
+    ];
+    const assets = {
+      "en-US": [bound("run_ok"), bound("run_bad"), bound("run_old"), bound("run_warned"), video],
+    };
+    // A pass with warnings counts too.
+    expect(videosToCheck(assets, runs)).toBe(2);
+    expect(videosToCheck(undefined, runs)).toBe(0);
   });
 });

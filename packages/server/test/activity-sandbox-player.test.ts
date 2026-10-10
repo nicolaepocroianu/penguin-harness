@@ -43,6 +43,13 @@ describe("the page a played preview is served as", () => {
     expect(html).toContain('src="/preview/activity/token/player/player.js"');
   });
 
+  it("shows the loading animation only when the media checkout has it", () => {
+    expect(playerPage(input)).toContain('id="playerLoadingVideo"');
+    const without = playerPage(input, { loadingVideo: false });
+    expect(without).not.toContain("<video");
+    expect(without).toContain("Loading preview…");
+  });
+
   it("keeps a title that looks like markup from ending the configuration early", () => {
     const html = playerPage({ ...input, title: "</script><script>alert(1)</script>" });
     expect(configuration(html).title).toBe("</script><script>alert(1)</script>");

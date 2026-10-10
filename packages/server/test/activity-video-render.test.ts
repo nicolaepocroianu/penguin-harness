@@ -1,10 +1,12 @@
 /**
  * Recording a scene composition to a video (experimental). What this proves: the experiment
  * switch, a missing composition and a missing test browser each refuse with a code; the
- * recorder opens the composition through a working signed link at the canvas size, plays it for
- * its length, and keeps what it wrote only when it is a WebM; the recording is served as
- * video/webm, and accepting it binds it to the asset, where the player serves it. The Session
- * and the browser are fakes: nothing reaches a model and no browser starts.
+ * renderer opens the composition through a working signed link at the canvas size, steps its
+ * paused timeline frame by frame, pipes one screenshot per frame to the encoder, and keeps what
+ * the encoder wrote only when it is an MP4; the recording is served as video/mp4, and accepting
+ * it binds it to the asset, where the player serves it. Recordings bound before the frame
+ * renderer (WebM) still validate. The Session, the browser and FFmpeg are fakes: nothing
+ * reaches a model, no browser starts and nothing is encoded.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -20,16 +22,25 @@ import type {
 } from "../src/activities/domain.js";
 import type { ActivityGenerationService } from "../src/activities/generation.js";
 import type { ActivityAuthoring } from "../src/mechanisms/activities.js";
+import type { VersionSaveResult } from "../src/activities/version-types.js";
 import { validateManifest, wafManifest, type AssetManifest } from "../src/activities/media.js";
 import { INSTALL_MARKER } from "../src/activities/test-browser.js";
+import { runFfmpeg, type FfmpegRun } from "../src/activities/ffmpeg.js";
 import {
-  RENDER_MAX_MS,
+  RENDER_FPS,
+  RENDER_MAX_SECONDS,
   VIDEO_MAX_BYTES,
-  WebmError,
+  VideoFileError,
+  encodeArgs,
+  frameCount,
+  inspectMp4,
   inspectWebm,
-  recordingMs,
+  videoMimeType,
+  type EncoderStarter,
 } from "../src/activities/video-render.js";
 import { ownedMediaPaths } from "../src/activities/version-manifest.js";
+import type { VideoExpectation } from "../src/activities/video-check.js";
+import type { VideoTimelineView } from "../src/activities/video-timeline-types.js";
 import type { RuntimeSession } from "../src/runtime/session-manager.js";
 import type { SessionRow } from "../src/db/repos/sessions.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser, waitFor } from "./helpers.js";
@@ -65,6 +76,22 @@ function webm(extra = 16): Buffer {
   ]);
 }
 
+/** A minimal MP4: an `ftyp` box naming the `isom` brand, then an empty `mdat` box. */
+function mp4(extra = 16): Buffer {
+  const ftyp = Buffer.concat([
+    Buffer.from([0, 0, 0, 20]),
+    Buffer.from("ftypisom", "latin1"),
+    Buffer.from([0, 0, 2, 0]),
+    Buffer.from("isom", "latin1"),
+  ]);
+  const mdat = Buffer.concat([
+    Buffer.from([0, 0, 0, 8 + extra]),
+    Buffer.from("mdat", "latin1"),
+    Buffer.alloc(extra),
+  ]);
+  return Buffer.concat([ftyp, mdat]);
+}
+
 /** A page the way an agent should write it: the template, one image and one timeline. */
 function goodPage() {
   return compositionTemplate(640, 480)
@@ -88,29 +115,49 @@ const FRAMES = {
 const executableIn = (dir: string) => path.join(dir, "chromium-0000", "chrome");
 
 /**
- * A launcher whose page plays along: the bridge reports a 6 s composition, the timeline plays,
- * and closing the context writes `output` where the recorder was told to.
+ * A launcher whose page plays along — the bridge reports a 6 s composition, the timeline
+ * pauses and seeks, and each screenshot is the frame's number — and an encoder that collects
+ * the frames and, once finished, writes `output` where it was told to.
  */
 function fakeBrowser() {
   const calls = {
     urls: [] as string[],
     contexts: [] as Record<string, unknown>[],
     scripts: [] as string[],
-    waited: [] as number[],
+    shots: [] as Record<string, unknown>[],
+    encoded: [] as string[],
+    encoderArgs: [] as string[][],
+    finished: 0,
+    killed: 0,
     closed: 0,
     fetched: null as Response | null,
   };
-  let output: Buffer = webm();
+  let output: Buffer = mp4();
   let hang = false;
   let fetchPage: ((url: string) => Promise<Response>) | null = null;
+  const encoder: EncoderStarter = async (args) => {
+    calls.encoderArgs.push(args);
+    const run: FfmpegRun = {
+      write: async (chunk) => {
+        calls.encoded.push(Buffer.from(chunk).toString());
+      },
+      finish: async () => {
+        calls.finished += 1;
+        await fs.writeFile(args.at(-1)!, output);
+        return Buffer.alloc(0);
+      },
+      kill: () => {
+        calls.killed += 1;
+      },
+      stderr: () => "",
+    };
+    return run;
+  };
   const launcher = (async () => ({
-    newContext: async (options: { recordVideo?: { dir: string } }) => {
-      calls.contexts.push(options as Record<string, unknown>);
-      const file = path.join(options.recordVideo!.dir, "recorded.webm");
+    newContext: async (options: Record<string, unknown>) => {
+      calls.contexts.push(options);
       const context = {
-        close: async () => {
-          await fs.writeFile(file, output);
-        },
+        close: async () => {},
         newPage: async () => ({
           setDefaultTimeout: () => {},
           goto: async (url: string) => {
@@ -121,13 +168,16 @@ function fakeBrowser() {
             calls.scripts.push(script);
             // An agent-written page whose `ready` never settles.
             if (hang && script.includes("ready")) return new Promise(() => {});
+            // The layout audit: the chest covers the palm at every moment measured.
+            if (script.includes("data-focal"))
+              return { overlap: [["#chest", "#palm"]], offStage: [], smallText: [] };
             return script.includes("ready") ? 6 : true;
           },
-          waitForTimeout: async (ms: number) => {
-            calls.waited.push(ms);
+          screenshot: async (options: Record<string, unknown>) => {
+            calls.shots.push(options);
+            return Buffer.from(`frame ${calls.shots.length - 1}`);
           },
           context: () => context,
-          video: () => ({ path: async () => file }),
         }),
       };
       return context;
@@ -138,6 +188,7 @@ function fakeBrowser() {
   })) as unknown as BrowserLauncher;
   return {
     launcher,
+    encoder,
     calls,
     output: (bytes: Buffer) => {
       output = bytes;
@@ -157,7 +208,16 @@ describe("scene video recording", () => {
     for (const cleanup of cleanups.splice(0)) await cleanup();
   });
 
-  async function fixture(options: { installed?: boolean } = {}) {
+  /**
+   * `agent`, when given, finishes every agent turn at once by writing what it likes into the
+   * session's workspace, rather than waiting for the test to `complete` it.
+   */
+  async function fixture(
+    options: {
+      installed?: boolean;
+      agent?: (workspace: string, signal: AbortSignal) => Promise<void>;
+    } = {},
+  ) {
     let complete: () => void = () => {};
     const waiting = new Set<string>();
     const fakeSession = (row: SessionRow): RuntimeSession => ({
@@ -171,6 +231,11 @@ describe("scene video recording", () => {
       async *compact() {},
       async *run(_input, runOptions) {
         yield requestBegin();
+        if (options.agent) {
+          await options.agent(row.workspace!, runOptions.signal);
+          yield requestEnd("completed");
+          return;
+        }
         await new Promise<void>((resolve) => {
           complete = resolve;
           waiting.add(row.sessionId);
@@ -183,9 +248,38 @@ describe("scene video recording", () => {
       },
     });
     const browser = fakeBrowser();
+    /** FFmpeg's arguments for each timeline render; the fake writes a finished MP4. */
+    const rendered: string[][] = [];
+    /** What each made video's final check was held to; the fake passes them all. */
+    const checked: VideoExpectation[] = [];
     const t = await createTestApp({
       testBrowserPorts: { locateExecutable: async (dir) => executableIn(dir) },
-      videoRenderPorts: { launcher: browser.launcher, pageTimeoutMs: 200 },
+      // Two frames a second, so a 6 s composition is 12 frames.
+      videoRenderPorts: {
+        launcher: browser.launcher,
+        encoder: browser.encoder,
+        pageTimeoutMs: 200,
+        fps: 2,
+        pollMs: 10,
+        checkVideo: async (_file, expected) => {
+          checked.push(expected);
+          return {
+            status: "pass",
+            durationMs: expected.durationMs,
+            width: expected.width,
+            height: expected.height,
+            fps: 30,
+            hasAudio: expected.audio,
+            meanDb: null,
+            peakDb: null,
+            findings: [],
+          };
+        },
+        renderTimeline: async (args) => {
+          rendered.push(args);
+          await fs.writeFile(args.at(-1)!, mp4(64));
+        },
+      },
     });
     const adopt = t.deps.manager.adopt.bind(t.deps.manager);
     vi.spyOn(t.deps.manager, "adopt").mockImplementation((row) => adopt(row, fakeSession(row)));
@@ -310,11 +404,24 @@ describe("scene video recording", () => {
       }
       throw new Error("The recording did not settle.");
     }
+    async function settled(response: Response): Promise<ActivityRunSummary> {
+      expect(response.status, await response.clone().text()).toBe(202);
+      const run = (await response.json()) as ActivityRun;
+      for (let tries = 0; tries < 400; tries += 1) {
+        const summary = (await runs()).find((entry) => entry.runId === run.runId);
+        if (summary && summary.status !== "running") return summary;
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      throw new Error("The run did not settle.");
+    }
     return {
       t,
       client,
       endpoint,
       browser,
+      rendered,
+      checked,
+      settled,
       current,
       runs,
       experiment,
@@ -347,7 +454,7 @@ describe("scene video recording", () => {
     expect(f.browser.calls.urls).toEqual([]);
   });
 
-  it("records a composition, serves the recording as video/webm, and binds it on accept", async () => {
+  it("renders a composition frame by frame, serves it as video/mp4, and binds it on accept", async () => {
     const f = await fixture();
     await f.experiment(true);
     const composition = await f.composed();
@@ -361,28 +468,61 @@ describe("scene video recording", () => {
       width: 640,
       height: 480,
       seconds: 6,
+      check: expect.objectContaining({ status: "pass" }),
     });
     expect(summary.hasCandidate).toBe(true);
+    // The recording was checked against the composition's length and canvas, with no sound.
+    expect(f.checked).toEqual([
+      { durationMs: 6000, width: 640, height: 480, audio: false, narration: [] },
+    ]);
+    expect(summary.video?.check).toMatchObject({ status: "pass", durationMs: 6000 });
+    // The layout audit measured five moments, first frame to last, and its finding joined the
+    // check as a warning.
+    expect(f.browser.calls.scripts.filter((script) => script.includes("data-focal"))).toHaveLength(
+      5,
+    );
+    expect(summary.video?.check?.findings).toEqual([
+      {
+        code: "layout_overlap",
+        severity: "warning",
+        elements: ["#chest", "#palm"],
+        startMs: 0,
+        endMs: 5500,
+      },
+    ]);
 
     // The browser opened the composition on a link that really serves it, at the canvas size,
-    // recorded at that size, and played it for its length and half a second more.
+    // with no page recorder.
     expect(f.browser.calls.urls).toHaveLength(1);
     expect(f.browser.calls.urls[0]).toMatch(
       /^http:\/\/127\.0\.0\.1:\d+\/preview\/composition\/[^/]+\/composition\.html$/,
     );
     expect(f.browser.calls.fetched?.status).toBe(200);
     expect(await f.browser.calls.fetched!.text()).toBe(goodPage());
-    expect(f.browser.calls.contexts[0]).toMatchObject({
-      viewport: { width: 640, height: 480 },
-      recordVideo: { size: { width: 640, height: 480 } },
+    expect(f.browser.calls.contexts[0]).toEqual({ viewport: { width: 640, height: 480 } });
+    // The timeline was paused at its start, then sought to each frame's time in order, and
+    // each frame was captured at the canvas size and handed to the encoder.
+    const seeks = f.browser.calls.scripts
+      .filter((script) => script.includes(".seek("))
+      .map((script) => /\.seek\(([^,]+), false\)/.exec(script)?.[1]);
+    expect(seeks).toEqual(["0", ...Array.from({ length: 12 }, (_, index) => String(index / 2))]);
+    expect(f.browser.calls.shots).toHaveLength(12);
+    expect(f.browser.calls.shots[0]).toMatchObject({
+      type: "png",
+      clip: { x: 0, y: 0, width: 640, height: 480 },
     });
-    expect(f.browser.calls.waited).toEqual([6500]);
+    expect(f.browser.calls.encoded).toEqual(
+      Array.from({ length: 12 }, (_, index) => `frame ${index}`),
+    );
+    expect(f.browser.calls.encoderArgs[0]).toContain("libx264");
+    expect(f.browser.calls.encoderArgs[0]!.at(-1)).toMatch(/render\.mp4$/);
+    expect(f.browser.calls.finished).toBe(1);
     expect(f.browser.calls.closed).toBe(1);
 
     const served = await f.client.get(`${f.endpoint}/runs/${summary.runId}/video`);
     expect(served.status).toBe(200);
-    expect(served.headers.get("content-type")).toBe("video/webm");
-    expect(Buffer.from(await served.arrayBuffer())).toEqual(webm());
+    expect(served.headers.get("content-type")).toBe("video/mp4");
+    expect(Buffer.from(await served.arrayBuffer())).toEqual(mp4());
 
     const before = await f.current();
     expect(before.draft.contentRevision).toBe(summary.inputRevision);
@@ -394,29 +534,31 @@ describe("scene video recording", () => {
     const asset = draft.mediaPlan!.manifest.assets["en-US"]!.find(
       (entry) => entry.key === "intro-video",
     )!;
-    expect(asset.path).toBe("media/loom/p/p-1/videos/english/intro-video.webm");
+    expect(asset.path).toBe("media/loom/p/p-1/videos/english/intro-video.mp4");
     expect(asset.generatedVideo).toEqual({
       runId: summary.runId,
-      sha256: inspectWebm(webm()).sha256,
+      sha256: inspectMp4(mp4()).sha256,
+      format: "mp4",
     });
     // The player finds the bound recording where the media plan says it is.
     const played = await f.client.get(`${f.endpoint}/sandbox/${asset.path}`);
     expect(played.status).toBe(200);
-    expect(played.headers.get("content-type")).toBe("video/webm");
-    expect(Buffer.from(await played.arrayBuffer())).toEqual(webm());
+    expect(played.headers.get("content-type")).toBe("video/mp4");
+    expect(Buffer.from(await played.arrayBuffer())).toEqual(mp4());
     // So does the studio's own preview of the bound file.
     expect((await f.client.get(`${f.endpoint}/runs/${summary.runId}/video`)).status).toBe(200);
     // Assembly stages it at its bound path, where the collector checks it.
     const authoring = f.t.deps.tree.api<ActivityAuthoring>("ActivitiesModule", "ActivityAuthoring");
     const staging = path.join(f.t.root, "assembly-staging");
     await authoring.prepareVideoMedia(PROJECT, summary.activityId, staging, draft.contentRevision);
-    expect(await fs.readFile(path.join(staging, asset.path!))).toEqual(webm());
+    expect(await fs.readFile(path.join(staging, asset.path!))).toEqual(mp4());
 
     // A binding cannot be forged by saving the media plan by hand.
     const forged = structuredClone(draft.mediaPlan!.manifest) as AssetManifest;
     forged.assets["en-US"]!.find((entry) => entry.key === "intro-video")!.generatedVideo = {
       runId: summary.runId,
       sha256: "0".repeat(64),
+      format: "mp4",
     };
     const refused = await f.client.put(`${f.endpoint}/media`, {
       manifest: forged,
@@ -425,7 +567,7 @@ describe("scene video recording", () => {
     expect(refused.status).toBe(422);
   });
 
-  it("fails a recording that is not a WebM and keeps nothing", async () => {
+  it("fails a recording that is not an MP4 and keeps nothing", async () => {
     const f = await fixture();
     await f.experiment(true);
     const composition = await f.composed();
@@ -434,13 +576,223 @@ describe("scene video recording", () => {
     expect(summary.status).toBe("failed");
     // The App words the failure by its code; the sentence stays for the trace.
     expect(summary.video?.problem).toBe("video_invalid");
-    expect(summary.error).toContain("WebM");
+    expect(summary.error).toContain("MP4");
     expect(summary.hasCandidate).toBe(false);
     expect((await f.client.get(`${f.endpoint}/runs/${summary.runId}/video`)).status).toBe(404);
     const accept = await f.client.post(`${f.endpoint}/runs/${summary.runId}/accept-video`, {
       expectedRevision: (await f.current()).draft.contentRevision,
     });
     expect(accept.status).toBe(409);
+  });
+
+  it("starts a timeline from the newest recording, and keeps one saved on the video", async () => {
+    const f = await fixture();
+    const timelineOf = () =>
+      f.client.get(`${f.endpoint}/video-timeline?language=en-US&assetKey=intro-video`);
+    expect((await timelineOf()).status).toBe(403);
+    await f.experiment(true);
+    const none = await timelineOf();
+    expect(none.status).toBe(409);
+    expect(JSON.stringify(await none.json())).toContain("video_recording_missing");
+    expect(
+      (await f.client.get(`${f.endpoint}/video-timeline?language=en-US&assetKey=sky`)).status,
+    ).toBe(404);
+
+    const summary = await f.recorded(await f.composed());
+    const started = await timelineOf();
+    expect(started.status, await started.clone().text()).toBe(200);
+    const view = (await started.json()) as VideoTimelineView;
+    expect(view.saved).toBe(false);
+    expect(view.issues).toEqual([]);
+    expect(view.timeline).toMatchObject({
+      width: 640,
+      height: 480,
+      fps: RENDER_FPS,
+      cuts: [
+        {
+          source: { runId: summary.runId, sha256: inspectMp4(mp4()).sha256, format: "mp4" },
+          inMs: 0,
+          outMs: 6000,
+        },
+      ],
+      narration: [],
+      music: null,
+    });
+
+    // Saved with the media plan, it is the video's own from then on.
+    const draft = (await f.current()).draft;
+    const manifest = structuredClone(draft.mediaPlan!.manifest) as AssetManifest;
+    const shorter = { ...view.timeline, cuts: [{ ...view.timeline.cuts[0]!, outMs: 4000 }] };
+    manifest.assets["en-US"]!.find((entry) => entry.key === "intro-video")!.timeline = shorter;
+    const saved = await f.client.put(`${f.endpoint}/media`, {
+      manifest,
+      expectedRevision: draft.contentRevision,
+    });
+    expect(saved.status, await saved.clone().text()).toBe(200);
+    expect(await (await timelineOf()).json()).toEqual({
+      timeline: shorter,
+      saved: true,
+      issues: [],
+    });
+  });
+
+  it("renders a timeline to a finished video, and keeps the recording it cuts from", async () => {
+    const f = await fixture();
+    await f.experiment(true);
+    const recording = await f.recorded(await f.composed());
+    const revision = async () => (await f.current()).draft.contentRevision;
+    // The recording is kept first, as an author would before editing.
+    expect(
+      (
+        await f.client.post(`${f.endpoint}/runs/${recording.runId}/accept-video`, {
+          expectedRevision: await revision(),
+        })
+      ).status,
+    ).toBe(200);
+    const render = () =>
+      f.client.post(`${f.endpoint}/render-timeline`, {
+        language: "en-US",
+        assetKey: "intro-video",
+        expectedRevision: "",
+      });
+    const stale = await f.client.post(`${f.endpoint}/render-timeline`, {
+      language: "en-US",
+      assetKey: "intro-video",
+      expectedRevision: "not-the-current-revision",
+    });
+    expect(stale.status).toBe(409);
+    expect((await render()).status).toBe(400);
+
+    const finished = await f.settled(
+      await f.client.post(`${f.endpoint}/render-timeline`, {
+        language: "en-US",
+        assetKey: "intro-video",
+        expectedRevision: await revision(),
+      }),
+    );
+    expect(finished.status, finished.error ?? "").toBe("succeeded");
+    expect(finished.video).toMatchObject({
+      assetKey: "intro-video",
+      compositionRunId: recording.video!.compositionRunId,
+      seconds: 6,
+      fromTimeline: true,
+      check: { status: "pass" },
+    });
+    // The finished video was checked against the timeline: its length, size, and no sound.
+    expect(f.checked.at(-1)).toEqual({
+      durationMs: 6000,
+      width: 640,
+      height: 480,
+      audio: false,
+      narration: [],
+    });
+    // FFmpeg was given the kept recording, written out for it, and an MP4 to write.
+    expect(f.rendered).toHaveLength(1);
+    expect(f.rendered[0]!.some((arg) => /source-0\.mp4$/.test(arg))).toBe(true);
+    expect(f.rendered[0]!.at(-1)).toMatch(/finished\.mp4$/);
+    const served = await f.client.get(`${f.endpoint}/runs/${finished.runId}/video`);
+    expect(served.headers.get("content-type")).toBe("video/mp4");
+    expect(Buffer.from(await served.arrayBuffer())).toEqual(mp4(64));
+    // No narration, so no captions.
+    expect((await f.client.get(`${f.endpoint}/runs/${finished.runId}/captions`)).status).toBe(404);
+
+    // Keeping the finished video replaces the recording at the asset's path, but the recording
+    // stays readable, and a new timeline still starts from it rather than from the finished one.
+    const kept = await f.client.post(`${f.endpoint}/runs/${finished.runId}/accept-video`, {
+      expectedRevision: await revision(),
+    });
+    expect(kept.status, await kept.clone().text()).toBe(200);
+    const draft = (await kept.json()) as ActivityDraft;
+    expect(
+      draft.mediaPlan!.manifest.assets["en-US"]!.find((entry) => entry.key === "intro-video")!
+        .generatedVideo?.runId,
+    ).toBe(finished.runId);
+    // A version keeps the finished video without captions, and its captions once it has them.
+    const version = async () =>
+      ((await (await f.client.post(`${f.endpoint}/versions`, {})).json()) as VersionSaveResult)
+        .version;
+    const without = (await version()).mediaBytes;
+    const bound = draft.mediaPlan!.manifest.assets["en-US"]!.find(
+      (entry) => entry.key === "intro-video",
+    )!.path!;
+    const authoring = f.t.deps.tree.api<ActivityAuthoring>("ActivitiesModule", "ActivityAuthoring");
+    const vtt = "WEBVTT\n\n00:00:00.000 --> 00:00:01.200\nThe sky.\n";
+    await fs.writeFile(
+      (await authoring.mediaFilePath(PROJECT, (await f.current()).id, bound))!.replace(
+        /\.mp4$/,
+        ".vtt",
+      ),
+      vtt,
+    );
+    expect((await version()).mediaBytes).toBe(without + Buffer.byteLength(vtt));
+    const source = await f.client.get(`${f.endpoint}/runs/${recording.runId}/video`);
+    expect(source.status).toBe(200);
+    expect(Buffer.from(await source.arrayBuffer())).toEqual(mp4());
+    const view = (await (
+      await f.client.get(`${f.endpoint}/video-timeline?language=en-US&assetKey=intro-video`)
+    ).json()) as VideoTimelineView;
+    expect(view.timeline.cuts[0]!.source.runId).toBe(recording.runId);
+    // And it renders again from there.
+    const again = await f.settled(
+      await f.client.post(`${f.endpoint}/render-timeline`, {
+        language: "en-US",
+        assetKey: "intro-video",
+        expectedRevision: await revision(),
+      }),
+    );
+    expect(again.status, again.error ?? "").toBe("succeeded");
+  });
+
+  it("saves and drops a timeline, and refuses to render one naming audio it cannot play", async () => {
+    const f = await fixture();
+    await f.experiment(true);
+    await f.recorded(await f.composed());
+    const timelineOf = async () =>
+      (await (
+        await f.client.get(`${f.endpoint}/video-timeline?language=en-US&assetKey=intro-video`)
+      ).json()) as VideoTimelineView;
+    const save = async (timeline: unknown) =>
+      f.client.put(`${f.endpoint}/video-timeline`, {
+        language: "en-US",
+        assetKey: "intro-video",
+        timeline,
+        expectedRevision: (await f.current()).draft.contentRevision,
+      });
+    const start = await timelineOf();
+    const malformed = await save({ ...start.timeline, cuts: [] });
+    expect(malformed.status).toBe(422);
+    expect(JSON.stringify(await malformed.json())).toContain("no cuts");
+    const named = { ...start.timeline, narration: [{ asset: "gone", startMs: 0 }] };
+    expect((await save(named)).status).toBe(200);
+    expect(await timelineOf()).toEqual({
+      timeline: named,
+      saved: true,
+      issues: [{ code: "asset_missing", asset: "gone" }],
+    });
+    const blocked = await f.client.post(`${f.endpoint}/render-timeline`, {
+      language: "en-US",
+      assetKey: "intro-video",
+      expectedRevision: (await f.current()).draft.contentRevision,
+    });
+    expect(blocked.status).toBe(409);
+    expect(JSON.stringify(await blocked.json())).toContain("timeline_blocked");
+    expect(f.rendered).toEqual([]);
+    // A cut asking for more than its 6 s recording holds is reported, and stops a render.
+    const cut = start.timeline.cuts[0]!;
+    const overlong = { ...start.timeline, cuts: [{ ...cut, outMs: 10_000 }] };
+    expect((await save(overlong)).status).toBe(200);
+    expect((await timelineOf()).issues).toEqual([{ code: "cut_past_recording", asset: cut.id }]);
+    const tooLong = await f.client.post(`${f.endpoint}/render-timeline`, {
+      language: "en-US",
+      assetKey: "intro-video",
+      expectedRevision: (await f.current()).draft.contentRevision,
+    });
+    expect(tooLong.status).toBe(409);
+    expect(JSON.stringify(await tooLong.json())).toContain(cut.id);
+    expect(f.rendered).toEqual([]);
+    // Dropped, the video starts from its newest recording again.
+    expect((await save(null)).status).toBe(200);
+    expect((await timelineOf()).saved).toBe(false);
   });
 
   it("stops a recording whose page never gets ready, and lets the activity record again", async () => {
@@ -452,8 +804,9 @@ describe("scene video recording", () => {
     expect(stuck.status).toBe("failed");
     expect(stuck.video?.problem).toBe("video_not_ready");
     expect(stuck.hasCandidate).toBe(false);
-    // The browser was closed, so nothing holds the activity.
+    // The browser was closed, so nothing holds the activity, and no encoder was started.
     expect(f.browser.calls.closed).toBe(1);
+    expect(f.browser.calls.encoderArgs).toEqual([]);
     f.browser.hang(false);
     // The run settles a moment before its recorder lets go of the activity.
     let again: ActivityRunSummary | null = null;
@@ -474,9 +827,110 @@ describe("scene video recording", () => {
     }
     expect(again?.status, again?.error ?? "").toBe("succeeded");
   });
+
+  it("improves a scene round after round, trying a failed agent step once more", async () => {
+    // The agent: its first composing turn drops without writing anything; it composes well
+    // after that, and critiques the first recording 3 and the second 5.
+    let composing = 0;
+    const scores = [3, 5];
+    const f = await fixture({
+      agent: async (workspace) => {
+        if (await fs.stat(path.join(workspace, "critique-input.json")).catch(() => null)) {
+          const score = scores.shift()!;
+          const scored = { story: score, layout: score, readability: score, motion: score };
+          await fs.writeFile(
+            path.join(workspace, "critique.json"),
+            JSON.stringify({
+              scores: { ...scored, learners: score },
+              fixes: score < 4 ? ["Move the sun to the left."] : [],
+            }),
+          );
+          return;
+        }
+        composing += 1;
+        if (composing === 1) return;
+        await fs.writeFile(path.join(workspace, "composition.html"), goodPage());
+        await fs.writeFile(path.join(workspace, "frames.json"), JSON.stringify(FRAMES));
+      },
+    });
+    // A real six-second MP4, so the critique has stills to take.
+    const real = path.join(f.t.root, "real.mp4");
+    await runFfmpeg(
+      ["-y", "-f", "lavfi", "-i", "color=blue:size=160x120:rate=2:duration=6"].concat([
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        real,
+      ]),
+      { purpose: "for this test", timeoutMs: 60_000 },
+    );
+    f.browser.output(await fs.readFile(real));
+    await f.experiment(true);
+    const started = await f.client.post(`${f.endpoint}/improve-scene`, {
+      agentId: "default_agent",
+      expectedRevision: (await f.current()).draft.contentRevision,
+      language: "en-US",
+      assetKey: "intro-video",
+      rounds: 3,
+    });
+    expect(started.status, await started.clone().text()).toBe(202);
+    const done = async () =>
+      (await f.runs()).filter((run) => run.kind === "critique" && run.status !== "running")
+        .length === 2;
+    for (const start = Date.now(); !(await done());) {
+      if (Date.now() - start > 50_000) throw new Error("Improve did not finish.");
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    const history = (await f.runs())
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .map((run) => `${run.kind}:${run.status}`);
+    // The second critique scored 5, so Improve stopped there rather than at its three rounds.
+    expect(history).toEqual([
+      "composition:failed",
+      "composition:succeeded",
+      "video:succeeded",
+      "critique:succeeded",
+      "composition:succeeded",
+      "video:succeeded",
+      "critique:succeeded",
+    ]);
+  }, 60_000);
+
+  it("stops improving when the author cancels a step, without starting it again", async () => {
+    let composing = 0;
+    const f = await fixture({
+      // Every composing turn waits until it is cancelled.
+      agent: async (_workspace, signal) => {
+        composing += 1;
+        await new Promise<void>((resolve) => {
+          if (signal.aborted) resolve();
+          else signal.addEventListener("abort", () => resolve(), { once: true });
+        });
+      },
+    });
+    await f.experiment(true);
+    const started = await f.client.post(`${f.endpoint}/improve-scene`, {
+      agentId: "default_agent",
+      expectedRevision: (await f.current()).draft.contentRevision,
+      language: "en-US",
+      assetKey: "intro-video",
+      rounds: 3,
+    });
+    expect(started.status, await started.clone().text()).toBe(202);
+    const first = (await started.json()) as ActivityRun;
+    const cancelled = await f.client.post(`${f.endpoint}/runs/${first.runId}/cancel`, {});
+    expect(cancelled.status, await cancelled.clone().text()).toBe(200);
+    // Long enough for Improve to notice, at its 10 ms poll, and to start a retry if it would.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect((await f.runs()).map((run) => `${run.kind}:${run.status}`)).toEqual([
+      "composition:cancelled",
+    ]);
+    expect(composing).toBe(1);
+  }, 30_000);
 });
 
-describe("WebM recordings", () => {
+describe("recording files", () => {
   it("accepts a WebM header and refuses anything else", () => {
     expect(inspectWebm(webm()).bytes).toBe(webm().length);
     const code = (bytes: Buffer) => {
@@ -484,7 +938,7 @@ describe("WebM recordings", () => {
         inspectWebm(bytes);
         return null;
       } catch (error) {
-        return error instanceof WebmError ? "invalid" : "other";
+        return error instanceof VideoFileError ? "invalid" : "other";
       }
     };
     expect(code(Buffer.from("not a video"))).toBe("invalid");
@@ -496,11 +950,33 @@ describe("WebM recordings", () => {
     expect(code(Buffer.alloc(VIDEO_MAX_BYTES + 1))).toBe("invalid");
   });
 
-  it("plays a composition for its length and half a second more, never past 65 s", () => {
-    expect(recordingMs(6)).toBe(6500);
-    expect(recordingMs(60)).toBe(60500);
-    expect(recordingMs(600)).toBe(RENDER_MAX_MS);
-    expect(recordingMs(Number.NaN)).toBe(500);
+  it("accepts an MP4 header and refuses anything else", () => {
+    expect(inspectMp4(mp4()).bytes).toBe(mp4().length);
+    const code = (bytes: Buffer) => {
+      try {
+        inspectMp4(bytes);
+        return null;
+      } catch (error) {
+        return error instanceof VideoFileError ? error.code : "other";
+      }
+    };
+    expect(code(Buffer.from("not a video"))).toBe("video_invalid");
+    expect(code(webm())).toBe("video_invalid");
+    // An ftyp box claiming more bytes than there are.
+    expect(code(mp4().subarray(0, 12))).toBe("video_invalid");
+    expect(code(Buffer.alloc(VIDEO_MAX_BYTES + 1))).toBe("video_too_large");
+    expect(videoMimeType(mp4())).toBe("video/mp4");
+    expect(videoMimeType(webm())).toBe("video/webm");
+  });
+
+  it("renders a composition's length in frames, at least one and never past 65 s", () => {
+    expect(frameCount(6, RENDER_FPS)).toBe(180);
+    expect(frameCount(6.01, 2)).toBe(13);
+    expect(frameCount(600, RENDER_FPS)).toBe(RENDER_MAX_SECONDS * RENDER_FPS);
+    expect(frameCount(Number.NaN, RENDER_FPS)).toBe(1);
+    expect(encodeArgs(30, "out.mp4")).toEqual(
+      expect.arrayContaining(["image2pipe", "libx264", "yuv420p", "+faststart"]),
+    );
   });
 
   it("allows a generated video only on a video or animation asset at its own path", () => {
@@ -527,7 +1003,9 @@ describe("WebM recordings", () => {
     // The runtime never sees Penguin's provenance.
     expect(wafManifest(valid).assets["en-US"]![0]).not.toHaveProperty("generatedVideo");
     // A version keeps the recording's bytes.
+    // Its captions, when a timeline made them, belong to a version with it.
     expect(ownedMediaPaths(valid).owned).toEqual([
+      { path: `${video}.vtt`, expectedSha256: null, optional: true },
       { path: `${video}.webm`, expectedSha256: generatedVideo.sha256 },
     ]);
     expect(() =>
@@ -540,6 +1018,21 @@ describe("WebM recordings", () => {
         address,
       ),
     ).not.toThrow();
+    // A rendered MP4 says so, and is bound at the .mp4 path.
+    const rendered = { ...generatedVideo, format: "mp4" };
+    expect(
+      validateManifest(manifest({ path: `${video}.mp4`, generatedVideo: rendered }), address)
+        .assets["en-US"]![0]!.generatedVideo,
+    ).toEqual(rendered);
+    expect(() =>
+      validateManifest(manifest({ path: `${video}.webm`, generatedVideo: rendered }), address),
+    ).toThrow("Invalid generated video binding.");
+    expect(() =>
+      validateManifest(
+        manifest({ path: `${video}.mp4`, generatedVideo: { ...generatedVideo, format: "mov" } }),
+        address,
+      ),
+    ).toThrow("Invalid generated video binding.");
     for (const wrong of [
       // Another extension, where a take used to be bound, and an animation's folder for a video.
       { path: `${video}.mp4` },

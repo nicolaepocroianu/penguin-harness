@@ -113,6 +113,7 @@ import { ProjectMediaView } from "./project-media-view";
 import type { GroupSort } from "./activity-groups";
 import { useDiscardConfirm } from "./use-discard-confirm";
 import { usePanelBadges } from "./panel-badges";
+import { videosToCheck } from "./scene-video";
 import { applyVoice, optionsFromVoices } from "./voice-catalogue";
 import {
   applyProvider,
@@ -1695,6 +1696,7 @@ function ActivityEditor({
                   scriptDirty: description !== detail.draft.description,
                   specDirty: spec !== pretty(detail.draft.spec),
                   media: scriptMedia?.totals ?? null,
+                  videosToCheck: videosToCheck(detail.draft.mediaPlan?.manifest.assets, runs),
                   hasModule: !!latestModuleRun(runs) || sandboxModule,
                   qa: deployState ? qaFact(deployState) : null,
                 }}
@@ -1913,10 +1915,11 @@ function ActivityEditor({
             spec={detail?.draft.spec}
             onCompose={
               videoSetup?.enabled
-                ? (lang, assetKey) =>
+                ? (lang, assetKey, look) =>
                     startRun("compose-video", {
                       language: lang,
                       assetKey,
+                      ...(look ? { look } : {}),
                       // Scene images bound to checkout media are read from the chosen checkout.
                     })
                 : undefined
@@ -1928,6 +1931,52 @@ function ActivityEditor({
             }
             onAcceptVideo={
               videoSetup?.enabled ? (runId) => acceptRun(runId, "accept-video") : undefined
+            }
+            onSaveTimeline={
+              videoSetup?.enabled
+                ? async (lang, assetKey, timeline) => {
+                    await action(async () => {
+                      const draft = await apiFetch<ActivityDraft>(`${endpoint}/video-timeline`, {
+                        method: "PUT",
+                        body: {
+                          language: lang,
+                          assetKey,
+                          timeline,
+                          expectedRevision: detail!.draft.contentRevision,
+                        },
+                      });
+                      if (alive.current) {
+                        accept({ ...detail!, draft });
+                        toastSuccess(S.activities.saved);
+                      }
+                    });
+                  }
+                : undefined
+            }
+            onRenderTimeline={
+              videoSetup?.enabled
+                ? (lang, assetKey) => startRun("render-timeline", { language: lang, assetKey })
+                : undefined
+            }
+            onRefineTimeline={
+              videoSetup?.enabled
+                ? (lang, assetKey) => startRun("refine-timeline", { language: lang, assetKey })
+                : undefined
+            }
+            onCritique={
+              videoSetup?.enabled
+                ? (lang, assetKey) => startRun("critique-video", { language: lang, assetKey })
+                : undefined
+            }
+            onImprove={
+              videoSetup?.enabled
+                ? (lang, assetKey, look) =>
+                    startRun("improve-scene", {
+                      language: lang,
+                      assetKey,
+                      ...(look ? { look } : {}),
+                    })
+                : undefined
             }
             onSaveSounds={(lang, assetKey, phonemes) =>
               void action(async () => {

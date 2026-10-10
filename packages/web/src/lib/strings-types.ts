@@ -918,7 +918,9 @@ export type Strings = {
         | "noAssessment"
         | "notCanonical"
         | "noCriteria"
-        | "noBrowser",
+        | "noBrowser"
+        | "moduleNotChecked"
+        | "moduleCheckSkipped",
         string
       >;
       running: (step: string) => string;
@@ -1584,6 +1586,12 @@ export type Strings = {
       info: string;
       experimental: string;
       compose: string;
+      /** The scene look a composition is made in, chosen beside Compose. */
+      look: string;
+      noLook: string;
+      /** Beside a recording an agent critiqued, and the best-scoring one. */
+      critiqued: (score: string) => string;
+      best: string;
       recompose: string;
       composing: string;
       /** The run's name in the history and the sessions panel. */
@@ -1591,6 +1599,21 @@ export type Strings = {
       noImages: string;
       candidates: string;
       frames: string;
+      /** What a read of the composition's source found, beside its frames. */
+      lint: {
+        title: string;
+        findings: Record<
+          | "nondeterministic"
+          | "own_timers"
+          | "endless_repeat"
+          | "layout_tween"
+          | "emoji"
+          | "all_caps"
+          | "small_font"
+          | "filler",
+          string
+        >;
+      };
       frame: (index: number, seconds: string) => string;
       seconds: (seconds: string) => string;
       preview: string;
@@ -1614,12 +1637,126 @@ export type Strings = {
       recorded: string;
       useNew: string;
       keepCurrent: string;
-      /** The recording's known limit: a blank moment before the animation starts. */
-      leadIn: string;
+      /** Under Record video: rendering steps through every frame, so it takes a while. */
+      renderTime: string;
       olderRecording: string;
       noCurrent: string;
       recordFailed: (cause: string) => string;
       noCause: string;
+      /** Beside a video run that rendered the timeline rather than recorded a composition. */
+      finished: string;
+      /** The captions track of a finished video, as the player lists it. */
+      captionsTrack: string;
+      /** Which agent made a composition or critique, beside it. */
+      madeBy: (agent: string) => string;
+      /** An agent's scored critique of the newest recording, with what to fix. */
+      critique: {
+        title: string;
+        info: string;
+        /** The run's name in the run history and toasts. */
+        run: string;
+        critique: string;
+        /** Compose, record and critique again, round after round, until it scores well. */
+        improve: string;
+        improveInfo: string;
+        critiquing: string;
+        score: (score: string) => string;
+        rubric: Record<"story" | "layout" | "readability" | "motion" | "learners", string>;
+        fixes: string;
+        noFixes: string;
+        composeAgain: string;
+        older: string;
+        failed: (cause: string) => string;
+      };
+      /** A made video's final check: its outcome, and each finding, with times in seconds. */
+      check: {
+        pass: string;
+        /** A pass whose check still found warnings. */
+        warnings: string;
+        revise: string;
+        fail: string;
+        findings: Record<
+          | "unreadable"
+          | "duration_off"
+          | "size_off"
+          | "audio_missing"
+          | "silent"
+          | "clipping"
+          | "narration_silent"
+          | "black"
+          | "flashing"
+          | "layout_overlap"
+          | "off_stage"
+          | "near_edge"
+          | "crowded"
+          | "small_text"
+          | "low_contrast"
+          | "narration_mismatch"
+          | "punctuation_spoken",
+          (from: string, to: string, asset: string, elements: string) => string
+        >;
+      };
+      /** The scene video's timeline: how its finished video is put together. */
+      timeline: {
+        title: string;
+        info: string;
+        /** Badges: the timeline is saved on the video, or started from its newest recording. */
+        saved: string;
+        unsaved: string;
+        length: (seconds: string) => string;
+        cuts: string;
+        cut: (index: number) => string;
+        from: string;
+        to: string;
+        /** How a cut begins, after the first. */
+        into: string;
+        transitions: Record<"cut" | "fade" | "fadeblack", string>;
+        fade: string;
+        narration: string;
+        startsAt: string;
+        addNarration: string;
+        noNarration: string;
+        music: string;
+        noMusic: string;
+        volume: string;
+        percent: (value: number) => string;
+        duck: string;
+        effects: string;
+        addEffect: string;
+        noEffects: string;
+        captions: string;
+        removeButton: string;
+        /** A remove button's accessible name, naming what it removes. */
+        remove: (what: string) => string;
+        save: string;
+        reset: string;
+        render: string;
+        rendering: string;
+        /** An agent rewrites the timeline so the sound follows the picture. */
+        refine: string;
+        refining: string;
+        /** The run's name in the run history and toasts. */
+        run: string;
+        agentReady: string;
+        loadAgent: string;
+        agentFailed: (cause: string) => string;
+        saveFirst: string;
+        /** A time field that does not hold a usable number of seconds. */
+        invalid: string;
+        loadFailed: (cause: string) => string;
+        /** What the server reports a timeline would get wrong, by code, naming the asset. */
+        issues: Record<
+          | "asset_missing"
+          | "asset_kind"
+          | "asset_unbound"
+          | "narration_length_unknown"
+          | "narration_overlap"
+          | "past_end"
+          | "cut_past_recording"
+          | "captions_untimed",
+          (asset: string) => string
+        >;
+      };
       /** A failed recording, by the code the server reports for the causes it knows. */
       recordProblems: Record<
         | "video_not_ready"
@@ -1824,6 +1961,8 @@ export type Strings = {
       saved: string;
       unsaved: string;
       clips: (bound: number, total: number) => string;
+      /** The Media step once every clip has a file, while kept scene videos failed their check. */
+      videosToCheck: (count: number) => string;
       noPlan: string;
       built: string;
       notBuilt: string;
@@ -1842,6 +1981,7 @@ export type Strings = {
         | "fixSpec"
         | "planMedia"
         | "finishMedia"
+        | "checkVideos"
         | "buildModule"
         | "deployQa",
         string

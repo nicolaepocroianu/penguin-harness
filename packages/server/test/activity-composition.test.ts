@@ -258,17 +258,18 @@ describe("scene compositions", () => {
     expect(runs.runs).toEqual([]);
   });
 
-  it("refuses a scene with no bound image, and an asset that is not a video or animation", async () => {
+  it("composes a scene with no bound image, and refuses an asset that is not a video or animation", async () => {
     const f = await fixture();
     await f.experiment(true);
-    const empty = await f.compose("outro-animation");
-    expect(empty.status).toBe(409);
-    expect(JSON.stringify(await empty.json())).toContain("composition_no_images");
     const image = await f.compose("sky");
     expect(image.status).toBe(422);
     expect(JSON.stringify(await image.json())).toContain("composition_asset_invalid");
     const runs = (await (await f.client.get(`${f.endpoint}/runs`)).json()) as { runs: unknown[] };
     expect(runs.runs).toEqual([]);
+    // A scene with no image is drawn from HTML, CSS and SVG alone.
+    const empty = await f.compose("outro-animation");
+    expect(empty.status, await empty.clone().text()).toBe(202);
+    expect(((await empty.json()) as ActivityRun).composition?.images).toEqual([]);
   });
 
   it("refuses a scene image too large to be served back", async () => {
@@ -311,7 +312,7 @@ describe("scene compositions", () => {
       images: [{ key: "sky", file: "images/sky.png" }],
     });
     const session = f.t.deps.sessionsRepo.findById(run.sessionId!)!;
-    expect(session.approvalMode).toBe("always-ask");
+    expect(session.approvalMode).toBe("allow-all");
     const workspace = session.workspace!;
     expect(
       JSON.parse(await fs.readFile(path.join(workspace, "composition-input.json"), "utf8")),

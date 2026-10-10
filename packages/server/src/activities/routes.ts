@@ -9,6 +9,8 @@ import type { AppEnv } from "../auth/middleware.js";
 import type { Access } from "../mechanisms/projects.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import type { ActivitySandbox } from "./sandbox-service.js";
+import { videoMimeType } from "./video-render.js";
+import { sceneLooks } from "./scene-looks.js";
 import type { ModuleDocumentKind } from "./domain.js";
 import type { ActivitySummaries } from "./summary-service.js";
 import type { Config } from "../hmr/capabilities.js";
@@ -278,9 +280,145 @@ export class ActivityRoutes {
       c.json(await this.generation.soundSetup(requireValidId(c, "projectId"))),
     );
     // Whether the scene-video experiment is on: the studio shows nothing of it when it is not.
+    // The looks a scene can be composed in (experimental).
+    app.get("/scene-looks", (c) => c.json({ looks: sceneLooks() }));
     app.get("/video-setup", (c) =>
       c.json({ enabled: this.generation.videoExperiment() } satisfies VideoSetup),
     );
+    // A video or animation's timeline: saved, or started from its newest recording.
+    app.get("/:activityId/video-timeline", async (c) =>
+      c.json(
+        await this.generation.videoTimeline(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          c.req.query("language") ?? DEFAULT_LANGUAGE_CODE,
+          c.req.query("assetKey") ?? "",
+        ),
+      ),
+    );
+    app.put("/:activityId/video-timeline", async (c) => {
+      const body = await readJson(c);
+      if (!this.generation.videoExperiment())
+        throw new HttpError(
+          403,
+          "experiment_off",
+          "Scene videos are an experiment an admin has not turned on.",
+        );
+      return c.json(
+        await this.activities.saveVideoTimeline(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          {
+            language: requireString(body, "language", { minLen: 1, maxLen: 32 }),
+            assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
+            timeline: body.timeline ?? null,
+            expectedRevision: requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
+          },
+        ),
+      );
+    });
+    // An agent refines a video or animation's timeline (experimental); the author loads what it
+    // wrote into the editor and saves it there.
+    app.post("/:activityId/refine-timeline", async (c) => {
+      const body = await readJson(c);
+      const runner = stageRunner(body);
+      return c.json(
+        await this.generation.start(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          runner.agentId,
+          requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
+          {
+            timeline: {
+              language: requireString(body, "language", { minLen: 5, maxLen: 5 }),
+              assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
+            },
+          },
+          runner.runtime,
+        ),
+        202,
+      );
+    });
+    // Composes, records and critiques a scene round after round until it scores well.
+    app.post("/:activityId/improve-scene", async (c) => {
+      const body = await readJson(c);
+      const runner = stageRunner(body);
+      const rounds = body.rounds === undefined ? 3 : Number(body.rounds);
+      if (!Number.isInteger(rounds) || rounds < 1 || rounds > 5)
+        throw new HttpError(400, "rounds_invalid", "Rounds must be a whole number from 1 to 5.");
+      return c.json(
+        await this.videoRenders.startImprove(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          {
+            language: requireString(body, "language", { minLen: 5, maxLen: 5 }),
+            assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
+            ...(optionalString(body, "look", { maxLen: 64 })
+              ? { look: optionalString(body, "look", { maxLen: 64 })! }
+              : {}),
+            rounds,
+            expectedRevision: requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
+            agentId: runner.agentId,
+            ...(runner.runtime ? { runtime: runner.runtime } : {}),
+          },
+        ),
+        202,
+      );
+    });
+    // An agent critiques a video or animation's newest recording (experimental).
+    app.post("/:activityId/critique-video", async (c) => {
+      const body = await readJson(c);
+      const runner = stageRunner(body);
+      return c.json(
+        await this.generation.start(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          runner.agentId,
+          requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
+          {
+            critique: {
+              language: requireString(body, "language", { minLen: 5, maxLen: 5 }),
+              assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
+            },
+          },
+          runner.runtime,
+        ),
+        202,
+      );
+    });
+    // Renders a video or animation's timeline to its finished video (experimental).
+    app.post("/:activityId/render-timeline", async (c) => {
+      const body = await readJson(c);
+      return c.json(
+        await this.videoRenders.startTimeline(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          {
+            language: requireString(body, "language", { minLen: 1, maxLen: 32 }),
+            assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
+            expectedRevision: requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
+          },
+        ),
+        202,
+      );
+    });
+    // A video run's captions, as WebVTT for the studio's player; 404 when it has none.
+    app.get("/:activityId/runs/:runId/captions", async (c) => {
+      const vtt = await this.activities.readCaptions(
+        requireValidId(c, "projectId"),
+        pathParam(c, "activityId"),
+        pathParam(c, "runId"),
+      );
+      if (vtt === null)
+        throw new HttpError(404, "captions_not_found", "This video has no captions.");
+      return new Response(vtt, {
+        headers: {
+          "Content-Type": "text/vtt; charset=utf-8",
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    });
     // An agent composes an animated scene for a video or animation asset (experimental).
     app.post("/:activityId/compose-video", async (c) => {
       const body = await readJson(c);
@@ -295,6 +433,9 @@ export class ActivityRoutes {
             composition: {
               language: requireString(body, "language", { minLen: 5, maxLen: 5 }),
               assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
+              ...(optionalString(body, "look", { maxLen: 64 })
+                ? { look: optionalString(body, "look", { maxLen: 64 })! }
+                : {}),
             },
           },
           runner.runtime,
@@ -343,7 +484,7 @@ export class ActivityRoutes {
       );
       return new Response(new Uint8Array(bytes), {
         headers: {
-          "Content-Type": "video/webm",
+          "Content-Type": videoMimeType(bytes),
           "Content-Length": String(bytes.byteLength),
           "Cache-Control": "private, no-store",
           "X-Content-Type-Options": "nosniff",

@@ -90,3 +90,25 @@ describe("the QA step from the deploy state", () => {
     expect(qaFact({ run: run("qa", "running", "prod"), stages: [] })).toBe("none");
   });
 });
+
+describe("the Media step and the scene videos' checks", () => {
+  it("asks for a look at kept videos that failed their check, once every clip has a file", () => {
+    const media = (patch: Partial<ProgressFacts>) =>
+      progressSteps({ ...facts, ...patch }).find((step) => step.section === "scenes")!;
+    expect(media({ videosToCheck: 2 })).toMatchObject({
+      state: "2 videos need a look",
+      tone: "attention",
+      todo: { action: "look at the scene videos", go: { kind: "section", section: "scenes" } },
+    });
+    expect(media({ videosToCheck: 1 }).state).toBe("a video needs a look");
+    // Missing files come first.
+    expect(media({ videosToCheck: 1, media: { bound: 1, total: 3 } }).todo?.action).toBe(
+      "finish the media",
+    );
+    expect(media({ videosToCheck: 0 })).toMatchObject({
+      state: "3/3",
+      tone: "success",
+      todo: null,
+    });
+  });
+});

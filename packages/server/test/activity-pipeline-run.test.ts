@@ -191,6 +191,12 @@ describe("choosing the work", () => {
 function world(
   options: {
     fail?: ActivityRun["kind"];
+    /** What a succeeding module run reports about its player check. */
+    unchecked?: ActivityRun["unchecked"];
+    /** How many looks each run stays running for before it settles (none when absent). */
+    looks?: number;
+    /** Records how long each wait between looks was asked to be. */
+    pauses?: number[];
     description?: string;
     romanian?: boolean;
     usesAssessment?: boolean;
@@ -243,6 +249,7 @@ function world(
   };
   const bump = () => (activity.draft.contentRevision = `r${++revision}`);
   const runs: ActivityRun[] = [];
+  const looked = new Map<string, number>();
   const started: string[] = [];
   const cancelled: string[] = [];
   const soundSetups: string[] = [];
@@ -302,6 +309,9 @@ function world(
     async list() {
       // Each look settles whatever is running, as a finished Session would.
       for (const run of runs.filter((item) => item.status === "running")) {
+        const seen = (looked.get(run.runId) ?? 0) + 1;
+        looked.set(run.runId, seen);
+        if (seen <= (options.looks ?? 0)) continue;
         if (options.fail === run.kind) {
           run.status = "failed";
           run.error = `${run.kind} broke`;
@@ -310,6 +320,7 @@ function world(
           continue;
         }
         run.status = "succeeded";
+        if (run.kind === "module" && options.unchecked) run.unchecked = options.unchecked;
         if (run.kind === "spec") {
           activity.draft.spec = spec;
           activity.draft.status = "valid";
@@ -463,7 +474,10 @@ function world(
     },
     testBrowserInstalled: async () => options.browser ?? true,
     // Yield to the timer queue, as a real wait does, so a held run cannot starve the test.
-    pause: () => new Promise((resolve) => setImmediate(resolve)),
+    pause: (ms) => {
+      options.pauses?.push(ms);
+      return new Promise((resolve) => setImmediate(resolve));
+    },
     now: () => "2026-09-23T12:00:00Z",
     newId: () => "pipeline_1",
   });
@@ -527,6 +541,25 @@ describe("running the stages", () => {
     expect(w.activity.draft.mediaPlan!.manifest.assets["es-MX"]![0]!.path).toBe("run_4.wav");
     expect(final.currentRunId).toBeNull();
     expect(final.finishedAt).toBe("2026-09-23T12:00:00Z");
+  });
+
+  it("looks at a run soon after it starts, then backs off to once a second", async () => {
+    const pauses: number[] = [];
+    const w = world({ looks: 6, pauses });
+    await w.runner.start("proj", "act", { selection: "spec", agentId: "agent" }).done;
+    expect(pauses).toEqual([100, 200, 400, 800, 1000, 1000]);
+  });
+
+  it("says when the module was built but not checked in the player", async () => {
+    for (const [unchecked, note] of [
+      ["noBrowser", "moduleNotChecked"],
+      ["notRun", "moduleCheckSkipped"],
+    ] as const) {
+      const w = world({ unchecked });
+      await w.runner.start("proj", "act", { selection: "module", agentId: "agent" }).done;
+      const module = w.runner.status("act")!.steps.find((step) => step.step === "module")!;
+      expect(module).toMatchObject({ status: "succeeded", note });
+    }
   });
 
   it("keeps a current media plan instead of rebuilding it", async () => {

@@ -16,11 +16,11 @@
  *
  * Audio is kept as MP3, as Loom kept it: a WAV take (Gemini speech) is converted with ffmpeg.
  */
-import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Component, Interface } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
+import { FfmpegError, runFfmpeg } from "./ffmpeg.js";
 import { withinRoot } from "./sandbox-paths.js";
 
 const RUN_ID = /^run_[a-f0-9]{32}$/;
@@ -92,63 +92,36 @@ export async function writeSidecar(file: string, sidecar: MediaSidecar): Promise
 export const MP3_TIMEOUT_MS = 60_000;
 
 /**
- * A WAV clip as MP3, through ffmpeg on this server's PATH. Refused with 503 `ffmpeg_missing`
- * when there is no ffmpeg, since the media repository keeps audio as MP3.
+ * A WAV clip as MP3, through FFmpeg (see ffmpeg.ts). Refused with 503 `ffmpeg_missing` when
+ * there is no FFmpeg, since the media repository keeps audio as MP3.
  */
 export async function wavToMp3(wav: Uint8Array): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    let child;
-    try {
-      child = spawn(
-        "ffmpeg",
-        ["-hide_banner", "-loglevel", "error", "-f", "wav", "-i", "pipe:0"].concat([
-          "-codec:a",
-          "libmp3lame",
-          "-q:a",
-          "2",
-          "-f",
-          "mp3",
-          "pipe:1",
-        ]),
-        { stdio: ["pipe", "pipe", "pipe"], windowsHide: true, shell: false },
-      );
-    } catch (error) {
-      reject(ffmpegMissing(error));
-      return;
-    }
-    const out: Buffer[] = [];
-    let err = "";
-    const timer = setTimeout(() => child.kill(), MP3_TIMEOUT_MS);
-    child.stdout.on("data", (chunk: Buffer) => out.push(chunk));
-    child.stderr.on("data", (chunk: Buffer) => (err = (err + chunk.toString()).slice(-2000)));
-    child.on("error", (error: NodeJS.ErrnoException) => {
-      clearTimeout(timer);
-      reject(error.code === "ENOENT" ? ffmpegMissing(error) : error);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      if (code === 0 && out.length) resolve(Buffer.concat(out));
-      else
-        reject(
-          new HttpError(
-            502,
-            "audio_convert_failed",
-            `Converting the speech to MP3 failed: ${err.trim() || `ffmpeg exited with ${code}`}`,
-          ),
-        );
-    });
-    // A closed pipe after ffmpeg failed is reported by close, not here.
-    child.stdin.on("error", () => {});
-    child.stdin.end(Buffer.from(wav));
-  });
-}
-
-function ffmpegMissing(cause: unknown): HttpError {
-  return new HttpError(
-    503,
-    "ffmpeg_missing",
-    `ffmpeg is needed to keep speech as MP3 in the media repository, and it could not be run: ${(cause as Error).message}`,
-  );
+  const failed = (cause: string) =>
+    new HttpError(502, "audio_convert_failed", `Converting the speech to MP3 failed: ${cause}`);
+  let mp3: Buffer;
+  try {
+    mp3 = await runFfmpeg(
+      ["-hide_banner", "-loglevel", "error", "-f", "wav", "-i", "pipe:0"].concat([
+        "-codec:a",
+        "libmp3lame",
+        "-q:a",
+        "2",
+        "-f",
+        "mp3",
+        "pipe:1",
+      ]),
+      {
+        purpose: "to keep speech as MP3 in the media repository",
+        timeoutMs: MP3_TIMEOUT_MS,
+        input: wav,
+      },
+    );
+  } catch (error) {
+    if (error instanceof FfmpegError) throw failed(error.message);
+    throw error;
+  }
+  if (!mp3.length) throw failed("ffmpeg wrote no MP3.");
+  return mp3;
 }
 
 /**

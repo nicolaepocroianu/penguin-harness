@@ -419,7 +419,7 @@ export class ActivityVersionService implements ActivityVersions {
     // One file at a time: each is read, checked, and stored before the next is opened.
     for (const owned of ownedMediaPaths(activity.draft.mediaPlan?.manifest).owned) {
       const bytes = await this.readOwned(workspace, owned.path).catch((error: unknown) => {
-        if (lenient && isMissing(error)) return null;
+        if ((lenient || owned.optional) && isMissing(error)) return null;
         throw error;
       });
       if (!bytes) continue;

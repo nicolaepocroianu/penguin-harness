@@ -9,7 +9,14 @@ import type {
 } from "../activities/speech-types.js";
 import type { ImageRequest } from "../activities/image.js";
 import type { CompositionFileContent } from "../activities/composition.js";
-import type { VideoProblemCode, VideoResult, VideoTarget } from "../activities/video-types.js";
+import type { VideoTimelineView } from "../activities/video-timeline-types.js";
+import type {
+  VideoCheck,
+  VideoFormat,
+  VideoProblemCode,
+  VideoResult,
+  VideoTarget,
+} from "../activities/video-types.js";
 import type { ImageTarget, ImageResult } from "../activities/generated-image.js";
 import type { MediaTextTarget } from "../activities/media-text.js";
 import type { AssistFocus, AssistProposal, ProposalChange } from "../activities/assist.js";
@@ -83,7 +90,11 @@ export abstract class ActivityGeneration extends Interface<{
        * An animated composition of a video or animation asset's scene, from its description
        * and bound images (experimental: refused while `activityVideoExperiment` is off).
        */
-      composition?: { language: string; assetKey: string };
+      composition?: { language: string; assetKey: string; look?: string };
+      /** An agent refining a video or animation's timeline (experimental). */
+      timeline?: { language: string; assetKey: string };
+      /** An agent critiquing a video or animation's newest recording (experimental). */
+      critique?: { language: string; assetKey: string };
       /** The media pass: list the media the scenes' tags ask for (`generate_media_spec`). */
       mediaSpec?: true;
       /** A specification or media pass run again, told why the previous attempt failed. */
@@ -134,6 +145,8 @@ export abstract class ActivityGeneration extends Interface<{
     candidate?: string,
     /** Why a failed video run failed, when Penguin knows the cause; kept on its target. */
     videoProblem?: VideoProblemCode,
+    /** A succeeded video run's final check (see video-check.ts). */
+    videoCheck?: VideoCheck,
   ): Promise<boolean>;
   /** Whether a run is still going: false once it has settled, been cancelled or interrupted. */
   isRunning(projectId: string, activityId: string, runId: string): Promise<boolean>;
@@ -176,6 +189,18 @@ export abstract class ActivityGeneration extends Interface<{
   ): Promise<ActivityDraft>;
   /** A video run's recording, or a recording the draft binds; 404 when there is none. */
   videoContent(projectId: string, activityId: string, runId: string): Promise<Uint8Array>;
+  /**
+   * A video or animation's timeline (experimental): the one saved on its asset, or else one
+   * started from its newest recording, with what either would get wrong. 404 `asset_not_found`
+   * when the media plan has no such video; 409 `video_recording_missing` when nothing saved and
+   * nothing recorded.
+   */
+  videoTimeline(
+    projectId: string,
+    activityId: string,
+    language: string,
+    assetKey: string,
+  ): Promise<VideoTimelineView>;
   /** Bind a successful video run's recording to its asset (experimental). */
   acceptVideo(
     projectId: string,
@@ -257,22 +282,47 @@ export abstract class ActivityAuthoring extends Interface<{
     workspace: string,
     expectedRevision: string,
   ): Promise<void>;
-  /** Keep a video run's recording in the draft workspace; 422 `video_invalid` if not a WebM. */
+  /**
+   * Keep a video run's recording as the run's candidate; 422 `video_invalid` if it is not a
+   * video of `format`.
+   */
   storeVideo(
     projectId: string,
     activityId: string,
     runId: string,
     bytes: Uint8Array,
+    format: VideoFormat,
   ): Promise<VideoResult>;
   /** Remove a recording kept for a run that was not settled with it (cancelled or stopped). */
-  discardVideo(projectId: string, activityId: string, runId: string): Promise<void>;
+  discardVideo(
+    projectId: string,
+    activityId: string,
+    runId: string,
+    format: VideoFormat,
+  ): Promise<void>;
   /** A kept recording, while its bytes are the ones kept; 409 `video_changed` otherwise. */
   readVideo(
     projectId: string,
     activityId: string,
     runId: string,
     sha256: string,
+    format: VideoFormat,
   ): Promise<Uint8Array>;
+  /**
+   * Save a video or animation's timeline on its asset, or with `timeline: null` drop it so the
+   * video starts from its newest recording again. 422 `timeline_invalid` with what is wrong.
+   */
+  saveVideoTimeline(
+    projectId: string,
+    activityId: string,
+    input: { language: string; assetKey: string; timeline: unknown; expectedRevision: string },
+  ): Promise<ActivityDraft>;
+  /** Keep a timeline render's captions (WebVTT) beside its video, as the run's candidate. */
+  storeCaptions(projectId: string, activityId: string, runId: string, vtt: string): Promise<void>;
+  /** A video run's captions, kept or bound; null when it has none. */
+  readCaptions(projectId: string, activityId: string, runId: string): Promise<string | null>;
+  /** The file a media reference names in the media repository, when it is a regular file. */
+  mediaFilePath(projectId: string, activityId: string, reference: string): Promise<string | null>;
   /** Bind a kept recording to its video or animation asset. */
   applyVideo(
     projectId: string,

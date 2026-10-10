@@ -1,16 +1,17 @@
 /**
  * Record video (experimental, behind `activityVideoExperiment`): a kept scene composition is
- * played once in the test browser and recorded to a WebM (see video-render.ts), which the
- * author may then bind to the video or animation asset it was composed for.
+ * rendered frame by frame in the test browser and encoded to an MP4 (see video-render.ts),
+ * which the author may then bind to the video or animation asset it was composed for.
  *
  * A deterministic run, like a quality check: no Session and no agent, recorded in the
  * activity's run history as kind `video` under the one-run-per-activity rule. The browser
  * opens the composition on this server's loopback address through a signed composition link
  * (see composition-service.ts), the way a quality check opens the player. The recording is
- * checked (a WebM, 100 MB at most) and kept in the draft workspace as the run's candidate;
+ * checked (an MP4, 100 MB at most) and kept in the media repository as the run's candidate;
  * nothing is bound until the author accepts it (`ActivityGeneration.acceptVideo`).
  *
- * The browser launcher is a port, so a test drives a fake and never starts a browser.
+ * The browser launcher and the encoder are ports, so a test drives fakes and never starts a
+ * browser or FFmpeg.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -25,11 +26,57 @@ import { compositionBase, type ActivityCompositions } from "./composition-servic
 import type { CompositionCandidate } from "./composition-types.js";
 import type { ActivityRun } from "./domain.js";
 import { loopbackAuthority, type TestBrowser } from "./test-browser.js";
-import { RenderError, WebmError, readVideoFile, renderComposition } from "./video-render.js";
-import type { VideoProblemCode, VideoTarget } from "./video-types.js";
+import {
+  RenderError,
+  VideoFileError,
+  readVideoFile,
+  RENDER_MAX_MS,
+  renderComposition,
+  type EncoderStarter,
+} from "./video-render.js";
+import { runFfmpeg } from "./ffmpeg.js";
+import { timelineRenderArgs } from "./timeline-render.js";
+import { checkVideo, type VideoExpectation } from "./video-check.js";
+import { CRITIQUE_GOOD } from "./scene-critique.js";
+import type { LocalAudio } from "./local-audio.js";
+import {
+  compareTranscript,
+  NARRATION_ACCURACY,
+  type TranscriptComparison,
+} from "./transcript-check.js";
+import { captionCues, narrationLengthMs, timelineLengthMs, webVtt } from "./video-timeline.js";
+import type { VideoTimeline } from "./video-timeline-types.js";
+import type {
+  VideoCheck,
+  VideoCheckFinding,
+  VideoProblemCode,
+  VideoResult,
+  VideoTarget,
+} from "./video-types.js";
 
 /** Where a run's recorder writes, inside its workspace; removed once the recording is kept. */
 export const RECORDING_DIR = "recording";
+/** The most rounds one Improve may run. */
+export const IMPROVE_MAX_ROUNDS = 5;
+
+/** What a video run made: the MP4, its captions, and what the final check holds it to. */
+interface Made {
+  file: string;
+  captions: string | null;
+  expected: VideoExpectation;
+  /** What the layout audit found while a composition was recorded (see layout-audit.ts). */
+  layout?: VideoCheckFinding[];
+  /** The narration a finished video should say, to check what is heard against it. */
+  narration?: { language: string; scripts: string[] };
+}
+
+/** Where a timeline render gathers its inputs and writes; removed once the video is kept. */
+export const TIMELINE_DIR = "timeline";
+
+/** Runs FFmpeg with a timeline render's arguments. */
+const renderWithFfmpeg = async (args: string[]): Promise<void> => {
+  await runFfmpeg(args, { purpose: "to render a scene video", timeoutMs: RENDER_MAX_MS });
+};
 
 /**
  * The parts of a recording that touch the outside world. Absent, the real ones are used; a
@@ -38,13 +85,28 @@ export const RECORDING_DIR = "recording";
 export abstract class VideoRenderPorts extends Interface<{
   /** Starts the browser; `playwright-core`'s Chromium by default. */
   launcher?: BrowserLauncher;
+  /** Starts the encoder; FFmpeg by default (see ffmpeg.ts). */
+  encoder?: EncoderStarter;
   /** How long each page step may take; 30 s by default. A test shortens it. */
   pageTimeoutMs?: number;
+  /** Frames per second; 30 by default. A test lowers it. */
+  fps?: number;
+  /** Runs FFmpeg with a timeline render's arguments; the real FFmpeg by default. */
+  renderTimeline?: (args: string[]) => Promise<void>;
+  /** Checks a made video; FFmpeg's analysis by default (see video-check.ts). */
+  checkVideo?: (file: string, expected: VideoExpectation) => Promise<VideoCheck>;
+  /**
+   * What a made video's sound says, or null when it cannot be transcribed here; local Whisper
+   * by default (see `LocalAudio.transcribe`).
+   */
+  transcribe?: (file: string, language: string) => Promise<string | null>;
+  /** How often an improving scene looks whether its current step has settled; 2 s by default. */
+  pollMs?: number;
 }>() {}
 
 /** The code a failed recording is worded by, for the causes Penguin knows; null otherwise. */
 function problemOf(error: unknown): VideoProblemCode | null {
-  if (error instanceof RenderError || error instanceof WebmError) return error.code;
+  if (error instanceof RenderError || error instanceof VideoFileError) return error.code;
   if (error instanceof HttpError && error.code === "video_invalid") return "video_invalid";
   return null;
 }
@@ -67,6 +129,38 @@ export abstract class ActivityVideoRenders extends Interface<{
     activityId: string,
     input: { compositionRunId: string; expectedRevision: string },
   ): Promise<ActivityRun>;
+  /**
+   * Starts rendering a video or animation's timeline (saved, or started from its newest
+   * recording) to its finished video, captions beside it, and answers at once with the run.
+   * 403 `experiment_off`; 409 `draft_conflict`; 409 `timeline_blocked` when it names audio that
+   * cannot be played; 409 `timeline_source_missing`; 409 `generation_running`.
+   */
+  startTimeline(
+    projectId: string,
+    activityId: string,
+    input: { language: string; assetKey: string; expectedRevision: string },
+  ): Promise<ActivityRun>;
+  /**
+   * Improves a scene round after round (experimental): composes it again from its best version,
+   * records it and critiques it, until a critique scores it `CRITIQUE_GOOD` or `rounds` rounds
+   * have run. Answers at once with the first round's composition run; the rest follows, each
+   * step in the run history. An agent's step (composing, critiquing) that fails is tried once
+   * more; Improve stops at the first step that still does not succeed. 409 `improve_running`
+   * while this activity is already being improved.
+   */
+  startImprove(
+    projectId: string,
+    activityId: string,
+    input: {
+      language: string;
+      assetKey: string;
+      look?: string;
+      rounds: number;
+      expectedRevision: string;
+      agentId: string;
+      runtime?: { codingAgentId: string };
+    },
+  ): Promise<ActivityRun>;
 }>() {}
 
 @Component()
@@ -78,6 +172,7 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
   @Use() private readonly compositions!: ActivityCompositions;
   @Use() private readonly ports!: VideoRenderPorts;
   @Use() private readonly log!: Log;
+  @Use() private readonly localAudio!: LocalAudio;
 
   private stopped = false;
   /**
@@ -86,6 +181,8 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
    * the same activity waits its turn.
    */
   private readonly recording = new Set<string>();
+  /** Activities being improved round after round (see `startImprove`). */
+  private readonly improving = new Set<string>();
 
   setup({ effect }: ClassCtx) {
     effect(() => {
@@ -191,10 +288,9 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
     url: string,
     target: VideoTarget,
   ): Promise<void> {
-    const { projectId, activityId, runId } = run;
-    const dir = path.join(this.config.root, "activity-runs", runId, RECORDING_DIR);
-    try {
-      const file = await renderComposition({
+    const dir = path.join(this.config.root, "activity-runs", run.runId, RECORDING_DIR);
+    await this.produce(run, dir, async () => {
+      const { file, layout } = await renderComposition({
         executablePath: executable,
         compositionUrl: url,
         width: target.width,
@@ -202,18 +298,363 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         seconds: target.seconds,
         dir,
         ...(this.ports.launcher ? { launcher: this.ports.launcher } : {}),
+        ...(this.ports.encoder ? { encoder: this.ports.encoder } : {}),
         ...(this.ports.pageTimeoutMs ? { pageTimeoutMs: this.ports.pageTimeoutMs } : {}),
+        ...(this.ports.fps ? { fps: this.ports.fps } : {}),
       });
+      return {
+        file,
+        captions: null,
+        layout,
+        // A recording is the composition's picture alone.
+        expected: {
+          durationMs: Math.round(target.seconds * 1000),
+          width: target.width,
+          height: target.height,
+          audio: false,
+          narration: [],
+        },
+      };
+    });
+  }
+
+  async startTimeline(
+    projectId: string,
+    activityId: string,
+    input: { language: string; assetKey: string; expectedRevision: string },
+  ): Promise<ActivityRun> {
+    if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
+    if (!this.generation.videoExperiment())
+      throw new HttpError(
+        403,
+        "experiment_off",
+        "Scene videos are an experiment an admin has not turned on.",
+      );
+    const activity = await this.activities.getActivity(projectId, activityId);
+    if (activity.draft.contentRevision !== input.expectedRevision)
+      throw new HttpError(
+        409,
+        "draft_conflict",
+        "The draft changed. Reload it before rendering the video.",
+      );
+    const { timeline, issues } = await this.generation.videoTimeline(
+      projectId,
+      activityId,
+      input.language,
+      input.assetKey,
+    );
+    const unplayable = [
+      ...new Set(
+        issues
+          .filter((issue) => ["asset_missing", "asset_kind", "asset_unbound"].includes(issue.code))
+          .map((issue) => issue.asset),
+      ),
+    ];
+    if (unplayable.length)
+      throw new HttpError(
+        409,
+        "timeline_blocked",
+        `The timeline names audio that cannot be played yet: ${unplayable.join(", ")}.`,
+      );
+    const overlong = issues
+      .filter((issue) => issue.code === "cut_past_recording")
+      .map((issue) => issue.asset);
+    if (overlong.length)
+      throw new HttpError(
+        409,
+        "timeline_blocked",
+        `These cuts end after their recording does: ${overlong.join(", ")}.`,
+      );
+    const first = await this.generation
+      .run(projectId, activityId, timeline.cuts[0]!.source.runId)
+      .catch(() => null);
+    if (!first?.video)
+      throw new HttpError(
+        409,
+        "timeline_source_missing",
+        "The recording the timeline starts with is no longer in the run history.",
+      );
+    if (this.recording.has(activityId))
+      throw new HttpError(
+        409,
+        "generation_running",
+        "This activity already has a running generation.",
+      );
+    const target: VideoTarget = {
+      language: input.language,
+      assetKey: input.assetKey,
+      compositionRunId: first.video.compositionRunId,
+      width: timeline.width,
+      height: timeline.height,
+      seconds: timelineLengthMs(timeline) / 1000,
+      fromTimeline: true,
+    };
+    const run = await this.generation.openDeterministic(projectId, activityId, "video", {
+      video: target,
+    });
+    this.recording.add(activityId);
+    const dir = path.join(this.config.root, "activity-runs", run.runId, TIMELINE_DIR);
+    void this.produce(run, dir, () =>
+      this.renderTimeline(run, dir, timeline, input.language),
+    ).finally(() => this.recording.delete(activityId));
+    return run;
+  }
+
+  /** Gathers a timeline's recordings and clips and renders it; answers the MP4 and captions. */
+  private async renderTimeline(
+    run: ActivityRun,
+    dir: string,
+    timeline: VideoTimeline,
+    language: string,
+  ): Promise<Made> {
+    const { projectId, activityId } = run;
+    await fs.mkdir(dir, { recursive: true });
+    const sources = new Map<string, string>();
+    const cuts: string[] = [];
+    for (const cut of timeline.cuts) {
+      let file = sources.get(cut.source.runId);
+      if (!file) {
+        file = path.join(dir, `source-${sources.size}.${cut.source.format}`);
+        const bytes = await this.activities.readVideo(
+          projectId,
+          activityId,
+          cut.source.runId,
+          cut.source.sha256,
+          cut.source.format,
+        );
+        await fs.writeFile(file, bytes);
+        sources.set(cut.source.runId, file);
+      }
+      cuts.push(file);
+    }
+    const activity = await this.activities.getActivity(projectId, activityId);
+    const assets = activity.draft.mediaPlan?.manifest.assets[language] ?? [];
+    const audio = new Map<string, string>();
+    const keys = [
+      ...timeline.narration.map((entry) => entry.asset),
+      ...(timeline.music ? [timeline.music.asset] : []),
+      ...timeline.effects.map((entry) => entry.asset),
+    ];
+    for (const key of keys) {
+      if (audio.has(key)) continue;
+      const bound = assets.find((asset) => asset.key === key)?.path;
+      const file = bound && (await this.activities.mediaFilePath(projectId, activityId, bound));
+      if (!file) throw new RenderError(`The clip of ${key} is not in the media repository.`);
+      audio.set(key, file);
+    }
+    const file = path.join(dir, "finished.mp4");
+    const args = timelineRenderArgs(timeline, { cuts, audio, assets }, file);
+    await (this.ports.renderTimeline ?? renderWithFfmpeg)(args);
+    const cues = captionCues(timeline, assets);
+    const spoken = [...timeline.narration]
+      .sort((a, b) => a.startMs - b.startMs)
+      .map((entry) => assets.find((asset) => asset.key === entry.asset)?.script ?? "")
+      .filter((script) => script.trim());
+    const narration = timeline.narration.flatMap((entry) => {
+      const asset = assets.find((candidate) => candidate.key === entry.asset);
+      const length = asset ? narrationLengthMs(asset) : null;
+      return length === null
+        ? []
+        : [{ asset: entry.asset, startMs: entry.startMs, endMs: entry.startMs + length }];
+    });
+    return {
+      file,
+      captions: cues.length ? webVtt(cues) : null,
+      ...(spoken.length ? { narration: { language, scripts: spoken } } : {}),
+      expected: {
+        durationMs: timelineLengthMs(timeline),
+        width: timeline.width,
+        height: timeline.height,
+        audio: keys.length > 0,
+        narration,
+      },
+    };
+  }
+
+  async startImprove(
+    projectId: string,
+    activityId: string,
+    input: {
+      language: string;
+      assetKey: string;
+      look?: string;
+      rounds: number;
+      expectedRevision: string;
+      agentId: string;
+      runtime?: { codingAgentId: string };
+    },
+  ): Promise<ActivityRun> {
+    if (this.improving.has(activityId))
+      throw new HttpError(409, "improve_running", "This scene is already being improved.");
+    const compose = (expectedRevision: string) =>
+      this.generation.start(
+        projectId,
+        activityId,
+        input.agentId,
+        expectedRevision,
+        {
+          composition: {
+            language: input.language,
+            assetKey: input.assetKey,
+            ...(input.look ? { look: input.look } : {}),
+          },
+        },
+        input.runtime,
+      );
+    // The first composition is started here, so a refusal reaches the author at once.
+    const first = await compose(input.expectedRevision);
+    this.improving.add(activityId);
+    void this.improve(projectId, activityId, input, first, compose)
+      .catch((error: unknown) =>
+        this.log.line(`[activities] Improving ${activityId} stopped: ${String(error)}`),
+      )
+      .finally(() => this.improving.delete(activityId));
+    return first;
+  }
+
+  /** The rounds of `startImprove`, from its first composition on. */
+  private async improve(
+    projectId: string,
+    activityId: string,
+    input: {
+      language: string;
+      assetKey: string;
+      rounds: number;
+      agentId: string;
+      runtime?: { codingAgentId: string };
+    },
+    first: ActivityRun,
+    compose: (expectedRevision: string) => Promise<ActivityRun>,
+  ): Promise<void> {
+    const rounds = Math.max(1, Math.min(IMPROVE_MAX_ROUNDS, input.rounds));
+    const revision = async () =>
+      (await this.activities.getActivity(projectId, activityId)).draft.contentRevision;
+    const critique = async () =>
+      this.generation.start(
+        projectId,
+        activityId,
+        input.agentId,
+        await revision(),
+        { critique: { language: input.language, assetKey: input.assetKey } },
+        input.runtime,
+      );
+    let started = first;
+    for (let round = 1; ; round += 1) {
+      const composition = await this.agentStep(projectId, activityId, started, async () =>
+        compose(await revision()),
+      );
+      if (!composition) return;
+      const recording = await this.start(projectId, activityId, {
+        compositionRunId: composition.runId,
+        expectedRevision: await revision(),
+      });
+      if (!(await this.succeeds(projectId, activityId, recording.runId))) return;
+      const critiqued = await this.agentStep(projectId, activityId, await critique(), critique);
+      if (!critiqued) return;
+      const scored = await this.generation.run(projectId, activityId, critiqued.runId);
+      if ((scored.critique?.score ?? 0) >= CRITIQUE_GOOD || round >= rounds) return;
+      started = await compose(await revision());
+    }
+  }
+
+  /**
+   * Waits for an agent's step of an Improve; one that failed is started once more, since an
+   * agent's connection can drop mid-turn. One the author cancelled is not. The step that
+   * succeeded, or null.
+   */
+  private async agentStep(
+    projectId: string,
+    activityId: string,
+    run: ActivityRun,
+    again: () => Promise<ActivityRun>,
+  ): Promise<ActivityRun | null> {
+    const status = await this.settled(projectId, activityId, run.runId);
+    if (status === "succeeded") return run;
+    if (status !== "failed") return null;
+    this.log.line(`[activities] Improving ${activityId}: ${run.kind} run failed; trying it again.`);
+    const retry = await again();
+    return (await this.succeeds(projectId, activityId, retry.runId)) ? retry : null;
+  }
+
+  /** Waits for a run to settle; whether it succeeded. False once the server stops. */
+  private async succeeds(projectId: string, activityId: string, runId: string): Promise<boolean> {
+    return (await this.settled(projectId, activityId, runId)) === "succeeded";
+  }
+
+  /** Waits for a run to settle; how it ended, or null once the server stops. */
+  private async settled(
+    projectId: string,
+    activityId: string,
+    runId: string,
+  ): Promise<ActivityRun["status"] | null> {
+    for (;;) {
+      if (this.stopped) return null;
+      const run = await this.generation.run(projectId, activityId, runId);
+      if (run.status !== "running") return run.status;
+      await new Promise((resolve) => setTimeout(resolve, this.ports.pollMs ?? 2000));
+    }
+  }
+
+  /** What a made video's sound says, by local Whisper; null when it is not installed. */
+  private async heard(file: string, language: string): Promise<string | null> {
+    if (!this.localAudio.canTranscribe()) return null;
+    const pcm = await runFfmpeg(
+      ["-hide_banner", "-loglevel", "error", "-i", file, "-vn", "-ac", "1", "-ar", "16000"].concat([
+        "-f",
+        "f32le",
+        "pipe:1",
+      ]),
+      { purpose: "to hear a scene video's narration", timeoutMs: 120_000 },
+    );
+    return this.localAudio.transcribe(pcm, language, AbortSignal.timeout(30 * 60_000));
+  }
+
+  /**
+   * Makes a video run's file with `make` and keeps it as the run's candidate, captions beside
+   * it, or settles the run failed with why. Whatever happens, `dir` is removed.
+   */
+  private async produce(run: ActivityRun, dir: string, make: () => Promise<Made>): Promise<void> {
+    const { projectId, activityId, runId } = run;
+    try {
+      const made = await make();
       if (this.stopped)
         throw new RecordingStopped("The server stopped before the recording finished.");
-      // Cancelled by the author while it played: nothing is kept.
+      // Cancelled by the author while it was being made: nothing is kept.
       if (!(await this.generation.isRunning(projectId, activityId, runId))) return;
-      const result = await this.activities.storeVideo(
+      let result: VideoResult = await this.activities.storeVideo(
         projectId,
         activityId,
         runId,
-        await readVideoFile(file),
+        await readVideoFile(made.file),
+        "mp4",
       );
+      // The check says what it finds; a check that cannot run leaves the video unchecked.
+      let check = await (this.ports.checkVideo ?? checkVideo)(made.file, made.expected).catch(
+        (error: unknown) => {
+          this.log.line(`[activities] Checking video run ${runId} failed: ${String(error)}`);
+          return undefined;
+        },
+      );
+      // The layout audit's findings are warnings: they join the check without changing it.
+      if (check && made.layout?.length)
+        check = { ...check, findings: [...check.findings, ...made.layout] };
+      // What the narration says, heard against its scripts; skipped where nothing transcribes.
+      if (check && made.narration?.scripts.length) {
+        const heard = await (
+          this.ports.transcribe ?? ((file, language) => this.heard(file, language))
+        )(made.file, made.narration.language).catch((error: unknown) => {
+          this.log.line(`[activities] Transcribing video run ${runId} failed: ${String(error)}`);
+          return null;
+        });
+        if (heard !== null) {
+          const findings = transcriptFindings(compareTranscript(heard, made.narration.scripts));
+          if (findings.length) check = withFindings(check, findings);
+        }
+      }
+      if (made.captions !== null) {
+        await this.activities.storeCaptions(projectId, activityId, runId, made.captions);
+        result = { ...result, captions: true };
+      }
       const settled = await this.generation.settleDeterministic(
         projectId,
         activityId,
@@ -221,13 +662,15 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         "succeeded",
         null,
         JSON.stringify(result),
+        undefined,
+        check,
       );
       // Cancelled, or the server stopped, while it was being kept: the run does not own it.
       if (!settled)
-        await this.activities.discardVideo(projectId, activityId, runId).catch(() => {});
+        await this.activities.discardVideo(projectId, activityId, runId, "mp4").catch(() => {});
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.log.line(`[activities] Video recording ${runId} failed: ${message}`);
+      this.log.line(`[activities] Video run ${runId} failed: ${message}`);
       const problem = error instanceof RecordingStopped ? "video_stopped" : problemOf(error);
       await this.generation
         .settleDeterministic(
@@ -241,8 +684,42 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         )
         .catch(() => {});
     } finally {
-      // The recording was copied into the draft, or is not wanted.
+      // What was made was copied into the media repository, or is not wanted.
       await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
     }
   }
+}
+
+/** What hearing the narration found, as check findings. */
+function transcriptFindings(compared: TranscriptComparison): VideoCheckFinding[] {
+  const findings: VideoCheckFinding[] = [];
+  if (compared.accuracy < NARRATION_ACCURACY)
+    findings.push({
+      code: "narration_mismatch",
+      severity: "warning",
+      accuracy: compared.accuracy,
+      words: compared.missing.slice(0, 12),
+    });
+  if (compared.spokenPunctuation.length)
+    findings.push({
+      code: "punctuation_spoken",
+      severity: "error",
+      words: compared.spokenPunctuation,
+    });
+  return findings;
+}
+
+/** A check with more findings: an error among them makes it one to revise. */
+function withFindings(check: VideoCheck, findings: VideoCheckFinding[]): VideoCheck {
+  const all = [...check.findings, ...findings];
+  return {
+    ...check,
+    findings: all,
+    status:
+      check.status === "fail"
+        ? "fail"
+        : all.some((finding) => finding.severity === "error")
+          ? "revise"
+          : check.status,
+  };
 }

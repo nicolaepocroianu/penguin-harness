@@ -425,9 +425,14 @@ function escapeHtml(value: string): string {
 /**
  * The character animation behind "Loading preview…", from the WAF media checkout: the same
  * file Loom's dev-sandbox shows. Served through the media route like any other asset, so a
- * checkout without it (or with only its LFS pointer) keeps the plain text instead.
+ * checkout with only its LFS pointer keeps the plain text instead. The page leaves it out
+ * when the checkout does not have it, rather than asking for it and being refused on every
+ * preview.
  */
 export const LOADING_VIDEO_PATH = "media/videos/loading/CharacterLoadingScreen.mp4";
+
+/** The media checkout folder the loading animation is fetched with. */
+export const LOADING_VIDEO_FOLDER = "videos/loading";
 
 /**
  * The player page.
@@ -435,7 +440,11 @@ export const LOADING_VIDEO_PATH = "media/videos/loading/CharacterLoadingScreen.m
  * The configuration is JSON inside a non-executing script element, with `<` escaped so a
  * title containing `</script>` cannot end the element early.
  */
-export function playerPage(input: PlayerPageInput): string {
+export function playerPage(
+  input: PlayerPageInput,
+  /** Whether the checkout holds the loading animation. */
+  { loadingVideo = true }: { loadingVideo?: boolean } = {},
+): string {
   const json = JSON.stringify(input).replace(/</g, "\\u003c");
   const base = escapeHtml(input.base);
   return `<!DOCTYPE html>
@@ -477,7 +486,7 @@ export function playerPage(input: PlayerPageInput): string {
       </div>
       <div id="playerLoading" role="status" aria-live="polite">
         <span>Loading preview…</span>
-        <video id="playerLoadingVideo" src="${base}${LOADING_VIDEO_PATH}" autoplay loop muted playsinline preload="auto" aria-hidden="true" onerror="this.remove()"></video>
+        ${loadingVideo ? `<video id="playerLoadingVideo" src="${base}${LOADING_VIDEO_PATH}" autoplay loop muted playsinline preload="auto" aria-hidden="true" onerror="this.remove()"></video>` : ""}
       </div>
       <div id="playerExpired" role="alert" hidden>
         This preview link has expired, so its pictures and sounds can no longer load. Reload the preview to keep playing.

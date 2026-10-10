@@ -52,9 +52,14 @@ export interface MediaHelperRun {
 /** Ok, or the reason it was not, in words an author can act on. */
 export type MediaHelperResult = { ok: true } | { ok: false; error: string };
 
-/** Where a speech or sound run reaches its helper. Absent, the real child processes below. */
+/**
+ * Where a speech or sound run reaches its helper, and a module scaffold its cached packages.
+ * Absent, the real child processes below.
+ */
 export abstract class MediaHelperPorts extends Interface<{
   runHelper?: (run: MediaHelperRun) => Promise<MediaHelperResult>;
+  linkModuleDependencies?: (moduleDir: string, cacheDir: string) => Promise<boolean>;
+  warmModuleDependencies?: (packages: ModulePackages, cacheDir: string) => Promise<void>;
 }>() {}
 
 @Component()
@@ -208,9 +213,9 @@ export const SCRATCH_STALE_MS = 60 * 60 * 1000;
  * Best effort: a folder that cannot be removed (a helper still running from it) is tried
  * again after the next install.
  */
-async function pruneSuperseded(kept: string, dependencies: Record<string, string>) {
+async function pruneSuperseded(kept: string, set: DependencySet) {
   const root = path.dirname(kept);
-  const names = packageNames(dependencies);
+  const names = packageNames(set);
   const busy = [...installing.keys()].map((dir) => `${path.basename(dir)}.`);
   const entries = await fs.readdir(root).catch(() => [] as string[]);
   for (const entry of entries) {
@@ -225,8 +230,13 @@ async function pruneSuperseded(kept: string, dependencies: Record<string, string
       }
       const other = JSON.parse(await fs.readFile(path.join(dir, "package.json"), "utf8")) as {
         dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
       };
-      if (packageNames(other.dependencies ?? {}) !== names) continue;
+      const otherSet = {
+        dependencies: other.dependencies ?? {},
+        devDependencies: other.devDependencies,
+      };
+      if (packageNames(otherSet) !== names) continue;
       // Moved aside first: a folder a running helper holds cannot be moved on Windows, so
       // it stays whole rather than half removed. What is moved is scratch from then on.
       const aside = `${dir}.${randomUUID()}.tmp`;
@@ -239,15 +249,99 @@ async function pruneSuperseded(kept: string, dependencies: Record<string, string
 }
 
 /** A dependency set's package names, in the order its cache key sorts them. */
-function packageNames(dependencies: Record<string, string>): string {
-  return JSON.stringify(Object.keys(dependencies).sort((a, b) => a.localeCompare(b)));
+function packageNames(set: DependencySet): string {
+  return JSON.stringify(
+    [...Object.keys(set.dependencies), ...Object.keys(set.devDependencies ?? {})].sort((a, b) =>
+      a.localeCompare(b),
+    ),
+  );
+}
+
+/** What one cached install holds: its packages, and the registry settings they come from. */
+interface DependencySet {
+  dependencies: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  /** The `.npmrc` the packages are installed with, when they come from a private registry. */
+  npmrc?: string;
+}
+
+function sorted(entries: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(entries).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+/**
+ * The cache folder for a dependency set, and its install: none when the folder is already
+ * complete, otherwise the shared one under way (started here if no run had started it). An
+ * install goes to a scratch folder that is renamed into place only when it succeeded, so a
+ * folder in the cache is always complete; a failed one leaves nothing and the next run tries
+ * again.
+ */
+async function cachedInstall(
+  set: DependencySet,
+  cacheDir: string,
+  env: NodeJS.ProcessEnv,
+  install: DependencyInstaller,
+): Promise<{ dir: string; shared: SharedInstall | null }> {
+  // A set of plain dependencies keeps the key it always had, so existing caches stay valid.
+  const key =
+    set.devDependencies || set.npmrc !== undefined
+      ? JSON.stringify(set)
+      : JSON.stringify(set.dependencies);
+  const dir = path.join(
+    path.resolve(cacheDir),
+    createHash("sha256").update(key).digest("hex").slice(0, 16),
+  );
+  if (await exists(dir)) return { dir, shared: null };
+  let shared = installing.get(dir);
+  if (!shared) {
+    // The install's own signal, not the first run's: it stops only once no run waits on it.
+    const controller = new AbortController();
+    const promise = (async () => {
+      const scratch = `${dir}.${randomUUID()}.tmp`;
+      await fs.mkdir(scratch, { recursive: true });
+      await fs.writeFile(
+        path.join(scratch, "package.json"),
+        JSON.stringify({
+          private: true,
+          type: "module",
+          dependencies: set.dependencies,
+          ...(set.devDependencies ? { devDependencies: set.devDependencies } : {}),
+        }),
+      );
+      if (set.npmrc) await fs.writeFile(path.join(scratch, ".npmrc"), set.npmrc, "utf8");
+      const outcome = await install(scratch, env, controller.signal).catch(
+        async (error: unknown) => {
+          await fs.rm(scratch, { recursive: true, force: true });
+          throw error;
+        },
+      );
+      if (!outcome.ok) {
+        await fs.rm(scratch, { recursive: true, force: true });
+        return outcome;
+      }
+      // Another process may have filled the same folder meanwhile; its copy is as good.
+      await fs.rename(scratch, dir).catch(async (error: unknown) => {
+        if (!(await exists(dir))) throw error;
+        await fs.rm(scratch, { recursive: true, force: true });
+      });
+      await pruneSuperseded(dir, set);
+      return outcome;
+    })().finally(() => installing.delete(dir));
+    shared = { promise, controller, waiters: 0 };
+    installing.set(dir, shared);
+  }
+  return { dir, shared };
+}
+
+/** Links a cached install's node_modules into `target`. */
+async function linkInstall(dir: string, target: string): Promise<void> {
+  // A junction needs no privilege on Windows; elsewhere the type is ignored and it is a symlink.
+  await fs.symlink(path.join(dir, "node_modules"), path.join(target, "node_modules"), "junction");
 }
 
 /**
  * Gives the workspace the dependencies its package.json names, installed once per dependency
- * set under `cacheDir` and linked in as its node_modules. An install goes to a scratch folder
- * that is renamed into place only when it succeeded, so a folder in the cache is always
- * complete; a failed one leaves nothing and the next run tries again.
+ * set under `cacheDir` and linked in as its node_modules.
  */
 export async function linkCachedDependencies(
   workspace: string,
@@ -259,45 +353,10 @@ export async function linkCachedDependencies(
   const manifest = JSON.parse(await fs.readFile(path.join(workspace, "package.json"), "utf8")) as {
     dependencies?: Record<string, string>;
   };
-  const dependencies = Object.fromEntries(
-    Object.entries(manifest.dependencies ?? {}).sort(([a], [b]) => a.localeCompare(b)),
-  );
+  const dependencies = sorted(manifest.dependencies ?? {});
   if (!Object.keys(dependencies).length) return { ok: true };
-  const dir = path.join(
-    path.resolve(cacheDir),
-    createHash("sha256").update(JSON.stringify(dependencies)).digest("hex").slice(0, 16),
-  );
-  if (!(await exists(dir))) {
-    let shared = installing.get(dir);
-    if (!shared) {
-      // The install's own signal, not the first run's: it stops only once no run waits on it.
-      const controller = new AbortController();
-      const promise = (async () => {
-        const scratch = `${dir}.${randomUUID()}.tmp`;
-        await fs.mkdir(scratch, { recursive: true });
-        await fs.writeFile(
-          path.join(scratch, "package.json"),
-          JSON.stringify({ private: true, type: "module", dependencies }),
-        );
-        const outcome = await install(scratch, env, controller.signal).catch(async (error: unknown) => {
-          await fs.rm(scratch, { recursive: true, force: true });
-          throw error;
-        });
-        if (!outcome.ok) {
-          await fs.rm(scratch, { recursive: true, force: true });
-          return outcome;
-        }
-        // Another process may have filled the same folder meanwhile; its copy is as good.
-        await fs.rename(scratch, dir).catch(async (error: unknown) => {
-          if (!(await exists(dir))) throw error;
-          await fs.rm(scratch, { recursive: true, force: true });
-        });
-        await pruneSuperseded(dir, dependencies);
-        return outcome;
-      })().finally(() => installing.delete(dir));
-      shared = { promise, controller, waiters: 0 };
-      installing.set(dir, shared);
-    }
+  const { dir, shared } = await cachedInstall({ dependencies }, cacheDir, env, install);
+  if (shared) {
     const outcome = await waitForInstall(shared, signal);
     if (!outcome.ok)
       return {
@@ -307,13 +366,85 @@ export async function linkCachedDependencies(
           : "Could not install the provider client. Check that npm is installed and can reach the registry.",
       };
   }
-  // A junction needs no privilege on Windows; elsewhere the type is ignored and it is a symlink.
-  await fs.symlink(
-    path.join(dir, "node_modules"),
-    path.join(workspace, "node_modules"),
-    "junction",
-  );
+  await linkInstall(dir, workspace);
   return { ok: true };
+}
+
+/** A WAF module scaffold's packages: what its package.json names, and its `.npmrc`. */
+export interface ModulePackages {
+  dependencies: Record<string, string>;
+  devDependencies: Record<string, string>;
+  npmrc: string;
+}
+
+/** The one cache entry a scaffold's packages are kept in, however they were read. */
+function modulePackageSet(packages: ModulePackages): DependencySet {
+  return {
+    dependencies: sorted(packages.dependencies),
+    devDependencies: sorted(packages.devDependencies),
+    npmrc: packages.npmrc,
+  };
+}
+
+/**
+ * Starts installing a WAF module scaffold's packages into the cache, unless they are there or
+ * on their way, without waiting. Called as an activity's first stages start, so its module
+ * stage, minutes later, finds them ready. A failed install is tried again by the next call.
+ */
+export async function warmModuleDependencies(
+  packages: ModulePackages,
+  cacheDir: string,
+  env: NodeJS.ProcessEnv = process.env,
+  install: DependencyInstaller = npmInstall,
+): Promise<void> {
+  try {
+    const { shared } = await cachedInstall(modulePackageSet(packages), cacheDir, env, install);
+    shared?.promise.catch(() => undefined);
+  } catch {
+    // Best effort: the module run installs its own.
+  }
+}
+
+/**
+ * Gives a WAF module scaffold its packages (dependencies and devDependencies, from the
+ * registry its `.npmrc` names) from the same kind of cache, without waiting: linked when the
+ * cache already holds them, and otherwise installed there in the background while this run
+ * installs its own. `warmModuleDependencies` starts that install as an activity's first
+ * stages start. Whether they were linked.
+ */
+export async function linkModuleDependencies(
+  moduleDir: string,
+  cacheDir: string,
+  env: NodeJS.ProcessEnv = process.env,
+  install: DependencyInstaller = npmInstall,
+): Promise<boolean> {
+  try {
+    const manifest = JSON.parse(
+      await fs.readFile(path.join(moduleDir, "package.json"), "utf8"),
+    ) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    const set = modulePackageSet({
+      dependencies: manifest.dependencies ?? {},
+      devDependencies: manifest.devDependencies ?? {},
+      npmrc: await fs.readFile(path.join(moduleDir, ".npmrc"), "utf8").catch(() => ""),
+    });
+    const nothingToInstall =
+      !Object.keys(set.dependencies).length && !Object.keys(set.devDependencies ?? {}).length;
+    if (nothingToInstall) return false;
+    if (await exists(path.join(moduleDir, "node_modules"))) return false;
+    const { dir, shared } = await cachedInstall(set, cacheDir, env, install);
+    if (shared) {
+      // Nobody waits on it, so nothing stops it; a failed one is tried again by the next run.
+      shared.promise.catch(() => undefined);
+      return false;
+    }
+    await linkInstall(dir, moduleDir);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

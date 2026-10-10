@@ -25,7 +25,9 @@ import {
   validateManifest,
   validateMediaCoverage,
 } from "./media.js";
-import { inspectWebm, readVideoFile } from "./video-render.js";
+import { inspectVideo, readVideoFile } from "./video-render.js";
+import { captionsPath, parseTimeline } from "./video-timeline.js";
+import type { VideoTimeline } from "./video-timeline-types.js";
 import { seedMediaPlaceholders } from "./media-placeholder.js";
 import {
   candidateReference,
@@ -39,7 +41,7 @@ import {
   type AudioEncodePorts,
   type UploadHome,
 } from "./ref-media.js";
-import type { VideoResult, VideoTarget } from "./video-types.js";
+import type { VideoFormat, VideoResult, VideoTarget } from "./video-types.js";
 import { mediaTextField, type MediaTextTarget } from "./media-text.js";
 import { AUDIO_MAX_BYTES, type AudioResult, type AudioTarget } from "./audio.js";
 import { inspectGeneratedAudio } from "./sound.js";
@@ -568,25 +570,40 @@ export class ActivityService implements ActivityAuthoring {
     activityId: string,
     runId: string,
     bytes: Uint8Array,
+    format: VideoFormat,
   ): Promise<VideoResult> {
     return this.projectWork.run(projectId, async () => {
       const activity = await this.getActivity(projectId, activityId);
       let inspected: { sha256: string; bytes: number };
       try {
-        inspected = inspectWebm(bytes);
+        inspected = inspectVideo(bytes, format);
       } catch (error) {
         throw new HttpError(422, "video_invalid", (error as Error).message);
       }
-      await this.storeCandidate(activity, runId, "webm", bytes);
-      return { runId, ...inspected };
+      await this.storeCandidate(activity, runId, format, bytes);
+      // A WebM result says nothing, as every recording before the frame renderer did.
+      return { runId, ...inspected, ...(format === "mp4" ? { format } : {}) };
     });
   }
-  async discardVideo(projectId: string, activityId: string, runId: string): Promise<void> {
+  async discardVideo(
+    projectId: string,
+    activityId: string,
+    runId: string,
+    format: VideoFormat,
+  ): Promise<void> {
     await this.projectWork.run(projectId, async () => {
       const activity = await this.getActivity(projectId, activityId);
       const root = await this.requireWafRoot();
-      const reference = candidateReference(activity.productCode, activity.refNum, runId, "webm");
-      await fs.rm(mediaFile(root, reference)!, { force: true });
+      // The video, and the captions a timeline render kept beside it.
+      for (const extension of [format, "vtt"]) {
+        const reference = candidateReference(
+          activity.productCode,
+          activity.refNum,
+          runId,
+          extension,
+        );
+        await fs.rm(mediaFile(root, reference)!, { force: true });
+      }
     });
   }
   async readVideo(
@@ -594,6 +611,7 @@ export class ActivityService implements ActivityAuthoring {
     activityId: string,
     runId: string,
     sha256: string,
+    format: VideoFormat,
   ): Promise<Uint8Array> {
     const activity = await this.getActivity(projectId, activityId);
     const changed = () =>
@@ -601,7 +619,7 @@ export class ActivityService implements ActivityAuthoring {
     let bytes: Buffer;
     try {
       bytes = await readVideoFile(
-        await this.generatedFile(activity, "generatedVideo", runId, "webm"),
+        await this.generatedFile(activity, "generatedVideo", runId, format),
       );
     } catch (error) {
       if (error instanceof HttpError) throw error;
@@ -610,7 +628,7 @@ export class ActivityService implements ActivityAuthoring {
       throw changed();
     }
     try {
-      if (inspectWebm(bytes).sha256 !== sha256) throw changed();
+      if (inspectVideo(bytes, format).sha256 !== sha256) throw changed();
     } catch (error) {
       if (error instanceof HttpError) throw error;
       throw changed();
@@ -624,7 +642,8 @@ export class ActivityService implements ActivityAuthoring {
     result: VideoResult,
     expectedRevision: string,
   ): Promise<ActivityDraft> {
-    await this.readVideo(projectId, activityId, result.runId, result.sha256);
+    const format = result.format ?? "webm";
+    await this.readVideo(projectId, activityId, result.runId, result.sha256, format);
     return this.change(projectId, activityId, expectedRevision, async (draft, activity) => {
       const plan = draft.mediaPlan;
       if (!plan || plan.specRevision !== contentRevision(draft.spec) || draft.status !== "valid")
@@ -643,13 +662,102 @@ export class ActivityService implements ActivityAuthoring {
           "video_asset_changed",
           "The video or animation this was recorded for is no longer in the media plan.",
         );
-      asset.path = generatedMediaPath(activity, target.language, asset, "webm");
-      asset.generatedVideo = { runId: result.runId, sha256: result.sha256 };
-      await this.acceptCandidate(activity, result.runId, "webm", asset.path, null);
+      const root = await this.requireWafRoot();
+      // The video this replaces goes back to its run's candidate, so a timeline that cuts from
+      // it can still read it, and keeping it again later still works.
+      const replaced = asset.generatedVideo;
+      if (replaced && replaced.runId !== result.runId && asset.path) {
+        const extension = replaced.format ?? "webm";
+        await this.keepAsCandidate(activity, replaced.runId, extension, asset.path);
+        await this.keepAsCandidate(activity, replaced.runId, "vtt", captionsPath(asset.path));
+      }
+      asset.path = generatedMediaPath(activity, target.language, asset, format);
+      asset.generatedVideo = {
+        runId: result.runId,
+        sha256: result.sha256,
+        ...(format === "mp4" ? { format } : {}),
+      };
+      await this.acceptCandidate(activity, result.runId, format, asset.path, null);
+      // Captions travel beside their video; a video without them leaves none behind.
+      if (result.captions)
+        await this.acceptCandidate(activity, result.runId, "vtt", captionsPath(asset.path), null);
+      else await fs.rm(mediaFile(root, captionsPath(asset.path))!, { force: true });
       // Measured from the file this replaces.
       delete asset.durationMs;
       return { ...draft, mediaPlan: { ...plan, manifest } };
     });
+  }
+  async saveVideoTimeline(
+    projectId: string,
+    activityId: string,
+    input: {
+      language: string;
+      assetKey: string;
+      timeline: unknown;
+      expectedRevision: string;
+    },
+  ): Promise<ActivityDraft> {
+    let timeline: VideoTimeline | null = null;
+    try {
+      if (input.timeline !== null) timeline = parseTimeline(input.timeline);
+    } catch (error) {
+      throw new HttpError(422, "timeline_invalid", (error as Error).message);
+    }
+    return this.change(projectId, activityId, input.expectedRevision, async (draft) => {
+      const plan = draft.mediaPlan;
+      const manifest = plan && structuredClone(plan.manifest);
+      const asset = manifest?.assets[input.language]?.find(
+        (entry) =>
+          entry.key === input.assetKey && (entry.type === "video" || entry.type === "animation"),
+      );
+      if (!plan || !manifest || !asset)
+        throw new HttpError(
+          404,
+          "asset_not_found",
+          "The media plan has no such video or animation.",
+        );
+      if (timeline) asset.timeline = timeline;
+      else delete asset.timeline;
+      return { ...draft, mediaPlan: { ...plan, manifest } };
+    });
+  }
+  async storeCaptions(
+    projectId: string,
+    activityId: string,
+    runId: string,
+    vtt: string,
+  ): Promise<void> {
+    await this.projectWork.run(projectId, async () => {
+      const activity = await this.getActivity(projectId, activityId);
+      await this.storeCandidate(activity, runId, "vtt", Buffer.from(vtt, "utf8"));
+    });
+  }
+  async readCaptions(projectId: string, activityId: string, runId: string): Promise<string | null> {
+    const activity = await this.getActivity(projectId, activityId);
+    const root = await this.requireWafRoot();
+    const candidate = mediaFile(
+      root,
+      candidateReference(activity.productCode, activity.refNum, runId, "vtt"),
+    )!;
+    const bound = Object.values(activity.draft.mediaPlan?.manifest.assets ?? {})
+      .flat()
+      .find((asset) => asset.generatedVideo?.runId === runId && asset.path);
+    for (const file of [candidate, bound && mediaFile(root, captionsPath(bound.path!))]) {
+      if (!file) continue;
+      const text = await fs.readFile(file, "utf8").catch(() => null);
+      if (text !== null) return text;
+    }
+    return null;
+  }
+  async mediaFilePath(
+    projectId: string,
+    activityId: string,
+    reference: string,
+  ): Promise<string | null> {
+    await this.getActivity(projectId, activityId);
+    const file = mediaFile(await this.requireWafRoot(), reference);
+    const stat = file ? await fs.lstat(file).catch(() => null) : null;
+    return stat?.isFile() && !stat.isSymbolicLink() ? file : null;
   }
   async prepareVideoMedia(
     projectId: string,
@@ -673,6 +781,7 @@ export class ActivityService implements ActivityAuthoring {
         activityId,
         asset.generatedVideo.runId,
         asset.generatedVideo.sha256,
+        asset.generatedVideo.format ?? "webm",
       );
       const file = path.join(workspace, asset.path!);
       await fs.mkdir(path.dirname(file), { recursive: true });
@@ -1491,7 +1600,8 @@ export class ActivityService implements ActivityAuthoring {
             if (
               !accepted ||
               accepted.runId !== asset.generatedVideo.runId ||
-              accepted.sha256 !== asset.generatedVideo.sha256
+              accepted.sha256 !== asset.generatedVideo.sha256 ||
+              accepted.format !== asset.generatedVideo.format
             )
               throw new Error("Keep a recorded video from its comparison to bind it.");
           }
@@ -1998,6 +2108,27 @@ export class ActivityService implements ActivityAuthoring {
     await fs.copyFile(candidate, target);
     if (sidecar) await writeSidecar(target, sidecar);
     await fs.rm(candidate, { force: true });
+  }
+
+  /**
+   * Copies a bound file back to its run's candidate, unless the candidate is there already or
+   * the file is not: what a video replaced by another goes back to.
+   */
+  private async keepAsCandidate(
+    activity: ActivityRecord,
+    runId: string,
+    extension: string,
+    reference: string,
+  ): Promise<void> {
+    const root = await this.requireWafRoot();
+    const from = mediaFile(root, reference);
+    const to = mediaFile(
+      root,
+      candidateReference(activity.productCode, activity.refNum, runId, extension),
+    )!;
+    if (!from || !(await exists(from)) || (await exists(to))) return;
+    await fs.mkdir(path.dirname(to), { recursive: true });
+    await fs.copyFile(from, to);
   }
 
   /** The WAF workspace's root; every ref's files are in its modules. */
@@ -3045,6 +3176,7 @@ export class ActivityService implements ActivityAuthoring {
                 generatedAudio: _audio,
                 generatedImage: _image,
                 generatedVideo: _video,
+                timeline: _timeline,
                 translatedFrom: _from,
                 wordTimings: _timings,
                 durationMs: _duration,

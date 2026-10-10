@@ -29,13 +29,104 @@ export interface VideoTarget {
   height: number;
   /** How long the composition says it plays, in seconds. */
   seconds: number;
+  /**
+   * Set when the run rendered the asset's timeline (see video-timeline.ts) rather than recorded
+   * a composition; `compositionRunId` is then its first cut's.
+   */
+  fromTimeline?: true;
+  /** What the final check found in the video the run made (see video-check.ts). */
+  check?: VideoCheck;
+  /** Set when captions were kept beside the video the run made, as WebVTT. */
+  captions?: true;
   /** Set when the run failed for a cause Penguin knows. */
   problem?: VideoProblemCode;
 }
 
-/** A kept recording: a WebM in the draft workspace, `videos/<runId>.webm`. */
+/**
+ * A recording's file format: an H.264 MP4 from the frame renderer, or a WebM from the page
+ * recorder that came before it.
+ */
+export type VideoFormat = "mp4" | "webm";
+
+/** A kept recording: the run's candidate in the ref's media folder. */
 export interface VideoResult {
   runId: string;
   sha256: string;
   bytes: number;
+  /** Absent on recordings from before the frame renderer, which are WebM. */
+  format?: VideoFormat;
+  /** Set when captions were written beside it, as WebVTT. */
+  captions?: true;
+}
+
+/** What the final check of a made video can find. */
+export type VideoCheckCode =
+  /** FFmpeg could not read its length or its picture. */
+  | "unreadable"
+  /** It plays for noticeably longer or shorter than it should. */
+  | "duration_off"
+  /** Its picture is not the size it should be. */
+  | "size_off"
+  /** It should have sound and has none. */
+  | "audio_missing"
+  /** It has sound, but almost none can be heard. */
+  | "silent"
+  /** Its loudest moment is at the edge of distorting. */
+  | "clipping"
+  /** A narration should be speaking, and the sound is silent there. */
+  | "narration_silent"
+  /** The picture is black for a stretch. */
+  | "black"
+  /** The picture flashes more than three times in a second (WCAG 2.3.1). */
+  | "flashing"
+  /** Two of the composition's main objects cover each other (see the layout audit). */
+  | "layout_overlap"
+  /** A main object is partly outside the stage. */
+  | "off_stage"
+  /** A main object is inside the stage but too close to its edge. */
+  | "near_edge"
+  /** Two main objects are apart but too close to each other. */
+  | "crowded"
+  /** Text is smaller than learners can read on a small screen. */
+  | "small_text"
+  /** Text does not stand out enough from what is behind it. */
+  | "low_contrast"
+  /** The narration heard does not match its script (see transcript-check.ts). */
+  | "narration_mismatch"
+  /** The voice reads punctuation aloud ("dot", "comma"). */
+  | "punctuation_spoken";
+
+export interface VideoCheckFinding {
+  code: VideoCheckCode;
+  /** An error is something to fix before keeping the video; a warning is worth a look. */
+  severity: "error" | "warning";
+  /** Where in the video, when it is about a stretch of it. */
+  startMs?: number;
+  endMs?: number;
+  /** The narration it is about. */
+  asset?: string;
+  /** The composition's elements it is about, by id (or tag when they have none). */
+  elements?: string[];
+  /** The words it is about: script words not heard, or punctuation read aloud. */
+  words?: string[];
+  /** For a narration mismatch: the share of the script's words heard, from 0 to 1. */
+  accuracy?: number;
+}
+
+/**
+ * The final check of a made video, read from FFmpeg's own report of it: what it measured, and
+ * what it found against what the video should be. `fail` when it could not be read at all,
+ * `revise` when anything is an error, `pass` otherwise.
+ */
+export interface VideoCheck {
+  status: "pass" | "revise" | "fail";
+  durationMs: number | null;
+  width: number | null;
+  height: number | null;
+  fps: number | null;
+  hasAudio: boolean;
+  /** Mean and peak loudness in dB, when it has sound. */
+  meanDb: number | null;
+  peakDb: number | null;
+  findings: VideoCheckFinding[];
 }

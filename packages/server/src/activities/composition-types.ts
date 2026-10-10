@@ -45,6 +45,8 @@ export interface CompositionTarget {
   width: number;
   height: number;
   images: CompositionImage[];
+  /** The scene look it was made in (see scene-looks.ts); absent for none. */
+  look?: string;
   /** Set when the run failed a check of what the agent wrote. */
   problem?: CompositionProblemCode;
 }
@@ -55,9 +57,62 @@ export interface CompositionCandidate {
   seconds: number;
   sha256: string;
   bytes: number;
+  /** What a read of the page's source suggests will go wrong (see composition-lint.ts). */
+  lint?: CompositionLintFinding[];
+}
+
+/** What the static read of a composition can find. */
+export type CompositionLintCode =
+  /** The page reads randomness or the clock. */
+  | "nondeterministic"
+  /** The page runs its own timers or animation frames. */
+  | "own_timers"
+  /** A tween repeats forever. */
+  | "endless_repeat"
+  /** A tween animates width, height, top or left. */
+  | "layout_tween"
+  /** The scene uses an emoji, drawn differently on every machine. */
+  | "emoji"
+  /** Text is in capitals. */
+  | "all_caps"
+  /** A font size is under 28px. */
+  | "small_font"
+  /** Lorem ipsum, "placeholder", TODO. */
+  | "filler";
+
+export interface CompositionLintFinding {
+  code: CompositionLintCode;
+  /** The piece of the source it was found in. */
+  snippet: string;
 }
 
 /** `GET /video-setup`: whether the scene-video experiment is on for this server. */
 export interface VideoSetup {
   enabled: boolean;
+}
+
+/** What a critique run looked at: the video, and the recording and composition it critiqued. */
+export interface SceneCritiqueTarget {
+  language: string;
+  assetKey: string;
+  recordingRunId: string;
+  compositionRunId: string;
+  /** The critique's score once it is kept, so a run list can compare recordings. */
+  score?: number;
+}
+
+/** A look a scene can be composed in (`GET .../scene-looks`). */
+export interface SceneLookSummary {
+  id: string;
+  name: string;
+  description: string;
+}
+
+/** A critique of a recorded scene (see scene-critique.ts): its scores, mean, and fixes. */
+export interface SceneCritique {
+  recordingRunId: string;
+  scores: Record<"story" | "layout" | "readability" | "motion" | "learners", number>;
+  /** The mean of the scores, to one decimal. */
+  score: number;
+  fixes: string[];
 }

@@ -52,7 +52,11 @@ export type PipelineNote =
   /** The specification has no acceptance criteria to test. */
   | "noCriteria"
   /** The test browser is not installed, so the tests cannot run. */
-  | "noBrowser";
+  | "noBrowser"
+  /** The module was built without being checked in the player: no test browser. */
+  | "moduleNotChecked"
+  /** The module was built, but its agent never ran the player check it was given. */
+  | "moduleCheckSkipped";
 
 export interface PipelineStepState {
   step: PipelineStep;

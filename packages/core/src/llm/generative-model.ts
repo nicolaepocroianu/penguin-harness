@@ -16,7 +16,7 @@
  *      classifies, and `context_engine` owns the retry policy: `retryable` rides the
  *      engine's reconnect ladder, `fatal` stops the run. The split is an allowlist of
  *      certainty: only failures a retry provably cannot fix are `fatal` — a provider 4xx
- *      rejection (408/429 excluded, see `isFatalProviderRejection`), a credentials failure
+ *      rejection (408/429/499 excluded, see `isFatalProviderRejection`), a credentials failure
  *      (`isAuthenticationError`), AgentHub's fast-mode UnsupportedParameterError
  *      (`isFastModeUnsupportedError`), and input that fails to assemble into a request at
  *      all. Everything else — network/transport drops, timeouts, 429/5xx, AgentHub parse
@@ -904,8 +904,9 @@ export const FAST_MODE_UNSUPPORTED_GUIDANCE =
 /**
  * Determines whether an error is a definitive provider rejection of the request itself —
  * the `fatal` detector for errored requests. Only an explicit HTTP client-error status
- * counts: 4xx minus 408 (request timeout) and 429 (rate limit), which are transient by
- * definition. Deliberately an allowlist of certainty, probed down the `cause` chain
+ * counts: 4xx minus 408 (request timeout), 429 (rate limit) and 499 (the connection was
+ * closed before an answer, as a proxy in front of the model reports a dropped request),
+ * which are transient by definition. Deliberately an allowlist of certainty, probed down the `cause` chain
  * (SDKs wrap the real response error): everything this misses stays `retryable`, because
  * retrying a genuinely fatal error costs one ladder and ends with the same message, while
  * refusing to retry a transient one destroys the turn. Authentication is checked
@@ -917,7 +918,7 @@ export function isFatalProviderRejection(error: unknown): boolean {
     const err = level as { status?: unknown; statusCode?: unknown };
     const status = typeof err.status === "number" ? err.status : err.statusCode;
     if (typeof status !== "number") return false;
-    return status >= 400 && status <= 499 && status !== 408 && status !== 429;
+    return status >= 400 && status <= 498 && status !== 408 && status !== 429;
   });
 }
 
@@ -1091,7 +1092,7 @@ export class GenerativeModel implements LLMInterface {
    *     → `fatal` (carrying `errorMessage`), which the engine stops the run on instead of
    *     retrying — the identical request can never succeed, so the ladder would only delay
    *     the actionable message;
-   *   - **Every other failure** — idle timeout, network/transport drops, 408/429/5xx,
+   *   - **Every other failure** — idle timeout, network/transport drops, 408/429/499/5xx,
    *     AgentHub parse errors and truncated streams, and anything unclassifiable:
    *     `finishInterrupted("retryable")` closes out, produces no usage → `retryable`
    *     (carrying `errorMessage` when a concrete error was caught), reconnected by
@@ -1254,7 +1255,7 @@ export class GenerativeModel implements LLMInterface {
           errorMessage: `${describeError(error)} ${FAST_MODE_UNSUPPORTED_GUIDANCE}`,
         };
       } else if (isFatalProviderRejection(error)) {
-        // A definitive provider 4xx rejection (408/429 excluded): the identical request
+        // A definitive provider 4xx rejection (408/429/499 excluded): the identical request
         // fails identically on every retry, so stop now with the provider's own message.
         outcome = { status: "fatal", errorCode: "rejected", errorMessage: describeError(error) };
       } else if ((error as { name?: string })?.name === "AbortError") {

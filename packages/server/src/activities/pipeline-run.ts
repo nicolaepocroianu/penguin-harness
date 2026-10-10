@@ -48,7 +48,7 @@ import {
   isVoiceOf,
 } from "./voice-catalogue.js";
 import { DEFAULT_LANGUAGE_CODE } from "./languages.js";
-import { contentRevision, type ActivityRun } from "./domain.js";
+import { contentRevision, type ActivityRun, type ActivityRunSummary } from "./domain.js";
 import type { AssetManifest } from "./media.js";
 import { soundPromptOf } from "./playback.js";
 import { SOUND_PROMPT_MAX } from "./sound.js";
@@ -326,6 +326,11 @@ export interface PipelineDeps {
   newId?: () => string;
 }
 
+/**
+ * How often a stage looks at the run it waits on: soon at first, since a speech clip or image
+ * is often done within a second, then backing off to once a second for an agent's long run.
+ */
+const FIRST_POLL_MS = 100;
 const POLL_MS = 1000;
 
 export class PipelineRunner {
@@ -727,7 +732,7 @@ export class PipelineRunner {
     }
 
     const activity = await current();
-    await this.follow(
+    const settled = await this.follow(
       state,
       step,
       await generation.start(
@@ -741,6 +746,9 @@ export class PipelineRunner {
         runtime,
       ),
     );
+    // A module that only compiled is not one that was seen to play: the stage says so.
+    if (settled.unchecked)
+      step.note = settled.unchecked === "noBrowser" ? "moduleNotChecked" : "moduleCheckSkipped";
   }
 
   /**
@@ -821,12 +829,19 @@ export class PipelineRunner {
     step.detail = null;
   }
 
-  /** Wait for one run to settle; anything but success ends the step with the run's own reason. */
-  private async follow(state: PipelineState, step: PipelineStepState, run: ActivityRun) {
+  /**
+   * Wait for one run to settle; anything but success ends the step with the run's own reason.
+   * The run as it succeeded.
+   */
+  private async follow(
+    state: PipelineState,
+    step: PipelineStepState,
+    run: ActivityRun,
+  ): Promise<ActivityRunSummary> {
     step.runIds.push(run.runId);
     state.currentRunId = run.runId;
     state.currentSessionId = run.sessionId;
-    for (;;) {
+    for (let wait = FIRST_POLL_MS; ; wait = Math.min(wait * 2, POLL_MS)) {
       const latest = (await this.deps.generation.list(state.projectId, state.activityId)).find(
         (entry) => entry.runId === run.runId,
       );
@@ -834,12 +849,12 @@ export class PipelineRunner {
       state.currentSessionId = latest.sessionId;
       if (this.disposed) throw new Stopped();
       if (TERMINAL.has(latest.status)) {
-        if (latest.status === "succeeded") return;
+        if (latest.status === "succeeded") return latest;
         if (latest.status === "cancelled" && this.stopping.has(state.activityId))
           throw new Stopped();
         throw new Error(latest.error ?? `The ${latest.kind} run ended as ${latest.status}.`);
       }
-      await this.pause(POLL_MS);
+      await this.pause(wait);
     }
   }
 }

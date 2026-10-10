@@ -6,9 +6,12 @@
 import type {
   ActivityRunSummary,
   AssetManifest,
+  VideoCheck,
+  VideoCheckFinding,
   VideoProblemCode,
 } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
+import type { Tone } from "../../lib/tone";
 
 type Asset = AssetManifest["assets"][string][number];
 
@@ -53,6 +56,16 @@ export function comparedRecording(
   );
 }
 
+/** Which agent made a run: its coding agent, else its Penguin agent; null for none. */
+export function madeBy(run: Pick<ActivityRunSummary, "agentId" | "codingAgentId">): string | null {
+  return run.codingAgentId || run.agentId || null;
+}
+
+/** Where a video run's captions are read, when the run kept any. */
+export function captionsUrl(endpoint: string, runId: string): string {
+  return `${endpoint}/runs/${encodeURIComponent(runId)}/captions`;
+}
+
 /** Where a recording, or a recording the draft binds, plays from. */
 export function recordingUrl(endpoint: string, runId: string): string {
   return `${endpoint}/runs/${encodeURIComponent(runId)}/video`;
@@ -78,4 +91,47 @@ export function recordingFailure(run: ActivityRunSummary): string | null {
   if (run.status === "failed")
     return S.activities.video.recordFailed(run.error ?? S.activities.video.noCause);
   return run.error;
+}
+
+/** A made video's final check in one line, with the tone it reads in. */
+export function checkLine(check: VideoCheck): { text: string; tone: Tone } {
+  // A pass with warnings found something: it reads as worth a look, not as nothing wrong.
+  if (check.status === "pass" && check.findings.length)
+    return { text: S.activities.video.check.warnings, tone: "attention" };
+  const tone: Record<VideoCheck["status"], Tone> = {
+    pass: "success",
+    revise: "attention",
+    fail: "danger",
+  };
+  return { text: S.activities.video.check[check.status], tone: tone[check.status] };
+}
+
+/** One thing the check found, in the App's words, its times in seconds. */
+export function findingText(finding: VideoCheckFinding): string {
+  const seconds = (ms: number | undefined) => String(Math.round((ms ?? 0) / 100) / 10);
+  return S.activities.video.check.findings[finding.code](
+    seconds(finding.startMs),
+    seconds(finding.endMs),
+    finding.asset ?? "",
+    // Elements a layout finding is about, or the words a narration finding is about.
+    finding.elements?.join(" and ") ?? finding.words?.map((word) => `"${word}"`).join(", ") ?? "",
+  );
+}
+
+/**
+ * How many videos the draft binds whose final check found something, warnings too: the Media step
+ * asks for a look at them. A video checked before checks existed, or not in the runs read,
+ * is not counted.
+ */
+export function videosToCheck(
+  assets: AssetManifest["assets"] | undefined,
+  runs: readonly ActivityRunSummary[],
+): number {
+  const checks = new Map(runs.map((run) => [run.runId, run.video?.check]));
+  return Object.values(assets ?? {})
+    .flat()
+    .filter((asset) => {
+      const check = asset.generatedVideo && checks.get(asset.generatedVideo.runId);
+      return !!check && (check.status !== "pass" || check.findings.length > 0);
+    }).length;
 }

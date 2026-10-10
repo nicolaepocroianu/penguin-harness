@@ -1,0 +1,18 @@
+/* Storybook: warm, soft and rounded. See DESIGN.md beside this file. */
+:root {
+  --look-sky-top: #8fd3f4;
+  --look-sky-bottom: #e8f7ff;
+  --look-water: #4fb3d9;
+  --look-ground: #f3d48b;
+  --look-ground-shade: #d9b066;
+  --look-leaf: #5fb36b;
+  --look-wood: #9a6232;
+  --look-hero: #e2704a;
+  --look-glow: rgba(255, 228, 140, 0.75);
+  --look-ink: #3a2a1f;
+  --look-paper: #fff8ec;
+  --look-outline: #5b3a24;
+  --look-shadow: rgba(60, 40, 20, 0.18);
+  --look-font: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  --look-radius: 18px;
+}

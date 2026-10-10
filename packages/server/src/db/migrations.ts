@@ -837,7 +837,9 @@ export const MIGRATIONS: readonly Migration[] = [
         db.exec("ALTER TABLE usage_records ADD COLUMN reported_cost_usd REAL");
     },
     down(db) {
-      // Loses only the costs coding agents reported; their tokens stay.
+      // Loses only the costs coding agents reported; their tokens stay. SQLite's DROP COLUMN
+      // cuts from the last comma before the column, even one inside a `--` comment, so the
+      // schema keeps the comment on the column before it free of commas.
       db.exec("ALTER TABLE usage_records DROP COLUMN reported_cost_usd");
     },
   },

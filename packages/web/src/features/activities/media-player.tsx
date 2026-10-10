@@ -11,10 +11,13 @@ export function MediaPlayer({
   kind,
   src,
   label,
+  captions,
 }: {
   kind: UploadKind;
   src: string;
   label: string;
+  /** A video's captions, as WebVTT, and their language. */
+  captions?: { src: string; language: string };
 }) {
   if (kind === "image") return <ImagePreview key={src} src={src} description={label} />;
   if (kind === "audio")
@@ -36,6 +39,16 @@ export function MediaPlayer({
       preload="none"
       src={src}
       className="max-h-72 w-full rounded border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900"
-    />
+    >
+      {captions && (
+        <track
+          kind="captions"
+          src={captions.src}
+          srcLang={captions.language}
+          label={S.activities.video.captionsTrack}
+          default
+        />
+      )}
+    </video>
   );
 }

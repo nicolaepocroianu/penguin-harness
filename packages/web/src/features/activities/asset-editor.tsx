@@ -14,6 +14,7 @@ import type {
   ElevenLabsVoicesProblem,
   UploadedMedia,
   VoiceOption,
+  VideoTimeline,
 } from "@prismshadow/penguin-server/api";
 import { Button } from "../../components/ui/button";
 import { Textarea } from "../../components/ui/input";
@@ -35,7 +36,7 @@ import { BookWordFields } from "./book-word-fields";
 import { PhonemeTimelineView } from "./phoneme-timeline-view";
 import { isBookWord } from "./book-words";
 import { SceneCompositionView } from "./scene-composition-view";
-import { recordingUrl } from "./scene-video";
+import { captionsUrl, recordingUrl } from "./scene-video";
 
 export function AssetEditor({
   manifest,
@@ -81,6 +82,11 @@ export function AssetEditor({
   onCompose,
   onRecordVideo,
   onAcceptVideo,
+  onSaveTimeline,
+  onRenderTimeline,
+  onRefineTimeline,
+  onCritique,
+  onImprove,
   spec,
 }: {
   manifest: AssetManifest;
@@ -150,9 +156,23 @@ export function AssetEditor({
    * Ask an agent to compose the scene of a video or animation asset. Given only while the
    * scene-video experiment is on; absent, the editor shows nothing of it.
    */
-  onCompose?: (language: string, assetKey: string) => void;
+  onCompose?: (language: string, assetKey: string, look?: string) => void;
   /** Record a kept composition to a video (experimental, like `onCompose`). */
   onRecordVideo?: (compositionRunId: string) => void;
+  /** Save a video's timeline, or with null drop it (experimental). */
+  onSaveTimeline?: (
+    language: string,
+    assetKey: string,
+    timeline: VideoTimeline | null,
+  ) => Promise<void>;
+  /** Render a video's timeline to its finished video (experimental). */
+  onRenderTimeline?: (language: string, assetKey: string) => void;
+  /** Ask an agent to refine a video's timeline (experimental). */
+  onRefineTimeline?: (language: string, assetKey: string) => void;
+  /** Ask an agent to critique a video's newest recording (experimental). */
+  onCritique?: (language: string, assetKey: string) => void;
+  /** Compose, record and critique a video round after round until it scores well. */
+  onImprove?: (language: string, assetKey: string, look?: string) => void;
   /** Bind a recorded video to its asset. */
   onAcceptVideo?: (runId: string) => void;
   /** The saved specification, for the scene-video advisory about learner choices. */
@@ -248,8 +268,18 @@ export function AssetEditor({
           description={asset.description}
         />
       );
-    if (asset.generatedVideo)
-      return <MediaPlayer kind="video" src={videoUrl(asset.generatedVideo.runId)} label={label} />;
+    if (asset.generatedVideo) {
+      const bound = asset.generatedVideo.runId;
+      const captioned = runs.some((run) => run.runId === bound && run.video?.captions);
+      return (
+        <MediaPlayer
+          kind="video"
+          src={videoUrl(bound)}
+          label={label}
+          {...(captioned ? { captions: { src: captionsUrl(endpoint, bound), language } } : {})}
+        />
+      );
+    }
     if (isUploadPath(asset.path)) return uploadedMedia(asset.path, label);
     if (asset.type === "image" && canPreview)
       return <ImagePreview src={imageUrl} description={asset.description} />;
@@ -621,6 +651,11 @@ export function AssetEditor({
                 canRecord={canAccept}
                 onRecord={onRecordVideo}
                 onAcceptVideo={onAcceptVideo}
+                {...(onSaveTimeline ? { onSaveTimeline } : {})}
+                {...(onRenderTimeline ? { onRenderTimeline } : {})}
+                {...(onRefineTimeline ? { onRefineTimeline } : {})}
+                {...(onCritique ? { onCritique } : {})}
+                {...(onImprove ? { onImprove } : {})}
                 current={currentMedia() ?? undefined}
               />
             )}

@@ -5246,7 +5246,27 @@ export type {
   CompositionTarget,
   VideoSetup,
 } from "../activities/composition-types.js";
-export type { VideoProblemCode, VideoResult, VideoTarget } from "../activities/video-types.js";
+export type {
+  VideoCheck,
+  VideoCheckCode,
+  VideoCheckFinding,
+  VideoFormat,
+  VideoProblemCode,
+  VideoResult,
+  VideoTarget,
+} from "../activities/video-types.js";
+export type {
+  SceneCritique,
+  SceneCritiqueTarget,
+  SceneLookSummary,
+} from "../activities/composition-types.js";
+export type {
+  TimelineCut,
+  TimelineIssue,
+  TimelineTransition,
+  VideoTimeline,
+  VideoTimelineView,
+} from "../activities/video-timeline-types.js";
 export type {
   ElevenLabsVoices,
   ElevenLabsVoicesProblem,

@@ -22,6 +22,9 @@ const EXPECTED = [
   // Not one of Loom's vendored skills: its backend `AgentsLayout.md`, a catalogue of how the
   // real modules lay out, highlight and clean up elements, which no ported skill covered.
   "waf-layout-patterns",
+  // Not one of Loom's: how to compose an animated scene for a video asset, which the scene
+  // composition run stages for its agent (see composition.ts).
+  "waf-scene-composition",
   // Loom labels these two legacy, and this port dropped them on that basis. Measuring the
   // real module corpus corrected that: 299 of the 303 implemented modules are built on
   // `src/sequence.js` and only 4 on the state machine. Opening an activity Loom already

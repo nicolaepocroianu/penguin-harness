@@ -1044,6 +1044,10 @@ export const en: Strings = {
         notCanonical: "The assessment is shared by every ref and is written on the canonical ref.",
         noCriteria: "The specification has no acceptance criteria to test.",
         noBrowser: "The test browser is not installed.",
+        moduleNotChecked:
+          "Built and type-checked, but not checked in the player: an admin has not installed the test browser in System settings.",
+        moduleCheckSkipped:
+          "Built and type-checked, but the agent did not run the player check. Run the module stage again.",
       },
       running: (step: string) => `${step}…`,
       finished: "All chosen stages finished.",
@@ -1860,16 +1864,32 @@ export const en: Strings = {
     },
     video: {
       title: "Scene video",
-      info: "An agent composes a short animation for this scene from its description and the images bound to it. Watch it here and ask again until it fits. Record video then plays it once in the test browser and records it as a WebM video; nothing is bound to the asset until you choose Use new. The composition runs on the preview origin and may use only the scene's images.",
+      info: "An agent composes a short animation for this scene from its description and the images bound to it. Watch it here and ask again until it fits. Record video then renders it frame by frame in the test browser as an MP4 video; nothing is bound to the asset until you choose Use new. The composition runs on the preview origin and may use only the scene's images.",
       experimental: "Experimental",
       compose: "Compose from storyboard",
+      look: "Look",
+      noLook: "No look",
+      critiqued: (score: string) => `Critique ${score}`,
+      best: "best so far",
       recompose: "Compose again",
       composing: "Composing…",
       run: "Scene composition",
-      noImages:
-        "Bind an image to this scene first: the composition is made from the scene's images.",
+      noImages: "This scene has no images, so the agent draws it with HTML, CSS and SVG.",
       candidates: "Compositions",
       frames: "Frames",
+      lint: {
+        title: "Read from the page",
+        findings: {
+          nondeterministic: "It uses randomness or the clock, so each recording can differ.",
+          own_timers: "It runs its own timers, outside the timeline that is recorded.",
+          endless_repeat: "A movement repeats forever.",
+          layout_tween: "It animates width, height, top or left, which can jump between frames.",
+          emoji: "It uses an emoji, which looks different on every machine.",
+          all_caps: "It has text in capitals, which young readers find harder to read.",
+          small_font: "It sets text smaller than 28px.",
+          filler: "It has filler text.",
+        },
+      },
       frame: (index: number, seconds: string) => `Frame ${index} · ${seconds} s`,
       seconds: (seconds: string) => `${seconds} s`,
       preview: "Scene composition preview",
@@ -1897,12 +1917,132 @@ export const en: Strings = {
       recorded: "Recorded video",
       useNew: "Use new",
       keepCurrent: "Keep current",
-      leadIn:
-        "A recording opens with a short blank moment while the page loads, before the animation starts. It is not trimmed.",
+      renderTime:
+        "Every frame is rendered in turn, so a long animation takes a minute or two to record.",
       olderRecording: "Recorded from an earlier draft. Record again to keep it.",
       noCurrent: "No video is bound yet.",
       recordFailed: (cause: string) => `The recording failed: ${cause}`,
       noCause: "no reason was given.",
+      finished: "Finished video",
+      captionsTrack: "Captions",
+      madeBy: (agent: string) => `by ${agent}`,
+      critique: {
+        title: "Critique",
+        info: "An agent looks at stills from the newest recording, one from each storyboard frame plus the first and last moments, and scores it from 1 to 5 on its story, layout, readability, motion and fit for young learners, listing what to fix. Compose again hands the fixes to the agent that composes the scene.",
+        run: "Scene critique",
+        critique: "Critique the recording",
+        improve: "Improve until it scores 4",
+        improveInfo:
+          "Composes the scene again from its best version, records it and critiques it, round after round, until a critique scores it 4 or more, up to three rounds. Each step appears in the run history as it happens. The chosen agent must be able to see images.",
+        critiquing: "Critiquing…",
+        score: (score: string) => `Scored ${score} of 5`,
+        rubric: {
+          story: "Story",
+          layout: "Layout",
+          readability: "Readability",
+          motion: "Motion",
+          learners: "For young learners",
+        },
+        fixes: "To fix",
+        noFixes: "Nothing to fix.",
+        composeAgain: "Compose again to have the agent fix these.",
+        older: "This critique is of an earlier recording.",
+        failed: (cause: string) => `The critique could not be used: ${cause}`,
+      },
+      check: {
+        pass: "Checked: nothing wrong found",
+        warnings: "Checked: some things are worth a look",
+        revise: "Checked: needs a look",
+        fail: "Checked: the file could not be read back",
+        findings: {
+          unreadable: () => "FFmpeg could not read the file back.",
+          duration_off: () => "It plays for a different length than it should.",
+          size_off: () => "Its picture is not the size it should be.",
+          audio_missing: () => "It has no sound, but it should.",
+          silent: () => "Its sound can hardly be heard.",
+          clipping: () => "Its loudest moment is close to distorting.",
+          narration_silent: (from: string, to: string, asset: string) =>
+            `${asset} should be speaking from ${from} s to ${to} s, but it is silent there.`,
+          black: (from: string, to: string) => `The picture is black from ${from} s to ${to} s.`,
+          flashing: (from: string, to: string) =>
+            `The picture flashes more than three times a second from ${from} s to ${to} s, which can cause seizures. Make it again without the flashing.`,
+          layout_overlap: (from: string, to: string, _asset: string, elements: string) =>
+            `${elements} cover each other, seen from ${from} s to ${to} s.`,
+          off_stage: (from: string, to: string, _asset: string, elements: string) =>
+            `${elements} reaches outside the stage, seen from ${from} s to ${to} s.`,
+          near_edge: (from: string, to: string, _asset: string, elements: string) =>
+            `${elements} is very close to the edge of the stage, seen from ${from} s to ${to} s.`,
+          crowded: (from: string, to: string, _asset: string, elements: string) =>
+            `${elements} are almost touching, seen from ${from} s to ${to} s.`,
+          narration_mismatch: (_from: string, _to: string, _asset: string, words: string) =>
+            words
+              ? `The narration does not say all of its script: ${words} could not be heard.`
+              : "The narration does not say all of its script.",
+          punctuation_spoken: (_from: string, _to: string, _asset: string, words: string) =>
+            `The voice reads punctuation aloud: ${words}. Make the narration again.`,
+          low_contrast: (from: string, to: string, _asset: string, elements: string) =>
+            `The text in ${elements} does not stand out enough from what is behind it, seen from ${from} s to ${to} s.`,
+          small_text: (from: string, to: string, _asset: string, elements: string) =>
+            `The text in ${elements} is too small for learners to read, seen from ${from} s to ${to} s.`,
+        },
+      },
+      timeline: {
+        title: "Timeline",
+        info: "How the finished video is put together: which stretches of the recording play, the narration, music and sound effects over them, and captions from the narration's word timings. Render finished video makes it; it then appears under Recordings to compare and keep. Until a timeline is saved, it starts from the newest recording.",
+        saved: "Saved",
+        unsaved: "From the newest recording",
+        length: (seconds: string) => `Plays for ${seconds} s`,
+        cuts: "Cuts",
+        cut: (index: number) => `Cut ${index}`,
+        from: "From (s)",
+        to: "To (s)",
+        into: "Into this cut",
+        transitions: { cut: "Cut", fade: "Crossfade", fadeblack: "Fade through black" },
+        fade: "Fade (s)",
+        narration: "Narration",
+        startsAt: "Starts at (s)",
+        addNarration: "Add narration",
+        noNarration: "No narration plays over this video.",
+        music: "Music",
+        noMusic: "No music",
+        volume: "Volume",
+        percent: (value: number) => `${value}%`,
+        duck: "Lower under narration",
+        effects: "Sound effects",
+        addEffect: "Add a sound effect",
+        noEffects: "No sound effects.",
+        captions: "Write captions from the narration's word timings",
+        removeButton: "Remove",
+        remove: (what: string) => `Remove ${what}`,
+        save: "Save timeline",
+        reset: "Start from the recording again",
+        render: "Render finished video",
+        rendering: "Rendering…",
+        refine: "Refine with agent",
+        refining: "Refining…",
+        run: "Timeline refinement",
+        agentReady:
+          "The agent wrote a timeline that follows the storyboard. Load it into the editor to look it over, then save it.",
+        loadAgent: "Load the agent's timeline",
+        agentFailed: (cause: string) => `The agent's timeline could not be used: ${cause}`,
+        saveFirst: "Save the timeline before rendering it.",
+        invalid: "Enter a number of seconds, 0 or more.",
+        loadFailed: (cause: string) => `The timeline could not be loaded: ${cause}`,
+        issues: {
+          asset_missing: (asset: string) => `${asset} is not in this language's media.`,
+          asset_kind: (asset: string) => `${asset} is not the right kind of audio for where it is.`,
+          asset_unbound: (asset: string) =>
+            `${asset} has no clip yet. Generate or upload it first.`,
+          narration_length_unknown: (asset: string) => `How long ${asset} plays is not known yet.`,
+          narration_overlap: (asset: string) =>
+            `${asset} starts before the narration before it ends.`,
+          past_end: (asset: string) => `${asset} runs past the end of the video.`,
+          cut_past_recording: (cut: string) =>
+            `${cut} ends after its recording does. Shorten it to fit.`,
+          captions_untimed: (asset: string) =>
+            `${asset} has no word timings, so it gets no captions.`,
+        },
+      },
       recordProblems: {
         video_not_ready:
           "The composition did not get ready to play within 30 seconds. Compose again, then record.",
@@ -2142,6 +2282,8 @@ export const en: Strings = {
       saved: "saved",
       unsaved: "unsaved",
       clips: (bound: number, total: number) => `${bound}/${total}`,
+      videosToCheck: (count: number) =>
+        count === 1 ? "a video needs a look" : `${count} videos need a look`,
       noPlan: "no plan yet",
       built: "built",
       notBuilt: "not built",
@@ -2160,6 +2302,7 @@ export const en: Strings = {
         fixSpec: "fix the spec",
         planMedia: "plan the media",
         finishMedia: "finish the media",
+        checkVideos: "look at the scene videos",
         buildModule: "build the module",
         deployQa: "deploy to QA",
       },

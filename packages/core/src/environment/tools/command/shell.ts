@@ -18,6 +18,9 @@
  *    resolves into the Windows system directory is ignored: that is the WSL launcher, which
  *    runs commands inside a Linux distro with a different filesystem view (and fails outright
  *    when no distro is configured).
+ *    Git for Windows' installer by default puts only its `cmd` folder on PATH, which holds
+ *    `git` but not `bash`, so the same install is also found through `git`: the `bash.exe`
+ *    in the `bin` folder of the install that `git` resolves into.
  * 4. Then `PENGUIN_BUNDLED_SHELL` — the MinGit bash the Windows package ships (see the
  *    release workflow), advertised by the launcher shims as an absolute path. It comes
  *    *after* the PATH probe on purpose: a user's own Git for Windows carries the full MSYS
@@ -209,6 +212,17 @@ export function resolveShell(opts: ResolveShellOptions = {}): ShellInvocation {
   const bash = whichAll("bash")[0];
   if (bash && !bash.toLowerCase().startsWith(systemRoot.toLowerCase() + path.win32.sep)) {
     return { command: "bash", args: ["-lc"], name: "bash" };
+  }
+  // Git for Windows with only its cmd folder on PATH (the installer's default): its bash is in
+  // the bin folder of the install `git` resolves into (<install>\cmd\git.exe,
+  // <install>\bin\git.exe or <install>\mingw64\bin\git.exe).
+  const git = whichAll("git")[0];
+  if (git) {
+    let install = path.win32.dirname(path.win32.dirname(git));
+    if (path.win32.basename(install).toLowerCase() === "mingw64")
+      install = path.win32.dirname(install);
+    const gitBash = path.win32.join(install, "bin", "bash.exe");
+    if (exists(gitBash)) return { command: gitBash, args: ["-lc"], name: "bash" };
   }
   // The bundled MinGit bash (installed-package layout only; absent for npm installs). Reported
   // to the model as "bash" rather than its filename: MinGit installs GNU bash under the name

@@ -14,6 +14,7 @@ import {
 } from "./media.js";
 import { isUploadReference } from "./upload.js";
 import { HttpError } from "../http/errors.js";
+import type { ModulePackages } from "./media-helper-runner.js";
 import { validateBookSpec } from "./book.js";
 import {
   ACCEPTANCE_HARNESS_FILE,
@@ -83,6 +84,29 @@ export function scaffoldLanguage(activity: ActivityDetail): string {
   const known = groups.find((code) => findLanguage(code));
   return known ?? DEFAULT_LANGUAGE_CODE;
 }
+
+/**
+ * The packages every module scaffold names, from the WAF registry: what its package.json
+ * lists and its `.npmrc`. One set, so the shared install a module run links in is the one its
+ * scaffold asks for.
+ */
+export const MODULE_PACKAGES: ModulePackages = {
+  dependencies: {
+    "input-manager-system": "1.3.15",
+    pubsubsingleton: "1.0.7",
+    "waf-utils": "2.0.20",
+    "waf-state-machine": "1.4.17",
+  },
+  devDependencies: {
+    "@types/node": "24.13.3",
+    typescript: "7.0.2",
+    "waf-module-builder-v2": "1.0.0",
+    webpack: "5.106.1",
+    "webpack-cli": "7.2.2",
+  },
+  npmrc:
+    "registry=https://nexus.waterford.org/repository/npm-group/\nstrict-ssl=true\nignore-scripts=true\n",
+};
 
 export function scaffoldModule(
   activity: ActivityDetail,
@@ -155,19 +179,8 @@ export function scaffoldModule(
       test: "npm run typecheck",
       buildDebug: "tsc --project tsconfig.build.json && webpack --env type=debug",
     },
-    dependencies: {
-      "input-manager-system": "1.3.15",
-      pubsubsingleton: "1.0.7",
-      "waf-utils": "2.0.20",
-      "waf-state-machine": "1.4.17",
-    },
-    devDependencies: {
-      "@types/node": "24.13.3",
-      typescript: "7.0.2",
-      "waf-module-builder-v2": "1.0.0",
-      webpack: "5.106.1",
-      "webpack-cli": "7.2.2",
-    },
+    dependencies: MODULE_PACKAGES.dependencies,
+    devDependencies: MODULE_PACKAGES.devDependencies,
   });
   json("tsconfig.json", {
     compilerOptions: {
@@ -189,8 +202,7 @@ export function scaffoldModule(
   });
   files["webpack.config.cjs"] =
     "const createWafModuleConfig = require('waf-module-builder-v2');\nmodule.exports = (env = {}) => createWafModuleConfig({ buildType: env.type, entry: './.typescript-build/index.js' });\n";
-  files[".npmrc"] =
-    "registry=https://nexus.waterford.org/repository/npm-group/\nstrict-ssl=true\nignore-scripts=true\n";
+  files[".npmrc"] = MODULE_PACKAGES.npmrc;
   files[".gitignore"] = "node_modules/\n.typescript-build/\ndist/\n";
   json("definition.json", {
     id: spec.id,
@@ -621,12 +633,20 @@ If input.json contains draft.mediaPlan, its manifest and language-specific confi
 Work only in this Session workspace. Treat the shared WAF checkout as read-only. Do not modify shared modules or run Loom's pipeline/server. Do not delegate.
 Implement the actual learning interactions and feedback in module/src, preserving waf-state-machine, WAF lifecycle, Interactable input and cleanup. Complete the ref configuration, asset manifest and state machine for the input productCode/refNum. Use existing media when available; report missing media explicitly, never invent successful generation. A video or sound that fails to play is reported through the media lifecycle and the activity moves on; it never leaves a state waiting forever.
 Use normal Harness approvals for installing dependencies and running commands. Run module typecheck and buildDebug in module/; record real command output in module/build.log. Do not publish or deploy packages.
+This workspace is not a git repository. module/package.json declares "type": "module", so a script run inside module/ uses import, not require (or is named .cjs). The typed contracts you implement against are module/node_modules/waf-state-machine/dist/index.d.ts and the files it re-exports, and module/node_modules/input-manager-system/README.md; read them rather than listing whole package or framework trees.
 Check the built module in Penguin's player, which runs module/dist/debug in the real WAF framework with the navbar, this draft's media and an emulated configuration and assessment backend, and rebuilds the module first when module/src, module/res or module/generated changed. Do not write a preview page or a stand-in WAF runtime of your own. ${PLAYER_CHECK_DIR}/ holds the check: ${ACCEPTANCE_INPUT_FILE} (the play link for this run's module, the viewport, the scene ids and the acceptance criteria), the harness ${ACCEPTANCE_HARNESS_FILE}, the runner ${ACCEPTANCE_RUNNER_FILE} and a package.json pinning playwright-core. Do not edit them.
 ${HARNESS_API}
 Write ${PLAYER_CHECK_DIR}/${ACCEPTANCE_TEST_FILE} as an ES module that imports only from ./${ACCEPTANCE_HARNESS_FILE}, with one criterion() for each scenario you exercise: every scene starting (openActivity({ scene })), each interaction with its correct and incorrect feedback, pause and resume, and completion. Use an acceptance criterion's exact text where a check covers it. Then, in ${PLAYER_CHECK_DIR}/, run npm install --ignore-scripts and node ${ACCEPTANCE_RUNNER_FILE}; it prints each check's result and writes ${ACCEPTANCE_RESULTS_FILE}. Fix the module until the checks pass, rebuilding after each change; never weaken a check to make it pass. The test browser cannot decode some video formats (H.264 among them): a check that fails only for that reason is a capability to report, not a module failure.
 If ${PLAYER_CHECK_DIR}/ is absent, the test browser is not installed: build and typecheck the module, and say in your final message that it was not checked in the player because an admin has not installed the test browser in System settings.
 If dependencies, the typecheck, the build or the player checks fail and you cannot fix them, explain the failure and do not write module-result.json.
 Then write module-result.json as { "files": ["module/package.json", "module/definition.json", "module/src/index.ts", "module/res/layout.html", "module/build.log", ...] }. Include source, configuration and built JavaScript under module/dist, excluding node_modules and binary files. At most 200 text files, 8 MiB each, 32 MiB total. Finish after writing the manifest.`;
+
+/**
+ * What a module run is told beside `modulePrompt` when the scaffold's packages were linked in
+ * from the shared install, so it does not spend minutes installing its own.
+ */
+export const modulePackagesClause = `
+module/node_modules is already installed: every package module/package.json names, linked in from an install shared by every run. Do not run npm install in module/, do not add or change dependencies, and do not write into module/node_modules. Start with the typecheck and build as they are.`;
 
 /** What a book's module run is told beside `modulePrompt`: the reader the scaffold ships. */
 export const moduleBookClause = `

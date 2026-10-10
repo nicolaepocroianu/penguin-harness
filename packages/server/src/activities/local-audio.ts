@@ -15,6 +15,7 @@ import type { Config, Hmr } from "../hmr/capabilities.js";
 import { HttpError } from "../http/errors.js";
 import {
   KOKORO_VOICES,
+  LOCAL_SPEECH_RECOGNITION,
   LOCAL_AUDIO_MODELS,
   type LocalAudioAvailability,
   type LocalAudioProvider,
@@ -36,6 +37,17 @@ export abstract class LocalAudio extends Interface<{
     request: LocalAudioRequest,
     signal: Opaque<"AbortSignal", AbortSignal>,
   ): Promise<Opaque<"Uint8Array", Uint8Array>>;
+  /** Whether speech can be transcribed here: the Transformers runtime is installed. */
+  canTranscribe(): boolean;
+  /**
+   * The words heard in 16 kHz mono 32-bit float samples, in a narration's language. 409
+   * `local_audio_missing` without the runtime. The model downloads on first use.
+   */
+  transcribe(
+    pcm: Opaque<"Uint8Array", Uint8Array>,
+    language: string,
+    signal: Opaque<"AbortSignal", AbortSignal>,
+  ): Promise<string>;
 }>() {}
 
 /** Probe the dependency paths used by the worker without loading models on the HTTP thread. */
@@ -152,6 +164,55 @@ export class LocalAudioService implements LocalAudio {
       audiogen: this.moduleUrl("audiogen") !== null,
       audioldm: this.moduleUrl("audioldm") !== null,
     };
+  }
+  canTranscribe(): boolean {
+    return this.moduleUrl("musicgen") !== null;
+  }
+  async transcribe(pcm: Uint8Array, language: string, signal: AbortSignal): Promise<string> {
+    // The music models' runtime is the one Whisper runs on.
+    const moduleUrl = this.moduleUrl("musicgen");
+    if (!moduleUrl)
+      throw new HttpError(
+        409,
+        "local_audio_missing",
+        "Install @huggingface/transformers in the server environment to transcribe speech.",
+      );
+    const english = /^en(-|$)/i.test(language);
+    const bytes = await this.inTurn(signal, (abort) =>
+      runLocalAudioWorker(
+        {
+          task: "transcribe",
+          provider: "whisper",
+          model: english ? LOCAL_SPEECH_RECOGNITION.english : LOCAL_SPEECH_RECOGNITION.multilingual,
+          multilingual: !english,
+          language: language.split("-")[0],
+          pcm,
+          moduleUrl,
+          cacheDir: path.join(this.config.root, "models", "audio"),
+        },
+        abort,
+      ),
+    );
+    return new TextDecoder().decode(bytes).trim();
+  }
+  /** Runs `work` once the models ahead of it are done: only one may occupy memory at a time. */
+  private async inTurn<T>(
+    signal: AbortSignal,
+    work: (abort: AbortSignal) => Promise<T>,
+  ): Promise<T> {
+    const abort = AbortSignal.any([signal, this.stopped.signal]);
+    const previous = this.tail;
+    let release!: () => void;
+    const turn = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.tail = previous.then(() => turn);
+    try {
+      await waitForAudioTurn(previous, abort);
+      return await work(abort);
+    } finally {
+      release();
+    }
   }
   async generate(request: LocalAudioRequest, signal: AbortSignal): Promise<Uint8Array> {
     const definition = LOCAL_AUDIO_MODELS[request.provider];

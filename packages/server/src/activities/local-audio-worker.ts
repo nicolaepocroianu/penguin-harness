@@ -6,6 +6,29 @@ export const LOCAL_AUDIO_WORKER = String.raw`(async () => {
   // worker alive until it publishes a result or the parent explicitly terminates it.
   const keepAlive = setInterval(() => {}, 60_000);
   try {
+    if (workerData.task === "transcribe") {
+      // Speech recognition: 16 kHz mono float samples in, the text heard out (as UTF-8 bytes,
+      // through the same channel generated audio comes back by).
+      const runtime = await import(moduleUrl);
+      const { pipeline, env } = runtime.default ?? runtime;
+      env.cacheDir = cacheDir;
+      const asr = await pipeline("automatic-speech-recognition", model, { cache_dir: cacheDir, device: "cpu" });
+      try {
+        const pcm = workerData.pcm;
+        const samples = new Float32Array(pcm.buffer, pcm.byteOffset, Math.floor(pcm.byteLength / 4));
+        const output = await asr(samples, {
+          chunk_length_s: 30,
+          stride_length_s: 5,
+          ...(workerData.multilingual ? { language: workerData.language, task: "transcribe" } : {}),
+        });
+        const heard = (Array.isArray(output) ? output.map((part) => part.text).join(" ") : output.text) || "";
+        const bytes = new TextEncoder().encode(heard);
+        parentPort.postMessage({ bytes }, [bytes.buffer]);
+      } finally {
+        await asr.dispose?.();
+      }
+      return;
+    }
     let audio;
     let rate;
     if (provider === "kokoro") {

@@ -10,7 +10,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import {
   linkCachedDependencies,
+  linkModuleDependencies,
   SCRATCH_STALE_MS,
+  warmModuleDependencies,
   runMediaHelper,
   type DependencyInstaller,
 } from "../src/activities/media-helper-runner.js";
@@ -267,5 +269,114 @@ describe("sharing installed helper dependencies across runs", () => {
       await linkCachedDependencies(run, cache, process.env, signal(), working.install),
     ).toEqual({ ok: true });
     expect(working.calls).toHaveLength(1);
+  });
+});
+
+describe("sharing a WAF module scaffold's packages across runs", () => {
+  const roots: string[] = [];
+  afterEach(async () => {
+    for (const root of roots.splice(0)) await fs.rm(root, { recursive: true, force: true });
+  });
+
+  async function folder() {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-module-cache-"));
+    roots.push(root);
+    return root;
+  }
+
+  /** A scaffold's module/ folder: dependencies, devDependencies and a private registry. */
+  async function scaffold() {
+    const dir = await folder();
+    await fs.writeFile(
+      path.join(dir, "package.json"),
+      JSON.stringify({
+        type: "module",
+        dependencies: { "waf-state-machine": "1.4.17" },
+        devDependencies: { typescript: "7.0.2" },
+      }),
+    );
+    await fs.writeFile(path.join(dir, ".npmrc"), "registry=https://registry.example/");
+    return dir;
+  }
+
+  /** Stands in for npm, recording what each install was given; resolves when told to. */
+  function installer() {
+    const seen: { packageJson: unknown; npmrc: string }[] = [];
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => (release = resolve));
+    const install: DependencyInstaller = async (dir) => {
+      seen.push({
+        packageJson: JSON.parse(await fs.readFile(path.join(dir, "package.json"), "utf8")),
+        npmrc: await fs.readFile(path.join(dir, ".npmrc"), "utf8"),
+      });
+      await released;
+      await fs.mkdir(path.join(dir, "node_modules", "waf-state-machine"), { recursive: true });
+      return { ok: true, timedOut: false };
+    };
+    return { install, seen, release };
+  }
+
+  it("installs in the background without waiting, then links the install into later runs", async () => {
+    const cache = await folder();
+    const { install, seen, release } = installer();
+    const first = await scaffold();
+    // The first run does not wait: it installs its own while the shared one fills.
+    expect(await linkModuleDependencies(first, cache, process.env, install)).toBe(false);
+    await expect(fs.lstat(path.join(first, "node_modules"))).rejects.toThrow();
+    // Both kinds of dependency, from the scaffold's own registry.
+    await vi.waitFor(() => expect(seen).toHaveLength(1));
+    expect(seen).toEqual([
+      {
+        packageJson: expect.objectContaining({
+          dependencies: { "waf-state-machine": "1.4.17" },
+          devDependencies: { typescript: "7.0.2" },
+        }),
+        npmrc: "registry=https://registry.example/",
+      },
+    ]);
+    // A run starting while it installs joins it rather than starting another.
+    expect(await linkModuleDependencies(await scaffold(), cache, process.env, install)).toBe(false);
+    release();
+    await vi.waitFor(async () =>
+      expect((await fs.readdir(cache)).some((e) => !e.endsWith(".tmp"))).toBe(true),
+    );
+    const later = await scaffold();
+    expect(await linkModuleDependencies(later, cache, process.env, install)).toBe(true);
+    expect(seen).toHaveLength(1);
+    expect((await fs.lstat(path.join(later, "node_modules"))).isSymbolicLink()).toBe(true);
+    await fs.access(path.join(later, "node_modules", "waf-state-machine"));
+  });
+
+  it("is warmed from the scaffold's own package set, so the module run links that install", async () => {
+    const cache = await folder();
+    const { install, seen, release } = installer();
+    const dir = await scaffold();
+    const manifest = JSON.parse(await fs.readFile(path.join(dir, "package.json"), "utf8"));
+    await warmModuleDependencies(
+      {
+        // In another key order than the scaffold's: the cache entry is the same.
+        devDependencies: manifest.devDependencies,
+        dependencies: manifest.dependencies,
+        npmrc: await fs.readFile(path.join(dir, ".npmrc"), "utf8"),
+      },
+      cache,
+      process.env,
+      install,
+    );
+    release();
+    await vi.waitFor(async () =>
+      expect((await fs.readdir(cache)).some((entry) => !entry.endsWith(".tmp"))).toBe(true),
+    );
+    expect(await linkModuleDependencies(dir, cache, process.env, install)).toBe(true);
+    expect(seen).toHaveLength(1);
+  });
+
+  it("leaves a module that already has its packages alone", async () => {
+    const cache = await folder();
+    const { install, seen } = installer();
+    const dir = await scaffold();
+    await fs.mkdir(path.join(dir, "node_modules"));
+    expect(await linkModuleDependencies(dir, cache, process.env, install)).toBe(false);
+    expect(seen).toEqual([]);
   });
 });
