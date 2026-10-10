@@ -37,6 +37,7 @@ import {
 import { runFfmpeg } from "./ffmpeg.js";
 import { timelineRenderArgs } from "./timeline-render.js";
 import { checkVideo, type VideoExpectation } from "./video-check.js";
+import { CRITIQUE_GOOD } from "./scene-critique.js";
 import type { LocalAudio } from "./local-audio.js";
 import {
   compareTranscript,
@@ -55,6 +56,9 @@ import type {
 
 /** Where a run's recorder writes, inside its workspace; removed once the recording is kept. */
 export const RECORDING_DIR = "recording";
+/** The most rounds one Improve may run. */
+export const IMPROVE_MAX_ROUNDS = 5;
+
 /** What a video run made: the MP4, its captions, and what the final check holds it to. */
 interface Made {
   file: string;
@@ -96,6 +100,8 @@ export abstract class VideoRenderPorts extends Interface<{
    * by default (see `LocalAudio.transcribe`).
    */
   transcribe?: (file: string, language: string) => Promise<string | null>;
+  /** How often an improving scene looks whether its current step has settled; 2 s by default. */
+  pollMs?: number;
 }>() {}
 
 /** The code a failed recording is worded by, for the causes Penguin knows; null otherwise. */
@@ -134,6 +140,26 @@ export abstract class ActivityVideoRenders extends Interface<{
     activityId: string,
     input: { language: string; assetKey: string; expectedRevision: string },
   ): Promise<ActivityRun>;
+  /**
+   * Improves a scene round after round (experimental): composes it again from its best version,
+   * records it and critiques it, until a critique scores it `CRITIQUE_GOOD` or `rounds` rounds
+   * have run. Answers at once with the first round's composition run; the rest follows, each
+   * step in the run history. Stops at the first step that does not succeed. 409
+   * `improve_running` while this activity is already being improved.
+   */
+  startImprove(
+    projectId: string,
+    activityId: string,
+    input: {
+      language: string;
+      assetKey: string;
+      look?: string;
+      rounds: number;
+      expectedRevision: string;
+      agentId: string;
+      runtime?: { codingAgentId: string };
+    },
+  ): Promise<ActivityRun>;
 }>() {}
 
 @Component()
@@ -154,6 +180,8 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
    * the same activity waits its turn.
    */
   private readonly recording = new Set<string>();
+  /** Activities being improved round after round (see `startImprove`). */
+  private readonly improving = new Set<string>();
 
   setup({ effect }: ClassCtx) {
     effect(() => {
@@ -431,6 +459,97 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         narration,
       },
     };
+  }
+
+  async startImprove(
+    projectId: string,
+    activityId: string,
+    input: {
+      language: string;
+      assetKey: string;
+      look?: string;
+      rounds: number;
+      expectedRevision: string;
+      agentId: string;
+      runtime?: { codingAgentId: string };
+    },
+  ): Promise<ActivityRun> {
+    if (this.improving.has(activityId))
+      throw new HttpError(409, "improve_running", "This scene is already being improved.");
+    const compose = (expectedRevision: string) =>
+      this.generation.start(
+        projectId,
+        activityId,
+        input.agentId,
+        expectedRevision,
+        {
+          composition: {
+            language: input.language,
+            assetKey: input.assetKey,
+            ...(input.look ? { look: input.look } : {}),
+          },
+        },
+        input.runtime,
+      );
+    // The first composition is started here, so a refusal reaches the author at once.
+    const first = await compose(input.expectedRevision);
+    this.improving.add(activityId);
+    void this.improve(projectId, activityId, input, first, compose)
+      .catch((error: unknown) =>
+        this.log.line(`[activities] Improving ${activityId} stopped: ${String(error)}`),
+      )
+      .finally(() => this.improving.delete(activityId));
+    return first;
+  }
+
+  /** The rounds of `startImprove`, from its first composition on. */
+  private async improve(
+    projectId: string,
+    activityId: string,
+    input: {
+      language: string;
+      assetKey: string;
+      rounds: number;
+      agentId: string;
+      runtime?: { codingAgentId: string };
+    },
+    first: ActivityRun,
+    compose: (expectedRevision: string) => Promise<ActivityRun>,
+  ): Promise<void> {
+    const rounds = Math.max(1, Math.min(IMPROVE_MAX_ROUNDS, input.rounds));
+    const revision = async () =>
+      (await this.activities.getActivity(projectId, activityId)).draft.contentRevision;
+    let composition = first;
+    for (let round = 1; ; round += 1) {
+      if (!(await this.succeeds(projectId, activityId, composition.runId))) return;
+      const recording = await this.start(projectId, activityId, {
+        compositionRunId: composition.runId,
+        expectedRevision: await revision(),
+      });
+      if (!(await this.succeeds(projectId, activityId, recording.runId))) return;
+      const critique = await this.generation.start(
+        projectId,
+        activityId,
+        input.agentId,
+        await revision(),
+        { critique: { language: input.language, assetKey: input.assetKey } },
+        input.runtime,
+      );
+      if (!(await this.succeeds(projectId, activityId, critique.runId))) return;
+      const scored = await this.generation.run(projectId, activityId, critique.runId);
+      if ((scored.critique?.score ?? 0) >= CRITIQUE_GOOD || round >= rounds) return;
+      composition = await compose(await revision());
+    }
+  }
+
+  /** Waits for a run to settle; whether it succeeded. False once the server stops. */
+  private async succeeds(projectId: string, activityId: string, runId: string): Promise<boolean> {
+    for (;;) {
+      if (this.stopped) return false;
+      const run = await this.generation.run(projectId, activityId, runId);
+      if (run.status !== "running") return run.status === "succeeded";
+      await new Promise((resolve) => setTimeout(resolve, this.ports.pollMs ?? 2000));
+    }
   }
 
   /** What a made video's sound says, by local Whisper; null when it is not installed. */

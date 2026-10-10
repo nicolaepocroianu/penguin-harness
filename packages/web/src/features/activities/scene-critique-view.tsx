@@ -50,6 +50,7 @@ export function SceneCritiqueView({
   newestRecording,
   canCritique,
   onCritique,
+  onImprove,
 }: {
   endpoint: string;
   critiques: readonly ActivityRunSummary[];
@@ -58,6 +59,8 @@ export function SceneCritiqueView({
   /** Whether a critique may be asked for now (an agent is chosen, nothing else runs). */
   canCritique: boolean;
   onCritique?: () => void;
+  /** Compose, record and critique round after round until it scores well. */
+  onImprove?: () => void;
 }) {
   const latest = critiques[0] ?? null;
   const running = latest?.status === "running";
@@ -121,11 +124,21 @@ export function SceneCritiqueView({
           {words.failed(latest.error ?? S.activities.video.noCause)}
         </p>
       )}
-      {onCritique && (
-        <Button size="sm" disabled={!canCritique || running} onClick={onCritique}>
-          {running ? words.critiquing : words.critique}
-        </Button>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {onCritique && (
+          <Button size="sm" disabled={!canCritique || running} onClick={onCritique}>
+            {running ? words.critiquing : words.critique}
+          </Button>
+        )}
+        {onImprove && (
+          <>
+            <Button size="sm" disabled={!canCritique || running || good} onClick={onImprove}>
+              {words.improve}
+            </Button>
+            <InfoPopover label={words.improve}>{words.improveInfo}</InfoPopover>
+          </>
+        )}
+      </div>
     </section>
   );
 }

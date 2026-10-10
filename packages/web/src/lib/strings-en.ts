@@ -1931,6 +1931,9 @@ export const en: Strings = {
         info: "An agent looks at stills from the newest recording, one from each storyboard frame plus the first and last moments, and scores it from 1 to 5 on its story, layout, readability, motion and fit for young learners, listing what to fix. Compose again hands the fixes to the agent that composes the scene.",
         run: "Scene critique",
         critique: "Critique the recording",
+        improve: "Improve until it scores 4",
+        improveInfo:
+          "Composes the scene again from its best version, records it and critiques it, round after round, until a critique scores it 4 or more, up to three rounds. Each step appears in the run history as it happens. The chosen agent must be able to see images.",
         critiquing: "Critiquing…",
         score: (score: string) => `Scored ${score} of 5`,
         rubric: {

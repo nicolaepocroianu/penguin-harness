@@ -74,6 +74,7 @@ export function SceneCompositionView({
   onRenderTimeline,
   onRefineTimeline,
   onCritique,
+  onImprove,
   current,
 }: {
   asset: Asset;
@@ -106,6 +107,8 @@ export function SceneCompositionView({
   onRefineTimeline?: (language: string, assetKey: string) => void;
   /** Ask an agent to critique this asset's newest recording. */
   onCritique?: (language: string, assetKey: string) => void;
+  /** Compose, record and critique round after round until it scores well. */
+  onImprove?: (language: string, assetKey: string, look?: string) => void;
   /** The asset's video now, shown beside a new recording. */
   current?: ReactNode;
 }) {
@@ -228,6 +231,9 @@ export function SceneCompositionView({
           newestRecording={newestRecording.runId}
           canCritique={canGenerate && canRecord && !busy}
           {...(editable ? { onCritique: () => onCritique(language, asset.key) } : {})}
+          {...(editable && onImprove
+            ? { onImprove: () => onImprove(language, asset.key, look || undefined) }
+            : {})}
         />
       )}
       {onSaveTimeline && onRenderTimeline && (newestRecording || asset.timeline) && (

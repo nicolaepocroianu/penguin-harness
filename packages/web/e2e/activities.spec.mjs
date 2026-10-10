@@ -9119,6 +9119,7 @@ test("edits, saves and renders a scene video's timeline", async ({ page }) => {
   const renders = [];
   const refines = [];
   const critiques = [];
+  const improves = [];
   page.on("response", async (response) => {
     const p = new URL(response.url()).pathname;
     if ([`${base}/act_test/plan-media`, `${base}/act_test/media`].includes(p) && response.ok())
@@ -9226,6 +9227,10 @@ test("edits, saves and renders a scene video's timeline", async ({ page }) => {
         mediaPlan: { ...draft.mediaPlan, manifest },
       };
       return json(draft);
+    }
+    if (p === `${base}/act_test/improve-scene`) {
+      improves.push(request.postDataJSON());
+      return json({ ...runs[0], status: "running" }, 202);
     }
     if (p === `${base}/act_test/critique-video`) {
       critiques.push(request.postDataJSON());
@@ -9422,6 +9427,10 @@ test("edits, saves and renders a scene video's timeline", async ({ page }) => {
     critique.getByText("Stand the palm tree on the sand.", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText(/· Critique 3[.]8/)).toBeVisible();
+  // Improve composes, records and critiques round after round until it scores 4.
+  await critique.getByRole("button", { name: "Improve until it scores 4", exact: true }).click();
+  await expect.poll(() => improves.length).toBe(1);
+  expect(improves[0]).toMatchObject({ language: "en-US", assetKey: "intro-video" });
   expect(f.errors).toEqual([]);
 });
 

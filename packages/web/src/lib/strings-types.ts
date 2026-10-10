@@ -1656,6 +1656,9 @@ export type Strings = {
         /** The run's name in the run history and toasts. */
         run: string;
         critique: string;
+        /** Compose, record and critique again, round after round, until it scores well. */
+        improve: string;
+        improveInfo: string;
         critiquing: string;
         score: (score: string) => string;
         rubric: Record<"story" | "layout" | "readability" | "motion" | "learners", string>;

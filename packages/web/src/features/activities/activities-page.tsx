@@ -1968,6 +1968,16 @@ function ActivityEditor({
                 ? (lang, assetKey) => startRun("critique-video", { language: lang, assetKey })
                 : undefined
             }
+            onImprove={
+              videoSetup?.enabled
+                ? (lang, assetKey, look) =>
+                    startRun("improve-scene", {
+                      language: lang,
+                      assetKey,
+                      ...(look ? { look } : {}),
+                    })
+                : undefined
+            }
             onSaveSounds={(lang, assetKey, phonemes) =>
               void action(async () => {
                 const draft = await apiFetch<ActivityDraft>(

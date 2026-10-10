@@ -86,6 +86,7 @@ export function AssetEditor({
   onRenderTimeline,
   onRefineTimeline,
   onCritique,
+  onImprove,
   spec,
 }: {
   manifest: AssetManifest;
@@ -170,6 +171,8 @@ export function AssetEditor({
   onRefineTimeline?: (language: string, assetKey: string) => void;
   /** Ask an agent to critique a video's newest recording (experimental). */
   onCritique?: (language: string, assetKey: string) => void;
+  /** Compose, record and critique a video round after round until it scores well. */
+  onImprove?: (language: string, assetKey: string, look?: string) => void;
   /** Bind a recorded video to its asset. */
   onAcceptVideo?: (runId: string) => void;
   /** The saved specification, for the scene-video advisory about learner choices. */
@@ -652,6 +655,7 @@ export function AssetEditor({
                 {...(onRenderTimeline ? { onRenderTimeline } : {})}
                 {...(onRefineTimeline ? { onRefineTimeline } : {})}
                 {...(onCritique ? { onCritique } : {})}
+                {...(onImprove ? { onImprove } : {})}
                 current={currentMedia() ?? undefined}
               />
             )}

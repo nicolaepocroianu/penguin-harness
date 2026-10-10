@@ -339,6 +339,32 @@ export class ActivityRoutes {
         202,
       );
     });
+    // Composes, records and critiques a scene round after round until it scores well.
+    app.post("/:activityId/improve-scene", async (c) => {
+      const body = await readJson(c);
+      const runner = stageRunner(body);
+      const rounds = body.rounds === undefined ? 3 : Number(body.rounds);
+      if (!Number.isInteger(rounds) || rounds < 1 || rounds > 5)
+        throw new HttpError(400, "rounds_invalid", "Rounds must be a whole number from 1 to 5.");
+      return c.json(
+        await this.videoRenders.startImprove(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          {
+            language: requireString(body, "language", { minLen: 5, maxLen: 5 }),
+            assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
+            ...(optionalString(body, "look", { maxLen: 64 })
+              ? { look: optionalString(body, "look", { maxLen: 64 })! }
+              : {}),
+            rounds,
+            expectedRevision: requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
+            agentId: runner.agentId,
+            ...(runner.runtime ? { runtime: runner.runtime } : {}),
+          },
+        ),
+        202,
+      );
+    });
     // An agent critiques a video or animation's newest recording (experimental).
     app.post("/:activityId/critique-video", async (c) => {
       const body = await readJson(c);
