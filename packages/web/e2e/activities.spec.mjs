@@ -8650,6 +8650,13 @@ test("composes a scene from its storyboard when the experiment is on", async ({ 
     const json = (value, status = 200) =>
       route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
     if (p === `${base}/video-setup`) return json({ enabled: true });
+    if (p === `${base}/scene-looks`)
+      return json({
+        looks: [
+          { id: "chalkboard", name: "Chalkboard", description: "Chalk on a board." },
+          { id: "storybook", name: "Storybook", description: "Warm and rounded." },
+        ],
+      });
     if (p === `${base}/act_test/media-upload` || p === `${base}/act_test/media-image`)
       return route.fulfill({ contentType: "image/png", body: PIXEL });
     if (p === `${base}/act_test/compose-video`) {
@@ -8723,12 +8730,16 @@ test("composes a scene from its storyboard when the experiment is on", async ({ 
 
   const section = page.getByRole("region", { name: "Scene video", exact: true });
   await expect(section.getByText("Experimental", { exact: true })).toBeVisible();
+  // The scene is made in a look, chosen beside Compose.
+  await section.getByRole("button", { name: "Look", exact: true }).click();
+  await page.getByRole("option", { name: "Storybook", exact: true }).click();
   await section.getByRole("button", { name: "Compose from storyboard", exact: true }).click();
   await expect.poll(() => composeRequests.length).toBe(1);
   expect(composeRequests[0]).toMatchObject({
     agentId: "default_agent",
     language: "en-US",
     assetKey: "intro-video",
+    look: "storybook",
   });
   await expect(section.getByRole("button", { name: "Composing…", exact: true })).toBeDisabled();
 
@@ -9107,6 +9118,7 @@ test("edits, saves and renders a scene video's timeline", async ({ page }) => {
   const saves = [];
   const renders = [];
   const refines = [];
+  const critiques = [];
   page.on("response", async (response) => {
     const p = new URL(response.url()).pathname;
     if ([`${base}/act_test/plan-media`, `${base}/act_test/media`].includes(p) && response.ok())
@@ -9215,6 +9227,34 @@ test("edits, saves and renders a scene video's timeline", async ({ page }) => {
       };
       return json(draft);
     }
+    if (p === `${base}/act_test/critique-video`) {
+      critiques.push(request.postDataJSON());
+      runs.unshift({
+        ...run({}),
+        kind: "critique",
+        runId: "run_critique_1",
+        video: undefined,
+        critique: {
+          language: "en-US",
+          assetKey: "intro-video",
+          recordingRunId: "run_video_1",
+          compositionRunId: "run_comp_1",
+        },
+        status: "running",
+        hasCandidate: false,
+        createdAt: "2026-09-28T11:20:00Z",
+      });
+      return json(runs[0], 202);
+    }
+    if (p === `${base}/act_test/runs/run_critique_1/candidate`)
+      return json({
+        candidate: JSON.stringify({
+          recordingRunId: "run_video_1",
+          scores: { story: 4, layout: 2, readability: 5, motion: 4, learners: 4 },
+          score: 3.8,
+          fixes: ["Stand the palm tree on the sand."],
+        }),
+      });
     if (p === `${base}/act_test/refine-timeline`) {
       refines.push(request.postDataJSON());
       runs.unshift({
@@ -9361,6 +9401,26 @@ test("edits, saves and renders a scene video's timeline", async ({ page }) => {
   await timeline.getByRole("button", { name: "Save timeline", exact: true }).click();
   await expect.poll(() => saves.length).toBe(2);
   expect(saves[1].timeline.narration).toEqual([{ asset: "intro-line", startMs: 1200 }]);
+
+  // An agent critiques the recording: its score, each rubric score, and what to fix.
+  const critique = page.getByRole("region", { name: "Critique", exact: true });
+  await critique.getByRole("button", { name: "Critique the recording", exact: true }).click();
+  await expect.poll(() => critiques.length).toBe(1);
+  expect(critiques[0]).toMatchObject({ language: "en-US", assetKey: "intro-video" });
+  await expect(critique.getByRole("button", { name: "Critiquing…", exact: true })).toBeDisabled();
+  const critiqued = runs.find((entry) => entry.runId === "run_critique_1");
+  Object.assign(critiqued, {
+    status: "succeeded",
+    hasCandidate: true,
+    critique: { ...critiqued.critique, score: 3.8 },
+  });
+  await expect(critique.getByText("Scored 3.8 of 5", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(
+    critique.getByText("Stand the palm tree on the sand.", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(/· Critique 3[.]8/)).toBeVisible();
   expect(f.errors).toEqual([]);
 });
 
