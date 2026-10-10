@@ -277,6 +277,23 @@ describe("the Activity runs folder keeps its place", () => {
     await stale;
     expect(store.getState().activityRuns).toEqual({ total: 10, fetched: 9, hasMore: true });
     expect(store.getState().sessions.find((s) => s.sessionId === "run_3")?.archived).toBe(true);
+    // The dropped reload still ends its loading cycle.
+    expect(store.getState().loading).toBe(false);
+  });
+
+  it("a reload a new Session cut short still ends its loading cycle", async () => {
+    listSessions.mockResolvedValue({ ...NO_ROWS, counts: COUNTS });
+    let answer!: (value: { sessions: SessionInfo[]; total: number }) => void;
+    listActivityRunSessions.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    const store = createSessionsStore();
+    store.setState({ projectId: "proj", agentIds: ["default_agent"] });
+    const pending = store.getState().reload();
+    expect(store.getState().loading).toBe(true);
+    store.getState().add(session("fresh"));
+    answer({ sessions: [], total: 0 });
+    await pending;
+    expect(store.getState().loading).toBe(false);
+    expect(store.getState().sessions.map((s) => s.sessionId)).toEqual(["fresh"]);
   });
 
   it("refetches more than the server's largest page in pages it accepts", async () => {

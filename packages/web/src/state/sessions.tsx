@@ -303,6 +303,10 @@ export function createSessionsStore() {
   // Generation counter: invalidates any in-flight response once the Project/Agent set
   // changes or a reload happens.
   let gen = 0;
+  // The latest reload: only it clears `loading`. A local mutation (add / remove / archive)
+  // bumps `gen` to drop an in-flight reload's stale result, but that reload still ends the
+  // loading cycle it started — otherwise the flag stays up until some later refresh.
+  let latestReload = 0;
 
   return createStore<SessionsStoreState>((set, get) => {
     /** Moves the activity-run stream's total and cursor when a run joins or leaves it. */
@@ -377,6 +381,7 @@ export function createSessionsStore() {
         // once an Agent set exists, is what clears it.
         if (!projectId || agentIds.length === 0) return;
         const g = ++gen;
+        const r = ++latestReload;
         set({ loading: true });
         try {
           // The activity-run stream refetches as far as it was already read (a new run lands
@@ -484,7 +489,7 @@ export function createSessionsStore() {
               : get().activityRuns,
           });
         } finally {
-          if (g === gen) set({ loading: false });
+          if (r === latestReload) set({ loading: false });
         }
       },
 
