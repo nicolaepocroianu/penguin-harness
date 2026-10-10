@@ -13,7 +13,9 @@
  * - Visible text whose contrast with what is behind it is under WCAG's minimum: 4.5:1, or 3:1
  *   for large text (24px and up). What is behind it is the nearest solid background colour of
  *   the text or its containers, or every colour stop of a background gradient there, the worst
- *   one counting. A shape painted behind the text by another element is not seen.
+ *   one counting. For SVG text, the last shape drawn before it in its SVG under its middle,
+ *   when that shape is filled with a solid colour, comes first. Any other shape painted behind
+ *   the text by another element is not seen.
  *
  * An element too faint to see (opacity under 0.05, all the way up) is not measured. Each finding
  * says which elements and from when to when it was seen; it joins the video's final check (see
@@ -130,7 +132,27 @@ export const AUDIT_SCRIPT = `(function () {
     var x = luminance(a), y = luminance(b);
     return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
   }
+  // SVG text is drawn over the shapes before it in its drawing: the last of them under the
+  // text's middle with a solid fill is what is behind it.
+  function shapeUnder(el) {
+    var svg = el.ownerSVGElement;
+    if (!svg) return null;
+    var box = el.getBoundingClientRect(), x = box.left + box.width / 2, y = box.top + box.height / 2;
+    var shapes = svg.querySelectorAll("path, rect, circle, ellipse, polygon");
+    var under = null;
+    for (var i = 0; i < shapes.length; i += 1) {
+      var shape = shapes[i];
+      if (!(shape.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+      var r = shape.getBoundingClientRect();
+      if (x < r.left || x > r.right || y < r.top || y > r.bottom || !seen(shape)) continue;
+      var fill = rgba(getComputedStyle(shape).fill);
+      if (fill && fill.a >= 0.5) under = fill;
+    }
+    return under;
+  }
   function behind(el) {
+    var shape = el instanceof SVGElement ? shapeUnder(el) : null;
+    if (shape) return [shape];
     for (var node = el; node; node = node.parentElement) {
       var style = getComputedStyle(node), colors = [];
       if (style.backgroundImage && style.backgroundImage !== "none")
