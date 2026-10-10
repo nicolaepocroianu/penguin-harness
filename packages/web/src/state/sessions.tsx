@@ -17,7 +17,13 @@
  * (`excludeOrg`), so an organization's desk, ticket and sub-sessions are in neither the rows
  * nor the totals the sidebar builds its groups from. One can still enter through `add()` (the
  * chat page's deep-link self-heal): the sidebar drops it at render (withoutOrgSessions), the
- * totals are left alone for it, and a reload carries it over. Live statuses are remembered for
+ * totals are left alone for it, and a reload carries it over.
+ *
+ * **Activity runs beside the pages**: every fetch also leaves an activity's generation runs
+ * out (`excludeActivityRuns`), so no total or "More" counts a run the sidebar will not draw
+ * among the conversations. The Agent's newest runs come back on their own beside the first
+ * active page and are held with the rows, which is what the run folder, the run-finished
+ * notifications and the activity list's settle signal read; the totals never move for them. Live statuses are remembered for
  * EVERY `session_state` the user channel reports (`liveStatuses`), row or no row — company
  * mode's surfaces read them for the Sessions this list deliberately does not fetch
  * (useLiveSessionStatuses).
@@ -57,6 +63,7 @@ import {
   workspaceGroupQuery,
 } from "../lib/session-grouping";
 import { noteScheduleEvent } from "../features/schedules/schedule-store";
+import { publishActivityRunFinished, publishActivityRunsResync } from "../lib/activity-run-events";
 import { useProject } from "./project";
 
 interface SessionsContextValue {
@@ -269,7 +276,7 @@ export function createSessionsStore() {
      * counted out.
      */
     const adjustCount = (session: SessionInfo, category: SessionCategory, delta: number) => {
-      if (isOrgSession(session)) return;
+      if (isOrgSession(session) || session.activityId !== undefined) return;
       const { agentId, workspace } = session;
       const counts = get().countsByAgent;
       const cur = counts.get(agentId);
@@ -343,12 +350,14 @@ export function createSessionsStore() {
                       limit: SIDEBAR_PAGE_SIZE + 1,
                       category,
                       excludeOrg: true,
+                      excludeActivityRuns: true,
                       ...(scope === "" ? {} : { workspaceGroup: scope }),
                       ...(category === "active" && scope === "" ? { withCounts: true } : {}),
                     });
                     return {
                       category,
                       scope,
+                      activityRuns: res.activityRuns ?? [],
                       counts: res.counts,
                       workspaceCounts: res.workspaceCounts,
                       workspaceLatest: res.workspaceLatest,
@@ -382,7 +391,7 @@ export function createSessionsStore() {
               if (p.counts) nextCounts.set(r.agentId, p.counts);
               if (p.workspaceCounts) nextWorkspaceCounts.set(r.agentId, p.workspaceCounts);
               if (p.workspaceLatest) nextWorkspaceLatest.set(r.agentId, p.workspaceLatest);
-              for (const s of p.items) {
+              for (const s of [...p.items, ...p.activityRuns]) {
                 if (!seen.has(s.sessionId)) {
                   seen.add(s.sessionId);
                   nextSessions.push(s);
@@ -466,6 +475,7 @@ export function createSessionsStore() {
                   limit: SIDEBAR_PAGE_SIZE + 1,
                   category,
                   excludeOrg: true,
+                  excludeActivityRuns: true,
                   ...(scope === "" ? {} : { workspaceGroup: scope }),
                 })
               ).sessions;
@@ -721,6 +731,14 @@ export function applyUserEvent(
     store.setState({ liveStatuses: new Map() });
     void store.getState().reload();
     publishCompanyResync();
+    // A lost `activity_run_finished` would leave an activity card saying "running" forever.
+    publishActivityRunsResync();
+    return;
+  }
+  // An activity run ended: the activity list re-reads its cards. The run's own row, if this
+  // list holds it, already settled through its `session_state`.
+  if (ev.type === "activity_run_finished") {
+    publishActivityRunFinished(ev);
     return;
   }
   // Company-mode notifications fan out to the company store and any mounted organization page

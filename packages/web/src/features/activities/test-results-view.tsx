@@ -24,11 +24,14 @@ import {
   testBlocked,
   type TestState,
 } from "./test-results-model";
-
-const HEAD =
-  "border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-400";
-const TH = "whitespace-nowrap px-3 py-2 font-medium";
-const TD = "px-3 py-2 align-top";
+import {
+  TABLE,
+  TABLE_HEAD_ROW,
+  TABLE_WRAP,
+  TBODY,
+  TD,
+  TH,
+} from "../../components/ui/table-classes";
 
 export function TestResultsView({
   endpoint,
@@ -197,10 +200,10 @@ export function TestResultsView({
             {report.reused && ` · ${words.reused}`}
           </p>
           {rows.length > 0 && (
-            <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-              <table className="w-full text-sm" aria-label={words.resultsLabel}>
+            <div className={TABLE_WRAP}>
+              <table className={TABLE} aria-label={words.resultsLabel}>
                 <thead>
-                  <tr className={HEAD}>
+                  <tr className={TABLE_HEAD_ROW}>
                     <th className={TH}>{words.columns.criterion}</th>
                     <th className={TH}>{words.columns.test}</th>
                     <th className={TH}>{words.columns.status}</th>
@@ -208,7 +211,7 @@ export function TestResultsView({
                     <th className={TH}>{words.columns.error}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+                <tbody className={TBODY}>
                   {rows.map((row) => (
                     <tr key={row.key}>
                       <td className={`${TD} break-words`}>{row.criterion}</td>

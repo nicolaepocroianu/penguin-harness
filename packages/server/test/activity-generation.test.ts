@@ -9,13 +9,15 @@ import type {
   ActivityRunSummary,
 } from "../src/activities/domain.js";
 import { ActivityGenerationService } from "../src/activities/generation.js";
+import type { ServerEvent } from "../src/api/types.js";
 import { wire, type ClassCtx } from "@prismshadow/penguin-core/kernel";
 import type { ActivityAuthoring } from "../src/mechanisms/activities.js";
-import type { ProjectActivityWork } from "../src/mechanisms/projects.js";
+import type { Members, ProjectActivityWork, Projects } from "../src/mechanisms/projects.js";
 import type { Reassembly } from "../src/hmr/capabilities.js";
 import type { RuntimeSession } from "../src/runtime/session-manager.js";
 import type { SessionRow } from "../src/db/repos/sessions.js";
 import { apiClient, createTestApp, provisionUser, waitFor } from "./helpers.js";
+import { userChannelKey } from "../src/http/routes/events.js";
 import { activitySpec, refMediaDir, savedActivitySpec } from "./activity-fixtures.js";
 import { fakeMp3Encoding, fakeMediaHelper, mp3OfWave, speechWave } from "./audio-fixtures.js";
 import { imagePng } from "./image-fixtures.js";
@@ -1517,6 +1519,11 @@ describe("activity generation through Harness sessions", () => {
   it("cancels without applying and retains terminal history", async () => {
     const f = await fixture();
     const run = await f.start();
+    // The owner has the event stream open: the run's end reaches it once, as it settles.
+    const events: ServerEvent[] = [];
+    f.t.deps.channels.get(userChannelKey("generator")).subscribe((evt) => {
+      if (evt.event === "server_event") events.push(JSON.parse(evt.data) as ServerEvent);
+    });
     const cancelled = await f.client.post(`${f.endpoint}/runs/${run.runId}/cancel`, {});
     expect(cancelled.status).toBe(200);
     await waitFor(() => f.t.deps.manager.statusOf(run.sessionId!) === "idle");
@@ -1524,6 +1531,15 @@ describe("activity generation through Harness sessions", () => {
     expect((await f.service.list("generator-activities", f.activity.id))[0]?.status).toBe(
       "cancelled",
     );
+    expect(events.filter((e) => e.type === "activity_run_finished")).toEqual([
+      {
+        type: "activity_run_finished",
+        projectId: "generator-activities",
+        activityId: f.activity.id,
+        runId: run.runId,
+        status: "cancelled",
+      },
+    ]);
     expect(
       ((await (await f.client.get(f.endpoint)).json()) as ActivityDetail).draft.contentRevision,
     ).toBe(f.draft.contentRevision);
@@ -1744,6 +1760,8 @@ describe("activity generation through Harness sessions", () => {
       sessions: f.t.deps.manager,
       sessionService: f.t.deps.sessionService,
       channels: f.t.deps.channels,
+      projects: f.t.deps.tree.api<Projects>("ProjectsModule", "Projects"),
+      members: f.t.deps.tree.api<Members>("ProjectsModule", "Members"),
       log: { line: () => {} },
     });
     let dispose: () => void = () => {};

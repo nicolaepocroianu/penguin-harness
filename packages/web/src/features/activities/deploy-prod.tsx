@@ -23,11 +23,14 @@ import { toneDot, toneInk } from "../../lib/tone";
 import { prodBar, prodConfirmed, prodRefusalText, prodStatus, refusalText } from "./deploy-model";
 import { DeployStatePill } from "./deploy-state-pill";
 import type { Announcement } from "./run-toasts";
-
-const HEAD =
-  "border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-400";
-const TH = "whitespace-nowrap px-3 py-2 font-medium";
-const TD = "px-3 py-2 align-top";
+import {
+  TABLE,
+  TABLE_HEAD_ROW,
+  TABLE_WRAP,
+  TBODY,
+  TD,
+  TH,
+} from "../../components/ui/table-classes";
 
 export function DeployProd({
   endpoint,
@@ -184,15 +187,15 @@ export function DeployProd({
           {error}
         </p>
       )}
-      <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-        <table className="w-full text-sm" aria-label={words.prod.stagesLabel}>
+      <div className={TABLE_WRAP}>
+        <table className={TABLE} aria-label={words.prod.stagesLabel}>
           <thead>
-            <tr className={HEAD}>
+            <tr className={TABLE_HEAD_ROW}>
               <th className={TH}>{words.stageColumns.stage}</th>
               <th className={TH}>{words.stageColumns.state}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+          <tbody className={TBODY}>
             {bar.rows.map((row) => (
               <tr key={row.stage}>
                 <td className={`${TD} whitespace-nowrap font-medium`}>{row.label}</td>

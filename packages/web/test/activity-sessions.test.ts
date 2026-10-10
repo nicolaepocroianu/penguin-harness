@@ -4,12 +4,8 @@ import {
   groupActivityRuns,
   groupActivityRunsByProduct,
   searchActivityRuns,
-  isActivityRunWorkspace,
-  withoutActivityRunWorkspaces,
   latestOwnConversation,
   sessionHref,
-  settledActivityRuns,
-  shouldPollSummaries,
   shouldReloadList,
   startedUnlistedRuns,
   withoutActivityRuns,
@@ -26,14 +22,9 @@ describe("activity sessions", () => {
     expect(sessionHref({ sessionId: "b", activityId: "act 1" })).toBe("/activities/act%201");
     expect(sessionHref({ sessionId: "a/1" })).toBe("/chat/a%2F1");
   });
-  it("notices an activity run finishing, not an ordinary session", () => {
-    const before = new Map([["a", "running"], ["b", "running"]]);
-    expect(settledActivityRuns(before, [s("a", "idle"), s("b", "running", "act")])).toBe(false);
-    expect(settledActivityRuns(before, [s("a", "running"), s("b", "idle", "act")])).toBe(true);
-  });
   it("notices a run starting that the list holds no row for", () => {
     const listed = [s("a", "idle")];
-    // A listed session going live is the settle signal's business, not this one's.
+    // A listed session going live already shows: its row moves with it.
     expect(startedUnlistedRuns(new Map(), new Map([["a", "running"]]), listed)).toBe(false);
     expect(startedUnlistedRuns(new Map(), new Map([["x", "running"]]), listed)).toBe(true);
     // Only the start: a repeat of the same live status is not a new run.
@@ -58,15 +49,6 @@ describe("activity sessions", () => {
     expect(latestOwnConversation([run, desk, own])?.sessionId).toBe("own");
     expect(latestOwnConversation([run, desk])).toBeNull();
   });
-  it("polls the home list only while it is shown and some run is in flight", () => {
-    const running = { status: { kind: "running" as const, runKind: "spec" as const } };
-    const built = { status: { kind: "built" as const } };
-    expect(shouldPollSummaries(undefined, { a: built, b: running } as never)).toBe(true);
-    expect(shouldPollSummaries(undefined, { a: built } as never)).toBe(false);
-    expect(shouldPollSummaries(undefined, {})).toBe(false);
-    // Inside an activity the list is not shown: no poll, running or not.
-    expect(shouldPollSummaries("a", { b: running } as never)).toBe(false);
-  });
 
   it("groups loaded activity runs under their activity, most recent first", () => {
     const run = (sessionId: string, activityId: string | undefined, lastActiveAt: string, extra = {}) =>
@@ -86,17 +68,6 @@ describe("activity sessions", () => {
       ["act-b", null, ["b1"]],
       ["act-a", "Letter hunt", ["a1", "a2"]],
     ]);
-  });
-
-  it("recognises a run's own workspace, on either path separator", () => {
-    expect(isActivityRunWorkspace("C:\\Users\\me\\.penguin\\dev-data\\activity-runs\\run_ae24c2f2")).toBe(true);
-    expect(isActivityRunWorkspace("/home/me/.penguin/activity-runs/run_1/")).toBe(true);
-    expect(isActivityRunWorkspace("/home/me/code/activity-runs")).toBe(false);
-    expect(isActivityRunWorkspace("/home/me/activity-runs/run_1/src")).toBe(false);
-  });
-  it("drops run workspaces from the per-workspace tallies", () => {
-    const tallies = new Map([["agent", { "/w/app": 3, "/h/activity-runs/run_1": 1 }]]);
-    expect(withoutActivityRunWorkspaces(tallies)).toEqual(new Map([["agent", { "/w/app": 3 }]]));
   });
 
   it("groups activity runs by product code, unidentified activities last", () => {

@@ -9,6 +9,14 @@ import type { AssetManifest, UploadedMedia } from "@prismshadow/penguin-server/a
 import { Badge, type BadgeTone } from "../../components/ui/badge";
 import { ChipGroup } from "../../components/ui/chip-group";
 import { Input } from "../../components/ui/input";
+import {
+  TABLE,
+  TABLE_HEAD_ROW,
+  TABLE_WRAP,
+  TBODY,
+  TD,
+  TH,
+} from "../../components/ui/table-classes";
 import { S } from "../../lib/strings";
 import {
   filterPlanned,
@@ -31,10 +39,6 @@ const SOURCE_TONE: Record<NonNullable<PlannedEntry["source"]>, BadgeTone> = {
   checkout: "gray",
 };
 
-const HEAD =
-  "border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-400";
-const TH = "whitespace-nowrap px-3 py-2 font-medium";
-const TD = "px-3 py-2 align-top";
 const LINK = "text-left font-medium text-brand-600 hover:text-brand-700 dark:text-brand-300";
 
 export function AssetLibraryView({
@@ -101,17 +105,17 @@ export function AssetLibraryView({
         ) : !shownPlanned.length ? (
           <p className="text-xs text-gray-500">{words.noMatch}</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-            <table className="w-full text-sm">
+          <div className={TABLE_WRAP}>
+            <table className={TABLE}>
               <thead>
-                <tr className={HEAD}>
+                <tr className={TABLE_HEAD_ROW}>
                   <th className={TH}>{words.columns.asset}</th>
                   <th className={TH}>{words.columns.type}</th>
                   <th className={TH}>{words.columns.binding}</th>
                   <th className={TH}>{words.columns.scenes}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+              <tbody className={TBODY}>
                 {shownPlanned.map((entry) => (
                   <tr key={entry.key}>
                     <td className={TD}>
@@ -161,17 +165,17 @@ export function AssetLibraryView({
         ) : !shownFiles.length ? (
           <p className="text-xs text-gray-500">{words.noMatch}</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-            <table className="w-full text-sm">
+          <div className={TABLE_WRAP}>
+            <table className={TABLE}>
               <thead>
-                <tr className={HEAD}>
+                <tr className={TABLE_HEAD_ROW}>
                   <th className={TH}>{words.columns.file}</th>
                   <th className={TH}>{words.columns.type}</th>
                   <th className={TH}>{words.columns.size}</th>
                   <th className={TH}>{words.columns.usedBy}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+              <tbody className={TBODY}>
                 {shownFiles.map(({ upload, usedBy }) => (
                   <tr key={upload.path}>
                     <td className={TD}>

@@ -21,7 +21,9 @@ import type { Config, Db, Channels, Log, Paths } from "../hmr/capabilities.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import type { AgentConfig, AgentLifecycle } from "../mechanisms/agents.js";
 import { CODING_AGENT_PROVIDER } from "../coding-agents/session-runtime.js";
-import type { ProjectActivityWork } from "../mechanisms/projects.js";
+import type { Members, ProjectActivityWork, Projects } from "../mechanisms/projects.js";
+import { publishToProjectUsers } from "../http/routes/events.js";
+import type { ChannelHub } from "../runtime/channel.js";
 import type { Sessions, SessionServiceIface } from "../runtime/session-manager.js";
 import { HttpError } from "../http/errors.js";
 import { ActivityLocks, atomicJson } from "./service.js";
@@ -376,6 +378,8 @@ export class ActivityGenerationService implements ActivityGeneration {
   @Use() private readonly sessions!: Sessions;
   @Use() private readonly sessionService!: SessionServiceIface;
   @Use() private readonly channels!: Channels;
+  @Use() private readonly projects!: Projects;
+  @Use() private readonly members!: Members;
   @Use() private readonly log!: Log;
   @Use() private readonly soundModels!: SoundModelPorts;
   @Use() private readonly localAudio!: LocalAudio;
@@ -522,6 +526,21 @@ export class ActivityGenerationService implements ActivityGeneration {
     this.save(run);
     this.observers.get(run.runId)?.unsubscribe();
     this.observers.delete(run.runId);
+    if (status !== "running") {
+      publishToProjectUsers(
+        this.channels as ChannelHub,
+        this.projects,
+        this.members,
+        run.projectId,
+        {
+          type: "activity_run_finished",
+          projectId: run.projectId,
+          activityId: run.activityId,
+          runId: run.runId,
+          status,
+        },
+      );
+    }
   }
   private track<T>(operation: Promise<T>): Promise<T> {
     this.operations.add(operation);

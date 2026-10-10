@@ -53,6 +53,11 @@ async function fixture(page) {
   let imageGenerationFailure = false;
   let mediaTextCandidateReads = 0;
   const assembleRequests = [];
+  // The home page's status for every card, and the user-channel events a test sends (off
+  // unless a test turns them on, so the rest keep one quiet event stream).
+  let homeStatus = { kind: "next", milestone: "spec" };
+  let liveEvents = false;
+  const serverEvents = [];
   const errors = [];
   page.on("pageerror", (error) => {
     errors.push(error.message);
@@ -148,7 +153,7 @@ async function fixture(page) {
             hasPlan: false,
             done: 0,
             total: 3,
-            status: { kind: "next", milestone: "spec" },
+            status: homeStatus,
           },
         ]),
       );
@@ -517,7 +522,17 @@ async function fixture(page) {
       if (p.endsWith("/organizations")) return json({ organizations: [] });
       if (p.endsWith("/models")) return json({ models: [] });
       if (p.endsWith("/events"))
-        return route.fulfill({ contentType: "text/event-stream", body: "" });
+        return route.fulfill({
+          contentType: "text/event-stream",
+          // With events on, the stream reconnects quickly and hands over what is queued.
+          body: liveEvents
+            ? "retry: 100\n\n" +
+              serverEvents
+                .splice(0)
+                .map((event) => `event: server_event\ndata: ${JSON.stringify(event)}\n\n`)
+                .join("")
+            : "",
+        });
       return json({});
     }
     const asset = p.startsWith("/assets/")
@@ -533,6 +548,13 @@ async function fixture(page) {
     return route.fulfill({ contentType, body: await fs.readFile(asset) });
   });
   return {
+    setHomeStatus(status) {
+      homeStatus = status;
+    },
+    sendServerEvent(event) {
+      liveEvents = true;
+      serverEvents.push(event);
+    },
     completeAudio() {
       runs[0].status = "succeeded";
       runs[0].candidate = "{}";
@@ -4837,6 +4859,30 @@ test("tags a product, filters the list by tag, and deletes an activity after con
   await expect(sight).toHaveCount(0);
   await expect(page.getByRole("link", { name: /Letter hunt/ })).toBeVisible();
   expect(deletes).toHaveLength(2);
+  expect(f.errors).toEqual([]);
+});
+
+test("the home page refreshes a running card when the server says its run finished", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  f.setHomeStatus({ kind: "running", runKind: "spec" });
+  await page.goto(`${origin}/activities`);
+  const card = page.getByRole("region", { name: /words/ });
+  await expect(card.getByText(/ running$/)).toBeVisible();
+  // The run ends; nothing polls, so the card keeps its status until the server says so.
+  f.setHomeStatus({ kind: "next", milestone: "mediaPlan" });
+  await page.waitForTimeout(1000);
+  await expect(card.getByText(/ running$/)).toBeVisible();
+  f.sendServerEvent({
+    type: "activity_run_finished",
+    projectId,
+    activityId: "act_test",
+    runId: "run_1",
+    status: "succeeded",
+  });
+  await expect(card.getByText("Media plan next", { exact: true })).toBeVisible();
   expect(f.errors).toEqual([]);
 });
 

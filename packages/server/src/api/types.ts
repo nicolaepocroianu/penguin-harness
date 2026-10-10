@@ -1492,6 +1492,13 @@ export interface SessionsResponse {
    * created it.
    */
   sessions: SessionInfo[];
+  /**
+   * Present with `excludeActivityRuns=1` and `counts=1` on the first page (offset 0): the
+   * Agent's newest activity-run sessions that are not archived (at most 50), newest first.
+   * The flag leaves runs out of `sessions` and of every total and tally, so a list that only
+   * draws conversations never advertises a run it will not draw, and still holds the runs.
+   */
+  activityRuns?: SessionInfo[];
   /** Present when the request asked for counts (`counts=1`): totals per category over the full list, not just the returned page. */
   counts?: SessionCategoryCounts;
   /**
@@ -2560,7 +2567,22 @@ export type ServerEvent =
     }
   | ScheduleServerEvent
   | GoalServerEvent
-  | CompanyServerEvent;
+  | CompanyServerEvent
+  | ActivityServerEvent;
+
+/**
+ * An activity's generation run reached its end: succeeded, failed, conflicted, was cancelled
+ * or was interrupted. Published on the user channel of the Project's owner and members, so
+ * the activity list refreshes its cards when a run ends instead of polling while one is in
+ * flight.
+ */
+export type ActivityServerEvent = {
+  type: "activity_run_finished";
+  projectId: string;
+  activityId: string;
+  runId: string;
+  status: Exclude<ActivityRunStatus, "running">;
+};
 
 /** Goal-mode progress on the session channel (the chat page drives its goal banner from these). */
 export type GoalServerEvent =
@@ -4851,6 +4873,7 @@ export interface InstalledPluginsResponse {
   /** A listed plugin neither runs nor failed to load: the App could not be re-assembled around it (the previous one was restored), so a restart is what applies it. */
   restartPending: boolean;
 }
+import type { ActivityRunStatus } from "../activities/domain.js";
 export type {
   ActivityRecord,
   ActivityDraft,

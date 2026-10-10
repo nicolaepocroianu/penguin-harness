@@ -31,11 +31,14 @@ import {
   type PresetResult,
   type SavedPreset,
 } from "./layout-presets";
-
-const HEAD =
-  "border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-400";
-const TH = "whitespace-nowrap px-3 py-2 font-medium";
-const TD = "px-3 py-2 align-middle";
+import {
+  TABLE,
+  TABLE_HEAD_ROW,
+  TABLE_WRAP,
+  TBODY,
+  TD_MIDDLE,
+  TH,
+} from "../../components/ui/table-classes";
 
 /** A layout's name as the author sees it, read at render time. */
 export function presetName(preset: LayoutPreset): string {
@@ -284,10 +287,10 @@ export function LayoutMenu({
         onClose={() => setManaging(false)}
         widthClass="sm:max-w-lg"
       >
-        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-          <table className="w-full text-sm">
+        <div className={TABLE_WRAP}>
+          <table className={TABLE}>
             <thead>
-              <tr className={HEAD}>
+              <tr className={TABLE_HEAD_ROW}>
                 <th className={TH}>{words.nameColumn}</th>
                 <th className={TH}>{words.kindColumn}</th>
                 <th className={TH}>
@@ -295,18 +298,18 @@ export function LayoutMenu({
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+            <tbody className={TBODY}>
               {presets.map((preset) => (
                 <tr key={preset.id}>
-                  <td className={`${TD} max-w-[16rem] truncate font-medium`}>
+                  <td className={`${TD_MIDDLE} max-w-[16rem] truncate font-medium`}>
                     {presetName(preset)}
                   </td>
                   <td
-                    className={`${TD} whitespace-nowrap text-xs text-gray-500 dark:text-gray-400`}
+                    className={`${TD_MIDDLE} whitespace-nowrap text-xs text-gray-500 dark:text-gray-400`}
                   >
                     {preset.builtIn ? words.builtInTag : words.savedTag}
                   </td>
-                  <td className={`${TD} whitespace-nowrap text-right`}>
+                  <td className={`${TD_MIDDLE} whitespace-nowrap text-right`}>
                     {!preset.builtIn && (
                       <div className="flex justify-end gap-1">
                         <Button
