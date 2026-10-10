@@ -47,6 +47,16 @@ describe("layout audit", () => {
     ).toEqual([
       { code: "low_contrast", severity: "warning", elements: ["#title"], startMs: 500, endMs: 500 },
     ]);
+    // Objects too close to the stage's edge or to each other; older pages have no such lists.
+    expect(
+      layoutFindings([
+        { atMs: 0, sample: { ...sample([]), nearEdge: ["#stone-a"], crowded: [["#b", "#a"]] } },
+        { atMs: 2000, sample: { ...sample([]), crowded: [["#a", "#b"]] } },
+      ]),
+    ).toEqual([
+      { code: "near_edge", severity: "warning", elements: ["#stone-a"], startMs: 0, endMs: 0 },
+      { code: "crowded", severity: "warning", elements: ["#a", "#b"], startMs: 0, endMs: 2000 },
+    ]);
   });
 });
 
@@ -76,6 +86,14 @@ describe("telling the agent what the last recording got wrong", () => {
       }),
     ).toBe(
       "#chest and #palm cover each other from 0 s to 11.5 s: move them apart without lifting either off the ground it stands on, or mark the one meant to sit over the other with data-allow-overlap.",
+    );
+    expect(
+      told({ code: "near_edge", severity: "warning", elements: ["#a"], startMs: 0, endMs: 500 }),
+    ).toBe("#a comes closer than 16px to the stage's edge from 0 s to 0.5 s: move it further in.");
+    expect(
+      told({ code: "crowded", severity: "warning", elements: ["#a", "#b"], startMs: 0, endMs: 0 }),
+    ).toBe(
+      "#a and #b are less than 12px apart from 0 s to 0 s: give each its own space, moving them along the ground they stand on.",
     );
     expect(told({ code: "duration_off", severity: "warning" })).toContain(
       "The timeline played for 8.2 s",

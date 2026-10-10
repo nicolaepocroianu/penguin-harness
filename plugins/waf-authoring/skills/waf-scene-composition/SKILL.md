@@ -32,8 +32,9 @@ A scene with no images is drawn entirely with HTML, CSS and inline SVG.
 1. **Storyboard first.** Split the video's description into frames of about 3 seconds, one idea
    per frame, and write them to `frames.json`. The frames' seconds add up to the video's length.
 2. **Plan the stage.** In a comment at the top of `#stage`, list each main object with its box
-   in stage pixels (left, top, width, height). Give each main object its own space, and keep at
-   least 24px of clear space around the scene's hero object, including its glow and sparkles.
+   in stage pixels (left, top, width, height). Give each main object its own space, at least
+   12px from the next, and keep at least 24px of clear space around the scene's hero object,
+   including its glow and sparkles.
    Scenery (ground, island, sea, sky, background) is not a main object, and objects stand on it.
 3. **Build it.** Position with `left` and `top`, never a mix of `right` and `bottom`. Mark each
    main object with `data-focal`, and an element meant to sit over another (a glow behind its
@@ -43,7 +44,8 @@ A scene with no images is drawn entirely with HTML, CSS and inline SVG.
 5. **Time it.** Make the timeline exactly as long as the frames add up to. When the motion ends
    sooner, hold the last picture, for example `timeline.to({}, { duration: 0.8 })`.
 6. **Check it.** Check the boxes of the main objects at the start, middle and end of each frame.
-   Fix any overlap you did not intend, anything leaving the stage, and any text that is too small.
+   Fix any overlap you did not intend, anything leaving the stage or closer than 16px to its edge,
+   main objects closer than 12px to each other, and any text that is too small.
 7. **Score it and submit.** Score it with the self-score below, then finish.
 
 ## Looks

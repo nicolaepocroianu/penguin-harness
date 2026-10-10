@@ -16,6 +16,7 @@ import type { Opaque } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
 import { contentRevision, type ActivityDetail } from "./domain.js";
 import type { MediaAsset } from "./media.js";
+import { EDGE_MARGIN_PX, MIN_GAP_PX } from "./layout-audit.js";
 import { COMPOSITION_LOOK_FILE, COMPOSITION_LOOK_GUIDE } from "./scene-looks.js";
 import type { VideoCheck, VideoCheckFinding } from "./video-types.js";
 import type {
@@ -172,6 +173,10 @@ export function findingForAgent(finding: VideoCheckFinding, check: VideoCheck): 
       return `${things} cover each other ${when}: move them apart without lifting either off the ground it stands on, or mark the one meant to sit over the other with data-allow-overlap.`;
     case "off_stage":
       return `${things} reaches outside the stage ${when}: keep it inside.`;
+    case "near_edge":
+      return `${things} comes closer than ${EDGE_MARGIN_PX}px to the stage's edge ${when}: move it further in.`;
+    case "crowded":
+      return `${things} are less than ${MIN_GAP_PX}px apart ${when}: give each its own space, moving them along the ground they stand on.`;
     case "low_contrast":
       return `The text in ${things} does not stand out enough from what is behind it ${when}: give it a contrast of at least 4.5:1.`;
     case "small_text":

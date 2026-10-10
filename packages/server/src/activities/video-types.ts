@@ -81,6 +81,10 @@ export type VideoCheckCode =
   | "layout_overlap"
   /** A main object is partly outside the stage. */
   | "off_stage"
+  /** A main object is inside the stage but too close to its edge. */
+  | "near_edge"
+  /** Two main objects are apart but too close to each other. */
+  | "crowded"
   /** Text is smaller than learners can read on a small screen. */
   | "small_text"
   /** Text does not stand out enough from what is behind it. */

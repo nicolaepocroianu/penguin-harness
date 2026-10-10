@@ -1967,6 +1967,10 @@ export const en: Strings = {
             `${elements} cover each other, seen from ${from} s to ${to} s.`,
           off_stage: (from: string, to: string, _asset: string, elements: string) =>
             `${elements} reaches outside the stage, seen from ${from} s to ${to} s.`,
+          near_edge: (from: string, to: string, _asset: string, elements: string) =>
+            `${elements} is very close to the edge of the stage, seen from ${from} s to ${to} s.`,
+          crowded: (from: string, to: string, _asset: string, elements: string) =>
+            `${elements} are almost touching, seen from ${from} s to ${to} s.`,
           narration_mismatch: (_from: string, _to: string, _asset: string, words: string) =>
             words
               ? `The narration does not say all of its script: ${words} could not be heard.`

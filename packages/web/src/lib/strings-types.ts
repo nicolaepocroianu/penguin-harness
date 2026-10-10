@@ -1684,6 +1684,8 @@ export type Strings = {
           | "black"
           | "layout_overlap"
           | "off_stage"
+          | "near_edge"
+          | "crowded"
           | "small_text"
           | "low_contrast"
           | "narration_mismatch"

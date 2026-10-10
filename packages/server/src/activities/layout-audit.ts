@@ -5,7 +5,10 @@
  *
  * - Two main objects (elements the agent marks `data-focal`) covering each other by more than a
  *   tenth of the smaller one, unless either is marked `data-allow-overlap` or holds the other.
- * - A main object reaching more than 2px outside the stage.
+ * - A main object reaching more than 2px outside the stage, or inside it but closer than
+ *   `EDGE_MARGIN_PX` to its edge.
+ * - Two main objects that do not cover each other but are less than `MIN_GAP_PX` apart, under the
+ *   same exceptions as covering.
  * - Visible text smaller than `SMALL_TEXT_PX`.
  * - Visible text whose contrast with what is behind it is under WCAG's minimum: 4.5:1, or 3:1
  *   for large text (24px and up). What is behind it is the nearest solid background colour of
@@ -24,6 +27,10 @@ import type { VideoCheckFinding } from "./video-types.js";
 
 /** Text smaller than this, in stage pixels, is too small for learners on a small screen. */
 export const SMALL_TEXT_PX = 28;
+/** How close a main object may come to the stage's edge. */
+export const EDGE_MARGIN_PX = 16;
+/** How close two main objects may come to each other. */
+export const MIN_GAP_PX = 12;
 /** WCAG's minimum contrast for text, and for large text. */
 export const MIN_CONTRAST = 4.5;
 export const MIN_CONTRAST_LARGE = 3;
@@ -38,6 +45,9 @@ export interface LayoutSample {
   smallText: string[];
   /** Absent from pages measured before contrast was. */
   lowContrast?: string[];
+  /** Absent from pages measured before margins and gaps were. */
+  nearEdge?: string[];
+  crowded?: string[][];
 }
 
 /**
@@ -81,11 +91,14 @@ export const AUDIT_SCRIPT = `(function () {
     var box = el.getBoundingClientRect();
     return box.width > 0 && box.height > 0 && seen(el);
   });
-  var overlap = [], offStage = [], smallText = [];
+  var overlap = [], offStage = [], smallText = [], nearEdge = [], crowded = [];
   focal.forEach(function (el) {
     var box = el.getBoundingClientRect();
     if (box.left < bounds.left - 2 || box.top < bounds.top - 2 ||
         box.right > bounds.right + 2 || box.bottom > bounds.bottom + 2) offStage.push(name(el));
+    else if (box.left < bounds.left + ${EDGE_MARGIN_PX} || box.top < bounds.top + ${EDGE_MARGIN_PX} ||
+        box.right > bounds.right - ${EDGE_MARGIN_PX} || box.bottom > bounds.bottom - ${EDGE_MARGIN_PX})
+      nearEdge.push(name(el));
   });
   for (var i = 0; i < focal.length; i += 1)
     for (var j = i + 1; j < focal.length; j += 1) {
@@ -96,7 +109,10 @@ export const AUDIT_SCRIPT = `(function () {
       var w = Math.min(p.right, q.right) - Math.max(p.left, q.left);
       var h = Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top);
       var smaller = Math.min(p.width * p.height, q.width * q.height);
+      // The space between them, across or down; negative when they cover each other.
+      var gap = Math.max(-w, -h);
       if (w > 0 && h > 0 && w * h > smaller * 0.1) overlap.push([name(a), name(b)]);
+      else if (gap >= 0 && gap < ${MIN_GAP_PX}) crowded.push([name(a), name(b)]);
     }
   function rgba(value) {
     // Character classes rather than escapes: this script is a template string, which drops
@@ -147,7 +163,8 @@ export const AUDIT_SCRIPT = `(function () {
   var lowContrast = [];
   small.forEach(function (n) { smallText.push(n); });
   faint.forEach(function (n) { lowContrast.push(n); });
-  return { overlap: overlap, offStage: offStage, smallText: smallText, lowContrast: lowContrast };
+  return { overlap: overlap, offStage: offStage, smallText: smallText, lowContrast: lowContrast,
+    nearEdge: nearEdge, crowded: crowded };
 })()`;
 
 /** Whether a page's answer is a `LayoutSample`; anything else is no measurement. */
@@ -179,6 +196,8 @@ export function layoutFindings(samples: { atMs: number; sample: unknown }[]): Vi
     for (const element of sample.offStage) note("off_stage", [element], atMs);
     for (const element of sample.smallText) note("small_text", [element], atMs);
     for (const element of sample.lowContrast ?? []) note("low_contrast", [element], atMs);
+    for (const element of sample.nearEdge ?? []) note("near_edge", [element], atMs);
+    for (const pair of sample.crowded ?? []) note("crowded", [...pair].sort(), atMs);
   }
   return [...found.values()];
 }
