@@ -663,6 +663,8 @@ export function createSessionsStore() {
         // The run stream holds unarchived runs only: archiving one takes it out of the
         // server's offsets (as remove() does), restoring one puts it back.
         if (old && session.activityId !== undefined && old.archived !== session.archived) {
+          // Invalidate any in-flight reload: its snapshot predates the move.
+          gen += 1;
           shiftActivityRuns(session.archived ? -1 : 1);
         }
         set({

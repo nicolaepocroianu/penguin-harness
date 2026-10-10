@@ -262,6 +262,23 @@ describe("the Activity runs folder keeps its place", () => {
     expect(store.getState().activityRuns).toEqual({ total: 11, fetched: 10, hasMore: true });
   });
 
+  it("a reload already under way when a run is archived does not undo the move", async () => {
+    listSessions.mockResolvedValue({ ...NO_ROWS, counts: COUNTS });
+    const rows = Array.from({ length: 10 }, (_, i) => run(`run_${i}`));
+    listActivityRunSessions.mockResolvedValue({ sessions: rows, total: 11 });
+    const store = createSessionsStore();
+    store.setState({ projectId: "proj", agentIds: ["default_agent"] });
+    await store.getState().reload();
+    let answer!: (value: { sessions: SessionInfo[]; total: number }) => void;
+    listActivityRunSessions.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    const stale = store.getState().reload();
+    store.getState().replace(run("run_3", { archived: true }));
+    answer({ sessions: rows, total: 11 });
+    await stale;
+    expect(store.getState().activityRuns).toEqual({ total: 10, fetched: 9, hasMore: true });
+    expect(store.getState().sessions.find((s) => s.sessionId === "run_3")?.archived).toBe(true);
+  });
+
   it("refetches more than the server's largest page in pages it accepts", async () => {
     listSessions.mockResolvedValue({ ...NO_ROWS, counts: COUNTS });
     listActivityRunSessions.mockImplementation(async (_projectId, paging) => ({
