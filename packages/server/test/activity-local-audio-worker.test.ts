@@ -88,6 +88,33 @@ describe("native audio worker", () => {
     expect(inspectWave(bytes, "test")).toMatchObject({ durationMs: 2000, mimeType: "audio/wav" });
   });
 
+  it("transcribes with Whisper's 8-bit weights, so the first use downloads the small files", async () => {
+    const data = await fixture(`
+      export const env = {};
+      export async function pipeline(task, model, options) {
+        if (task !== 'automatic-speech-recognition' || model !== 'whisper-test') throw Error('bad model');
+        if (options.dtype !== 'q8' || options.device !== 'cpu' || !env.cacheDir.endsWith('models')) throw Error('bad configuration');
+        const asr = async (samples) => {
+          if (!(samples instanceof Float32Array) || samples.length !== 2) throw Error('bad input');
+          return { text: ' Look at the stones.' };
+        };
+        asr.dispose = async () => {};
+        return asr;
+      }
+    `);
+    const bytes = await runLocalAudioWorker(
+      {
+        ...data,
+        task: "transcribe",
+        provider: "whisper",
+        model: "whisper-test",
+        pcm: new Uint8Array(new Float32Array([0, 0.5]).buffer),
+      },
+      new AbortController().signal,
+    );
+    expect(new TextDecoder().decode(bytes).trim()).toBe("Look at the stones.");
+  });
+
   it("terminates blocked inference on cancellation", async () => {
     const data = await fixture("while (true) {};");
     const controller = new AbortController();
