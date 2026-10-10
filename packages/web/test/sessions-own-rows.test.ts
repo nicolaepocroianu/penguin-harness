@@ -314,18 +314,19 @@ describe("the Activity runs folder keeps its place", () => {
     expect(store.getState().sessions).toEqual([]);
   });
 
-  it("holds runs from the run stream only, so More reads on from the rows shown", async () => {
+  it("holds the run stream's rows, plus only the runs in flight an Agent's page serves", async () => {
     listSessions.mockResolvedValue({
       ...NO_ROWS,
       counts: COUNTS,
-      // An Agent's page can also serve its newest runs; the folder does not take them.
-      activityRuns: [run("agent_only")],
+      // An Agent's page also serves its newest runs: a finished one is left to the stream's
+      // paging, a running one is kept so its completion is still noticed.
+      activityRuns: [run("agent_done"), run("agent_running", { status: "running" })],
     });
     listActivityRunSessions.mockResolvedValue({ sessions: [run("run_a")], total: 30 });
     const store = createSessionsStore();
     store.setState({ projectId: "proj", agentIds: ["default_agent"] });
     await store.getState().reload();
-    expect(store.getState().sessions.map((s) => s.sessionId)).toEqual(["run_a"]);
+    expect(store.getState().sessions.map((s) => s.sessionId)).toEqual(["run_a", "agent_running"]);
     expect(store.getState().activityRuns).toEqual({ total: 30, fetched: 1, hasMore: true });
   });
 

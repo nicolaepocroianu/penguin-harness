@@ -22,9 +22,10 @@
  * **Activity runs beside the pages**: every fetch also leaves an activity's generation runs
  * out (`excludeActivityRuns`), so no total or "More" counts a run the sidebar will not draw
  * among the conversations. The Project's run stream (listActivityRunSessions) serves them
- * instead, newest first, its first page large enough for every run in flight, and its rows
- * are held with the others: the run folder, the run-finished notifications and the activity
- * list's settle signal read them; the totals never move for them.
+ * instead, newest first, and its rows are held with the others: the run folder, the
+ * run-finished notifications and the activity list's settle signal read them; the totals
+ * never move for them. A run still in flight that newer runs have pushed past the stream's
+ * pages is kept too, from its Agent's page, so its completion is still noticed.
  *
  * Live statuses are remembered for
  * EVERY `session_state` the user channel reports (`liveStatuses`), row or no row — company
@@ -440,6 +441,10 @@ export function createSessionsStore() {
                     return {
                       category,
                       scope,
+                      // Of the runs an Agent's first page also serves, only those still in
+                      // flight are kept: a completion notice needs its row even when newer
+                      // runs elsewhere have pushed it past the Project stream's first page.
+                      liveRuns: (res.activityRuns ?? []).filter((s) => s.status !== "idle"),
                       counts: res.counts,
                       workspaceCounts: res.workspaceCounts,
                       workspaceLatest: res.workspaceLatest,
@@ -486,7 +491,10 @@ export function createSessionsStore() {
           const runRows = runs
             ? runs.sessions
             : get().sessions.filter((s) => s.activityId !== undefined && !isOrgSession(s));
-          for (const s of runRows) {
+          for (const s of [
+            ...runRows,
+            ...results.flatMap((r) => r.pages.flatMap((p) => p.liveRuns)),
+          ]) {
             if (!seen.has(s.sessionId)) {
               seen.add(s.sessionId);
               nextSessions.push(s);
