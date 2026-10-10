@@ -24,7 +24,7 @@ import type { ActivityGenerationService } from "../src/activities/generation.js"
 import type { ActivityAuthoring } from "../src/mechanisms/activities.js";
 import { validateManifest, wafManifest, type AssetManifest } from "../src/activities/media.js";
 import { INSTALL_MARKER } from "../src/activities/test-browser.js";
-import type { FfmpegRun } from "../src/activities/ffmpeg.js";
+import { runFfmpeg, type FfmpegRun } from "../src/activities/ffmpeg.js";
 import {
   RENDER_FPS,
   RENDER_MAX_SECONDS,
@@ -207,7 +207,13 @@ describe("scene video recording", () => {
     for (const cleanup of cleanups.splice(0)) await cleanup();
   });
 
-  async function fixture(options: { installed?: boolean } = {}) {
+  /**
+   * `agent`, when given, finishes every agent turn at once by writing what it likes into the
+   * session's workspace, rather than waiting for the test to `complete` it.
+   */
+  async function fixture(
+    options: { installed?: boolean; agent?: (workspace: string) => Promise<void> } = {},
+  ) {
     let complete: () => void = () => {};
     const waiting = new Set<string>();
     const fakeSession = (row: SessionRow): RuntimeSession => ({
@@ -221,6 +227,11 @@ describe("scene video recording", () => {
       async *compact() {},
       async *run(_input, runOptions) {
         yield requestBegin();
+        if (options.agent) {
+          await options.agent(row.workspace!);
+          yield requestEnd("completed");
+          return;
+        }
         await new Promise<void>((resolve) => {
           complete = resolve;
           waiting.add(row.sessionId);
@@ -245,6 +256,7 @@ describe("scene video recording", () => {
         encoder: browser.encoder,
         pageTimeoutMs: 200,
         fps: 2,
+        pollMs: 10,
         checkVideo: async (_file, expected) => {
           checked.push(expected);
           return {
@@ -780,6 +792,75 @@ describe("scene video recording", () => {
     }
     expect(again?.status, again?.error ?? "").toBe("succeeded");
   });
+
+  it("improves a scene round after round, trying a failed agent step once more", async () => {
+    // The agent: its first composing turn drops without writing anything; it composes well
+    // after that, and critiques the first recording 3 and the second 5.
+    let composing = 0;
+    const scores = [3, 5];
+    const f = await fixture({
+      agent: async (workspace) => {
+        if (await fs.stat(path.join(workspace, "critique-input.json")).catch(() => null)) {
+          const score = scores.shift()!;
+          const scored = { story: score, layout: score, readability: score, motion: score };
+          await fs.writeFile(
+            path.join(workspace, "critique.json"),
+            JSON.stringify({
+              scores: { ...scored, learners: score },
+              fixes: score < 4 ? ["Move the sun to the left."] : [],
+            }),
+          );
+          return;
+        }
+        composing += 1;
+        if (composing === 1) return;
+        await fs.writeFile(path.join(workspace, "composition.html"), goodPage());
+        await fs.writeFile(path.join(workspace, "frames.json"), JSON.stringify(FRAMES));
+      },
+    });
+    // A real six-second MP4, so the critique has stills to take.
+    const real = path.join(f.t.root, "real.mp4");
+    await runFfmpeg(
+      ["-y", "-f", "lavfi", "-i", "color=blue:size=160x120:rate=2:duration=6"].concat([
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        real,
+      ]),
+      { purpose: "for this test", timeoutMs: 60_000 },
+    );
+    f.browser.output(await fs.readFile(real));
+    await f.experiment(true);
+    const started = await f.client.post(`${f.endpoint}/improve-scene`, {
+      agentId: "default_agent",
+      expectedRevision: (await f.current()).draft.contentRevision,
+      language: "en-US",
+      assetKey: "intro-video",
+      rounds: 3,
+    });
+    expect(started.status, await started.clone().text()).toBe(202);
+    const done = async () =>
+      (await f.runs()).filter((run) => run.kind === "critique" && run.status !== "running")
+        .length === 2;
+    for (const start = Date.now(); !(await done());) {
+      if (Date.now() - start > 50_000) throw new Error("Improve did not finish.");
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    const history = (await f.runs())
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .map((run) => `${run.kind}:${run.status}`);
+    // The second critique scored 5, so Improve stopped there rather than at its three rounds.
+    expect(history).toEqual([
+      "composition:failed",
+      "composition:succeeded",
+      "video:succeeded",
+      "critique:succeeded",
+      "composition:succeeded",
+      "video:succeeded",
+      "critique:succeeded",
+    ]);
+  }, 60_000);
 });
 
 describe("recording files", () => {

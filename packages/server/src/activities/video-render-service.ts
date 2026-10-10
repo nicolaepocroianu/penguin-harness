@@ -144,8 +144,9 @@ export abstract class ActivityVideoRenders extends Interface<{
    * Improves a scene round after round (experimental): composes it again from its best version,
    * records it and critiques it, until a critique scores it `CRITIQUE_GOOD` or `rounds` rounds
    * have run. Answers at once with the first round's composition run; the rest follows, each
-   * step in the run history. Stops at the first step that does not succeed. 409
-   * `improve_running` while this activity is already being improved.
+   * step in the run history. An agent's step (composing, critiquing) that fails is tried once
+   * more; Improve stops at the first step that still does not succeed. 409 `improve_running`
+   * while this activity is already being improved.
    */
   startImprove(
     projectId: string,
@@ -519,15 +520,8 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
     const rounds = Math.max(1, Math.min(IMPROVE_MAX_ROUNDS, input.rounds));
     const revision = async () =>
       (await this.activities.getActivity(projectId, activityId)).draft.contentRevision;
-    let composition = first;
-    for (let round = 1; ; round += 1) {
-      if (!(await this.succeeds(projectId, activityId, composition.runId))) return;
-      const recording = await this.start(projectId, activityId, {
-        compositionRunId: composition.runId,
-        expectedRevision: await revision(),
-      });
-      if (!(await this.succeeds(projectId, activityId, recording.runId))) return;
-      const critique = await this.generation.start(
+    const critique = async () =>
+      this.generation.start(
         projectId,
         activityId,
         input.agentId,
@@ -535,11 +529,40 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         { critique: { language: input.language, assetKey: input.assetKey } },
         input.runtime,
       );
-      if (!(await this.succeeds(projectId, activityId, critique.runId))) return;
-      const scored = await this.generation.run(projectId, activityId, critique.runId);
+    let started = first;
+    for (let round = 1; ; round += 1) {
+      const composition = await this.agentStep(projectId, activityId, started, async () =>
+        compose(await revision()),
+      );
+      if (!composition) return;
+      const recording = await this.start(projectId, activityId, {
+        compositionRunId: composition.runId,
+        expectedRevision: await revision(),
+      });
+      if (!(await this.succeeds(projectId, activityId, recording.runId))) return;
+      const critiqued = await this.agentStep(projectId, activityId, await critique(), critique);
+      if (!critiqued) return;
+      const scored = await this.generation.run(projectId, activityId, critiqued.runId);
       if ((scored.critique?.score ?? 0) >= CRITIQUE_GOOD || round >= rounds) return;
-      composition = await compose(await revision());
+      started = await compose(await revision());
     }
+  }
+
+  /**
+   * Waits for an agent's step of an Improve; one that fails is started once more, since an
+   * agent's connection can drop mid-turn. The step that succeeded, or null.
+   */
+  private async agentStep(
+    projectId: string,
+    activityId: string,
+    run: ActivityRun,
+    again: () => Promise<ActivityRun>,
+  ): Promise<ActivityRun | null> {
+    if (await this.succeeds(projectId, activityId, run.runId)) return run;
+    if (this.stopped) return null;
+    this.log.line(`[activities] Improving ${activityId}: ${run.kind} run failed; trying it again.`);
+    const retry = await again();
+    return (await this.succeeds(projectId, activityId, retry.runId)) ? retry : null;
   }
 
   /** Waits for a run to settle; whether it succeeded. False once the server stops. */
