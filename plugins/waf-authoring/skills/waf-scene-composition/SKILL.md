@@ -84,6 +84,22 @@ design-system package format of open-design.
 - No `repeat: -1`, no `Math.random`, no `Date.now`, no timers or event handlers of your own.
   A pulsing element needs clear space at its largest.
 
+## The timeline, in GSAP terms
+
+- Build one storyboard frame at a time with labels: `timeline.addLabel("frame-2", 3)`. Place
+  tweens on them with the position parameter, either an absolute time (`3`), a label
+  (`"frame-2"`, `"frame-2+=0.4"`), or relative to the tween before it (`"<"` to start together,
+  `"<0.2"` to follow its start). Never rely on tweens appending one after another for timing that
+  matters: a later edit then shifts every frame.
+- Give the timeline shared defaults once: `gsap.timeline({ paused: true, defaults: { ease:
+  "power3.out", duration: 0.6 } })`.
+- Set every element's starting state on the timeline at time 0, with `timeline.set(...)` or
+  `fromTo`, so seeking to 0 always shows the first picture whatever was played before.
+- Callbacks (`timeline.call`, `onComplete`) fire as the recorder steps forward. Never use them to
+  change what is drawn; let tweens do that.
+- No ScrollTrigger, no `gsap.ticker` code, no tweens outside the timeline: the recorder only
+  seeks the one timeline.
+
 ## Motion for learning
 
 Movement has to earn its place. Studies of animation in teaching find it does not help learners
