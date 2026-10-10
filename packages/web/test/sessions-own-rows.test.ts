@@ -330,6 +330,28 @@ describe("the Activity runs folder keeps its place", () => {
     expect(store.getState().activityRuns).toEqual({ total: 30, fetched: 1, hasMore: true });
   });
 
+  it("archiving or deleting a run the stream's pages never served moves only the total", async () => {
+    listSessions.mockResolvedValue({
+      ...NO_ROWS,
+      counts: COUNTS,
+      activityRuns: [run("agent_running", { status: "running" })],
+    });
+    listActivityRunSessions.mockResolvedValue({
+      sessions: [run("run_a"), run("run_b")],
+      total: 30,
+    });
+    const store = createSessionsStore();
+    store.setState({ projectId: "proj", agentIds: ["default_agent"] });
+    await store.getState().reload();
+    store.getState().replace(run("agent_running", { status: "running", archived: true }));
+    expect(store.getState().activityRuns).toEqual({ total: 29, fetched: 2, hasMore: true });
+    store.getState().remove("agent_running");
+    expect(store.getState().activityRuns).toEqual({ total: 28, fetched: 2, hasMore: true });
+    // A run the stream served still moves the cursor.
+    store.getState().remove("run_a");
+    expect(store.getState().activityRuns).toEqual({ total: 27, fetched: 1, hasMore: true });
+  });
+
   it("refetches more than the server's largest page in pages it accepts", async () => {
     listSessions.mockResolvedValue({ ...NO_ROWS, counts: COUNTS });
     listActivityRunSessions.mockImplementation(async (_projectId, paging) => ({

@@ -324,17 +324,25 @@ export function createSessionsStore() {
   // bumps `gen` to drop an in-flight reload's stale result, but that reload still ends the
   // loading cycle it started — otherwise the flag stays up until some later refresh.
   let latestReload = 0;
+  // The runs the run stream's pages actually served: only one of these leaving (or coming
+  // back) moves the folder's cursor. A run in flight held from an Agent's page is not here.
+  let streamRunIds = new Set<string>();
 
   return createStore<SessionsStoreState>((set, get) => {
     /** Moves the activity-run stream's total and cursor when a run joins or leaves it. */
-    const shiftActivityRuns = (delta: number) => {
+    /**
+     * Moves the activity-run stream's total when a run joins or leaves it, and its cursor too
+     * when that run is one the stream's pages served.
+     */
+    const shiftActivityRuns = (sessionId: string, delta: number) => {
       const runs = get().activityRuns;
       if (!runs) return;
+      const inPages = streamRunIds.has(sessionId);
       set({
         activityRuns: {
           ...runs,
           total: Math.max(0, runs.total + delta),
-          fetched: Math.max(0, runs.fetched + delta),
+          fetched: inPages ? Math.max(0, runs.fetched + delta) : runs.fetched,
         },
       });
     };
@@ -461,6 +469,7 @@ export function createSessionsStore() {
           );
           const runs = await runsRequest;
           if (g !== gen) return;
+          if (runs) streamRunIds = new Set(runs.sessions.map((s) => s.sessionId));
           const nextSessions: SessionInfo[] = [];
           const seen = new Set<string>();
           const nextPageState = new Map<string, PagePosition>();
@@ -640,6 +649,7 @@ export function createSessionsStore() {
         const seen = new Set(prev.map((s) => s.sessionId));
         const appended = res.sessions.filter((s) => !seen.has(s.sessionId));
         const fetched = activityRuns.fetched + res.sessions.length;
+        for (const s of res.sessions) streamRunIds.add(s.sessionId);
         set({
           ...(appended.length > 0 ? { sessions: [...prev, ...appended] } : {}),
           activityRuns: { total: res.total, fetched, hasMore: fetched < res.total },
@@ -670,7 +680,10 @@ export function createSessionsStore() {
         gen += 1;
         const row = get().sessions.find((s) => s.sessionId === sessionId);
         if (row) adjustCount(row, sessionCategory(row), -1);
-        if (row?.activityId !== undefined) shiftActivityRuns(-1);
+        if (row?.activityId !== undefined) {
+          shiftActivityRuns(sessionId, -1);
+          streamRunIds.delete(sessionId);
+        }
         // Tombstone BEFORE pruning the list, in the same update: consumers re-render on the
         // pruned list, and any of them that reacts to the row's disappearance (the chat
         // page's deep-link lookup) must already be able to see that the id is dead rather
@@ -700,7 +713,7 @@ export function createSessionsStore() {
         if (old && session.activityId !== undefined && old.archived !== session.archived) {
           // Invalidate any in-flight reload: its snapshot predates the move.
           gen += 1;
-          shiftActivityRuns(session.archived ? -1 : 1);
+          shiftActivityRuns(session.sessionId, session.archived ? -1 : 1);
         }
         set({
           sessions: get().sessions.map((s) => (s.sessionId === session.sessionId ? session : s)),
