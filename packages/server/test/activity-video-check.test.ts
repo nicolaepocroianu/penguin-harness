@@ -25,7 +25,7 @@ function report(overrides: Partial<VideoReport> = {}): VideoReport {
     silence: [],
     meanDb: -20,
     peakDb: -2,
-    luma: [],
+    frames: [],
     ...overrides,
   };
 }
@@ -56,6 +56,10 @@ describe("video check", () => {
       "[Parsed_volumedetect_1 @ 0x3] max_volume: -inf dB",
       "[Parsed_metadata_2 @ 0x4] frame:0    pts:0       pts_time:0",
       "[Parsed_metadata_2 @ 0x4] lavfi.signalstats.YAVG=16.0",
+      "[Parsed_metadata_3 @ 0x5] frame:0    pts:0       pts_time:0",
+      "[Parsed_metadata_3 @ 0x5] lavfi.signalstats.UAVG=90",
+      "[Parsed_metadata_4 @ 0x6] frame:0    pts:0       pts_time:0",
+      "[Parsed_metadata_4 @ 0x6] lavfi.signalstats.VAVG=240",
       "[Parsed_metadata_2 @ 0x4] frame:1    pts:512     pts_time:0.0333333",
       "[Parsed_metadata_2 @ 0x4] lavfi.signalstats.YAVG=235",
     ].join("\n");
@@ -72,9 +76,9 @@ describe("video check", () => {
       ],
       meanDb: -21.3,
       peakDb: -Infinity,
-      luma: [
-        { ms: 0, y: 16 },
-        { ms: 33, y: 235 },
+      frames: [
+        { ms: 0, y: 16, u: 90, v: 240 },
+        { ms: 33, y: 235, u: 128, v: 128 },
       ],
     });
   });
@@ -101,18 +105,23 @@ describe("video check", () => {
     expect(codes({ black: [{ startMs: 1000, endMs: 1800 }] })).toEqual(["black:warning"]);
     expect(codes({ black: [{ startMs: 0, endMs: 3900 }] })).toEqual(["black:error"]);
     // Light and dark in turn: four flashes in a second is too many, three is not.
-    const flicker = (perSecond: number) =>
-      Array.from({ length: 60 }, (_, frame) => ({
-        ms: Math.round((frame * 1000) / 30),
-        y: Math.floor((frame * perSecond * 2) / 30) % 2 ? 235 : 16,
-      }));
-    expect(codes({ luma: flicker(4) })).toEqual(["flashing:error"]);
-    expect(codes({ luma: flicker(3) })).toEqual([]);
+    const grey = (ms: number, y: number) => ({ ms, y, u: 128, v: 128 });
+    // Saturated red, and a grey just as bright: only a red flash tells them apart.
+    const red = (ms: number) => ({ ms, y: 81, u: 90, v: 240 });
+    const flicker = (perSecond: number, light = (ms: number) => grey(ms, 235), dark = 16) =>
+      Array.from({ length: 60 }, (_, frame) => {
+        const ms = Math.round((frame * 1000) / 30);
+        return Math.floor((frame * perSecond * 2) / 30) % 2 ? light(ms) : grey(ms, dark);
+      });
+    expect(codes({ frames: flicker(4) })).toEqual(["flashing:error"]);
+    expect(codes({ frames: flicker(3) })).toEqual([]);
+    expect(codes({ frames: flicker(4, red, 126) })).toEqual(["flashing:error"]);
+    expect(codes({ frames: flicker(3, red, 126) })).toEqual([]);
     // A slow fade, and a single cut from dark to light, are not flashes.
     expect(
-      codes({ luma: Array.from({ length: 60 }, (_, i) => ({ ms: i * 33, y: 16 + i * 3 })) }),
+      codes({ frames: Array.from({ length: 60 }, (_, i) => grey(i * 33, 16 + i * 3)) }),
     ).toEqual([]);
-    expect(codes({ luma: [0, 33, 66, 99].map((ms, i) => ({ ms, y: i < 2 ? 16 : 235 })) })).toEqual(
+    expect(codes({ frames: [0, 33, 66, 99].map((ms, i) => grey(ms, i < 2 ? 16 : 235)) })).toEqual(
       [],
     );
     expect(judge(report({ durationMs: 6000 }), expected).status).toBe("revise");
@@ -159,6 +168,22 @@ describe("video check", () => {
         ],
         options,
       );
+      // Saturated red and an equally bright grey in turn: no general flash, only a red one.
+      await runFfmpeg(
+        [
+          "-y",
+          "-f",
+          "lavfi",
+          "-i",
+          "color=black:size=160x120:rate=24:duration=2,format=rgb24,geq=r='if(mod(floor(N/3),2),255,128)':g='if(mod(floor(N/3),2),0,128)':b='if(mod(floor(N/3),2),0,128)'",
+          "-c:v",
+          "libx264",
+          "-pix_fmt",
+          "yuv420p",
+          file("red.mp4"),
+        ],
+        options,
+      );
       await fs.writeFile(file("broken.mp4"), "not a video");
     }, 60_000);
     afterAll(async () => {
@@ -190,16 +215,19 @@ describe("video check", () => {
       await expect(checkVideo(file("broken.mp4"), expected)).rejects.toThrow();
     }, 60_000);
 
-    it("finds a video that flashes", async () => {
-      const check = await checkVideo(file("flashing.mp4"), {
+    it("finds a video that flashes, and one that flashes red", async () => {
+      const small = {
         ...expected,
         durationMs: 2000,
         width: 160,
         height: 120,
         audio: false,
         narration: [],
-      });
-      expect(check.findings.map((finding) => finding.code)).toEqual(["flashing"]);
+      };
+      for (const name of ["flashing.mp4", "red.mp4"]) {
+        const check = await checkVideo(file(name), small);
+        expect(check.findings.map((finding) => finding.code)).toEqual(["flashing"]);
+      }
     }, 60_000);
   });
 });
