@@ -818,10 +818,22 @@ export class PipelineRunner {
     }
     if (!manifest) throw new Error("Plan media before recording the book's words.");
     validateSpeechLanguages(manifest, { ...input, selection: "words" });
-    const waiting = inScope(unrecordedWithSounds(manifest), input.scope);
+    // The words are planned from the book's text first, with espeak-ng's sounds, as the Book
+    // words panel's refresh does: a book taken through every stage has none planned before.
+    const languages = input.scope?.language ? [input.scope.language] : Object.keys(manifest.assets);
+    for (const language of languages)
+      await activities.refreshBookWords(
+        projectId,
+        activityId,
+        language,
+        (await current()).draft.contentRevision,
+        "decodable",
+      );
+    const planned = (await current()).draft.mediaPlan!.manifest;
+    const waiting = inScope(unrecordedWithSounds(planned), input.scope);
     if (!waiting.length) {
       step.status = "skipped";
-      step.note = inScope(unrecordedWithoutSounds(manifest), input.scope).length
+      step.note = inScope(unrecordedWithoutSounds(planned), input.scope).length
         ? "wordsMissingSounds"
         : "noWords";
       return;

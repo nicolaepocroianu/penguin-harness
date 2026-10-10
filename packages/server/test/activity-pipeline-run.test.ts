@@ -1093,6 +1093,7 @@ function wordWorld(
   const runs: ActivityRun[] = [];
   const started: unknown[] = [];
   const prepared: string[] = [];
+  const refreshed: string[] = [];
   const generation = {
     async start(_p: string, _a: string, agentId: string, expected: string, module?: any) {
       if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
@@ -1140,6 +1141,12 @@ function wordWorld(
     async bookWordsState() {
       return { bookMode: options.bookMode === undefined ? "decodable" : options.bookMode };
     },
+    // The words are already planned here; the stage plans them again before recording.
+    async refreshBookWords(_p: string, _a: string, language: string, expected: string) {
+      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
+      refreshed.push(language);
+      return {};
+    },
     async prepareWordRecordings(
       _p: string,
       _a: string,
@@ -1165,10 +1172,16 @@ function wordWorld(
     now: () => "2026-09-25T12:00:00Z",
     newId: () => "pipeline_words",
   });
-  return { runner, activity, group, started, prepared, word };
+  return { runner, activity, group, started, prepared, refreshed, word };
 }
 
 describe("the words step", () => {
+  it("plans the book's words for each language before recording them", async () => {
+    const w = wordWorld();
+    await w.runner.start("proj", "act", { selection: "words", agentId: "agent" }).done;
+    expect(w.refreshed).toEqual(Object.keys(w.activity.draft.mediaPlan!.manifest.assets));
+  });
+
   it("records each word with sounds and no recording, in its provider's script, and accepts it", async () => {
     const w = wordWorld();
     await w.runner.start("proj", "act", { selection: "words", agentId: "agent", voice: "Kore" })
