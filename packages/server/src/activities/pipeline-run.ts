@@ -824,40 +824,35 @@ export class PipelineRunner {
     }
     if (!manifest) throw new Error("Plan media before recording the book's words.");
     validateSpeechLanguages(manifest, { ...input, selection: "words" });
-    // The words are planned from the book's text first, with espeak-ng's sounds, as the Book
-    // words panel's refresh does: a book taken through every stage has none planned before.
+    // For each language, the words are planned from the book's text first, with espeak-ng's
+    // sounds, as the Book words panel's refresh does: a book taken through every stage has none
+    // planned before. Words espeak-ng could not sound out (or every word, where it is not
+    // installed) then get the sounds the stage's agent proposes, as the panel's "ask the
+    // model" does, accepted as they come: a word without sounds cannot be recorded at all.
     const languages = input.scope?.language ? [input.scope.language] : Object.keys(manifest.assets);
-    for (const language of languages)
+    const revision = async () => (await current()).draft.contentRevision;
+    for (const language of languages) {
+      step.detail = language;
       await activities.refreshBookWords(
         projectId,
         activityId,
         language,
-        (await current()).draft.contentRevision,
+        await revision(),
         "decodable",
       );
-    // Words espeak-ng could not sound out (or every word, where it is not installed) get the
-    // sounds the stage's agent proposes, as the panel's "ask the model" does, accepted as they
-    // come: a word without sounds cannot be recorded at all.
-    for (const language of languages) {
       const group = (await current()).draft.mediaPlan!.manifest.assets[language] ?? [];
       const missing = wordsMissingPhonemes(group).slice(0, PHONEMES_RUN_MAX_WORDS);
       if (!missing.length) continue;
-      step.detail = "sounds";
       const run = await generation.start(
         projectId,
         activityId,
         input.agentId,
-        (await current()).draft.contentRevision,
+        await revision(),
         { phonemes: { language, words: missing } },
         runtime,
       );
       await this.follow(state, step, run);
-      await generation.acceptPhonemes(
-        projectId,
-        activityId,
-        run.runId,
-        (await current()).draft.contentRevision,
-      );
+      await generation.acceptPhonemes(projectId, activityId, run.runId, await revision());
     }
     step.detail = null;
     const planned = (await current()).draft.mediaPlan!.manifest;
