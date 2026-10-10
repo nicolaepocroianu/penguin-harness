@@ -150,6 +150,8 @@ import {
   COMPOSITION_MAX_BYTES,
   COMPOSITION_TEMPLATE_FILE,
   CompositionProblem,
+  COMPOSITION_SKILL,
+  COMPOSITION_SKILL_FILE,
   compositionInput,
   findingForAgent,
   compositionProblem,
@@ -1229,7 +1231,20 @@ export class ActivityGenerationService implements ActivityGeneration {
             if (mediaText)
               await atomicJson(path.join(workspace, "media-text-input.json"), mediaText);
             if (phonemes) await atomicJson(path.join(workspace, PHONEMES_INPUT_FILE), phonemes);
-            if (composition) await stageComposition(workspace, composition);
+            if (composition) {
+              await stageComposition(workspace, composition);
+              // How to compose a scene, from the waf-authoring plugin (see its skill).
+              const skill = libraryPlugin("waf-authoring")?.skills.find(
+                (entry) => entry.name === COMPOSITION_SKILL,
+              )?.content;
+              if (!skill)
+                throw new HttpError(
+                  500,
+                  "composition_skill_missing",
+                  "The installed scene composition skill is missing. Rebuild the bundled plugins.",
+                );
+              await fs.writeFile(path.join(workspace, COMPOSITION_SKILL_FILE), skill, "utf8");
+            }
             if (timelineEdit) await stageTimelineEdit(workspace, timelineEdit);
             if (assessment) {
               const skill = libraryPlugin("waf-authoring")?.skills.find(
