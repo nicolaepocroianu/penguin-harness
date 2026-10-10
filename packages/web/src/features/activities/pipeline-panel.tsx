@@ -206,8 +206,9 @@ const STEP_ICON: Partial<Record<PipelineStepStatus, RunState>> = {
 };
 
 /**
- * The session each stage's conversation lives in. The step's own record comes first: an
- * earlier sequence's runs can fall out of the activity's recent runs while it is still listed.
+ * The session each stage's conversation lives in. A run still among the activity's recent
+ * runs names it (its session follows a rebuild); the step's own record covers an earlier
+ * sequence whose runs have fallen out of them.
  */
 export function stepSessions(
   pipeline: PipelineState | null,
@@ -218,11 +219,10 @@ export function stepSessions(
   for (const step of pipeline?.steps ?? []) {
     // A media step runs many times; its latest session is the one worth reading.
     const session =
-      step.sessionId ??
       [...step.runIds]
         .reverse()
         .map((runId) => byRun.get(runId))
-        .find(Boolean);
+        .find(Boolean) ?? step.sessionId;
     if (session) result.set(step.step, session);
   }
   if (pipeline?.status === "running" && pipeline.currentSessionId) {

@@ -264,7 +264,8 @@ export class SessionsRepo implements SessionIndex {
    * Self-healing: after rebuilding a broken Session with no Trace, update the primary key to
    * the new id — and the activity run that names the Session, so a run's conversation (a
    * studio chat continued after a restart) stays that run's rather than becoming an
-   * ordinary one.
+   * ordinary one. The stage sequences that recorded it follow too, so the Stages panel
+   * opens the rebuilt Session rather than the removed one.
    */
   replaceId(oldSessionId: string, newSessionId: string): void {
     this.db
@@ -276,6 +277,25 @@ export class SessionsRepo implements SessionIndex {
           WHERE json_extract(record_json, '$.sessionId') = ?`,
       )
       .run(newSessionId, oldSessionId);
+    const pipelines = this.db
+      .prepare(
+        "SELECT pipeline_id, record_json FROM activity_pipelines WHERE instr(record_json, ?) > 0",
+      )
+      .all(JSON.stringify(oldSessionId)) as Array<{ pipeline_id: string; record_json: string }>;
+    const updatePipeline = this.db.prepare(
+      "UPDATE activity_pipelines SET record_json = ? WHERE pipeline_id = ?",
+    );
+    for (const row of pipelines) {
+      const record = JSON.parse(row.record_json) as {
+        currentSessionId?: string | null;
+        steps?: Array<{ sessionId?: string | null }>;
+      };
+      if (record.currentSessionId === oldSessionId) record.currentSessionId = newSessionId;
+      for (const step of record.steps ?? []) {
+        if (step.sessionId === oldSessionId) step.sessionId = newSessionId;
+      }
+      updatePipeline.run(JSON.stringify(record), row.pipeline_id);
+    }
   }
 
   deleteByAgent(projectId: string, agentId: string): void {

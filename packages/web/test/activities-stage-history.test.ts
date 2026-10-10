@@ -112,4 +112,24 @@ describe("a stage's conversation", () => {
     });
     expect(stepSessions(old, [{ runId: "run_1", sessionId: "sess_1" }]).get("spec")).toBe("sess_1");
   });
+
+  it("follows a run's rebuilt session over the one the step recorded", () => {
+    const rebuilt = sequence("pipe_old", {
+      steps: [
+        {
+          step: "spec",
+          status: "succeeded",
+          detail: null,
+          note: null,
+          done: 0,
+          total: 0,
+          runIds: ["run_1"],
+          sessionId: "sess_removed",
+        },
+      ],
+    });
+    expect(stepSessions(rebuilt, [{ runId: "run_1", sessionId: "sess_rebuilt" }]).get("spec")).toBe(
+      "sess_rebuilt",
+    );
+  });
 });
