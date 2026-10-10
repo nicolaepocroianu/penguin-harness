@@ -1047,6 +1047,8 @@ function wordWorld(
     bookMode?: "decodable" | "readAlong" | null;
     elevenlabs?: boolean;
     words?: MediaAsset[];
+    /** Whether the agent's sounds run proposes sounds for the words without any. */
+    proposes?: boolean;
   } = {},
 ) {
   const word = (normalized: string, extra: Partial<MediaAsset> = {}): MediaAsset => ({
@@ -1094,9 +1096,24 @@ function wordWorld(
   const started: unknown[] = [];
   const prepared: string[] = [];
   const refreshed: string[] = [];
+  const asked: string[][] = [];
   const generation = {
     async start(_p: string, _a: string, agentId: string, expected: string, module?: any) {
       if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
+      if (module.phonemes) {
+        asked.push(module.phonemes.words);
+        const run = {
+          kind: "phonemes",
+          runId: `phonemes_${asked.length}`,
+          sessionId: null,
+          status: "running",
+          error: null,
+          agentId,
+          phonemes: module.phonemes,
+        } as unknown as ActivityRun;
+        runs.push(run);
+        return run;
+      }
       const asset = group().find((item) => item.key === module.audio.assetKey)!;
       started.push({ ...module.audio, script: asset.script });
       const run = {
@@ -1126,6 +1143,18 @@ function wordWorld(
     // No Vault voice: the default ElevenLabs voice is Loom's.
     async elevenLabsDefaultVoice() {
       return ELEVENLABS_BUILTIN_VOICE_ID;
+    },
+    // The proposal, accepted: each asked word sounded out letter by letter.
+    async acceptPhonemes(_p: string, _a: string, runId: string, expected: string) {
+      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
+      const run = runs.find((item) => item.runId === runId)! as unknown as {
+        phonemes: { words: string[] };
+      };
+      if (options.proposes)
+        for (const asset of group())
+          if (run.phonemes.words.includes(asset.normalizedWord!))
+            asset.phonemes = [...asset.normalizedWord!];
+      bump();
     },
     async acceptAudio(_p: string, _a: string, runId: string, expected: string) {
       if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
@@ -1172,7 +1201,7 @@ function wordWorld(
     now: () => "2026-09-25T12:00:00Z",
     newId: () => "pipeline_words",
   });
-  return { runner, activity, group, started, prepared, refreshed, word };
+  return { runner, activity, group, started, prepared, refreshed, asked, word };
 }
 
 describe("the words step", () => {
@@ -1180,6 +1209,14 @@ describe("the words step", () => {
     const w = wordWorld();
     await w.runner.start("proj", "act", { selection: "words", agentId: "agent" }).done;
     expect(w.refreshed).toEqual(Object.keys(w.activity.draft.mediaPlan!.manifest.assets));
+  });
+
+  it("asks the agent for the sounds of words without any, then records them too", async () => {
+    const w = wordWorld({ proposes: true });
+    await w.runner.start("proj", "act", { selection: "words", agentId: "agent" }).done;
+    expect(w.asked).toEqual([["ran"]]);
+    expect(w.runner.status("act")!.steps[0]).toMatchObject({ status: "succeeded", total: 3 });
+    expect(w.group().find((item) => item.key === "book-word-ran")!.path).toMatch(/^media\//);
   });
 
   it("records each word with sounds and no recording, in its provider's script, and accepts it", async () => {
@@ -1206,7 +1243,8 @@ describe("the words step", () => {
         script: geminiScript("the", ["ð", "ə"]),
       },
     ]);
-    expect(w.group().find((item) => item.key === "book-word-cat")!.path).toBe("media/run_1.mp3");
+    // The sounds run for "ran" came first (this agent proposes none), so this is the second run.
+    expect(w.group().find((item) => item.key === "book-word-cat")!.path).toBe("media/run_2.mp3");
     // The word without sounds is left for later.
     expect(w.group().find((item) => item.key === "book-word-ran")!.path).toBeUndefined();
   });
