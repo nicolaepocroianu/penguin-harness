@@ -77,6 +77,8 @@ export type VideoCheckCode =
   | "narration_silent"
   /** The picture is black for a stretch. */
   | "black"
+  /** The picture flashes more than three times in a second (WCAG 2.3.1). */
+  | "flashing"
   /** Two of the composition's main objects cover each other (see the layout audit). */
   | "layout_overlap"
   /** A main object is partly outside the stage. */

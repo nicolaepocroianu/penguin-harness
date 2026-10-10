@@ -113,7 +113,8 @@ understand better than a clear still picture, and can make them remember less. S
   next one.
 - Pair every important change with something that stays: a label, an arrow, or the narration
   naming it. Movement alone is easy to miss.
-- Never flash. Nothing brightens and dims more than three times in any second (WCAG 2.3.1).
+- Never flash. Nothing brightens and dims more than three times in any second (WCAG 2.3.1);
+  Penguin checks every recording for it and will not pass one that flashes.
   Sparkles and glows rise and settle once rather than pulsing.
 - Celebrations (stars, confetti, a glow on the answer) play once and come to rest; nothing loops
   for the whole scene.

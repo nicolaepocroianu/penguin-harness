@@ -1682,6 +1682,7 @@ export type Strings = {
           | "clipping"
           | "narration_silent"
           | "black"
+          | "flashing"
           | "layout_overlap"
           | "off_stage"
           | "near_edge"

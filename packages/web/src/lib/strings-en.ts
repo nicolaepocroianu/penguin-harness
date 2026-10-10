@@ -1963,6 +1963,8 @@ export const en: Strings = {
           narration_silent: (from: string, to: string, asset: string) =>
             `${asset} should be speaking from ${from} s to ${to} s, but it is silent there.`,
           black: (from: string, to: string) => `The picture is black from ${from} s to ${to} s.`,
+          flashing: (from: string, to: string) =>
+            `The picture flashes more than three times a second from ${from} s to ${to} s, which can cause seizures. Make it again without the flashing.`,
           layout_overlap: (from: string, to: string, _asset: string, elements: string) =>
             `${elements} cover each other, seen from ${from} s to ${to} s.`,
           off_stage: (from: string, to: string, _asset: string, elements: string) =>

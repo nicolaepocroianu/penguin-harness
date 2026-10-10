@@ -25,6 +25,7 @@ function report(overrides: Partial<VideoReport> = {}): VideoReport {
     silence: [],
     meanDb: -20,
     peakDb: -2,
+    luma: [],
     ...overrides,
   };
 }
@@ -53,6 +54,10 @@ describe("video check", () => {
       "[silencedetect @ 0x2] silence_start: 4",
       "[Parsed_volumedetect_1 @ 0x3] mean_volume: -21.3 dB",
       "[Parsed_volumedetect_1 @ 0x3] max_volume: -inf dB",
+      "[Parsed_metadata_2 @ 0x4] frame:0    pts:0       pts_time:0",
+      "[Parsed_metadata_2 @ 0x4] lavfi.signalstats.YAVG=16.0",
+      "[Parsed_metadata_2 @ 0x4] frame:1    pts:512     pts_time:0.0333333",
+      "[Parsed_metadata_2 @ 0x4] lavfi.signalstats.YAVG=235",
     ].join("\n");
     expect(parseReport(text)).toEqual({
       durationMs: 4500,
@@ -67,6 +72,10 @@ describe("video check", () => {
       ],
       meanDb: -21.3,
       peakDb: -Infinity,
+      luma: [
+        { ms: 0, y: 16 },
+        { ms: 33, y: 235 },
+      ],
     });
   });
 
@@ -91,6 +100,21 @@ describe("video check", () => {
     ]);
     expect(codes({ black: [{ startMs: 1000, endMs: 1800 }] })).toEqual(["black:warning"]);
     expect(codes({ black: [{ startMs: 0, endMs: 3900 }] })).toEqual(["black:error"]);
+    // Light and dark in turn: four flashes in a second is too many, three is not.
+    const flicker = (perSecond: number) =>
+      Array.from({ length: 60 }, (_, frame) => ({
+        ms: Math.round((frame * 1000) / 30),
+        y: Math.floor((frame * perSecond * 2) / 30) % 2 ? 235 : 16,
+      }));
+    expect(codes({ luma: flicker(4) })).toEqual(["flashing:error"]);
+    expect(codes({ luma: flicker(3) })).toEqual([]);
+    // A slow fade, and a single cut from dark to light, are not flashes.
+    expect(
+      codes({ luma: Array.from({ length: 60 }, (_, i) => ({ ms: i * 33, y: 16 + i * 3 })) }),
+    ).toEqual([]);
+    expect(codes({ luma: [0, 33, 66, 99].map((ms, i) => ({ ms, y: i < 2 ? 16 : 235 })) })).toEqual(
+      [],
+    );
     expect(judge(report({ durationMs: 6000 }), expected).status).toBe("revise");
     expect(judge(report({ durationMs: null }), expected)).toMatchObject({
       status: "fail",
@@ -118,6 +142,21 @@ describe("video check", () => {
           "yuv420p",
           file("black.mp4"),
         ]),
+        options,
+      );
+      await runFfmpeg(
+        [
+          "-y",
+          "-f",
+          "lavfi",
+          "-i",
+          "color=black:size=160x120:rate=24:duration=2,format=gray,geq=lum='if(mod(floor(N/3),2),235,16)'",
+          "-c:v",
+          "libx264",
+          "-pix_fmt",
+          "yuv420p",
+          file("flashing.mp4"),
+        ],
         options,
       );
       await fs.writeFile(file("broken.mp4"), "not a video");
@@ -149,6 +188,18 @@ describe("video check", () => {
         "black",
       ]);
       await expect(checkVideo(file("broken.mp4"), expected)).rejects.toThrow();
+    }, 60_000);
+
+    it("finds a video that flashes", async () => {
+      const check = await checkVideo(file("flashing.mp4"), {
+        ...expected,
+        durationMs: 2000,
+        width: 160,
+        height: 120,
+        audio: false,
+        narration: [],
+      });
+      expect(check.findings.map((finding) => finding.code)).toEqual(["flashing"]);
     }, 60_000);
   });
 });

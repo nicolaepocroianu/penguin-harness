@@ -183,6 +183,8 @@ export function findingForAgent(finding: VideoCheckFinding, check: VideoCheck): 
       return `The text in ${things} is smaller than 28px ${when}: make it larger.`;
     case "black":
       return `The picture is black ${when}: show the scene there.`;
+    case "flashing":
+      return `The picture flashes more than three times in a second ${when}, which can cause seizures: brighten and dim things at most once there, slowly.`;
     case "duration_off":
       return `The timeline played for ${at(check.durationMs ?? 0)} s, which is not what frames.json adds up to: make the timeline last exactly as long as the frames say.`;
     case "size_off":

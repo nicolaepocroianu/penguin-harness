@@ -95,7 +95,12 @@ export function startFfmpeg(
       return;
     }
     const out: Buffer[] = [];
-    let err = "";
+    // The end of stderr, in the chunks it came in: whole chunks fall off the front once the
+    // rest still holds the limit, so a long report is not copied again with every chunk.
+    const limit = options.stderrLimit ?? 4000;
+    const errChunks: string[] = [];
+    let errLength = 0;
+    const err = () => errChunks.join("").slice(-limit);
     let started = false;
     let timedOut = false;
     const timer = setTimeout(() => {
@@ -103,10 +108,13 @@ export function startFfmpeg(
       child.kill();
     }, options.timeoutMs);
     child.stdout.on("data", (chunk: Buffer) => out.push(chunk));
-    child.stderr.on(
-      "data",
-      (chunk: Buffer) => (err = (err + chunk.toString()).slice(-(options.stderrLimit ?? 4000))),
-    );
+    child.stderr.on("data", (chunk: Buffer) => {
+      const text = chunk.toString();
+      errChunks.push(text);
+      errLength += text.length;
+      while (errChunks.length > 1 && errLength - errChunks[0]!.length >= limit)
+        errLength -= errChunks.shift()!.length;
+    });
     // A closed pipe after FFmpeg failed is reported by its exit, not here.
     child.stdin.on("error", () => {});
     const exited = new Promise<number | null>((settle, fail) => {
@@ -129,7 +137,7 @@ export function startFfmpeg(
         write: (chunk) =>
           new Promise<void>((done, fail) => {
             if (child.stdin.destroyed || child.exitCode !== null) {
-              fail(new FfmpegError("ffmpeg stopped reading its input.", err.trim()));
+              fail(new FfmpegError("ffmpeg stopped reading its input.", err().trim()));
               return;
             }
             if (child.stdin.write(chunk)) {
@@ -143,7 +151,7 @@ export function startFfmpeg(
             };
             const closed = () => {
               child.stdin.off("drain", drained);
-              fail(new FfmpegError("ffmpeg stopped reading its input.", err.trim()));
+              fail(new FfmpegError("ffmpeg stopped reading its input.", err().trim()));
             };
             child.stdin.once("drain", drained);
             child.once("close", closed);
@@ -152,16 +160,16 @@ export function startFfmpeg(
           child.stdin.end();
           const code = await exited;
           if (timedOut)
-            throw new FfmpegError(`ffmpeg took longer than ${options.timeoutMs} ms.`, err.trim());
+            throw new FfmpegError(`ffmpeg took longer than ${options.timeoutMs} ms.`, err().trim());
           if (code !== 0)
             throw new FfmpegError(
-              err.trim() || `ffmpeg exited with ${code ?? "a signal"}`,
-              err.trim(),
+              err().trim() || `ffmpeg exited with ${code ?? "a signal"}`,
+              err().trim(),
             );
           return Buffer.concat(out);
         },
         kill: () => child.kill(),
-        stderr: () => err,
+        stderr: err,
       });
     });
   });
@@ -179,13 +187,14 @@ export async function runFfmpeg(
 
 /**
  * Runs FFmpeg for what it reports rather than what it writes: an analysis (`-f null -`) whose
- * findings are on stderr. Answers all of stderr, up to 1 MB.
+ * findings are on stderr. Answers all of stderr, up to 32 MB: the check's brightness of every
+ * frame takes about 130 characters a frame, and the report's head (length, size) must survive.
  */
 export async function ffmpegReport(
   args: string[],
   options: { purpose: string; timeoutMs: number; executable?: string },
 ): Promise<string> {
-  const run = await startFfmpeg(args, { ...options, stderrLimit: 1_000_000 });
+  const run = await startFfmpeg(args, { ...options, stderrLimit: 32_000_000 });
   await run.finish();
   return run.stderr();
 }

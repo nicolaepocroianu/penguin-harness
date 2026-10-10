@@ -4,8 +4,9 @@
  * video should be.
  *
  * FFmpeg reports the file's length, picture size, frame rate and whether it has sound as it
- * opens it, and three filters report the rest as they go: `blackdetect` (stretches of black
- * picture), `silencedetect` (stretches of silence) and `volumedetect` (mean and peak loudness).
+ * opens it, and filters report the rest as they go: `blackdetect` (stretches of black
+ * picture), `signalstats` (each frame's brightness, for flashing), `silencedetect` (stretches of
+ * silence) and `volumedetect` (mean and peak loudness).
  * Nothing is decoded twice and nothing is written.
  *
  * What it checks follows OpenMontage's final review of a render (`_run_final_review` in its
@@ -32,6 +33,13 @@ export const SILENT_MEAN_DB = -60;
 export const CLIPPING_PEAK_DB = -0.5;
 /** A narration this much covered by silence is not being heard. */
 export const NARRATION_SILENT_SHARE = 0.8;
+/**
+ * WCAG 2.3.1's general flash: a change of at least a tenth in relative luminance, with the darker
+ * side under 0.8, and more than three flashes (pairs of opposing changes) in any one second.
+ */
+export const FLASH_CHANGE = 0.1;
+export const FLASH_DARK = 0.8;
+export const FLASHES_PER_SECOND = 3;
 
 /** What the video should be. */
 export interface VideoExpectation {
@@ -55,7 +63,7 @@ export function checkArgs(file: string): string[] {
     "-i",
     file,
     "-vf",
-    `blackdetect=d=${BLACK_MIN_SECONDS}:pix_th=0.10`,
+    `blackdetect=d=${BLACK_MIN_SECONDS}:pix_th=0.10,signalstats,metadata=print:key=lavfi.signalstats.YAVG`,
     "-af",
     "silencedetect=n=-50dB:d=1,volumedetect",
     "-f",
@@ -80,6 +88,8 @@ export interface VideoReport {
   silence: Stretch[];
   meanDb: number | null;
   peakDb: number | null;
+  /** Each frame's average brightness (video range, 16 black to 235 white), by its time. */
+  luma: { ms: number; y: number }[];
 }
 
 const ms = (seconds: string) => Math.round(Number(seconds) * 1000);
@@ -119,7 +129,37 @@ export function parseReport(report: string): VideoReport {
     silence,
     meanDb: db(mean),
     peakDb: db(peak),
+    luma: [...report.matchAll(/pts_time:([\d.]+)\s*\n[^\n]*?signalstats\.YAVG=([\d.]+)/g)].map(
+      (match) => ({ ms: ms(match[1]!), y: Number(match[2]) }),
+    ),
   };
+}
+
+/**
+ * Where the picture flashes too often for learners prone to seizures, by the whole frame's
+ * brightness: each change of `FLASH_CHANGE` or more against the last turning point, and the
+ * first one-second window holding more than `FLASHES_PER_SECOND` flashes. A frame's average
+ * misses a flash that covers only part of it, so passing is not proof; failing is.
+ */
+export function flashing(luma: VideoReport["luma"]): Stretch | null {
+  const relative = (y: number) => Math.min(1, Math.max(0, (y - 16) / 219)) ** 2.2;
+  const changes: number[] = [];
+  let turn = luma[0] ? relative(luma[0].y) : 0;
+  let rising = 0;
+  for (const frame of luma) {
+    const level = relative(frame.y);
+    if ((rising > 0 && level > turn) || (rising < 0 && level < turn)) turn = level;
+    else if (Math.abs(level - turn) >= FLASH_CHANGE && Math.min(level, turn) < FLASH_DARK) {
+      changes.push(frame.ms);
+      rising = Math.sign(level - turn);
+      turn = level;
+    }
+  }
+  const most = (FLASHES_PER_SECOND + 1) * 2;
+  for (let first = 0; first + most - 1 < changes.length; first += 1)
+    if (changes[first + most - 1]! - changes[first]! < 1000)
+      return { startMs: changes[first]!, endMs: changes[first + most - 1]! };
+  return null;
 }
 
 /** How much of `stretch` the stretches in `over` cover, in milliseconds. */
@@ -190,6 +230,8 @@ export function judge(report: VideoReport, expected: VideoExpectation): VideoChe
   else
     for (const stretch of report.black)
       findings.push({ code: "black", severity: "warning", ...stretch });
+  const flash = flashing(report.luma);
+  if (flash) findings.push({ code: "flashing", severity: "error", ...flash });
   return {
     status: findings.some((finding) => finding.severity === "error") ? "revise" : "pass",
     ...measured,
