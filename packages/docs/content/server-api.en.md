@@ -1036,7 +1036,7 @@ Real-time delivery uses Server-Sent Events, not WebSocket, on two kinds of chann
 | Channel | Path | Contents |
 | --- | --- | --- |
 | Per Session | `GET /api/sessions/:sessionId/stream` | The Session's message stream and run events, including `session_created` for its subagent Sessions and the goal-mode events |
-| Per user | `GET /api/events` | The `hello` handshake and notifications across Sessions: `session_state`, `session_background`, `session_title`, `schedule_fired`, `schedule_queued`, `web_updated` and company mode's `org_*` events |
+| Per user | `GET /api/events` | The `hello` handshake and notifications across Sessions: `session_state`, `session_background`, `session_title`, `schedule_fired`, `schedule_queued`, `activity_run_finished`, `web_updated` and company mode's `org_*` events |
 
 ### Wire Format
 
@@ -1070,7 +1070,8 @@ export type ServerEvent =
   | { type: "org_run"; projectId: string; orgId: string; agentId: string; sessionId: string; kind: OrgTriggerKind }
   | { type: "org_channel"; projectId: string; orgId: string; channelId: string; message: OrgChannelMessage }
   | { type: "org_ticket"; projectId: string; orgId: string; ticketId: string; change: string }
-  | { type: "org_budget"; projectId: string; orgId: string; agentId: string; state: "warned" | "paused" | "resumed"; ratio: number };
+  | { type: "org_budget"; projectId: string; orgId: string; agentId: string; state: "warned" | "paused" | "resumed"; ratio: number }
+  | { type: "activity_run_finished"; projectId: string; activityId: string; runId: string; status: "succeeded" | "failed" | "conflict" | "cancelled" | "interrupted" };
 ```
 
 | Event | Fired when |
@@ -1094,10 +1095,12 @@ export type ServerEvent =
 | `org_channel` | A new channel message was posted |
 | `org_ticket` | A ticket's status, owner, blocked state or contributing sessions changed |
 | `org_budget` | An employee's budget was warned, paused or resumed |
+| `activity_run_finished` | One of an activity's generation runs ended, and with which status |
 
 - `approval_request` covers every call under `always-ask`, and calls with `rw` or unknown permission under `read-only`. Pending approvals are sent again on reconnect.
 - `task_state` also carries the number of queued follow-ups (`queued`), the steering messages still waiting for delivery (`pendingSteering`), steering that the run ended without delivering (`returnedSteering`), the queued follow-ups themselves (`pendingFollowUps`) and the live subagent children (`subagents`). An absent field means none.
 - `session_title` is sent on the Session's channel and on the user channels of the Project's owner and members.
+- `activity_run_finished` is sent on the user channels of the Project's owner and members. The activity list refreshes its cards on it.
 - `session_state` names the Session by `sessionId`, so every row of a Session list stays live, not only the conversation a client has open. It carries the row fields needed to redraw the row without refetching: `lastActiveAt` as just stamped, and `hasTrace`, which is true whenever the state is `running` or `compacting`, because a running Session has by definition started a Task. It is sent to the user channels of the Project's owner and members.
 - `session_background` fires when a command moves to the background past its yield window or starts with `run_in_background`, when a process exits or is stopped, and when a background subagent starts, settles or is released. It carries `SessionInfo.backgroundTasks` as it now stands (`processes` = background command sessions still running, `subagents` = subagent Sessions moved to the background and mid-round), zeros included, so a list can clear its mark without refetching. The list rows and the single-Session GET omit the field when both counts are zero. Its audience is the same as for `session_state`.
 - `credentials_updated` follows `PUT /models` or a completed key-minting flow. Cached runtimes were invalidated, so the client clears any composer state disabled by an auth failure.

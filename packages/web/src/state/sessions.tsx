@@ -63,6 +63,7 @@ import {
   workspaceGroupQuery,
 } from "../lib/session-grouping";
 import { noteScheduleEvent } from "../features/schedules/schedule-store";
+import { publishActivityRunFinished } from "../lib/activity-run-events";
 import { useProject } from "./project";
 
 interface SessionsContextValue {
@@ -730,6 +731,12 @@ export function applyUserEvent(
     store.setState({ liveStatuses: new Map() });
     void store.getState().reload();
     publishCompanyResync();
+    return;
+  }
+  // An activity run ended: the activity list re-reads its cards. The run's own row, if this
+  // list holds it, already settled through its `session_state`.
+  if (ev.type === "activity_run_finished") {
+    publishActivityRunFinished(ev);
     return;
   }
   // Company-mode notifications fan out to the company store and any mounted organization page

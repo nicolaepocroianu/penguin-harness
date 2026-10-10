@@ -45,13 +45,8 @@ import { useDocumentTitle } from "../../lib/use-document-title";
 import { useLocale } from "../../state/locale";
 import { useProject } from "../../state/project";
 import { useSessions } from "../../state/sessions";
-import {
-  RUNNING_POLL_MS,
-  settledActivityRuns,
-  shouldPollSummaries,
-  startedUnlistedRuns,
-  shouldReloadList,
-} from "../../lib/activity-sessions";
+import { startedUnlistedRuns, shouldReloadList } from "../../lib/activity-sessions";
+import { subscribeActivityRunFinished } from "../../lib/activity-run-events";
 import { Button } from "../../components/ui/button";
 import { Input, Textarea } from "../../components/ui/input";
 import { Select } from "../../components/ui/select";
@@ -129,6 +124,8 @@ const basePath = (projectId: string) => `/api/projects/${encodeURIComponent(proj
 const pretty = (value: unknown) => (value ? JSON.stringify(value, null, 2) : "");
 /** Speech, sound and image runs belong to the builtin Media Agent, whoever runs the stages. */
 const MEDIA_RUNNER = { agentId: "media_agent" };
+/** How long the list waits after a run finishes for others finishing with it, before one reload. */
+const RUN_FINISHED_SETTLE_MS = 300;
 /** The phone header's way back to the list, an arrow pointing left. */
 const BACK_ICON = "M15 18l-6-6 6-6M9 12h12";
 
@@ -243,42 +240,41 @@ function ActivityWorkspace({
   useEffect(() => {
     void reload();
   }, [reload]);
-  // Live refresh: no server event exists for activity runs, so the home list rides the
-  // sessions store instead — an activity-run session going idle (or otherwise settling)
-  // is the signal that this list may be stale. Only while looking at the list itself
-  // (not a single activity's own workspace), and only on the running -> settled edge, so a
-  // page that never had a run in flight does not reload on every unrelated session tick.
-  const { sessions, liveStatuses } = useSessions();
-  const seenRunStatus = useRef(new Map<string, string>());
+  // Live refresh: the server says when one of this Project's activity runs finishes, and the
+  // list re-reads its cards then, only while it is shown (not inside an activity). A pipeline
+  // can finish several runs at once, so the finishes inside a short window share one reload.
   useEffect(() => {
-    if (!activityId && settledActivityRuns(seenRunStatus.current, sessions)) void reload();
-    seenRunStatus.current = new Map(sessions.map((session) => [session.sessionId, session.status]));
-  }, [sessions, activityId, reload]);
+    if (activityId) return;
+    let timer: number | undefined;
+    const unsubscribe = subscribeActivityRunFinished((event) => {
+      if (event.projectId !== projectId || timer !== undefined) return;
+      timer = window.setTimeout(() => {
+        timer = undefined;
+        void reload();
+      }, RUN_FINISHED_SETTLE_MS);
+    });
+    return () => {
+      unsubscribe();
+      window.clearTimeout(timer);
+    };
+  }, [activityId, projectId, reload]);
   // A run started elsewhere after the store loaded has no row, only a live status: reload on
-  // its start, so its summary says "running" and the poll below takes it to its end.
+  // its start, so its card says it is running until the server says it finished.
+  const { sessions, liveStatuses } = useSessions();
   const seenLive = useRef<ReadonlyMap<string, string>>(liveStatuses);
   useEffect(() => {
     if (!activityId && startedUnlistedRuns(seenLive.current, liveStatuses, sessions)) void reload();
     seenLive.current = liveStatuses;
   }, [liveStatuses, sessions, activityId, reload]);
-  // A run can settle while the user is still inside that activity's own workspace — the
-  // effect above never fires then, since it only watches while `!activityId`, so the run
-  // "settling" is missed there. Coming back to the list is itself a reason to check again:
+  // A run can finish while the user is still inside that activity's own workspace — the list
+  // does not listen then, since it only listens while `!activityId`, so that finish is
+  // missed there. Coming back to the list is itself a reason to check again:
   // `prevActivityId` starts undefined, so the list's own first mount does not double-reload.
   const prevActivityId = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (shouldReloadList(prevActivityId.current, activityId)) void reload();
     prevActivityId.current = activityId;
   }, [activityId, reload]);
-  // A run started after the sessions store loaded never reaches the settle signal above, so
-  // while the list is shown and some summary says a run is in flight, re-read it every few
-  // seconds; the poll stops once nothing is running or an activity is opened.
-  const polling = shouldPollSummaries(activityId, summaries);
-  useEffect(() => {
-    if (!polling) return;
-    const timer = window.setInterval(() => void reload(), RUNNING_POLL_MS);
-    return () => window.clearInterval(timer);
-  }, [polling, reload]);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
       if (dirty.current) event.preventDefault();

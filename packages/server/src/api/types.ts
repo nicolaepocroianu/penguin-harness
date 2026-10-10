@@ -2567,7 +2567,22 @@ export type ServerEvent =
     }
   | ScheduleServerEvent
   | GoalServerEvent
-  | CompanyServerEvent;
+  | CompanyServerEvent
+  | ActivityServerEvent;
+
+/**
+ * An activity's generation run reached its end: succeeded, failed, conflicted, was cancelled
+ * or was interrupted. Published on the user channel of the Project's owner and members, so
+ * the activity list refreshes its cards when a run ends instead of polling while one is in
+ * flight.
+ */
+export type ActivityServerEvent = {
+  type: "activity_run_finished";
+  projectId: string;
+  activityId: string;
+  runId: string;
+  status: Exclude<ActivityRunStatus, "running">;
+};
 
 /** Goal-mode progress on the session channel (the chat page drives its goal banner from these). */
 export type GoalServerEvent =
@@ -4858,6 +4873,7 @@ export interface InstalledPluginsResponse {
   /** A listed plugin neither runs nor failed to load: the App could not be re-assembled around it (the previous one was restored), so a restart is what applies it. */
   restartPending: boolean;
 }
+import type { ActivityRunStatus } from "../activities/domain.js";
 export type {
   ActivityRecord,
   ActivityDraft,
