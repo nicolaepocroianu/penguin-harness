@@ -260,18 +260,54 @@ describe("video timelines", () => {
       "Extraordinarily-long-words-take-their-own-caption",
       "here",
     ]);
-    // Placed on the timeline: the narration starts at 1 s, each word lasts 250 ms of 300.
+    // Placed on the timeline: the narration starts at 1 s, each word lasts 250 ms of 300; a
+    // caption runs on to the next across the 50 ms between them.
     expect(cues[0]).toEqual({
       startMs: 1000,
-      endMs: 1000 + 3 * 300 + 250,
+      endMs: 1000 + 4 * 300,
       text: "One two three four",
     });
     expect(webVtt(cues.slice(3, 4))).toBe(
-      "WEBVTT\n\n00:00:03.700 --> 00:00:04.850\nA &lt;tag&gt; &amp; more!\n",
+      "WEBVTT\n\n00:00:03.700 --> 00:00:04.900\nA &lt;tag&gt; &amp; more!\n",
     );
     expect(
       captionCues({ ...value, captions: { ...value.captions, enabled: false } }, [line]),
     ).toEqual([]);
+  });
+
+  it("keeps each caption up long enough to read, never over the next or past the end", () => {
+    const line = (key: string): MediaAsset => ({
+      key,
+      type: "audio",
+      description: "A line",
+      script: "Hi.",
+      path: `media/${key}.mp3`,
+      wordTimings: words("Hi."),
+      usages: [],
+    });
+    const cues = (starts: number[]) =>
+      captionCues(
+        timeline({
+          cuts: [cut("cut-1", 0, 6000)],
+          narration: starts.map((startMs, index) => ({ asset: `l${index}`, startMs })),
+        }),
+        starts.map((_, index) => line(`l${index}`)),
+      ).map((cue) => [cue.startMs, cue.endMs]);
+    // A one-word caption of 250 ms stays 1.2 s; the next one cuts it short; the video's end too.
+    expect(cues([0, 3000])).toEqual([
+      [0, 1200],
+      [3000, 4200],
+    ]);
+    expect(cues([0, 800])).toEqual([
+      [0, 800],
+      [800, 2000],
+    ]);
+    // Under half a second apart: the first runs on to the second.
+    expect(cues([0, 1500])).toEqual([
+      [0, 1500],
+      [1500, 2700],
+    ]);
+    expect(cues([5500])).toEqual([[5500, 6000]]);
   });
 
   it("takes each captioned word's punctuation from the script, and breaks at its sentences", () => {

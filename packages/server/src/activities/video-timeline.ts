@@ -33,6 +33,10 @@ export const TRANSITION_MAX_MS = 5_000;
 /** Captions of at most this many words and characters, as OpenMontage's subtitle tool cuts them. */
 export const CAPTION_MAX_WORDS = 8;
 export const CAPTION_MAX_CHARS = 42;
+/** The shortest a caption shows, so a young reader can read it. */
+export const CAPTION_MIN_MS = 1_200;
+/** A gap between captions shorter than this is closed, so captions do not flicker. */
+export const CAPTION_BRIDGE_MS = 500;
 /** In a default timeline: silence before the first narration, and between narrations. */
 export const NARRATION_LEAD_MS = 500;
 export const NARRATION_GAP_MS = 400;
@@ -357,7 +361,9 @@ export interface CaptionCue {
 /**
  * The captions of a timeline's narration, from each clip's word timings: words gathered into
  * captions of at most `maxWords` words and `maxChars` characters, a sentence's end closing its
- * caption, each shown from its first word to its last. A narration without word timings, or
+ * caption, each shown from its first word to its last. Each then stays at least
+ * `CAPTION_MIN_MS`, and runs on to the next when the gap would be under `CAPTION_BRIDGE_MS`,
+ * never over the next or past the video's end. A narration without word timings, or
  * one naming no narration, gives none (`timelineIssues` says so).
  */
 export function captionCues(timeline: VideoTimeline, assets: MediaAsset[]): CaptionCue[] {
@@ -389,7 +395,16 @@ export function captionCues(timeline: VideoTimeline, assets: MediaAsset[]): Capt
     }
     close();
   }
-  return cues.sort((a, b) => a.startMs - b.startMs);
+  cues.sort((a, b) => a.startMs - b.startMs);
+  // Long enough to read, and no flicker between captions that nearly meet; never over the next
+  // caption or past the video's end.
+  const lengthMs = timelineLengthMs(timeline);
+  return cues.map((cue, index) => {
+    const next = cues[index + 1]?.startMs ?? lengthMs;
+    let endMs = Math.max(cue.endMs, cue.startMs + CAPTION_MIN_MS);
+    if (next - endMs < CAPTION_BRIDGE_MS) endMs = next;
+    return { ...cue, endMs: Math.max(cue.startMs, Math.min(endMs, next, lengthMs)) };
+  });
 }
 
 /** A word stripped to its letters and digits, lowercased, for comparing. */
