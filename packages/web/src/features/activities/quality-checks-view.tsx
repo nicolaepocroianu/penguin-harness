@@ -27,11 +27,14 @@ import {
   statusText,
   type QualityState,
 } from "./quality-model";
-
-const HEAD =
-  "border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-400";
-const TH = "whitespace-nowrap px-3 py-2 font-medium";
-const TD = "px-3 py-2 align-top";
+import {
+  TABLE,
+  TABLE_HEAD_ROW,
+  TABLE_WRAP,
+  TBODY,
+  TD,
+  TH,
+} from "../../components/ui/table-classes";
 
 function ReportBlock({
   id,
@@ -69,10 +72,10 @@ function ReportBlock({
           {extra && <p className="text-xs text-gray-500">{extra}</p>}
           {report.status !== "skipped" &&
             (rows.length ? (
-              <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-                <table className="w-full text-sm" aria-label={words.findingsLabel(title)}>
+              <div className={TABLE_WRAP}>
+                <table className={TABLE} aria-label={words.findingsLabel(title)}>
                   <thead>
-                    <tr className={HEAD}>
+                    <tr className={TABLE_HEAD_ROW}>
                       <th className={TH}>{words.columns.severity}</th>
                       <th className={TH}>{words.columns.rule}</th>
                       <th className={TH}>{words.columns.where}</th>
@@ -82,7 +85,7 @@ function ReportBlock({
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+                  <tbody className={TBODY}>
                     {rows.map((row) => (
                       <tr key={row.id}>
                         <td className={`${TD} whitespace-nowrap font-medium`}>{row.severity}</td>
