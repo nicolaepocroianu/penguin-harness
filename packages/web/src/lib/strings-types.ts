@@ -938,6 +938,14 @@ export type Strings = {
       runByServer: string;
       openInChat: string;
       noRun: string;
+      /** The folded list of the activity's earlier stage runs, with how many there are. */
+      earlier: (count: number) => string;
+      /** One earlier run in that list: what it ran and when it started. */
+      earlierRun: (stages: string, when: string) => string;
+      /** Above an earlier run the panel is showing. */
+      viewingEarlier: (when: string) => string;
+      /** Back from an earlier run to the latest one. */
+      backToLatest: string;
       /** Finished stages folded into one row while a run goes on. */
       doneFold: (count: number) => string;
       /** The agent and the stages a running sequence uses, in one line. */

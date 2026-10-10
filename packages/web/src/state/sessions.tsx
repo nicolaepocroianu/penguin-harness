@@ -21,9 +21,13 @@
  *
  * **Activity runs beside the pages**: every fetch also leaves an activity's generation runs
  * out (`excludeActivityRuns`), so no total or "More" counts a run the sidebar will not draw
- * among the conversations. The Agent's newest runs come back on their own beside the first
- * active page and are held with the rows, which is what the run folder, the run-finished
- * notifications and the activity list's settle signal read; the totals never move for them. Live statuses are remembered for
+ * among the conversations. The Project's run stream (listActivityRunSessions) serves them
+ * instead, newest first, and its rows are held with the others: the run folder, the
+ * run-finished notifications and the activity list's settle signal read them; the totals
+ * never move for them. A run still in flight that newer runs have pushed past the stream's
+ * pages is kept too, from its Agent's page, so its completion is still noticed.
+ *
+ * Live statuses are remembered for
  * EVERY `session_state` the user channel reports (`liveStatuses`), row or no row — company
  * mode's surfaces read them for the Sessions this list deliberately does not fetch
  * (useLiveSessionStatuses).
@@ -101,6 +105,12 @@ interface SessionsContextValue {
     category: SessionCategory,
     workspaceGroup?: string,
   ) => Promise<void>;
+  /** The Project's activity-run Sessions as the server counts them (the "Activity runs" folder's label); 0 until known. */
+  activityRunTotal: number;
+  /** Whether the server holds activity runs past the ones loaded. */
+  activityRunsHasMore: boolean;
+  /** Fetches the next page of the Project-wide activity-run stream (no-op when nothing is left). */
+  loadMoreActivityRuns: () => Promise<void>;
   /** Prepend to the list on success (draft materialized by the first message, or explicit creation via dialog). */
   add: (session: SessionInfo) => void;
   /** Remove from the list in place after deletion (also tombstones the id — see isDeleted). */
@@ -206,9 +216,16 @@ interface SessionsStoreState {
    * Cleared on `resync_required`, which says flips were lost (see applyUserEvent).
    */
   liveStatuses: ReadonlyMap<string, SessionStatus>;
+  /**
+   * The Project-wide activity-run stream's cursor and total (null until its first page
+   * lands). Runs are not paged per Agent: the Agents' pages leave them out
+   * (`excludeActivityRuns`), and the sidebar's one "Activity runs" folder pages this stream.
+   */
+  activityRuns: { total: number; fetched: number; hasMore: boolean } | null;
   loading: boolean;
 
   reload: () => Promise<void>;
+  loadMoreActivityRuns: () => Promise<void>;
   loadMoreFor: (
     agentIds: string[],
     category: SessionCategory,
@@ -262,12 +279,74 @@ function rememberStatus(
  * no DOM, so the list's own behaviour is exercised against the store directly rather than
  * through a React tree.
  */
+/** The server's largest page; a longer refetch is read in pages this size. */
+const ACTIVITY_RUNS_PAGE_MAX = 1000;
+
+/**
+ * The run stream's first page. The rows held come from this stream only (not the runs an
+ * Agent's page also serves), so the folder's cursor always matches the rows it shows.
+ */
+const ACTIVITY_RUNS_FIRST_PAGE = 50;
+
+/**
+ * The first `limit` rows of the Project's activity-run stream, read in pages the server
+ * accepts. Null when any page fails or answers malformed, so the caller keeps what it has.
+ */
+async function listActivityRunsUpTo(
+  projectId: string,
+  limit: number,
+): Promise<{ sessions: SessionInfo[]; total: number } | null> {
+  const sessions: SessionInfo[] = [];
+  let total = 0;
+  try {
+    for (let offset = 0; offset < limit; offset += ACTIVITY_RUNS_PAGE_MAX) {
+      const page = await api.listActivityRunSessions(projectId, {
+        offset,
+        limit: Math.min(ACTIVITY_RUNS_PAGE_MAX, limit - offset),
+      });
+      // Only a well-formed answer moves the folder (a stub or proxy can answer `{}`).
+      if (!page || !Array.isArray(page.sessions) || typeof page.total !== "number") return null;
+      sessions.push(...page.sessions);
+      total = page.total;
+      if (offset + page.sessions.length >= total) break;
+    }
+  } catch {
+    return null;
+  }
+  return { sessions, total };
+}
+
 export function createSessionsStore() {
   // Generation counter: invalidates any in-flight response once the Project/Agent set
   // changes or a reload happens.
   let gen = 0;
+  // The latest reload: only it clears `loading`. A local mutation (add / remove / archive)
+  // bumps `gen` to drop an in-flight reload's stale result, but that reload still ends the
+  // loading cycle it started — otherwise the flag stays up until some later refresh.
+  let latestReload = 0;
+  // The runs the run stream's pages actually served: only one of these leaving (or coming
+  // back) moves the folder's cursor. A run in flight held from an Agent's page is not here.
+  let streamRunIds = new Set<string>();
 
   return createStore<SessionsStoreState>((set, get) => {
+    /** Moves the activity-run stream's total and cursor when a run joins or leaves it. */
+    /**
+     * Moves the activity-run stream's total when a run joins or leaves it, and its cursor too
+     * when that run is one the stream's pages served.
+     */
+    const shiftActivityRuns = (sessionId: string, delta: number) => {
+      const runs = get().activityRuns;
+      if (!runs) return;
+      const inPages = streamRunIds.has(sessionId);
+      set({
+        activityRuns: {
+          ...runs,
+          total: Math.max(0, runs.total + delta),
+          fetched: inPages ? Math.max(0, runs.fetched + delta) : runs.fetched,
+        },
+      });
+    };
+
     /**
      * Keeps an Agent's category totals — overall and per Workspace — in step with a local
      * list mutation of `session` (no-op while its counts are unknown). An organization's row
@@ -276,6 +355,7 @@ export function createSessionsStore() {
      * counted out.
      */
     const adjustCount = (session: SessionInfo, category: SessionCategory, delta: number) => {
+      // Activity runs are counted by their own stream, never in an Agent's totals.
       if (isOrgSession(session) || session.activityId !== undefined) return;
       const { agentId, workspace } = session;
       const counts = get().countsByAgent;
@@ -315,6 +395,7 @@ export function createSessionsStore() {
       workspaceCountsByAgent: new Map(),
       workspaceLatestByAgent: new Map(),
       liveStatuses: new Map(),
+      activityRuns: null,
       loading: true,
 
       reload: async () => {
@@ -322,11 +403,22 @@ export function createSessionsStore() {
         // No context to fetch against yet. `loading` is deliberately left alone rather than
         // cleared: nothing was loaded, so reporting "done" here would be a lie — and one the
         // empty state renders. The Provider's reset step raised it and a later reload,
-        // once an Agent set exists, is what clears it.
-        if (!projectId || agentIds.length === 0) return;
+        // once an Agent set exists, is what clears it. The context did change, though: a
+        // reload still in flight for the old one must neither land nor end this cycle.
+        if (!projectId || agentIds.length === 0) {
+          gen += 1;
+          latestReload += 1;
+          return;
+        }
         const g = ++gen;
+        const r = ++latestReload;
         set({ loading: true });
         try {
+          // The activity-run stream refetches as far as it was already read (a new run lands
+          // on top, and an open folder must not snap back to its first page), at least the
+          // first page: enough for every run in flight and the recent ones the folder shows.
+          const runLimit = Math.max(ACTIVITY_RUNS_FIRST_PAGE, get().activityRuns?.fetched ?? 0);
+          const runsRequest = listActivityRunsUpTo(projectId, runLimit);
           const results = await Promise.all(
             agentIds.map(async (agentId) => {
               // The Agent's whole-stream active first page (with per-category totals)
@@ -357,7 +449,10 @@ export function createSessionsStore() {
                     return {
                       category,
                       scope,
-                      activityRuns: res.activityRuns ?? [],
+                      // Of the runs an Agent's first page also serves, only those still in
+                      // flight are kept: a completion notice needs its row even when newer
+                      // runs elsewhere have pushed it past the Project stream's first page.
+                      liveRuns: (res.activityRuns ?? []).filter((s) => s.status !== "idle"),
                       counts: res.counts,
                       workspaceCounts: res.workspaceCounts,
                       workspaceLatest: res.workspaceLatest,
@@ -372,7 +467,9 @@ export function createSessionsStore() {
               }
             }),
           );
+          const runs = await runsRequest;
           if (g !== gen) return;
+          if (runs) streamRunIds = new Set(runs.sessions.map((s) => s.sessionId));
           const nextSessions: SessionInfo[] = [];
           const seen = new Set<string>();
           const nextPageState = new Map<string, PagePosition>();
@@ -391,12 +488,25 @@ export function createSessionsStore() {
               if (p.counts) nextCounts.set(r.agentId, p.counts);
               if (p.workspaceCounts) nextWorkspaceCounts.set(r.agentId, p.workspaceCounts);
               if (p.workspaceLatest) nextWorkspaceLatest.set(r.agentId, p.workspaceLatest);
-              for (const s of [...p.items, ...p.activityRuns]) {
+              for (const s of p.items) {
                 if (!seen.has(s.sessionId)) {
                   seen.add(s.sessionId);
                   nextSessions.push(s);
                 }
               }
+            }
+          }
+          // A failed run fetch keeps the folder as it was rather than emptying it.
+          const runRows = runs
+            ? runs.sessions
+            : get().sessions.filter((s) => s.activityId !== undefined && !isOrgSession(s));
+          for (const s of [
+            ...runRows,
+            ...results.flatMap((r) => r.pages.flatMap((p) => p.liveRuns)),
+          ]) {
+            if (!seen.has(s.sessionId)) {
+              seen.add(s.sessionId);
+              nextSessions.push(s);
             }
           }
           // No fetch returns an organization row (`excludeOrg`), so one held here entered
@@ -409,9 +519,16 @@ export function createSessionsStore() {
             countsByAgent: nextCounts,
             workspaceCountsByAgent: nextWorkspaceCounts,
             workspaceLatestByAgent: nextWorkspaceLatest,
+            activityRuns: runs
+              ? {
+                  total: runs.total,
+                  fetched: runs.sessions.length,
+                  hasMore: runs.sessions.length < runs.total,
+                }
+              : get().activityRuns,
           });
         } finally {
-          if (g === gen) set({ loading: false });
+          if (r === latestReload) set({ loading: false });
         }
       },
 
@@ -509,6 +626,36 @@ export function createSessionsStore() {
         });
       },
 
+      /**
+       * The next page of the Project-wide activity-run stream, from the rows already read.
+       * A run created since shifts the offsets by one, so rows are deduplicated by id like
+       * loadMoreFor's; a failed fetch leaves the cursor for a retry.
+       */
+      loadMoreActivityRuns: async () => {
+        const { projectId, activityRuns } = get();
+        if (!projectId || !activityRuns?.hasMore) return;
+        const g = gen;
+        let res;
+        try {
+          res = await api.listActivityRunSessions(projectId, {
+            offset: activityRuns.fetched,
+            limit: SIDEBAR_PAGE_SIZE,
+          });
+        } catch {
+          return;
+        }
+        if (g !== gen) return;
+        const prev = get().sessions;
+        const seen = new Set(prev.map((s) => s.sessionId));
+        const appended = res.sessions.filter((s) => !seen.has(s.sessionId));
+        const fetched = activityRuns.fetched + res.sessions.length;
+        for (const s of res.sessions) streamRunIds.add(s.sessionId);
+        set({
+          ...(appended.length > 0 ? { sessions: [...prev, ...appended] } : {}),
+          activityRuns: { total: res.total, fetched, hasMore: fetched < res.total },
+        });
+      },
+
       add: (session) => {
         // Invalidate any in-flight reload: the newly created entry mustn't be wiped by a stale snapshot.
         gen += 1;
@@ -533,6 +680,10 @@ export function createSessionsStore() {
         gen += 1;
         const row = get().sessions.find((s) => s.sessionId === sessionId);
         if (row) adjustCount(row, sessionCategory(row), -1);
+        if (row?.activityId !== undefined) {
+          shiftActivityRuns(sessionId, -1);
+          streamRunIds.delete(sessionId);
+        }
         // Tombstone BEFORE pruning the list, in the same update: consumers re-render on the
         // pruned list, and any of them that reacts to the row's disappearance (the chat
         // page's deep-link lookup) must already be able to see that the id is dead rather
@@ -556,6 +707,13 @@ export function createSessionsStore() {
         if (old && sessionCategory(old) !== sessionCategory(session)) {
           adjustCount(session, sessionCategory(old), -1);
           adjustCount(session, sessionCategory(session), 1);
+        }
+        // The run stream holds unarchived runs only: archiving one takes it out of the
+        // server's offsets (as remove() does), restoring one puts it back.
+        if (old && session.activityId !== undefined && old.archived !== session.archived) {
+          // Invalidate any in-flight reload: its snapshot predates the move.
+          gen += 1;
+          shiftActivityRuns(session.sessionId, session.archived ? -1 : 1);
         }
         set({
           sessions: get().sessions.map((s) => (s.sessionId === session.sessionId ? session : s)),
@@ -722,6 +880,17 @@ export function applyUserEvent(
       );
     return;
   }
+  // A Session was created somewhere other than this tab's own composer — an activity run the
+  // server started, a subagent, another tab. The row's grouping (category, activity, folder)
+  // is the list fetch's to decide, so refetch rather than guess; a Session this list already
+  // holds (the one this tab just created) needs nothing.
+  if (ev.type === "session_created") {
+    const { projectId, sessions, reload } = store.getState();
+    if (ev.projectId !== projectId) return;
+    if (sessions.some((s) => s.sessionId === ev.sessionId)) return;
+    void reload();
+    return;
+  }
   // The reconnect landed outside the channel's replay buffer, so an unknown number of the flips
   // above were lost — away long enough and a row sits on an hourglass that will never stop.
   // Refetch once, on the event that says so, rather than polling for it. The remembered
@@ -795,6 +964,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       countsByAgent: new Map(),
       workspaceCountsByAgent: new Map(),
       workspaceLatestByAgent: new Map(),
+      activityRuns: null,
       // The pages were just cleared, so the list is loading from this instant — including
       // the window where the Agent set itself is still being refetched (a Project switch
       // empties it, which makes reload() below return without fetching or clearing the
@@ -880,6 +1050,9 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       loading: state.loading,
       reload: state.reload,
       loadMoreFor: state.loadMoreFor,
+      activityRunTotal: state.activityRuns?.total ?? 0,
+      activityRunsHasMore: state.activityRuns?.hasMore ?? false,
+      loadMoreActivityRuns: state.loadMoreActivityRuns,
       add: state.add,
       remove: state.remove,
       isDeleted,

@@ -12,12 +12,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionInfo } from "@prismshadow/penguin-server/api";
 
-vi.mock("../src/api/endpoints", () => ({ listSessions: vi.fn() }));
+vi.mock("../src/api/endpoints", () => ({
+  listSessions: vi.fn(),
+  listActivityRunSessions: vi.fn(),
+}));
 
 import * as api from "../src/api/endpoints";
 import { createSessionsStore } from "../src/state/sessions";
 
 const listSessions = vi.mocked(api.listSessions);
+const listActivityRunSessions = vi.mocked(api.listActivityRunSessions);
 
 // One archived row, so the archived folder has a page to fetch.
 const COUNTS = { active: 1, subagent: 0, schedule: 0, benchmark: 0, archived: 1 };
@@ -44,15 +48,20 @@ function session(sessionId: string, over: Partial<SessionInfo> = {}): SessionInf
 
 beforeEach(() => {
   listSessions.mockReset();
+  listActivityRunSessions.mockReset();
 });
 
 describe("activity runs beside the pages", () => {
   async function loadedStore() {
     listSessions.mockResolvedValue({
       sessions: [session("own")],
-      activityRuns: [session("run-1", { activityId: "act_1", status: "running" })],
       counts: COUNTS,
       workspaceCounts: { "/w": COUNTS },
+    });
+    // The newest runs come from the Project's run stream, beside the pages.
+    listActivityRunSessions.mockResolvedValue({
+      sessions: [session("run-1", { activityId: "act_1", status: "running" })],
+      total: 1,
     });
     const store = createSessionsStore();
     store.setState({ projectId: "proj", agentIds: ["default_agent"] });

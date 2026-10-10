@@ -604,12 +604,13 @@ The paths below omit the `/api/projects/:projectId` prefix.
 | --- | --- | --- |
 | GET | `/agents/:agentId/sessions` | Lists the agent's Sessions with their run state, whichever client created them, unless `excludeOrg=1` asks for the user's own rows only |
 | POST | `/agents/:agentId/sessions` | Creates a Session: `{modelId?, provider?, workspace?, approvalMode?, client?, source?}` → 201 `{session}` |
+| GET | `/activity-sessions` | The Project's activity-run Sessions across every agent, newest first: `{sessions, total}` |
 | GET | `/dirs?path=` | Server-side directory browser behind the Workspace picker |
 | GET | `/dir-skills?path=` | The Skills a directory carries, for importing them into a new agent |
 
 - The Session list accepts optional query parameters. `limit` and `offset` page the list (`offset` requires `limit`). `category` (`active`, `subagent`, `schedule`, `benchmark` or `archived`) filters it before paging, and `workspaceGroup` filters it to one Workspace. `counts=1` adds `counts` (totals per category over the whole list), `workspaceCounts` (the same totals per Workspace path) and `workspaceLatest` (each Workspace's newest Session). Without paging parameters, the full list is returned.
 - `excludeOrg=1` leaves an organization's desk, ticket and subagent Sessions out of the page and out of the `counts=1` totals together, which is what development mode's list asks for. Any other value is a 400.
-- `excludeActivityRuns=1` leaves activity-run Sessions out of the page, the `counts=1` totals and the Workspace tallies together. With `counts=1` on the first page (`offset` 0), the response also carries `activityRuns`: the Agent's newest run Sessions that are not archived, at most 50, newest first. The sidebar asks for this, so its "More" counts only conversations it will show. Any other value is a 400.
+- `excludeActivityRuns=1` leaves activity-run Sessions out of the page, the `counts=1` totals and the Workspace tallies together. With `counts=1` on the first page (`offset` 0), the response also carries `activityRuns`: the Agent's newest run Sessions that are not archived, at most 50, newest first. The sidebar asks for this, so its "More" counts only conversations it will show, and pages the whole Project's runs from `GET /activity-sessions` (`limit` and `offset`, the first 50 by default; archived runs and an organization's rows left out). Any other value is a 400.
 - On creation, `modelId` and `provider` go together: send the complete pair to pick a model, or omit both to use the Project's default model. Sending only one is a 400.
 - An explicit `workspace` must be an existing directory; it is never created. When omitted, the Workspace is a temporary one created automatically. The approval mode defaults to `allow-all`.
 - `client` is a provenance hint stored on the row: `"cli"` from the CLI, `"web"` by default. The server itself writes `"org"` on an organization's desk and ticket sessions, and a client cannot send that value. Only `excludeOrg` reads it as a filter, and only to drop those rows.
@@ -1036,7 +1037,7 @@ Real-time delivery uses Server-Sent Events, not WebSocket, on two kinds of chann
 | Channel | Path | Contents |
 | --- | --- | --- |
 | Per Session | `GET /api/sessions/:sessionId/stream` | The Session's message stream and run events, including `session_created` for its subagent Sessions and the goal-mode events |
-| Per user | `GET /api/events` | The `hello` handshake and notifications across Sessions: `session_state`, `session_background`, `session_title`, `schedule_fired`, `schedule_queued`, `activity_run_finished`, `web_updated` and company mode's `org_*` events |
+| Per user | `GET /api/events` | The `hello` handshake and notifications across Sessions: `session_state`, `session_background`, `session_title`, `session_created`, `schedule_fired`, `schedule_queued`, `activity_run_finished`, `web_updated` and company mode's `org_*` events |
 
 ### Wire Format
 
@@ -1061,7 +1062,7 @@ export type ServerEvent =
   | { type: "credentials_updated" }
   | { type: "hello" }
   | { type: "web_updated"; rev: string }
-  | { type: "session_created"; projectId: string; agentId: string; sessionId: string; source: SessionSource }
+  | { type: "session_created"; projectId: string; agentId: string; sessionId: string; source?: SessionSource }
   | { type: "schedule_fired"; projectId: string; agentId: string; name: string; sessionId: string }
   | { type: "schedule_queued"; projectId: string; agentId: string; name: string; sessionId: string }
   | { type: "goal_started"; sessionId: string; objective: string; budget: number }
@@ -1085,7 +1086,7 @@ export type ServerEvent =
 | `credentials_updated` | The Project's model credentials changed |
 | `hello` | Handshake on the user channel |
 | `web_updated` | A hot update replaced the served web assets; clients reload |
-| `session_created` | A new Session was registered, such as a subagent Session |
+| `session_created` | A new Session was registered: created through the API, by a schedule or an activity run, or as a subagent |
 | `schedule_fired` | A scheduled task fired and its prompt was delivered |
 | `schedule_queued` | The target Session is running, so this firing was queued |
 | `goal_started` | A goal run began, before its first round |
@@ -1105,7 +1106,7 @@ export type ServerEvent =
 - `session_background` fires when a command moves to the background past its yield window or starts with `run_in_background`, when a process exits or is stopped, and when a background subagent starts, settles or is released. It carries `SessionInfo.backgroundTasks` as it now stands (`processes` = background command sessions still running, `subagents` = subagent Sessions moved to the background and mid-round), zeros included, so a list can clear its mark without refetching. The list rows and the single-Session GET omit the field when both counts are zero. Its audience is the same as for `session_state`.
 - `credentials_updated` follows `PUT /models` or a completed key-minting flow. Cached runtimes were invalidated, so the client clears any composer state disabled by an auth failure.
 - `web_updated` carries the new web revision as `rev` and is sent to every user channel.
-- `session_created` is sent on the parent Session's channel.
+- `session_created` is sent to the user channels of the Project's owner and members, so a list shows a Session started without any tab (an activity run, a schedule) without reloading. For a subagent it is also sent on the parent Session's channel. `source` is absent for a user-created Session.
 - `schedule_fired` names in `sessionId` the Session that received the prompt, which in new-Session mode is a new Session. A queued firing is sent once the Session is idle.
 - `goal_round` carries `used`, the tokens counted so far.
 - The `org_*` events are sent to the user channels of the Project's members. `org_channel` includes the message's mentions, so a client can tell whether it is addressed. These events are best effort; the organization routes carry the durable state.

@@ -1483,6 +1483,14 @@ export type SessionCategory = "active" | SessionSource | "archived";
 /** Per-category totals across an Agent's whole Session list (returned when the list is requested with counts). */
 export type SessionCategoryCounts = Record<SessionCategory, number>;
 
+/** GET /api/projects/:projectId/activity-sessions: the Project's activity-run Sessions, newest first. */
+export interface ActivityRunSessionsResponse {
+  /** The page (`offset` / `limit`); archived runs and an organization's rows are never listed. */
+  sessions: SessionInfo[];
+  /** Every run Session the stream holds, not only the returned page. */
+  total: number;
+}
+
 export interface SessionsResponse {
   /**
    * The page. With `excludeOrg=1` on the request, the rows an organization owns — its desk
@@ -2557,13 +2565,18 @@ export type ServerEvent =
   | { type: "hello" }
   /** The served web assets were hot-swapped by a platform upgrade: clients reload to pick them up. */
   | { type: "web_updated"; rev: string }
-  /** New session registered (pushed over the parent session's channel for subagent sessions): frontend refreshes the list in place. */
+  /**
+   * A new Session was registered: frontend refreshes the list so it appears without a reload.
+   * Published to the user channels of the Project's owner and members for every Session,
+   * and additionally on the parent Session's channel for a subagent. `source` is absent for
+   * a user-created Session (activity runs included).
+   */
   | {
       type: "session_created";
       projectId: string;
       agentId: string;
       sessionId: string;
-      source: SessionSource;
+      source?: SessionSource;
     }
   | ScheduleServerEvent
   | GoalServerEvent

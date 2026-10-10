@@ -387,6 +387,19 @@ finished_at TEXT,
 metadata_json TEXT NOT NULL,
 PRIMARY KEY (activity_id, stage)
 );
+-- "Run all stages" sequences: one row per sequence, rewritten as it progresses, so the
+-- Stages panel keeps its history across restarts.
+CREATE TABLE IF NOT EXISTS activity_pipelines (
+pipeline_id TEXT PRIMARY KEY,
+project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+activity_id TEXT NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+-- running, succeeded, failed or cancelled.
+status TEXT NOT NULL,
+-- The sequence as the App sees it (PipelineState).
+record_json TEXT NOT NULL,
+started_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_activity_pipelines_activity ON activity_pipelines(project_id, activity_id, started_at);
 CREATE TABLE IF NOT EXISTS activity_runs (
 run_id TEXT PRIMARY KEY,
 project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,

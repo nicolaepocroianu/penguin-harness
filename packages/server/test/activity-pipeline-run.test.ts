@@ -616,6 +616,8 @@ describe("running the stages", () => {
       step: "mediaSpec",
       status: "failed",
       runIds: ["run_2", "run_3"],
+      // The latest run's session, kept with the step for its history.
+      sessionId: "session_3",
     });
     expect(final.error).toBe("media-spec broke");
   });

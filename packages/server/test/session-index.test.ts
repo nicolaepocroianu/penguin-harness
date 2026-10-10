@@ -10,12 +10,14 @@ import { sessionMeta, userText } from "@prismshadow/penguin-core";
 import type { OmniMessage, SessionMetaPayload } from "@prismshadow/penguin-core";
 import type {
   ProjectCreateResponse,
+  ServerEvent,
   SessionCreateResponse,
   SessionInfo,
   SessionResponse,
   SessionsResponse,
 } from "../src/api/types.js";
 import { sessionIdCreatedAt } from "../src/services/session-service.js";
+import { userChannelKey } from "../src/http/routes/events.js";
 import { apiClient, createTestApp, provisionUser, writeTraceFile } from "./helpers.js";
 import type { TestApp } from "./helpers.js";
 
@@ -143,6 +145,32 @@ describe("session-index", () => {
     ).json()) as SessionResponse;
     expect(patched.session.title).toBe("renamed");
     expect(patched.session.lastActiveAt).toBe(advanced);
+  });
+
+  it("a created Session is announced on the Project users' channel, so lists show it without a reload", async () => {
+    await configureModels();
+    const events: ServerEvent[] = [];
+    t.deps.channels.get(userChannelKey("alice")).subscribe((evt) => {
+      if (evt.event === "server_event") events.push(JSON.parse(evt.data) as ServerEvent);
+    });
+    // The activities feature and the scheduler create Sessions server-side, with no tab
+    // involved: only this announcement tells an open sidebar the row exists.
+    const scheduled = await t.deps.sessionService.createSession({
+      projectId,
+      agentId: "default_agent",
+      source: "schedule",
+    });
+    const { session: plain } = (await (await api.post(base(), {})).json()) as SessionCreateResponse;
+    expect(events.filter((e) => e.type === "session_created")).toEqual([
+      {
+        type: "session_created",
+        projectId,
+        agentId: "default_agent",
+        sessionId: scheduled.sessionId,
+        source: "schedule",
+      },
+      { type: "session_created", projectId, agentId: "default_agent", sessionId: plain.sessionId },
+    ]);
   });
 
   it("schedule-created Session: source derives from session_meta (registry), never from the DB row; user sessions carry none", async () => {

@@ -1748,6 +1748,15 @@ export class SessionManager {
       // channel and pending state are naturally empty for it.
       this.deps.sessions.replaceId(row.sessionId, session.sessionId);
       currentId = session.sessionId;
+      // The lists hold the old id: announce the new one so they refetch and swap the row.
+      const source = this.deps.sources.get(row.sessionId) ?? undefined;
+      this.deps.notifyProjectUsers?.(row.projectId, {
+        type: "session_created",
+        projectId: row.projectId,
+        agentId: row.agentId,
+        sessionId: currentId,
+        ...(source ? { source } : {}),
+      });
     }
     const entry: RuntimeEntry = {
       sessionId: currentId,
@@ -2091,15 +2100,18 @@ export class SessionManager {
       lastActiveAt: createdAt,
       createdAt,
     });
-    // Make the subagent appear immediately in the sidebar: notify via the parent
-    // Session's channel (a frontend currently watching the parent run refreshes its list in place).
-    this.publishEvent(entry, {
+    // Make the subagent appear immediately in the sidebar: notify via the parent Session's
+    // channel (a frontend watching the parent run refreshes its list in place) and the
+    // Project's user channels (every other list, e.g. a subagent of an unattended activity run).
+    const created: ServerEvent = {
       type: "session_created",
       projectId: entry.projectId,
       agentId,
       sessionId: childSid,
       source,
-    });
+    };
+    this.publishEvent(entry, created);
+    this.deps.notifyProjectUsers?.(entry.projectId, created);
     const child: ChildSession = {
       sessionId: childSid,
       agentId,
@@ -2283,6 +2295,7 @@ export abstract class SessionServiceIface extends Interface<
     | "toInfo"
     | "hasTrace"
     | "listSessions"
+    | "listActivityRunSessions"
     | "sessionStats"
     | "createSession"
     | "latestTracePath"
@@ -2432,6 +2445,7 @@ export class SessionsModule {
       orgIdsOfProject: (projectId) => orgCache.orgIdsOfProject(projectId),
       activityIdOfSession: (sessionId) => sessionsRepo.activityIdOfSession(sessionId),
       activityIdsOfProject: (projectId) => sessionsRepo.activityIdsOfProject(projectId),
+      notifyProjectUsers,
       pathPrepend: env.pathPrepend,
       confineSpawn: env.confineSpawn,
     });

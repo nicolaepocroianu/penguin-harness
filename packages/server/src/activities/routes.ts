@@ -1493,6 +1493,15 @@ export class ActivityRoutes {
         ),
       }),
     );
+    // Every sequence the activity has run, newest first: the Stages panel's history.
+    app.get("/:activityId/pipelines", async (c) =>
+      c.json({
+        pipelines: await this.pipelines.history(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+        ),
+      }),
+    );
     app.post("/:activityId/pipeline/stop", async (c) => {
       return c.json({
         pipeline: await this.pipelines.stop(

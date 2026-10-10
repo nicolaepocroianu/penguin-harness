@@ -450,3 +450,41 @@ describe("other user-channel events keep their behaviour", () => {
     expect(reloads).toBe(1);
   });
 });
+
+describe("session_created on the user channel", () => {
+  const created = (sessionId: string, projectId = "proj"): ServerEvent => ({
+    type: "session_created",
+    projectId,
+    agentId: "activity_agent",
+    sessionId,
+  });
+
+  function countingStore(...rows: SessionInfo[]) {
+    const store = storeWith(...rows);
+    const counter = { reloads: 0 };
+    store.setState({
+      reload: async () => {
+        counter.reloads += 1;
+      },
+    });
+    return { store, counter };
+  }
+
+  it("refetches for a Session the list has never seen, such as an activity run the server started", () => {
+    const { store, counter } = countingStore(session("a"));
+    applyUserEvent(store, created("run-session"), neverReload);
+    expect(counter.reloads).toBe(1);
+  });
+
+  it("does nothing for a Session the list already holds (the tab that created it)", () => {
+    const { store, counter } = countingStore(session("a"));
+    applyUserEvent(store, created("a"), neverReload);
+    expect(counter.reloads).toBe(0);
+  });
+
+  it("ignores a Session of another Project", () => {
+    const { store, counter } = countingStore(session("a"));
+    applyUserEvent(store, created("elsewhere", "another-project"), neverReload);
+    expect(counter.reloads).toBe(0);
+  });
+});

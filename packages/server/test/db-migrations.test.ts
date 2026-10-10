@@ -264,6 +264,13 @@ function dropActivityVersions(db: DatabaseSync): void {
 function dropDeployRuns(db: DatabaseSync): void {
   db.exec("DROP TABLE IF EXISTS activity_deploy_stages");
   db.exec("DROP TABLE IF EXISTS activity_deploy_runs");
+  // Anything older than the deploy runs is older than the stage history too.
+  dropPipelines(db);
+}
+
+/** The "Run all stages" history migration 24 adds, gone, for a database from before it. */
+function dropPipelines(db: DatabaseSync): void {
+  db.exec("DROP TABLE IF EXISTS activity_pipelines");
 }
 
 /** Column names of `users`, for the two cases that are about columns rather than whole shapes. */
@@ -878,6 +885,7 @@ describe("migration 18 → current: usage-reported-cost", () => {
         "activity-versions",
         "activity-versions-draft-status",
         "activity-deploy-runs",
+        "activity-pipelines",
       ]);
       expect(usageColumns(db)).toContain("reported_cost_usd");
       expect(db.prepare("SELECT total, reported_cost_usd FROM usage_records").all()).toEqual([
@@ -934,6 +942,7 @@ describe("migration 19 → current: activity-product-tags", () => {
         "activity-versions",
         "activity-versions-draft-status",
         "activity-deploy-runs",
+        "activity-pipelines",
       ]);
       expect(tables(db)).toContain("activity_product_tags");
       fresh.exec(SCHEMA_SQL);
@@ -953,6 +962,7 @@ describe("migration 19 → current: activity-product-tags", () => {
         "activity-versions",
         "activity-versions-draft-status",
         "activity-deploy-runs",
+        "activity-pipelines",
       ]);
     } finally {
       db.close();
@@ -1004,6 +1014,7 @@ describe("migration 20 → current: activity-versions", () => {
         "activity-versions",
         "activity-versions-draft-status",
         "activity-deploy-runs",
+        "activity-pipelines",
       ]);
       expect(tables(db)).toContain("activity_versions");
       fresh.exec(SCHEMA_SQL);
@@ -1021,6 +1032,7 @@ describe("migration 20 → current: activity-versions", () => {
         "activity-versions",
         "activity-versions-draft-status",
         "activity-deploy-runs",
+        "activity-pipelines",
       ]);
     } finally {
       db.close();
@@ -1092,6 +1104,7 @@ describe("migration 21 → current: activity-versions-draft-status", () => {
       expect(migrate(db, { swapPath: true }).applied).toEqual([
         "activity-versions-draft-status",
         "activity-deploy-runs",
+        "activity-pipelines",
       ]);
       expect(db.prepare("SELECT version_id, draft_status FROM activity_versions").all()).toEqual([
         { version_id: "v", draft_status: null },
@@ -1139,7 +1152,10 @@ describe("migration 22 → current: activity-deploy-runs", () => {
     const fresh = new sqlite.DatabaseSync(":memory:");
     try {
       expect(tables(db)).not.toContain("activity_deploy_runs");
-      expect(migrate(db, { swapPath: true }).applied).toEqual(["activity-deploy-runs"]);
+      expect(migrate(db, { swapPath: true }).applied).toEqual([
+        "activity-deploy-runs",
+        "activity-pipelines",
+      ]);
       expect(tables(db)).toContain("activity_deploy_runs");
       expect(tables(db)).toContain("activity_deploy_stages");
       fresh.exec(SCHEMA_SQL);
@@ -1187,6 +1203,41 @@ describe("migration 22 → current: activity-deploy-runs", () => {
       rollbackTo(db, 22);
       expect(shape(db)).toBe(before);
       expect(db.prepare("SELECT id FROM activities").all()).toEqual([{ id: "a" }]);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe("migration 23 → current: activity-pipelines", () => {
+  function open23(): DatabaseSync {
+    const db = new sqlite.DatabaseSync(":memory:");
+    db.exec(SCHEMA_SQL);
+    dropPipelines(db);
+    db.exec("PRAGMA user_version = 23");
+    return db;
+  }
+
+  it("adds the stage history, swap-safe, and the result is a fresh database", () => {
+    const db = open23();
+    const fresh = new sqlite.DatabaseSync(":memory:");
+    try {
+      expect(migrate(db, { swapPath: true }).applied).toEqual(["activity-pipelines"]);
+      fresh.exec(SCHEMA_SQL);
+      expect(shape(db)).toBe(shape(fresh));
+    } finally {
+      db.close();
+      fresh.close();
+    }
+  });
+
+  it("down drops only the stage history", () => {
+    const db = open23();
+    try {
+      const before = shape(db);
+      migrate(db);
+      rollbackTo(db, 23);
+      expect(shape(db)).toBe(before);
     } finally {
       db.close();
     }

@@ -1862,6 +1862,12 @@ describe("activity generation through Harness sessions", () => {
     expect(await (await client.post(`${endpoint}/pipeline/stop`, {})).json()).toMatchObject({
       pipeline: { status: "succeeded" },
     });
+    // The sequence is kept as history, with the runs each step started.
+    const { pipelines } = (await (await client.get(`${endpoint}/pipelines`)).json()) as {
+      pipelines: { status: string; steps: { runIds: string[] }[] }[];
+    };
+    expect(pipelines).toHaveLength(1);
+    expect(pipelines[0]).toMatchObject({ status: "succeeded", steps: [{ runIds: [run!.runId] }] });
   });
   it("reports what stands between the draft and an assembled module", async () => {
     const { client, endpoint } = await fixture();

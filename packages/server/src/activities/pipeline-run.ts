@@ -25,14 +25,17 @@
  *   test    run the acceptance tests against the assembled module, when the specification
  *           has acceptance criteria and the test browser is installed
  *
- * State lives in memory only: a sequence belongs to the server that runs it, and its runs
- * outlive it in the history either way. A step that fails stops the sequence; nothing is
+ * A sequence belongs to the server that runs it: its live state is in memory, and a copy is
+ * written to `activity_pipelines` as it progresses, so the Stages panel keeps every sequence
+ * as history across restarts (one cut short by a restart reads as stopped). Its runs outlive
+ * it in the generation history either way. A step that fails stops the sequence; nothing is
  * rolled back, and nothing after it runs.
  */
 import { isBookWord } from "./book-words.js";
 import { speechModelFor } from "./audio.js";
 import { KOKORO_VOICES } from "./local-audio-models.js";
 import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
+import type { Db } from "../hmr/capabilities.js";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import type { ActivitySandbox } from "./sandbox-service.js";
@@ -324,6 +327,8 @@ export interface PipelineDeps {
   pause?: (ms: number) => Promise<void>;
   now?: () => string;
   newId?: () => string;
+  /** Keeps a copy of the sequence as it stands (start, each step, each run, the end), for its history. */
+  persist?: (state: PipelineState) => void;
 }
 
 /**
@@ -332,6 +337,9 @@ export interface PipelineDeps {
  */
 const FIRST_POLL_MS = 100;
 const POLL_MS = 1000;
+/** How many past sequences the Stages panel is given. */
+const HISTORY_LIMIT = 20;
+const INTERRUPTED = "The server restarted before the stages finished.";
 
 export class PipelineRunner {
   private readonly states = new Map<string, PipelineState>();
@@ -354,6 +362,15 @@ export class PipelineRunner {
    */
   dispose(): void {
     this.disposed = true;
+  }
+
+  /** A copy to history; a failed write never stops the sequence. */
+  private save(state: PipelineState): void {
+    try {
+      this.deps.persist?.(structuredClone(state));
+    } catch {
+      // The live state still serves the panel; only the history misses this moment.
+    }
   }
 
   /** The activity's latest sequence, running or finished, or null when it has had none. */
@@ -400,6 +417,7 @@ export class PipelineRunner {
     };
     this.states.set(activityId, state);
     this.stopping.delete(activityId);
+    this.save(state);
     return { state: structuredClone(state), done: this.drive(state, input) };
   }
 
@@ -419,6 +437,7 @@ export class PipelineRunner {
     for (const step of state.steps) {
       if (this.stopping.has(state.activityId) || this.disposed) break;
       step.status = "running";
+      this.save(state);
       try {
         await this.runStep(state, step, input);
         if (step.status === "running") step.status = "succeeded";
@@ -431,6 +450,7 @@ export class PipelineRunner {
       } finally {
         state.currentRunId = null;
         state.currentSessionId = null;
+        this.save(state);
       }
     }
     const failed = state.steps.some((step) => step.status === "failed");
@@ -445,6 +465,7 @@ export class PipelineRunner {
       if (step.status === "pending" && state.status !== "succeeded") step.status = "cancelled";
     this.stopping.delete(state.activityId);
     state.finishedAt = this.now();
+    this.save(state);
   }
 
   private async runStep(
@@ -841,12 +862,15 @@ export class PipelineRunner {
     step.runIds.push(run.runId);
     state.currentRunId = run.runId;
     state.currentSessionId = run.sessionId;
+    step.sessionId = run.sessionId;
+    this.save(state);
     for (let wait = FIRST_POLL_MS; ; wait = Math.min(wait * 2, POLL_MS)) {
       const latest = (await this.deps.generation.list(state.projectId, state.activityId)).find(
         (entry) => entry.runId === run.runId,
       );
       if (!latest) throw new Error(`Run ${run.runId} is no longer in the history.`);
       state.currentSessionId = latest.sessionId;
+      if (latest.sessionId) step.sessionId = latest.sessionId;
       if (this.disposed) throw new Stopped();
       if (TERMINAL.has(latest.status)) {
         if (latest.status === "succeeded") return latest;
@@ -864,6 +888,8 @@ export abstract class ActivityPipelines extends Interface<{
   start(projectId: string, activityId: string, input: PipelineInput): Promise<PipelineState>;
   /** The activity's latest sequence in this project, or null when it has had none here. */
   status(projectId: string, activityId: string): Promise<PipelineState | null>;
+  /** The activity's sequences, newest first (the running one included), at most `limit`. */
+  history(projectId: string, activityId: string, limit?: number): Promise<PipelineState[]>;
   stop(projectId: string, activityId: string): Promise<PipelineState | null>;
 }>() {}
 
@@ -873,10 +899,21 @@ export class ActivityPipelineService implements ActivityPipelines {
   @Use() private readonly activities!: ActivityAuthoring;
   @Use() private readonly sandbox!: ActivitySandbox;
   @Use() private readonly acceptance!: ActivityAcceptance;
+  @Use() private readonly db!: Db;
   private runner: PipelineRunner | null = null;
 
   setup({ effect }: ClassCtx) {
+    // A sequence still marked running was cut short by a restart or a hot replacement:
+    // nothing will finish it, so its history says it stopped.
+    for (const state of this.rows("WHERE status = 'running'", [])) {
+      state.status = "cancelled";
+      state.error ??= INTERRUPTED;
+      for (const step of state.steps)
+        if (step.status === "running" || step.status === "pending") step.status = "cancelled";
+      this.write(state);
+    }
     const runner = new PipelineRunner({
+      persist: (state) => this.write(state),
       generation: this.generation,
       activities: this.activities,
       currentAssessment: async (projectId, activityId) => {
@@ -906,10 +943,43 @@ export class ActivityPipelineService implements ActivityPipelines {
   }
 
   // A sequence is keyed by activity; answering only inside its own project keeps one
-  // project from reading or stopping another's, whatever id it names.
+  // project from reading or stopping another's, whatever id it names. Without one in memory
+  // (a restart since), the latest from history still shows what last ran.
   async status(projectId: string, activityId: string) {
     const state = this.active().status(activityId);
-    return state && state.projectId === projectId ? state : null;
+    if (state) return state.projectId === projectId ? state : null;
+    return (await this.history(projectId, activityId, 1))[0] ?? null;
+  }
+
+  async history(projectId: string, activityId: string, limit = HISTORY_LIMIT) {
+    return this.rows(
+      "WHERE project_id = ? AND activity_id = ? ORDER BY started_at DESC, pipeline_id DESC LIMIT ?",
+      [projectId, activityId, limit],
+    );
+  }
+
+  private rows(where: string, params: Array<string | number>): PipelineState[] {
+    const found = this.db
+      .prepare(`SELECT record_json FROM activity_pipelines ${where}`)
+      .all(...params) as Array<{ record_json: string }>;
+    return found.map((row) => JSON.parse(row.record_json) as PipelineState);
+  }
+
+  private write(state: PipelineState): void {
+    this.db
+      .prepare(
+        `INSERT INTO activity_pipelines (pipeline_id, project_id, activity_id, status, record_json, started_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(pipeline_id) DO UPDATE SET status = excluded.status, record_json = excluded.record_json`,
+      )
+      .run(
+        state.pipelineId,
+        state.projectId,
+        state.activityId,
+        state.status,
+        JSON.stringify(state),
+        state.startedAt,
+      );
   }
 
   async stop(projectId: string, activityId: string) {

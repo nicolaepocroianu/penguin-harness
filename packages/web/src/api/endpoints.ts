@@ -167,6 +167,7 @@ import type {
   DeploySettingsUpdate,
   DeployTarget,
   ServerSettingsUpdateRequest,
+  ActivityRunSessionsResponse,
   SessionCategory,
   SessionContextResponse,
   SessionCreateRequest,
@@ -663,7 +664,7 @@ export const listSessions = (
     withCounts?: boolean;
     /** The user's own rows only: an organization's desk, ticket and sub-sessions leave the page and the totals together (the development list's contract). */
     excludeOrg?: boolean;
-    /** Conversations only: activity runs leave the page and the totals, and with `withCounts` on the first page the newest of them come back as `activityRuns`. */
+    /** Conversations only: activity runs leave the page and the totals (with `withCounts` on the first page the newest of them come back as `activityRuns`); the sidebar pages all of them from listActivityRunSessions. */
     excludeActivityRuns?: boolean;
   },
 ) => {
@@ -679,6 +680,15 @@ export const listSessions = (
     `/api/projects/${encodeURIComponent(projectId)}/agents/${encodeURIComponent(agentId)}/sessions${qs}`,
   );
 };
+
+/** The Project's activity-run Sessions across every Agent, newest first (the sidebar's "Activity runs" folder). */
+export const listActivityRunSessions = (
+  projectId: string,
+  opts: { offset: number; limit: number },
+) =>
+  apiFetch<ActivityRunSessionsResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/activity-sessions?limit=${opts.limit}&offset=${opts.offset}`,
+  );
 
 /** Server directory browsing: `path` is an absolute path; empty means start from the server's home directory. */
 export const listDirs = (projectId: string, path = "") =>

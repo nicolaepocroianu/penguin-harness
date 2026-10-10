@@ -18,7 +18,7 @@ import { Button } from "../../components/ui/button";
 import { Chevron } from "../../components/ui/chevron";
 import { Select } from "../../components/ui/select";
 import { StatusIcon, type RunState } from "../../components/ui/status-icon";
-import { humanizeDuration } from "../../lib/format";
+import { formatDateTime, humanizeDuration } from "../../lib/format";
 import { ICON_SIZE } from "../../lib/icon-scale";
 import { LiveDuration } from "../chat/live-duration";
 import { ShowReasoningSwitch } from "./show-reasoning-switch";
@@ -135,12 +135,102 @@ export function PipelineControls({
   );
 }
 
+/** How a whole sequence ended, as the run-state icon draws it. */
+const SEQUENCE_ICON: Record<PipelineState["status"], RunState> = {
+  running: "running",
+  succeeded: "done",
+  failed: "failed",
+  cancelled: "stopped",
+};
+
+/**
+ * The activity's earlier stage runs, folded into one line; each opens in the panel above.
+ * They come from the server's record of every sequence, so they outlive a restart.
+ */
+function EarlierRuns({
+  runs,
+  viewing,
+  onView,
+}: {
+  runs: PipelineState[];
+  viewing: string | null;
+  onView: (pipelineId: string) => void;
+}) {
+  const words = S.activities.studioRun;
+  if (!runs.length) return null;
+  return (
+    <details className="py-1.5 text-xs text-gray-500">
+      <summary className="cursor-pointer select-none">{words.earlier(runs.length)}</summary>
+      <ul className="mt-1 space-y-0.5">
+        {runs.map((run) => {
+          const started = Date.parse(run.startedAt);
+          const finished = run.finishedAt ? Date.parse(run.finishedAt) : NaN;
+          const took =
+            Number.isFinite(started) && Number.isFinite(finished)
+              ? humanizeDuration(Math.max(0, finished - started))
+              : null;
+          return (
+            <li key={run.pipelineId}>
+              <button
+                type="button"
+                aria-pressed={run.pipelineId === viewing}
+                onClick={() => onView(run.pipelineId)}
+                className={`-mx-2 flex w-[calc(100%+1rem)] items-center gap-2 rounded px-2 py-1 text-left hover:bg-gray-50 dark:hover:bg-gray-900 ${
+                  run.pipelineId === viewing ? "bg-gray-100 dark:bg-gray-900" : ""
+                }`}
+              >
+                <StatusIcon state={SEQUENCE_ICON[run.status]} size={14} />
+                <span className="sr-only">{words.status[run.status]}</span>
+                <span className="min-w-0 flex-1 truncate text-gray-700 dark:text-gray-300">
+                  {words.earlierRun(choiceLabel(run.selection), formatDateTime(run.startedAt))}
+                </span>
+                {took && (
+                  <span className="shrink-0 font-mono tabular-nums text-gray-500 dark:text-gray-400">
+                    {took}
+                  </span>
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </details>
+  );
+}
+
 const STEP_ICON: Partial<Record<PipelineStepStatus, RunState>> = {
   running: "running",
   succeeded: "done",
   failed: "failed",
   cancelled: "stopped",
 };
+
+/**
+ * The session each stage's conversation lives in. A run still among the activity's recent
+ * runs names it (its session follows a rebuild); the step's own record covers an earlier
+ * sequence whose runs have fallen out of them.
+ */
+export function stepSessions(
+  pipeline: PipelineState | null,
+  runs: Pick<ActivityRunSummary, "runId" | "sessionId">[],
+): Map<PipelineStep, string> {
+  const byRun = new Map(runs.map((run) => [run.runId, run.sessionId]));
+  const result = new Map<PipelineStep, string>();
+  for (const step of pipeline?.steps ?? []) {
+    // A media step runs many times; its latest session is the one worth reading.
+    const session =
+      [...step.runIds]
+        .reverse()
+        .map((runId) => byRun.get(runId))
+        .find(Boolean) ?? step.sessionId;
+    if (session) result.set(step.step, session);
+  }
+  if (pipeline?.status === "running" && pipeline.currentSessionId) {
+    const step = pipeline.steps.find((entry) => entry.status === "running");
+    if (step) result.set(step.step, pipeline.currentSessionId);
+  }
+  return result;
+}
 
 /** When a stage's runs started and, once every one has settled, when the last finished. */
 export interface StepSpan {
@@ -364,12 +454,15 @@ function SessionLog({
  * running stage is followed live; afterwards any stage that ran an agent can be opened.
  */
 export function PipelinePanel({
-  pipeline,
+  pipeline: latest,
+  history = [],
   runs,
   agentLabel,
   onAddExcerpt,
 }: {
   pipeline: PipelineState | null;
+  /** The activity's sequences, newest first, as the server keeps them (the latest included). */
+  history?: PipelineState[];
   /** The activity's runs, which say which session each stage's run used. */
   runs: ActivityRunSummary[];
   agentLabel: string;
@@ -377,6 +470,14 @@ export function PipelinePanel({
   onAddExcerpt: (text: string) => void;
 }) {
   const words = S.activities.studioRun;
+  // An earlier run the author opened from the list; the latest shows otherwise.
+  const [earlierId, setEarlierId] = useState<string | null>(null);
+  const earlier =
+    earlierId !== null && earlierId !== latest?.pipelineId
+      ? (history.find((entry) => entry.pipelineId === earlierId) ?? null)
+      : null;
+  const pipeline = earlier ?? latest;
+  const earlierRuns = history.filter((entry) => entry.pipelineId !== latest?.pipelineId);
   const [chosen, setChosen] = useState<{ pipelineId: string; step: PipelineStep } | null>(null);
   // While a run goes on, its finished stages fold into one row unless the author opens them.
   const [showDone, setShowDone] = useState(false);
@@ -386,23 +487,7 @@ export function PipelinePanel({
       (pipeline?.steps ?? []).map((step) => [step.step, stepSpan(step, byRun)] as const),
     );
   }, [pipeline, runs]);
-  const sessions = useMemo(() => {
-    const byRun = new Map(runs.map((run) => [run.runId, run.sessionId]));
-    const result = new Map<PipelineStep, string>();
-    for (const step of pipeline?.steps ?? []) {
-      // A media step runs many times; its latest session is the one worth reading.
-      const session = [...step.runIds]
-        .reverse()
-        .map((runId) => byRun.get(runId))
-        .find(Boolean);
-      if (session) result.set(step.step, session);
-    }
-    if (pipeline?.status === "running" && pipeline.currentSessionId) {
-      const step = pipeline.steps.find((entry) => entry.status === "running");
-      if (step) result.set(step.step, pipeline.currentSessionId);
-    }
-    return result;
-  }, [pipeline, runs]);
+  const sessions = useMemo(() => stepSessions(pipeline, runs), [pipeline, runs]);
   if (!pipeline)
     return (
       <div className="space-y-2 p-4 text-sm text-gray-500">
@@ -455,6 +540,20 @@ export function PipelinePanel({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="max-h-[50%] shrink-0 space-y-2 overflow-y-auto px-4 pt-3 pb-2">
+        {earlier && (
+          <div className="flex items-baseline gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <p className="min-w-0 flex-1 truncate">
+              {words.viewingEarlier(formatDateTime(earlier.startedAt))}
+            </p>
+            <button
+              type="button"
+              onClick={() => setEarlierId(null)}
+              className="shrink-0 underline hover:text-gray-800 dark:hover:text-gray-200"
+            >
+              {words.backToLatest}
+            </button>
+          </div>
+        )}
         <div className="flex items-baseline gap-2 text-xs">
           <p aria-live="polite" className={`min-w-0 flex-1 truncate ${toneInk[line.tone]}`}>
             {line.text}
@@ -515,6 +614,11 @@ export function PipelinePanel({
           </button>
         )}
         <SkippedSteps steps={skipped} />
+        <EarlierRuns
+          runs={earlierRuns}
+          viewing={earlier?.pipelineId ?? null}
+          onView={(pipelineId) => setEarlierId(pipelineId)}
+        />
       </div>
       {viewing && sessionId ? (
         <SessionLog
