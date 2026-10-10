@@ -484,6 +484,12 @@ describe("normalizeMediaTags", () => {
     );
   });
 
+  it("reads a <sound> that asks for music as looping music", () => {
+    expect(normalizeMediaTags("<sound>calm background music, looping</sound>")).toBe(
+      '<audio kind="music" loop="true">calm background music, looping</audio>',
+    );
+  });
+
   it("leaves audio tags, other tags and mismatched pairs alone", () => {
     const text =
       '<audio kind="sfx">a bell</audio> <image>a cow</image> <sound>an unclosed sound</music>';
