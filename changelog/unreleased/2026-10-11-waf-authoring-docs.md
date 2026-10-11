@@ -3,6 +3,7 @@
 - **Date:** 2026-10-11
 - **Type:** process
 - **Scope:** `docs`
+- **PR:** [#105](https://github.com/nicolaepocroianu/penguin-harness/pull/105)
 
 The built-in library table on the Skills & Plugins page now has a row for `waf-authoring`, under
 Software Development. It says what the plugin is for and that it is not preinstalled.
