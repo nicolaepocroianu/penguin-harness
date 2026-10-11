@@ -506,6 +506,9 @@ describe("normalizeMediaTags", () => {
       "a door creak without any music",
       "a short musical sting when the answer is right",
       "a music box tune that plays once",
+      "music that plays once, do not loop",
+      "a happy music cue without repeating",
+      "short music, don't loop it",
     ])
       expect(normalizeMediaTags(`<sound>${prompt}</sound>`)).toBe(
         `<audio kind="sfx">${prompt}</audio>`,

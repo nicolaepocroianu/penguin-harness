@@ -17,15 +17,20 @@ type Json = Record<string, unknown>;
 
 /**
  * Whether a <sound> prompt asks for music that plays on. It must name music without ruling it
- * out ("one short bell, no music"). An explicit loop ("loops", "repeats", "throughout") is
- * music however short each pass is; "background" or "ambient" is too, unless the prompt also
+ * out ("one short bell, no music") or ruling looping out ("do not loop", "without
+ * repeating"). An explicit loop ("loops", "repeats", "throughout") is music however short each
+ * pass is; "background" or "ambient" is too, unless the prompt also
  * makes it one-off ("a short musical sting", a jingle that plays once). Anything less certain
  * stays the one-shot effect <sound> means.
  */
 function asksForMusic(prompt: string): boolean {
+  const negation = String.raw`\b(?:no|not|don't|without|never)\b[^.,;:!?]*`;
+  const loop = String.raw`\b(?:loop(?:s|ing|ed)?|repeat(?:s|ing|ed)?)\b`;
   if (!/\bmusic\b/i.test(prompt)) return false;
-  if (/\b(?:no|not|without|never)\b[^.,;:!?]*\bmusic\b/i.test(prompt)) return false;
-  if (/\b(?:loop(?:s|ing|ed)?|repeat(?:s|ing|ed)?|throughout)\b/i.test(prompt)) return true;
+  if (new RegExp(`${negation}\\bmusic\\b`, "i").test(prompt)) return false;
+  // "do not loop", "without repeating": a one-shot request, whatever else it says.
+  if (new RegExp(`${negation}${loop}`, "i").test(prompt)) return false;
+  if (new RegExp(`${loop}|\\bthroughout\\b`, "i").test(prompt)) return true;
   const background = /\b(?:background|ambient)\b/i.test(prompt);
   const oneOff = /\b(?:one[- ]shot|once|sting|short|jingle)\b/i.test(prompt);
   return background && !oneOff;
