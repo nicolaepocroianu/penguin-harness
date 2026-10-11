@@ -341,7 +341,9 @@ async function worker() {
     let status = "passed";
     let error = null;
     try {
-      await withTimeout(runner.run(() => entry.fn()));
+      // Timed inside the check's scope: a check that runs out of time has its pages closed
+      // then, rather than playing on beside the next one.
+      await runner.run(() => withTimeout(Promise.resolve().then(() => entry.fn())));
     } catch (caught) {
       status = runner.isSkip(caught) ? "skipped" : "failed";
       error = message(caught).slice(0, 2000);

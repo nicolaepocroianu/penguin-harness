@@ -840,19 +840,26 @@ export class PipelineRunner {
         await revision(),
         "decodable",
       );
-      const group = (await current()).draft.mediaPlan!.manifest.assets[language] ?? [];
-      const missing = wordsMissingPhonemes(group).slice(0, PHONEMES_RUN_MAX_WORDS);
-      if (!missing.length) continue;
-      const run = await generation.start(
-        projectId,
-        activityId,
-        input.agentId,
-        await revision(),
-        { phonemes: { language, words: missing } },
-        runtime,
+      // A run scoped to one word asks only about that word.
+      const group = ((await current()).draft.mediaPlan!.manifest.assets[language] ?? []).filter(
+        (asset) => input.scope?.assetKey === undefined || asset.key === input.scope.assetKey,
       );
-      await this.follow(state, step, run);
-      await generation.acceptPhonemes(projectId, activityId, run.runId, await revision());
+      const missing = wordsMissingPhonemes(group);
+      // As many runs as the words need: one run proposes at most PHONEMES_RUN_MAX_WORDS.
+      for (let start = 0; start < missing.length; start += PHONEMES_RUN_MAX_WORDS) {
+        const run = await generation.start(
+          projectId,
+          activityId,
+          input.agentId,
+          await revision(),
+          {
+            phonemes: { language, words: missing.slice(start, start + PHONEMES_RUN_MAX_WORDS) },
+          },
+          runtime,
+        );
+        await this.follow(state, step, run);
+        await generation.acceptPhonemes(projectId, activityId, run.runId, await revision());
+      }
     }
     step.detail = null;
     const planned = (await current()).draft.mediaPlan!.manifest;

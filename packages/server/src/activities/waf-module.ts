@@ -522,32 +522,50 @@ export async function verifyMediaArtifacts(
         throw new Error("Assembly changed an approved media configuration binding.");
   }
 }
-/**
- * Rewrites the ref configuration's machine and scene catalog from what the assembly left,
- * before its files are collected: Loom's `sync_state_machine` after implementing behavior.
- * The run may have completed `spec/state-machine.json`, and the runtime boots from the
- * configuration's copy. A book's reader machine is fixed and checked as it is.
- */
+
 /**
  * Writes the approved media manifest back over the module's copy. The scaffold ships it
  * already, from the approved media plan, and nothing in the module may change it: an agent
  * that rewrote it (from input.json's draft shape, say) had its whole run refused after it had
  * built and checked the module. The manifest is the server's data, so it is restored instead.
+ *
+ * The path is in the agent's workspace, so it is written without following links: a linked
+ * folder on the way is refused, as collectModule refuses one, and whatever is at the file's
+ * path (a file, or a link to one outside the workspace) is removed and the file made anew.
  */
 export async function restoreApprovedManifest(
   workspace: string,
   activity: ActivityDetail,
 ): Promise<void> {
   if (!activity.draft.mediaPlan) return;
-  const file = path.join(
-    workspace,
-    `module/generated/${activity.productCode}/refs/${activity.productCode}-${activity.refNum}/spec/asset_manifest.json`,
-  );
-  await fs.mkdir(path.dirname(file), { recursive: true });
+  const segments = [
+    "module",
+    "generated",
+    activity.productCode,
+    "refs",
+    `${activity.productCode}-${activity.refNum}`,
+    "spec",
+  ];
+  let dir = workspace;
+  for (const segment of segments) {
+    dir = path.join(dir, segment);
+    const stat = await fs.lstat(dir).catch(() => null);
+    if (!stat) await fs.mkdir(dir);
+    else if (!stat.isDirectory() || stat.isSymbolicLink())
+      throw new Error("Linked artifact directories are not allowed.");
+  }
+  const file = path.join(dir, "asset_manifest.json");
+  await fs.rm(file, { force: true });
   const manifest = wafManifest(validateManifest(activity.draft.mediaPlan.manifest, activity));
-  await fs.writeFile(file, JSON.stringify(manifest, null, 2) + "\n");
+  await fs.writeFile(file, JSON.stringify(manifest, null, 2) + "\n", { flag: "wx" });
 }
 
+/**
+ * Rewrites the ref configuration's machine and scene catalog from what the assembly left,
+ * before its files are collected: Loom's `sync_state_machine` after implementing behavior.
+ * The run may have completed `spec/state-machine.json`, and the runtime boots from the
+ * configuration's copy. A book's reader machine is fixed and checked as it is.
+ */
 export async function syncAssembledStateMachine(
   workspace: string,
   activity: ActivityDetail,

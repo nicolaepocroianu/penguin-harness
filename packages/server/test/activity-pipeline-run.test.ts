@@ -1219,6 +1219,27 @@ describe("the words step", () => {
     expect(w.group().find((item) => item.key === "book-word-ran")!.path).toMatch(/^media\//);
   });
 
+  it("asks in runs of at most 200 words, so every word without sounds is asked about", async () => {
+    const words = Array.from({ length: 450 }, (_, index) => `w${index}`);
+    const w = wordWorld({ proposes: true });
+    w.activity.draft.mediaPlan.manifest.assets["en-US"] = words.map((word) => w.word(word));
+    await w.runner.start("proj", "act", { selection: "words", agentId: "agent" }).done;
+    expect(w.asked.map((batch) => batch.length)).toEqual([200, 200, 50]);
+    expect(w.asked.flat()).toEqual(words);
+  });
+
+  it("asks only about the one word a run is scoped to", async () => {
+    const w = wordWorld({ proposes: true });
+    await w.runner.start("proj", "act", {
+      selection: "words",
+      agentId: "agent",
+      scope: { language: "en-US", assetKey: "book-word-cat" },
+    }).done;
+    // cat has sounds already, so nothing is asked, and ran's missing sounds are not this run's.
+    expect(w.asked).toEqual([]);
+    expect(w.runner.status("act")!.steps[0]).toMatchObject({ status: "succeeded", total: 1 });
+  });
+
   it("records each word with sounds and no recording, in its provider's script, and accepts it", async () => {
     const w = wordWorld();
     await w.runner.start("proj", "act", { selection: "words", agentId: "agent", voice: "Kore" })

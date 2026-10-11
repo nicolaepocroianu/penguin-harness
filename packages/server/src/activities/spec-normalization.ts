@@ -23,12 +23,23 @@ type Json = Record<string, unknown>;
  * <video> count, dropped them without a word. Only applied to what a run is given; the
  * author's saved description is left as written.
  */
+/**
+ * Whether a <sound> prompt asks for music: it names music, and not only to rule it out
+ * ("one short bell, no music" is an effect).
+ */
+function asksForMusic(prompt: string): boolean {
+  return (
+    /\bmusic(al)?\b/i.test(prompt) &&
+    !/\b(?:no|not|without|never)\b[^.,;:!?]*\bmusic(al)?\b/i.test(prompt)
+  );
+}
+
 export function normalizeMediaTags(description: string): string {
   const music = (prompt: string) => `<audio kind="music" loop="true">${prompt}</audio>`;
   return description
     .replace(/<music>([\s\S]*?)<\/music>/gi, (_tag, prompt: string) => music(prompt))
     .replace(/<sound>([\s\S]*?)<\/sound>/gi, (_tag, prompt: string) =>
-      /\bmusic\b/i.test(prompt) ? music(prompt) : `<audio kind="sfx">${prompt}</audio>`,
+      asksForMusic(prompt) ? music(prompt) : `<audio kind="sfx">${prompt}</audio>`,
     )
     .replace(/<sfx>([\s\S]*?)<\/sfx>/gi, '<audio kind="sfx">$1</audio>');
 }

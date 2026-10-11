@@ -490,6 +490,13 @@ describe("normalizeMediaTags", () => {
     );
   });
 
+  it("keeps a <sound> that only rules music out as a one-shot effect", () => {
+    for (const prompt of ["one short bell ding, no music", "a door creak without any music"])
+      expect(normalizeMediaTags(`<sound>${prompt}</sound>`)).toBe(
+        `<audio kind="sfx">${prompt}</audio>`,
+      );
+  });
+
   it("leaves audio tags, other tags and mismatched pairs alone", () => {
     const text =
       '<audio kind="sfx">a bell</audio> <image>a cow</image> <sound>an unclosed sound</music>';

@@ -7,6 +7,7 @@ import {
   scaffoldModule,
   prepareModule,
   collectModule,
+  restoreApprovedManifest,
   stageSkills,
 } from "../src/activities/waf-module.js";
 import { readCandidate } from "../src/activities/generation.js";
@@ -86,6 +87,39 @@ describe("native WAF module boundary", () => {
       ),
     ).toMatchObject({ P: { "en-US": { cat: "{{MEDIA}}/cat.png" } } });
   });
+  it("restores the approved manifest without following links the agent left", async () => {
+    const root = await directory();
+    const a = structuredClone(activity);
+    a.draft.mediaPlan = planMedia(a);
+    const spec = "module/generated/P/refs/P-12/spec";
+    // A link at the manifest's own path: the link goes, the file it named stays as it was.
+    const linked = await directory();
+    await prepareModule(linked, a, root);
+    const outside = path.join(await directory(), "outside.json");
+    await fs.writeFile(outside, "not the server's");
+    await fs.rm(path.join(linked, spec, "asset_manifest.json"));
+    await fs
+      .symlink(outside, path.join(linked, spec, "asset_manifest.json"), "file")
+      .catch(async () => fs.link(outside, path.join(linked, spec, "asset_manifest.json")));
+    await restoreApprovedManifest(linked, a);
+    expect(await fs.readFile(outside, "utf8")).toBe("not the server's");
+    expect(
+      JSON.parse(await fs.readFile(path.join(linked, spec, "asset_manifest.json"), "utf8")),
+    ).toBeTruthy();
+    // A linked folder on the way is refused, as collecting the module refuses one.
+    const folder = await directory();
+    await prepareModule(folder, a, root);
+    const elsewhere = await directory();
+    await fs.rm(path.join(folder, spec), { recursive: true });
+    await fs.symlink(
+      elsewhere,
+      path.join(folder, spec),
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    await expect(restoreApprovedManifest(folder, a)).rejects.toThrow("Linked artifact directories");
+    expect(await fs.readdir(elsewhere)).toEqual([]);
+  });
+
   it("stages the machine path's skills, in reading order, beside the module", async () => {
     const workspace = await directory();
     await prepareModule(workspace, activity, workspace);
