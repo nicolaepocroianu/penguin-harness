@@ -20,6 +20,8 @@ export abstract class Settings extends Interface<{
   getAttachmentLimitsMb(): { attachmentMaxMb: number; attachmentTotalMb: number };
   getCompanyMode(): boolean;
   setCompanyMode(value: boolean): void;
+  getConfineActivityAgents(): boolean;
+  setConfineActivityAgents(value: boolean): void;
 }>() {}
 
 /** UiPrefsStore: the mechanism UiPrefsRepo implements. */

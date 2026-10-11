@@ -2262,6 +2262,13 @@ export type Strings = {
     wafWorkspace: {
       title: string;
       about: string;
+      confineAgents: string;
+      confineAgentsInfo: string;
+      confineAgentsReady: string;
+      confineAgentsOff: string;
+      confineAgentsUnavailable: string;
+      confineAgentsSaved: (on: boolean) => string;
+      confineAgentsLoadFailed: (reason: string) => string;
       ready: string;
       notReady: string;
       preparing: string;

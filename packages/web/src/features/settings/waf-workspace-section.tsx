@@ -18,6 +18,7 @@ import { Input } from "../../components/ui/input";
 import { toastError, toastInfo, toastSuccess } from "../../components/ui/toast";
 import { useProject } from "../../state/project";
 import { WorkspaceSelect } from "../chat/workspace-select";
+import { ActivitySandboxRow } from "./activity-sandbox-row";
 import { SectionShell } from "./section-shell";
 import {
   WAF_REPO_ORDER,
@@ -156,6 +157,7 @@ export function WafWorkspaceSection() {
         </>
       }
     >
+      <ActivitySandboxRow />
       <div aria-live="polite">
         {view !== null && (
           <p

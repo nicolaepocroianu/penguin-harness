@@ -36,6 +36,8 @@ const ATTACHMENT_MAX_MB_KEY = "attachment_max_mb";
 const ATTACHMENT_TOTAL_MB_KEY = "attachment_total_mb";
 /** Key of the company-mode master switch; default off (see getCompanyMode). */
 const COMPANY_MODE_KEY = "companyMode";
+/** Key of the "confine activity agents" switch; default ON (see getConfineActivityAgents). */
+const CONFINE_ACTIVITY_AGENTS_KEY = "confineActivityAgents";
 
 @Component()
 export class ServerSettingsRepo implements Settings {
@@ -166,5 +168,24 @@ export class ServerSettingsRepo implements Settings {
 
   setCompanyMode(value: boolean): void {
     this.set(COMPANY_MODE_KEY, JSON.stringify(value));
+  }
+
+  /**
+   * Whether activity runs confine their agent's commands and file writes to the run's
+   * workspace (default ON): an absent row — and an unreadable one — means on, because the
+   * shared checkout is only read-only while this is on. Only an explicit `false` turns it off.
+   */
+  getConfineActivityAgents(): boolean {
+    const raw = this.get(CONFINE_ACTIVITY_AGENTS_KEY);
+    if (raw === null) return true;
+    try {
+      return JSON.parse(raw) !== false;
+    } catch {
+      return true;
+    }
+  }
+
+  setConfineActivityAgents(value: boolean): void {
+    this.set(CONFINE_ACTIVITY_AGENTS_KEY, JSON.stringify(value));
   }
 }

@@ -1148,8 +1148,9 @@ export class ActivityGenerationService implements ActivityGeneration {
           // runs its commands itself, outside Penguin's sandbox.
           const localProvider = sound?.sound.provider ?? audio?.provider;
           const localRun = Boolean(localProvider && isLocalAudioProvider(localProvider));
-          // Penguin's own agent runs this stage, so its commands run confined.
-          const confined = !codingAgentId && !localRun;
+          // Penguin's own agent runs this stage, so its commands run confined — unless an
+          // admin turned confinement off for this server (System settings > WAF workspace).
+          const confined = !codingAgentId && !localRun && this.settings.getConfineActivityAgents();
           if (confined) {
             const problem = this.sandbox.confinementProblem(RUN_SANDBOX_MODE);
             if (problem !== null)

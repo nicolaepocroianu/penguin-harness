@@ -25,9 +25,9 @@ import type { Dirent } from "node:fs";
 import { parse as parseToml } from "smol-toml";
 import { parsePluginTable, projectConfigPath } from "@prismshadow/penguin-core";
 import { findPackageJSON } from "node:module";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import type {
   IfaceTable,
   ManifestTable,
@@ -55,6 +55,12 @@ export interface PluginLoadResult {
   loaded: LoadedPlugin[];
   /** specifier → why it was skipped. */
   failed: Map<string, string>;
+  /**
+   * A second name for a package already loaded under the first → that first name. Mounted once,
+   * but each name keeps its status: a Project that named the package its own way sees it
+   * running (or failed, with the reason) like any other.
+   */
+  aliases: Map<string, string>;
 }
 /** The Project ids of a data root: every directory holding a `.project_config.toml`. */
 export async function listProjectIds(root: string): Promise<string[]> {
@@ -105,6 +111,54 @@ export async function readProjectPluginList(root: string, projectId: string): Pr
     return [];
   }
   return Object.keys(parsePluginTable((parsed as { plugins?: unknown }).plugins) ?? {});
+}
+
+/**
+ * Plugins every deployment runs whether or not a Project asks for one — the single exception
+ * to "availability is not consent" (see loadPlugins). The sandbox backend is on this list
+ * because it only TAKES capability away, and only from a Session that asks for confinement:
+ * mounted, it confines nothing by itself. Without it, activity runs (which ask for
+ * confinement unless an admin turns that off) would be refused until each Project opted in.
+ * DSH because it is the one backend that works on Windows, macOS and Linux alike.
+ */
+export const DEFAULT_PLUGINS: readonly string[] = ["@prismshadow/penguin-plugin-sandbox-dsh"];
+
+/**
+ * The plugin sources of the repository this server runs from, when it runs from source (a
+ * dev server): `<repo>/plugins/<dir>/package.json`. A built server has no such directory, so
+ * this resolves nothing there.
+ */
+const SOURCE_PLUGINS_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+  "..",
+  "plugins",
+);
+
+/**
+ * The repository's own plugin package a bare name names, or null. In a dev server no npm
+ * prefix holds the builtin plugins (the desktop build and the hot push stage one), so without
+ * this a builtin plugin could only be named by its absolute path there.
+ */
+function sourcePluginPackage(specifier: string): { dir: string; manifest: string } | null {
+  let entries: string[];
+  try {
+    entries = readdirSync(SOURCE_PLUGINS_DIR);
+  } catch {
+    return null;
+  }
+  for (const entry of entries) {
+    const manifest = path.join(SOURCE_PLUGINS_DIR, entry, "package.json");
+    try {
+      const pkg = JSON.parse(readFileSync(manifest, "utf8")) as { name?: unknown };
+      if (pkg.name === specifier) return { dir: path.dirname(manifest), manifest };
+    } catch {
+      // Not a package directory.
+    }
+  }
+  return null;
 }
 
 /**
@@ -270,7 +324,12 @@ function resolvePlugin(
   // root entry — the wrong module, silently. Refused up front, by name.
   if (!PACKAGE_NAME.test(specifier)) return null;
   const found = resolvePluginPackage(specifier, bases);
-  if (found === null) return null;
+  if (found === null) {
+    const source = sourcePluginPackage(specifier);
+    if (source === null) return null;
+    const entry = packageEntry(source.dir, source.manifest);
+    return entry === null ? null : { file: entry, base: { file: source.manifest, builtin: true } };
+  }
   const file = packageEntry(found.dir, found.manifest);
   return file === null ? null : { file, base: found.base };
 }
@@ -502,11 +561,18 @@ export async function loadPlugins(
     root,
     assetsDir === undefined ? await committedAssetsDir(root) : assetsDir,
   );
-  // The closure over this root's Projects, and nothing else. A plugin the BUILD ships is
+  // The closure over this root's Projects, plus DEFAULT_PLUGINS. A plugin the BUILD ships is
   // available without a download — that is what `builtin` means — but availability is not
-  // consent: it loads when a Project asks for it, like every other plugin.
-  const specifiers = await readPluginClosure(root);
+  // consent: it loads when a Project asks for it, like every other plugin. DEFAULT_PLUGINS
+  // is the one exception, and says why.
+  const closure = await readPluginClosure(root);
+  const specifiers = [...closure, ...DEFAULT_PLUGINS.filter((name) => !closure.includes(name))];
   const loaded: LoadedPlugin[] = [];
+  // One package loaded once, however many names reach it: a Project that names a default
+  // plugin by its path would otherwise mount the same backend twice. The entry file's real
+  // path → the first name it was reached by.
+  const firstNameOf = new Map<string, string>();
+  const aliases = new Map<string, string>();
   for (const specifier of specifiers) {
     // Reused only when the SAME FILE is behind the name. A push writes the builtin plugins to
     // a new assets directory, so keeping an entry by specifier alone would run the previous
@@ -515,6 +581,16 @@ export async function loadPlugins(
     if (fault !== null) {
       failed.set(specifier, fault);
       continue;
+    }
+    const target = resolvePlugin(specifier, bases)?.file;
+    if (target !== undefined) {
+      const key = realFile(target);
+      const first = firstNameOf.get(key);
+      if (first !== undefined) {
+        aliases.set(specifier, first);
+        continue;
+      }
+      firstNameOf.set(key, specifier);
     }
     const held = reuse.get(specifier);
     const heldFile = held?.file;
@@ -568,7 +644,7 @@ export async function loadPlugins(
       failed.set(specifier, err instanceof Error ? err.message : String(err));
     }
   }
-  return { loaded, failed };
+  return { loaded, failed, aliases };
 }
 
 /**
@@ -612,5 +688,22 @@ export async function loadPluginHost(
     host.skip(specifier, reason);
     console.warn(`[plugins] skipped ${specifier}: ${reason}`);
   }
+  // A second name shares the first name's outcome: running when it runs, failed with its reason.
+  for (const [alias, first] of result.aliases) {
+    if (host.entries().has(first)) host.alias(alias, first);
+    else {
+      const reason = result.failed.get(first);
+      if (reason !== undefined) host.skip(alias, `the same package as ${first}: ${reason}`);
+    }
+  }
   return host;
+}
+
+/** A file's real path, for telling two names of one package apart; its own path if unresolvable. */
+function realFile(file: string): string {
+  try {
+    return realpathSync.native(file);
+  } catch {
+    return path.resolve(file);
+  }
 }

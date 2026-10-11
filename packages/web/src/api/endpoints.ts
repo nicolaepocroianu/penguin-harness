@@ -162,6 +162,7 @@ import type {
   WafWorkspaceSettings,
   WafWorkspaceSettingsResponse,
   WafWorkspaceStatusResponse,
+  ActivitySandboxResponse,
   DeployConnectionTestResponse,
   DeploySettingsResponse,
   DeploySettingsUpdate,
@@ -310,6 +311,17 @@ export const adminGetWafWorkspace = () =>
 /** Starts cloning what the WAF workspace is missing; a no-op while one preparation runs. */
 export const adminPrepareWafWorkspace = () =>
   apiFetch<WafWorkspaceStatusResponse>("/api/admin/waf-workspace/prepare", { method: "POST" });
+
+/** Whether activity runs confine their agent, and whether they can right now (admin only). */
+export const adminGetActivitySandbox = () =>
+  apiFetch<ActivitySandboxResponse>("/api/admin/activity-sandbox");
+
+/** Turns confining activity agents on or off (admin only). */
+export const adminPutActivitySandbox = (enabled: boolean) =>
+  apiFetch<ActivitySandboxResponse>("/api/admin/activity-sandbox", {
+    method: "PUT",
+    body: { enabled },
+  });
 
 /** The WAF workspace's remotes, branches and any existing checkout (admin only). */
 export const adminGetWafWorkspaceSettings = () =>

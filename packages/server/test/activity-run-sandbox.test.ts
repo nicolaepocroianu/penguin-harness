@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivityDetail, ActivityDraft } from "../src/activities/domain.js";
 import type { SessionEnv } from "../src/runtime/session-manager.js";
 import { SandboxService } from "../src/sandbox/service.js";
-import { apiClient, createTestApp, loginAdmin, type TestApp } from "./helpers.js";
+import { apiClient, createTestApp, loginAdmin, provisionUser, type TestApp } from "./helpers.js";
 
 const STAGE_AGENT = fileURLToPath(new URL("./coding-agents-stage-agent.mjs", import.meta.url));
 
@@ -99,5 +99,46 @@ describe("activity runs and the sandbox", () => {
     expect(response.status, await response.clone().text()).toBe(202);
     await vi.waitFor(() => expect(f.createSession).toHaveBeenCalled());
     expect(f.createSession.mock.calls[0]![0]).not.toHaveProperty("sandboxMode");
+  });
+
+  describe("the admin switch", () => {
+    it("is on until an admin turns it off", async () => {
+      const f = await fixture();
+      const read = await f.admin.get("/api/admin/activity-sandbox");
+      expect(read.status).toBe(200);
+      expect(await read.json()).toEqual({ sandbox: { enabled: true, problem: null } });
+    });
+
+    it("off: a run starts without a sandbox, and its Session is not confined", async () => {
+      const f = await fixture(new SandboxService([]));
+      // With nothing to confine with, the switch reports why runs would be refused.
+      const before = (await (await f.admin.get("/api/admin/activity-sandbox")).json()) as {
+        sandbox: { problem: string | null };
+      };
+      expect(before.sandbox.problem).toMatch(/no sandbox backend is mounted/);
+      const off = await f.admin.put("/api/admin/activity-sandbox", { enabled: false });
+      expect(off.status).toBe(200);
+      expect(((await off.json()) as { sandbox: { enabled: boolean } }).sandbox.enabled).toBe(false);
+      const response = await f.admin.post(`${f.endpoint}/generate-spec`, {
+        agentId: "default_agent",
+        expectedRevision: f.revision,
+      });
+      expect(response.status, await response.clone().text()).toBe(202);
+      await vi.waitFor(() => expect(f.createSession).toHaveBeenCalled());
+      expect(f.createSession.mock.calls[0]![0]).not.toHaveProperty("sandboxMode");
+    });
+
+    it("is an admin's to change, and takes only a boolean", async () => {
+      const f = await fixture();
+      const member = apiClient(t.app, (await provisionUser(t.app, "sandbox_member")).cookie);
+      expect((await member.get("/api/admin/activity-sandbox")).status).toBe(403);
+      expect((await member.put("/api/admin/activity-sandbox", { enabled: false })).status).toBe(
+        403,
+      );
+      expect((await f.admin.put("/api/admin/activity-sandbox", { enabled: "no" })).status).toBe(
+        400,
+      );
+      expect((await f.admin.put("/api/admin/activity-sandbox", {})).status).toBe(400);
+    });
   });
 });

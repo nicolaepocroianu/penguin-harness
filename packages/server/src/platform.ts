@@ -148,6 +148,7 @@ import {
   WafWorkspaceService,
 } from "./activities/waf-workspace.js";
 import { WafWorkspaceAdminRoutes } from "./activities/waf-workspace-routes.js";
+import { ActivitySandboxAdminRoutes } from "./activities/activity-sandbox-routes.js";
 import { DefaultAudioEncodePorts } from "./activities/ref-media.js";
 import { ActivityDeployEventHub, ActivityDeployEvents } from "./activities/deploy-events.js";
 import { ActivityPhonemesService, DefaultEspeakPorts } from "./activities/phonemes.js";
@@ -451,6 +452,7 @@ export class CodingAgentsModule {}
     DefaultWafWorkspacePorts,
     WafWorkspaceService,
     WafWorkspaceAdminRoutes,
+    ActivitySandboxAdminRoutes,
     DefaultAudioEncodePorts,
   ],
   exports: [

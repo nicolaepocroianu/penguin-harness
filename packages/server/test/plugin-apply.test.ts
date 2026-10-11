@@ -14,8 +14,20 @@ import path from "node:path";
 import { HotResources } from "@prismshadow/penguin-hmr";
 import { PLUGINS_RESOURCE_ID, PluginHost, pluginHostFrom } from "../src/plugin/host.js";
 import { writeClassPackage } from "./plugin-fixtures.js";
-import { loadPluginHost } from "../src/plugin/loader.js";
+import { DEFAULT_PLUGINS, loadPluginHost } from "../src/plugin/loader.js";
 import type { LoadedPlugin } from "../src/plugin/host.js";
+
+/** What a host holds beyond DEFAULT_PLUGINS: the plugins the Projects listed. */
+function listedKeys(host: PluginHost): string[] {
+  return [...host.entries().keys()].filter((name) => !DEFAULT_PLUGINS.includes(name));
+}
+
+/** The module names of the plugins the Projects listed (DEFAULT_PLUGINS set aside). */
+function listedModules(host: PluginHost): string[] {
+  return [...host.entries().entries()]
+    .filter(([name]) => !DEFAULT_PLUGINS.includes(name))
+    .flatMap(([, entry]) => entry.modules.map((m) => m.manifest.name));
+}
 
 /** A data root whose one Project asks for these specifiers. */
 async function rootAsking(specifiers: string[]): Promise<string> {
@@ -59,7 +71,7 @@ describe("loadPluginHost", () => {
       const host = await loadPluginHost(resources, root);
 
       // A plugin the closure no longer names is simply not in the new host.
-      expect([...host.entries().keys()]).toEqual([]);
+      expect(listedKeys(host)).toEqual([]);
       // Registering is the caller's, at its commit: a create() that throws must leave the
       // previous App's host in place.
       expect(pluginHostFrom(resources)).toBe(inherited);
@@ -124,11 +136,11 @@ describe("loadPluginHost", () => {
 
       // What harness.json names, when nobody says otherwise.
       const committedHost = await loadPluginHost(new HotResources(), root);
-      expect(committedHost.modules().map((m) => m.manifest.name)).toEqual(["Old"]);
+      expect(listedModules(committedHost)).toEqual(["Old"]);
 
       // What the booting version carries, when the host says which assets those are.
       const bootingHost = await loadPluginHost(new HotResources(), root, booting);
-      expect(bootingHost.modules().map((m) => m.manifest.name)).toEqual(["New"]);
+      expect(listedModules(bootingHost)).toEqual(["New"]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -139,7 +151,7 @@ describe("loadPluginHost", () => {
     try {
       const resources = new HotResources();
       const host = await loadPluginHost(resources, root);
-      expect([...host.entries().keys()]).toEqual([]);
+      expect(listedKeys(host)).toEqual([]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

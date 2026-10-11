@@ -143,6 +143,8 @@ To upload a zip file:
 
 A server plugin extends the server itself rather than an agent: it is an npm package of server modules, such as a sandbox backend. A Project asks for the server plugins it needs, and the server runs every plugin that any of its Projects asks for, so what a plugin contributes is available to every Project.
 
+One server plugin runs without being asked for: the DSH sandbox backend, `@prismshadow/penguin-plugin-sandbox-dsh`. It works on Windows, macOS and Linux, and it confines nothing by itself: only a session that asks for confinement uses it. Activity runs ask for it, so that their agent can change files only in the run's own folder. An admin turns that off with **Confine activity agents** in **System settings > WAF workspace**. With the switch on and no sandbox available, activity runs do not start, and the page says why.
+
 On the **Plugins** page, a server plugin's row shows its package name, description, version and status, with tags for its categories, **built in** when it ships with PenguinHarness, and its keywords. Select a row to open the plugin's page, with its license, authors, links and documentation. A plugin the registry has no entry for has no page.
 
 To add a server plugin to the current Project:
