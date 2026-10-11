@@ -2690,6 +2690,7 @@ export const en: Strings = {
         "No sandbox is available, so activity runs will not start. Install the sandbox plugin, or turn this off.",
       confineAgentsSaved: (on) =>
         on ? "Activity agents will run confined." : "Activity agents will not be confined.",
+      confineAgentsLoadFailed: (reason) => `Could not read this setting: ${reason}`,
       ready: "Ready",
       notReady: "Not prepared. Prepare clones what is missing.",
       preparing: "Preparing the workspace. Cloning and installing can take several minutes.",

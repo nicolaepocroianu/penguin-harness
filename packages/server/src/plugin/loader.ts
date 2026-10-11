@@ -55,6 +55,12 @@ export interface PluginLoadResult {
   loaded: LoadedPlugin[];
   /** specifier → why it was skipped. */
   failed: Map<string, string>;
+  /**
+   * A second name for a package already loaded under the first → that first name. Mounted once,
+   * but each name keeps its status: a Project that named the package its own way sees it
+   * running (or failed, with the reason) like any other.
+   */
+  aliases: Map<string, string>;
 }
 /** The Project ids of a data root: every directory holding a `.project_config.toml`. */
 export async function listProjectIds(root: string): Promise<string[]> {
@@ -563,8 +569,10 @@ export async function loadPlugins(
   const specifiers = [...closure, ...DEFAULT_PLUGINS.filter((name) => !closure.includes(name))];
   const loaded: LoadedPlugin[] = [];
   // One package loaded once, however many names reach it: a Project that names a default
-  // plugin by its path would otherwise mount the same backend twice.
-  const loadedFiles = new Set<string>();
+  // plugin by its path would otherwise mount the same backend twice. The entry file's real
+  // path → the first name it was reached by.
+  const firstNameOf = new Map<string, string>();
+  const aliases = new Map<string, string>();
   for (const specifier of specifiers) {
     // Reused only when the SAME FILE is behind the name. A push writes the builtin plugins to
     // a new assets directory, so keeping an entry by specifier alone would run the previous
@@ -577,8 +585,12 @@ export async function loadPlugins(
     const target = resolvePlugin(specifier, bases)?.file;
     if (target !== undefined) {
       const key = realFile(target);
-      if (loadedFiles.has(key)) continue;
-      loadedFiles.add(key);
+      const first = firstNameOf.get(key);
+      if (first !== undefined) {
+        aliases.set(specifier, first);
+        continue;
+      }
+      firstNameOf.set(key, specifier);
     }
     const held = reuse.get(specifier);
     const heldFile = held?.file;
@@ -632,7 +644,7 @@ export async function loadPlugins(
       failed.set(specifier, err instanceof Error ? err.message : String(err));
     }
   }
-  return { loaded, failed };
+  return { loaded, failed, aliases };
 }
 
 /**
@@ -675,6 +687,14 @@ export async function loadPluginHost(
   for (const [specifier, reason] of result.failed) {
     host.skip(specifier, reason);
     console.warn(`[plugins] skipped ${specifier}: ${reason}`);
+  }
+  // A second name shares the first name's outcome: running when it runs, failed with its reason.
+  for (const [alias, first] of result.aliases) {
+    if (host.entries().has(first)) host.alias(alias, first);
+    else {
+      const reason = result.failed.get(first);
+      if (reason !== undefined) host.skip(alias, `the same package as ${first}: ${reason}`);
+    }
   }
   return host;
 }

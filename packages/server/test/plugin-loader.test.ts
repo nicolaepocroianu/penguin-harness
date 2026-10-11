@@ -4,8 +4,9 @@
  * non-fatal — the capability a plugin would have provided stays unavailable rather
  * than the boot failing.
  */
+import { HotResources } from "@prismshadow/penguin-hmr";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import ts from "typescript";
@@ -20,6 +21,7 @@ import {
   readPluginClosure,
   readProjectPluginList,
   listProjectIds,
+  loadPluginHost,
 } from "../src/plugin/loader.js";
 import { writeClassPackage } from "./plugin-fixtures.js";
 
@@ -96,6 +98,28 @@ describe("plugin list", () => {
     const result = await loadPlugins(root);
     expect(result.failed).toEqual(new Map());
     expect(result.loaded.map((entry) => entry.specifier)).toEqual([byPath]);
+    // The other name is kept, as a second name for the one loaded, not dropped.
+    expect([...result.aliases]).toEqual([[DEFAULT_PLUGINS[0], byPath]]);
+  });
+
+  it("reports a second name as running, so its Project's row is not stuck on restart", async () => {
+    const byPath = path.resolve(
+      import.meta.dirname,
+      "..",
+      "..",
+      "..",
+      "plugins",
+      "sandbox-dsh",
+      "dist",
+      "index.js",
+    );
+    // Two Projects reach one package, each its own way.
+    await writeConfig({ plugins: [byPath] }, "p1");
+    await writeConfig({ plugins: [DEFAULT_PLUGINS[0]!] }, "p2");
+    const host = await loadPluginHost(new HotResources(), root);
+    expect([...host.entries().keys()]).toEqual([byPath]);
+    expect(host.aliases().get(DEFAULT_PLUGINS[0]!)).toBe(byPath);
+    expect(host.skipped()).toEqual(new Map());
   });
 
   it("reads the configured specifiers in order", async () => {
@@ -205,6 +229,23 @@ describe("plugin loading", () => {
     await writeFile(path.join(dir, "index.mjs"), lower(index), "utf8");
     return path.join(dir, "index.mjs");
   }
+
+  it("gives a second name the first one's failure, with its reason", async () => {
+    const file = await writePackage(
+      "@acme/half-again",
+      oneModule,
+      "export default { modules: { Thing: { create() {} } } };",
+    );
+    const real = await realpath(path.dirname(file));
+    // The same entry file, reached by a second spelling of its directory.
+    const viaLink = path.join(root, "half-link");
+    await symlink(real, viaLink, "junction");
+    const second = path.join(viaLink, path.basename(file));
+    await writeConfig({ plugins: [file, second] });
+    const host = await loadPluginHost(new HotResources(), root);
+    expect(host.skipped().get(file)).toMatch(/not a Plugin/);
+    expect(host.skipped().get(second)).toMatch(new RegExp(`same package as .*not a Plugin`));
+  });
 
   it("boots the classes the default export names, each against its manifest in the package's table", async () => {
     const file = await writePackage(

@@ -5,12 +5,13 @@
  * setting means right now — including that runs will not start when it is on and no sandbox
  * is available.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ActivitySandboxState } from "@prismshadow/penguin-server/api";
 import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, type Tone } from "../../lib/tone";
+import { Button } from "../../components/ui/button";
 import { Switch } from "../../components/ui/switch";
 import { toastError, toastSuccess } from "../../components/ui/toast";
 import { PrefRow } from "./setting-row";
@@ -27,19 +28,27 @@ export function ActivitySandboxRow() {
   const words = S.settings.wafWorkspace;
   const [state, setState] = useState<ActivitySandboxState | null>(null);
   const [busy, setBusy] = useState(false);
+  // Why the setting could not be read, kept on screen with a way to try again: a toast alone
+  // would leave the switch disabled and silent until the page is reopened.
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const load = useCallback(async (isLive: () => boolean) => {
+    setLoadError(null);
+    try {
+      const response = await api.adminGetActivitySandbox();
+      if (isLive()) setState(response.sandbox);
+    } catch (error) {
+      if (isLive()) setLoadError(apiErrorText(error));
+    }
+  }, []);
 
   useEffect(() => {
     let live = true;
-    api
-      .adminGetActivitySandbox()
-      .then((response) => {
-        if (live) setState(response.sandbox);
-      })
-      .catch((error: unknown) => toastError(apiErrorText(error)));
+    void load(() => live);
     return () => {
       live = false;
     };
-  }, []);
+  }, [load]);
 
   const change = async (enabled: boolean) => {
     setBusy(true);
@@ -65,6 +74,16 @@ export function ActivitySandboxRow() {
           data-testid="activity-sandbox-switch"
         />
       </PrefRow>
+      {loadError !== null && (
+        <div className="flex items-center justify-between gap-3 pt-2" aria-live="polite">
+          <p className={`text-sm ${toneInk.danger}`} data-testid="activity-sandbox-error">
+            {words.confineAgentsLoadFailed(loadError)}
+          </p>
+          <Button size="sm" onClick={() => void load(() => true)}>
+            {S.common.retry}
+          </Button>
+        </div>
+      )}
       {line !== null && (
         <p
           className={`pt-2 text-sm ${toneInk[line.tone]}`}

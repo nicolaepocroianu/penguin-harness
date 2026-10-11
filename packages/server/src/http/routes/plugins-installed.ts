@@ -264,7 +264,13 @@ export class InstalledPluginRoutes {
       // swap hands the same one to the next platform.
       running: () => {
         const host = pluginHostFrom(hmr.resources);
-        return { loaded: new Set(host.entries().keys()), skipped: host.skipped() };
+        // A Project that named a running package its own way sees it running too. An older
+        // generation's host may predate aliases().
+        const aliases = typeof host.aliases === "function" ? [...host.aliases().keys()] : [];
+        return {
+          loaded: new Set([...host.entries().keys(), ...aliases]),
+          skipped: host.skipped(),
+        };
       },
       projectConfig: this.projectConfig,
       access: this.access,

@@ -2268,6 +2268,7 @@ export type Strings = {
       confineAgentsOff: string;
       confineAgentsUnavailable: string;
       confineAgentsSaved: (on: boolean) => string;
+      confineAgentsLoadFailed: (reason: string) => string;
       ready: string;
       notReady: string;
       preparing: string;

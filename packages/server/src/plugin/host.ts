@@ -36,6 +36,8 @@ export class PluginHost {
   private readonly plugins: LoadedPlugin[] = [];
   /** specifier → why a listed plugin is not here; what a surface reports beside its row. */
   private readonly failures = new Map<string, string>();
+  /** A second name for a loaded package → the name it was loaded under (see PluginLoadResult). */
+  private readonly secondNames = new Map<string, string>();
 
   /** Registers a plugin; a module name already taken by an earlier plugin is refused. */
   use(plugin: LoadedPlugin): void {
@@ -96,6 +98,16 @@ export class PluginHost {
   }
 
   /** The listed plugins this host could not load, each with its reason. */
+  /** Records that `name` reaches the package already loaded as `first`. */
+  alias(name: string, first: string): void {
+    this.secondNames.set(name, first);
+  }
+
+  /** Second names → the name each package was loaded under. */
+  aliases(): ReadonlyMap<string, string> {
+    return this.secondNames;
+  }
+
   skipped(): ReadonlyMap<string, string> {
     return this.failures;
   }
