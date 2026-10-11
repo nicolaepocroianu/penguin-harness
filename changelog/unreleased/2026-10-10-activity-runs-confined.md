@@ -35,6 +35,9 @@ deployment's sandbox setting does not change: other Sessions run exactly as befo
   write to the checkout through its file tools.
 - A confined Session's file tools follow the same rule as its commands: `write_file` and
   `edit_file` write only inside its workspace and scratchpad.
+- The file tools' write checks judge a link that points at something not created yet by where it
+  leads. Before, such a link inside the workspace let a write land outside it, or inside a
+  protected folder.
 - A Session that works in an activity run's workspace stays confined when it is reopened after a
   restart, the run's subagents included, whether or not it had started.
 - When the deployment hides paths from commands, a confined run gets no browser started for its

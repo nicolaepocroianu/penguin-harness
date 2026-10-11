@@ -25,26 +25,44 @@ function within(target: string, root: string): boolean {
   return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
 }
 
+/** The most links a judged path may pass through, as the writer itself allows. */
+const MAX_LINK_HOPS = 40;
+
 /**
- * The real path of `target`, or of the nearest ancestor that exists.
+ * The real path of `target`, or of the nearest ancestor that exists — or null when its links
+ * go round more than `MAX_LINK_HOPS` times, which a caller must treat as refused.
  *
  * A path being written usually does not exist yet, so it cannot be realpath'd
  * directly; and a lexical check alone is fooled by a symlink or a Windows junction
- * inside the workspace that points at a protected tree.
+ * inside the workspace that points at a protected tree. A DANGLING link is the subtle case:
+ * realpath cannot resolve it, yet the writer follows it and creates what it points at, so it
+ * is judged by where it leads, not by where it sits.
  */
-async function realNearest(target: string): Promise<string> {
-  let current = path.resolve(target);
+async function realNearest(target: string, hops = 0): Promise<string | null> {
+  const full = path.resolve(target);
+  let current = full;
   for (;;) {
+    // Re-attached below, so a not-yet-created file under a linked directory is still
+    // judged against where the link actually leads.
+    const rest = path.relative(current, full);
     try {
       const real = await fs.realpath(current);
-      // Re-attach the part that does not exist yet, so a not-yet-created file under a
-      // linked directory is still judged against where the link actually leads.
-      const rest = path.relative(current, path.resolve(target));
       return rest ? path.join(real, rest) : real;
     } catch {
+      let link: string | null = null;
+      try {
+        link = await fs.readlink(current);
+      } catch {
+        // Not a link (or not there): look at its parent.
+      }
+      if (link !== null) {
+        if (hops >= MAX_LINK_HOPS) return null;
+        const leadsTo = path.resolve(path.dirname(current), link);
+        return realNearest(rest ? path.join(leadsTo, rest) : leadsTo, hops + 1);
+      }
       const parent = path.dirname(current);
       // A root that cannot be resolved at all leaves the lexical answer standing.
-      if (parent === current) return path.resolve(target);
+      if (parent === current) return full;
       current = parent;
     }
   }
@@ -67,6 +85,8 @@ export async function protectedWrite(
     if (within(resolved, path.resolve(entry.root))) return entry;
   }
   const real = await realNearest(resolved);
+  // Links that go round and round are refused, as the writer would refuse them.
+  if (real === null) return roots[0]!;
   for (const entry of roots) {
     let realRoot: string;
     try {
@@ -94,9 +114,10 @@ export async function outsideWritableRoots(
   const resolved = path.resolve(target);
   if (!roots.some((root) => within(resolved, path.resolve(root)))) return true;
   const real = await realNearest(resolved);
+  if (real === null) return true;
   for (const root of roots) {
     const realRoot = await realNearest(root);
-    if (within(real, realRoot)) return false;
+    if (realRoot !== null && within(real, realRoot)) return false;
   }
   return true;
 }

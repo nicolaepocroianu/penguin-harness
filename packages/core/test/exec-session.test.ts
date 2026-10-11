@@ -2,7 +2,7 @@
  * Behavior tests for long-running command sessions (exec_command yield + input_command).
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { access, chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Environment, ManagedSession } from "../src/environment/index.js";
@@ -589,6 +589,25 @@ describe("confineSpawn seam rewrites the exact argv a command spawns", () => {
       expect(refused.stopReason).toBe("fatal");
       expect(refused.output).toContain("may write only inside its workspace");
       await expect(access(path.join(outside, "escaped.txt"))).rejects.toThrow();
+      // A link a confined command could leave behind, to a place outside that is not there yet.
+      let linked = true;
+      try {
+        await symlink(path.join(outside, "made-later"), path.join(tmp, "way-out"), "junction");
+      } catch (error) {
+        // Only a machine that does not allow links skips; anything else is a real failure.
+        if ((error as NodeJS.ErrnoException).code !== "EPERM") throw error;
+        linked = false;
+      }
+      if (linked) {
+        const throughLink = await runTool(floored, "write_file", {
+          file_path: "way-out/escaped.txt",
+          content: "x",
+        });
+        expect(throughLink.stopReason).toBe("fatal");
+        // Refused by the guard, not merely failing on the way: the writer would follow it.
+        expect(throughLink.output).toContain("may write only inside its workspace");
+        await expect(access(path.join(outside, "made-later"))).rejects.toThrow();
+      }
       const written = await runTool(floored, "write_file", {
         file_path: "inside.txt",
         content: "x",

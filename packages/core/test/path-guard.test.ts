@@ -134,3 +134,46 @@ describe("outsideWritableRoots (a confined Session's file tools)", () => {
     expect(await outsideWritableRoots(path.join(link, "x.ts"), [workspace])).toBe(true);
   });
 });
+
+describe("dangling links (realpath cannot resolve them, but a writer follows them)", () => {
+  /**
+   * Makes a link, or reports that this machine does not allow it (the test then skips). A link
+   * left by an earlier attempt is removed first: a retried test must not read "already there"
+   * as "links not allowed" and pass without checking anything.
+   */
+  async function link(target: string, at: string, type: "junction" | "file"): Promise<boolean> {
+    await fs.unlink(at).catch(() => {});
+    try {
+      await fs.symlink(target, at, type);
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EPERM") return false;
+      throw error;
+    }
+  }
+
+  it("judges a link to a directory that does not exist yet by where it leads", async () => {
+    const at = path.join(workspace, "dangling-dir");
+    if (!(await link(path.join(base, "outside-new-dir"), at, "junction"))) return;
+    expect(await outsideWritableRoots(path.join(at, "x.ts"), [workspace])).toBe(true);
+  });
+
+  it("judges a link to a file that does not exist yet by where it leads", async () => {
+    const at = path.join(workspace, "dangling-file.ts");
+    if (!(await link(path.join(base, "outside-new-file.ts"), at, "file"))) return;
+    expect(await outsideWritableRoots(at, [workspace])).toBe(true);
+  });
+
+  it("refuses a dangling link into a protected root", async () => {
+    const at = path.join(workspace, "dangling-into-checkout");
+    if (!(await link(path.join(checkout, "not-yet-there"), at, "junction"))) return;
+    const blocked = await protectedWrite(path.join(at, "x.ts"), roots);
+    expect(blocked?.label).toBe("the shared WAF checkout");
+  });
+
+  it("still allows a dangling link that stays inside the workspace", async () => {
+    const at = path.join(workspace, "dangling-inside");
+    if (!(await link(path.join(workspace, "later-dir"), at, "junction"))) return;
+    expect(await outsideWritableRoots(path.join(at, "x.ts"), [workspace])).toBe(false);
+  });
+});
