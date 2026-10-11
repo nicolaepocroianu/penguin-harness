@@ -249,6 +249,8 @@ export interface ResumeSessionOptions {
   sessionId: string;
   /** See {@link CreateSessionOptions.sandboxMode}; not read back from disk, so pass it again. */
   sandboxMode?: SessionSandboxMode;
+  /** See {@link CreateSessionOptions.protectedRoots}; not read back from disk, so pass them again. */
+  protectedRoots?: readonly ProtectedRoot[];
   /** Explicit credentials; if unspecified, falls back to credentials in the Project config, then to AgentHub reading environment variables. */
   apiKey?: string;
   baseUrl?: string;
@@ -262,7 +264,7 @@ export interface ResumeSessionOptions {
 interface SessionSpec {
   sessionId: string;
   workspaceDir: string;
-  /** See {@link CreateSessionOptions.protectedRoots}; absent on a resumed Session. */
+  /** See {@link CreateSessionOptions.protectedRoots}; on a resumed Session, only when passed again. */
   protectedRoots?: readonly ProtectedRoot[];
   /** See {@link CreateSessionOptions.sandboxMode}; on a resumed Session, only when the caller passed it again. */
   sandboxMode?: SessionSandboxMode;
@@ -753,6 +755,7 @@ export class Agent {
       sessionId,
       workspaceDir,
       ...(opts.sandboxMode !== undefined ? { sandboxMode: opts.sandboxMode } : {}),
+      ...(opts.protectedRoots?.length ? { protectedRoots: opts.protectedRoots } : {}),
       modelEntry,
       apiKey,
       baseUrl,
@@ -1060,9 +1063,12 @@ export class Agent {
                 ...(parentAgent.confineSpawn ? { confineSpawn: parentAgent.confineSpawn } : {}),
                 ...(parentAgent.assembly ? { assembly: parentAgent.assembly } : {}),
               });
+        // A released child revived here is rebuilt from disk, which keeps neither limit: the
+        // parent's are passed again, as at spawn.
         const childSession = await childAgent.resumeSession({
           sessionId,
           ...(sandboxMode !== undefined ? { sandboxMode } : {}),
+          ...(protectedRoots?.length ? { protectedRoots } : {}),
         });
         return subagentHandleFor(childSession);
       },

@@ -31,7 +31,13 @@ deployment's sandbox setting does not change: other Sessions run exactly as befo
 - Git Bash is started by its full path on Windows. A sandbox looks in the Windows system folder
   first, where a bare `bash` is the WSL launcher.
 - A subagent is held to its parent's limits: the same confinement floor and the same protected
-  folders. Before, a subagent of an activity run could write to the checkout through its file
-  tools.
+  folders, also when a released subagent is revived. Before, a subagent of an activity run could
+  write to the checkout through its file tools.
+- A confined Session's file tools follow the same rule as its commands: `write_file` and
+  `edit_file` write only inside its workspace and scratchpad.
+- A Session that works in an activity run's workspace stays confined when it is reopened after a
+  restart, the run's subagents included, whether or not it had started.
+- When the deployment hides paths from commands, a confined run gets no browser started for its
+  checks, since that browser runs outside the sandbox and could open them.
 - Runs on a coding agent are not changed. A coding agent runs its own commands, outside
   Penguin's sandbox. Local audio models run no agent and are not refused either.

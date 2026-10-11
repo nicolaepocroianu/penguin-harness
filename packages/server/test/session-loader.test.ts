@@ -15,7 +15,7 @@ import {
   userText,
 } from "@prismshadow/penguin-core";
 import type { SessionMetaPayload } from "@prismshadow/penguin-core";
-import { createCoreSessionLoader } from "../src/runtime/session-manager.js";
+import { activityRunFloor, createCoreSessionLoader } from "../src/runtime/session-manager.js";
 import { SessionSources } from "../src/runtime/session-sources.js";
 import type { SessionRow } from "../src/db/repos/sessions.js";
 import { HttpError } from "../src/http/errors.js";
@@ -71,6 +71,30 @@ describe("session-loader", () => {
     await fs.rm(root, { recursive: true, force: true });
   });
 
+  it("confines a rebuilt Session that works in an activity run, its subagents included", () => {
+    const runs = path.join(root, "activity-runs");
+    expect(activityRunFloor(root, path.join(runs, "run_1"))).toBe("workspace-write");
+    expect(activityRunFloor(root, path.join(runs, "run_1", "module"))).toBe("workspace-write");
+    expect(activityRunFloor(root, runs)).toBeUndefined();
+    expect(activityRunFloor(root, path.join(root, "activity-runs-other", "run_1"))).toBeUndefined();
+    expect(activityRunFloor(root, path.join(root, "workspaces", "w1"))).toBeUndefined();
+  });
+
+  it("applies the floor when a Session with no Trace is rebuilt as well", async () => {
+    const workspace = path.join(root, "ws-no-trace");
+    await fs.mkdir(workspace, { recursive: true });
+    const create = vi
+      .spyOn(Agent.prototype, "createSession")
+      .mockResolvedValue({ dispose: () => {} } as never);
+    const loader = createCoreSessionLoader(root, undefined, {
+      sandboxModeOf: () => "workspace-write",
+    });
+    (await loader.load(row(workspace))).dispose?.();
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceDir: workspace, sandboxMode: "workspace-write" }),
+    );
+  });
+
   it("asks again for a resumed Session's confinement floor, which core does not keep", async () => {
     const workspace = path.join(root, "ws-floor");
     await fs.mkdir(workspace, { recursive: true });
@@ -84,8 +108,8 @@ describe("session-loader", () => {
       .mockResolvedValue({ dispose: () => {} } as never);
     const asked: string[] = [];
     const loader = createCoreSessionLoader(root, undefined, {
-      sandboxModeOf: (sessionId) => {
-        asked.push(sessionId);
+      sandboxModeOf: (asking) => {
+        asked.push(asking.sessionId);
         return "workspace-write";
       },
     });

@@ -31,7 +31,12 @@ import type { ToolDefinitionConfig } from "../../interfaces/index.js";
 import type { BuiltinTool, ToolExecutionContext, ToolResult } from "./types.js";
 import { atomicWriteFile } from "../../internal/atomic-write.js";
 import { fileLockKey, withFileLock } from "../../internal/file-lock.js";
-import { protectedWrite, protectedWriteMessage } from "./path-guard.js";
+import {
+  outsideWritableRoots,
+  outsideWritableRootsMessage,
+  protectedWrite,
+  protectedWriteMessage,
+} from "./path-guard.js";
 import { buildReplacementHunks, renderHunk } from "./diff.js";
 import { missingPathHint } from "./path-hint.js";
 import { describeArgumentError } from "./tool-arguments.js";
@@ -210,6 +215,11 @@ export function createEditFileTool(definition: ToolDefinitionConfig): BuiltinToo
       const blocked = await protectedWrite(resolved, ctx.protectedRoots);
       if (blocked) {
         yield delta(protectedWriteMessage(filePath, blocked));
+        return { stopReason: "fatal" };
+      }
+      // A confined Session writes only where its commands may: the same rule, not a weaker one.
+      if (await outsideWritableRoots(resolved, ctx.writableRoots)) {
+        yield delta(outsideWritableRootsMessage(filePath));
         return { stopReason: "fatal" };
       }
       // One file, one writer at a time: the read and the write that follows it are a single

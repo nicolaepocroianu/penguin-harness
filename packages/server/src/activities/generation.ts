@@ -462,6 +462,10 @@ export class ActivityGenerationService implements ActivityGeneration {
    * on Windows Chromium's process channel is refused to a restricted token.
    */
   private async serveBrowser(runId: string): Promise<string | undefined> {
+    // The browser runs outside the sandbox, so it can open any file: with paths the
+    // deployment hides from commands, handing it to the run would show them again. The
+    // checks then report that they could not start the browser.
+    if (this.sandbox.currentSettings().maskPaths?.length) return undefined;
     try {
       const server = (await this.browser.launchServer()) as BrowserServerHandle | null;
       if (server === null) return undefined;

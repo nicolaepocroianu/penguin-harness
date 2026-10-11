@@ -22,6 +22,7 @@ import {
 } from "../src/activities/acceptance-harness.js";
 import { INSTALL_MARKER } from "../src/activities/test-browser.js";
 import { PLAYER_CHECK_DIR } from "../src/activities/waf-module.js";
+import { SandboxService } from "../src/sandbox/service.js";
 import type { RuntimeSession } from "../src/runtime/session-manager.js";
 import type { SessionRow } from "../src/db/repos/sessions.js";
 import { activitySpec, createCheckoutActivity } from "./activity-fixtures.js";
@@ -99,7 +100,12 @@ describe("acceptance test runs", () => {
   });
 
   async function setup(
-    options: { criteria?: string[]; built?: boolean; installed?: boolean } = {},
+    options: {
+      criteria?: string[];
+      built?: boolean;
+      installed?: boolean;
+      sandbox?: SandboxService;
+    } = {},
   ) {
     const root = await checkout({
       criteria: options.criteria ?? CRITERIA,
@@ -110,6 +116,7 @@ describe("acceptance test runs", () => {
     // The browser server a confined run's checks connect to: a stand-in that records its life.
     const browserServers: { endpoint: string; closed: boolean }[] = [];
     const t = await createTestApp({
+      ...(options.sandbox ? { sandbox: options.sandbox } : {}),
       testBrowserPorts: {
         locateExecutable: async (dir) => executableIn(dir),
         launchServer: async () => {
@@ -511,5 +518,33 @@ describe("acceptance test runs", () => {
     // The staged runner connects when it is given an address, and starts the browser otherwise.
     expect(runAcceptanceSource).toContain("chromium.connect(input.browserEndpoint)");
     expect(runAcceptanceSource).toContain("chromium.launch(");
+  });
+
+  it("hands a confined run no host browser when the deployment hides paths from commands", async () => {
+    // A backend covering masking too, so the run is confined rather than refused.
+    const sandbox = new SandboxService([
+      [
+        "stand-in",
+        {
+          dimensions: ["fs-write", "mask-paths"],
+          confine: (argv) => ({
+            argv: [...argv],
+            enforcement: "full",
+            denialSignatures: [],
+            runnerFailureRules: [],
+          }),
+        },
+      ],
+    ]);
+    sandbox.configure({ mode: "danger-full-access", maskPaths: ["/secrets"] });
+    const { runToEnd, browserServers } = await setup({ sandbox });
+    let input: { browserEndpoint?: string } = {};
+    await runToEnd(async (workspace) => {
+      input = JSON.parse(await fs.readFile(path.join(workspace, "acceptance-input.json"), "utf8"));
+      await writesResults({ results: [] })(workspace);
+    });
+    // The browser runs outside the sandbox and could open the hidden files.
+    expect(browserServers).toEqual([]);
+    expect(input.browserEndpoint).toBeUndefined();
   });
 });

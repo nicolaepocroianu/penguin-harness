@@ -274,7 +274,10 @@ type SpawnConfiner = (
 
 // The least confinement one Session's commands may run under. Set with
 // `createSession({ sandboxMode })`, inherited by its subagents, and not persisted: pass it
-// again to `resumeSession`. With no confiner at all, such a Session's commands fail to spawn.
+// again to `resumeSession` (with `protectedRoots`, which are not kept either). With no
+// confiner at all, such a Session's commands fail to spawn. Its file tools follow the same
+// rule: `write_file` / `edit_file` write only inside its Workspace (and scratchpad), and
+// nowhere under `read-only`.
 type SessionSandboxMode = "read-only" | "workspace-write";
 
 interface EnvironmentServices {

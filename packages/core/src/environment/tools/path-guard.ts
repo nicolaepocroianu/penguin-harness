@@ -80,6 +80,35 @@ export async function protectedWrite(
   return null;
 }
 
+/**
+ * Whether a write to `target` lands outside every one of `roots` — the only places a
+ * confined Session may write (its Workspace, its scratchpad). Same two-step check as
+ * `protectedWrite`: lexical first, then with links resolved on both sides, so a link inside
+ * the Workspace that leads elsewhere does not count as inside it.
+ */
+export async function outsideWritableRoots(
+  target: string,
+  roots: readonly string[] | undefined,
+): Promise<boolean> {
+  if (roots === undefined) return false;
+  const resolved = path.resolve(target);
+  if (!roots.some((root) => within(resolved, path.resolve(root)))) return true;
+  const real = await realNearest(resolved);
+  for (const root of roots) {
+    const realRoot = await realNearest(root);
+    if (within(real, realRoot)) return false;
+  }
+  return true;
+}
+
+/** What the tool tells a confined Session when it refuses a write outside its Workspace. */
+export function outsideWritableRootsMessage(target: string): string {
+  return (
+    `Refused to write ${target}: this Session runs confined and may write only inside its ` +
+    "workspace. Read from anywhere, but write your changes inside the workspace."
+  );
+}
+
 /** What the tool tells the model when it refuses. States the rule, not just the failure. */
 export function protectedWriteMessage(target: string, entry: ProtectedRoot): string {
   return (

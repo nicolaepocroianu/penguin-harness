@@ -571,6 +571,36 @@ describe("confineSpawn seam rewrites the exact argv a command spawns", () => {
     }
   });
 
+  it("a confined Session's file tools write only inside its workspace, as its commands may", async () => {
+    const outside = await mkdtemp(path.join(tmpdir(), "penguin-outside-"));
+    const floored = new Environment({
+      workspaceDir: tmp,
+      toolConfig: {
+        customTools: [{ name: "write_file", description: "Write a file.", permission: "rw" }],
+        mcpServers: [],
+      },
+      sandboxMode: "workspace-write",
+    });
+    try {
+      const refused = await runTool(floored, "write_file", {
+        file_path: path.join(outside, "escaped.txt"),
+        content: "x",
+      });
+      expect(refused.stopReason).toBe("fatal");
+      expect(refused.output).toContain("may write only inside its workspace");
+      await expect(access(path.join(outside, "escaped.txt"))).rejects.toThrow();
+      const written = await runTool(floored, "write_file", {
+        file_path: "inside.txt",
+        content: "x",
+      });
+      expect(written.stopReason).not.toBe("fatal");
+      await access(path.join(tmp, "inside.txt"));
+    } finally {
+      floored.dispose();
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+
   it("the getter is re-read at every spawn, so a hot-swapped confiner needs no new Environment", async () => {
     const first = await runTool(confinedEnv, "exec_command", { cmd: "echo unconfined-run" });
     expect(first.output).toContain("unconfined-run");

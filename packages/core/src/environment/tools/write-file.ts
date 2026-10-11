@@ -30,7 +30,12 @@ import path from "node:path";
 import { mkdir, readFile, stat } from "node:fs/promises";
 import { atomicWriteFile, resolveWriteTarget } from "../../internal/atomic-write.js";
 import { fileLockKey, withFileLock } from "../../internal/file-lock.js";
-import { protectedWrite, protectedWriteMessage } from "./path-guard.js";
+import {
+  outsideWritableRoots,
+  outsideWritableRootsMessage,
+  protectedWrite,
+  protectedWriteMessage,
+} from "./path-guard.js";
 import { buildLineDiffHunks, renderHunk } from "./diff.js";
 import { partialToolCallOutput } from "../../omnimessage/index.js";
 import type { OmniMessage } from "../../omnimessage/index.js";
@@ -162,6 +167,11 @@ export function createWriteFileTool(definition: ToolDefinitionConfig): BuiltinTo
       const blocked = await protectedWrite(resolved, ctx.protectedRoots);
       if (blocked) {
         yield delta(protectedWriteMessage(filePath, blocked));
+        return { stopReason: "fatal" };
+      }
+      // A confined Session writes only where its commands may: the same rule, not a weaker one.
+      if (await outsideWritableRoots(resolved, ctx.writableRoots)) {
+        yield delta(outsideWritableRootsMessage(filePath));
         return { stopReason: "fatal" };
       }
       // One file, one writer at a time: the previous content this call reads back and the

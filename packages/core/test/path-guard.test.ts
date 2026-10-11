@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
+  outsideWritableRoots,
   protectedWrite,
   protectedWriteMessage,
   type ProtectedRoot,
@@ -88,5 +89,48 @@ describe("protectedWriteMessage", () => {
     expect(message).toContain("the shared WAF checkout");
     expect(message).toContain("read-only");
     expect(message).toContain("inside the workspace");
+  });
+});
+
+describe("outsideWritableRoots (a confined Session's file tools)", () => {
+  it("allows a write inside a writable root, including one not created yet", async () => {
+    expect(
+      await outsideWritableRoots(path.join(workspace, "module", "new", "a.ts"), [workspace]),
+    ).toBe(false);
+  });
+
+  it("refuses a write outside every writable root, the checkout included", async () => {
+    expect(await outsideWritableRoots(path.join(checkout, "framework", "x.ts"), [workspace])).toBe(
+      true,
+    );
+    expect(await outsideWritableRoots(path.join(base, "elsewhere.txt"), [workspace])).toBe(true);
+  });
+
+  it("refuses everything when no root is writable (a read-only floor)", async () => {
+    expect(await outsideWritableRoots(path.join(workspace, "a.ts"), [])).toBe(true);
+  });
+
+  it("limits nothing for an unconfined Session", async () => {
+    expect(await outsideWritableRoots(path.join(checkout, "x.ts"), undefined)).toBe(false);
+  });
+
+  it("is not fooled by a traversal or a sibling sharing the root's prefix", async () => {
+    expect(await outsideWritableRoots(path.join(workspace, "..", "waf", "x.ts"), [workspace])).toBe(
+      true,
+    );
+    expect(await outsideWritableRoots(path.join(`${workspace}-other`, "a.ts"), [workspace])).toBe(
+      true,
+    );
+  });
+
+  it("follows a link inside the workspace that leads out of it", async () => {
+    const link = path.join(workspace, "escape-link");
+    try {
+      await fs.symlink(path.join(checkout, "framework"), link, "junction");
+    } catch {
+      // Creating links can need a privilege this machine does not grant; skip, as above.
+      return;
+    }
+    expect(await outsideWritableRoots(path.join(link, "x.ts"), [workspace])).toBe(true);
   });
 });

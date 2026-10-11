@@ -17,7 +17,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { OmniMessage } from "../src/omnimessage/index.js";
 import type { OpenContextOptions, OpenedContext, SystemConfig } from "../src/index.js";
-import { agentsMdPath, projectConfigPath, systemConfigPath } from "../src/state/paths.js";
+import {
+  agentsMdPath,
+  projectConfigPath,
+  systemConfigPath,
+  tracesDir,
+} from "../src/state/paths.js";
+import { sessionMeta } from "../src/omnimessage/index.js";
 import {
   addModel,
   createAgent,
@@ -709,6 +715,39 @@ describe("a Session's confinement floor and protected roots", () => {
       );
     } finally {
       session.dispose();
+    }
+  });
+
+  it("takes the floor and protected roots again when resumed, since neither is kept on disk", async () => {
+    const ws = await workspace("ws-resumed");
+    const checkout = await workspace("checkout-resumed");
+    const sessionId = "session-2026-10-11-10-00-00-abcdef09";
+    const dir = path.join(tracesDir(tmpRoot, DEFAULT_PROJECT_ID, DEFAULT_AGENT_ID), "2026-10-11");
+    await fs.mkdir(dir, { recursive: true });
+    const meta = sessionMeta({
+      session_id: sessionId,
+      provider: "anthropic",
+      model_id: "claude-sonnet-4-6",
+      model_context_window: 1000000,
+      system_prompt: "ORIGINAL SYSTEM PROMPT",
+      agent_state: "/agent/state",
+      workspace: ws,
+    });
+    await fs.writeFile(
+      path.join(dir, `${sessionId}_001.jsonl`),
+      [meta, userText("hi")].map((m) => JSON.stringify(m)).join("\n") + "\n",
+    );
+    const agent = await createAgent();
+    const protectedRoots = [{ root: checkout, label: "the shared checkout" }];
+    const resumed = await agent.resumeSession({
+      sessionId,
+      sandboxMode: "workspace-write",
+      protectedRoots,
+    });
+    try {
+      expect(lastEnvConfig()).toMatchObject({ sandboxMode: "workspace-write", protectedRoots });
+    } finally {
+      resumed.dispose();
     }
   });
 
