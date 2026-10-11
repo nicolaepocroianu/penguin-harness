@@ -1,3 +1,4 @@
+import { HttpError } from "../src/http/errors.js";
 import { describe, expect, it, vi } from "vitest";
 import {
   PipelineRunner,
@@ -193,6 +194,8 @@ function world(
     fail?: ActivityRun["kind"];
     /** What a succeeding module run reports about its player check. */
     unchecked?: ActivityRun["unchecked"];
+    /** The Media Agent has no image provider key: an image run is refused. */
+    noImageKey?: boolean;
     /** How many looks each run stays running for before it settles (none when absent). */
     looks?: number;
     /** Records how long each wait between looks was asked to be. */
@@ -266,6 +269,8 @@ function world(
       runtime?: any,
     ) {
       if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
+      if (module?.image && options.noImageKey)
+        throw new HttpError(400, "image_credential_missing", "Add GEMINI_API_KEY first.");
       if (module?.assessment) assessmentInputs.push(module.assessment);
       const kind: ActivityRun["kind"] = module?.assessment
         ? "assessment"
@@ -548,6 +553,18 @@ describe("running the stages", () => {
     const w = world({ looks: 6, pauses });
     await w.runner.start("proj", "act", { selection: "spec", agentId: "agent" }).done;
     expect(pauses).toEqual([100, 200, 400, 800, 1000, 1000]);
+  });
+
+  it("skips the images without an image provider key and still builds the module", async () => {
+    const w = world({ noImageKey: true });
+    await w.runner.start("proj", "act", { selection: "all", agentId: "agent" }).done;
+    const final = w.runner.status("act")!;
+    expect(final.status).toBe("succeeded");
+    expect(final.steps.find((step) => step.step === "images")).toMatchObject({
+      status: "skipped",
+      note: "imageProviderUnavailable",
+    });
+    expect(final.steps.find((step) => step.step === "module")!.status).toBe("succeeded");
   });
 
   it("says when the module was built but not checked in the player", async () => {
@@ -1030,6 +1047,12 @@ function wordWorld(
     bookMode?: "decodable" | "readAlong" | null;
     elevenlabs?: boolean;
     words?: MediaAsset[];
+    /** Whether the agent's sounds run proposes sounds for the words without any. */
+    proposes?: boolean;
+    /** Press Stop as the first sounds run is accepted. */
+    stopAfterFirstSounds?: boolean;
+    /** Press Stop while the first sounds run is still under way (it then finishes anyway). */
+    stopDuringFirstSounds?: boolean;
   } = {},
 ) {
   const word = (normalized: string, extra: Partial<MediaAsset> = {}): MediaAsset => ({
@@ -1076,9 +1099,27 @@ function wordWorld(
   const runs: ActivityRun[] = [];
   const started: unknown[] = [];
   const prepared: string[] = [];
+  const refreshed: string[] = [];
+  const asked: string[][] = [];
+  const acceptedSounds: string[] = [];
   const generation = {
     async start(_p: string, _a: string, agentId: string, expected: string, module?: any) {
       if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
+      if (module.phonemes) {
+        asked.push(module.phonemes.words);
+        if (options.stopDuringFirstSounds && asked.length === 1) void runner.stop("act");
+        const run = {
+          kind: "phonemes",
+          runId: `phonemes_${asked.length}`,
+          sessionId: null,
+          status: "running",
+          error: null,
+          agentId,
+          phonemes: module.phonemes,
+        } as unknown as ActivityRun;
+        runs.push(run);
+        return run;
+      }
       const asset = group().find((item) => item.key === module.audio.assetKey)!;
       started.push({ ...module.audio, script: asset.script });
       const run = {
@@ -1109,6 +1150,21 @@ function wordWorld(
     async elevenLabsDefaultVoice() {
       return ELEVENLABS_BUILTIN_VOICE_ID;
     },
+    // The proposal, accepted: each asked word sounded out letter by letter.
+    async acceptPhonemes(_p: string, _a: string, runId: string, expected: string) {
+      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
+      const run = runs.find((item) => item.runId === runId)! as unknown as {
+        phonemes: { words: string[] };
+      };
+      acceptedSounds.push(runId);
+      if (options.stopAfterFirstSounds && asked.length === 1) void runner.stop("act");
+      if (options.proposes)
+        for (const asset of group())
+          if (run.phonemes.words.includes(asset.normalizedWord!))
+            asset.phonemes = [...asset.normalizedWord!];
+      bump();
+    },
+    async cancel() {},
     async acceptAudio(_p: string, _a: string, runId: string, expected: string) {
       if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
       const run = runs.find((item) => item.runId === runId)!;
@@ -1122,6 +1178,12 @@ function wordWorld(
     },
     async bookWordsState() {
       return { bookMode: options.bookMode === undefined ? "decodable" : options.bookMode };
+    },
+    // The words are already planned here; the stage plans them again before recording.
+    async refreshBookWords(_p: string, _a: string, language: string, expected: string) {
+      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
+      refreshed.push(language);
+      return {};
     },
     async prepareWordRecordings(
       _p: string,
@@ -1148,10 +1210,65 @@ function wordWorld(
     now: () => "2026-09-25T12:00:00Z",
     newId: () => "pipeline_words",
   });
-  return { runner, activity, group, started, prepared, word };
+  return { runner, activity, group, started, prepared, refreshed, asked, acceptedSounds, word };
 }
 
 describe("the words step", () => {
+  it("plans the book's words for each language before recording them", async () => {
+    const w = wordWorld();
+    await w.runner.start("proj", "act", { selection: "words", agentId: "agent" }).done;
+    expect(w.refreshed).toEqual(Object.keys(w.activity.draft.mediaPlan!.manifest.assets));
+  });
+
+  it("asks the agent for the sounds of words without any, then records them too", async () => {
+    const w = wordWorld({ proposes: true });
+    await w.runner.start("proj", "act", { selection: "words", agentId: "agent" }).done;
+    expect(w.asked).toEqual([["ran"]]);
+    expect(w.runner.status("act")!.steps[0]).toMatchObject({ status: "succeeded", total: 3 });
+    expect(w.group().find((item) => item.key === "book-word-ran")!.path).toMatch(/^media\//);
+  });
+
+  it("asks in runs of at most 200 words, so every word without sounds is asked about", async () => {
+    const words = Array.from({ length: 450 }, (_, index) => `w${index}`);
+    const w = wordWorld({ proposes: true });
+    w.activity.draft.mediaPlan.manifest.assets["en-US"] = words.map((word) => w.word(word));
+    await w.runner.start("proj", "act", { selection: "words", agentId: "agent" }).done;
+    expect(w.asked.map((batch) => batch.length)).toEqual([200, 200, 50]);
+    expect(w.asked.flat()).toEqual(words);
+  });
+
+  it("starts no further sounds run after Stop, even when the run under way had finished", async () => {
+    const w = wordWorld({ proposes: true, stopAfterFirstSounds: true });
+    w.activity.draft.mediaPlan.manifest.assets["en-US"] = Array.from({ length: 450 }, (_, index) =>
+      w.word(`w${index}`),
+    );
+    await w.runner.start("proj", "act", { selection: "words", agentId: "agent" }).done;
+    expect(w.asked).toHaveLength(1);
+    expect(w.started).toEqual([]);
+    expect(w.runner.status("act")!.status).toBe("cancelled");
+  });
+
+  it("does not accept a sounds run that finished after Stop was pressed", async () => {
+    const w = wordWorld({ proposes: true, stopDuringFirstSounds: true });
+    await w.runner.start("proj", "act", { selection: "words", agentId: "agent" }).done;
+    expect(w.asked).toHaveLength(1);
+    expect(w.acceptedSounds).toEqual([]);
+    expect(w.group().find((item) => item.key === "book-word-ran")!.phonemes).toBeUndefined();
+    expect(w.runner.status("act")!.status).toBe("cancelled");
+  });
+
+  it("asks only about the one word a run is scoped to", async () => {
+    const w = wordWorld({ proposes: true });
+    await w.runner.start("proj", "act", {
+      selection: "words",
+      agentId: "agent",
+      scope: { language: "en-US", assetKey: "book-word-cat" },
+    }).done;
+    // cat has sounds already, so nothing is asked, and ran's missing sounds are not this run's.
+    expect(w.asked).toEqual([]);
+    expect(w.runner.status("act")!.steps[0]).toMatchObject({ status: "succeeded", total: 1 });
+  });
+
   it("records each word with sounds and no recording, in its provider's script, and accepts it", async () => {
     const w = wordWorld();
     await w.runner.start("proj", "act", { selection: "words", agentId: "agent", voice: "Kore" })
@@ -1176,7 +1293,8 @@ describe("the words step", () => {
         script: geminiScript("the", ["ð", "ə"]),
       },
     ]);
-    expect(w.group().find((item) => item.key === "book-word-cat")!.path).toBe("media/run_1.mp3");
+    // The sounds run for "ran" came first (this agent proposes none), so this is the second run.
+    expect(w.group().find((item) => item.key === "book-word-cat")!.path).toBe("media/run_2.mp3");
     // The word without sounds is left for later.
     expect(w.group().find((item) => item.key === "book-word-ran")!.path).toBeUndefined();
   });

@@ -31,7 +31,8 @@
  * it in the generation history either way. A step that fails stops the sequence; nothing is
  * rolled back, and nothing after it runs.
  */
-import { isBookWord } from "./book-words.js";
+import { isBookWord, wordsMissingPhonemes } from "./book-words.js";
+import { PHONEMES_RUN_MAX_WORDS } from "./phonemes-run.js";
 import { speechModelFor } from "./audio.js";
 import { KOKORO_VOICES } from "./local-audio-models.js";
 import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
@@ -544,6 +545,7 @@ export class PipelineRunner {
         return;
       }
       for (const target of targets) {
+        this.throwIfStopped(state);
         step.detail = `${target.assetKey} (${target.language})`;
         const before = await current();
         const run = await generation.start(
@@ -591,6 +593,7 @@ export class PipelineRunner {
         return;
       }
       for (const target of targets) {
+        this.throwIfStopped(state);
         const narration = manifest.assets[target.language]?.find(
           (item) => item.key === target.assetKey,
         );
@@ -602,13 +605,31 @@ export class PipelineRunner {
         );
         step.detail = target.assetKey;
         const before = await current();
-        const run = await generation.start(
-          projectId,
-          activityId,
-          input.agentId,
-          before.draft.contentRevision,
-          step.step === "speech" ? { audio: { ...target, voice } } : { image: target },
-        );
+        let run: ActivityRun;
+        try {
+          run = await generation.start(
+            projectId,
+            activityId,
+            input.agentId,
+            before.draft.contentRevision,
+            step.step === "speech" ? { audio: { ...target, voice } } : { image: target },
+          );
+        } catch (error) {
+          // No image provider key: the images are left unbound, as missing sounds are, and the
+          // module stage still runs and reports them missing.
+          if (
+            step.step === "images" &&
+            step.done === 0 &&
+            error instanceof HttpError &&
+            error.code === "image_credential_missing"
+          ) {
+            step.status = "skipped";
+            step.note = "imageProviderUnavailable";
+            step.detail = null;
+            return;
+          }
+          throw error;
+        }
         await this.follow(state, step, run);
         const after = await current();
         if (step.step === "speech")
@@ -632,7 +653,7 @@ export class PipelineRunner {
     }
 
     if (step.step === "words") {
-      await this.recordWords(state, step, input);
+      await this.recordWords(state, step, input, runtime);
       return;
     }
 
@@ -670,6 +691,7 @@ export class PipelineRunner {
         return;
       }
       for (const target of served) {
+        this.throwIfStopped(state);
         step.detail = target.assetKey;
         const before = await current();
         const run = await generation.start(
@@ -778,7 +800,12 @@ export class PipelineRunner {
    * that names no provider is spoken by ElevenLabs when the agent can use it, else by Gemini,
    * and keeps that choice; its script is made for the provider before anything is recorded.
    */
-  private async recordWords(state: PipelineState, step: PipelineStepState, input: PipelineInput) {
+  private async recordWords(
+    state: PipelineState,
+    step: PipelineStepState,
+    input: PipelineInput,
+    runtime?: { codingAgentId: string },
+  ) {
     const { projectId, activityId } = state;
     const { activities, generation } = this.deps;
     const current = () => activities.getActivity(projectId, activityId);
@@ -800,10 +827,50 @@ export class PipelineRunner {
     }
     if (!manifest) throw new Error("Plan media before recording the book's words.");
     validateSpeechLanguages(manifest, { ...input, selection: "words" });
-    const waiting = inScope(unrecordedWithSounds(manifest), input.scope);
+    // For each language, the words are planned from the book's text first, with espeak-ng's
+    // sounds, as the Book words panel's refresh does: a book taken through every stage has none
+    // planned before. Words espeak-ng could not sound out (or every word, where it is not
+    // installed) then get the sounds the stage's agent proposes, as the panel's "ask the
+    // model" does, accepted as they come: a word without sounds cannot be recorded at all.
+    const languages = input.scope?.language ? [input.scope.language] : Object.keys(manifest.assets);
+    const revision = async () => (await current()).draft.contentRevision;
+    for (const language of languages) {
+      step.detail = language;
+      await activities.refreshBookWords(
+        projectId,
+        activityId,
+        language,
+        await revision(),
+        "decodable",
+      );
+      // A run scoped to one word asks only about that word.
+      const group = ((await current()).draft.mediaPlan!.manifest.assets[language] ?? []).filter(
+        (asset) => input.scope?.assetKey === undefined || asset.key === input.scope.assetKey,
+      );
+      const missing = wordsMissingPhonemes(group);
+      // As many runs as the words need: one run proposes at most PHONEMES_RUN_MAX_WORDS.
+      for (let start = 0; start < missing.length; start += PHONEMES_RUN_MAX_WORDS) {
+        this.throwIfStopped(state);
+        const run = await generation.start(
+          projectId,
+          activityId,
+          input.agentId,
+          await revision(),
+          {
+            phonemes: { language, words: missing.slice(start, start + PHONEMES_RUN_MAX_WORDS) },
+          },
+          runtime,
+        );
+        await this.follow(state, step, run);
+        await generation.acceptPhonemes(projectId, activityId, run.runId, await revision());
+      }
+    }
+    step.detail = null;
+    const planned = (await current()).draft.mediaPlan!.manifest;
+    const waiting = inScope(unrecordedWithSounds(planned), input.scope);
     if (!waiting.length) {
       step.status = "skipped";
-      step.note = inScope(unrecordedWithoutSounds(manifest), input.scope).length
+      step.note = inScope(unrecordedWithoutSounds(planned), input.scope).length
         ? "wordsMissingSounds"
         : "noWords";
       return;
@@ -818,13 +885,14 @@ export class PipelineRunner {
       projectId,
       activityId,
       fallback,
-      activity.draft.contentRevision,
+      (await current()).draft.contentRevision,
       input.scope?.language,
     );
     const ready = prepared.mediaPlan!.manifest;
     const targets = inScope(wordRecordingTargets(ready), input.scope);
     step.total = targets.length;
     for (const target of targets) {
+      this.throwIfStopped(state);
       const word = ready.assets[target.language]?.find((item) => item.key === target.assetKey);
       const provider = word ? wordSpeechProvider(word) : DEFAULT_SPEECH_PROVIDER;
       step.detail = target.assetKey;
@@ -851,6 +919,15 @@ export class PipelineRunner {
   }
 
   /**
+   * Ends the step when Stop was pressed: checked before each run a stage starts and once each
+   * run has finished, since Stop cancels only the run under way, and one that had just finished
+   * would otherwise be accepted and let the next start.
+   */
+  private throwIfStopped(state: PipelineState): void {
+    if (this.stopping.has(state.activityId) || this.disposed) throw new Stopped();
+  }
+
+  /**
    * Wait for one run to settle; anything but success ends the step with the run's own reason.
    * The run as it succeeded.
    */
@@ -873,7 +950,11 @@ export class PipelineRunner {
       if (latest.sessionId) step.sessionId = latest.sessionId;
       if (this.disposed) throw new Stopped();
       if (TERMINAL.has(latest.status)) {
-        if (latest.status === "succeeded") return latest;
+        // A run that finished as Stop was pressed is not accepted: nothing after Stop runs.
+        if (latest.status === "succeeded") {
+          this.throwIfStopped(state);
+          return latest;
+        }
         if (latest.status === "cancelled" && this.stopping.has(state.activityId))
           throw new Stopped();
         throw new Error(latest.error ?? `The ${latest.kind} run ended as ${latest.status}.`);

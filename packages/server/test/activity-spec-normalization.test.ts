@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   expectedPrimarySceneCount,
+  normalizeMediaTags,
   extractAcceptanceCriteria,
   mediaContractIssues,
   normalizeActivitySpec,
@@ -469,5 +470,40 @@ describe("the prompts", () => {
     expect(repairPrompt(prompt, "It broke.", ["scene-1"])).toMatch(
       /^Your previous attempt did not preserve the media spec scene list\. It broke\.\n\nRetry now\./,
     );
+  });
+});
+
+describe("normalizeMediaTags", () => {
+  it("turns the sound tags authors write into the audio tags the stages read", () => {
+    expect(
+      normalizeMediaTags(
+        "Music <music>calm music</music>. A sound plays <sound>a cow mooing</sound>, then <SFX>a duck</SFX>.",
+      ),
+    ).toBe(
+      'Music <audio kind="music" loop="true">calm music</audio>. A sound plays <audio kind="sfx">a cow mooing</audio>, then <audio kind="sfx">a duck</audio>.',
+    );
+  });
+
+  it("decides by the tag alone, never by what the prompt's words seem to ask", () => {
+    // Looping music is asked for with <music>; a <sound> is an effect, whatever it says.
+    for (const prompt of [
+      "calm background music, looping",
+      "background music that should not be set to loop",
+      "a short music loop that repeats throughout the activity",
+      "music that plays once, do not loop",
+    ]) {
+      expect(normalizeMediaTags(`<sound>${prompt}</sound>`)).toBe(
+        `<audio kind="sfx">${prompt}</audio>`,
+      );
+      expect(normalizeMediaTags(`<music>${prompt}</music>`)).toBe(
+        `<audio kind="music" loop="true">${prompt}</audio>`,
+      );
+    }
+  });
+
+  it("leaves audio tags, other tags and mismatched pairs alone", () => {
+    const text =
+      '<audio kind="sfx">a bell</audio> <image>a cow</image> <sound>an unclosed sound</music>';
+    expect(normalizeMediaTags(text)).toBe(text);
   });
 });

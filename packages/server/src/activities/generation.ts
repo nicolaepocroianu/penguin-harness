@@ -83,6 +83,7 @@ import {
   PLAYER_CHECK_DIR,
   prepareModule,
   collectModule,
+  restoreApprovedManifest,
   moduleBookClause,
   MODULE_PACKAGES,
   modulePackagesClause,
@@ -222,6 +223,7 @@ import {
   normalizeActivitySpec,
   normalizeActivitySpecUpdate,
   normalizeMediaSpec,
+  normalizeMediaTags,
   normalizeScenes,
   normalizedSceneIds,
   rawScenes,
@@ -1142,22 +1144,20 @@ export class ActivityGenerationService implements ActivityGeneration {
             }
             // Requirement hashes track editorial changes, not media file bytes. They belong
             // to draft reconciliation; exposing them to a generator invites false checksum claims.
+            const description = normalizeMediaTags(activity.draft.description);
             const input = {
               ...activity,
               ...(bookMode ? { bookMode } : {}),
               draft: {
                 ...activity.draft,
+                description,
                 ...(activity.draft.mediaPlan
                   ? { mediaPlan: { manifest: activity.draft.mediaPlan.manifest } }
                   : {}),
               },
             };
             await atomicJson(path.join(workspace, "input.json"), input);
-            await fs.writeFile(
-              path.join(workspace, "description.md"),
-              activity.draft.description,
-              "utf8",
-            );
+            await fs.writeFile(path.join(workspace, "description.md"), description, "utf8");
             let modulePackagesLinked = false;
             if (wafRoot) {
               await this.activities.prepareAudioMedia(
@@ -1417,10 +1417,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                                     (modulePackagesLinked ? modulePackagesClause : "") +
                                     (bookMode ? moduleBookClause : "") +
                                     featureClause(features)
-                                  : activitySpecPrompt(
-                                      activity.draft.description,
-                                      !!activity.draft.spec,
-                                    );
+                                  : activitySpecPrompt(description, !!activity.draft.spec);
             const prompt =
               repair === undefined
                 ? base
@@ -2735,6 +2732,9 @@ export class ActivityGenerationService implements ActivityGeneration {
                     "module/src/book-reader/model.ts",
                     "module/src/book-reader/controller.ts",
                   );
+                // Only the plan the run was given: a later one is a conflict, refused below.
+                if (input.draft.contentRevision === run.inputRevision)
+                  await restoreApprovedManifest(this.workspace(run), input);
                 await syncAssembledStateMachine(this.workspace(run), input, run.bookMode);
                 const result = await collectModule(
                   this.workspace(run),
@@ -2845,7 +2845,7 @@ export function specOfPass(
     throw new Error("activity-spec.json must hold one JSON object.");
   const written = generated as Record<string, unknown>;
   const current = activity.draft.spec;
-  const description = activity.draft.description;
+  const description = normalizeMediaTags(activity.draft.description);
   if (kind === "media-spec") {
     const existing = current ?? {};
     const mismatch = mediaSpecSceneMismatch(

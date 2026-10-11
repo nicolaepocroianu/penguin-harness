@@ -24,6 +24,7 @@ import { imagePng } from "./image-fixtures.js";
 import {
   MODULE_PACKAGES,
   prepareModule,
+  restoreApprovedManifest,
   verifyMediaArtifacts,
 } from "../src/activities/waf-module.js";
 import { IMAGE_STYLE, NARRATION_DELIVERY } from "../src/activities/media-style.js";
@@ -572,6 +573,18 @@ describe("activity generation through Harness sessions", () => {
     expect(exported).toContain(voice.path!);
     // The player serves the draft's accepted speech itself; the assembly copies none of it.
     const read = (file: string) => fs.readFile(file, "utf8");
+    await verifyMediaArtifacts(workspace, await current(), read);
+    // An agent that rewrites the manifest (from input.json's draft shape) has it restored.
+    const manifestFile = path.join(
+      workspace,
+      "module/generated/p/refs/p-1/spec/asset_manifest.json",
+    );
+    await fs.writeFile(manifestFile, JSON.stringify((await current()).draft.mediaPlan!.manifest));
+    await expect(verifyMediaArtifacts(workspace, await current(), read)).rejects.toThrow(
+      "approved media manifest",
+    );
+    await restoreApprovedManifest(workspace, await current());
+    expect(await fs.readFile(manifestFile, "utf8")).toBe(exported);
     await verifyMediaArtifacts(workspace, await current(), read);
     const updated = await f.client.patch(`${f.endpoint}/description`, {
       description: "Changed",

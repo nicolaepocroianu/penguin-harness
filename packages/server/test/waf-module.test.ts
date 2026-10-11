@@ -7,6 +7,7 @@ import {
   scaffoldModule,
   prepareModule,
   collectModule,
+  restoreApprovedManifest,
   stageSkills,
 } from "../src/activities/waf-module.js";
 import { readCandidate } from "../src/activities/generation.js";
@@ -86,6 +87,39 @@ describe("native WAF module boundary", () => {
       ),
     ).toMatchObject({ P: { "en-US": { cat: "{{MEDIA}}/cat.png" } } });
   });
+  it("restores the approved manifest without following links the agent left", async () => {
+    const root = await directory();
+    const a = structuredClone(activity);
+    a.draft.mediaPlan = planMedia(a);
+    const spec = "module/generated/P/refs/P-12/spec";
+    // A link at the manifest's own path: the link goes, the file it named stays as it was.
+    const linked = await directory();
+    await prepareModule(linked, a, root);
+    const outside = path.join(await directory(), "outside.json");
+    await fs.writeFile(outside, "not the server's");
+    await fs.rm(path.join(linked, spec, "asset_manifest.json"));
+    await fs
+      .symlink(outside, path.join(linked, spec, "asset_manifest.json"), "file")
+      .catch(async () => fs.link(outside, path.join(linked, spec, "asset_manifest.json")));
+    await restoreApprovedManifest(linked, a);
+    expect(await fs.readFile(outside, "utf8")).toBe("not the server's");
+    expect(
+      JSON.parse(await fs.readFile(path.join(linked, spec, "asset_manifest.json"), "utf8")),
+    ).toBeTruthy();
+    // A linked folder on the way is refused, as collecting the module refuses one.
+    const folder = await directory();
+    await prepareModule(folder, a, root);
+    const elsewhere = await directory();
+    await fs.rm(path.join(folder, spec), { recursive: true });
+    await fs.symlink(
+      elsewhere,
+      path.join(folder, spec),
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    await expect(restoreApprovedManifest(folder, a)).rejects.toThrow("Linked artifact directories");
+    expect(await fs.readdir(elsewhere)).toEqual([]);
+  });
+
   it("stages the machine path's skills, in reading order, beside the module", async () => {
     const workspace = await directory();
     await prepareModule(workspace, activity, workspace);
@@ -200,7 +234,7 @@ describe("native WAF module boundary", () => {
     expect(JSON.parse(files["generated/P/refs/P-12/spec/state-machine.json"]!)).toMatchObject({
       initial: "reading",
       states: {
-        reading: { entry: { type: "enterReader" } },
+        reading: { initial: "ready", states: { ready: { entry: { type: "enterReader" } } } },
       },
     });
     expect(files["configurations/P-12.json"]).toBeDefined();
@@ -249,7 +283,14 @@ describe("native WAF module boundary", () => {
     await fs.mkdir(path.join(root, "preview"));
     await fs.writeFile(path.join(root, "preview/index.html"), "<!doctype html><title>WAF</title>");
     await manifest([...files, "preview/index.html"]);
-    await expect(collectModule(root, readCandidate)).rejects.toThrow("Invalid or duplicate");
+    await expect(collectModule(root, readCandidate)).rejects.toThrow(
+      'Invalid or duplicate module artifact path: "preview/index.html"',
+    );
+    // The player check's own files are dropped, not refused: they never ship with the module.
+    await manifest([...files, "player-check/acceptance.test.mjs", "player-check/results.json"]);
+    expect((await collectModule(root, readCandidate)).files.map((file) => file.path)).toEqual(
+      files,
+    );
     await manifest(files);
     const outside = await directory();
     await fs.cp(path.join(root, "module/dist"), outside, { recursive: true });

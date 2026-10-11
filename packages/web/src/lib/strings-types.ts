@@ -915,6 +915,7 @@ export type Strings = {
         | "wordsMissingSounds"
         | "noSounds"
         | "soundProviderUnavailable"
+        | "imageProviderUnavailable"
         | "noAssessment"
         | "notCanonical"
         | "noCriteria"
