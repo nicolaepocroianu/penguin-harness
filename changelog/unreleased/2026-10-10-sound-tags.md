@@ -6,7 +6,7 @@
 
 A description's `<sound>...</sound>` and `<sfx>...</sfx>` tags now reach the spec stage as
 one-shot `<audio kind="sfx">` tags, and `<music>...</music>` as looping
-`<audio kind="music" loop="true">`, as is a `<sound>` whose prompt asks for background or looping music (one ruling music out, or asking for a short sting, stays an effect). The spec stage is told only `<audio>`, `<image>`,
+`<audio kind="music" loop="true">`, as is a `<sound>` whose prompt asks for music that plays on: an explicit loop ("loops", "repeats", "throughout") however short, or background or ambient music that is not made one-off. One ruling music out, or asking for a short sting, stays an effect. The spec stage is told only `<audio>`, `<image>`,
 `<animation>` and `<video>` count, so it dropped those tags without a word, and the activity
 quietly lost its music and sound effects. The rewrite applies to what a run is given; the
 author's saved description is left as written.

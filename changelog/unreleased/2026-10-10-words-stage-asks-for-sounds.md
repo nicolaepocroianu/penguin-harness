@@ -11,6 +11,7 @@ have sounds. Before, a machine without espeak-ng skipped every word as missing i
 decodable book taken through every stage shipped with no word pronunciations.
 
 The sounds are asked for in runs of at most 200 words until every word has been asked about,
-and a run scoped to one word asks only about that word. Stop now takes effect before the next
-run in every stage that starts one run after another (speech, images, word sounds, word
-recordings), not only between stages.
+and a run scoped to one word asks only about that word. Stop now takes effect inside a stage too:
+no further run starts after it in any stage that starts one run after another (speech, images,
+sounds, word sounds, word recordings), and a run that finishes as Stop is pressed is not
+accepted.

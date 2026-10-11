@@ -16,16 +16,19 @@
 type Json = Record<string, unknown>;
 
 /**
- * Whether a <sound> prompt asks for music that plays on: background, ambient or looping music,
- * not ruled out ("one short bell, no music") and not one-off ("a short musical sting", a
- * jingle that plays once). Anything less certain stays the one-shot effect <sound> means.
+ * Whether a <sound> prompt asks for music that plays on. It must name music without ruling it
+ * out ("one short bell, no music"). An explicit loop ("loops", "repeats", "throughout") is
+ * music however short each pass is; "background" or "ambient" is too, unless the prompt also
+ * makes it one-off ("a short musical sting", a jingle that plays once). Anything less certain
+ * stays the one-shot effect <sound> means.
  */
 function asksForMusic(prompt: string): boolean {
-  const names = /\bmusic\b/i.test(prompt);
-  const playsOn = /\b(?:background|ambient|looping|loops?|throughout)\b/i.test(prompt);
-  const ruledOut = /\b(?:no|not|without|never)\b[^.,;:!?]*\bmusic\b/i.test(prompt);
+  if (!/\bmusic\b/i.test(prompt)) return false;
+  if (/\b(?:no|not|without|never)\b[^.,;:!?]*\bmusic\b/i.test(prompt)) return false;
+  if (/\b(?:loop(?:s|ing|ed)?|repeat(?:s|ing|ed)?|throughout)\b/i.test(prompt)) return true;
+  const background = /\b(?:background|ambient)\b/i.test(prompt);
   const oneOff = /\b(?:one[- ]shot|once|sting|short|jingle)\b/i.test(prompt);
-  return names && playsOn && !ruledOut && !oneOff;
+  return background && !oneOff;
 }
 
 /**

@@ -490,6 +490,16 @@ describe("normalizeMediaTags", () => {
     );
   });
 
+  it("reads an explicit loop as music, however short each pass is", () => {
+    for (const prompt of [
+      "a short music loop that repeats throughout the activity",
+      "short ambient music, looping",
+    ])
+      expect(normalizeMediaTags(`<sound>${prompt}</sound>`)).toBe(
+        `<audio kind="music" loop="true">${prompt}</audio>`,
+      );
+  });
+
   it("keeps a <sound> that rules music out, or asks for it once, as a one-shot effect", () => {
     for (const prompt of [
       "one short bell ding, no music",

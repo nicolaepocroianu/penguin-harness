@@ -691,6 +691,7 @@ export class PipelineRunner {
         return;
       }
       for (const target of served) {
+        this.throwIfStopped(state);
         step.detail = target.assetKey;
         const before = await current();
         const run = await generation.start(
@@ -918,8 +919,9 @@ export class PipelineRunner {
   }
 
   /**
-   * Ends the step when Stop was pressed: checked before each run a stage starts, since Stop
-   * cancels only the run under way, and one that had just finished would let the next start.
+   * Ends the step when Stop was pressed: checked before each run a stage starts and once each
+   * run has finished, since Stop cancels only the run under way, and one that had just finished
+   * would otherwise be accepted and let the next start.
    */
   private throwIfStopped(state: PipelineState): void {
     if (this.stopping.has(state.activityId) || this.disposed) throw new Stopped();
@@ -948,7 +950,11 @@ export class PipelineRunner {
       if (latest.sessionId) step.sessionId = latest.sessionId;
       if (this.disposed) throw new Stopped();
       if (TERMINAL.has(latest.status)) {
-        if (latest.status === "succeeded") return latest;
+        // A run that finished as Stop was pressed is not accepted: nothing after Stop runs.
+        if (latest.status === "succeeded") {
+          this.throwIfStopped(state);
+          return latest;
+        }
         if (latest.status === "cancelled" && this.stopping.has(state.activityId))
           throw new Stopped();
         throw new Error(latest.error ?? `The ${latest.kind} run ended as ${latest.status}.`);

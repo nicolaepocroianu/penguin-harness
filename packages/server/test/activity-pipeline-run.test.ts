@@ -1051,6 +1051,8 @@ function wordWorld(
     proposes?: boolean;
     /** Press Stop as the first sounds run is accepted. */
     stopAfterFirstSounds?: boolean;
+    /** Press Stop while the first sounds run is still under way (it then finishes anyway). */
+    stopDuringFirstSounds?: boolean;
   } = {},
 ) {
   const word = (normalized: string, extra: Partial<MediaAsset> = {}): MediaAsset => ({
@@ -1099,11 +1101,13 @@ function wordWorld(
   const prepared: string[] = [];
   const refreshed: string[] = [];
   const asked: string[][] = [];
+  const acceptedSounds: string[] = [];
   const generation = {
     async start(_p: string, _a: string, agentId: string, expected: string, module?: any) {
       if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
       if (module.phonemes) {
         asked.push(module.phonemes.words);
+        if (options.stopDuringFirstSounds && asked.length === 1) void runner.stop("act");
         const run = {
           kind: "phonemes",
           runId: `phonemes_${asked.length}`,
@@ -1152,6 +1156,7 @@ function wordWorld(
       const run = runs.find((item) => item.runId === runId)! as unknown as {
         phonemes: { words: string[] };
       };
+      acceptedSounds.push(runId);
       if (options.stopAfterFirstSounds && asked.length === 1) void runner.stop("act");
       if (options.proposes)
         for (const asset of group())
@@ -1205,7 +1210,7 @@ function wordWorld(
     now: () => "2026-09-25T12:00:00Z",
     newId: () => "pipeline_words",
   });
-  return { runner, activity, group, started, prepared, refreshed, asked, word };
+  return { runner, activity, group, started, prepared, refreshed, asked, acceptedSounds, word };
 }
 
 describe("the words step", () => {
@@ -1240,6 +1245,15 @@ describe("the words step", () => {
     await w.runner.start("proj", "act", { selection: "words", agentId: "agent" }).done;
     expect(w.asked).toHaveLength(1);
     expect(w.started).toEqual([]);
+    expect(w.runner.status("act")!.status).toBe("cancelled");
+  });
+
+  it("does not accept a sounds run that finished after Stop was pressed", async () => {
+    const w = wordWorld({ proposes: true, stopDuringFirstSounds: true });
+    await w.runner.start("proj", "act", { selection: "words", agentId: "agent" }).done;
+    expect(w.asked).toHaveLength(1);
+    expect(w.acceptedSounds).toEqual([]);
+    expect(w.group().find((item) => item.key === "book-word-ran")!.phonemes).toBeUndefined();
     expect(w.runner.status("act")!.status).toBe("cancelled");
   });
 
