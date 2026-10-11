@@ -494,6 +494,9 @@ describe("normalizeMediaTags", () => {
     for (const prompt of [
       "a short music loop that repeats throughout the activity",
       "short ambient music, looping",
+      // A negation rules out the word right after it, not every word that follows.
+      "background music without vocals that loops throughout the activity",
+      "with no lyrics and calm background music",
     ])
       expect(normalizeMediaTags(`<sound>${prompt}</sound>`)).toBe(
         `<audio kind="music" loop="true">${prompt}</audio>`,

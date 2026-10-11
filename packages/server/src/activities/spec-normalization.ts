@@ -24,7 +24,10 @@ type Json = Record<string, unknown>;
  * stays the one-shot effect <sound> means.
  */
 function asksForMusic(prompt: string): boolean {
-  const negation = String.raw`\b(?:no|not|don't|without|never)\b[^.,;:!?]*`;
+  // The negation governs only the word right after it, or the one after a single word
+  // between ("do not loop", "without any music"): "without vocals that loops" rules out
+  // vocals, not looping.
+  const negation = String.raw`\b(?:no|not|don't|without|never)\s+(?:\w+\s+)?`;
   const loop = String.raw`\b(?:loop(?:s|ing|ed)?|repeat(?:s|ing|ed)?)\b`;
   if (!/\bmusic\b/i.test(prompt)) return false;
   if (new RegExp(`${negation}\\bmusic\\b`, "i").test(prompt)) return false;
