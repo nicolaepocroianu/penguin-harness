@@ -170,6 +170,7 @@ The `[plugins]` table lists the [server plugins](/skills#server-plugins) the Pro
 
 - `"*"` asks for whatever version the deployment ships. A version string and the `{ version = "…" }` form are kept as the requirement; loading currently goes by the package name alone.
 - The server runs the union of every Project's table, so a plugin one Project asks for is loaded for all of them.
+- The DSH sandbox backend, `@prismshadow/penguin-plugin-sandbox-dsh`, is loaded whether or not a table names it; see [Server plugins](/skills#server-plugins). Naming it, by package name or by path, loads it once.
 - An entry of any other shape is dropped when the file is read, and the rest of the file still loads. A `plugins` key that is not a table asks for no plugins.
 - An empty table is written as an empty table: the Project asks for no plugins.
 

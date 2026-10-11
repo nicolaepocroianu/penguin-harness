@@ -4,6 +4,10 @@ Puts the **DSH** sandbox ecosystem behind this harness's own sandbox interface. 
 portable floor: it works on Linux, macOS and Windows, and implements the `fs-write`
 dimension.
 
+The server loads this plugin by default, without a Project asking for it: it confines nothing
+by itself, and activity runs need a sandbox to confine their agent. An admin can stop activity
+runs asking for it with **Confine activity agents** in System settings > WAF workspace.
+
 ## What it covers
 
 `@deepseek-ai/dsh-sandbox-local` carries the platform chain and probes each rung

@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import ts from "typescript";
 import {
+  DEFAULT_PLUGINS,
   IFACES_FILE,
   PLUGINS_FILE,
   committedAssetsDir,
@@ -65,10 +66,36 @@ function lower(source: string): string {
   }).outputText;
 }
 
+/** What a load brought in beyond DEFAULT_PLUGINS: the plugins the Projects listed. */
+const listed = <T extends { specifier: string }>(loaded: readonly T[]): T[] =>
+  loaded.filter((entry) => !DEFAULT_PLUGINS.includes(entry.specifier));
+
 describe("plugin list", () => {
-  it("no Project means no plugins — the default deployment shape, not an error", async () => {
+  it("no Project means only the default plugins — the default deployment shape, not an error", async () => {
     expect(await readPluginClosure(root)).toEqual([]);
-    expect(await loadPlugins(root)).toEqual({ loaded: [], failed: new Map() });
+    const result = await loadPlugins(root);
+    expect(result.failed).toEqual(new Map());
+    // The sandbox backend loads with nothing asking for it, resolved from this repository's
+    // own plugins/ directory, the way a dev server finds it.
+    expect(result.loaded.map((entry) => entry.specifier)).toEqual([...DEFAULT_PLUGINS]);
+  });
+
+  it("loads a package once, however many names reach it", async () => {
+    // A Project naming the default sandbox backend by its path must not mount it twice.
+    const byPath = path.resolve(
+      import.meta.dirname,
+      "..",
+      "..",
+      "..",
+      "plugins",
+      "sandbox-dsh",
+      "dist",
+      "index.js",
+    );
+    await writeConfig({ plugins: [byPath] });
+    const result = await loadPlugins(root);
+    expect(result.failed).toEqual(new Map());
+    expect(result.loaded.map((entry) => entry.specifier)).toEqual([byPath]);
   });
 
   it("reads the configured specifiers in order", async () => {
@@ -189,8 +216,8 @@ describe("plugin loading", () => {
     await writeConfig({ plugins: [file] });
     const result = await loadPlugins(root);
     expect(result.failed.size).toBe(0);
-    expect(result.loaded).toHaveLength(1);
-    const entry = result.loaded[0]!;
+    expect(listed(result.loaded)).toHaveLength(1);
+    const entry = listed(result.loaded)[0]!;
     expect(entry.specifier).toBe(file);
     expect(entry.modules.map((m) => m.manifest.name)).toEqual(["Thing"]);
     expect(entry.modules[0]!.manifest.contributes["SandboxModule.providers"]?.[0]?.id).toBe(
@@ -217,7 +244,7 @@ describe("plugin loading", () => {
     await writeConfig({ plugins: ["@nope/definitely-not-installed", good] });
     const result = await loadPlugins(root);
     // The good one still loads: failure is per entry.
-    expect(result.loaded.map((entry) => entry.specifier)).toEqual([good]);
+    expect(listed(result.loaded).map((entry) => entry.specifier)).toEqual([good]);
     expect(result.failed.get("@nope/definitely-not-installed")).toBeTruthy();
   });
 
@@ -229,7 +256,7 @@ describe("plugin loading", () => {
     );
     await writeConfig({ plugins: [file] });
     const result = await loadPlugins(root);
-    expect(result.loaded).toEqual([]);
+    expect(listed(result.loaded)).toEqual([]);
     expect(result.failed.get(file)).toMatch(/not a Plugin/);
   });
 
@@ -379,15 +406,15 @@ describe("builtin plugins", () => {
     );
     // Shipped, and nothing lists it: available is not installed.
     await writeConfig({ plugins: [] });
-    expect((await loadPlugins(root)).loaded).toEqual([]);
+    expect(listed((await loadPlugins(root)).loaded)).toEqual([]);
 
     // Listed: it loads, resolved from the assets the push carried — no npm, nothing under
     // <root>/plugins.
     await writeConfig({ plugins: ["@acme/penguin-plugin-one"] });
     const result = await loadPlugins(root);
     expect([...result.failed.entries()]).toEqual([]);
-    expect(result.loaded.map((p) => p.specifier)).toEqual(["@acme/penguin-plugin-one"]);
-    expect(result.loaded[0]!.modules.map((m) => m.manifest.name)).toEqual(["One"]);
+    expect(listed(result.loaded).map((p) => p.specifier)).toEqual(["@acme/penguin-plugin-one"]);
+    expect(listed(result.loaded)[0]!.modules.map((m) => m.manifest.name)).toEqual(["One"]);
   });
 
   it("resolves a package through its exports' import condition, as npm shipped it", async () => {

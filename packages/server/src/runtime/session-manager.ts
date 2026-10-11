@@ -2429,7 +2429,10 @@ export class SessionsModule {
           // An activity run's Session is created confined (see generation.ts); one reopened
           // later stays confined. Judged by its Workspace, not its id: the run's subagents are
           // Sessions of their own in the same Workspace. Coding-agent Sessions never reach this.
-          sandboxModeOf: (row) => activityRunFloor(config.root, row.workspace),
+          sandboxModeOf: (row) =>
+            settings.getConfineActivityAgents()
+              ? activityRunFloor(config.root, row.workspace)
+              : undefined,
         }),
         this.codingAgents,
       ),

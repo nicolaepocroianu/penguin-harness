@@ -4932,6 +4932,10 @@ export type {
   WafWorkspaceStatusResponse,
 } from "../activities/waf-workspace-types.js";
 export type {
+  ActivitySandboxResponse,
+  ActivitySandboxState,
+} from "../activities/activity-sandbox-types.js";
+export type {
   ClaimModuleProductResponse,
   ModuleProduct,
   ModuleProductsResponse,

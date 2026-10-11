@@ -2680,6 +2680,16 @@ export const en: Strings = {
       title: "WAF workspace",
       about:
         "The checkouts activities are authored, played and deployed from: the framework, the navigation bar, media and activity data, plus one repository per product's module. Penguin clones them into its own data folder and installs what the framework and navigation bar build with, by itself when the server starts and they are not there yet; Prepare does it again, for instance after a failure. Media is cloned partially, and a product's media is fetched only when it is needed. git uses this server's own SSH keys. To use a checkout you already have instead, enter its folder below; Penguin then only reads it.",
+      confineAgents: "Confine activity agents",
+      confineAgentsInfo:
+        "While this is on, an activity run's agent can change files only in that run's own folder: its commands and its file tools both. The WAF checkout and everything else on this machine stay read-only to it. Agents can still read anywhere. Turn it off only if you trust what your activity agents do. Runs already going keep the setting they started with.",
+      confineAgentsReady: "Activity agents run confined.",
+      confineAgentsOff:
+        "Activity agents are not confined. They can change any file this server can.",
+      confineAgentsUnavailable:
+        "No sandbox is available, so activity runs will not start. Install the sandbox plugin, or turn this off.",
+      confineAgentsSaved: (on) =>
+        on ? "Activity agents will run confined." : "Activity agents will not be confined.",
       ready: "Ready",
       notReady: "Not prepared. Prepare clones what is missing.",
       preparing: "Preparing the workspace. Cloning and installing can take several minutes.",
