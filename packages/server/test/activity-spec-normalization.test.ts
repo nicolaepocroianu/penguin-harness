@@ -490,8 +490,13 @@ describe("normalizeMediaTags", () => {
     );
   });
 
-  it("keeps a <sound> that only rules music out as a one-shot effect", () => {
-    for (const prompt of ["one short bell ding, no music", "a door creak without any music"])
+  it("keeps a <sound> that rules music out, or asks for it once, as a one-shot effect", () => {
+    for (const prompt of [
+      "one short bell ding, no music",
+      "a door creak without any music",
+      "a short musical sting when the answer is right",
+      "a music box tune that plays once",
+    ])
       expect(normalizeMediaTags(`<sound>${prompt}</sound>`)).toBe(
         `<audio kind="sfx">${prompt}</audio>`,
       );

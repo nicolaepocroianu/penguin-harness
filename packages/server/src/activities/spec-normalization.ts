@@ -16,24 +16,26 @@
 type Json = Record<string, unknown>;
 
 /**
+ * Whether a <sound> prompt asks for music that plays on: background, ambient or looping music,
+ * not ruled out ("one short bell, no music") and not one-off ("a short musical sting", a
+ * jingle that plays once). Anything less certain stays the one-shot effect <sound> means.
+ */
+function asksForMusic(prompt: string): boolean {
+  const names = /\bmusic\b/i.test(prompt);
+  const playsOn = /\b(?:background|ambient|looping|loops?|throughout)\b/i.test(prompt);
+  const ruledOut = /\b(?:no|not|without|never)\b[^.,;:!?]*\bmusic\b/i.test(prompt);
+  const oneOff = /\b(?:one[- ]shot|once|sting|short|jingle)\b/i.test(prompt);
+  return names && playsOn && !ruledOut && !oneOff;
+}
+
+/**
  * Rewrites the sound tags authors reach for into the audio tags the stages read:
  * `<sound>...</sound>` and `<sfx>...</sfx>` become a one-shot `<audio kind="sfx">`, and
  * `<music>...</music>` looping `<audio kind="music" loop="true">`, as is a `<sound>` whose prompt
- * asks for music. Without this the spec stage, told that only <audio>, <image>, <animation> and
- * <video> count, dropped them without a word. Only applied to what a run is given; the
- * author's saved description is left as written.
+ * asks for background or looping music. Without this the spec stage, told that only <audio>,
+ * <image>, <animation> and <video> count, dropped them without a word. Only applied to what a
+ * run is given; the author's saved description is left as written.
  */
-/**
- * Whether a <sound> prompt asks for music: it names music, and not only to rule it out
- * ("one short bell, no music" is an effect).
- */
-function asksForMusic(prompt: string): boolean {
-  return (
-    /\bmusic(al)?\b/i.test(prompt) &&
-    !/\b(?:no|not|without|never)\b[^.,;:!?]*\bmusic(al)?\b/i.test(prompt)
-  );
-}
-
 export function normalizeMediaTags(description: string): string {
   const music = (prompt: string) => `<audio kind="music" loop="true">${prompt}</audio>`;
   return description

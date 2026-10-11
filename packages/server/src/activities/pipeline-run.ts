@@ -545,6 +545,7 @@ export class PipelineRunner {
         return;
       }
       for (const target of targets) {
+        this.throwIfStopped(state);
         step.detail = `${target.assetKey} (${target.language})`;
         const before = await current();
         const run = await generation.start(
@@ -592,6 +593,7 @@ export class PipelineRunner {
         return;
       }
       for (const target of targets) {
+        this.throwIfStopped(state);
         const narration = manifest.assets[target.language]?.find(
           (item) => item.key === target.assetKey,
         );
@@ -847,6 +849,7 @@ export class PipelineRunner {
       const missing = wordsMissingPhonemes(group);
       // As many runs as the words need: one run proposes at most PHONEMES_RUN_MAX_WORDS.
       for (let start = 0; start < missing.length; start += PHONEMES_RUN_MAX_WORDS) {
+        this.throwIfStopped(state);
         const run = await generation.start(
           projectId,
           activityId,
@@ -888,6 +891,7 @@ export class PipelineRunner {
     const targets = inScope(wordRecordingTargets(ready), input.scope);
     step.total = targets.length;
     for (const target of targets) {
+      this.throwIfStopped(state);
       const word = ready.assets[target.language]?.find((item) => item.key === target.assetKey);
       const provider = word ? wordSpeechProvider(word) : DEFAULT_SPEECH_PROVIDER;
       step.detail = target.assetKey;
@@ -911,6 +915,14 @@ export class PipelineRunner {
       step.done += 1;
     }
     step.detail = null;
+  }
+
+  /**
+   * Ends the step when Stop was pressed: checked before each run a stage starts, since Stop
+   * cancels only the run under way, and one that had just finished would let the next start.
+   */
+  private throwIfStopped(state: PipelineState): void {
+    if (this.stopping.has(state.activityId) || this.disposed) throw new Stopped();
   }
 
   /**

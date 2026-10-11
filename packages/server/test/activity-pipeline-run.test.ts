@@ -1049,6 +1049,8 @@ function wordWorld(
     words?: MediaAsset[];
     /** Whether the agent's sounds run proposes sounds for the words without any. */
     proposes?: boolean;
+    /** Press Stop as the first sounds run is accepted. */
+    stopAfterFirstSounds?: boolean;
   } = {},
 ) {
   const word = (normalized: string, extra: Partial<MediaAsset> = {}): MediaAsset => ({
@@ -1150,12 +1152,14 @@ function wordWorld(
       const run = runs.find((item) => item.runId === runId)! as unknown as {
         phonemes: { words: string[] };
       };
+      if (options.stopAfterFirstSounds && asked.length === 1) void runner.stop("act");
       if (options.proposes)
         for (const asset of group())
           if (run.phonemes.words.includes(asset.normalizedWord!))
             asset.phonemes = [...asset.normalizedWord!];
       bump();
     },
+    async cancel() {},
     async acceptAudio(_p: string, _a: string, runId: string, expected: string) {
       if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
       const run = runs.find((item) => item.runId === runId)!;
@@ -1226,6 +1230,17 @@ describe("the words step", () => {
     await w.runner.start("proj", "act", { selection: "words", agentId: "agent" }).done;
     expect(w.asked.map((batch) => batch.length)).toEqual([200, 200, 50]);
     expect(w.asked.flat()).toEqual(words);
+  });
+
+  it("starts no further sounds run after Stop, even when the run under way had finished", async () => {
+    const w = wordWorld({ proposes: true, stopAfterFirstSounds: true });
+    w.activity.draft.mediaPlan.manifest.assets["en-US"] = Array.from({ length: 450 }, (_, index) =>
+      w.word(`w${index}`),
+    );
+    await w.runner.start("proj", "act", { selection: "words", agentId: "agent" }).done;
+    expect(w.asked).toHaveLength(1);
+    expect(w.started).toEqual([]);
+    expect(w.runner.status("act")!.status).toBe("cancelled");
   });
 
   it("asks only about the one word a run is scoped to", async () => {
