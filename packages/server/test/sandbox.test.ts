@@ -157,6 +157,64 @@ describe("sandbox service — capability routing across backends", () => {
   });
 });
 
+describe("sandbox service — a Session's own confinement floor", () => {
+  it("confines a Session that asks for it while the deployment's setting stays off", async () => {
+    const dsh = fake("dsh");
+    const svc = await service([["dsh-local", dsh.provider]]);
+    const confine = svc.confiner();
+    expect(confine([...ARGV], { ...OPTS, sessionMode: "workspace-write" })).toEqual([
+      "dsh",
+      "--",
+      ...ARGV,
+    ]);
+    // The Session beside it, with no floor, still runs exactly as before.
+    expect(confine([...ARGV], OPTS)).toEqual([...ARGV]);
+    expect(dsh.calls).toEqual([{ mode: "workspace-write", workspaceRoot: "/work/project" }]);
+    expect(svc.currentSettings()).toEqual({ mode: "danger-full-access" });
+  });
+
+  it("never loosens a stricter deployment setting", async () => {
+    const dsh = fake("dsh");
+    const svc = await service([["dsh-local", dsh.provider]]);
+    svc.configure({ mode: "read-only" });
+    svc.confiner()([...ARGV], { ...OPTS, sessionMode: "workspace-write" });
+    expect(dsh.calls[0]?.mode).toBe("read-only");
+  });
+
+  it("tightens a looser one, and keeps the deployment's network and masking", async () => {
+    const bwrap = fake("bwrap", ["fs-write", "network", "mask-paths"]);
+    const svc = await service([["bwrap", bwrap.provider]]);
+    svc.configure({ mode: "workspace-write", network: "none", maskPaths: ["/secrets"] });
+    svc.confiner()([...ARGV], { ...OPTS, sessionMode: "read-only" });
+    expect(bwrap.calls[0]).toEqual({
+      mode: "read-only",
+      workspaceRoot: "/work/project",
+      network: "none",
+      maskPaths: ["/secrets"],
+    });
+  });
+
+  it("fails closed for a Session floor when no backend is mounted", async () => {
+    const svc = await service([]);
+    expect(() => svc.confiner()([...ARGV], { ...OPTS, sessionMode: "workspace-write" })).toThrow(
+      /no sandbox backend is mounted/,
+    );
+  });
+
+  it("says ahead of time whether a floor can be honoured", async () => {
+    expect((await service([])).confinementProblem("workspace-write")).toMatch(
+      /no sandbox backend is mounted/,
+    );
+    expect(
+      (await service([["dsh-local", fake("dsh").provider]])).confinementProblem("workspace-write"),
+    ).toBeNull();
+    // Masking asked by the deployment is a dimension the floor's spawns need too.
+    const svc = await service([["dsh-local", fake("dsh").provider]]);
+    svc.configure({ mode: "danger-full-access", maskPaths: ["/secrets"] });
+    expect(svc.confinementProblem("workspace-write")).toMatch(/mask-paths/);
+  });
+});
+
 describe("sandbox settings ride the parked context across a swap", () => {
   /**
    * Boots the packaged platform over a fresh registry carrying one observer plugin, and

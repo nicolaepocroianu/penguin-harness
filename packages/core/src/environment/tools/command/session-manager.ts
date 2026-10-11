@@ -13,7 +13,11 @@ import { statSync } from "node:fs";
 import { ManagedSession } from "./session.js";
 import { prependPathEnv } from "./path-prepend.js";
 import { BackgroundRegistry } from "../background/index.js";
-import type { ProxyEnvPolicy, SpawnConfiner } from "../../../interfaces/index.js";
+import type {
+  ProxyEnvPolicy,
+  SessionSandboxMode,
+  SpawnConfiner,
+} from "../../../interfaces/index.js";
 
 /** Concurrent managed-session cap: evicts once exceeded (exited sessions first, otherwise LRU — killing a background process has bounded cost). */
 const MAX_SESSIONS = 64;
@@ -236,6 +240,8 @@ export class CommandSessionManager {
    * those fall back to the spawn cwd.
    */
   private readonly workspaceDir: string | undefined;
+  /** The Session's confinement floor; it decides the shell commands are spawned with. */
+  private readonly sandboxMode: SessionSandboxMode | undefined;
 
   constructor(opts?: {
     vault?: Record<string, string>;
@@ -244,6 +250,7 @@ export class CommandSessionManager {
     pathPrepend?: () => string[];
     confineSpawn?: () => SpawnConfiner | null;
     workspaceDir?: string;
+    sandboxMode?: SessionSandboxMode;
   }) {
     this.vault = opts?.vault ?? {};
     this.proxyEnv = opts?.proxyEnv;
@@ -251,6 +258,7 @@ export class CommandSessionManager {
     this.pathPrepend = opts?.pathPrepend;
     this.confineSpawn = opts?.confineSpawn;
     this.workspaceDir = opts?.workspaceDir;
+    this.sandboxMode = opts?.sandboxMode;
     this.registry.onChange(() => this.changeListener?.());
   }
 
@@ -292,6 +300,7 @@ export class CommandSessionManager {
       cmd: opts.cmd,
       cwd: opts.cwd,
       ...(prepend.length > 0 ? { pathPrepend: prepend } : {}),
+      ...(this.sandboxMode !== undefined ? { confined: true } : {}),
       ...(confiner !== null
         ? {
             confine: (argv: readonly string[], o: { cwd: string }) =>

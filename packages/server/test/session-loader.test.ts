@@ -6,10 +6,16 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createAgent, saveProjectConfig, sessionMeta, userText } from "@prismshadow/penguin-core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  Agent,
+  createAgent,
+  saveProjectConfig,
+  sessionMeta,
+  userText,
+} from "@prismshadow/penguin-core";
 import type { SessionMetaPayload } from "@prismshadow/penguin-core";
-import { createCoreSessionLoader } from "../src/runtime/session-manager.js";
+import { activityRunFloor, createCoreSessionLoader } from "../src/runtime/session-manager.js";
 import { SessionSources } from "../src/runtime/session-sources.js";
 import type { SessionRow } from "../src/db/repos/sessions.js";
 import { HttpError } from "../src/http/errors.js";
@@ -61,7 +67,56 @@ describe("session-loader", () => {
     });
   });
   afterEach(async () => {
+    vi.restoreAllMocks();
     await fs.rm(root, { recursive: true, force: true });
+  });
+
+  it("confines a rebuilt Session that works in an activity run, its subagents included", () => {
+    const runs = path.join(root, "activity-runs");
+    expect(activityRunFloor(root, path.join(runs, "run_1"))).toBe("workspace-write");
+    expect(activityRunFloor(root, path.join(runs, "run_1", "module"))).toBe("workspace-write");
+    expect(activityRunFloor(root, runs)).toBeUndefined();
+    expect(activityRunFloor(root, path.join(root, "activity-runs-other", "run_1"))).toBeUndefined();
+    expect(activityRunFloor(root, path.join(root, "workspaces", "w1"))).toBeUndefined();
+  });
+
+  it("applies the floor when a Session with no Trace is rebuilt as well", async () => {
+    const workspace = path.join(root, "ws-no-trace");
+    await fs.mkdir(workspace, { recursive: true });
+    const create = vi
+      .spyOn(Agent.prototype, "createSession")
+      .mockResolvedValue({ dispose: () => {} } as never);
+    const loader = createCoreSessionLoader(root, undefined, {
+      sandboxModeOf: () => "workspace-write",
+    });
+    (await loader.load(row(workspace))).dispose?.();
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceDir: workspace, sandboxMode: "workspace-write" }),
+    );
+  });
+
+  it("asks again for a resumed Session's confinement floor, which core does not keep", async () => {
+    const workspace = path.join(root, "ws-floor");
+    await fs.mkdir(workspace, { recursive: true });
+    await writeTraceFile(root, PROJECT, AGENT, "2026-07-06", SID, 1, [
+      sessionMeta(meta({ workspace, model_id: "m1" })),
+      userText("hi"),
+    ]);
+    // What the loader asks core for is the subject, not the resumed Session itself.
+    const resume = vi
+      .spyOn(Agent.prototype, "resumeSession")
+      .mockResolvedValue({ dispose: () => {} } as never);
+    const asked: string[] = [];
+    const loader = createCoreSessionLoader(root, undefined, {
+      sandboxModeOf: (asking) => {
+        asked.push(asking.sessionId);
+        return "workspace-write";
+      },
+    });
+    const session = await loader.load(row(workspace));
+    session.dispose?.();
+    expect(asked).toEqual([SID]);
+    expect(resume).toHaveBeenCalledWith({ sessionId: SID, sandboxMode: "workspace-write" });
   });
 
   it("Trace exists but the Workspace was deleted → 409 session_unrecoverable, original message preserved", async () => {

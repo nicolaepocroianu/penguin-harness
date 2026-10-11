@@ -64,6 +64,11 @@ export interface AcceptanceInput {
   criteria: string[];
   /** The test browser's executable. */
   browserPath: string;
+  /**
+   * The browser server this server started for the run, when the run is confined: its checks
+   * connect to it instead of starting the browser themselves.
+   */
+  browserEndpoint?: string;
   /** The specification's scene ids, in order. */
   scenes: string[];
   specRevision: string;

@@ -52,6 +52,7 @@ import type {
   ControlEnvContext,
   OmniMessage,
   ProxyEnvPolicy,
+  SessionSandboxMode,
   SpawnConfiner,
   SessionMetaPayload,
   SessionTitleResult,
@@ -261,10 +262,18 @@ export function createCoreSessionLoader(
     controlEnv?: (ctx: ControlEnvContext) => Record<string, string>;
     pathPrepend?: () => string[];
     confineSpawn?: () => SpawnConfiner | null;
+    /**
+     * A Session's confinement floor, asked again whenever it is rebuilt because core does not
+     * persist it (see core's CreateSessionOptions.sandboxMode). Without it, an activity
+     * run's Session reopened after a restart would run its commands unconfined.
+     */
+    sandboxModeOf?: (row: SessionRow) => SessionSandboxMode | undefined;
   } = {},
 ): SessionLoader {
   return {
     async load(row: SessionRow): Promise<RuntimeSession> {
+      // Asked once, applied on both paths below: resumed from its Trace, or rebuilt without one.
+      const sandboxMode = opts.sandboxModeOf?.(row);
       const agent = await createAgent({
         root,
         projectId: row.projectId,
@@ -285,7 +294,10 @@ export function createCoreSessionLoader(
         // config / Trace missing session_meta, etc.) are converged to 409, preserving
         // the original message rather than bubbling up as 500.
         try {
-          const session = await agent.resumeSession({ sessionId: row.sessionId });
+          const session = await agent.resumeSession({
+            sessionId: row.sessionId,
+            ...(sandboxMode !== undefined ? { sandboxMode } : {}),
+          });
           // The row's stored level — the knob position the user last chose — restored onto
           // the runtime as a plain assignment: it rides the resumed Session's requests.
           if (row.thinkingLevel) session.thinkingLevel = row.thinkingLevel;
@@ -315,6 +327,7 @@ export function createCoreSessionLoader(
           workspaceDir: row.workspace,
           modelId: row.modelId,
           provider: row.provider,
+          ...(sandboxMode !== undefined ? { sandboxMode } : {}),
           // The rebuilt Session re-records a known origin in its fresh session_meta, and
           // starts its first context at the row's pinned level.
           ...(knownSource != null ? { source: knownSource } : {}),
@@ -2377,6 +2390,11 @@ export class SessionsModule {
           // --org-id inside it. Looked up per spawn from the cache the ledger and the tickets
           // project into.
           ...(orgId !== null ? { PENGUIN_ORG_ID: orgId } : {}),
+          // A confined Session can write only its Workspace, and npm keeps its cache in the
+          // user profile: there it could not install anything, so its cache moves in.
+          ...(ctx.sandboxMode !== undefined
+            ? { npm_config_cache: path.join(ctx.workspaceDir, ".npm-cache") }
+            : {}),
         };
       },
       // The directory core puts at the FRONT of PATH for every command an Agent runs (and for
@@ -2408,6 +2426,10 @@ export class SessionsModule {
           controlEnv: env.controlEnv,
           pathPrepend: env.pathPrepend,
           confineSpawn: env.confineSpawn,
+          // An activity run's Session is created confined (see generation.ts); one reopened
+          // later stays confined. Judged by its Workspace, not its id: the run's subagents are
+          // Sessions of their own in the same Workspace. Coding-agent Sessions never reach this.
+          sandboxModeOf: (row) => activityRunFloor(config.root, row.workspace),
         }),
         this.codingAgents,
       ),
@@ -2469,6 +2491,18 @@ function withCodingAgents(
         ? codingAgents.loadSessionRuntime(row)
         : core.load(row),
   };
+}
+
+/**
+ * The confinement floor a rebuilt Session gets because of where it works: `workspace-write`
+ * for one whose Workspace is an activity run's (`<root>/activity-runs/<runId>`, the run's own
+ * Session and its subagents alike), none otherwise.
+ */
+export function activityRunFloor(root: string, workspace: string): SessionSandboxMode | undefined {
+  const rel = path.relative(path.resolve(root, "activity-runs"), path.resolve(workspace));
+  return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel)
+    ? "workspace-write"
+    : undefined;
 }
 
 /** Builds the loader a manager runs sessions through; a test stands in a fake session. */

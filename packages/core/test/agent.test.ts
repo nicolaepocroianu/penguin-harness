@@ -17,7 +17,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { OmniMessage } from "../src/omnimessage/index.js";
 import type { OpenContextOptions, OpenedContext, SystemConfig } from "../src/index.js";
-import { agentsMdPath, projectConfigPath, systemConfigPath } from "../src/state/paths.js";
+import {
+  agentsMdPath,
+  projectConfigPath,
+  systemConfigPath,
+  tracesDir,
+} from "../src/state/paths.js";
+import { sessionMeta } from "../src/omnimessage/index.js";
 import {
   addModel,
   createAgent,
@@ -35,6 +41,7 @@ import { stubProviderKeys } from "./provider-keys.js";
 import type {
   EnvironmentConfig,
   EnvironmentServices,
+  SpawnConfiner,
   SubagentRunner,
 } from "../src/interfaces/index.js";
 
@@ -44,12 +51,15 @@ import type {
 // request is issued — no network is ever touched. The wrapper is otherwise transparent, so
 // every other test in this file behaves as with the real class.
 const capturedEnvServices = vi.hoisted(() => ({ list: [] as unknown[] }));
+// The whole config of each constructed Environment: what a Session's tools are limited by.
+const capturedEnvConfigs = vi.hoisted(() => ({ list: [] as unknown[] }));
 vi.mock("../src/environment/index.js", async (importOriginal) => {
   const mod = await importOriginal<typeof import("../src/environment/index.js")>();
   class CapturingEnvironment extends mod.Environment {
     constructor(config: EnvironmentConfig) {
       super(config);
       capturedEnvServices.list.push(config.services);
+      capturedEnvConfigs.list.push(config);
     }
   }
   return { ...mod, Environment: CapturingEnvironment };
@@ -630,6 +640,135 @@ describe("run_subagent spawning follows the PARENT session (never the Project de
         text: "count the TODO items",
       });
       await gen.return(null);
+    } finally {
+      handle.dispose();
+      parent.dispose();
+    }
+  });
+});
+
+describe("a Session's confinement floor and protected roots", () => {
+  const ARGV = ["bash", "-lc", "true"];
+  const lastEnvConfig = (): EnvironmentConfig =>
+    capturedEnvConfigs.list.at(-1) as EnvironmentConfig;
+
+  /** A host confiner recording the spawn context it is handed. */
+  function recordingHost() {
+    const seen: Parameters<SpawnConfiner>[1][] = [];
+    const confiner: SpawnConfiner = (argv, opts) => {
+      seen.push(opts);
+      return argv;
+    };
+    return { seen, confineSpawn: () => confiner };
+  }
+
+  async function workspace(name: string): Promise<string> {
+    const ws = path.join(tmpRoot, name);
+    await fs.mkdir(ws, { recursive: true });
+    return ws;
+  }
+
+  it("hands the floor to the host's confiner and control env with every spawn", async () => {
+    const host = recordingHost();
+    const contexts: unknown[] = [];
+    const agent = await createAgent({
+      confineSpawn: host.confineSpawn,
+      controlEnv: (ctx) => {
+        contexts.push(ctx);
+        return {};
+      },
+    });
+    const ws = await workspace("ws-floor");
+    const session = await agent.createSession({ workspaceDir: ws, sandboxMode: "workspace-write" });
+    try {
+      lastEnvConfig().confineSpawn!()!(ARGV, { cwd: ws, workspaceDir: ws });
+      expect(host.seen).toEqual([{ cwd: ws, workspaceDir: ws, sessionMode: "workspace-write" }]);
+      lastEnvConfig().controlEnv!();
+      expect(contexts).toEqual([
+        expect.objectContaining({ workspaceDir: ws, sandboxMode: "workspace-write" }),
+      ]);
+    } finally {
+      session.dispose();
+    }
+  });
+
+  it("leaves a Session without a floor on the host's confiner exactly as before", async () => {
+    const host = recordingHost();
+    const agent = await createAgent({ confineSpawn: host.confineSpawn });
+    const ws = await workspace("ws-no-floor");
+    const session = await agent.createSession({ workspaceDir: ws });
+    try {
+      expect(lastEnvConfig().confineSpawn).toBe(host.confineSpawn);
+    } finally {
+      session.dispose();
+    }
+  });
+
+  it("refuses a command it cannot confine when the host has no sandbox at all", async () => {
+    const agent = await createAgent();
+    const ws = await workspace("ws-no-host");
+    const session = await agent.createSession({ workspaceDir: ws, sandboxMode: "workspace-write" });
+    try {
+      const confine = lastEnvConfig().confineSpawn!()!;
+      expect(() => confine(ARGV, { cwd: ws, workspaceDir: ws })).toThrow(
+        /must run confined \(workspace-write\).*refusing to run the command unconfined/,
+      );
+    } finally {
+      session.dispose();
+    }
+  });
+
+  it("takes the floor and protected roots again when resumed, since neither is kept on disk", async () => {
+    const ws = await workspace("ws-resumed");
+    const checkout = await workspace("checkout-resumed");
+    const sessionId = "session-2026-10-11-10-00-00-abcdef09";
+    const dir = path.join(tracesDir(tmpRoot, DEFAULT_PROJECT_ID, DEFAULT_AGENT_ID), "2026-10-11");
+    await fs.mkdir(dir, { recursive: true });
+    const meta = sessionMeta({
+      session_id: sessionId,
+      provider: "anthropic",
+      model_id: "claude-sonnet-4-6",
+      model_context_window: 1000000,
+      system_prompt: "ORIGINAL SYSTEM PROMPT",
+      agent_state: "/agent/state",
+      workspace: ws,
+    });
+    await fs.writeFile(
+      path.join(dir, `${sessionId}_001.jsonl`),
+      [meta, userText("hi")].map((m) => JSON.stringify(m)).join("\n") + "\n",
+    );
+    const agent = await createAgent();
+    const protectedRoots = [{ root: checkout, label: "the shared checkout" }];
+    const resumed = await agent.resumeSession({
+      sessionId,
+      sandboxMode: "workspace-write",
+      protectedRoots,
+    });
+    try {
+      expect(lastEnvConfig()).toMatchObject({ sandboxMode: "workspace-write", protectedRoots });
+    } finally {
+      resumed.dispose();
+    }
+  });
+
+  it("holds a subagent to its parent's floor and protected roots", async () => {
+    const host = recordingHost();
+    const agent = await createAgent({ confineSpawn: host.confineSpawn });
+    const ws = await workspace("ws-child");
+    const checkout = await workspace("checkout");
+    const protectedRoots = [{ root: checkout, label: "the shared checkout" }];
+    const parent = await agent.createSession({
+      workspaceDir: ws,
+      protectedRoots,
+      sandboxMode: "workspace-write",
+    });
+    const runner = (capturedEnvServices.list.at(-1) as EnvironmentServices).subagentRunner!;
+    const handle = await runner.spawn({});
+    try {
+      const child = lastEnvConfig();
+      expect(child.protectedRoots).toEqual(protectedRoots);
+      child.confineSpawn!()!(ARGV, { cwd: ws, workspaceDir: ws });
+      expect(host.seen.at(-1)?.sessionMode).toBe("workspace-write");
     } finally {
       handle.dispose();
       parent.dispose();

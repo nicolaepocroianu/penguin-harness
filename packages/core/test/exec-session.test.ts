@@ -2,10 +2,11 @@
  * Behavior tests for long-running command sessions (exec_command yield + input_command).
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { access, chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Environment, ManagedSession } from "../src/environment/index.js";
+import { sessionShell } from "../src/environment/tools/command/shell.js";
 import { toolCall } from "../src/omnimessage/index.js";
 import type { OmniMessage } from "../src/omnimessage/index.js";
 import type {
@@ -545,6 +546,78 @@ describe("confineSpawn seam rewrites the exact argv a command spawns", () => {
     expect(res.output).toContain('[spawn error: sandbox mode "workspace-write"');
     // Fail-closed means the command never executed — not even unconfined.
     await expect(access(path.join(tmp, "confine-leak.txt"))).rejects.toThrow();
+  });
+
+  it("a Session with a confinement floor spawns with the shell that starts in a sandbox", async () => {
+    const floored = new Environment({
+      workspaceDir: tmp,
+      toolConfig: sessionConfig(),
+      confineSpawn: () => confiner,
+      sandboxMode: "workspace-write",
+    });
+    const shells: string[] = [];
+    confiner = (argv) => {
+      shells.push(argv[0]!);
+      return argv;
+    };
+    try {
+      const res = await runTool(floored, "exec_command", { cmd: "echo floored-run" });
+      expect(res.output).toContain("floored-run");
+      await runTool(confinedEnv, "exec_command", { cmd: "echo plain-run" });
+      // On Windows these differ (PowerShell for the floored Session); elsewhere both are bash.
+      expect(shells).toEqual([sessionShell(true).command, sessionShell().command]);
+    } finally {
+      floored.dispose();
+    }
+  });
+
+  it("a confined Session's file tools write only inside its workspace, as its commands may", async () => {
+    const outside = await mkdtemp(path.join(tmpdir(), "penguin-outside-"));
+    const floored = new Environment({
+      workspaceDir: tmp,
+      toolConfig: {
+        customTools: [{ name: "write_file", description: "Write a file.", permission: "rw" }],
+        mcpServers: [],
+      },
+      sandboxMode: "workspace-write",
+    });
+    try {
+      const refused = await runTool(floored, "write_file", {
+        file_path: path.join(outside, "escaped.txt"),
+        content: "x",
+      });
+      expect(refused.stopReason).toBe("fatal");
+      expect(refused.output).toContain("may write only inside its workspace");
+      await expect(access(path.join(outside, "escaped.txt"))).rejects.toThrow();
+      // A link a confined command could leave behind, to a place outside that is not there yet.
+      let linked = true;
+      try {
+        await symlink(path.join(outside, "made-later"), path.join(tmp, "way-out"), "junction");
+      } catch (error) {
+        // Only a machine that does not allow links skips; anything else is a real failure.
+        if ((error as NodeJS.ErrnoException).code !== "EPERM") throw error;
+        linked = false;
+      }
+      if (linked) {
+        const throughLink = await runTool(floored, "write_file", {
+          file_path: "way-out/escaped.txt",
+          content: "x",
+        });
+        expect(throughLink.stopReason).toBe("fatal");
+        // Refused by the guard, not merely failing on the way: the writer would follow it.
+        expect(throughLink.output).toContain("may write only inside its workspace");
+        await expect(access(path.join(outside, "made-later"))).rejects.toThrow();
+      }
+      const written = await runTool(floored, "write_file", {
+        file_path: "inside.txt",
+        content: "x",
+      });
+      expect(written.stopReason).not.toBe("fatal");
+      await access(path.join(tmp, "inside.txt"));
+    } finally {
+      floored.dispose();
+      await rm(outside, { recursive: true, force: true });
+    }
   });
 
   it("the getter is re-read at every spawn, so a hot-swapped confiner needs no new Environment", async () => {

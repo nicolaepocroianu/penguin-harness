@@ -142,6 +142,11 @@ function boundVisible(
 export class Environment implements EnvironmentInterface {
   private readonly workspaceDir: string;
   private readonly protectedRoots: readonly ProtectedRoot[];
+  /**
+   * Where the file tools may write when the Session runs confined (its Workspace and
+   * scratchpad), so they follow the same rule as its commands; undefined when unconfined.
+   */
+  private readonly writableRoots: readonly string[] | undefined;
   /** The running model context's tool configuration; replaced as a whole by `reconfigure`. */
   private toolConfig!: ToolConfig;
   /**
@@ -165,6 +170,7 @@ export class Environment implements EnvironmentInterface {
   constructor(config: EnvironmentConfig) {
     this.workspaceDir = config.workspaceDir;
     this.protectedRoots = config.protectedRoots ?? [];
+    this.writableRoots = writableRootsFor(config);
     this.truncatedToolOutputArchive = config.sessionScratchpadDir
       ? new TruncatedToolOutputArchive({
           rootDir: path.join(config.sessionScratchpadDir, "truncated-tool-output"),
@@ -180,6 +186,7 @@ export class Environment implements EnvironmentInterface {
       ...(config.controlEnv !== undefined ? { controlEnv: config.controlEnv } : {}),
       ...(config.pathPrepend !== undefined ? { pathPrepend: config.pathPrepend } : {}),
       ...(config.confineSpawn !== undefined ? { confineSpawn: config.confineSpawn } : {}),
+      ...(config.sandboxMode !== undefined ? { sandboxMode: config.sandboxMode } : {}),
       workspaceDir: config.workspaceDir,
     });
     this.subagentSessions = new SubagentSessionManager();
@@ -641,6 +648,7 @@ export class Environment implements EnvironmentInterface {
     const gen = tool.execute(args, {
       workspaceDir: this.workspaceDir,
       ...(this.protectedRoots.length ? { protectedRoots: this.protectedRoots } : {}),
+      ...(this.writableRoots !== undefined ? { writableRoots: this.writableRoots } : {}),
       toolCallId,
       signal: ac.signal,
       detachSignal: detachCtrl.signal,
@@ -892,4 +900,23 @@ function* emitFailure(toolCallId: string, message: string): Generator<OmniMessag
   yield partialToolCallOutput({ eventType: "delta", output: message, toolCallId });
   yield partialToolCallOutput({ eventType: "stop", toolCallId, stopReason: "fatal" });
   yield toolCallOutput({ output: message, toolCallId, stopReason: "fatal" });
+}
+
+/**
+ * Where a confined Session's file tools may write, matching what its commands may: the
+ * Workspace and scratchpad under `workspace-write`, nowhere under `read-only`. Undefined for
+ * an unconfined Session, which keeps the tools' historical behaviour.
+ */
+function writableRootsFor(config: EnvironmentConfig): readonly string[] | undefined {
+  switch (config.sandboxMode) {
+    case undefined:
+      return undefined;
+    case "read-only":
+      return [];
+    case "workspace-write":
+      return [
+        config.workspaceDir,
+        ...(config.sessionScratchpadDir !== undefined ? [config.sessionScratchpadDir] : []),
+      ];
+  }
 }

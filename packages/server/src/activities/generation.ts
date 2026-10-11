@@ -15,6 +15,7 @@ import {
   loadAgentVault,
   MEDIA_AGENT_ID,
   userText,
+  type SessionSandboxMode,
 } from "@prismshadow/penguin-core";
 import { Component, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
 import type { Config, Db, Channels, Log, Paths } from "../hmr/capabilities.js";
@@ -128,7 +129,7 @@ import {
   testFileHash,
 } from "./acceptance-collect.js";
 import { playwrightVersion } from "./acceptance-service.js";
-import { playwrightCoreDir, type TestBrowser } from "./test-browser.js";
+import { playwrightCoreDir, type BrowserServerHandle, type TestBrowser } from "./test-browser.js";
 import { viewportOf } from "./quality-check.js";
 import type { AcceptanceStage } from "./acceptance-types.js";
 import {
@@ -237,8 +238,12 @@ import {
   mediaSpecPrompt,
   repairPrompt,
 } from "./spec-prompts.js";
+import { Sandbox, SandboxModule } from "../sandbox/service.js";
 
 const MAX_CANDIDATE_BYTES = 2 * 1024 * 1024;
+
+/** The confinement every activity run's own agent works under: its workspace, and only that. */
+const RUN_SANDBOX_MODE: SessionSandboxMode = "workspace-write";
 
 /**
  * Whether a test run left the test file it was handed as it was: only then did it reuse the
@@ -390,8 +395,11 @@ export class ActivityGenerationService implements ActivityGeneration {
   @Use() private readonly settings!: Settings;
   @Use() private readonly wafWorkspace!: WafWorkspace;
   @Use() private readonly browser!: TestBrowser;
+  @Use(SandboxModule) private readonly sandbox!: Sandbox;
   private readonly locks = new ActivityLocks();
   private readonly observers = new Map<string, Observer>();
+  /** The test browser started for a confined run's checks, by run id; stopped when it ends. */
+  private readonly browserServers = new Map<string, BrowserServerHandle>();
   private readonly operations = new Set<Promise<unknown>>();
   private stopped = false;
   private drained: Promise<void> | null = null;
@@ -442,6 +450,34 @@ export class ActivityGenerationService implements ActivityGeneration {
   async shutdown(): Promise<void> {
     this.stop();
     await this.drained;
+    await Promise.all(
+      [...this.browserServers.values()].map((server) => server.close().catch(() => {})),
+    );
+    this.browserServers.clear();
+  }
+
+  /**
+   * Starts the test browser for a confined run and returns where its checks connect, or
+   * undefined when there is none to start. Its commands cannot start a browser themselves:
+   * on Windows Chromium's process channel is refused to a restricted token.
+   */
+  private async serveBrowser(runId: string): Promise<string | undefined> {
+    // The browser runs outside the sandbox, so it can open any file: with paths the
+    // deployment hides from commands, handing it to the run would show them again. The
+    // checks then report that they could not start the browser.
+    if (this.sandbox.currentSettings().maskPaths?.length) return undefined;
+    try {
+      const server = (await this.browser.launchServer()) as BrowserServerHandle | null;
+      if (server === null) return undefined;
+      this.browserServers.set(runId, server);
+      return server.endpoint;
+    } catch (error) {
+      // The checks then try to start the browser themselves and report why they could not.
+      this.log.line(
+        `[activities] test browser server for ${runId} did not start: ${String(error)}`,
+      );
+      return undefined;
+    }
   }
 
   private workspace(run: ActivityRun): string {
@@ -459,11 +495,13 @@ export class ActivityGenerationService implements ActivityGeneration {
     projectId: string,
     activityId: string,
     runId: string,
+    confined: boolean,
   ): Promise<void> {
     const browserPath = await this.browser.executablePath();
     if (!browserPath) return;
     const version = await playwrightVersion(playwrightCoreDir());
     if (!version) return;
+    const browserEndpoint = confined ? await this.serveBrowser(runId) : undefined;
     const spec = (await this.activities.getActivity(projectId, activityId)).draft.spec;
     const dir = path.join(workspace, PLAYER_CHECK_DIR);
     await fs.mkdir(dir, { recursive: true });
@@ -472,6 +510,7 @@ export class ActivityGenerationService implements ActivityGeneration {
       viewport: viewportOf(spec),
       criteria: acceptanceCriteria(spec),
       browserPath,
+      ...(browserEndpoint ? { browserEndpoint } : {}),
       scenes: specSceneIds(spec),
     });
     await atomicJson(path.join(dir, "package.json"), {
@@ -528,6 +567,11 @@ export class ActivityGenerationService implements ActivityGeneration {
     this.save(run);
     this.observers.get(run.runId)?.unsubscribe();
     this.observers.delete(run.runId);
+    const server = status === "running" ? undefined : this.browserServers.get(run.runId);
+    if (server) {
+      this.browserServers.delete(run.runId);
+      void server.close().catch(() => {});
+    }
     if (status !== "running") {
       publishToProjectUsers(
         this.channels as ChannelHub,
@@ -1097,6 +1141,26 @@ export class ActivityGenerationService implements ActivityGeneration {
             candidate: null,
           };
           const { candidate: _candidate, kind: _kind, ...metadata } = run;
+          // Penguin's own agent runs a stage's commands confined to the run's workspace, so
+          // the WAF checkout is read-only to them by enforcement, not by the prompt's word.
+          // With nothing able to confine, the run is refused here rather than left to fail
+          // at its first command. A local audio model runs no agent, and a coding agent
+          // runs its commands itself, outside Penguin's sandbox.
+          const localProvider = sound?.sound.provider ?? audio?.provider;
+          const localRun = Boolean(localProvider && isLocalAudioProvider(localProvider));
+          // Penguin's own agent runs this stage, so its commands run confined.
+          const confined = !codingAgentId && !localRun;
+          if (confined) {
+            const problem = this.sandbox.confinementProblem(RUN_SANDBOX_MODE);
+            if (problem !== null)
+              throw new HttpError(
+                409,
+                "sandbox_unavailable",
+                "Activity runs need a sandbox so the WAF checkout stays read-only. Enable a " +
+                  "sandbox plugin for this project on the Plugins page (sandbox-dsh works on " +
+                  `Windows, macOS and Linux), then try again. (${problem})`,
+              );
+          }
           this.db.exec("BEGIN");
           try {
             this.db
@@ -1120,7 +1184,6 @@ export class ActivityGenerationService implements ActivityGeneration {
           try {
             const workspace = this.workspace(run);
             await fs.mkdir(workspace, { recursive: true });
-            const localProvider = sound?.sound.provider ?? audio?.provider;
             if (localProvider && isLocalAudioProvider(localProvider) && run.audio) {
               const request: LocalAudioRequest = {
                 provider: localProvider,
@@ -1193,7 +1256,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                 modulePackagesRoot(this.config.root),
               );
               if (run.kind === "module")
-                await this.stagePlayerCheck(workspace, projectId, activityId, run.runId);
+                await this.stagePlayerCheck(workspace, projectId, activityId, run.runId, confined);
             }
             if (audio || image) {
               const helperName = image ? "generate-image.mjs" : "generate-speech.mjs";
@@ -1322,7 +1385,11 @@ export class ActivityGenerationService implements ActivityGeneration {
             }
             if (test) {
               await atomicJson(path.join(workspace, "activity-spec.json"), activity.draft.spec);
-              await atomicJson(path.join(workspace, ACCEPTANCE_INPUT_FILE), test.input);
+              const browserEndpoint = confined ? await this.serveBrowser(run.runId) : undefined;
+              await atomicJson(path.join(workspace, ACCEPTANCE_INPUT_FILE), {
+                ...test.input,
+                ...(browserEndpoint ? { browserEndpoint } : {}),
+              });
               await atomicJson(path.join(workspace, "package.json"), {
                 private: true,
                 type: "module",
@@ -1449,6 +1516,8 @@ export class ActivityGenerationService implements ActivityGeneration {
               // Stages run unattended, so every tool call is approved; the protected checkout
               // above is still refused, whatever the approval mode allows.
               approvalMode: "allow-all",
+              // A coding agent runs its own commands; Penguin's sandbox cannot reach them.
+              ...(confined ? { sandboxMode: RUN_SANDBOX_MODE } : {}),
             });
             run.sessionId = session.sessionId;
             this.save(run);

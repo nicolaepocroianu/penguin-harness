@@ -13,7 +13,7 @@
  * Project's default reference, 400 if there is none); the new Session is
  * added to session-manager's active table (state idle).
  */
-import type { ProtectedRoot } from "@prismshadow/penguin-core";
+import type { ProtectedRoot, SessionSandboxMode } from "@prismshadow/penguin-core";
 import fs from "node:fs/promises";
 import { agentsDir, createAgent, isSessionMeta } from "@prismshadow/penguin-core";
 import type { ControlEnvContext, ProxyEnvPolicy, SpawnConfiner } from "@prismshadow/penguin-core";
@@ -469,6 +469,12 @@ export class SessionService {
      * must not change. Not carried across a resume — see core's CreateSessionOptions.
      */
     protectedRoots?: readonly ProtectedRoot[];
+    /**
+     * The least confinement this Session's commands may run under, whatever the deployment's
+     * sandbox setting is. Activity runs pass `workspace-write`. A coding agent runs its own
+     * commands, outside Penguin's sandbox, so it is not handed this.
+     */
+    sandboxMode?: SessionSandboxMode;
     approvalMode?: ApprovalMode;
     /**
      * Session source marker: `schedule` when triggered by a scheduled task, `benchmark` when
@@ -526,6 +532,7 @@ export class SessionService {
         provider,
         ...(args.workspace !== undefined ? { workspaceDir: args.workspace } : {}),
         ...(args.protectedRoots?.length ? { protectedRoots: args.protectedRoots } : {}),
+        ...(args.sandboxMode !== undefined ? { sandboxMode: args.sandboxMode } : {}),
         // The origin is also recorded in core session_meta (Trace), not just the index row.
         ...(args.source !== undefined ? { source: args.source } : {}),
       });

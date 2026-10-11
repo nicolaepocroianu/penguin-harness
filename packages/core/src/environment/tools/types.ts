@@ -40,6 +40,11 @@ export interface ToolExecutionContext {
    * Honoured by the in-process file tools; spawned commands are the sandbox's business.
    */
   protectedRoots?: readonly ProtectedRoot[];
+  /**
+   * When set, the only trees the file tools may write into (a confined Session's Workspace
+   * and scratchpad). Absent means no such limit, which is what every tool did before.
+   */
+  writableRoots?: readonly string[];
 }
 
 /**
