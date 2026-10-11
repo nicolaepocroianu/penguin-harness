@@ -16,44 +16,17 @@
 type Json = Record<string, unknown>;
 
 /**
- * Whether a <sound> prompt asks for music that plays on. It must name music without ruling it
- * out ("one short bell, no music") or ruling looping out ("do not loop", "without
- * repeating"). An explicit loop ("loops", "repeats", "throughout") is music however short each
- * pass is; "background" or "ambient" is too, unless the prompt also
- * makes it one-off ("a short musical sting", a jingle that plays once). Anything less certain
- * stays the one-shot effect <sound> means.
- */
-function asksForMusic(prompt: string): boolean {
-  // The negation governs only the word right after it, or the one after a single word
-  // between ("do not loop", "without any music"): "without vocals that loops" rules out
-  // vocals, not looping.
-  const negation = String.raw`\b(?:no|not|don't|without|never)\s+(?:\w+\s+)?`;
-  const loop = String.raw`\b(?:loop(?:s|ing|ed)?|repeat(?:s|ing|ed)?)\b`;
-  if (!/\bmusic\b/i.test(prompt)) return false;
-  if (new RegExp(`${negation}\\bmusic\\b`, "i").test(prompt)) return false;
-  // "do not loop", "without repeating": a one-shot request, whatever else it says.
-  if (new RegExp(`${negation}${loop}`, "i").test(prompt)) return false;
-  if (new RegExp(`${loop}|\\bthroughout\\b`, "i").test(prompt)) return true;
-  const background = /\b(?:background|ambient)\b/i.test(prompt);
-  const oneOff = /\b(?:one[- ]shot|once|sting|short|jingle)\b/i.test(prompt);
-  return background && !oneOff;
-}
-
-/**
- * Rewrites the sound tags authors reach for into the audio tags the stages read:
- * `<sound>...</sound>` and `<sfx>...</sfx>` become a one-shot `<audio kind="sfx">`, and
- * `<music>...</music>` looping `<audio kind="music" loop="true">`, as is a `<sound>` whose prompt
- * asks for background or looping music. Without this the spec stage, told that only <audio>,
- * <image>, <animation> and <video> count, dropped them without a word. Only applied to what a
- * run is given; the author's saved description is left as written.
+ * Rewrites the sound tags authors reach for into the audio tags the stages read, by the tag
+ * alone: `<sound>...</sound>` and `<sfx>...</sfx>` become a one-shot `<audio kind="sfx">`, and
+ * `<music>...</music>` looping `<audio kind="music" loop="true">`. Without this the spec stage,
+ * told that only <audio>, <image>, <animation> and <video> count, dropped them without a word.
+ * The prompt's wording is never read for intent: looping music is asked for with <music>.
+ * Only applied to what a run is given; the author's saved description is left as written.
  */
 export function normalizeMediaTags(description: string): string {
-  const music = (prompt: string) => `<audio kind="music" loop="true">${prompt}</audio>`;
   return description
-    .replace(/<music>([\s\S]*?)<\/music>/gi, (_tag, prompt: string) => music(prompt))
-    .replace(/<sound>([\s\S]*?)<\/sound>/gi, (_tag, prompt: string) =>
-      asksForMusic(prompt) ? music(prompt) : `<audio kind="sfx">${prompt}</audio>`,
-    )
+    .replace(/<music>([\s\S]*?)<\/music>/gi, '<audio kind="music" loop="true">$1</audio>')
+    .replace(/<sound>([\s\S]*?)<\/sound>/gi, '<audio kind="sfx">$1</audio>')
     .replace(/<sfx>([\s\S]*?)<\/sfx>/gi, '<audio kind="sfx">$1</audio>');
 }
 

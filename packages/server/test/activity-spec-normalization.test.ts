@@ -484,38 +484,21 @@ describe("normalizeMediaTags", () => {
     );
   });
 
-  it("reads a <sound> that asks for music as looping music", () => {
-    expect(normalizeMediaTags("<sound>calm background music, looping</sound>")).toBe(
-      '<audio kind="music" loop="true">calm background music, looping</audio>',
-    );
-  });
-
-  it("reads an explicit loop as music, however short each pass is", () => {
+  it("decides by the tag alone, never by what the prompt's words seem to ask", () => {
+    // Looping music is asked for with <music>; a <sound> is an effect, whatever it says.
     for (const prompt of [
+      "calm background music, looping",
+      "background music that should not be set to loop",
       "a short music loop that repeats throughout the activity",
-      "short ambient music, looping",
-      // A negation rules out the word right after it, not every word that follows.
-      "background music without vocals that loops throughout the activity",
-      "with no lyrics and calm background music",
-    ])
-      expect(normalizeMediaTags(`<sound>${prompt}</sound>`)).toBe(
-        `<audio kind="music" loop="true">${prompt}</audio>`,
-      );
-  });
-
-  it("keeps a <sound> that rules music out, or asks for it once, as a one-shot effect", () => {
-    for (const prompt of [
-      "one short bell ding, no music",
-      "a door creak without any music",
-      "a short musical sting when the answer is right",
-      "a music box tune that plays once",
       "music that plays once, do not loop",
-      "a happy music cue without repeating",
-      "short music, don't loop it",
-    ])
+    ]) {
       expect(normalizeMediaTags(`<sound>${prompt}</sound>`)).toBe(
         `<audio kind="sfx">${prompt}</audio>`,
       );
+      expect(normalizeMediaTags(`<music>${prompt}</music>`)).toBe(
+        `<audio kind="music" loop="true">${prompt}</audio>`,
+      );
+    }
   });
 
   it("leaves audio tags, other tags and mismatched pairs alone", () => {
