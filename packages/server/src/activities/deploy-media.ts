@@ -7,28 +7,18 @@
  * is looked for in git's trees, which a partial clone has without downloading any file. A
  * file found nowhere is missing, and the stage fails naming it.
  *
- * git goes through the stage's runner, so a test answers it with a fake; files are read and
+ * git goes through the stage's clone, so a test answers it with a fake; files are read and
  * written only inside the draft roots and the media clone.
  */
 import fs from "node:fs/promises";
+import type { Clone } from "./clone.js";
 import { mediaRepoPath } from "./waf-layout.js";
 import { sidecarPath } from "./ref-media.js";
 import { withinRoot } from "./sandbox-paths.js";
 
-export interface MediaGitResult {
-  code: number | null;
-  stdout: string;
-}
-
 export interface MediaSyncPorts {
-  /**
-   * Runs git in the media clone. A failure ends the stage unless `allowFailure` is set, in
-   * which case its exit code comes back.
-   */
-  git(
-    args: string[],
-    options?: { allowFailure?: boolean; quiet?: boolean },
-  ): Promise<MediaGitResult>;
+  /** The media clone. */
+  clone: Pick<Clone, "inHead" | "changed">;
   log(text: string): void;
 }
 
@@ -65,20 +55,12 @@ export async function syncMedia(
     if (!stat?.isFile()) {
       // Not in the working tree: a file of the repository outside the partial clone's folders
       // is still in its trees, which a partial clone can list without downloading anything.
-      const listed = await ports.git(["ls-tree", "--name-only", "HEAD", "--", inRepo], {
-        allowFailure: true,
-        quiet: true,
-      });
-      if (listed.code === 0 && listed.stdout.trim() !== "") result.present++;
+      if (await ports.clone.inHead(inRepo)) result.present++;
       else result.missing.push(reference);
       continue;
     }
-    const status = await ports.git(["status", "--porcelain", "--", inRepo], {
-      allowFailure: true,
-      quiet: true,
-    });
     // New or changed since the repository last had it: authored media to publish.
-    if (status.code !== 0 || status.stdout.trim() !== "") result.copied.push(inRepo);
+    if (await ports.clone.changed(inRepo)) result.copied.push(inRepo);
     else result.present++;
     // An accepted file's Loom sidecar (`<key>.json`, what made it) goes with it: the data
     // never names it, so it would otherwise stay behind in the clone.
@@ -86,11 +68,7 @@ export async function syncMedia(
     if (sidecar === inRepo || result.copied.includes(sidecar)) continue;
     const beside = withinRoot(input.dir, sidecar);
     if (!beside || !(await fs.lstat(beside).catch(() => null))?.isFile()) continue;
-    const changed = await ports.git(["status", "--porcelain", "--", sidecar], {
-      allowFailure: true,
-      quiet: true,
-    });
-    if (changed.code !== 0 || changed.stdout.trim() !== "") result.copied.push(sidecar);
+    if (await ports.clone.changed(sidecar)) result.copied.push(sidecar);
   }
   ports.log(
     `Media: ${result.present} already in the repository, ${result.copied.length} to publish, ${result.missing.length} missing.`,

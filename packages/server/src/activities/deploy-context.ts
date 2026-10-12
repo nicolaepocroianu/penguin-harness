@@ -4,31 +4,27 @@
  * Built from facts the caller gathered (the activity, its product, the settings, the WAF
  * workspace's remotes) plus what git and the disk say about the three clones a deploy works in:
  * the workspace's module, activity-data and media repositories. Every
- * git call and every disk look goes through the ports, so a test answers them with fakes.
+ * clone and every disk look goes through the ports, so a test answers them with fakes.
  *
  * It reads only: nothing is cloned, fetched or written. The remote is reached only when the
  * engineer asked for it (`checkRemote`).
  */
 import path from "node:path";
-import {
-  BASE_BRANCH,
-  activityDataBranchName,
-  branchState,
-  cloneState,
-  deployBranchName,
-  gitAvailable,
-  localBranchExists,
-  remoteBranchExists,
-  sparsePathPresent,
-  type DeployGit,
-} from "./deploy-git.js";
+import { CloneError, type Clone, type Clones } from "./clone.js";
+import { BASE_BRANCH, activityDataBranchName, deployBranchName, sameRemote } from "./deploy-git.js";
 import {
   isAllowedRemote,
   missingSettings,
   type DeploySecrets,
   type DeploySettings,
 } from "./deploy-settings.js";
-import type { CloneState, DeployContext, DeployProblem, DeployRepo } from "./deploy-types.js";
+import type {
+  BranchState,
+  CloneState,
+  DeployContext,
+  DeployProblem,
+  DeployRepo,
+} from "./deploy-types.js";
 import { mediaSparsePath, WafLayout } from "./waf-layout.js";
 
 /**
@@ -58,7 +54,7 @@ export interface DeployContextInput {
 }
 
 export interface DeployContextPorts {
-  git: DeployGit;
+  clones: Clones;
   exists(file: string): Promise<boolean>;
 }
 
@@ -69,6 +65,52 @@ const ABSENT: CloneState = {
   ahead: null,
   remoteUrlMatches: null,
 };
+
+/** What git answered, or null when it could not say. */
+function known<T>(asked: Promise<T>): Promise<T | null> {
+  return asked.catch((error: unknown) => {
+    if (error instanceof CloneError) return null;
+    throw error;
+  });
+}
+
+/**
+ * What a clone looks like, and whether origin is the expected remote. `present` is whether the
+ * clone is on disk at all (the caller looks); nothing is asked of git when it is not.
+ */
+async function cloneState(
+  clone: Clone,
+  expectedRemote: string | null,
+  present: boolean,
+): Promise<CloneState> {
+  if (!present) return ABSENT;
+  const look = await clone.state();
+  return {
+    present: true,
+    branch: look.branch,
+    clean: look.clean,
+    ahead: look.ahead,
+    remoteUrlMatches:
+      expectedRemote === null
+        ? null
+        : look.origin !== null && sameRemote(look.origin, expectedRemote),
+  };
+}
+
+/** Where a branch is, locally and (when asked) on the remote. */
+async function branchState(
+  clone: Clone,
+  present: boolean,
+  branch: string,
+  checkRemote: boolean,
+): Promise<BranchState> {
+  if (!present) return { local: null, remote: null };
+  const [local, remote] = await Promise.all([
+    known(clone.hasBranch(branch)),
+    checkRemote ? known(clone.remoteHasBranch(branch)) : Promise.resolve(null),
+  ]);
+  return { local, remote };
+}
 
 export async function buildDeployContext(
   input: DeployContextInput,
@@ -116,15 +158,16 @@ export async function buildDeployContext(
     ),
   );
 
-  const gitOk = await gitAvailable(ports.git, input.home);
+  const gitOk = await ports.clones.available(input.home);
   if (!gitOk) problems.push({ code: "git_unavailable" });
 
+  const clones = repos.map((entry) => ports.clones.open(entry.dir));
   const states = await Promise.all(
     repos.map((entry, index) =>
       !entry.used
         ? Promise.resolve(ABSENT)
         : gitOk
-          ? cloneState(ports.git, entry.dir, entry.remote, present[index]!)
+          ? cloneState(clones[index]!, entry.remote, present[index]!)
           : Promise.resolve({ ...ABSENT, present: present[index]! }),
     ),
   );
@@ -155,16 +198,16 @@ export async function buildDeployContext(
     // clone with nothing unpushed can switch safely.
     if (entry.repo === "media") {
       const sparse = mediaSparsePath(input.productCode);
-      const included = await sparsePathPresent(ports.git, entry.dir, sparse);
+      const included = await known(clones[index]!.includes(sparse));
       if (included === false) problems.push({ code: "media_path_missing", path: sparse });
       if (included === null)
         problems.push({ code: "clone_unknown", repo: entry.repo, what: "sparse" });
     }
     // Every deploy branch is made from main, so main must be there.
     const [local, remote] = await Promise.all([
-      localBranchExists(ports.git, entry.dir, BASE_BRANCH),
+      known(clones[index]!.hasBranch(BASE_BRANCH)),
       input.checkRemote
-        ? remoteBranchExists(ports.git, entry.dir, BASE_BRANCH)
+        ? known(clones[index]!.remoteHasBranch(BASE_BRANCH))
         : Promise.resolve(null),
     ]);
     if (local === null) problems.push({ code: "clone_unknown", repo: entry.repo, what: "branch" });
@@ -190,22 +233,10 @@ export async function buildDeployContext(
   const dataState = states[1]!;
   const [deployBranch, dataBranch] = await Promise.all([
     gitOk && folder
-      ? branchState(
-          ports.git,
-          paths.module,
-          moduleState.present,
-          branches.deploy,
-          input.checkRemote,
-        )
+      ? branchState(clones[0]!, moduleState.present, branches.deploy, input.checkRemote)
       : Promise.resolve({ local: null, remote: null }),
     gitOk
-      ? branchState(
-          ports.git,
-          paths.activityData,
-          dataState.present,
-          branches.activityData,
-          input.checkRemote,
-        )
+      ? branchState(clones[1]!, dataState.present, branches.activityData, input.checkRemote)
       : Promise.resolve({ local: null, remote: null }),
   ]);
 

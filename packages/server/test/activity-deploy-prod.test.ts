@@ -13,7 +13,6 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivityDetail } from "../src/activities/domain.js";
 import type { ActivityDeployEvents } from "../src/activities/deploy-events.js";
-import type { DeployGitResult } from "../src/activities/deploy-git.js";
 import type { JenkinsFetch } from "../src/activities/deploy-jenkins.js";
 import type {
   DeployRunResponse,
@@ -21,6 +20,7 @@ import type {
   DeployedEvent,
 } from "../src/activities/deploy-types.js";
 import { activitySpec } from "./activity-fixtures.js";
+import { FakeClones } from "./fake-clones.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser } from "./helpers.js";
 
 const QA_JENKINS = "https://jenkins.example.org";
@@ -29,63 +29,15 @@ const DATA_REMOTE = "git@github.com:org/data.git";
 const MEDIA_REMOTE = "git@github.com:org/media.git";
 
 /**
- * A git whose clones are `.git` folders on disk; the media repository holds every file, and
+ * The checkout's clones, answering from memory: the media repository holds every file, and
  * each module build started makes one newer release tag.
  */
-function fakeGit(moduleBuilds: () => number) {
-  const ok = (stdout = ""): DeployGitResult => ({ code: 0, stdout, stderr: "" });
-  const read = (dir: string, name: string) =>
-    fs.readFile(path.join(dir, ".git", name), "utf8").catch(() => null);
-  return async (args: string[], cwd: string): Promise<DeployGitResult> => {
-    if (args[0] === "--version") return ok("git version 2.45.0");
-    // The workspace asks whether a module's repository exists before cloning it.
-    if (args[0] === "ls-remote" && args[2] === "--") return ok("abc\trefs/heads/main\n");
-    if (args[0] === "clone") {
-      const [remote, dir] = args.slice(args.indexOf("--") + 1);
-      await fs.mkdir(path.join(dir!, ".git"), { recursive: true });
-      await fs.writeFile(path.join(dir!, ".git", "origin"), remote!);
-      await fs.writeFile(
-        path.join(dir!, "package.json"),
-        JSON.stringify({ name: path.basename(dir!), version: "1.0.0" }),
-      );
-      return ok();
-    }
-    const origin = await read(cwd, "origin");
-    if (origin === null) return { code: 128, stdout: "", stderr: "not a git repository" };
-    const joined = args.join(" ");
-    if (joined === "remote get-url origin") return ok(`${origin}\n`);
-    if (joined === "rev-parse --abbrev-ref HEAD") return ok("main\n");
-    // The clones are clean: nothing authored waits in them, and no file differs from HEAD.
-    if (args[0] === "status" && args[1] === "--porcelain") return ok("");
-    if (joined === "rev-list --count @{u}..HEAD") return ok("0\n");
-    if (joined === "rev-parse HEAD") return ok("c0ffee\n");
-    if (args[0] === "rev-parse" && args[1] === "--verify")
-      return args[3] === "refs/heads/main" || args[3] === "refs/remotes/origin/main"
-        ? ok("abc\n")
-        : { code: 1, stdout: "", stderr: "" };
-    if (args[0] === "ls-remote")
-      return ok(args[3] === "refs/heads/main" ? "abc\trefs/heads/main\n" : "");
-    if (args[0] === "ls-tree") return ok(`${args[args.length - 1]}\n`);
-    if (args[0] === "sparse-checkout") {
-      const current = ((await read(cwd, "sparse")) ?? "").split("\n").filter(Boolean);
-      if (args[1] === "list") return ok(current.join("\n"));
-      const next = args[1] === "set" ? args.slice(2) : [...current, ...args.slice(2)];
-      await fs.writeFile(path.join(cwd, ".git", "sparse"), next.join("\n"));
-      return ok();
-    }
-    if (args[0] === "tag")
-      return ok(
-        Array.from({ length: moduleBuilds() + 1 }, (_, index) => `1.${4 + index}.0\n`).join(""),
-      );
-    if (joined === "diff --cached --quiet") return { code: 1, stdout: "", stderr: "" };
-    if (
-      ["fetch", "checkout", "merge", "stash", "reset", "clean", "add", "push", "-c"].includes(
-        args[0]!,
-      )
-    )
-      return ok();
-    return { code: 1, stdout: "", stderr: `unexpected: ${joined}` };
-  };
+function prodRepos(clones: FakeClones, root: string, moduleBuilds: () => number) {
+  clones.repo(path.join(root, "modules", "waf-module-words"))!.tags = () =>
+    Array.from({ length: moduleBuilds() + 1 }, (_, index) => `1.${4 + index}.0`);
+  clones.repo(path.join(root, "media"))!.inHead = true;
+  for (const dir of ["modules/waf-module-words", "waf-activity-data", "media"])
+    clones.repo(path.join(root, dir))!.head = "c0ffee";
 }
 
 /**
@@ -161,6 +113,7 @@ describe("activity deploy to PROD", () => {
     await fs.mkdir(path.join(root, "framework", "src"), { recursive: true });
     await fs.writeFile(path.join(root, "framework", "package.json"), "{}");
     await fs.mkdir(path.join(root, "modules"), { recursive: true });
+    const clones = new FakeClones();
     // The checkout's clones, the product's module among them (its owner cloned it, and
     // Penguin writes the product's files into it); its media's sparse set has this
     // product's folder.
@@ -168,29 +121,29 @@ describe("activity deploy to PROD", () => {
       ["waf-activity-data", DATA_REMOTE],
       ["media", MEDIA_REMOTE],
       ["modules/waf-module-words", "git@github.com:org/waf-module-words.git"],
-    ] as const) {
-      await fs.mkdir(path.join(root, folder, ".git"), { recursive: true });
-      await fs.writeFile(path.join(root, folder, ".git", "origin"), remote);
-    }
+    ] as const)
+      await clones.onDisk(path.join(root, folder), {
+        origin: remote,
+        ...(folder === "media" ? { sparse: ["loom/words"] } : {}),
+      });
     await fs.writeFile(
       path.join(root, "modules", "waf-module-words", "package.json"),
       JSON.stringify({ name: "waf-module-words", version: "1.0.0" }),
     );
-    await fs.writeFile(path.join(root, "media", ".git", "sparse"), "loom/words");
     vi.stubEnv("WAF_ROOT_DIR", root);
 
     const jenkins = fakeJenkins();
     const clock = { at: Date.UTC(2026, 8, 28, 9, 0, 0) };
-    const runGit = fakeGit(() => jenkins.moduleBuilds());
+    prodRepos(clones, root, () => jenkins.moduleBuilds());
     const t = await createTestApp({
       deployPorts: {
-        runGit,
+        clones,
         jenkinsFetch: jenkins.request,
         runProcess: async () => ({ code: 0, tail: "" }),
         now: () => clock.at,
         sleep: async () => {},
       },
-      wafWorkspacePorts: { runGit },
+      wafWorkspacePorts: { clones },
     });
     cleanups.push(async () => {
       await t.cleanup();

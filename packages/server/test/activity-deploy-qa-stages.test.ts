@@ -1,13 +1,13 @@
 /**
- * The QA deploy's six stages, each run against fakes: git and Jenkins answer from memory, the
- * clock waits no time, and the activity-data and media clones are temp dirs.
+ * The QA deploy's six stages, each run against fakes: the clones and Jenkins answer from
+ * memory, the clock waits no time, and the activity-data and media clones are temp dirs.
  * No test here runs git or makes a request, and nothing is written outside the temp dirs.
  */
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { DeployGitResult } from "../src/activities/deploy-git.js";
+import { FakeClones } from "./fake-clones.js";
 import type { DeployJenkins, JenkinsBuildStatus } from "../src/activities/deploy-jenkins.js";
 import { moduleContentHash } from "../src/activities/deploy-service.js";
 import { defaultDeploySettings } from "../src/activities/deploy-settings.js";
@@ -36,49 +36,32 @@ async function tempDir(prefix: string) {
 }
 
 /**
- * A git that answers the QA stages' commands; `tracked` is what the media repository holds,
- * and `authored` what is new or changed in its working tree.
+ * The activity-data and media clones, answering from memory; `tracked` is what the media
+ * repository holds, and `authored` what is new or changed in its working tree.
  */
-function fakeGit(
-  options: {
-    tracked?: string[];
-    authored?: string[];
-    remoteBranch?: boolean;
-    staged?: boolean;
-  } = {},
+function fakeClones(
+  dirs: { activityData: string; media: string },
+  options: { tracked?: string[]; authored?: string[] } = {},
 ) {
-  const calls: Array<{ args: string[]; cwd: string }> = [];
-  const ok = (stdout = ""): DeployGitResult => ({ code: 0, stdout, stderr: "" });
-  return {
-    calls,
-    git: {
-      async run(args: string[], cwd: string): Promise<DeployGitResult> {
-        calls.push({ args, cwd });
-        const joined = args.join(" ");
-        if (args[0] === "rev-parse" && args[1] === "--verify") {
-          const ref = args[3]!;
-          if (ref === "refs/remotes/origin/main") return ok("abc\n");
-          if (ref.startsWith("refs/remotes/origin/loom/"))
-            return options.remoteBranch ? ok("def\n") : { code: 1, stdout: "", stderr: "" };
-          return { code: 1, stdout: "", stderr: "" };
-        }
-        if (joined === "rev-parse HEAD") return ok("feedface\n");
-        if (joined === "diff --cached --quiet")
-          return options.staged === false ? ok() : { code: 1, stdout: "", stderr: "" };
-        if (args[0] === "status" && args[1] === "--porcelain") {
-          const authored = options.authored ?? [];
-          const only = args[2] === "--" ? args[3]! : null;
-          const listed = only === null ? authored : authored.filter((file) => file === only);
-          return ok(listed.map((file) => `?? ${file}\n`).join(""));
-        }
-        if (args[0] === "ls-tree") {
-          const reference = args[args.length - 1]!;
-          return ok((options.tracked ?? []).includes(reference) ? `${reference}\n` : "");
-        }
-        return ok();
-      },
-    },
-  };
+  const clones = new FakeClones();
+  clones.add(dirs.activityData, {
+    origin: "git@github.com:org/data.git",
+    head: "feedface",
+  });
+  clones.add(dirs.media, {
+    origin: "git@github.com:org/media.git",
+    head: "feedface",
+    inHead: options.tracked ?? [],
+    changed: options.authored ?? [],
+  });
+  return clones;
+}
+
+/** What was asked of the clone at `dir`, each operation with its arguments. */
+function asked(clones: FakeClones, dir: string): unknown[][] {
+  return clones.calls
+    .filter((call) => path.resolve(call.dir) === path.resolve(dir))
+    .map((call) => [call.op, ...call.args]);
 }
 
 function fakeJenkins(statuses: JenkinsBuildStatus[] = [{ state: "unknown" }]) {
@@ -142,11 +125,11 @@ function snapshot(): DeployActivitySnapshot {
 
 async function setup(
   overrides: Partial<DeployStageContext> = {},
-  gitOptions: Parameters<typeof fakeGit>[0] = {},
+  cloneOptions: Parameters<typeof fakeClones>[1] = {},
 ) {
   const activityData = await tempDir("penguin-qa-data-");
   const media = await tempDir("penguin-qa-media-");
-  const git = fakeGit(gitOptions);
+  const clones = fakeClones({ activityData, media }, cloneOptions);
   const jenkins = fakeJenkins();
   const clock = fakeClock();
   const lines: string[] = [];
@@ -154,7 +137,7 @@ async function setup(
   settings.git = { userName: "Deploy Bot", userEmail: "deploy@example.org" };
   settings.timeouts.deployMinutes = 1;
   const ctx: DeployStageContext = {
-    git: git.git,
+    clones,
     jenkins: jenkins.jenkins,
     process: { run: async () => ({ code: 0, tail: "" }) },
     styles: async () => ({ code: 0, tail: "" }),
@@ -181,7 +164,7 @@ async function setup(
     },
     ...overrides,
   };
-  return { ctx, git, jenkins, clock, lines, activityData, media };
+  return { ctx, clones, jenkins, clock, lines, activityData, media };
 }
 
 const run = (stage: DeployStage, ctx: DeployStageContext) =>
@@ -248,11 +231,13 @@ describe("moduleContentHash", () => {
 
 describe("export_activity_data", () => {
   it("puts the clone on the product's branch and writes the data for the released version", async () => {
-    const { ctx, git, activityData } = await setup();
+    const { ctx, clones, activityData } = await setup();
     await run("export_activity_data", ctx);
-    const commands = git.calls.map((call) => call.args.join(" "));
-    expect(commands).toContain("checkout -f -B loom/words-activity-data origin/main");
-    for (const call of git.calls) expect(call.cwd).toBe(activityData);
+    // The clone is the deploy's own: it is put back as origin has it.
+    expect(asked(clones, activityData)).toEqual([
+      ["onBranchFromOrigin", "loom/words-activity-data", { work: "discard", from: "main" }],
+    ]);
+    expect(clones.calls).toHaveLength(1);
     const template = JSON.parse(
       await fs.readFile(path.join(activityData, "data/templates/loom/words.json"), "utf8"),
     );
@@ -277,12 +262,7 @@ describe("export_activity_data", () => {
     });
   });
 
-  it("follows the branch origin already has, and needs a released version", async () => {
-    const { ctx, git } = await setup({}, { remoteBranch: true });
-    await run("export_activity_data", ctx);
-    expect(git.calls.map((call) => call.args.join(" "))).toContain(
-      "checkout -f -B loom/words-activity-data origin/loom/words-activity-data",
-    );
+  it("needs a released version", async () => {
     const none = await setup({ earlier: {} });
     expect(await failure(run("export_activity_data", none.ctx))).toEqual({
       code: "missing_input",
@@ -318,31 +298,24 @@ describe("verify_activity_data and verify_media_assets", () => {
   });
 
   it("publishes authored media in the media clone: carries it onto main, commits and pushes", async () => {
-    const { ctx, git, media } = await setup({}, { authored: ["loom/words/hello.mp3"] });
+    const { ctx, clones, media } = await setup({}, { authored: ["loom/words/hello.mp3"] });
     await fs.mkdir(path.join(media, "loom", "words"), { recursive: true });
     await fs.writeFile(path.join(media, "loom", "words", "hello.mp3"), "hello");
     await run("export_activity_data", ctx);
     await run("verify_media_assets", ctx);
     expect(await fs.readFile(path.join(media, "loom/words/hello.mp3"), "utf8")).toBe("hello");
-    const commands = git.calls
-      .filter((call) => call.cwd === media)
-      .map((call) => call.args.join(" "));
-    // The authored file is set aside while main comes up to origin, never reset or cleaned away.
-    expect(commands).toEqual([
-      "fetch origin",
-      "status --porcelain",
-      "stash push --include-untracked -m penguin-harness deploy",
-      "rev-parse --verify --quiet refs/heads/main",
-      "rev-parse --verify --quiet refs/remotes/origin/main",
-      "checkout -b main origin/main",
-      "merge --ff-only origin/main",
-      "stash pop",
-      "status --porcelain -- loom/words/hello.mp3",
-      "add --sparse -- loom/words/hello.mp3",
-      "diff --cached --quiet",
-      "-c user.name=Deploy Bot -c user.email=deploy@example.org commit -m Publish media for words",
-      "rev-parse HEAD",
-      "push origin main",
+    // The authored file is carried while main comes up to origin, never reset or cleaned away.
+    expect(asked(clones, media)).toEqual([
+      ["fetch"],
+      ["onBranchFromOrigin", "main", { work: "carry" }],
+      ["changed", "loom/words/hello.mp3"],
+      ["stage", ["loom/words/hello.mp3"], { sparse: true }],
+      [
+        "commitStaged",
+        "Publish media for words",
+        { name: "Deploy Bot", email: "deploy@example.org" },
+      ],
+      ["push", "main", {}],
     ]);
     expect(ctx.metadata).toMatchObject({
       mediaChecked: 1,
@@ -352,14 +325,14 @@ describe("verify_activity_data and verify_media_assets", () => {
     });
   });
 
-  it("stages several hundred copied files in batches the command line can hold", async () => {
+  it("stages every copied file, reaching folders the partial clone has not checked out", async () => {
     const count = 450;
     const paths = Array.from(
       { length: count },
       (_, i) =>
         `media/loom/words/audios/english/scene-${i}-an-audio-file-with-a-long-name-${i}.mp3`,
     );
-    const { ctx, git, media } = await setup(
+    const { ctx, clones, media } = await setup(
       {},
       { authored: paths.map((file) => file.slice("media/".length)) },
     );
@@ -373,42 +346,48 @@ describe("verify_activity_data and verify_media_assets", () => {
     }
     await run("export_activity_data", ctx);
     await run("verify_media_assets", ctx);
-    const adds = git.calls.filter((call) => call.cwd === media && call.args[0] === "add");
-    expect(adds.length).toBeGreaterThan(1);
-    for (const add of adds) expect(add.args.join(" ").length).toBeLessThan(10_000);
-    for (const add of adds) expect(add.args.slice(0, 3)).toEqual(["add", "--sparse", "--"]);
-    expect(adds.flatMap((add) => add.args.slice(3)).sort()).toEqual(
+    const staged = asked(clones, media).filter((call) => call[0] === "stage");
+    expect(staged).toHaveLength(1);
+    expect(staged[0]![2]).toEqual({ sparse: true });
+    expect((staged[0]![1] as string[]).sort()).toEqual(
       paths.map((file) => file.slice("media/".length)).sort(),
     );
     expect(ctx.metadata.mediaCopiedCount).toBe(count);
   });
 
   it("pushes nothing when the repository already has every file", async () => {
-    const { ctx, git, media } = await setup({}, { tracked: ["loom/words/hello.mp3"] });
+    const { ctx, clones, media } = await setup({}, { tracked: ["loom/words/hello.mp3"] });
     await run("export_activity_data", ctx);
     await run("verify_media_assets", ctx);
-    const commands = git.calls
-      .filter((call) => call.cwd === media)
-      .map((call) => call.args.join(" "));
-    expect(commands.some((command) => command.startsWith("push"))).toBe(false);
+    expect(asked(clones, media).some((call) => call[0] === "push")).toBe(false);
     expect(ctx.metadata.mediaCopiedCount).toBe(0);
   });
 });
 
 describe("publish_activity_data", () => {
   it("commits the exported files and pushes the branch", async () => {
-    const { ctx, git, activityData } = await setup();
+    const { ctx, clones, activityData } = await setup();
     await run("export_activity_data", ctx);
-    git.calls.length = 0;
+    clones.calls.length = 0;
     await run("publish_activity_data", ctx);
-    expect(git.calls.map((call) => call.args.join(" "))).toEqual([
-      "add --all -- data/configurations/loom/words-1.json data/templates/loom/words.json deployLists/loom-words.txt",
-      "diff --cached --quiet",
-      "-c user.name=Deploy Bot -c user.email=deploy@example.org commit -m Deploy activity data for words (words@^1.5.0)",
-      "rev-parse HEAD",
-      "push -u origin loom/words-activity-data",
+    expect(asked(clones, activityData)).toEqual([
+      [
+        "stage",
+        [
+          "data/configurations/loom/words-1.json",
+          "data/templates/loom/words.json",
+          "deployLists/loom-words.txt",
+        ],
+        {},
+      ],
+      [
+        "commitStaged",
+        "Deploy activity data for words (words@^1.5.0)",
+        { name: "Deploy Bot", email: "deploy@example.org" },
+      ],
+      ["push", "loom/words-activity-data", { track: true }],
     ]);
-    for (const call of git.calls) expect(call.cwd).toBe(activityData);
+    expect(clones.calls).toHaveLength(3);
     expect(ctx.metadata.activityDataCommit).toBe("feedface");
   });
 

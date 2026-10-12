@@ -1,16 +1,12 @@
 /**
- * git for deploys: the port every git call goes through, the real one that spawns `git`, and
- * the reads a deploy's readiness is made of.
+ * git for deploys: the port every git command goes through (`clone.ts` speaks it), the real
+ * one that spawns `git`, the branches a deploy works on, and comparing remotes.
  *
  * git authenticates with the host's own SSH keys; Penguin stores no git credential. So that
  * a missing key fails rather than waits on a prompt nobody sees, the child runs with
  * `GIT_TERMINAL_PROMPT=0` and SSH in batch mode. No shell, a time limit, bounded output.
- *
- * Tests replace the port with a fake; nothing here is reached by a test that talks to a real
- * remote.
  */
 import { runProgram } from "./run-program.js";
-import type { BranchState, CloneState } from "./deploy-types.js";
 import { moduleShortName } from "./waf-layout.js";
 
 /** How long one git call may take unless the caller says otherwise. */
@@ -84,12 +80,6 @@ export const spawnGit: DeployGit = {
   },
 };
 
-/** Whether git can be run at all. */
-export async function gitAvailable(git: DeployGit, cwd: string): Promise<boolean> {
-  const result = await git.run(["--version"], cwd, { timeoutMs: 10_000 });
-  return result.code === 0;
-}
-
 /** The module branch a deploy pushes, named as Loom named it so its branch is reused. */
 export function deployBranchName(moduleFolder: string): string {
   return `loom/${moduleShortName(moduleFolder)}-deploy`;
@@ -137,98 +127,4 @@ export function remoteKey(remote: string): string | null {
 export function sameRemote(a: string, b: string): boolean {
   const left = remoteKey(a);
   return left !== null && left === remoteKey(b);
-}
-
-/**
- * What a clone looks like: its branch, whether its working tree is clean, how far it is ahead
- * of its upstream, and whether origin is the expected remote. `present` is whether the clone
- * is on disk at all (the caller looks); nothing is asked of git when it is not.
- */
-export async function cloneState(
-  git: DeployGit,
-  dir: string,
-  expectedRemote: string | null,
-  present: boolean,
-): Promise<CloneState> {
-  if (!present)
-    return { present: false, branch: null, clean: null, ahead: null, remoteUrlMatches: null };
-  const [head, status, ahead, origin] = await Promise.all([
-    git.run(["rev-parse", "--abbrev-ref", "HEAD"], dir),
-    git.run(["status", "--porcelain"], dir),
-    git.run(["rev-list", "--count", "@{u}..HEAD"], dir),
-    git.run(["remote", "get-url", "origin"], dir),
-  ]);
-  const branch = head.code === 0 ? head.stdout.trim() : "";
-  const count = ahead.code === 0 ? Number.parseInt(ahead.stdout.trim(), 10) : Number.NaN;
-  return {
-    present: true,
-    branch: branch && branch !== "HEAD" ? branch : null,
-    clean: status.code === 0 ? status.stdout.trim() === "" : null,
-    ahead: Number.isFinite(count) ? count : null,
-    remoteUrlMatches:
-      expectedRemote === null
-        ? null
-        : origin.code === 0 && sameRemote(origin.stdout, expectedRemote),
-  };
-}
-
-/** Whether a branch exists in a clone; null when git could not say. */
-export async function localBranchExists(
-  git: DeployGit,
-  dir: string,
-  branch: string,
-): Promise<boolean | null> {
-  const result = await git.run(["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], dir);
-  if (result.code === 0) return true;
-  if (result.code === 1) return false;
-  return null;
-}
-
-/**
- * Whether a branch exists on the clone's origin. This reaches the remote, so it is asked
- * only when the engineer presses Check remote. Null when the remote could not be asked.
- */
-export async function remoteBranchExists(
-  git: DeployGit,
-  dir: string,
-  branch: string,
-): Promise<boolean | null> {
-  const result = await git.run(["ls-remote", "--heads", "origin", `refs/heads/${branch}`], dir, {
-    timeoutMs: 30_000,
-  });
-  if (result.code !== 0) return null;
-  return result.stdout.trim() !== "";
-}
-
-/**
- * Whether a media clone's checkout includes `sparse`: a sparse folder that is it or holds it,
- * or a clone that is not sparse at all (an existing checkout). Null when git could not say.
- */
-export async function sparsePathPresent(
-  git: DeployGit,
-  dir: string,
-  sparse: string,
-): Promise<boolean | null> {
-  const list = await git.run(["sparse-checkout", "list"], dir);
-  if (list.code !== 0) return /not sparse/i.test(list.stderr) ? true : null;
-  return list.stdout.split(/\r?\n/).some((line) => {
-    const folder = line.trim().replace(/\/+$/, "");
-    return folder !== "" && (sparse === folder || sparse.startsWith(`${folder}/`));
-  });
-}
-
-/** Where a branch is, locally and (when asked) on the remote. */
-export async function branchState(
-  git: DeployGit,
-  dir: string,
-  present: boolean,
-  branch: string,
-  checkRemote: boolean,
-): Promise<BranchState> {
-  if (!present) return { local: null, remote: null };
-  const [local, remote] = await Promise.all([
-    localBranchExists(git, dir, branch),
-    checkRemote ? remoteBranchExists(git, dir, branch) : Promise.resolve(null),
-  ]);
-  return { local, remote };
 }

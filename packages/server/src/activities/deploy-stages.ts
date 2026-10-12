@@ -41,18 +41,20 @@
  *
  * Everything runs in the WAF workspace's clones. The module and media clones hold authored
  * work, which the stages commit rather than discard; the activity-data clone is the deploy's
- * own and must be clean. git, Jenkins, the programs, the stylesheet compiler and the clock are
- * ports, so a test runs every stage with
- * fakes and nothing reaches a remote.
+ * own and must be clean. The clones, Jenkins, the programs, the stylesheet compiler and the
+ * clock are ports, so a test runs every stage with fakes and nothing reaches a remote.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
-  BASE_BRANCH,
-  activityDataBranchName,
-  deployBranchName,
-  type DeployGit,
-} from "./deploy-git.js";
+  CloneError,
+  CloneStopped,
+  repositoryMissing,
+  type Clone,
+  type CloneIdentity,
+  type Clones,
+} from "./clone.js";
+import { BASE_BRANCH, activityDataBranchName, deployBranchName } from "./deploy-git.js";
 import { moduleShortName } from "./waf-layout.js";
 import type { DeployJenkins, JenkinsBuildStatus } from "./deploy-jenkins.js";
 import { JenkinsError } from "./deploy-jenkins.js";
@@ -68,7 +70,6 @@ import {
 } from "./deploy-export.js";
 import { runPreflight } from "./deploy-preflight.js";
 import { syncMedia } from "./deploy-media.js";
-import { repositoryMissing } from "./waf-workspace.js";
 import { withinRoot } from "./sandbox-paths.js";
 import {
   DEPLOY_ALL_STAGES,
@@ -205,7 +206,8 @@ export interface DeployProdContext {
 }
 
 export interface DeployStageContext {
-  git: DeployGit;
+  /** The clones the stages work in. */
+  clones: Clones;
   jenkins: DeployJenkins;
   process: DeployProcess;
   /** Compiles a module's stylesheet with the pinned Sass, as the preview does. */
@@ -278,76 +280,52 @@ function lineWriter(log: (text: string) => void) {
   };
 }
 
-/** Runs git, logging the command and what git said; a failure ends the stage unless allowed. */
-async function git(
-  ctx: DeployStageContext,
-  args: string[],
-  options: { timeoutMs?: number; allowFailure?: boolean; quiet?: boolean; cwd?: string } = {},
-) {
-  checkStopped(ctx);
-  const command = `git ${args.join(" ")}`;
-  ctx.log(`$ ${command}`);
-  const result = await ctx.git.run(args, options.cwd ?? ctx.module.dir, {
-    ...(options.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
-    signal: ctx.signal,
-  });
-  if (!options.quiet) {
-    const out = lineWriter(ctx.log);
-    out.write(`${result.stdout}\n${result.stderr}`);
-    out.flush();
-  }
-  checkStopped(ctx);
-  if (result.error === "stopped") throw new DeployStopped();
-  if (result.code !== 0 && !options.allowFailure) {
-    if (result.error === "not_found")
-      throw new DeployStageFailure({ code: "command_missing", command: "git" });
-    if (result.error === "timed_out")
-      throw new DeployStageFailure({ code: "command_timed_out", command });
-    throw new DeployStageFailure({
-      code: "command_failed",
-      command,
-      exitCode: result.code,
-      output: tailOf(`${result.stdout}\n${result.stderr}`),
-    });
-  }
-  return result;
-}
-
-/** Characters of paths one git command may name, well under Windows' 32,767-character command line. */
-const PATHS_BATCH_CHARS = 8_000;
-
 /**
- * Runs `command -- <paths>` in batches, so hundreds of files never overflow the command line:
- * staging a product's files, or checking out a new module's missing ones.
+ * A clone the stage works in: each git command and what git said go to the deploy log, Stop
+ * stops it, and a command that reaches the remote gets as long as a push.
  */
-async function gitPaths(
-  ctx: DeployStageContext,
-  command: readonly string[],
-  paths: readonly string[],
-  cwd: string,
-) {
-  let batch: string[] = [];
-  let size = 0;
-  for (const path of paths) {
-    if (batch.length && size + path.length + 1 > PATHS_BATCH_CHARS) {
-      await git(ctx, [...command, "--", ...batch], { cwd });
-      batch = [];
-      size = 0;
-    }
-    batch.push(path);
-    size += path.length + 1;
-  }
-  if (batch.length) await git(ctx, [...command, "--", ...batch], { cwd });
+function cloneOf(ctx: DeployStageContext, dir: string): Clone {
+  return ctx.clones.open(dir, {
+    log: ctx.log,
+    signal: ctx.signal,
+    networkTimeoutMs: PUSH_TIMEOUT_MS,
+  });
 }
 
-/** Stages the paths in batches (see gitPaths). */
-function gitAdd(
-  ctx: DeployStageContext,
-  flags: readonly string[],
-  paths: readonly string[],
-  cwd: string,
-) {
-  return gitPaths(ctx, ["add", ...flags], paths, cwd);
+/** The identity the stages commit as. */
+function identityOf(ctx: DeployStageContext): CloneIdentity {
+  return { name: ctx.settings.git.userName, email: ctx.settings.git.userEmail };
+}
+
+/** A git command that failed, as the stage's failure. */
+function gitFailure(error: CloneError): DeployStageFailure {
+  const { command, result } = error;
+  if (result.error === "not_found")
+    return new DeployStageFailure({ code: "command_missing", command: "git" });
+  if (result.error === "timed_out")
+    return new DeployStageFailure({ code: "command_timed_out", command });
+  return new DeployStageFailure({
+    code: "command_failed",
+    command,
+    exitCode: result.code,
+    output: tailOf(`${result.stdout}\n${result.stderr}`),
+  });
+}
+
+/** A stage whose git failures end it as stage failures, and whose Stop is the run's. */
+function speakingGit(stage: DeployStageDefinition): DeployStageDefinition {
+  return {
+    id: stage.id,
+    async run(ctx) {
+      try {
+        await stage.run(ctx);
+      } catch (error) {
+        if (error instanceof CloneStopped) throw new DeployStopped();
+        if (error instanceof CloneError) throw gitFailure(error);
+        throw error;
+      }
+    },
+  };
 }
 
 function tailOf(text: string): string {
@@ -422,9 +400,7 @@ async function syncModule(source: string, target: string): Promise<number> {
 }
 
 async function tagsOf(ctx: DeployStageContext): Promise<string | null> {
-  await git(ctx, ["fetch", "--tags", "origin"], { timeoutMs: PUSH_TIMEOUT_MS });
-  const listed = await git(ctx, ["tag", "--list"], { quiet: true });
-  return latestSemver(listed.stdout.split(/\r?\n/));
+  return latestSemver(await cloneOf(ctx, ctx.module.dir).fetchTags());
 }
 
 async function jenkinsCall<T>(call: () => Promise<T>): Promise<T> {
@@ -444,30 +420,27 @@ const verifyModule: DeployStageDefinition = {
     // The module is where activities are authored, so what is in its working tree is work:
     // it is carried onto main as origin has it (never reset away), the newest assembled
     // module is copied over it, and all of it is committed on main before the checks run.
-    const fetched = await git(ctx, ["fetch", "origin"], {
-      timeoutMs: PUSH_TIMEOUT_MS,
-      allowFailure: true,
-    });
-    if (fetched.code !== 0) {
+    const clone = cloneOf(ctx, ctx.module.dir);
+    try {
+      await clone.fetch();
+    } catch (error) {
+      if (!(error instanceof CloneError)) throw error;
       // A new product's module starts locally; its repository has to exist before a deploy.
-      if (repositoryMissing(fetched.stderr)) {
-        const remote = await git(ctx, ["remote", "get-url", "origin"], { quiet: true });
+      if (repositoryMissing(error.result.stderr))
         throw new DeployStageFailure({
           code: "module_repository_missing",
-          remote: remote.stdout.trim(),
+          remote: await clone.origin(),
         });
-      }
-      await git(ctx, ["fetch", "origin"], { timeoutMs: PUSH_TIMEOUT_MS });
+      await clone.fetch();
     }
-    await onMainCarryingWork(ctx, ctx.module.dir);
+    await onMainCarryingWork(ctx, clone);
     if (ctx.module.source) {
       const copied = await syncModule(ctx.module.source, ctx.module.dir);
       ctx.log(`Copied ${copied} files from the newest assembled module.`);
     } else ctx.log("No assembled module: verifying the module as its repository holds it.");
-    await git(ctx, ["add", "--all"]);
-    const authored = await commitStaged(
-      ctx,
-      ctx.module.dir,
+    await clone.stage();
+    const authored = await clone.commitStaged(
+      identityOf(ctx),
       `Penguin Harness: ${ctx.productCode} as authored`,
     );
     ctx.log(
@@ -481,59 +454,13 @@ const verifyModule: DeployStageDefinition = {
 };
 
 /**
- * Puts a clone on main as origin has it without losing what is in its working tree: the
- * work is set aside, main is checked out and fast-forwarded to origin (a main that has
- * diverged from origin fails the stage, naming git's reason), and the work is put back. A
- * clone with no main yet (a new module) starts it where it is.
+ * Puts a clone on main as origin has it without losing what is in its working tree (see
+ * `Clone.onBranchFromOrigin`): a main that has diverged from origin fails the stage, naming
+ * git's reason, and a clone with no commit yet (a new module) keeps its work in place.
  */
-async function onMainCarryingWork(ctx: DeployStageContext, cwd: string): Promise<void> {
-  const status = await git(ctx, ["status", "--porcelain"], { quiet: true, cwd });
-  const work = status.stdout.trim() !== "";
-  const stash = ["stash", "push", "--include-untracked", "-m", "penguin-harness deploy"];
-  const stashed = work && (await git(ctx, stash, { cwd, allowFailure: true })).code === 0;
-  if (work && !stashed) {
-    // git cannot stash in a repository with no commit yet: a new product's module, made
-    // locally, before its first deploy, whose work then stays where it is. A stash that
-    // failed for any other reason (a conflict, say) stops the deploy with git's own words.
-    const born = await git(ctx, ["rev-parse", "--verify", "--quiet", "HEAD"], {
-      allowFailure: true,
-      quiet: true,
-      cwd,
-    });
-    if (born.code === 0) await git(ctx, stash, { cwd });
-  }
-  const local = await git(ctx, ["rev-parse", "--verify", "--quiet", `refs/heads/${BASE_BRANCH}`], {
-    allowFailure: true,
-    quiet: true,
-    cwd,
-  });
-  const remote = await git(
-    ctx,
-    ["rev-parse", "--verify", "--quiet", `refs/remotes/origin/${BASE_BRANCH}`],
-    { allowFailure: true, quiet: true, cwd },
-  );
-  if (work && !stashed) {
-    ctx.log("No commit yet: the new module's work stays in place.");
-    // Main starts as origin has it, the work left as changes to it; with no main on origin
-    // either, main is born when the work is committed.
-    await git(ctx, ["symbolic-ref", "HEAD", `refs/heads/${BASE_BRANCH}`], { cwd });
-    if (remote.code === 0) {
-      await git(ctx, ["reset", "--mixed", `origin/${BASE_BRANCH}`], { cwd });
-      // Origin's files the new module never had would read as deleted and be committed
-      // away: they are checked out, and only the module's own work is a change.
-      const deleted = await git(ctx, ["ls-files", "--deleted", "-z"], { quiet: true, cwd });
-      const missing = deleted.stdout.split("\0").filter(Boolean);
-      await gitPaths(ctx, ["checkout"], missing, cwd);
-    }
-    return;
-  }
-  if (local.code === 0) await git(ctx, ["checkout", BASE_BRANCH], { cwd });
-  else if (remote.code === 0)
-    await git(ctx, ["checkout", "-b", BASE_BRANCH, `origin/${BASE_BRANCH}`], { cwd });
-  else await git(ctx, ["checkout", "-B", BASE_BRANCH], { cwd });
-  if (remote.code === 0) await git(ctx, ["merge", "--ff-only", `origin/${BASE_BRANCH}`], { cwd });
-  // A conflict here keeps the work in the stash, and git's output says so.
-  if (stashed) await git(ctx, ["stash", "pop"], { cwd });
+async function onMainCarryingWork(ctx: DeployStageContext, clone: Clone): Promise<void> {
+  const { workInPlace } = await clone.onBranchFromOrigin(BASE_BRANCH, { work: "carry" });
+  if (workInPlace) ctx.log("No commit yet: the new module's work stays in place.");
 }
 
 /** Writes the package name, and the version when one is given, into package.json and its lock. */
@@ -566,7 +493,8 @@ const prepareDeploy: DeployStageDefinition = {
     // From main, carrying the verified content in the working tree onto the deploy branch.
     // That content is only there straight after verify_module, which is why this stage runs
     // once per verify (stageBlocker).
-    await git(ctx, ["checkout", "-B", branch, BASE_BRANCH]);
+    const clone = cloneOf(ctx, ctx.module.dir);
+    await clone.branchFrom(branch, BASE_BRANCH);
     const version = await syncPackage(ctx);
     if (version) ctx.metadata.moduleVersion = version;
     if (await exists(path.join(ctx.module.dir, "res", "style.scss")))
@@ -584,27 +512,16 @@ const prepareDeploy: DeployStageDefinition = {
           }),
       );
     else ctx.log("No res/style.scss: no stylesheet to compile.");
-    await git(ctx, ["add", "--all"]);
-    const staged = await git(ctx, ["diff", "--cached", "--quiet"], {
-      allowFailure: true,
-      quiet: true,
-    });
-    if (staged.code === 0) {
+    await clone.stage();
+    const commit = await clone.commitStaged(
+      identityOf(ctx),
+      `Prepare module deploy for ${ctx.productCode}`,
+    );
+    if (!commit) {
       ctx.log("Nothing changed since the branch's last commit: nothing to commit.");
       return;
     }
-    const { userName, userEmail } = ctx.settings.git;
-    await git(ctx, [
-      "-c",
-      `user.name=${userName}`,
-      "-c",
-      `user.email=${userEmail}`,
-      "commit",
-      "-m",
-      `Prepare module deploy for ${ctx.productCode}`,
-    ]);
-    const head = await git(ctx, ["rev-parse", "HEAD"], { quiet: true });
-    ctx.metadata.commit = head.stdout.trim();
+    ctx.metadata.commit = commit;
   },
 };
 
@@ -624,19 +541,9 @@ const triggerModuleBuild: DeployStageDefinition = {
     ctx.log(`Newest release tag before the build: ${ctx.metadata.preBuildTag ?? "none"}.`);
     const before = await jenkinsCall(() => ctx.jenkins.status(job, params, BEFORE_TRIGGER));
     ctx.metadata.preBuildNumber = before.number ?? null;
-    const remoteMain = await git(
-      ctx,
-      ["ls-remote", "--heads", "origin", `refs/heads/${BASE_BRANCH}`],
-      {
-        timeoutMs: PUSH_TIMEOUT_MS,
-        quiet: true,
-      },
-    );
-    if (remoteMain.stdout.trim() === "")
-      await git(ctx, ["push", "origin", BASE_BRANCH], { timeoutMs: PUSH_TIMEOUT_MS });
-    await git(ctx, ["push", "--force-with-lease", "-u", "origin", branch], {
-      timeoutMs: PUSH_TIMEOUT_MS,
-    });
+    const clone = cloneOf(ctx, ctx.module.dir);
+    if (!(await clone.remoteHasBranch(BASE_BRANCH))) await clone.push(BASE_BRANCH);
+    await clone.push(branch, { lease: true, track: true });
     checkStopped(ctx);
     ctx.log(`Starting Jenkins job "${job}" with Modules=${params.Modules}.`);
     const { queueUrl } = await jenkinsCall(() => ctx.jenkins.trigger(job, params));
@@ -719,26 +626,6 @@ function releasedVersion(ctx: DeployStageContext): string {
   return version;
 }
 
-/** Puts a clone on `branch` as origin has it (or on a new one from origin's main), clean. */
-async function resetClone(ctx: DeployStageContext, cwd: string, branch: string) {
-  await git(ctx, ["fetch", "origin"], { timeoutMs: PUSH_TIMEOUT_MS, cwd });
-  const has = async (ref: string) =>
-    (
-      await git(ctx, ["rev-parse", "--verify", "--quiet", ref], {
-        allowFailure: true,
-        quiet: true,
-        cwd,
-      })
-    ).code === 0;
-  const start = (await has(`refs/remotes/origin/${branch}`))
-    ? `origin/${branch}`
-    : (await has(`refs/remotes/origin/${BASE_BRANCH}`))
-      ? `origin/${BASE_BRANCH}`
-      : BASE_BRANCH;
-  await git(ctx, ["checkout", "-f", "-B", branch, start], { cwd });
-  await git(ctx, ["clean", "-fd"], { cwd });
-}
-
 /** The exported data's check, reading the activity-data clone. */
 async function preflightOf(ctx: DeployStageContext, version: string) {
   const qa = qaOf(ctx);
@@ -753,34 +640,17 @@ async function preflightOf(ctx: DeployStageContext, version: string) {
   });
 }
 
-/** Commits what is staged as the configured identity; the new commit, or null when nothing was. */
-async function commitStaged(
-  ctx: DeployStageContext,
-  cwd: string,
-  message: string,
-): Promise<string | null> {
-  const staged = await git(ctx, ["diff", "--cached", "--quiet"], {
-    allowFailure: true,
-    quiet: true,
-    cwd,
-  });
-  if (staged.code === 0) return null;
-  const { userName, userEmail } = ctx.settings.git;
-  await git(
-    ctx,
-    ["-c", `user.name=${userName}`, "-c", `user.email=${userEmail}`, "commit", "-m", message],
-    { cwd },
-  );
-  return (await git(ctx, ["rev-parse", "HEAD"], { quiet: true, cwd })).stdout.trim();
-}
-
 const exportActivityData: DeployStageDefinition = {
   id: "export_activity_data",
   async run(ctx) {
     const qa = qaOf(ctx);
     const version = releasedVersion(ctx);
     const dir = qa.activityData.dir;
-    await resetClone(ctx, dir, activityDataBranchName(ctx.productCode));
+    // The clone is the deploy's own: it is put back as origin has it, and nothing else kept.
+    await cloneOf(ctx, dir).onBranchFromOrigin(activityDataBranchName(ctx.productCode), {
+      work: "discard",
+      from: BASE_BRANCH,
+    });
     const snapshot = await qa.snapshot();
     checkStopped(ctx);
     let files;
@@ -846,15 +716,10 @@ const verifyMediaAssets: DeployStageDefinition = {
     const cwd = qa.media.dir;
     // Authored media (accepted takes, uploads, candidates) is in the clone's working tree:
     // main is brought up to origin around it, and only what the data names is published.
-    await git(ctx, ["fetch", "origin"], { timeoutMs: PUSH_TIMEOUT_MS, cwd });
-    await onMainCarryingWork(ctx, cwd);
-    const result = await syncMedia(
-      { dir: cwd, references: report.media },
-      {
-        git: (args, options = {}) => git(ctx, args, { ...options, cwd }),
-        log: ctx.log,
-      },
-    );
+    const clone = cloneOf(ctx, cwd);
+    await clone.fetch();
+    await onMainCarryingWork(ctx, clone);
+    const result = await syncMedia({ dir: cwd, references: report.media }, { clone, log: ctx.log });
     for (const missing of result.missing.slice(0, PATHS_SHOWN)) ctx.log(`Missing: ${missing}`);
     if (result.missing.length)
       throw new DeployStageFailure({
@@ -869,11 +734,14 @@ const verifyMediaAssets: DeployStageDefinition = {
       return;
     }
     // --sparse: an authored file may sit in a folder the partial clone has not checked out.
-    await gitAdd(ctx, ["--sparse"], result.copied, cwd);
-    const commit = await commitStaged(ctx, cwd, `Publish media for ${ctx.productCode}`);
+    await clone.stage(result.copied, { sparse: true });
+    const commit = await clone.commitStaged(
+      identityOf(ctx),
+      `Publish media for ${ctx.productCode}`,
+    );
     if (!commit) return;
     ctx.metadata.mediaCommit = commit;
-    await git(ctx, ["push", "origin", BASE_BRANCH], { timeoutMs: PUSH_TIMEOUT_MS, cwd });
+    await clone.push(BASE_BRANCH);
   },
 };
 
@@ -886,17 +754,16 @@ const publishActivityData: DeployStageDefinition = {
       ctx.metadata.exportedFiles ?? ctx.earlier.export_activity_data?.exportedFiles ?? null;
     if (!files?.length)
       throw new DeployStageFailure({ code: "missing_input", stage: "export_activity_data" });
-    const cwd = qa.activityData.dir;
+    const clone = cloneOf(ctx, qa.activityData.dir);
     const branch = activityDataBranchName(ctx.productCode);
-    await gitAdd(ctx, ["--all"], files, cwd);
-    const commit = await commitStaged(
-      ctx,
-      cwd,
+    await clone.stage(files);
+    const commit = await clone.commitStaged(
+      identityOf(ctx),
       `Deploy activity data for ${ctx.productCode} (${mainModule(ctx.module.folder, version)})`,
     );
     if (commit) ctx.metadata.activityDataCommit = commit;
     else ctx.log("The activity data had not changed: nothing to commit.");
-    await git(ctx, ["push", "-u", "origin", branch], { timeoutMs: PUSH_TIMEOUT_MS, cwd });
+    await clone.push(branch, { track: true });
   },
 };
 
@@ -1135,14 +1002,14 @@ const awaitProductionDeploy: DeployStageDefinition = {
 };
 
 export const DEPLOY_STAGE_DEFINITIONS: Record<DeployStage, DeployStageDefinition> = {
-  verify_module: verifyModule,
-  prepare_deploy: prepareDeploy,
-  trigger_module_build: triggerModuleBuild,
-  await_module_build: awaitModuleBuild,
-  export_activity_data: exportActivityData,
+  verify_module: speakingGit(verifyModule),
+  prepare_deploy: speakingGit(prepareDeploy),
+  trigger_module_build: speakingGit(triggerModuleBuild),
+  await_module_build: speakingGit(awaitModuleBuild),
+  export_activity_data: speakingGit(exportActivityData),
   verify_activity_data: verifyActivityData,
-  verify_media_assets: verifyMediaAssets,
-  publish_activity_data: publishActivityData,
+  verify_media_assets: speakingGit(verifyMediaAssets),
+  publish_activity_data: speakingGit(publishActivityData),
   trigger_activity_deploy: triggerActivityDeploy,
   await_activity_deploy: awaitActivityDeploy,
   trigger_production_deploy: triggerProductionDeploy,

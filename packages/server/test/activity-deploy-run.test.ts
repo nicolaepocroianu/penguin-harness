@@ -11,7 +11,6 @@ import type { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "../src/hmr/capabilities.js";
 import { SCHEMA_SQL } from "../src/db/schema.js";
-import type { DeployGitResult } from "../src/activities/deploy-git.js";
 import type { DeployJenkins } from "../src/activities/deploy-jenkins.js";
 import type { DeployProcess, DeployProcessResult } from "../src/activities/deploy-process.js";
 import { defaultDeploySettings } from "../src/activities/deploy-settings.js";
@@ -22,6 +21,7 @@ import {
   logPage,
   type DeployStageBase,
 } from "../src/activities/deploy-run.js";
+import { FakeClones } from "./fake-clones.js";
 
 const sqlite = process.getBuiltinModule("node:sqlite");
 const PROJECT = "proj";
@@ -51,18 +51,15 @@ async function home() {
   return dir;
 }
 
-function gitWithTags(before: string[], after: string[]) {
-  let reads = 0;
-  return {
-    async run(args: string[]): Promise<DeployGitResult> {
-      if (args[0] === "tag")
-        return { code: 0, stdout: (reads++ === 0 ? before : after).join("\n"), stderr: "" };
-      if (args[0] === "ls-remote") return { code: 0, stdout: "abc\trefs/heads/main\n", stderr: "" };
-      if (args.join(" ") === "rev-parse HEAD") return { code: 0, stdout: "feed\n", stderr: "" };
-      if (args.join(" ") === "diff --cached --quiet") return { code: 1, stdout: "", stderr: "" };
-      return { code: 0, stdout: "", stderr: "" };
-    },
-  };
+/** The module clone, whose tags gain a newer one after the first fetch. */
+function clonesWithTags(dir: string, before: string[], after: string[]) {
+  const clones = new FakeClones();
+  clones.add(path.join(dir, "module"), {
+    origin: "git@github.com:org/waf-module-words.git",
+    head: "feed",
+    tags: [before, after],
+  });
+  return clones;
 }
 
 const jenkins: DeployJenkins = {
@@ -102,7 +99,7 @@ function base(dir: string, overrides: Partial<DeployStageBase> = {}): DeployStag
   const settings = defaultDeploySettings();
   settings.git = { userName: "Deploy", userEmail: "deploy@example.org" };
   return {
-    git: gitWithTags(["1.0.0"], ["1.0.0", "1.1.0"]),
+    clones: clonesWithTags(dir, ["1.0.0"], ["1.0.0", "1.1.0"]),
     jenkins,
     process: quickProcess,
     styles: async () => ({ code: 0, tail: "" }),
