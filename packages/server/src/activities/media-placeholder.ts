@@ -7,7 +7,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { MediaAsset, PlaceholderType } from "./media.js";
 import { hasPlaceholder, placeholderPath } from "./media.js";
-import { mediaFile } from "./ref-media.js";
+import { WafLayout } from "./waf-layout.js";
 import type { ActivityAddress } from "./domain.js";
 
 const PLACEHOLDERS: Record<PlaceholderType, URL> = {
@@ -32,8 +32,9 @@ export async function seedMediaPlaceholders(
         asset.path === placeholderPath(address, language, asset.type)
       )
         targets.set(asset.path, asset.type);
+  const checkout = new WafLayout(wafRoot);
   for (const [reference, type] of targets) {
-    const file = mediaFile(wafRoot, reference);
+    const file = checkout.mediaFile(reference);
     if (!file) continue;
     await fs.mkdir(path.dirname(file), { recursive: true });
     try {

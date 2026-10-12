@@ -16,10 +16,8 @@ import {
   branchState,
   cloneState,
   deployBranchName,
-  deployClonePaths,
   gitAvailable,
   localBranchExists,
-  mediaSparsePath,
   remoteBranchExists,
   sparsePathPresent,
   type DeployGit,
@@ -31,6 +29,7 @@ import {
   type DeploySettings,
 } from "./deploy-settings.js";
 import type { CloneState, DeployContext, DeployProblem, DeployRepo } from "./deploy-types.js";
+import { mediaSparsePath, WafLayout } from "./waf-layout.js";
 
 /**
  * The only layout a deploy supports: the deploy job publishes one main scene set. A spec that
@@ -95,7 +94,12 @@ export async function buildDeployContext(
   };
   // Without a workspace there are no clones to look at; its problem says why.
   const ready = input.wafRoot !== null;
-  const paths = deployClonePaths(input.wafRoot ?? input.home, folder || "_");
+  const checkout = new WafLayout(input.wafRoot ?? input.home);
+  const paths = {
+    module: checkout.module(folder || "_").root,
+    activityData: checkout.repo("activityData"),
+    media: checkout.repo("media"),
+  };
   const repos: Array<{ repo: DeployRepo; dir: string; remote: string | null; used: boolean }> = [
     { repo: "module", dir: paths.module, remote: moduleRemote, used: ready && folder !== "" },
     {

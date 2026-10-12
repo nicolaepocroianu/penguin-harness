@@ -8,7 +8,8 @@
 import { validateBookSpec } from "./book.js";
 import { validateActivitySpec, type ActivityDetail, type ActivityDraft } from "./domain.js";
 import { validateManifest, type MediaAsset } from "./media.js";
-import { readdressMedia, refMediaFolder } from "./ref-media.js";
+import { readdressMedia } from "./ref-media.js";
+import { refMediaFolder } from "./waf-layout.js";
 import { isUploadReference } from "./upload.js";
 import { HttpError } from "../http/errors.js";
 import { badRequest } from "../http/validate.js";

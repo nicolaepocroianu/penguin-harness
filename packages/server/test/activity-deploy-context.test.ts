@@ -10,8 +10,6 @@ import { buildDeployContext, type DeployContextInput } from "../src/activities/d
 import {
   activityDataBranchName,
   deployBranchName,
-  deployClonePaths,
-  moduleShortName,
   remoteKey,
   sameRemote,
   type DeployGitResult,
@@ -20,6 +18,7 @@ import {
   defaultDeploySettings,
   normalizeDeploySettings,
 } from "../src/activities/deploy-settings.js";
+import { WafLayout } from "../src/activities/waf-layout.js";
 
 const HOME = path.resolve("/penguin-home");
 const WAF = path.join(HOME, "waf");
@@ -89,7 +88,12 @@ function fakeGit(repos: Record<string, FakeRepo>, options: { missing?: boolean }
   return { run, calls };
 }
 
-const PATHS = deployClonePaths(WAF, "waf-module-words");
+const CHECKOUT = new WafLayout(WAF);
+const PATHS = {
+  module: CHECKOUT.module("waf-module-words").root,
+  activityData: CHECKOUT.repo("activityData"),
+  media: CHECKOUT.repo("media"),
+};
 const REMOTES = { module: MODULE_REMOTE, activityData: DATA_REMOTE, media: MEDIA_REMOTE };
 
 function completeSettings() {
@@ -352,10 +356,7 @@ describe("deploy context", () => {
 });
 
 describe("deploy git helpers", () => {
-  it("derives Loom's short name and branch names", () => {
-    expect(moduleShortName("waf-module-words")).toBe("words");
-    expect(moduleShortName("wafmodule-abc")).toBe("abc");
-    expect(moduleShortName("custom")).toBe("custom");
+  it("derives Loom's branch names", () => {
     expect(deployBranchName("waf-module-words")).toBe("loom/words-deploy");
     expect(activityDataBranchName("PC1")).toBe("loom/PC1-activity-data");
   });

@@ -5,7 +5,7 @@
  * writes. Adopting (service.claimModuleProduct) is what then gives each ref Penguin's own
  * files beside Loom's.
  *
- *     <modulesDir>/<moduleFolder>/generated/<productCode>/
+ *     <wafRoot>/modules/<moduleFolder>/generated/<productCode>/   (see waf-layout.ts)
  *       spec/activity_metadata.json      product: canonical ref, type, templateStable
  *       spec/penguin.json                which Penguin project owns it, once one does
  *       spec/state-machine.json          the canonical product machine
@@ -19,79 +19,15 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { normalizeFeatureSelection } from "./implementation-features.js";
-
-/** Loom's directory name for one ref. */
-export function refDirName(productCode: string, refNum: number): string {
-  return `${productCode}-${refNum}`;
-}
-
-/**
- * The ref number a directory name carries, or null when it is not one of this product's.
- *
- * A product code may itself contain hyphens and digits, so the prefix has to match exactly
- * rather than being split on the last hyphen.
- */
-export function parseRefDirName(productCode: string, name: string): number | null {
-  const prefix = `${productCode}-`;
-  if (!name.startsWith(prefix)) return null;
-  const rest = name.slice(prefix.length);
-  if (!/^(?:0|[1-9][0-9]*)$/.test(rest)) return null;
-  const refNum = Number(rest);
-  return Number.isSafeInteger(refNum) && refNum >= 0 ? refNum : null;
-}
-
-export interface LoomProductPaths {
-  productDir: string;
-  metadata: string;
-  stateMachine: string;
-  refsDir: string;
-}
-
-export function loomProductPaths(
-  modulesDir: string,
-  moduleFolder: string,
-  productCode: string,
-): LoomProductPaths {
-  const productDir = path.join(modulesDir, moduleFolder, "generated", productCode);
-  return {
-    productDir,
-    metadata: path.join(productDir, "spec", "activity_metadata.json"),
-    stateMachine: path.join(productDir, "spec", "state-machine.json"),
-    refsDir: path.join(productDir, "refs"),
-  };
-}
-
-export interface LoomRefPaths {
-  refDir: string;
-  metadata: string;
-  spec: string;
-  manifest: string;
-  description: string;
-  stateMachine: string;
-  implementationFeatures: string;
-}
-
-export function loomRefPaths(
-  modulesDir: string,
-  moduleFolder: string,
-  productCode: string,
-  refNum: number,
-): LoomRefPaths {
-  const refDir = path.join(
-    loomProductPaths(modulesDir, moduleFolder, productCode).refsDir,
-    refDirName(productCode, refNum),
-  );
-  const spec = path.join(refDir, "spec");
-  return {
-    refDir,
-    metadata: path.join(spec, "activity_metadata.json"),
-    spec: path.join(spec, "activity_spec.json"),
-    manifest: path.join(spec, "asset_manifest.json"),
-    description: path.join(spec, "activity_description.txt"),
-    stateMachine: path.join(spec, "state-machine.json"),
-    implementationFeatures: path.join(spec, "implementation_features.json"),
-  };
-}
+import {
+  REF_DESCRIPTION_FILE,
+  REF_FEATURES_FILE,
+  REF_MANIFEST_FILE,
+  REF_METADATA_FILE,
+  REF_SPEC_FILE,
+  STATE_MACHINE_FILE,
+} from "./ref-files.js";
+import { parseRefFolderName, type ModuleLayout, type WafLayout } from "./waf-layout.js";
 
 /** What a product's metadata says, with Loom's names translated to Penguin's. */
 export interface LoomProductMetadata {
@@ -216,19 +152,21 @@ export function manifestLanguages(manifest: Record<string, unknown> | null): str
 
 /** Reads one ref. Returns what it has plus what is missing; never writes. */
 export async function readLoomRef(
-  modulesDir: string,
-  moduleFolder: string,
+  module: ModuleLayout,
   product: LoomProductMetadata,
   refNum: number,
 ): Promise<LoomRef> {
-  const paths = loomRefPaths(modulesDir, moduleFolder, product.productCode, refNum);
+  const specDir = module.refSpecDir(product.productCode, refNum);
+  const file = (name: string) => path.join(specDir, name);
   const problems: string[] = [];
-  const metadata = mapRefMetadata(await readJson(paths.metadata, problems, "Ref metadata"));
-  const spec = await readJson(paths.spec, problems, "Activity specification");
-  const manifest = await readJson(paths.manifest, problems, "Asset manifest");
+  const metadata = mapRefMetadata(
+    await readJson(file(REF_METADATA_FILE), problems, "Ref metadata"),
+  );
+  const spec = await readJson(file(REF_SPEC_FILE), problems, "Activity specification");
+  const manifest = await readJson(file(REF_MANIFEST_FILE), problems, "Asset manifest");
   let description = "";
   try {
-    description = await fs.readFile(paths.description, "utf8");
+    description = await fs.readFile(file(REF_DESCRIPTION_FILE), "utf8");
   } catch (error) {
     // A description is what an author typed before generating; an activity imported
     // without one is still usable, so this is a note rather than a failure.
@@ -241,12 +179,12 @@ export async function readLoomRef(
   // materialises it down to a ref when implement_behavior runs, so an absent ref machine
   // is the normal state of an activity nobody has implemented behaviour for yet.
   const hasStateMachine = await fs
-    .stat(paths.stateMachine)
+    .stat(file(STATE_MACHINE_FILE))
     .then((stat) => stat.isFile())
     .catch(() => false);
   // Optional in Loom: most refs select no features, and then the file is never written.
   const features: unknown = await fs
-    .readFile(paths.implementationFeatures, "utf8")
+    .readFile(file(REF_FEATURES_FILE), "utf8")
     .then((text) => JSON.parse(text) as unknown)
     .catch(() => null);
   const implementationFeatures = normalizeFeatureSelection(
@@ -270,32 +208,31 @@ export async function readLoomRef(
 
 /** Reads one product and every ref beneath it. Never writes. */
 export async function readLoomProduct(
-  modulesDir: string,
+  checkout: WafLayout,
   moduleFolder: string,
   productCode: string,
 ): Promise<LoomProductRead> {
   const problems: string[] = [];
-  const paths = loomProductPaths(modulesDir, moduleFolder, productCode);
+  const module = checkout.module(moduleFolder);
+  const productSpec = module.productSpecDir(productCode);
   const product = mapProductMetadata(
     productCode,
     moduleFolder,
-    await readJson(paths.metadata, problems, "Product metadata"),
+    await readJson(path.join(productSpec, REF_METADATA_FILE), problems, "Product metadata"),
   );
   let entries: string[] = [];
   try {
-    entries = (await fs.readdir(paths.refsDir, { withFileTypes: true }))
+    entries = (await fs.readdir(module.refsDir(productCode), { withFileTypes: true }))
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name);
   } catch {
     problems.push("This product has no refs directory.");
   }
   const refNums = entries
-    .map((name) => parseRefDirName(productCode, name))
+    .map((name) => parseRefFolderName(productCode, name))
     .filter((refNum): refNum is number => refNum !== null)
     .sort((a, b) => a - b);
-  const refs = await Promise.all(
-    refNums.map((refNum) => readLoomRef(modulesDir, product.moduleFolder, product, refNum)),
-  );
+  const refs = await Promise.all(refNums.map((refNum) => readLoomRef(module, product, refNum)));
   if (refs.length && !refs.some((ref) => ref.canonical))
     problems.push(
       product.canonicalRefNum === null
@@ -305,47 +242,10 @@ export async function readLoomProduct(
   // Where the behaviour contract lives. The product machine is the canonical one; a ref
   // gets its own copy only once implement_behavior has run for it.
   const hasProductStateMachine = await fs
-    .stat(paths.stateMachine)
+    .stat(path.join(productSpec, STATE_MACHINE_FILE))
     .then((stat) => stat.isFile())
     .catch(() => false);
   if (!hasProductStateMachine && !refs.some((ref) => ref.hasStateMachine))
     problems.push("Neither this product nor any of its refs has a state machine.");
   return { product, refs, problems, hasProductStateMachine };
-}
-
-/**
- * Every product under a Loom modules directory.
- *
- * One module folder may hold several product codes, which is why this walks both levels
- * rather than assuming `waf-module-<productCode>`.
- */
-export async function discoverLoomProducts(modulesDir: string): Promise<LoomProductRead[]> {
-  let folders: string[] = [];
-  try {
-    folders = (await fs.readdir(modulesDir, { withFileTypes: true }))
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .sort();
-  } catch {
-    return [];
-  }
-  const found: LoomProductRead[] = [];
-  for (const folder of folders) {
-    let codes: string[] = [];
-    try {
-      codes = (
-        await fs.readdir(path.join(modulesDir, folder, "generated"), {
-          withFileTypes: true,
-        })
-      )
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => entry.name)
-        .sort();
-    } catch {
-      // Not a module folder. A modules directory holds other things too.
-      continue;
-    }
-    for (const code of codes) found.push(await readLoomProduct(modulesDir, folder, code));
-  }
-  return found;
 }

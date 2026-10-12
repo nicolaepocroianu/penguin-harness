@@ -12,6 +12,7 @@ import { MEDIA_TOKEN } from "./deploy-settings.js";
 import { exportPaths } from "./deploy-export.js";
 import { previewMediaPath } from "./sandbox-model.js";
 import type { DeployPreflightIssue, DeployPreflightReport } from "./deploy-types.js";
+import { mediaReference } from "./waf-layout.js";
 
 export interface PreflightInput {
   productCode: string;
@@ -69,7 +70,7 @@ export function mediaReferences(document: unknown, mediaBase: string): MediaRefe
       const relative = safeRelative(rest);
       found.push(
         relative
-          ? { kind: "media", path: `media/${relative}`, reference: value }
+          ? { kind: "media", path: mediaReference(relative), reference: value }
           : { kind: "unsafe", reference: value },
       );
     } else if (!tokenKept && value.includes(MEDIA_TOKEN))

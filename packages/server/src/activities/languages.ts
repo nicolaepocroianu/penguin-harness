@@ -10,6 +10,7 @@
  * media sits under. A closed table rather than an open regex, because a language is not
  * just a code — it needs a folder, a label, and a name a translator will recognise.
  */
+import { refMediaFolder } from "./waf-layout.js";
 
 export interface ActivityLanguage {
   code: string;
@@ -112,7 +113,7 @@ export function mediaTargetPath(input: {
   const extension = input.extension.replace(/^\.+/, "");
   if (!extension) return null;
   return (
-    `media/loom/${input.productCode}/${input.productCode}-${input.refNum}` +
+    `${refMediaFolder(input.productCode, input.refNum)}` +
     `/${folder}/${language.folder}/${input.assetKey}.${extension}`
   );
 }

@@ -73,6 +73,14 @@ import {
   type ModuleSource,
 } from "./sandbox-source.js";
 import type { WafWorkspace } from "./waf-workspace.js";
+import {
+  mediaReference,
+  mediaRepoPath,
+  ModuleLayout,
+  moduleDocumentPath,
+  NAVBAR_FOLDER,
+  WafLayout,
+} from "./waf-layout.js";
 import type { ActivityPlayLinks, PlayTarget } from "./play-links.js";
 import {
   readModuleStateMachine,
@@ -134,7 +142,6 @@ export type FrameworkResource = keyof typeof FRAMEWORK_RESOURCES;
  * The navigation bar every layout carries, as Loom declared it: the checkout's own navbar
  * module, in its park theme, with its empty configuration.
  */
-const NAVBAR_FOLDER = "navbar";
 const NAVBAR_THEME = "park";
 const NAVBAR_CONFIGURATION = "none_navBar.json";
 
@@ -340,7 +347,7 @@ export class ActivitySandboxService implements ActivitySandbox {
     if (!wafRoot) return null;
     // The folder was validated when the product was made; containment is checked anyway,
     // because this is a path chosen by stored data and read by a URL.
-    const root = withinRoot(path.join(wafRoot, "modules"), product.moduleFolder);
+    const root = new WafLayout(wafRoot).moduleDir(product.moduleFolder);
     if (!root) return null;
     const definition = await fs.stat(path.join(root, "definition.json")).catch(() => null);
     if (!definition?.isFile()) return null;
@@ -386,7 +393,7 @@ export class ActivitySandboxService implements ActivitySandbox {
       }),
     ];
     const wafRoot = await this.locateWafRoot();
-    if (wafRoot) roots.push(path.join(wafRoot, "media"));
+    if (wafRoot) roots.push(new WafLayout(wafRoot).repo("media"));
     const recorded = new Set(
       Object.values(activity.draft.mediaPlan?.manifest.assets ?? {})
         .flat()
@@ -394,8 +401,8 @@ export class ActivitySandboxService implements ActivitySandbox {
     );
     const sizeOf = async (bound: string | undefined): Promise<number | null> => {
       const normal = (bound ?? "").replace(/\\/g, "/").replace(/^\/+/, "");
-      if (!normal.startsWith("media/")) return null;
-      const relative = previewMediaPath(normal.slice("media/".length));
+      const inRepo = mediaRepoPath(normal);
+      const relative = inRepo === null ? null : previewMediaPath(inRepo);
       if (!relative) return null;
       const recording = recorded.has(normal)
         ? await this.activities.boundVideoFile(projectId, activityId, normal)
@@ -439,7 +446,7 @@ export class ActivitySandboxService implements ActivitySandbox {
     const canonicalRefNum = this.activities.productOf(activity)?.canonicalRefNum ?? null;
     for (const ref of [activity.refNum, canonicalRefNum]) {
       if (ref == null) continue;
-      const file = path.join(source.root, "assessments", `${activity.productCode}-${ref}.json`);
+      const file = new ModuleLayout(source.root).document("assessment", activity.productCode, ref);
       const value = await readJsonFile(file);
       if (value) return value;
     }
@@ -478,47 +485,44 @@ export class ActivitySandboxService implements ActivitySandbox {
       assessment: canEdit && canonical,
       definition: canEdit && canonical,
     };
-    const read = async (folder: string, names: string[]) => {
+    const read = async (files: string[]) => {
       if (!source) return null;
-      for (const name of names) {
-        const value = await readJsonFile(path.join(source.root, folder, name));
-        if (value) return { file: folder ? `${folder}/${name}` : name, value };
+      for (const file of files) {
+        const value = await readJsonFile(path.join(source.root, file));
+        if (value) return { file, value };
       }
       return null;
     };
-    const own = `${activity.productCode}-${activity.refNum}.json`;
     // The assessment falls back to the canonical ref's, as the player's does.
-    const sharedName =
-      canonicalRefNum != null && canonicalRefNum !== activity.refNum
-        ? `${activity.productCode}-${canonicalRefNum}.json`
-        : null;
+    const shared =
+      canonicalRefNum != null && canonicalRefNum !== activity.refNum ? canonicalRefNum : null;
     const document = async (
       kind: ModuleDocumentKind,
-      folder: string,
-      names: string[],
+      refNums: number[],
     ): Promise<ModuleDocument | null> => {
+      const files = refNums.map((ref) => moduleDocumentPath(kind, activity.productCode, ref));
       const edit = edits[kind];
       // An edit names the file an assembly writes it to: this ref's configuration, or the
       // canonical ref's assessment, which every ref shares.
       if (edit)
         return {
-          file: folder ? `${folder}/${names.at(-1)!}` : names.at(-1)!,
+          file: files.at(-1)!,
           value: edit.value,
           edited: true,
           stale: edit.stale,
           editable: editable[kind],
         };
-      const found = await read(folder, names);
+      const found = await read(files);
       return found ? { ...found, edited: false, stale: false, editable: editable[kind] } : null;
     };
     return {
       source: source?.kind ?? "draft",
-      configuration: await document("configuration", "configurations", [own]),
-      assessment: await document("assessment", "assessments", [
-        own,
-        ...(sharedName ? [sharedName] : []),
+      configuration: await document("configuration", [activity.refNum]),
+      assessment: await document("assessment", [
+        activity.refNum,
+        ...(shared !== null ? [shared] : []),
       ]),
-      definition: await document("definition", "", ["definition.json"]),
+      definition: await document("definition", [activity.refNum]),
       canonicalRefNum,
     };
   }
@@ -527,7 +531,7 @@ export class ActivitySandboxService implements ActivitySandbox {
   private async navbarSource(): Promise<ModuleSource | null> {
     const wafRoot = await this.locateWafRoot();
     if (!wafRoot) return null;
-    const root = path.join(wafRoot, "modules", NAVBAR_FOLDER);
+    const root = new WafLayout(wafRoot).repo("navbar");
     const definition = await fs.stat(path.join(root, "definition.json")).catch(() => null);
     if (!definition?.isFile()) return null;
     return {
@@ -619,8 +623,7 @@ export class ActivitySandboxService implements ActivitySandbox {
     return spawnCheckoutBuild({
       moduleRoot,
       outputRoot: checkoutOutputRoot(this.config.root, moduleFolder),
-      // A checkout module sits at <waf>/modules/<folder>; the framework beside `modules`.
-      frameworkRoot: path.join(path.dirname(path.dirname(moduleRoot)), "framework"),
+      frameworkRoot: WafLayout.containing(moduleRoot).repo("framework"),
       moduleId: typeof definition?.id === "string" ? definition.id : moduleFolder,
     });
   }
@@ -733,10 +736,10 @@ export class ActivitySandboxService implements ActivitySandbox {
       versionToken,
     );
 
-    const configurationFile = path.join(
-      workspace,
-      "configurations",
-      `${activity.productCode}-${activity.refNum}.json`,
+    const configurationFile = new ModuleLayout(workspace).document(
+      "configuration",
+      activity.productCode,
+      activity.refNum,
     );
     // An author's edit of the configuration stands in for the module's own.
     const edited = await this.activities.effectiveModuleDocument(
@@ -900,7 +903,7 @@ export class ActivitySandboxService implements ActivitySandbox {
     // A recorded scene video is kept beside the draft's media, not in it (see video-render.ts);
     // its bound path names where the player asks for it.
     const recording = RECORDING_PATH.test(relative)
-      ? await this.activities.boundVideoFile(projectId, activity.id, `media/${relative}`)
+      ? await this.activities.boundVideoFile(projectId, activity.id, mediaReference(relative))
       : null;
     if (recording) candidates.push(recording);
 
@@ -917,7 +920,7 @@ export class ActivitySandboxService implements ActivitySandbox {
     // A manifest path is relative to the WAF root unless it is an upload, so a file the
     // draft does not hold is the checkout's -- which is where every Loom asset lives.
     const wafRoot = await this.locateWafRoot();
-    if (wafRoot) roots.push(path.join(wafRoot, "media"));
+    if (wafRoot) roots.push(new WafLayout(wafRoot).repo("media"));
     for (const root of roots) {
       const file = withinRoot(root, relative);
       if (!file) throw new HttpError(400, "media_path_invalid", "That is not a media path.");
@@ -1038,17 +1041,19 @@ export class ActivitySandboxService implements ActivitySandbox {
     // A module Penguin assembled may be played before its configuration exists, and plays
     // empty. A Loom module without one was never finished -- Loom's own sandbox refused to
     // play it -- so saying so beats a blank activity.
-    const configurationName = `${activity.productCode}-${activity.refNum}.json`;
+    const configuration = moduleDocumentPath(
+      "configuration",
+      activity.productCode,
+      activity.refNum,
+    );
     if (
       source.kind === "checkout" &&
       !(await this.activities.effectiveModuleDocument(projectId, activity, "configuration")) &&
-      !(await fs
-        .stat(path.join(source.root, "configurations", configurationName))
-        .catch(() => null))
+      !(await fs.stat(path.join(source.root, configuration)).catch(() => null))
     )
       return failurePage(
         409,
-        `${source.moduleFolder} has no configurations/${configurationName}, so there is nothing for this ref to play. Loom generates it in its assets configuration stage.`,
+        `${source.moduleFolder} has no ${configuration}, so there is nothing for this ref to play. Loom generates it in its assets configuration stage.`,
       );
 
     const built = await this.ensureCurrent(source);
@@ -1126,7 +1131,7 @@ export class ActivitySandboxService implements ActivitySandbox {
     const dir = path.join(this.config.root, "activity-sandbox", "player");
     const wafRoot = await this.locateWafRoot();
     if (!wafRoot) return { ok: false, log: "No WAF checkout was found.", dir };
-    const frameworkRoot = path.join(wafRoot, "framework");
+    const frameworkRoot = new WafLayout(wafRoot).repo("framework");
     const framework = await readJsonFile(path.join(frameworkRoot, "package.json"));
     const stamp = playerStamp(String(framework?.version ?? ""));
     const stampFile = path.join(dir, "stamp.txt");
@@ -1187,7 +1192,7 @@ export class ActivitySandboxService implements ActivitySandbox {
       throw new HttpError(400, "framework_path_invalid", "That is not a framework file.");
     const wafRoot = await this.locateWafRoot();
     if (!wafRoot) throw new HttpError(404, "framework_not_found", "No WAF checkout was found.");
-    const file = withinRoot(path.join(wafRoot, "framework", dir), relative);
+    const file = withinRoot(path.join(new WafLayout(wafRoot).repo("framework"), dir), relative);
     if (!file) throw new HttpError(400, "framework_path_invalid", "That is not a framework file.");
     // Layouts are HTML, which the media types do not name; the module file types do.
     const byMedia = mediaContentType(relative);
@@ -1224,22 +1229,22 @@ export class ActivitySandboxService implements ActivitySandbox {
       throw new HttpError(409, "preview_not_built", "No module has been built for this activity.");
     // This ref's assessment, or the canonical ref's when this ref has none of its own.
     const product = this.activities.productOf(activity);
-    const names = [`${activity.productCode}-${activity.refNum}.json`];
+    const files = [moduleDocumentPath("assessment", activity.productCode, activity.refNum)];
     if (product?.canonicalRefNum != null && product.canonicalRefNum !== activity.refNum)
-      names.push(`${activity.productCode}-${product.canonicalRefNum}.json`);
+      files.push(moduleDocumentPath("assessment", activity.productCode, product.canonicalRefNum));
     // An author's edit of the shared assessment comes first; it lives on the canonical ref.
     let data: unknown =
       (await this.activities.effectiveModuleDocument(projectId, activity, "assessment"))?.value ??
       null;
-    for (const name of data ? [] : names) {
-      data = await readJsonFile(path.join(source.root, "assessments", name));
+    for (const file of data ? [] : files) {
+      data = await readJsonFile(path.join(source.root, file));
       if (data) break;
     }
     if (!isAssessmentData(data))
       throw new HttpError(
         404,
         "assessment_not_found",
-        `The module has no assessments/${names[0]} for this activity to ask from.`,
+        `The module has no ${files[0]} for this activity to ask from.`,
       );
     const session = startAssessment(
       activity.productCode,

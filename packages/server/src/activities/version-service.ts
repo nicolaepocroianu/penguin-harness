@@ -41,7 +41,8 @@ import {
   type VersionManifest,
   type VersionMedia,
 } from "./version-manifest.js";
-import { readdressMedia, refMediaFolder } from "./ref-media.js";
+import { readdressMedia } from "./ref-media.js";
+import { refMediaFolder } from "./waf-layout.js";
 import type { WafWorkspace } from "./waf-workspace.js";
 import { prunableVersions } from "./version-retention.js";
 import {

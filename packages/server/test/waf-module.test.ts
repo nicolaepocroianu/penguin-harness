@@ -3,7 +3,6 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  findWafRoot,
   scaffoldModule,
   prepareModule,
   collectModule,
@@ -151,18 +150,6 @@ describe("native WAF module boundary", () => {
       ),
     ).rejects.toThrow("missing waf-layout-patterns");
     expect(await fs.readdir(workspace)).toEqual([]);
-  });
-
-  it("discovers only a complete ancestor checkout and honors an explicit invalid root", async () => {
-    const root = await directory();
-    const child = path.join(root, "projects", "one");
-    for (const name of ["framework/src", "modules", "media", "projects/one"])
-      await fs.mkdir(path.join(root, name), { recursive: true });
-    await fs.writeFile(path.join(root, "framework/package.json"), "{}");
-    expect(await findWafRoot(child, "")).toBe(await fs.realpath(root));
-    expect(await findWafRoot(child, child)).toBeNull();
-    await fs.rm(path.join(root, "media"), { recursive: true });
-    expect(await findWafRoot(child, root)).toBeNull();
   });
 
   it("renders WAF runtime imports, definition, state machine, ref identity and executable build configuration", () => {
