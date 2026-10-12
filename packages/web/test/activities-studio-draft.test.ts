@@ -12,6 +12,7 @@ import {
   type DraftFacts,
 } from "../src/features/activities/studio-draft";
 import { S } from "../src/lib/strings";
+import { memoryActivity, settle } from "./activity-memory-api";
 
 const manifest = {
   assets: {
@@ -47,44 +48,16 @@ const open: DraftContext = {
   hasAgent: true,
 };
 
-interface Call {
-  path: string;
-  method: string;
-  body: Record<string, unknown> | undefined;
-  answer: (value: unknown) => void;
-  refuse: (error: unknown) => void;
-}
-
-/** A draft over a server whose every answer the test gives by hand. */
+/** A draft over the in-memory activity client, whose every answer the test gives by hand. */
 function studio(context: DraftContext = open) {
-  const calls: Call[] = [];
+  const { api, calls } = memoryActivity();
   const toasts: string[] = [];
   const saved = vi.fn(async () => {});
-  const draft = new StudioDraft(
-    {
-      request: <T>(path: string, method: string, body?: unknown) =>
-        new Promise<T>((resolve, reject) =>
-          calls.push({
-            path,
-            method,
-            body: body as Record<string, unknown> | undefined,
-            answer: (value) => resolve(value as T),
-            refuse: reject,
-          }),
-        ),
-      saved,
-      toast: (text) => toasts.push(text),
-    },
-    context,
-  );
+  const draft = new StudioDraft({ api, saved, toast: (text) => toasts.push(text) }, context);
   draft.attach();
   draft.replace(detailAt("r1"));
   return { draft, calls, toasts, saved };
 }
-
-const settle = async () => {
-  for (let i = 0; i < 20; i++) await Promise.resolve();
-};
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());

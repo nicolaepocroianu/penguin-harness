@@ -1,12 +1,12 @@
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { SandboxBuildReport, SandboxStatus } from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
 import { StateMapView } from "./state-map-view";
 import { S } from "../../lib/strings";
 import { toneStrip } from "../../lib/tone";
 import { Button } from "../../components/ui/button";
 import { Select } from "../../components/ui/select";
 import { PREVIEW_RESOLUTIONS, fitScale, parseResolution, sceneIds } from "./preview";
+import { useActivityClient } from "./activity-client";
 import { playUrl } from "./sandbox";
 import { SidePanelFill } from "./side-panel-fill";
 import {
@@ -72,7 +72,8 @@ export function SandboxPanel({
   /** Whether the activity has a media plan, without which there is nothing to pick. */
   hasMedia?: boolean;
 }) {
-  const base = `/api/projects/${encodeURIComponent(projectId)}/activities/${encodeURIComponent(activityId)}/sandbox`;
+  const { api } = useActivityClient();
+  const base = `${api.endpoint}/sandbox`;
   const [status, setStatus] = useState<SandboxStatus | null>(null);
   const [report, setReport] = useState<SandboxBuildReport | null>(null);
   const [building, setBuilding] = useState(false);
@@ -81,9 +82,11 @@ export function SandboxPanel({
   // loop: the author's next save, or Build again, is what tries again.
   const tried = useRef<string | null>(null);
 
+  // A read here follows a build or a new revision, so it never joins one of the page's polls,
+  // which may have started before either.
   const refresh = useCallback(async () => {
     try {
-      const next = await apiFetch<SandboxStatus>(`${base}/status`);
+      const next = await api.sandbox.status();
       setStatus(next);
       setError(null);
       return next;
@@ -91,16 +94,14 @@ export function SandboxPanel({
       setError(cause instanceof Error ? cause.message : String(cause));
       return null;
     }
-  }, [base]);
+  }, [api]);
 
   const build = useCallback(
     async (force: boolean) => {
       setBuilding(true);
       setError(null);
       try {
-        setReport(
-          await apiFetch<SandboxBuildReport>(`${base}/build`, { method: "POST", body: { force } }),
-        );
+        setReport(await api.sandbox.build(force));
         await refresh();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
@@ -108,7 +109,7 @@ export function SandboxPanel({
         setBuilding(false);
       }
     },
-    [base, refresh],
+    [api, refresh],
   );
 
   useEffect(() => {

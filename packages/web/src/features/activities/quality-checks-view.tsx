@@ -6,19 +6,22 @@
  * The run is an ordinary activity run, so the page's history polling follows it; this view
  * reads the reports again once it settles.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   ActivityRun,
   ActivityRunSummary,
   QualityReport,
 } from "@prismshadow/penguin-server/api";
-import { ApiError, apiFetch } from "../../api/client";
+import { ApiError } from "../../api/client";
 import { Button } from "../../components/ui/button";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
+import { runStarted, useActivityClient } from "./activity-client";
+import { reportVersion } from "./panel-badges";
 import { indexRuns } from "./runs-index";
+import { useResource } from "./use-resource";
 import type { DraftBlock } from "./studio-draft";
 import {
   STATUS_TONE,
@@ -131,24 +134,20 @@ function ReportBlock({
 }
 
 export function QualityChecksView({
-  endpoint,
   runs,
   editable,
+  revision,
   blocked: gate,
-  onStarted,
 }: {
-  /** The activity's API path. */
-  endpoint: string;
   runs: ActivityRunSummary[];
   editable: boolean;
+  /** The draft's revision: a new one reads the reports again, as the panel's chip does. */
+  revision: string;
   /** Why the draft holds Check quality back (its `quality` gate), or null. */
   blocked: DraftBlock | null;
-  /** A quality run has started; the page adds it to the history it polls. */
-  onStarted: (run: ActivityRun) => void;
 }) {
   const words = S.activities.quality;
-  const [state, setState] = useState<QualityState | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const client = useActivityClient();
   const [startError, setStartError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const alive = useRef(true);
@@ -163,21 +162,19 @@ export function QualityChecksView({
   const running = latest?.status === "running";
   // Read again when the latest quality run settles, or another one starts.
   const settledKey = latest ? `${latest.runId}:${latest.status}` : "";
-  useEffect(() => {
-    let cancelled = false;
-    apiFetch<unknown>(`${endpoint}/quality`)
-      .then((value) => {
-        if (cancelled) return;
-        setState(readQualityState(value));
-        setLoadError(null);
-      })
-      .catch((cause) => {
-        if (!cancelled) setLoadError(apiErrorText(cause));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [endpoint, settledKey]);
+  const read = useResource(
+    client.cache,
+    client.api.quality.report,
+    reportVersion(settledKey, revision),
+  );
+  const loadError = read.error ? apiErrorText(read.error) : null;
+  // A start refused for want of the test browser says so until the next read.
+  const [noBrowser, setNoBrowser] = useState<{ data: unknown } | null>(null);
+  const state = useMemo((): QualityState | null => {
+    const current = read.data === undefined ? null : readQualityState(read.data);
+    if (!noBrowser || noBrowser.data !== read.data) return current;
+    return { quality: current?.quality ?? null, browserInstalled: false };
+  }, [read.data, noBrowser]);
 
   const blocked = checkBlocked({
     gate,
@@ -189,12 +186,12 @@ export function QualityChecksView({
     setStarting(true);
     setStartError(null);
     try {
-      const run = await apiFetch<ActivityRun>(`${endpoint}/quality`, { method: "POST" });
-      if (alive.current) onStarted(run);
+      const run = await client.api.quality.start();
+      if (alive.current) runStarted(client, run);
     } catch (cause) {
       if (!alive.current) return;
       if (cause instanceof ApiError && cause.code === "test_browser_missing")
-        setState((current) => ({ quality: current?.quality ?? null, browserInstalled: false }));
+        setNoBrowser({ data: read.data });
       else setStartError(apiErrorText(cause));
     } finally {
       if (alive.current) setStarting(false);

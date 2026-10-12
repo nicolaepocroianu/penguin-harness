@@ -10,7 +10,6 @@ import type {
   ActivityRun,
   ActivityRunSummary,
 } from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
 import { Button } from "../../components/ui/button";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
@@ -18,6 +17,7 @@ import { toneInk, toneSurface, type Tone } from "../../lib/tone";
 import { runKindLabel, type Announcement } from "./run-toasts";
 import { ModuleBuildsView } from "./module-builds-view";
 import { VersionsView } from "./versions-view";
+import { useActivityClient } from "./activity-client";
 
 const runTone: Record<ActivityRun["status"], Tone> = {
   running: "busy",
@@ -139,7 +139,7 @@ export function GenerationHistory({
             </div>
             {run.hasCandidate && (
               <CandidateReview
-                endpoint={`${endpoint}/runs/${encodeURIComponent(run.runId)}/candidate`}
+                runId={run.runId}
                 editable={editable && run.kind === "spec"}
                 busy={busy}
                 onUse={onUseCandidate}
@@ -153,16 +153,17 @@ export function GenerationHistory({
 }
 
 function CandidateReview({
-  endpoint,
+  runId,
   editable,
   busy,
   onUse,
 }: {
-  endpoint: string;
+  runId: string;
   editable: boolean;
   busy: boolean;
   onUse: (candidate: string) => void;
 }) {
+  const { api } = useActivityClient();
   const [candidate, setCandidate] = useState<string | null>(null);
   const [error, setError] = useState("");
   const pending = useRef(false);
@@ -178,7 +179,7 @@ function CandidateReview({
     pending.current = true;
     setError("");
     try {
-      const result = await apiFetch<{ candidate: string | null }>(endpoint);
+      const result = await api.runs.candidate(runId);
       if (alive.current) setCandidate(result.candidate ?? "");
     } catch (e) {
       if (alive.current) setError(apiErrorText(e));

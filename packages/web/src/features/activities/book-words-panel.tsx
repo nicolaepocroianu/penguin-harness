@@ -15,12 +15,12 @@ import type {
   AssetManifest,
   BookWordsState,
 } from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
 import { Button } from "../../components/ui/button";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
+import { useActivityClient } from "./activity-client";
 import { wordRecordingTally } from "./phoneme-timeline";
 import { indexRuns } from "./runs-index";
 import {
@@ -36,7 +36,6 @@ import {
 type MediaAsset = AssetManifest["assets"][string][number];
 
 export function BookWordsPanel({
-  endpoint,
   language,
   group,
   runs,
@@ -50,7 +49,6 @@ export function BookWordsPanel({
   canRecord,
   onRecord,
 }: {
-  endpoint: string;
   language: string;
   group: readonly MediaAsset[];
   runs: readonly ActivityRunSummary[];
@@ -67,11 +65,13 @@ export function BookWordsPanel({
   canRecord: boolean;
   onRecord: () => void;
 }) {
+  const { api } = useActivityClient();
   const [state, setState] = useState<BookWordsState | null>(null);
   const [confirming, setConfirming] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    apiFetch<BookWordsState>(`${endpoint}/book-words`)
+    api
+      .bookWords()
       .then((value) => {
         if (!cancelled) setState(value);
       })
@@ -81,7 +81,7 @@ export function BookWordsPanel({
     return () => {
       cancelled = true;
     };
-  }, [endpoint]);
+  }, [api]);
 
   const run = indexRuns(runs).latest("phonemes", { language });
   const [candidate, setCandidate] = useState<{ runId: string; text: string | null } | null>(null);
@@ -89,9 +89,8 @@ export function BookWordsPanel({
   useEffect(() => {
     if (!wanted) return;
     let cancelled = false;
-    apiFetch<{ candidate: string | null }>(
-      `${endpoint}/runs/${encodeURIComponent(wanted)}/candidate`,
-    )
+    api.runs
+      .candidate(wanted)
       .then((value) => {
         if (!cancelled) setCandidate({ runId: wanted, text: value.candidate });
       })
@@ -101,7 +100,7 @@ export function BookWordsPanel({
     return () => {
       cancelled = true;
     };
-  }, [endpoint, wanted]);
+  }, [api, wanted]);
 
   const words = S.activities.bookWords;
   const all = bookWordAssets(group);

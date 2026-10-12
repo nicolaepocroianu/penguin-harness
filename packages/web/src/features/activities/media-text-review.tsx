@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { Button } from "../../components/ui/button";
+import { useActivityClient } from "./activity-client";
 
 /** One immutable run per mount; changing the selected asset cannot display an old response. */
 export function MediaTextReview({
-  endpoint,
+  runId,
   target,
   currentText,
   stale,
@@ -16,7 +16,8 @@ export function MediaTextReview({
   canAccept,
   onAccept,
 }: {
-  endpoint: string;
+  /** The media-text run whose candidate this reviews. */
+  runId: string;
   target: NonNullable<ActivityRunSummary["mediaText"]>;
   currentText: string;
   stale: boolean;
@@ -24,6 +25,7 @@ export function MediaTextReview({
   canAccept: boolean;
   onAccept: () => void;
 }) {
+  const { api } = useActivityClient();
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -41,7 +43,7 @@ export function MediaTextReview({
     setLoading(true);
     setError("");
     try {
-      const result = await apiFetch<{ candidate: string | null }>(endpoint);
+      const result = await api.runs.candidate(runId);
       const candidate = JSON.parse(result.candidate ?? "null");
       if (
         !candidate ||

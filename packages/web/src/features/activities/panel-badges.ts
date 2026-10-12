@@ -4,17 +4,17 @@
  * passed, how many quality findings are open.
  *
  * The page reads the same two routes the panels read, once per settled run and draft
- * revision; the panels keep their own copies, since a chip and an open panel can disagree
- * only for the moment between two reads.
+ * revision, through the activity's shared cache: a chip and an open panel show one read.
  */
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
 import { S } from "../../lib/strings";
 import type { Tone } from "../../lib/tone";
+import type { ActivityClient } from "./activity-client";
 import { readQualityState, type QualityState } from "./quality-model";
 import { indexRuns } from "./runs-index";
 import { readTestState, type TestState } from "./test-results-model";
+import { useResource } from "./use-resource";
 
 export interface PanelBadge {
   /** The figure on the chip; empty for a run in progress, which shows as a dot. */
@@ -64,9 +64,17 @@ export function qualityBadge(state: QualityState | null, inProgress: boolean): P
   };
 }
 
+/**
+ * Which read of a report a view wants: a new one whenever the latest run of its kind settles
+ * or another starts, or the draft changes. The chips and the panels ask by the same version.
+ */
+export function reportVersion(runKey: string, revision: string): string {
+  return `${runKey}|${revision}`;
+}
+
 /** Both chips' badges, read again whenever a run settles or the draft changes. */
 export function usePanelBadges(
-  endpoint: string,
+  { api, cache }: ActivityClient,
   runs: readonly ActivityRunSummary[],
   revision: string,
   enabled: boolean,
@@ -76,31 +84,29 @@ export function usePanelBadges(
   const latestQuality = runIndex.latest("quality");
   const testKey = latestTest ? `${latestTest.runId}:${latestTest.status}` : "";
   const qualityKey = latestQuality ? `${latestQuality.runId}:${latestQuality.status}` : "";
-  const [tests, setTests] = useState<TestState | null>(null);
-  const [quality, setQuality] = useState<QualityState | null>(null);
-
-  useEffect(() => {
-    if (!enabled) return;
-    let cancelled = false;
-    apiFetch<unknown>(`${endpoint}/test-report`)
-      .then((value) => !cancelled && setTests(readTestState(value)))
-      // A chip with nothing to say is the right answer to a read that failed.
-      .catch(() => !cancelled && setTests(null));
-    return () => {
-      cancelled = true;
-    };
-  }, [endpoint, testKey, revision, enabled]);
-
-  useEffect(() => {
-    if (!enabled) return;
-    let cancelled = false;
-    apiFetch<unknown>(`${endpoint}/quality`)
-      .then((value) => !cancelled && setQuality(readQualityState(value)))
-      .catch(() => !cancelled && setQuality(null));
-    return () => {
-      cancelled = true;
-    };
-  }, [endpoint, qualityKey, revision, enabled]);
+  // The panels read with the same versions, so a chip and its open panel share each read.
+  const testRead = useResource(
+    cache,
+    api.tests.report,
+    enabled ? reportVersion(testKey, revision) : null,
+  );
+  const qualityRead = useResource(
+    cache,
+    api.quality.report,
+    enabled ? reportVersion(qualityKey, revision) : null,
+  );
+  // A chip with nothing to say is the right answer to a read that failed.
+  const tests = useMemo(
+    () => (testRead.error || testRead.data === undefined ? null : readTestState(testRead.data)),
+    [testRead],
+  );
+  const quality = useMemo(
+    () =>
+      qualityRead.error || qualityRead.data === undefined
+        ? null
+        : readQualityState(qualityRead.data),
+    [qualityRead],
+  );
 
   return {
     tests: enabled ? testBadge(tests, latestTest?.status === "running") : null,

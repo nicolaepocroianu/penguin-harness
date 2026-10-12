@@ -7,11 +7,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   DeployContext,
-  DeployContextResponse,
   DeployRun,
   DeployStateResponse,
 } from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
 import { Button } from "../../components/ui/button";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { SkeletonList } from "../../components/ui/skeleton";
@@ -28,6 +26,7 @@ import { settingsDialog } from "../../lib/settings-dialog-store";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneStrip } from "../../lib/tone";
 import { useAuth } from "../../state/auth";
+import { useActivityClient } from "./activity-client";
 import {
   checksSummary,
   readinessGroups,
@@ -82,19 +81,13 @@ export function DeployPanel({
     [],
   );
 
+  const { api, cache } = useActivityClient();
   const load = useCallback(
-    async (checkRemote = false) => {
-      const value = await apiFetch<DeployContextResponse>(
-        `${endpoint}/deploy/context${checkRemote ? "?checkRemote=1" : ""}`,
-      );
-      return value.context;
-    },
-    [endpoint],
+    async (checkRemote = false) => (await api.deploy.context(checkRemote)).context,
+    [api],
   );
-  const loadState = useCallback(
-    () => apiFetch<DeployStateResponse>(`${endpoint}/deploy`),
-    [endpoint],
-  );
+  // Through the activity's cache, so the header's QA step shows what this section reads.
+  const loadState = useCallback(() => cache.refresh(api.deploy.state), [api, cache]);
   const reload = useCallback(() => {
     loadState()
       .then((value) => {
@@ -125,9 +118,7 @@ export function DeployPanel({
     setBusy("prepare");
     setActionError(null);
     try {
-      const value = await apiFetch<DeployContextResponse>(`${endpoint}/deploy/clones`, {
-        method: "POST",
-      });
+      const value = await api.deploy.prepareClones();
       if (!alive.current) return;
       setContext(value.context);
       // The stages' blockers follow the clones.

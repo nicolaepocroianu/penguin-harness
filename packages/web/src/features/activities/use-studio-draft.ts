@@ -13,7 +13,9 @@ export function useStudioDraft(ports: DraftPorts, context: DraftContext): Studio
     () =>
       new StudioDraft(
         {
-          request: (path, method, body) => latest.current.request(path, method, body),
+          get api() {
+            return latest.current.api;
+          },
           saved: () => latest.current.saved(),
           toast: (text) => latest.current.toast(text),
         },
