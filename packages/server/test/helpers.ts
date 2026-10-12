@@ -99,6 +99,12 @@ import { DefaultEspeakPorts, type EspeakPorts } from "../src/activities/phonemes
 import { DefaultDeployPorts, type DeployPorts } from "../src/activities/deploy-service.js";
 import { DefaultAudioEncodePorts, type AudioEncodePorts } from "../src/activities/ref-media.js";
 import {
+  DefaultModuleBuilder,
+  moduleBuilds,
+  type ModuleBuilder,
+  type StyleJob,
+} from "../src/activities/module-builder.js";
+import {
   DefaultWafWorkspacePorts,
   type WafWorkspacePorts,
 } from "../src/activities/waf-workspace.js";
@@ -317,6 +323,11 @@ export interface TestAppOptions {
   /** Test double: WAV to MP3 conversion, so a test never runs ffmpeg. */
   audioEncodePorts?: AudioEncodePorts;
   /**
+   * Test double: module builds. By default the real builds over a stylesheet compiler that
+   * copies the SCSS to the CSS, so a test never installs Sass.
+   */
+  moduleBuilder?: ModuleBuilder;
+  /**
    * False leaves the WAF workspace unset. By default the server reads an empty WAF checkout
    * under the test's root (activities are stored in its modules); WAF_ROOT_DIR overrides it.
    */
@@ -436,7 +447,16 @@ export function replacementsFor(o: TestAppOptions): Replacements {
   // Nothing clones at boot in a test: a test that wants preparing asks for it.
   out.push([DefaultWafWorkspacePorts, { autoPrepare: false, ...o.wafWorkspacePorts }]);
   if (o.audioEncodePorts) out.push([DefaultAudioEncodePorts, o.audioEncodePorts]);
+  out.push([DefaultModuleBuilder, o.moduleBuilder ?? moduleBuilds(copyStylesheet)]);
   return out;
+}
+
+/** A stylesheet "compile" that copies the SCSS to where the CSS goes, as plain CSS is valid SCSS. */
+async function copyStylesheet(job: StyleJob) {
+  const to = path.resolve(job.cwd, job.to);
+  await fs.mkdir(path.dirname(to), { recursive: true });
+  await fs.copyFile(path.resolve(job.cwd, job.from), to);
+  return { code: 0, tail: "" };
 }
 
 /** A sandbox whose one backend covers file writes and confines nothing. */

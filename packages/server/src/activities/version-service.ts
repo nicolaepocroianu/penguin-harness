@@ -23,11 +23,11 @@ import { renameOver } from "../internal/rename-over.js";
 import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
 import type { Db } from "../hmr/capabilities.js";
 import { HttpError } from "../http/errors.js";
-import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
+import type { ActivityAuthoring } from "../mechanisms/activities.js";
 import { ActivityDeployEvents } from "./deploy-events.js";
 import type { DeployedEvent } from "./deploy-types.js";
 import { draftRevision, newId, type ActivityDetail, type ActivityDraft } from "./domain.js";
-import { playingBuild } from "./module-builds.js";
+import type { ActivityModuleSource } from "./module-source.js";
 import { normalizeFeatureSelection } from "./implementation-features.js";
 import { validateManifest } from "./media.js";
 import { withinRoot } from "./sandbox-paths.js";
@@ -152,7 +152,7 @@ export abstract class ActivityVersions extends Interface<{
 @Component()
 export class ActivityVersionService implements ActivityVersions {
   @Use() private readonly authoring!: ActivityAuthoring;
-  @Use() private readonly generation!: ActivityGeneration;
+  @Use() private readonly moduleSources!: ActivityModuleSource;
   @Use() private readonly deployEvents!: ActivityDeployEvents;
   @Use() private readonly db!: Db;
   @Use() private readonly wafWorkspace!: WafWorkspace;
@@ -477,11 +477,9 @@ export class ActivityVersionService implements ActivityVersions {
     activity: ActivityDetail,
     kind: VersionKind,
   ): Promise<string | null> {
-    const builds = await this.generation.moduleBuilds(projectId, activity.id).catch(() => []);
-    return (
-      playingBuild(builds, kind === "deploy" ? null : activity.draft.pinnedModuleRunId)?.runId ??
-      null
-    );
+    const purpose = kind === "deploy" ? "deploy" : "preview";
+    const build = await this.moduleSources.build(projectId, activity, purpose).catch(() => null);
+    return build?.runId ?? null;
   }
 
   /**

@@ -8,7 +8,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ActivityDetail, ActivityDraft } from "../src/activities/domain.js";
 import type { ModuleDocuments } from "../src/activities/module-documents.js";
-import { ActivitySandboxService } from "../src/activities/sandbox-service.js";
+import { wiredSandbox } from "./activity-sandbox-wiring.js";
 import { scaffoldModule } from "../src/activities/waf-module.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../src/mechanisms/activities.js";
 import { activitySpec, refFilesDir } from "./activity-fixtures.js";
@@ -268,13 +268,12 @@ describe("module document edits", () => {
         JSON.stringify({ runId, status: "succeeded", kind: "module", createdAt: "2026-09-25" }),
       );
     // The sandbox is not exported from its module; it is stood up over the real services.
-    const sandbox = new ActivitySandboxService();
-    Object.assign(sandbox, {
+    const sandbox = wiredSandbox({
       activities: t.deps.tree.api<ActivityAuthoring>("ActivitiesModule", "ActivityAuthoring"),
       generation: t.deps.tree.api<ActivityGeneration>("ActivitiesModule", "ActivityGeneration"),
       runs: t.deps.tree.api<ActivityRuns>("ActivitiesModule", "ActivityRuns"),
-      config: { root: t.root },
-      locateWafRoot: async () => null,
+      root: t.root,
+      wafRoot: null,
     });
     const part = (await sandbox.assess("editor-work", two.id, "/base/", null, [])) as {
       assessmentItems?: { title?: string }[];
