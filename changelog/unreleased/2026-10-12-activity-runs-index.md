@@ -3,6 +3,7 @@
 - **Date:** 2026-10-12
 - **Type:** refactor
 - **Scope:** `web`
+- **PR:** [#107](https://github.com/nicolaepocroianu/penguin-harness/pull/107)
 
 The activity studio's panels stopped working out "the newest run of this kind" each for
 themselves. A runs index (`features/activities/runs-index.ts`) was added, built once per runs
