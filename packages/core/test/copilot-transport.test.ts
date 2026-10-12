@@ -124,6 +124,79 @@ describe("Copilot AgentHub boundary", () => {
       }
     },
   );
+  // The ChatGPT Codex backend streams no argument deltas for a parallel batch: each call's
+  // arguments arrive only on its function_call_arguments.done event. Both orders are checked:
+  // each call closed before the next opens (what Codex sends), and both open at once.
+  it.each([
+    ["one after another", ["open a", "close a", "open b", "close b"], ["a", "b"]],
+    ["overlapping", ["open a", "open b", "close b", "close a"], ["b", "a"]],
+  ])(
+    "keeps the arguments of parallel Responses tool calls sent %s",
+    async (_order, steps, closed) => {
+      const events: Record<string, unknown>[] = steps.map((step) => {
+        const [action, name] = step.split(" ");
+        return action === "open"
+          ? {
+              type: "response.output_item.added",
+              item: {
+                id: `fc_${name}`,
+                type: "function_call",
+                call_id: `call_${name}`,
+                name: "read",
+              },
+            }
+          : {
+              type: "response.function_call_arguments.done",
+              item_id: `fc_${name}`,
+              arguments: JSON.stringify({ file_path: `${name}.txt` }),
+            };
+      });
+      events.push({
+        type: "response.completed",
+        response: { status: "completed", usage: { input_tokens: 10, output_tokens: 5 } },
+      });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn<typeof fetch>(async (url) =>
+          String(url).endsWith("/models")
+            ? Response.json({
+                data: [
+                  {
+                    id: "supported",
+                    supported_endpoints: ["/responses"],
+                    capabilities: { type: "chat", supports: { tool_calls: true } },
+                  },
+                ],
+              })
+            : new Response(
+                events.map((event) => "data: " + JSON.stringify(event) + "\n\n").join("") +
+                  "data: [DONE]\n\n",
+                { headers: { "content-type": "text/event-stream" } },
+              ),
+        ),
+      );
+      const model = new GenerativeModel({
+        modelId: "supported",
+        clientType: "github-copilot",
+        apiKey: "gho_test",
+        tools: [{ name: "read", description: "Read a file" }],
+      });
+      const stream = model.streamGenerate({ newMessages: [userText("Read a and b")] });
+      const calls: { id: string; args: unknown }[] = [];
+      let next = await stream.next();
+      while (!next.done) {
+        const payload = next.value.payload;
+        if ("type" in payload && payload.type === "tool_call")
+          calls.push({ id: payload.tool_call_id, args: payload.arguments });
+        next = await stream.next();
+      }
+      expect(next.value.status).toBe("completed");
+      expect(calls).toEqual(
+        closed.map((name) => ({ id: `call_${name}`, args: `{"file_path":"${name}.txt"}` })),
+      );
+    },
+  );
+
   it("isolates routing and credentials from vendor environment variables", () => {
     vi.stubEnv("OPENAI_API_KEY", "unrelated-key");
     vi.stubEnv("GITHUB_COPILOT_API_KEY", "");
