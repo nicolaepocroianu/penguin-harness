@@ -3,7 +3,7 @@
 - **Date:** 2026-10-12
 - **Type:** process
 - **Scope:** `skills`, `docs`
-- **PR:** [#PENDING](https://github.com/nicolaepocroianu/penguin-harness/pull/PENDING)
+- **PR:** [#115](https://github.com/nicolaepocroianu/penguin-harness/pull/115)
 
 Agents working in this repository now share four third-party skills from mattpocock/skills under
 `.agents/skills/`, pinned in `skills-lock.json` and kept as published (excluded from Prettier):
