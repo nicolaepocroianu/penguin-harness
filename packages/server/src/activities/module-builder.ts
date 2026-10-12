@@ -112,6 +112,11 @@ async function installedSass(home: string): Promise<string | null> {
  * Installed into a folder of its own beside the final one and renamed into place, so an
  * install cut short is never mistaken for a complete one; concurrent callers share one
  * install, and a failed one is tried again by the next caller.
+ *
+ * The install reaches the registry the module's own `.npmrc` names, as `npx` run in the
+ * module did: a server that can only reach the module's registry still installs. The copy is
+ * npm's project config during the install and is removed before the folder is kept, since it
+ * may hold the registry's credentials; without one, npm's user config applies.
  */
 export class PinnedSass {
   private installing: Promise<string> | null = null;
@@ -121,16 +126,19 @@ export class PinnedSass {
     private readonly run: DeployProcess["run"] = spawnDeployProcess.run,
   ) {}
 
-  /** The command line script, installing the pinned Sass first when it is not there. */
-  cli(): Promise<string> {
-    this.installing ??= this.install().catch((error: unknown) => {
+  /**
+   * The command line script, installing the pinned Sass first when it is not there, with the
+   * npm settings of the module in `moduleDir` when it has any.
+   */
+  cli(moduleDir?: string): Promise<string> {
+    this.installing ??= this.install(moduleDir).catch((error: unknown) => {
       this.installing = null;
       throw error;
     });
     return this.installing;
   }
 
-  private async install(): Promise<string> {
+  private async install(moduleDir: string | undefined): Promise<string> {
     const ready = await installedSass(this.home);
     if (ready) return ready;
     const staging = `${this.home}.${process.pid}.${Date.now()}.partial`;
@@ -140,6 +148,9 @@ export class PinnedSass {
         path.join(staging, "package.json"),
         `${JSON.stringify({ private: true })}\n`,
       );
+      const npmrc = path.join(staging, ".npmrc");
+      if (moduleDir)
+        await fs.copyFile(path.join(moduleDir, ".npmrc"), npmrc).catch(() => undefined);
       const result = await this.run(
         "npm",
         ["install", SASS_PACKAGE, "--no-audit", "--no-fund", "--ignore-scripts"],
@@ -149,6 +160,7 @@ export class PinnedSass {
         throw new Error(
           `Installing ${SASS_PACKAGE} failed${result.error ? ` (${result.error})` : ""}: ${result.tail.trim()}`,
         );
+      await fs.rm(npmrc, { force: true });
       // Another server process may have finished first; its install is as good as this one.
       // An install cut short before this rename existed is replaced.
       if (!(await installedSass(this.home)))
@@ -166,7 +178,7 @@ export class PinnedSass {
   async compile(job: StyleJob): Promise<StyleResult> {
     let cli: string;
     try {
-      cli = await this.cli();
+      cli = await this.cli(job.cwd);
     } catch (error) {
       return { code: 1, tail: (error as Error).message };
     }

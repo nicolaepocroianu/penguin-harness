@@ -30,9 +30,12 @@ async function setup(npm: { fail?: boolean } = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin sass "));
   roots.push(root);
   const installs: string[] = [];
+  /** The project `.npmrc` each install's npm would read, as it found it. */
+  const npmrcs: (string | null)[] = [];
   const run: DeployProcess["run"] = async (command, args, options) => {
     if (command !== "npm") return spawnDeployProcess.run(command, args, options);
     installs.push(`${command} ${args.join(" ")}`);
+    npmrcs.push(await fs.readFile(path.join(options.cwd, ".npmrc"), "utf8").catch(() => null));
     if (npm.fail) return { code: 1, tail: "npm ERR! network unreachable" };
     const sass = path.join(options.cwd, "node_modules", "sass");
     await fs.mkdir(sass, { recursive: true });
@@ -42,7 +45,7 @@ async function setup(npm: { fail?: boolean } = {}) {
   };
   const module = path.join(root, "module");
   await fs.mkdir(path.join(module, "res"), { recursive: true });
-  return { root, module, installs, sass: new PinnedSass(sassHome(root), run) };
+  return { root, module, installs, npmrcs, sass: new PinnedSass(sassHome(root), run) };
 }
 
 describe("the pinned Sass", () => {
@@ -94,5 +97,30 @@ describe("the pinned Sass", () => {
     expect(failing.installs).toHaveLength(2);
     // Nothing half-installed is left to be mistaken for an install.
     expect(await fs.readdir(path.join(failing.root, "tools"))).toEqual([]);
+  });
+
+  it("installs from the registry the module's .npmrc names, and keeps no copy of it", async () => {
+    const { root, module, npmrcs, sass } = await setup();
+    const npmrc = [
+      "registry=https://nexus.example.org/repository/npm-group/",
+      "//nexus.example.org/:_authToken=secret",
+      "",
+    ].join("\n");
+    await fs.writeFile(path.join(module, ".npmrc"), npmrc);
+    await fs.writeFile(path.join(module, "res", "style.scss"), ".a {}");
+    const result = await sass.compile({ cwd: module, from: "res/style.scss", to: "res/style.css" });
+    expect(result.code).toBe(0);
+    // npm ran with the module's settings as its project config.
+    expect(npmrcs).toEqual([npmrc]);
+    // The settings may hold credentials: the kept install has none of them.
+    expect(await fs.readdir(sassHome(root))).not.toContain(".npmrc");
+    expect(result.tail).not.toContain("secret");
+  });
+
+  it("installs with npm's own settings when the module has no .npmrc", async () => {
+    const { module, npmrcs, sass } = await setup();
+    await fs.writeFile(path.join(module, "res", "style.scss"), ".a {}");
+    await sass.compile({ cwd: module, from: "res/style.scss", to: "res/style.css" });
+    expect(npmrcs).toEqual([null]);
   });
 });
