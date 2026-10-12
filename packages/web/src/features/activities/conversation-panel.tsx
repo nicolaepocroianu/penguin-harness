@@ -19,12 +19,16 @@ import { Textarea } from "../../components/ui/input";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
+import { useAuth } from "../../state/auth";
 import { MessageStream } from "../chat/message-stream";
+import { useDraftSlot } from "../chat/use-session-draft";
 import { runStarted, useActivityClient } from "./activity-client";
 import {
+  composerDraftKey,
   conversationThreads,
   focusLabel,
   followUpText,
+  shownConversation,
   splitStudioContext,
   suggestionsFor,
   threadTime,
@@ -91,7 +95,16 @@ export function ConversationPanel({
   const threads = conversationThreads(indexRuns(runs));
   // Undefined follows the newest conversation; null is a fresh one the next message starts.
   const [choice, setChoice] = useState<string | null | undefined>(undefined);
-  const sessionId = choice === undefined ? (threads[0]?.sessionId ?? null) : choice;
+  // Whether the composer holds unsent text, which holds the conversation it was written for.
+  const [holding, setHolding] = useState(false);
+  const shown = useRef<string | null>(null);
+  const sessionId = shownConversation({
+    choice,
+    newest: threads[0]?.sessionId ?? null,
+    shown: shown.current,
+    holding,
+  });
+  shown.current = sessionId;
   const run = sessionId ? runs.find((entry) => entry.sessionId === sessionId) : undefined;
   const startedRunning = run?.status === "running" ? "running" : "idle";
   const openRun = run?.runId ?? null;
@@ -121,6 +134,7 @@ export function ConversationPanel({
       editable={editable}
       onFresh={() => setChoice(null)}
       onSession={(id) => setChoice(id)}
+      onHolding={setHolding}
     />
   );
 }
@@ -145,6 +159,7 @@ function Conversation({
   editable,
   onFresh,
   onSession,
+  onHolding,
   threads,
   onChooseThread,
 }: {
@@ -170,8 +185,14 @@ function Conversation({
   editable: boolean;
   onFresh: () => void;
   onSession: (sessionId: string) => void;
+  /** Whether the composer holds unsent text. */
+  onHolding: (holding: boolean) => void;
 }) {
   const client = useActivityClient();
+  // The unsent text is kept: under the Session's slot, which the chat page shares, or the
+  // activity's own until the conversation has a Session.
+  const userId = useAuth().user?.userId ?? null;
+  const slot = useDraftSlot(composerDraftKey(userId, sessionId, client.api));
   const words = S.activities.studioConversation;
   const {
     stream,
@@ -198,7 +219,14 @@ function Conversation({
     }),
     [transcriptCtx, showReasoning],
   );
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(() => slot.initial.text ?? "");
+  const kept = useRef(draft);
+  useEffect(() => {
+    if (draft === kept.current) return;
+    kept.current = draft;
+    slot.onTextChange(draft);
+  }, [draft, slot]);
+  useEffect(() => onHolding(draft.trim() !== ""), [draft, onHolding]);
   const [sending, setSending] = useState(false);
   // Whether the next message tells the agent what the author has open. Taking the chip off
   // holds for that one message; the page context is back for the one after.
@@ -238,6 +266,8 @@ function Conversation({
         // A new conversation is a run, and belongs in the activity's history straight away.
         runStarted(client, run);
         lastSent.current = withContext ? focus : null;
+        // Sent: the new conversation's slot is done with; the Session's starts empty.
+        slot.discard();
         setDraft("");
         setWithContext(true);
         onSession(run.sessionId);
@@ -254,6 +284,7 @@ function Conversation({
         queueIfBusy: true,
       });
       if (withContext) lastSent.current = focus;
+      slot.discard();
       setDraft("");
       setWithContext(true);
       if (result.sessionId !== sessionId) onSession(result.sessionId);

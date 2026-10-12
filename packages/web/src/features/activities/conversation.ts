@@ -9,6 +9,7 @@
  */
 import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
+import { activityDraftKey, sessionDraftKey } from "../chat/draft-cache";
 import type { RunsIndex } from "./runs-index";
 import type { SceneAssetSelection } from "./scene-asset-tree";
 import type { WorkspaceSection } from "./workspace-model";
@@ -19,6 +20,41 @@ export interface AssistFocus {
   sceneId?: string;
   assetKey?: string;
   language?: string;
+}
+
+/**
+ * Where the composer keeps its unsent text: a conversation with a Session in that Session's
+ * slot, the one the chat page reads, so the text follows it between the two; a new one in
+ * the activity's own slot. Null keeps nothing (no user).
+ */
+export function composerDraftKey(
+  userId: string | null,
+  sessionId: string | null,
+  activity: { projectId: string; activityId: string },
+): string | null {
+  if (!userId) return null;
+  return sessionId
+    ? sessionDraftKey(userId, sessionId)
+    : activityDraftKey(userId, activity.projectId, activity.activityId);
+}
+
+/**
+ * The conversation the panel shows: the one the author chose, else the newest. While the
+ * composer holds text the one already shown stays, so a newer conversation arriving does not
+ * take the text away from the one it was written for.
+ */
+export function shownConversation(input: {
+  /** The author's choice: a Session, null for a new conversation, undefined for none. */
+  choice: string | null | undefined;
+  /** The newest conversation's Session, if there is one. */
+  newest: string | null;
+  /** What the panel shows now. */
+  shown: string | null;
+  /** Whether the composer holds unsent text. */
+  holding: boolean;
+}): string | null {
+  if (input.choice !== undefined) return input.choice;
+  return input.holding ? input.shown : input.newest;
 }
 
 /**
