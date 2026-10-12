@@ -9380,6 +9380,17 @@ test("edits, saves and renders a scene video's timeline", async ({ page }) => {
   await expect(saveTimeline).toBeDisabled();
   await to.fill("4");
   await expect(saveTimeline).toBeEnabled();
+  // The edit is the timeline editor's own until saved: opening another section would close the
+  // editor, so it asks first, and declining keeps the edit.
+  const discard = page.getByRole("dialog", { name: "Discard unsaved changes?" });
+  await openSection(page, "Description");
+  await expect(discard).toBeVisible();
+  await expect(
+    discard.getByText("Discard your unsaved edits to this document and open another section?"),
+  ).toBeVisible();
+  await discard.getByRole("button", { name: "Cancel" }).click();
+  await expect(discard).toBeHidden();
+  await expect(timeline.getByText("Plays for 4 s", { exact: true })).toBeVisible();
 
   await timeline.getByRole("button", { name: "Save timeline", exact: true }).click();
   await expect.poll(() => saves.length).toBe(1);

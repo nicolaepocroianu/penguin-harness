@@ -57,7 +57,6 @@ import { buildSceneTree, filterTree, treeSelections, type SceneAssetType } from 
 import { firstSelection, sameSelection, type SceneAssetSelection } from "./scene-asset-tree";
 import {
   resolveSection,
-  sectionSwitchDiscards,
   workspaceSections,
   type StudioPanel,
   sectionFromParam,
@@ -103,7 +102,7 @@ import { useStudioDraft } from "./use-studio-draft";
 import { ActivityList } from "./activity-list";
 import { ProjectMediaView } from "./project-media-view";
 import type { GroupSort } from "./activity-groups";
-import { useDiscardConfirm } from "./use-discard-confirm";
+import { UnsavedWorkProvider, useUnsavedWork, useUnsavedWorkGuard } from "./unsaved-work-context";
 import { usePanelBadges } from "./panel-badges";
 import { videosToCheck } from "./scene-video";
 import { applyVoice, optionsFromVoices } from "./voice-catalogue";
@@ -187,7 +186,9 @@ function ActivityWorkspace({
   const [sort, setSort] = useState<GroupSort>("recent");
   const [openModules, setOpenModules] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const dirty = useRef(false);
+  // The studio's unsaved work, and the one dialog that asks before any of it is thrown away.
+  const { guard, modal } = useUnsavedWorkGuard();
+  const leavingLoses = useCallback(() => guard.work.lost({ kind: "activity" }).length > 0, [guard]);
   const mounted = useRef(true);
   const accessible = useRef(available);
   accessible.current = available;
@@ -276,17 +277,14 @@ function ActivityWorkspace({
   }, [activityId, reload]);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
-      if (dirty.current) event.preventDefault();
+      if (leavingLoses()) event.preventDefault();
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, []);
-  const canLeave = useCallback(() => !dirty.current, []);
-  const isDirty = useCallback(() => dirty.current, []);
-  const discard = useDiscardConfirm(isDirty);
+  }, [leavingLoses]);
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      currentLocation.pathname !== nextLocation.pathname && dirty.current,
+      currentLocation.pathname !== nextLocation.pathname && leavingLoses(),
   );
   // Ask once per blocked *attempt*, not merely once per "unblocked -> blocked" edge: a
   // Cancel's `blocker.reset()` and the very next navigation's own block can land in the same
@@ -302,27 +300,26 @@ function ActivityWorkspace({
     }
     if (askedFor.current === blocker) return;
     askedFor.current = blocker;
-    discard.ask(
+    guard.confirm(
+      { kind: "activity" },
       () => blocker.proceed(),
       () => blocker.reset(),
     );
-  }, [blocker, discard.ask]);
+  }, [blocker, guard]);
   // Switching or deleting a Project while dirty asks through the same dialog. The caller
   // (setCurrentProjectId / deleteProject / the removed-selection reload) awaits this, so its
   // own success/error handling runs on whichever answer actually happened — declining
-  // resolves false right away, discarding clears `dirty` and resolves true.
+  // resolves false right away, discarding drops the unsaved work and resolves true.
   const projectChangeGuard = useCallback(() => {
-    if (!dirty.current) return true;
+    if (!leavingLoses()) return true;
     return new Promise<boolean>((resolve) => {
-      discard.ask(
-        () => {
-          dirty.current = false;
-          resolve(true);
-        },
+      guard.confirm(
+        { kind: "activity" },
+        () => resolve(true),
         () => resolve(false),
       );
     });
-  }, [discard.ask]);
+  }, [guard, leavingLoses]);
   useLayoutEffect(
     () => registerProjectChangeGuard(projectChangeGuard),
     [registerProjectChangeGuard, projectChangeGuard],
@@ -335,25 +332,24 @@ function ActivityWorkspace({
     // in a scroller or a max-width column.
     return (
       <div className="h-full min-h-0">
-        <ActivityEditor
-          key={activityId}
-          projectId={projectId}
-          activityId={activityId}
-          editable={editable}
-          available={available}
-          onDirty={(value) => {
-            dirty.current = value;
-          }}
-          onSaved={reload}
-          onDeleted={(title) => {
-            // Nothing unsaved is worth keeping in an activity that is gone.
-            dirty.current = false;
-            announce({ kind: "success", text: S.activities.deleteActivity.deleted(title) });
-            void reload();
-            navigate("/activities");
-          }}
-        />
-        {discard.modal}
+        <UnsavedWorkProvider value={guard}>
+          <ActivityEditor
+            key={activityId}
+            projectId={projectId}
+            activityId={activityId}
+            editable={editable}
+            available={available}
+            onSaved={reload}
+            onDeleted={(title) => {
+              // Nothing unsaved is worth keeping in an activity that is gone.
+              guard.work.discard(guard.work.held());
+              announce({ kind: "success", text: S.activities.deleteActivity.deleted(title) });
+              void reload();
+              navigate("/activities");
+            }}
+          />
+        </UnsavedWorkProvider>
+        {modal}
       </div>
     );
   }
@@ -365,7 +361,7 @@ function ActivityWorkspace({
         error={error}
         editable={editable}
         available={available}
-        createDisabled={!canLeave()}
+        createDisabled={leavingLoses()}
         projectId={projectId}
         summaries={summaries}
         sort={sort}
@@ -392,12 +388,12 @@ function ActivityWorkspace({
           onClose={() => setCreateOpen(false)}
           onCreated={(created) => {
             setCreateOpen(false);
-            dirty.current = false;
+            guard.work.discard(guard.work.held());
             navigate(`/activities/${created}`);
           }}
         />
       )}
-      {discard.modal}
+      {modal}
     </>
   );
 }
@@ -407,7 +403,6 @@ function ActivityEditor({
   activityId,
   editable,
   available,
-  onDirty,
   onSaved,
   onDeleted,
 }: {
@@ -415,7 +410,6 @@ function ActivityEditor({
   activityId: string;
   editable: boolean;
   available: boolean;
-  onDirty: (value: boolean) => void;
   onSaved: () => Promise<void>;
   onDeleted: (title: string) => void;
 }) {
@@ -434,15 +428,13 @@ function ActivityEditor({
   const [sectionChoice, setSectionChoice] = useState<WorkspaceSection | null>(() =>
     sectionFromParam(searchParams.get("section")),
   );
-  // A module document's editor holds its own text, and leaving its section unmounts it, so
-  // every way of changing section asks first while that text is unsaved.
-  const [documentDirty, setDocumentDirty] = useState(false);
-  const leaving = useRef({ section: "description" as WorkspaceSection, documentDirty: false });
-  const isDocumentDirty = useCallback(() => leaving.current.documentDirty, []);
-  const leaveDocument = useDiscardConfirm(isDocumentDirty, () => S.activities.discardSection);
+  // Opening another section closes the one open: an editor there holding unsaved work (a
+  // module document, a scene's timeline) asks first, through the unsaved-work guard.
+  const unsaved = useUnsavedWork();
+  const shownSection = useRef<WorkspaceSection>("description");
   const setSection = useCallback(
-    (next: WorkspaceSection) => {
-      const open = () => {
+    (next: WorkspaceSection) =>
+      unsaved.confirm({ kind: "section", from: shownSection.current, to: next }, () => {
         setSectionChoice(next);
         setSearchParams(
           (prev) => {
@@ -452,16 +444,8 @@ function ActivityEditor({
           },
           { replace: true },
         );
-      };
-      const { section: current, documentDirty: unsaved } = leaving.current;
-      if (!sectionSwitchDiscards(current, next, unsaved)) return open();
-      leaveDocument.ask(() => {
-        leaving.current.documentDirty = false;
-        setDocumentDirty(false);
-        open();
-      });
-    },
-    [setSearchParams, leaveDocument.ask],
+      }),
+    [setSearchParams, unsaved.confirm],
   );
   const [languageChoice, setLanguage] = useState("");
   const [kind, setKind] = useState<SceneAssetType | "all">("all");
@@ -612,7 +596,6 @@ function ActivityEditor({
   // read that failed, which the Deploy section reports itself.
   const deployState =
     !deployRead.error && Array.isArray(deployRead.data?.stages) ? deployRead.data : null;
-  const discard = useDiscardConfirm(() => dirty);
   // Which activity and ref the editors are about, as Loom titles its panels.
   const panelSubject = detail ? `${detail.title} - ${detail.productCode} [${detail.refNum}]` : "";
   // The conversation the panel has open, whose proposal the studio shows; until the panel
@@ -648,15 +631,10 @@ function ActivityEditor({
     proposedScript.text !== settledScript
       ? proposedScript.text
       : null;
-  useLayoutEffect(() => {
-    // An unsaved module document is lost by leaving the activity too.
-    onDirty(dirty || documentDirty);
-  });
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
-      onDirty(false);
     };
   }, []); // The editor is keyed by activity and the workspace by project.
   useEffect(() => {
@@ -960,9 +938,9 @@ function ActivityEditor({
       hasModule,
       usesAssessment,
     },
-    documentDirty,
+    sectionChoice !== null && unsaved.work.holds(sectionChoice),
   );
-  leaving.current = { section, documentDirty };
+  shownSection.current = section;
   // The saved draft's media stats, read once per revision while the scenes are open, for
   // the file details of a bound clip. Null when they could not be read.
   const statsRevision = detail?.draft.contentRevision ?? "";
@@ -1369,7 +1347,9 @@ function ActivityEditor({
                   // Reloading can throw edits away, so it sits in the ref's menu behind the
                   // discard confirmation rather than in the header's busiest row.
                   onReload={
-                    busy || !available ? undefined : () => discard.ask(() => void draft.reload())
+                    busy || !available
+                      ? undefined
+                      : () => unsaved.confirm({ kind: "draftText" }, () => void draft.reload())
                   }
                 />
               </div>
@@ -1695,7 +1675,6 @@ function ActivityEditor({
                   ? () => setSection(target)
                   : undefined
               }
-              onDirty={setDocumentDirty}
               onSaved={(saved, text) => {
                 // Only the draft changed; unsaved script or specification text stays.
                 draft.applyDraft(saved, "unsaved");
@@ -2040,7 +2019,7 @@ function ActivityEditor({
                       draft.applyDraft(pinned, "unsaved")
                     }
                     onUseCandidate={(candidate) =>
-                      discard.ask(() => {
+                      unsaved.confirm({ kind: "draftText" }, () => {
                         draft.edit("spec", candidate);
                         setSection("specification");
                       })
@@ -2099,8 +2078,6 @@ function ActivityEditor({
           </section>
         )}
       </WorkspaceShell>
-      {discard.modal}
-      {leaveDocument.modal}
     </ActivityClientContext.Provider>
   );
 }

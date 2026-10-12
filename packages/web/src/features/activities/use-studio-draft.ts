@@ -1,6 +1,7 @@
 /** The studio draft (studio-draft.ts) held for one open activity, re-rendering as it moves. */
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { StudioDraft, type DraftContext, type DraftPorts } from "./studio-draft";
+import { useHeldWork } from "./unsaved-work-context";
 
 /**
  * The page's draft. `ports` may change from render to render; the draft always calls the
@@ -23,6 +24,8 @@ export function useStudioDraft(ports: DraftPorts, context: DraftContext): Studio
       ),
   );
   useSyncExternalStore(draft.subscribe, draft.getState);
+  // The draft's texts are the page's: they survive a section switch, not leaving the activity.
+  useHeldWork({ label: "draft" }, draft.state.dirty);
   draft.observe(context);
   useEffect(() => {
     draft.attach();

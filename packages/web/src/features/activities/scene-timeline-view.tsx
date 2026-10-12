@@ -39,6 +39,7 @@ import {
   withCut,
 } from "./scene-timeline";
 import { useActivityClient } from "./activity-client";
+import { useHeldWork } from "./unsaved-work-context";
 
 type Asset = AssetManifest["assets"][string][number];
 
@@ -86,6 +87,8 @@ export function SceneTimelineView({
   const { api } = useActivityClient();
   const [view, setView] = useState<VideoTimelineView | null>(null);
   const [edited, setEdited] = useState<VideoTimeline | null>(null);
+  // Edits are this editor's own until saved: leaving the scenes asks before throwing them away.
+  useHeldWork({ label: "scene timeline", section: "scenes" }, edited !== null);
   // Time fields whose text does not read as seconds: what they show is not what would be saved.
   const [invalid, setInvalid] = useState<ReadonlySet<string>>(new Set());
   const validity = (key: string) => (valid: boolean) =>
