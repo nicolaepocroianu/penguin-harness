@@ -3,7 +3,7 @@
 - **Date:** 2026-10-12
 - **Type:** refactor
 - **Scope:** `server`
-- **PR:** [#PENDING](https://github.com/nicolaepocroianu/penguin-harness/pull/PENDING)
+- **PR:** [#114](https://github.com/nicolaepocroianu/penguin-harness/pull/114)
 
 The choice of module for a ref and the module documents in effect for it moved into one module source (`activities/module-source.ts`), which the sandbox, deploys and versions ask; every module build and stylesheet compile moved behind one module builder (`activities/module-builder.ts`), which the sandbox and a deploy's prepare stage share. Preview stylesheets are now compiled with sass 1.54.0, the version a deploy compiles them with, instead of the server's own sass.
 
