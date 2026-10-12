@@ -14,7 +14,6 @@ import type {
   ElevenLabsVoicesProblem,
   UploadedMedia,
   VoiceOption,
-  VideoTimeline,
 } from "@prismshadow/penguin-server/api";
 import { Button } from "../../components/ui/button";
 import { toastSuccess } from "../../components/ui/toast";
@@ -41,6 +40,7 @@ import { SceneCompositionView } from "./scene-composition-view";
 import { captionsUrl, recordingUrl } from "./scene-video";
 import type { StudioDraft } from "./studio-draft";
 import { useHeldWork } from "./unsaved-work-context";
+import type { TimelineEdits } from "./scene-timeline-view";
 
 export function AssetEditor({
   manifest,
@@ -164,18 +164,11 @@ export function AssetEditor({
   const onAcceptImage = (runId: string) => void draft.acceptRun(runId, "accept-image");
   const onAcceptText = (runId: string) => void draft.acceptRun(runId, "accept-media-text");
   const onAcceptVideo = (runId: string) => void draft.acceptRun(runId, "accept-video");
-  const onSaveTimeline = async (
-    language: string,
-    assetKey: string,
-    timeline: VideoTimeline | null,
-  ) => {
-    await draft.change(
-      (api, revision) => api.draft.videoTimeline(revision, { language, assetKey, timeline }),
-      {
-        keep: "none",
-        then: () => toastSuccess(S.activities.saved),
-      },
-    );
+  const timelines: TimelineEdits = {
+    edit: (language, assetKey) => draft.timeline(language, assetKey),
+    change: (language, assetKey, timeline) => draft.editTimeline(language, assetKey, timeline),
+    drop: (language, assetKey) => draft.dropTimeline(language, assetKey),
+    save: (language, assetKey, timeline) => draft.saveTimeline(language, assetKey, timeline),
   };
   // An upload that would replace a bound file, held beside it until the author chooses.
   const [pendingUpload, setPendingUpload] = useState<{
@@ -632,7 +625,7 @@ export function AssetEditor({
                 canRecord={canAccept}
                 onRecord={onRecordVideo}
                 onAcceptVideo={onAcceptVideo}
-                onSaveTimeline={onSaveTimeline}
+                timelines={timelines}
                 {...(onRenderTimeline ? { onRenderTimeline } : {})}
                 {...(onRefineTimeline ? { onRefineTimeline } : {})}
                 {...(onCritique ? { onCritique } : {})}

@@ -14,7 +14,6 @@ import type {
   CompositionCandidate,
   SceneLookSummary,
   VideoCheck,
-  VideoTimeline,
 } from "@prismshadow/penguin-server/api";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -38,7 +37,7 @@ import {
 import { MediaComparison } from "./media-comparison";
 import { MediaPlayer } from "./media-player";
 import { indexRuns } from "./runs-index";
-import { SceneTimelineView } from "./scene-timeline-view";
+import { SceneTimelineView, type TimelineEdits } from "./scene-timeline-view";
 import { SceneCritiqueView } from "./scene-critique-view";
 import {
   captionsUrl,
@@ -68,7 +67,7 @@ export function SceneCompositionView({
   canRecord = false,
   onRecord,
   onAcceptVideo,
-  onSaveTimeline,
+  timelines,
   onRenderTimeline,
   onRefineTimeline,
   onCritique,
@@ -93,12 +92,8 @@ export function SceneCompositionView({
   onRecord?: (compositionRunId: string) => void;
   /** Bind a recording to this asset. */
   onAcceptVideo?: (runId: string) => void;
-  /** Save this asset's timeline, or with null drop it. */
-  onSaveTimeline?: (
-    language: string,
-    assetKey: string,
-    timeline: VideoTimeline | null,
-  ) => Promise<void>;
+  /** The timelines the draft holds edits of, and saving them; absent, there is no timeline. */
+  timelines?: TimelineEdits;
   /** Render this asset's timeline to its finished video. */
   onRenderTimeline?: (language: string, assetKey: string) => void;
   /** Ask an agent to refine this asset's timeline. */
@@ -233,7 +228,7 @@ export function SceneCompositionView({
             : {})}
         />
       )}
-      {onSaveTimeline && onRenderTimeline && (newestRecording || asset.timeline) && (
+      {timelines && onRenderTimeline && (newestRecording || asset.timeline) && (
         <SceneTimelineView
           asset={asset}
           group={group}
@@ -244,7 +239,10 @@ export function SceneCompositionView({
           canChange={canRecord && !busy}
           rendering={rendering}
           refinements={runIndex.of("timeline", target)}
-          onSave={(timeline) => onSaveTimeline(language, asset.key, timeline)}
+          edit={timelines.edit(language, asset.key)}
+          onEdit={(timeline) => timelines.change(language, asset.key, timeline)}
+          onDrop={() => timelines.drop(language, asset.key)}
+          onSave={(timeline) => timelines.save(language, asset.key, timeline)}
           onRender={() => onRenderTimeline(language, asset.key)}
           canRefine={canGenerate}
           {...(onRefineTimeline ? { onRefine: () => onRefineTimeline(language, asset.key) } : {})}

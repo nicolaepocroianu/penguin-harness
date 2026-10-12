@@ -11,6 +11,7 @@ import {
   type DraftContext,
   type DraftFacts,
 } from "../src/features/activities/studio-draft";
+import { ApiError } from "../src/api/client";
 import { S } from "../src/lib/strings";
 import { memoryActivity, settle } from "./activity-memory-api";
 
@@ -123,19 +124,21 @@ describe("the studio draft's autosaves", () => {
 });
 
 describe("drafts from the server", () => {
-  it("never puts the poll's draft over unsaved text, and says the draft moved", () => {
+  it("merges the poll's draft field by field, and takes it whole over nothing unsaved", () => {
     const { draft } = studio();
     draft.edit("description", "Mine");
-    draft.receive(detailAt("r2", { description: "Theirs" }), "r1");
-    expect(draft.state).toMatchObject({ description: "Mine", changed: true });
-    expect(draft.revision).toBe("r1");
+    // Another field changed: taken, under the edit, which now sits on the newer draft.
+    draft.receive(detailAt("r2", { spec: { title: "Theirs" } }), "r1");
+    expect(draft.state).toMatchObject({ description: "Mine", changed: false });
+    expect(draft.state.spec).toBe(JSON.stringify({ title: "Theirs" }, null, 2));
+    expect(draft.revision).toBe("r2");
 
-    // Without unsaved text the poll's draft is taken, and the notice goes.
+    // Without unsaved text the poll's draft is taken whole.
     draft.edit("description", "Saved script");
-    draft.receive(detailAt("r2", { description: "Theirs" }), "r1");
+    draft.receive(detailAt("r3", { description: "Theirs" }), "r2");
     expect(draft.state).toMatchObject({ description: "Theirs", changed: false });
     // A poll that started before the draft moved is old news.
-    draft.receive(detailAt("r0", { description: "Older" }), "r1");
+    draft.receive(detailAt("r0", { description: "Older" }), "r2");
     expect(draft.state.description).toBe("Theirs");
   });
 
@@ -310,5 +313,145 @@ describe("the manifest the structured editors read", () => {
     };
     // A generated image names its file's hash too.
     expect(readManifest(JSON.stringify(bound))).toBeNull();
+  });
+});
+
+describe("the field-level merge", () => {
+  const video = {
+    key: "intro-video",
+    type: "video",
+    description: "The sky",
+    usages: [{ sceneId: "intro" }],
+  };
+  const withVideo = (extra: Record<string, unknown> = {}, hello: Record<string, unknown> = {}) =>
+    ({
+      assets: {
+        "en-US": [
+          { ...manifest.assets["en-US"]![0], ...hello },
+          { ...video, ...extra },
+        ],
+      },
+    }) as unknown as AssetManifest;
+  const cut = (outMs: number) =>
+    ({
+      version: 1,
+      width: 640,
+      height: 480,
+      fps: 30,
+      cuts: [{ id: "c1", source: { runId: "v1" }, inMs: 0, outMs }],
+      narration: [],
+      music: null,
+      effects: [],
+      captions: { enabled: true, maxWords: 8, maxChars: 42 },
+    }) as never;
+  const planAt = (revision: string, extra: Record<string, unknown>, hello = {}) =>
+    detailAt(revision, { mediaPlan: { manifest: withVideo(extra, hello) } as never });
+  /** A studio whose draft has a video, and a timeline being edited on it. */
+  function editing() {
+    const setup = studio();
+    setup.draft.replace(planAt("r1", {}));
+    setup.draft.editTimeline("en-US", "intro-video", cut(4000));
+    return setup;
+  }
+
+  it("keeps a timeline's edit when another asset changes, and moves the revision", () => {
+    const { draft } = editing();
+    draft.receive(planAt("r2", {}, { path: "media/hello.mp3" }), "r1");
+    expect(draft.timeline("en-US", "intro-video")).toEqual(cut(4000));
+    expect(draft.revision).toBe("r2");
+    expect(draft.state.changed).toBe(false);
+  });
+
+  it("lets the author's own timeline save land, and the edit goes", async () => {
+    const { draft, calls, toasts } = editing();
+    const saving = draft.saveTimeline("en-US", "intro-video", cut(4000));
+    expect(calls).toMatchObject([
+      {
+        path: "video-timeline",
+        method: "PUT",
+        body: { expectedRevision: "r1", assetKey: "intro-video", timeline: cut(4000) },
+      },
+    ]);
+    // The server writes the timeline back in its own key order.
+    const written = JSON.parse(JSON.stringify(cut(4000), Object.keys(cut(4000)).reverse()));
+    calls[0]!.answer(planAt("r2", { timeline: written }).draft);
+    expect(await saving).toBe(true);
+    expect(draft.timeline("en-US", "intro-video")).toBeNull();
+    expect(draft.state.changed).toBe(false);
+    expect(toasts).toEqual([S.activities.saved]);
+  });
+
+  it("keeps an edit to a field changed on both sides, and marks it in conflict", () => {
+    const { draft } = editing();
+    draft.edit("description", "Mine");
+    const theirs = planAt("r2", { timeline: cut(9000) });
+    theirs.draft.description = "Theirs";
+    draft.receive(theirs, "r1");
+    expect(draft.state.description).toBe("Mine");
+    expect(draft.timeline("en-US", "intro-video")).toEqual(cut(4000));
+    expect([...draft.state.conflicts].sort()).toEqual([
+      "description",
+      "timeline:en-US/intro-video",
+    ]);
+    expect(draft.state.changed).toBe(true);
+    // The same value on both sides is no conflict: the edit has landed.
+    const same = planAt("r3", { timeline: cut(9000) });
+    same.draft.description = "Mine";
+    draft.receive(same, "r2");
+    expect(draft.state.conflicts.has("description")).toBe(false);
+    expect(draft.state.dirty).toBe(false);
+  });
+
+  it("reads the draft again when a save is refused, and sends once more over another asset's change", async () => {
+    const { draft, calls } = editing();
+    const saving = draft.saveTimeline("en-US", "intro-video", cut(4000));
+    calls[0]!.refuse(new ApiError(409, "draft_conflict", "Draft changed."));
+    await settle();
+    expect(calls[1]).toMatchObject({ path: "", method: "GET" });
+    calls[1]!.answer(planAt("r2", {}, { path: "media/hello.mp3" }));
+    await settle();
+    expect(calls[2]).toMatchObject({ path: "video-timeline", body: { expectedRevision: "r2" } });
+    calls[2]!.answer(planAt("r3", { timeline: cut(4000) }, { path: "media/hello.mp3" }).draft);
+    expect(await saving).toBe(true);
+    expect(draft.timeline("en-US", "intro-video")).toBeNull();
+  });
+
+  it("says so when a refused save's field changed on the server too, and keeps the edit", async () => {
+    const { draft, calls } = editing();
+    const saving = draft.saveTimeline("en-US", "intro-video", cut(4000));
+    calls[0]!.refuse(new ApiError(409, "draft_conflict", "Draft changed."));
+    await settle();
+    calls[1]!.answer(planAt("r2", { timeline: cut(9000) }));
+    expect(await saving).toBe(false);
+    expect(calls).toHaveLength(2);
+    expect(draft.state.error).toBe(S.errors.byCode.draft_conflict);
+    expect(draft.timeline("en-US", "intro-video")).toEqual(cut(4000));
+    // Saving it again is refused at once: the author reloads first.
+    expect(await draft.saveTimeline("en-US", "intro-video", cut(4000))).toBe(false);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("autosaves the plan merged with the newer draft, never over a newer field", () => {
+    const { draft, calls } = studio();
+    draft.replace(planAt("r1", {}));
+    draft.editManifest(withVideo({ description: "A brighter sky" }));
+    // Meanwhile a run bound the narration's file.
+    draft.receive(planAt("r2", {}, { path: "media/hello.mp3" }), "r1");
+    vi.advanceTimersByTime(MEDIA_AUTOSAVE_MS);
+    expect(calls[0]).toMatchObject({ path: "media", body: { expectedRevision: "r2" } });
+    const sent = (calls[0]!.body as { manifest: AssetManifest }).manifest.assets["en-US"]!;
+    expect(sent.find((asset) => asset.key === "hello")!.path).toBe("media/hello.mp3");
+    expect(sent.find((asset) => asset.key === "intro-video")!.description).toBe("A brighter sky");
+  });
+
+  it("merges the specification whole, by its value", () => {
+    const { draft } = studio();
+    draft.edit("spec", '{"title":"Typed"}');
+    draft.receive(detailAt("r2", { description: "Theirs" }), "r1");
+    expect(draft.state).toMatchObject({ spec: '{"title":"Typed"}', description: "Theirs" });
+    expect(draft.state.changed).toBe(false);
+    draft.receive(detailAt("r3", { description: "Theirs", spec: { title: "Other" } }), "r2");
+    expect(draft.state.spec).toBe('{"title":"Typed"}');
+    expect([...draft.state.conflicts]).toEqual(["spec"]);
   });
 });

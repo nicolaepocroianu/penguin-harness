@@ -1949,7 +1949,18 @@ export type Strings = {
     discardRefPlan: string;
     discardTitle: string;
     discardConfirm: string;
-    remoteChanged: string;
+    /** A field the author was editing changed in the saved draft; `parts` names them. */
+    remoteChanged: (parts: string) => string;
+    /** The parts `remoteChanged` names. */
+    conflictParts: {
+      script: string;
+      spec: string;
+      media: string;
+      asset: (key: string) => string;
+      timeline: (key: string) => string;
+      /** Joins the parts: all but the last, then the last. */
+      and: (list: string, last: string) => string;
+    };
     saveFirst: string;
     readOnly: string;
     runningHelp: string;

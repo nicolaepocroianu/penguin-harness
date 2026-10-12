@@ -2264,8 +2264,16 @@ export const en: Strings = {
     discardRefPlan: "Discard the choices you made for this new ref's assets?",
     discardTitle: "Discard unsaved changes?",
     discardConfirm: "Discard",
-    remoteChanged:
-      "The saved draft changed. Your edits are still here; reload before applying them.",
+    remoteChanged: (parts: string) =>
+      `The saved draft changed ${parts} while you were editing it. Your edits are still here; reload before applying them.`,
+    conflictParts: {
+      script: "the script",
+      spec: "the specification",
+      media: "the media plan",
+      asset: (key: string) => `asset ${key}`,
+      timeline: (key: string) => `the timeline of ${key}`,
+      and: (list: string, last: string) => `${list} and ${last}`,
+    },
     saveFirst: "Save your description before generating. Review or save specification edits first.",
     readOnly: "Only the Project owner can edit activities.",
     runningHelp: "Generation continues when you leave this page. Open its Session to follow along.",

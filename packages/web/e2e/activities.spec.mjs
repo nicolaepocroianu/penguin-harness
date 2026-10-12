@@ -588,6 +588,16 @@ async function fixture(page) {
       activity.draft.description = "Remote description";
       activity.draft.contentRevision = String(++revision);
     },
+    /** The draft as the server holds it now. */
+    savedDraft() {
+      return structuredClone(activity.draft);
+    },
+    /** Change the saved draft as a run or another tab would; the new revision comes back. */
+    changeSavedDraft(change) {
+      change(activity.draft);
+      activity.draft.contentRevision = String(++revision);
+      return activity.draft.contentRevision;
+    },
     get activityRequests() {
       return activityRequests;
     },
@@ -9242,6 +9252,154 @@ test("records a composed scene and keeps it as the scene's video", async ({ page
         ),
     ),
   ).toEqual([]);
+});
+
+test("a timeline's edit outlives a newer draft from elsewhere, and saves over it", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await page.clock.install();
+  const usage = (key) => ({
+    sceneId: "intro",
+    sourceKey: key,
+    occurrence: 1,
+    sceneOccurrenceCount: 1,
+  });
+  await page.route(`**${base}/act_test/plan-media`, (route) =>
+    route.fallback({
+      postData: JSON.stringify({
+        ...route.request().postDataJSON(),
+        manifest: {
+          productCode: "words",
+          refNum: 12,
+          assets: {
+            "en-US": [
+              {
+                key: "intro-video",
+                type: "video",
+                description: "The sky slowly brightens",
+                path: "media/loom/words/words-1/uploads/intro-00000000.webm",
+                usages: [usage("intro-video")],
+              },
+              {
+                key: "sky",
+                type: "image",
+                description: "A blue sky",
+                path: "media/loom/words/words-1/uploads/sky-00000000.png",
+                usages: [usage("sky")],
+              },
+            ],
+          },
+        },
+      }),
+    }),
+  );
+  const source = { runId: "run_video_1", sha256: "c".repeat(64), format: "mp4" };
+  const started = {
+    version: 1,
+    width: 640,
+    height: 480,
+    fps: 30,
+    cuts: [{ id: "cut-1", source, inMs: 0, outMs: 6000, transition: "cut", transitionMs: 0 }],
+    narration: [],
+    music: null,
+    effects: [],
+    captions: { enabled: true, maxWords: 8, maxChars: 42 },
+  };
+  const saves = [];
+  const runs = [
+    {
+      kind: "video",
+      video: {
+        language: "en-US",
+        assetKey: "intro-video",
+        compositionRunId: "run_comp_1",
+        width: 640,
+        height: 480,
+        seconds: 6,
+      },
+      runId: "run_video_1",
+      inputRevision: "an-earlier-revision",
+      activityId: "act_test",
+      projectId,
+      agentId: "",
+      sessionId: null,
+      status: "succeeded",
+      createdAt: "2026-09-28T11:00:00Z",
+      finishedAt: "2026-09-28T11:00:09Z",
+      hasCandidate: true,
+      error: null,
+    },
+  ];
+  await page.route("**/*", (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const p = url.pathname;
+    const json = (value, status = 200) =>
+      route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
+    if (p === `${base}/video-setup`) return json({ enabled: true });
+    if (p === `${base}/act_test/media-upload` || p === `${base}/act_test/media-image`)
+      return route.fulfill({ contentType: "image/png", body: PIXEL });
+    if (p === `${base}/act_test/runs` && request.method() === "GET") return json({ runs });
+    if (p === `${base}/act_test/video-timeline` && request.method() === "GET") {
+      const saved = f
+        .savedDraft()
+        .mediaPlan?.manifest.assets["en-US"].find((asset) => asset.key === "intro-video")?.timeline;
+      return json({ timeline: saved ?? started, saved: !!saved, issues: [] });
+    }
+    if (p === `${base}/act_test/video-timeline` && request.method() === "PUT") {
+      const body = request.postDataJSON();
+      saves.push(body);
+      // The server's rule: a write names the draft's revision as it is now.
+      if (body.expectedRevision !== f.savedDraft().contentRevision)
+        return json({ error: { code: "draft_conflict", message: "Draft changed." } }, 409);
+      f.changeSavedDraft((draft) => {
+        draft.mediaPlan.manifest.assets["en-US"][0].timeline = body.timeline;
+      });
+      return json(f.savedDraft());
+    }
+    return route.fallback();
+  });
+  await create(page);
+  await openSection(page, "Specification");
+  await page
+    .getByRole("textbox", { name: "Specification JSON", exact: true })
+    .fill(JSON.stringify(spec));
+  await page.getByRole("button", { name: "Save Spec", exact: true }).click();
+  await openSection(page, "Scenes and media");
+  await planMedia(page);
+  await page.getByRole("treeitem", { name: "Videos", exact: true, level: 3 }).click();
+  await page
+    .getByRole("treeitem", { name: /intro-video/ })
+    .first()
+    .click();
+  const timeline = page.getByRole("region", { name: "Timeline", exact: true });
+  await timeline.getByRole("textbox", { name: /^To \(s\)/ }).fill("4");
+  await expect(timeline.getByText("Plays for 4 s", { exact: true })).toBeVisible();
+
+  // Elsewhere the sky's description changes; the next poll brings that draft, and the edit
+  // stays over it rather than going with the revision it was made on.
+  const moved = f.changeSavedDraft((draft) => {
+    draft.mediaPlan.manifest.assets["en-US"][1].description = "A pink sky";
+  });
+  const requests = f.activityRequests;
+  await page.clock.fastForward(30_000);
+  await expect.poll(() => f.activityRequests).toBeGreaterThan(requests);
+  await expect(timeline.getByText("Plays for 4 s", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "The saved draft changed" })).toHaveCount(
+    0,
+  );
+
+  await timeline.getByRole("button", { name: "Save timeline", exact: true }).click();
+  await expect(timeline.getByText("Saved", { exact: true })).toBeVisible();
+  expect(saves).toHaveLength(1);
+  expect(saves[0]).toMatchObject({
+    expectedRevision: moved,
+    assetKey: "intro-video",
+    timeline: { cuts: [{ inMs: 0, outMs: 4000 }] },
+  });
+  expect(f.savedDraft().mediaPlan.manifest.assets["en-US"][1].description).toBe("A pink sky");
+  expect(f.errors).toEqual([]);
 });
 
 test("edits, saves and renders a scene video's timeline", async ({ page }) => {

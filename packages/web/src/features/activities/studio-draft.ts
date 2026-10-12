@@ -5,7 +5,9 @@
  *
  * Plain TS so it runs in node: the page reads `state` and calls the operations, and every
  * change the server makes to the draft comes back through `applyDraft`, which says whether the
- * author's unsaved text is kept.
+ * author's unsaved text is kept. A newer saved draft is merged in field by field
+ * (draft-merge.ts): the author's edits stay over it, and a field changed on both sides is
+ * marked a conflict rather than freezing the whole draft.
  */
 import type {
   ActivityDetail,
@@ -13,10 +15,13 @@ import type {
   ActivityRecord,
   ActivityRun,
   AssetManifest,
+  VideoTimeline,
 } from "@prismshadow/penguin-server/api";
+import { ApiError } from "../../api/client";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import type { ActivityApi, RunAccept, RunStart } from "./activity-api";
+import { mergeDraft, pretty, savesConflict, type FieldId } from "./draft-merge";
 import { applyMediaChange, type ProposalChange } from "./proposal";
 import { renumberManifestText } from "./ref-number";
 
@@ -47,7 +52,11 @@ export interface DraftState {
   /** A change is on its way to the server; another waits. */
   busy: boolean;
   error: string;
-  /** The server's draft moved while the author had unsaved text. */
+  /** Timelines edited and not saved yet, by `${language}/${assetKey}`. */
+  timelines: Readonly<Record<string, VideoTimeline>>;
+  /** The fields the author edited that the saved draft has since changed differently. */
+  conflicts: ReadonlySet<FieldId>;
+  /** Some field is in conflict. */
   changed: boolean;
   scriptSave: "saving" | "saved" | "failed" | null;
   mediaSave: "pending" | "saving" | "saved" | "failed" | null;
@@ -134,7 +143,20 @@ export interface DraftPorts {
   toast(text: string): void;
 }
 
-export const pretty = (value: unknown) => (value ? JSON.stringify(value, null, 2) : "");
+export { pretty };
+
+/** What a save writes: one of the texts, or one asset's timeline (`${language}/${assetKey}`). */
+type SavePart = DraftPart | { timeline: string };
+
+const isConflict = (e: unknown) => e instanceof ApiError && e.code === "draft_conflict";
+
+/** The fields a save of `part` writes, whose base becomes what the server then holds. */
+function writes(part: SavePart): (id: FieldId) => boolean {
+  if (typeof part !== "string") return (id) => id === `timeline:${part.timeline}`;
+  if (part === "media")
+    return (id) => id === "media" || id.startsWith("manifest#") || id.startsWith("asset:");
+  return (id) => id === part;
+}
 
 function fail(message: string): never {
   throw new Error(message);
@@ -216,6 +238,8 @@ export class StudioDraft {
   private readonly listeners = new Set<() => void>();
   private live = true;
   private savedText = { spec: "", media: "" };
+  /** The base of each field the author holds an edit to that began on an older draft. */
+  private bases = new Map<FieldId, unknown>();
   private manifestOf = { text: "", manifest: null as AssetManifest | null };
   private mediaArmed = false;
   private scriptTimer: { key: string; timer: ReturnType<typeof setTimeout> } | null = null;
@@ -236,6 +260,8 @@ export class StudioDraft {
       manifest: null,
       busy: false,
       error: "",
+      timelines: {},
+      conflicts: new Set(),
       changed: false,
       scriptSave: null,
       mediaSave: null,
@@ -304,34 +330,70 @@ export class StudioDraft {
     this.set({ error: text });
   }
 
-  /** Replace the draft and every text with the server's: a load, a reload. */
+  /**
+   * Replace the draft and every text with the server's: a load, a reload. Timelines being
+   * edited are their own editor's, and are merged like any other edit.
+   */
   replace(detail: ActivityDetail): void {
-    this.set({
-      detail,
-      description: detail.draft.description,
-      spec: pretty(detail.draft.spec),
-      media: pretty(detail.draft.mediaPlan?.manifest),
-      changed: false,
-    });
+    this.adopt(detail, { keepTexts: false });
   }
 
   /**
-   * The draft the poll read. Taken only when nothing was sent since the poll started; over
-   * unsaved text it is never applied, and a moved draft is only reported.
+   * The draft the poll read, taken only when nothing was sent since the poll started. It is
+   * merged field by field: the author's edits stay, and a field changed on both sides is
+   * marked a conflict.
    */
   receive(detail: ActivityDetail, revisionAtStart: string): void {
     if (this.state.busy || this.revision !== revisionAtStart) return;
-    if (!this.state.dirty) this.replace(detail);
-    else if (detail.draft.contentRevision !== this.revision) this.set({ changed: true });
+    if (this.state.dirty && detail.draft.contentRevision === this.revision) return;
+    this.adopt(detail, { keepTexts: true });
   }
 
   /** A draft the server made, applied with an explicit choice about the author's texts. */
-  applyDraft(draft: ActivityDraft, keep: KeepText): void {
+  applyDraft(draft: ActivityDraft, keep: KeepText, wrote?: (id: FieldId) => boolean): void {
     const current = this.state.detail;
     if (!current) return;
-    const detail = withDraft(current, draft);
-    if (keep === "none") this.replace(detail);
-    else this.set({ detail });
+    this.adopt(withDraft(current, draft), { keepTexts: keep === "unsaved", wrote });
+  }
+
+  /** A timeline's edit, which its editor shows until it is saved; null when there is none. */
+  timeline(language: string, assetKey: string): VideoTimeline | null {
+    return this.state.timelines[`${language}/${assetKey}`] ?? null;
+  }
+
+  editTimeline(language: string, assetKey: string, timeline: VideoTimeline): void {
+    this.set({ timelines: { ...this.state.timelines, [`${language}/${assetKey}`]: timeline } });
+  }
+
+  /** Drop a timeline's edit: its editor closed, and the author agreed to lose it. */
+  dropTimeline(language: string, assetKey: string): void {
+    const id = `${language}/${assetKey}`;
+    if (!(id in this.state.timelines)) return;
+    const { [id]: _dropped, ...timelines } = this.state.timelines;
+    this.bases.delete(`timeline:${id}`);
+    const conflicts = new Set(this.state.conflicts);
+    conflicts.delete(`timeline:${id}`);
+    this.set({ timelines, conflicts });
+  }
+
+  /**
+   * Save a timeline's edit on its video, or with null drop the saved one. Settles true once
+   * the draft has it; a failure leaves the edit where it was, and says why.
+   */
+  saveTimeline(
+    language: string,
+    assetKey: string,
+    timeline: VideoTimeline | null,
+  ): Promise<boolean> {
+    const id = `${language}/${assetKey}`;
+    return this.act(async () => {
+      const draft = await this.saving({ timeline: id }, (api, revision) =>
+        api.draft.videoTimeline(revision, { language, assetKey, timeline }),
+      );
+      if (!draft) return;
+      this.dropTimeline(language, assetKey);
+      this.ports.toast(S.activities.saved);
+    });
   }
 
   /** The activity's name or tags changed; the draft did not. */
@@ -349,7 +411,10 @@ export class StudioDraft {
       this.state.media === this.savedText.media
         ? pretty(detail.draft.mediaPlan?.manifest)
         : renumberManifestText(this.state.media, from, detail.refNum);
-    this.set({ detail, media });
+    // The plan's addresses moved under the edits: they start again from the renumbered plan.
+    for (const id of this.bases.keys()) if (writes("media")(id)) this.bases.delete(id);
+    const conflicts = new Set([...this.state.conflicts].filter((id) => !writes("media")(id)));
+    this.set({ detail, media, conflicts });
   }
 
   /** Run one change at a time; resolves true only when it went through. */
@@ -427,19 +492,21 @@ export class StudioDraft {
 
   /**
    * Save one text. `quiet` leaves out the toast, for an autosave. Text typed into the script
-   * while it saves stays: the saved script is never written back over the editor.
+   * while it saves stays: the saved script is never written back over the editor. The media
+   * plan sent is the merged one: the saved plan's newer fields with the author's edits over
+   * them, never an older whole plan over newer changes.
    */
   async save(part: DraftPart, quiet = false): Promise<boolean> {
     if (!this.state.detail) return false;
     return this.act(async () => {
-      const { description, spec, media } = this.state;
+      // Read when sent, so a retry sends the texts as merged with the newer draft.
       const call: DraftCall<ActivityDraft> =
         part === "description"
-          ? (api, revision) => api.draft.description(revision, description)
+          ? (api, revision) => api.draft.description(revision, this.state.description)
           : part === "media"
-            ? (api, revision) => api.draft.media(revision, JSON.parse(media))
-            : (api, revision) => api.draft.spec(revision, JSON.parse(spec));
-      const draft = await this.commit(call, { keep: "unsaved" });
+            ? (api, revision) => api.draft.media(revision, JSON.parse(this.state.media))
+            : (api, revision) => api.draft.spec(revision, JSON.parse(this.state.spec));
+      const draft = await this.saving(part, call);
       if (!draft) return;
       if (part === "spec") this.edit("spec", pretty(draft.spec));
       if (part === "media") this.edit("media", pretty(draft.mediaPlan?.manifest));
@@ -473,6 +540,70 @@ export class StudioDraft {
     if (draft) this.ports.toast(S.activities.saved);
   }
 
+  /**
+   * Send the author's own save. A field in conflict is not sent: the author reloads first. A
+   * save the server refuses because the draft moved reads the draft, merges it, and is sent
+   * once more when what it writes is not in conflict.
+   */
+  private async saving(
+    part: SavePart,
+    call: DraftCall<ActivityDraft>,
+  ): Promise<ActivityDraft | null> {
+    const refuse = () => new ApiError(409, "draft_conflict", S.errors.byCode.draft_conflict);
+    if (savesConflict(part, this.state.conflicts)) throw refuse();
+    const send = async () => {
+      if (!this.state.detail) throw new Error(S.activities.studioProposal.saveFirst);
+      const draft = await this.send(call);
+      if (!this.live) return null;
+      this.applyDraft(draft, "unsaved", writes(part));
+      return draft;
+    };
+    try {
+      return await send();
+    } catch (e) {
+      if (!isConflict(e)) throw e;
+      const detail = await this.ports.api.detail();
+      if (!this.live) return null;
+      this.adopt(detail, { keepTexts: true });
+      if (savesConflict(part, this.state.conflicts)) throw e;
+      return await send();
+    }
+  }
+
+  /**
+   * Take a newer saved draft: the author's texts and timelines are merged over it field by
+   * field, or with `keepTexts` false the texts are the server's and only timelines merge.
+   */
+  private adopt(
+    detail: ActivityDetail,
+    options: { keepTexts: boolean; wrote?: (id: FieldId) => boolean },
+  ): void {
+    const current = this.state.detail;
+    const server = {
+      description: detail.draft.description,
+      spec: pretty(detail.draft.spec),
+      media: pretty(detail.draft.mediaPlan?.manifest),
+    };
+    if (!current) {
+      this.bases = new Map();
+      this.set({ detail, ...server, timelines: {}, conflicts: new Set() });
+      return;
+    }
+    const { description, spec, media, timelines } = this.state;
+    const bases = options.keepTexts
+      ? this.bases
+      : new Map([...this.bases].filter(([id]) => id.startsWith("timeline:")));
+    const result = mergeDraft({
+      base: current.draft,
+      bases,
+      local: options.keepTexts ? { description, spec, media, timelines } : { ...server, timelines },
+      server: detail.draft,
+      ...(options.wrote ? { landed: options.wrote } : {}),
+    });
+    this.bases = result.bases;
+    this.set({ detail, ...result.local, conflicts: result.conflicts });
+  }
+
   private set(patch: Partial<DraftState>): void {
     const next = { ...this.state, ...patch };
     const detail = next.detail;
@@ -489,6 +620,7 @@ export class StudioDraft {
       media: !!detail && next.media !== this.savedText.media,
     };
     next.dirty = next.edited.description || next.edited.spec || next.edited.media;
+    next.changed = next.conflicts.size > 0;
     next.manifest = this.manifestOf.manifest;
     this.state = next;
     this.schedule();

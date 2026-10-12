@@ -96,6 +96,7 @@ import { activityApi, projectActivitiesApi, type RunStart } from "./activity-api
 import { ActivityClientContext, runStarted, summarize } from "./activity-client";
 import { ResourceCache } from "./resource-cache";
 import { useResource } from "./use-resource";
+import { conflictParts } from "./draft-merge";
 import { pretty, type DraftBlock } from "./studio-draft";
 import { useStudioDraft } from "./use-studio-draft";
 import { ActivityList } from "./activity-list";
@@ -1422,7 +1423,7 @@ function ActivityEditor({
             )}
             {changed && (
               <p role="status" className={`rounded-md border p-3 text-xs ${toneStrip.attention}`}>
-                {S.activities.remoteChanged}
+                {S.activities.remoteChanged(conflictText(draft.state.conflicts))}
               </p>
             )}
           </>
@@ -2095,6 +2096,22 @@ function ActivityEditor({
 /** A proposal whose only change is the script, which is done with once the script is. */
 function changesOnlyScript(read: ProposalRead): boolean {
   return !!read.proposal?.changes.every((change) => change.target === "description");
+}
+
+/** The parts of the draft in conflict, named for the notice. */
+function conflictText(conflicts: Iterable<string>): string {
+  const words = S.activities.conflictParts;
+  const parts = conflictParts(conflicts);
+  const names = [
+    ...(parts.script ? [words.script] : []),
+    ...(parts.spec ? [words.spec] : []),
+    ...(parts.media ? [words.media] : []),
+    ...parts.assets.map(words.asset),
+    ...parts.timelines.map(words.timeline),
+  ];
+  return names.length > 1
+    ? words.and(names.slice(0, -1).join(", "), names[names.length - 1]!)
+    : (names[0] ?? "");
 }
 
 /** Why a run cannot start now, in the author's terms; null when nothing need be said. */
