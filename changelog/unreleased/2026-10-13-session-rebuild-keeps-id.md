@@ -3,7 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** fix
 - **Scope:** `core`, `server`
-- **PR:** [#PENDING](https://github.com/nicolaepocroianu/penguin-harness/pull/PENDING)
+- **PR:** [#120](https://github.com/nicolaepocroianu/penguin-harness/pull/120)
 
 A Session that was created but never run has no Trace, so after a restart (or once its runtime was
 released) the server rebuilt it. The rebuild minted a new id and renamed the Session row and its
