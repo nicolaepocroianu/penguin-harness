@@ -19,6 +19,7 @@ import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { indexRuns } from "./runs-index";
+import type { DraftBlock } from "./studio-draft";
 import {
   STATUS_TONE,
   checkBlocked,
@@ -133,12 +134,15 @@ export function QualityChecksView({
   endpoint,
   runs,
   editable,
+  blocked: gate,
   onStarted,
 }: {
   /** The activity's API path. */
   endpoint: string;
   runs: ActivityRunSummary[];
   editable: boolean;
+  /** Why the draft holds Check quality back (its `quality` gate), or null. */
+  blocked: DraftBlock | null;
   /** A quality run has started; the page adds it to the history it polls. */
   onStarted: (run: ActivityRun) => void;
 }) {
@@ -176,9 +180,8 @@ export function QualityChecksView({
   }, [endpoint, settledKey]);
 
   const blocked = checkBlocked({
-    editable,
+    gate,
     browserInstalled: state?.browserInstalled ?? true,
-    runs: runIndex,
     starting,
   });
 

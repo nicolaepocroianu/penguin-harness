@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AcceptanceReport, ActivityRunSummary } from "@prismshadow/penguin-server/api";
+import type { AcceptanceReport } from "@prismshadow/penguin-server/api";
 import {
   TEST_TONE,
   countText,
@@ -8,7 +8,6 @@ import {
   resultRows,
   testBlocked,
 } from "../src/features/activities/test-results-model";
-import { indexRuns } from "../src/features/activities/runs-index";
 
 const report: AcceptanceReport = {
   overallStatus: "failed",
@@ -40,25 +39,6 @@ const report: AcceptanceReport = {
     },
   ],
 };
-
-function run(overrides: Partial<ActivityRunSummary>): ActivityRunSummary {
-  return {
-    kind: "test",
-    runId: "run_1",
-    activityId: "act",
-    projectId: "proj",
-    draftId: "draft",
-    inputRevision: "1",
-    agentId: "agent",
-    sessionId: "s",
-    status: "succeeded",
-    createdAt: "2026-09-25T09:00:00.000Z",
-    finishedAt: null,
-    error: null,
-    hasCandidate: false,
-    ...overrides,
-  };
-}
 
 describe("test results model", () => {
   it("reads the server's answer defensively", () => {
@@ -132,22 +112,15 @@ describe("test results model", () => {
     ]);
   });
 
-  it("says why Run tests cannot be pressed", () => {
-    const base = {
-      editable: true,
-      hasAgent: true,
-      unsaved: false,
-      browserInstalled: true,
-      criteria: 2,
-      runs: indexRuns([]),
-      starting: false,
-    };
+  it("says why Run tests cannot be pressed, the panel's reasons among the draft's", () => {
+    const base = { gate: null, browserInstalled: true, criteria: 2, starting: false };
     expect(testBlocked(base)).toBeNull();
-    expect(testBlocked({ ...base, editable: false })).toBe("readonly");
-    expect(testBlocked({ ...base, runs: indexRuns([run({ status: "running" })]) })).toBe("running");
-    expect(testBlocked({ ...base, starting: true })).toBe("running");
-    expect(testBlocked({ ...base, unsaved: true })).toBe("unsaved");
-    expect(testBlocked({ ...base, hasAgent: false })).toBe("agent");
+    expect(testBlocked({ ...base, gate: "readonly", starting: true })).toBe("readonly");
+    expect(testBlocked({ ...base, gate: "running" })).toBe("running");
+    // A run this panel is starting outranks unsaved text, as a run in the history does.
+    expect(testBlocked({ ...base, gate: "unsaved", starting: true })).toBe("running");
+    expect(testBlocked({ ...base, gate: "unsaved" })).toBe("unsaved");
+    expect(testBlocked({ ...base, gate: "agent", browserInstalled: false })).toBe("agent");
     expect(testBlocked({ ...base, browserInstalled: false })).toBe("browser");
     // Nothing to test needs no browser: the run records that.
     expect(testBlocked({ ...base, browserInstalled: false, criteria: 0 })).toBeNull();

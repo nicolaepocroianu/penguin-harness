@@ -3,7 +3,7 @@
  * a tone, findings as table rows, and when Check quality may be pressed.
  */
 import { describe, expect, it } from "vitest";
-import type { ActivityRunSummary, QualityReport } from "@prismshadow/penguin-server/api";
+import type { QualityReport } from "@prismshadow/penguin-server/api";
 import { S } from "../src/lib/strings";
 import {
   STATUS_TONE,
@@ -12,7 +12,6 @@ import {
   readQualityState,
   statusText,
 } from "../src/features/activities/quality-model";
-import { indexRuns } from "../src/features/activities/runs-index";
 
 const checkedAt = "2026-09-25T10:00:00.000Z";
 
@@ -77,23 +76,6 @@ const readability: QualityReport = {
     },
   ],
 };
-
-const run = (overrides: Partial<ActivityRunSummary>): ActivityRunSummary => ({
-  kind: "quality",
-  runId: "run_1",
-  activityId: "act",
-  projectId: "p",
-  draftId: "d",
-  inputRevision: "r",
-  agentId: "",
-  sessionId: null,
-  status: "succeeded",
-  createdAt: "2026-09-25T10:00:00.000Z",
-  finishedAt: null,
-  error: null,
-  hasCandidate: false,
-  ...overrides,
-});
 
 describe("quality model", () => {
   it("reads the server's answer, and treats anything else as not checked", () => {
@@ -166,12 +148,11 @@ describe("quality model", () => {
   });
 
   it("offers Check quality only with the browser and nothing running", () => {
-    const base = { editable: true, browserInstalled: true, runs: indexRuns([]), starting: false };
+    const base = { gate: null, browserInstalled: true, starting: false };
     expect(checkBlocked(base)).toBeNull();
-    expect(checkBlocked({ ...base, editable: false })).toBe("readonly");
-    expect(checkBlocked({ ...base, browserInstalled: false })).toBe("browser");
+    expect(checkBlocked({ ...base, gate: "readonly", browserInstalled: false })).toBe("readonly");
+    expect(checkBlocked({ ...base, gate: "running", browserInstalled: false })).toBe("browser");
     expect(checkBlocked({ ...base, starting: true })).toBe("running");
-    const running = indexRuns([run({ kind: "module", status: "running" })]);
-    expect(checkBlocked({ ...base, runs: running })).toBe("running");
+    expect(checkBlocked({ ...base, gate: "running" })).toBe("running");
   });
 });

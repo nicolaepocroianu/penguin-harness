@@ -12,12 +12,10 @@ import {
 } from "react-router";
 import type {
   ActivityDetail,
-  ActivityDraft,
   ActivityRecord,
   ActivityRun,
   ActivityRunSummary,
   ActivitySummary,
-  AssetManifest,
   BookWordsRefresh,
   DeployStateResponse,
   MediaStat,
@@ -82,7 +80,7 @@ import { Segmented } from "../../components/ui/segmented";
 import type { SavedReview, ScriptReview } from "./script-editor";
 import { ConversationPanel } from "./conversation-panel";
 import { conversationThreads, focusFor } from "./conversation";
-import { applyMediaChange, type ProposalChange } from "./proposal";
+import type { ProposalChange } from "./proposal";
 import { ScriptEditor } from "./script-editor";
 import { PipelineControls, PipelinePanel } from "./pipeline-panel";
 import { storyboardFrames, type StoryboardFrame } from "./storyboard";
@@ -93,7 +91,6 @@ import { ModuleDocumentView } from "./module-document-view";
 import { ActivityStatsView } from "./activity-stats-view";
 import { RefSwitcher } from "./ref-switcher";
 import { CreateRefView } from "./create-ref-view";
-import { renumberManifestText } from "./ref-number";
 import { ImplementationFeaturesView } from "./implementation-features-view";
 import { GenerationHistory } from "./history-section";
 import { DeployPanel } from "./deploy-panel";
@@ -106,6 +103,8 @@ import { sandboxHasModule, type SandboxStatusLike } from "./sandbox";
 import { JsonEditor } from "./json-editor";
 import { playingModuleRunId } from "./preview";
 import { indexRuns } from "./runs-index";
+import { pretty, type DraftBlock } from "./studio-draft";
+import { useStudioDraft } from "./use-studio-draft";
 import { ActivityList } from "./activity-list";
 import { ProjectMediaView } from "./project-media-view";
 import type { GroupSort } from "./activity-groups";
@@ -122,7 +121,6 @@ import {
 } from "./speech-provider";
 
 const basePath = (projectId: string) => `/api/projects/${encodeURIComponent(projectId)}/activities`;
-const pretty = (value: unknown) => (value ? JSON.stringify(value, null, 2) : "");
 /** Speech, sound and image runs belong to the builtin Media Agent, whoever runs the stages. */
 const MEDIA_RUNNER = { agentId: "media_agent" };
 /** How long the list waits after a run finishes for others finishing with it, before one reload. */
@@ -136,10 +134,6 @@ function pipelineOrNull(value: unknown): PipelineState | null {
   return state && Array.isArray(state.steps) && typeof state.status === "string" ? state : null;
 }
 
-/** How long after the last keystroke the script saves itself: long enough not to save mid-word. */
-const SCRIPT_AUTOSAVE_MS = 5000;
-/** A provider or voice pick saves almost at once; typing a script waits for a pause. */
-const MEDIA_AUTOSAVE_MS = 1000;
 function announce({ kind, text }: Announcement) {
   if (kind === "success") toastSuccess(text);
   else if (kind === "error") toastError(text);
@@ -425,9 +419,6 @@ function ActivityEditor({
 }) {
   const { agents, currentAgent } = useProject();
   const navigate = useNavigate();
-  const [detail, setDetail] = useState<ActivityDetail | null>(null);
-  const [description, setDescription] = useState("");
-  const [spec, setSpec] = useState("");
   // The spec reads as scenes once there is a saved spec to read, unless this viewer chose.
   const [specViewChoice, setSpecViewChoice] = useState<SpecView | null>(readSpecView);
   const [specViewDefault, setSpecViewDefault] = useState<SpecView | null>(null);
@@ -475,7 +466,6 @@ function ActivityEditor({
   const [selected, setSelected] = useState<SceneAssetSelection | null>(null);
   // Controlled, so moving between sections does not close it.
   const [mediaOpen, setMediaOpen] = useState(false);
-  const [media, setMedia] = useState("");
   const [runs, setRuns] = useState<ActivityRunSummary[]>([]);
   const [sandboxModule, setSandboxModule] = useState(false);
   const runIndex = indexRuns(runs);
@@ -535,12 +525,27 @@ function ActivityEditor({
   // An excerpt on its way to the conversation's composer, from another panel.
   const [excerpt, setExcerpt] = useState<string | null>(null);
   const takeExcerpt = useCallback(() => setExcerpt(null), []);
-  const [error, setError] = useState("");
   const [loadError, setLoadError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [changed, setChanged] = useState(false);
   /** A Penguin agent id, or `coding:<id>` for an external coding agent. */
   const [agentId, setAgentId] = useState("");
+  const selectedAgent = stageAgent(agentId, agents, currentAgent?.agentId);
+  const endpoint = `${basePath(projectId)}/${encodeURIComponent(activityId)}`;
+  const running = runIndex.busy;
+  const pipelineRunning = pipeline?.status === "running";
+  const draft = useStudioDraft(
+    {
+      request: <T,>(path: string, method: "GET" | "POST" | "PUT" | "PATCH", body?: unknown) =>
+        apiFetch<T>(path ? `${endpoint}/${path}` : endpoint, {
+          method,
+          ...(body !== undefined ? { body } : {}),
+        }),
+      saved: onSaved,
+      toast: toastSuccess,
+    },
+    { editable, available, running, stages: pipelineRunning, hasAgent: !!selectedAgent },
+  );
+  const { detail, description, spec, media, busy, error, changed, dirty, edited } = draft.state;
+  const editedManifest = draft.state.manifest;
   const [codingAgents, setCodingAgents] = useState<{ id: string; title: string }[]>([]);
   useEffect(() => {
     let cancelled = false;
@@ -579,16 +584,14 @@ function ActivityEditor({
     keys: string[];
   } | null>(null);
   const [uploadsLoading, setUploadsLoading] = useState(false);
-  const state = useRef({ dirty: false, busy: false, revision: "", available });
   const alive = useRef(true);
-  const endpoint = `${basePath(projectId)}/${encodeURIComponent(activityId)}`;
   const loadUploads = useCallback(async () => {
     setUploadsLoading(true);
     try {
       const value = await apiFetch<{ media: UploadedMedia[] }>(`${endpoint}/media-uploads`);
       if (alive.current) setUploads(value.media);
     } catch (e) {
-      if (alive.current) setError(apiErrorText(e));
+      if (alive.current) draft.fail(apiErrorText(e));
     } finally {
       if (alive.current) setUploadsLoading(false);
     }
@@ -634,15 +637,9 @@ function ActivityEditor({
       cancelled = true;
     };
   }, [endpoint, available, inDeploy]);
-  const dirty =
-    detail !== null &&
-    (description !== detail.draft.description ||
-      spec !== pretty(detail.draft.spec) ||
-      media !== pretty(detail.draft.mediaPlan?.manifest));
   const discard = useDiscardConfirm(() => dirty);
   // Which activity and ref the editors are about, as Loom titles its panels.
   const panelSubject = detail ? `${detail.title} - ${detail.productCode} [${detail.refNum}]` : "";
-  state.current = { dirty, busy, revision: detail?.draft.contentRevision ?? "", available };
   // The conversation the panel has open, whose proposal the studio shows; until the panel
   // says otherwise, the newest.
   const [threadRunId, setThreadRunId] = useState<string | null | undefined>(undefined);
@@ -687,19 +684,17 @@ function ActivityEditor({
       onDirty(false);
     };
   }, []); // The editor is keyed by activity and the workspace by project.
-  function accept(value: ActivityDetail) {
-    setDetail(value);
-    setDescription(value.draft.description);
-    setSpec(pretty(value.draft.spec));
-    setMedia(pretty(value.draft.mediaPlan?.manifest));
-    setChanged(false);
+  /** A run just started: shown at the top of the history at once, and followed. */
+  function ranRun(run: ActivityRun) {
+    setRuns((previous) => [summarize(run), ...previous.filter((item) => item.runId !== run.runId)]);
+    setRefreshVersion((value) => value + 1);
   }
   useEffect(() => {
     if (!available) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
     async function refresh() {
-      const revisionAtStart = state.current.revision;
+      const revisionAtStart = draft.revision;
       let active = false;
       try {
         const [value, history, sandbox, stages, sequences] = await Promise.all([
@@ -721,10 +716,7 @@ function ActivityEditor({
         if (sequences && Array.isArray(sequences.pipelines))
           setPipelineHistory(sequences.pipelines);
         active = indexRuns(history.runs).busy || stages?.pipeline?.status === "running";
-        if (!state.current.busy && state.current.revision === revisionAtStart) {
-          if (!state.current.dirty) accept(value);
-          else if (value.draft.contentRevision !== state.current.revision) setChanged(true);
-        }
+        draft.receive(value, revisionAtStart);
       } catch (e) {
         if (!cancelled) setLoadError(apiErrorText(e));
       } finally {
@@ -763,58 +755,6 @@ function ActivityEditor({
     if (announcement) announce(announcement);
     seenPipeline.current = { endpoint, status: pipeline?.status ?? null };
   }, [pipeline, endpoint]);
-  /** Run one change at a time; resolves true only when it went through. */
-  async function action(operation: () => Promise<void>): Promise<boolean> {
-    if (state.current.busy || !state.current.available) return false;
-    state.current.busy = true;
-    setBusy(true);
-    setError("");
-    try {
-      await operation();
-      return true;
-    } catch (e) {
-      if (alive.current) setError(apiErrorText(e));
-      return false;
-    } finally {
-      if (alive.current) setBusy(false);
-    }
-  }
-  /** Save one part of the draft. `quiet` leaves out the toast, for an autosave. */
-  async function save(
-    kind: "description" | "spec" | "media",
-    quiet = false,
-    /** The manifest to save instead of the editor's text, which a state update has not reached yet. */
-    manifest?: AssetManifest,
-  ): Promise<boolean> {
-    if (!detail) return false;
-    return action(async () => {
-      const draft = await apiFetch<ActivityDraft>(
-        `${endpoint}/${kind === "description" ? "description" : kind === "media" ? "media" : "apply-generated-spec"}`,
-        {
-          method: kind === "description" ? "PATCH" : kind === "media" ? "PUT" : "POST",
-          body: {
-            expectedRevision: detail.draft.contentRevision,
-            ...(kind === "description"
-              ? { description }
-              : kind === "media"
-                ? { manifest: manifest ?? JSON.parse(media) }
-                : { spec: JSON.parse(spec) }),
-          },
-        },
-      );
-      if (!alive.current) return;
-      setDetail({
-        ...detail,
-        title: draft.status === "valid" ? String(draft.spec?.title) : detail.title,
-        draft,
-      });
-      if (kind === "spec") setSpec(pretty(draft.spec));
-      if (kind === "media") setMedia(pretty(draft.mediaPlan?.manifest));
-      if (!quiet) toastSuccess(S.activities.saved);
-      await onSaved();
-    });
-  }
-  const selectedAgent = stageAgent(agentId, agents, currentAgent?.agentId);
   const codingAgentId = selectedAgent.startsWith("coding:") ? selectedAgent.slice(7) : null;
   /** Who runs a stage, as the stage routes take it. */
   // A coding agent's run is a Session too, owned by the Penguin agent the Project would use.
@@ -892,59 +832,16 @@ function ActivityEditor({
         }
       })
       .catch((e) => {
-        if (!cancelled) setError(apiErrorText(e));
+        if (!cancelled) draft.fail(apiErrorText(e));
       });
     return () => {
       cancelled = true;
     };
   }, [projectId, available, editable, voiceLibraryReload]);
-  const running = runIndex.busy;
-  const pipelineRunning = pipeline?.status === "running";
-  // The script saves itself a few seconds after typing stops, and holds off while
-  // the pipeline runs so a save never moves the draft under a stage. Text typed during a
-  // save stays: a save never writes the saved text back over the editor.
-  const [scriptSave, setScriptSave] = useState<"saving" | "saved" | "failed" | null>(null);
-  const scriptDirty = !!detail && description !== detail.draft.description;
+  // Where the script's autosave stands, as the editor's status line says it.
+  const scriptSave = draft.state.scriptSave;
+  const scriptDirty = edited.description;
   const autosaveHeld = running || pipelineRunning;
-  useEffect(() => {
-    if (!scriptDirty || !editable || !available || busy || autosaveHeld) return;
-    const timer = setTimeout(() => {
-      setScriptSave("saving");
-      void save("description", true).then((ok) => {
-        if (alive.current) setScriptSave(ok ? "saved" : "failed");
-      });
-    }, SCRIPT_AUTOSAVE_MS);
-    return () => clearTimeout(timer);
-    // `save` reads the latest text when it fires; the timer restarts on every edit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [description, scriptDirty, editable, available, busy, autosaveHeld]);
-  // Edits made in the asset editor (a provider, a voice, a script) save themselves a moment
-  // after the last one, so Generate is never held by a save the author must remember. Edits
-  // to the manifest JSON in Media Library stay manual: half-typed JSON is never saved.
-  const [mediaAutosave, setMediaAutosave] = useState(false);
-  const [mediaSave, setMediaSave] = useState<"pending" | "saving" | "saved" | "failed" | null>(
-    null,
-  );
-  const mediaDirty = !!detail && media !== pretty(detail.draft.mediaPlan?.manifest);
-  useEffect(() => {
-    if (!mediaAutosave) return;
-    if (!mediaDirty) {
-      setMediaAutosave(false);
-      return;
-    }
-    if (!editable || !available || busy || autosaveHeld) return;
-    setMediaSave("pending");
-    const timer = setTimeout(() => {
-      setMediaAutosave(false);
-      setMediaSave("saving");
-      void save("media", true).then((ok) => {
-        if (alive.current) setMediaSave(ok ? "saved" : "failed");
-      });
-    }, MEDIA_AUTOSAVE_MS);
-    return () => clearTimeout(timer);
-    // `save` reads the latest manifest when it fires; the timer restarts on every edit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [media, mediaAutosave, mediaDirty, editable, available, busy, autosaveHeld]);
   const scriptStatus = scriptDirty
     ? autosaveHeld
       ? S.activities.studioScript.autosave.held
@@ -956,19 +853,9 @@ function ActivityEditor({
     : scriptSave === "saved"
       ? S.activities.studioScript.autosave.saved
       : null;
-  const words = S.activities.studioRun;
   // Why Run cannot start the stages now. The server refuses the same cases; saying so
   // here saves the round trip, and says it in the author's terms.
-  const pipelineBlocked =
-    !editable || !available
-      ? null
-      : dirty
-        ? words.saveFirst
-        : running || pipelineRunning
-          ? words.otherRun
-          : !selectedAgent
-            ? words.noAgent
-            : null;
+  const pipelineBlocked = runBlockText(draft.can("stages"));
   const agentLabel = codingAgentId
     ? (codingAgents.find((agent) => agent.id === codingAgentId)?.title ?? codingAgentId)
     : (agents.find((agent) => agent.agentId === selectedAgent)?.name ?? selectedAgent);
@@ -977,7 +864,7 @@ function ActivityEditor({
     scope?: { language: string; assetKey?: string },
     soundProvider?: SoundProviderId,
   ) {
-    void action(async () => {
+    void draft.act(async () => {
       if (!detail) return;
       const started = await apiFetch<PipelineState>(`${endpoint}/pipeline`, {
         method: "POST",
@@ -996,7 +883,7 @@ function ActivityEditor({
     });
   }
   function stopStages() {
-    void action(async () => {
+    void draft.act(async () => {
       const stopped = await apiFetch<{ pipeline: PipelineState | null }>(
         `${endpoint}/pipeline/stop`,
         { method: "POST", body: {} },
@@ -1010,31 +897,23 @@ function ActivityEditor({
     let cancelled = false;
     void (async () => {
       try {
-        const run = await apiFetch<ActivityRun>(`${endpoint}/generate-audio`, {
-          method: "POST",
-          body: {
-            ...MEDIA_RUNNER,
-            expectedRevision: detail.draft.contentRevision,
-            language: speechQueue!.language,
-            assetKey: next,
-            // A narration speaks with its own provider and saved voice; the queue's voice
-            // fills the rest where that provider speaks with it.
-            ...speechChoice(
-              detail.draft.mediaPlan?.manifest.assets[speechQueue!.language]?.find(
-                (asset) => asset.key === next,
-              ),
-              voiceOptions,
-              speechQueue!.voice,
-              speechQueue!.language,
+        const run = await draft.send<ActivityRun>("generate-audio", {
+          ...MEDIA_RUNNER,
+          language: speechQueue!.language,
+          assetKey: next,
+          // A narration speaks with its own provider and saved voice; the queue's voice
+          // fills the rest where that provider speaks with it.
+          ...speechChoice(
+            detail.draft.mediaPlan?.manifest.assets[speechQueue!.language]?.find(
+              (asset) => asset.key === next,
             ),
-          },
+            voiceOptions,
+            speechQueue!.voice,
+            speechQueue!.language,
+          ),
         });
         if (cancelled || !alive.current) return;
-        setRuns((previous) => [
-          summarize(run),
-          ...previous.filter((item) => item.runId !== run.runId),
-        ]);
-        setRefreshVersion((value) => value + 1);
+        ranRun(run);
         setSpeechQueue((queue) =>
           queue && queue.keys[0] === next
             ? queue.keys.length > 1
@@ -1046,57 +925,13 @@ function ActivityEditor({
         if (cancelled || !alive.current) return;
         // Stop the queue rather than let every remaining narration fail the same way.
         setSpeechQueue(null);
-        setError(apiErrorText(e));
+        draft.fail(apiErrorText(e));
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [speechQueue, running, busy, dirty, detail, endpoint, voiceOptions]);
-  let editedManifest: AssetManifest | null = null;
-  try {
-    const value = JSON.parse(media);
-    // Structured controls require the saved shape; advanced edits are validated by the server.
-    if (
-      value &&
-      typeof value.assets === "object" &&
-      value.assets &&
-      Object.values(value.assets).every(
-        (items) =>
-          Array.isArray(items) &&
-          items.every(
-            (item) =>
-              item &&
-              typeof item.key === "string" &&
-              ["audio", "image", "video", "animation"].includes(item.type) &&
-              typeof item.description === "string" &&
-              Array.isArray(item.usages) &&
-              item.usages.every(
-                (usage: unknown) =>
-                  usage &&
-                  typeof usage === "object" &&
-                  "sceneId" in usage &&
-                  typeof usage.sceneId === "string",
-              ) &&
-              (item.script === undefined || typeof item.script === "string") &&
-              (item.path === undefined || typeof item.path === "string") &&
-              (item.generatedAudio === undefined ||
-                (item.generatedAudio && typeof item.generatedAudio.runId === "string")) &&
-              (item.generatedImage === undefined ||
-                (item.generatedImage &&
-                  typeof item.generatedImage.runId === "string" &&
-                  typeof item.generatedImage.sha256 === "string")) &&
-              (item.generatedVideo === undefined ||
-                (item.generatedVideo &&
-                  typeof item.generatedVideo.runId === "string" &&
-                  typeof item.generatedVideo.sha256 === "string")),
-          ),
-      )
-    )
-      editedManifest = value;
-  } catch {
-    /* Preserve invalid JSON for correction without replacing it with a saved manifest. */
-  }
   /**
    * Start one generation run and show it at the top of the history immediately. Speech,
    * sound and image runs name the Media Agent, which makes them whoever runs the stages.
@@ -1106,19 +941,7 @@ function ActivityEditor({
     body: Record<string, unknown>,
     by: Record<string, string> = runner,
   ) {
-    void action(async () => {
-      const run = await apiFetch<ActivityRun>(`${endpoint}/${path}`, {
-        method: "POST",
-        body: { ...by, expectedRevision: detail!.draft.contentRevision, ...body },
-      });
-      if (alive.current) {
-        setRuns((previous) => [
-          summarize(run),
-          ...previous.filter((item) => item.runId !== run.runId),
-        ]);
-        setRefreshVersion((value) => value + 1);
-      }
-    });
+    void draft.start(path, { ...by, ...body }, ranRun);
   }
   /**
    * Accept one change an agent proposed, through the route the author's own save uses, so
@@ -1126,57 +949,17 @@ function ActivityEditor({
    * overwritten: the card will not offer Accept while there are any.
    */
   async function acceptProposal(change: ProposalChange): Promise<void> {
-    await action(() => landChange(change));
-  }
-  /** Put one proposed change into the draft. Callers run it inside `action`. */
-  async function landChange(change: ProposalChange): Promise<void> {
-    if (!detail || state.current.dirty) throw new Error(S.activities.studioProposal.saveFirst);
-    const [path, method, body] =
-      change.target === "description"
-        ? (["description", "PATCH", { description: change.text }] as const)
-        : change.target === "spec"
-          ? (["apply-generated-spec", "POST", { spec: change.spec }] as const)
-          : ([
-              "media",
-              "PUT",
-              {
-                manifest: applyMediaChange(
-                  detail.draft.mediaPlan?.manifest ??
-                    fail(S.activities.studioProposal.missingAsset(change.assetKey)),
-                  change,
-                ),
-              },
-            ] as const);
-    const draft = await apiFetch<ActivityDraft>(`${endpoint}/${path}`, {
-      method,
-      body: { expectedRevision: detail.draft.contentRevision, ...body },
-    });
-    if (!alive.current) return;
-    accept({
-      ...detail,
-      title: draft.status === "valid" ? String(draft.spec?.title) : detail.title,
-      draft,
-    });
-    toastSuccess(S.activities.saved);
+    await draft.act(() => draft.land(change));
   }
   /**
    * Apply the conversation's whole proposal as one draft change, read fresh from its run
    * by the server, so it lands whole or not at all.
    */
   async function applyWholeProposal(runId: string): Promise<void> {
-    await action(async () => {
-      if (!detail || state.current.dirty) throw new Error(S.activities.studioProposal.saveFirst);
-      const draft = await apiFetch<ActivityDraft>(
-        `${endpoint}/runs/${encodeURIComponent(runId)}/proposal/apply`,
-        { method: "POST", body: { expectedRevision: detail.draft.contentRevision } },
-      );
-      if (!alive.current) return;
-      accept({
-        ...detail,
-        title: draft.status === "valid" ? String(draft.spec?.title) : detail.title,
-        draft,
-      });
-      toastSuccess(S.activities.saved);
+    await draft.change(`runs/${encodeURIComponent(runId)}/proposal/apply`, {
+      keep: "none",
+      clean: true,
+      then: () => toastSuccess(S.activities.saved),
     });
   }
   /**
@@ -1188,8 +971,8 @@ function ActivityEditor({
     if (!proposedScript || !read) return;
     const onlyScript = changesOnlyScript(read);
     // One action, so the proposal is set aside only once the script has landed.
-    const done = await action(async () => {
-      await landChange({ target: "description", text });
+    const done = await draft.act(async () => {
+      await draft.land({ target: "description", text });
       if (onlyScript) await discardRun(read.runId);
     });
     if (!done) return;
@@ -1204,7 +987,7 @@ function ActivityEditor({
     else setSettledScript(proposedScript.text);
   }
   async function discardProposal(runId: string): Promise<void> {
-    await action(async () => {
+    await draft.act(async () => {
       await discardRun(runId);
       proposal.reload();
     });
@@ -1213,20 +996,6 @@ function ActivityEditor({
     return apiFetch(`${endpoint}/runs/${encodeURIComponent(runId)}/proposal/discard`, {
       method: "POST",
       body: {},
-    });
-  }
-  /** Accept a candidate, which replaces the draft rather than starting anything. */
-  /** Accept a run's candidate; settles once the draft has it, for a "Saving…" state. */
-  function acceptRun(runId: string, path: string) {
-    return action(async () => {
-      const draft = await apiFetch<ActivityDraft>(
-        `${endpoint}/runs/${encodeURIComponent(runId)}/${path}`,
-        { method: "POST", body: { expectedRevision: detail!.draft.contentRevision } },
-      );
-      if (alive.current) {
-        accept({ ...detail!, draft });
-        toastSuccess(S.activities.saved);
-      }
     });
   }
   // The rail and the detail pane read one derivation, so they cannot disagree about
@@ -1500,14 +1269,8 @@ function ActivityEditor({
                       editable={editable}
                       runner={selectedAgent ? runner : null}
                       revision={detail.draft.contentRevision}
-                      unsaved={dirty}
-                      onStarted={(run) => {
-                        setRuns((previous) => [
-                          summarize(run),
-                          ...previous.filter((item) => item.runId !== run.runId),
-                        ]);
-                        setRefreshVersion((value) => value + 1);
-                      }}
+                      blocked={draft.can("tests")}
+                      onStarted={ranRun}
                     />
                   </div>
                 ),
@@ -1523,13 +1286,8 @@ function ActivityEditor({
                       endpoint={endpoint}
                       runs={runs}
                       editable={editable}
-                      onStarted={(run) => {
-                        setRuns((previous) => [
-                          summarize(run),
-                          ...previous.filter((item) => item.runId !== run.runId),
-                        ]);
-                        setRefreshVersion((value) => value + 1);
-                      }}
+                      blocked={draft.can("quality")}
+                      onStarted={ranRun}
                     />
                   </div>
                 ),
@@ -1552,13 +1310,7 @@ function ActivityEditor({
                   : focusFor(section, selection, language)
               }
               editable={editable}
-              onStarted={(run) => {
-                setRuns((previous) => [
-                  summarize(run),
-                  ...previous.filter((item) => item.runId !== run.runId),
-                ]);
-                setRefreshVersion((value) => value + 1);
-              }}
+              onStarted={ranRun}
               base={{
                 description: detail.draft.description,
                 spec: detail.draft.spec,
@@ -1607,9 +1359,9 @@ function ActivityEditor({
   const runningRun = runIndex.running[0];
   // What the rail says beside each section: edits not yet saved, and how much there is.
   const railTrails = sectionTrails({
-    descriptionDirty: description !== detail.draft.description,
-    specDirty: spec !== pretty(detail.draft.spec),
-    mediaDirty: media !== pretty(detail.draft.mediaPlan?.manifest),
+    descriptionDirty: edited.description,
+    specDirty: edited.spec,
+    mediaDirty: edited.media,
     draftStatus: detail.draft.status,
     scenes: fullTree,
   });
@@ -1674,23 +1426,14 @@ function ActivityEditor({
                   activity={detail}
                   editable={editable && available}
                   onIdentity={(record) => {
-                    setDetail((current) => (current ? { ...current, ...record } : current));
+                    draft.updateRecord(record);
                     // A name or tags change shows on the list's cards, for every ref of the
                     // product; the list is kept while an activity is open, so refresh it now.
                     void onSaved();
                   }}
                   revision={detail.draft.contentRevision}
                   onRenumbered={(value, from) => {
-                    // Only the number and the manifest's address changed; unsaved script or
-                    // specification text stays in its editor. The manifest editor follows the
-                    // new address, and unsaved manifest edits are moved to the new number so
-                    // they can still be saved.
-                    setMedia(
-                      media === pretty(detail.draft.mediaPlan?.manifest)
-                        ? pretty(value.draft.mediaPlan?.manifest)
-                        : renumberManifestText(media, from, value.refNum),
-                    );
-                    setDetail(value);
+                    draft.renumbered(value, from);
                     announce({
                       kind: "success",
                       text: S.activities.studioRefs.renumbered(from, value.refNum),
@@ -1706,24 +1449,15 @@ function ActivityEditor({
                   // Reloading can throw edits away, so it sits in the ref's menu behind the
                   // discard confirmation rather than in the header's busiest row.
                   onReload={
-                    busy || !available
-                      ? undefined
-                      : () =>
-                          discard.ask(
-                            () =>
-                              void action(async () => {
-                                const value = await apiFetch<ActivityDetail>(endpoint);
-                                if (alive.current) accept(value);
-                              }),
-                          )
+                    busy || !available ? undefined : () => discard.ask(() => void draft.reload())
                   }
                 />
               </div>
               <ProgressSteps
                 facts={{
                   status: detail.draft.status,
-                  scriptDirty: description !== detail.draft.description,
-                  specDirty: spec !== pretty(detail.draft.spec),
+                  scriptDirty: edited.description,
+                  specDirty: edited.spec,
                   media: scriptMedia?.totals ?? null,
                   videosToCheck: videosToCheck(detail.draft.mediaPlan?.manifest.assets, runs),
                   hasModule,
@@ -1839,7 +1573,7 @@ function ActivityEditor({
               `${endpoint}/media-image?${new URLSearchParams({
                 language,
                 assetKey,
-                expectedRevision: detail.draft.contentRevision,
+                expectedRevision: draft.revision,
               })}`
             }
             onSelect={setBoardScene}
@@ -1869,38 +1603,10 @@ function ActivityEditor({
             runs={runs}
             endpoint={endpoint}
             editable={editable}
-            disabled={busy || !available}
-            mediaDirty={!!editedManifest && mediaDirty}
-            onSaveMedia={() => void save("media")}
-            canGenerate={
-              editable &&
-              available &&
-              detail.draft.status === "valid" &&
-              !busy &&
-              !running &&
-              !dirty &&
-              !!selectedAgent
-            }
-            canGenerateMedia={
-              editable &&
-              available &&
-              detail.draft.status === "valid" &&
-              !busy &&
-              !running &&
-              !dirty
-            }
-            revision={detail.draft.contentRevision}
+            draft={draft}
             mediaStats={currentMediaStats}
-            savedManifest={detail.draft.mediaPlan?.manifest}
-            canAccept={editable && available && !busy && !running && !dirty}
-            canPreview={editable && available && !busy && !dirty}
             voices={voiceOptions}
             defaultVoice={bulkVoice}
-            onChange={(value) => {
-              setMedia(pretty(value));
-              setMediaAutosave(true);
-            }}
-            mediaSave={mediaSave}
             onGenerateAudio={(lang, assetKey, voice, provider) =>
               startRun(
                 "generate-audio",
@@ -1927,12 +1633,9 @@ function ActivityEditor({
             onGenerateImage={(lang, assetKey) =>
               startRun("generate-image", { language: lang, assetKey }, MEDIA_RUNNER)
             }
-            onAcceptAudio={(runId) => acceptRun(runId, "accept-audio")}
-            onAcceptImage={(runId) => acceptRun(runId, "accept-image")}
             onGenerateText={(lang, assetKey) =>
               startRun("generate-media-text", { language: lang, assetKey })
             }
-            onAcceptText={(runId) => acceptRun(runId, "accept-media-text")}
             defaultLanguage={languageSetup.defaultLanguage}
             languageName={(code) =>
               languageSetup.languages.find((entry) => entry.code === code)?.label ?? code
@@ -1956,30 +1659,6 @@ function ActivityEditor({
             onRecordVideo={
               videoSetup?.enabled
                 ? (compositionRunId) => startRun("render-video", { compositionRunId })
-                : undefined
-            }
-            onAcceptVideo={
-              videoSetup?.enabled ? (runId) => acceptRun(runId, "accept-video") : undefined
-            }
-            onSaveTimeline={
-              videoSetup?.enabled
-                ? async (lang, assetKey, timeline) => {
-                    await action(async () => {
-                      const draft = await apiFetch<ActivityDraft>(`${endpoint}/video-timeline`, {
-                        method: "PUT",
-                        body: {
-                          language: lang,
-                          assetKey,
-                          timeline,
-                          expectedRevision: detail!.draft.contentRevision,
-                        },
-                      });
-                      if (alive.current) {
-                        accept({ ...detail!, draft });
-                        toastSuccess(S.activities.saved);
-                      }
-                    });
-                  }
                 : undefined
             }
             onRenderTimeline={
@@ -2007,24 +1686,6 @@ function ActivityEditor({
                     })
                 : undefined
             }
-            onSaveSounds={(lang, assetKey, phonemes) =>
-              void action(async () => {
-                const draft = await apiFetch<ActivityDraft>(
-                  `${endpoint}/book-words/${encodeURIComponent(assetKey)}/phonemes`,
-                  {
-                    method: "PUT",
-                    body: {
-                      language: lang,
-                      phonemes,
-                      expectedRevision: detail.draft.contentRevision,
-                    },
-                  },
-                );
-                if (!alive.current) return;
-                accept({ ...detail, draft });
-                toastSuccess(S.activities.bookWords.saved);
-              })
-            }
           />
         ) : section === "description" ? (
           <section className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -2035,7 +1696,7 @@ function ActivityEditor({
               access={!available ? "read" : editable ? "edit" : "disabled"}
               status={scriptStatus}
               canSave={editable}
-              saveDisabled={busy || description === detail.draft.description}
+              saveDisabled={busy || !edited.description}
               acceptBlocked={dirty ? S.activities.studioProposal.saveFirst : null}
               reveal={revealScene}
               review={reviewRequest}
@@ -2047,8 +1708,8 @@ function ActivityEditor({
                 editable && available ? (text) => void applyReviewedScript(text) : undefined
               }
               onDiscardProposal={editable && available ? settleScriptProposal : undefined}
-              onChange={setDescription}
-              onSave={() => void save("description")}
+              onChange={(text) => draft.edit("description", text)}
+              onSave={() => void draft.save("description")}
               onAcceptProposal={
                 editable && available && scriptProposal !== null
                   ? () => void acceptProposal({ target: "description", text: scriptProposal })
@@ -2090,13 +1751,13 @@ function ActivityEditor({
                     script={description}
                     bindings={mediaBindings}
                     editable={editable && available}
-                    onChange={setSpec}
+                    onChange={(text) => draft.edit("spec", text)}
                     onOpenJson={() => chooseSpecView("json")}
                   />
                 ),
               }}
-              onChange={setSpec}
-              onSave={() => void save("spec")}
+              onChange={(text) => draft.edit("spec", text)}
+              onSave={() => void draft.save("spec")}
             />
           </section>
         ) : section === "configuration" || section === "assessment" || section === "module" ? (
@@ -2115,9 +1776,9 @@ function ActivityEditor({
                   : undefined
               }
               onDirty={setDocumentDirty}
-              onSaved={(draft, text) => {
+              onSaved={(saved, text) => {
                 // Only the draft changed; unsaved script or specification text stays.
-                setDetail((current) => (current ? { ...current, draft } : current));
+                draft.applyDraft(saved, "unsaved");
                 announce({ kind: "success", text });
               }}
               generation={
@@ -2126,29 +1787,14 @@ function ActivityEditor({
                       refNum: detail.refNum,
                       usesAssessment,
                       runs,
-                      blocked:
-                        running || pipelineRunning
-                          ? S.activities.studioRun.otherRun
-                          : !selectedAgent
-                            ? S.activities.studioRun.noAgent
-                            : null,
+                      blocked: runBlockText(draft.can("assessment")),
                       onGenerate: () => startRun("generate-assessment", {}),
                       onAccept: (runId) =>
-                        void action(async () => {
-                          const draft = await apiFetch<ActivityDraft>(
-                            `${endpoint}/runs/${encodeURIComponent(runId)}/accept-assessment`,
-                            {
-                              method: "POST",
-                              body: { expectedRevision: detail.draft.contentRevision },
-                            },
-                          );
-                          if (!alive.current) return;
-                          // Only the draft changed; unsaved script or specification text stays.
-                          setDetail((current) => (current ? { ...current, draft } : current));
-                          announce({
-                            kind: "success",
-                            text: S.activities.assessment.accepted,
-                          });
+                        // Only the draft changed; unsaved script or specification text stays.
+                        void draft.change(`runs/${encodeURIComponent(runId)}/accept-assessment`, {
+                          keep: "unsaved",
+                          then: () =>
+                            announce({ kind: "success", text: S.activities.assessment.accepted }),
                         }),
                     }
                   : undefined
@@ -2176,26 +1822,11 @@ function ActivityEditor({
                       {editable && (
                         <Button
                           size="sm"
-                          disabled={
-                            busy ||
-                            running ||
-                            dirty ||
-                            detail.draft.status !== "valid" ||
-                            !detail.draft.spec
-                          }
+                          disabled={draft.can("planMedia") !== null}
                           onClick={() =>
-                            void action(async () => {
-                              const draft = await apiFetch<ActivityDraft>(
-                                `${endpoint}/plan-media`,
-                                {
-                                  method: "POST",
-                                  body: { expectedRevision: detail.draft.contentRevision },
-                                },
-                              );
-                              if (alive.current) {
-                                accept({ ...detail, draft });
-                                toastSuccess(S.activities.saved);
-                              }
+                            void draft.change("plan-media", {
+                              keep: "none",
+                              then: () => toastSuccess(S.activities.saved),
                             })
                           }
                         >
@@ -2215,62 +1846,44 @@ function ActivityEditor({
                     runs={runs}
                     revision={detail.draft.contentRevision}
                     editable={editable}
-                    canChange={editable && available && !busy && !running && !dirty}
-                    canGenerate={
-                      editable && available && !busy && !running && !dirty && !!selectedAgent
-                    }
+                    canChange={draft.can("draftChange") === null}
+                    canGenerate={draft.can("wordsRun") === null}
                     onRefresh={(mode) =>
-                      void action(async () => {
-                        const result = await apiFetch<BookWordsRefresh>(
-                          `${endpoint}/book-words/refresh`,
-                          {
-                            method: "POST",
-                            body: {
-                              language,
-                              expectedRevision: detail.draft.contentRevision,
-                              ...(mode ? { bookMode: mode } : {}),
-                            },
-                          },
-                        );
-                        if (!alive.current) return;
-                        accept({ ...detail, draft: result.draft });
-                        const group = result.draft.mediaPlan?.manifest.assets[language] ?? [];
-                        announce({
-                          kind: "success",
-                          text: S.activities.bookWords.refreshed(
-                            group.length - withoutBookWords(group).length,
-                          ),
-                        });
+                      void draft.change<BookWordsRefresh>("book-words/refresh", {
+                        body: { language, ...(mode ? { bookMode: mode } : {}) },
+                        keep: "none",
+                        draftOf: (result) => result.draft,
+                        then: (result) => {
+                          const group = result.draft.mediaPlan?.manifest.assets[language] ?? [];
+                          announce({
+                            kind: "success",
+                            text: S.activities.bookWords.refreshed(
+                              group.length - withoutBookWords(group).length,
+                            ),
+                          });
+                        },
                       })
                     }
                     onAskModel={(words) => startRun("generate-phonemes", { language, words })}
-                    canRecord={
-                      editable && available && !busy && pipelineBlocked === null && !!selectedAgent
-                    }
+                    canRecord={draft.can("recordWords") === null}
                     onRecord={() => runStages("words", { language })}
-                    onUseSounds={(runId) =>
-                      void action(async () => {
-                        const before = wordsWithoutSounds(
-                          detail.draft.mediaPlan?.manifest.assets[language] ?? [],
-                        ).length;
-                        const draft = await apiFetch<ActivityDraft>(
-                          `${endpoint}/runs/${encodeURIComponent(runId)}/accept-phonemes`,
-                          {
-                            method: "POST",
-                            body: { expectedRevision: detail.draft.contentRevision },
-                          },
-                        );
-                        if (!alive.current) return;
-                        accept({ ...detail, draft });
-                        const after = wordsWithoutSounds(
-                          draft.mediaPlan?.manifest.assets[language] ?? [],
-                        ).length;
-                        announce({
-                          kind: "success",
-                          text: S.activities.bookWords.accepted(before - after),
-                        });
-                      })
-                    }
+                    onUseSounds={(runId) => {
+                      const before = wordsWithoutSounds(
+                        detail.draft.mediaPlan?.manifest.assets[language] ?? [],
+                      ).length;
+                      void draft.change(`runs/${encodeURIComponent(runId)}/accept-phonemes`, {
+                        keep: "none",
+                        then: (saved) => {
+                          const after = wordsWithoutSounds(
+                            saved.mediaPlan?.manifest.assets[language] ?? [],
+                          ).length;
+                          announce({
+                            kind: "success",
+                            text: S.activities.bookWords.accepted(before - after),
+                          });
+                        },
+                      });
+                    }}
                   />
                 )}
                 {section === "speech" && editedManifest && (
@@ -2278,7 +1891,7 @@ function ActivityEditor({
                     assets={withoutBookWords(editedManifest.assets[language] ?? [])}
                     language={language}
                     editable={editable}
-                    canGenerate={editable && available && !busy && !running && !dirty}
+                    canGenerate={draft.can("draftChange") === null}
                     onSelect={(key) => {
                       const usage = (editedManifest.assets[language] ?? [])
                         .find((entry) => entry.key === key)
@@ -2314,8 +1927,8 @@ function ActivityEditor({
                         language,
                       );
                       if (!count) return;
-                      setMedia(pretty(updated));
-                      void save("media", true, updated).then((ok) => {
+                      draft.edit("media", pretty(updated));
+                      void draft.save("media", true).then((ok) => {
                         if (ok && alive.current)
                           announce({
                             kind: "success",
@@ -2335,8 +1948,8 @@ function ActivityEditor({
                       const count = applyVoice(group, voice);
                       if (!count) return;
                       // The choice shows at once and stays in the editor if the save fails.
-                      setMedia(pretty(updated));
-                      void save("media", true, updated).then((ok) => {
+                      draft.edit("media", pretty(updated));
+                      void draft.save("media", true).then((ok) => {
                         if (ok && alive.current)
                           announce({
                             kind: "success",
@@ -2381,14 +1994,10 @@ function ActivityEditor({
                       )
                       .map((entry) => ({ code: entry.code, label: entry.label }))}
                     onAddLanguage={(code) =>
-                      void action(async () => {
-                        const draft = await apiFetch<ActivityDraft>(`${endpoint}/languages`, {
-                          method: "POST",
-                          body: { language: code, expectedRevision: detail.draft.contentRevision },
-                        });
-                        if (!alive.current) return;
-                        accept({ ...detail, draft });
-                        setLanguage(code);
+                      void draft.change("languages", {
+                        body: { language: code },
+                        keep: "none",
+                        then: () => setLanguage(code),
                       })
                     }
                     onRetry={(key) =>
@@ -2446,7 +2055,7 @@ function ActivityEditor({
                     uploads={uploads}
                     uploadsLoading={uploadsLoading}
                     onIdentity={(record) => {
-                      setDetail((current) => (current ? { ...current, ...record } : current));
+                      draft.updateRecord(record);
                       void onSaved();
                     }}
                     onOpenAssessment={() => setSection("assessment")}
@@ -2482,7 +2091,7 @@ function ActivityEditor({
                     editable={editable}
                     busy={busy}
                     onCancel={(runId) =>
-                      void action(async () => {
+                      void draft.act(async () => {
                         const result = await apiFetch<ActivityRun>(
                           `${endpoint}/runs/${runId}/cancel`,
                           { method: "POST", body: {} },
@@ -2497,21 +2106,15 @@ function ActivityEditor({
                     }
                     onAnnounce={announce}
                     unsaved={dirty}
-                    onRestored={(draft) =>
-                      accept({
-                        ...detail,
-                        title: draft.status === "valid" ? String(draft.spec?.title) : detail.title,
-                        draft,
-                      })
-                    }
+                    onRestored={(restored) => draft.applyDraft(restored, "none")}
                     pinnedModuleRunId={detail.draft.pinnedModuleRunId}
-                    onDraft={(draft) =>
+                    onDraft={(pinned) =>
                       // A pin changes only which build the preview plays; unsaved text stays.
-                      setDetail((current) => (current ? { ...current, draft } : current))
+                      draft.applyDraft(pinned, "unsaved")
                     }
                     onUseCandidate={(candidate) =>
                       discard.ask(() => {
-                        setSpec(candidate);
+                        draft.edit("spec", candidate);
                         setSection("specification");
                       })
                     }
@@ -2546,7 +2149,7 @@ function ActivityEditor({
                         rows={12}
                         className="font-mono"
                         value={media}
-                        onChange={(event) => setMedia(event.target.value)}
+                        onChange={(event) => draft.edit("media", event.target.value)}
                         spellCheck={false}
                         disabled={available && (!editable || busy)}
                         readOnly={!available}
@@ -2556,12 +2159,8 @@ function ActivityEditor({
                     {editable && (
                       <Button
                         size="sm"
-                        disabled={
-                          busy ||
-                          !media.trim() ||
-                          media === pretty(detail.draft.mediaPlan?.manifest)
-                        }
-                        onClick={() => void save("media")}
+                        disabled={busy || !media.trim() || !edited.media}
+                        onClick={() => void draft.save("media")}
                       >
                         {S.activities.saveMedia}
                       </Button>
@@ -2579,13 +2178,18 @@ function ActivityEditor({
   );
 }
 
-function fail(message: string): never {
-  throw new Error(message);
-}
-
 /** A proposal whose only change is the script, which is done with once the script is. */
 function changesOnlyScript(read: ProposalRead): boolean {
   return !!read.proposal?.changes.every((change) => change.target === "description");
+}
+
+/** Why a run cannot start now, in the author's terms; null when nothing need be said. */
+function runBlockText(reason: DraftBlock | null): string | null {
+  const words = S.activities.studioRun;
+  if (reason === "unsaved") return words.saveFirst;
+  if (reason === "running" || reason === "stages") return words.otherRun;
+  if (reason === "agent") return words.noAgent;
+  return null;
 }
 
 function summarize({ candidate, ...run }: ActivityRun): ActivityRunSummary {
