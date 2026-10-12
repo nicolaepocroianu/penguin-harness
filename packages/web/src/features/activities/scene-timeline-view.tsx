@@ -28,7 +28,6 @@ import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import {
   blocksRender,
-  candidateUrl,
   effectChoices,
   fromSeconds,
   issueText,
@@ -39,6 +38,7 @@ import {
   toSeconds,
   withCut,
 } from "./scene-timeline";
+import { useActivityClient } from "./activity-client";
 
 type Asset = AssetManifest["assets"][string][number];
 
@@ -83,6 +83,7 @@ export function SceneTimelineView({
   /** Ask an agent to refine the timeline; absent where it cannot be offered. */
   onRefine?: () => void;
 }) {
+  const { api } = useActivityClient();
   const [view, setView] = useState<VideoTimelineView | null>(null);
   const [edited, setEdited] = useState<VideoTimeline | null>(null);
   // Time fields whose text does not read as seconds: what they show is not what would be saved.
@@ -125,9 +126,7 @@ export function SceneTimelineView({
       : null;
   const load = async (runId: string) => {
     try {
-      const { candidate } = await apiFetch<{ candidate: string | null }>(
-        candidateUrl(endpoint, runId),
-      );
+      const { candidate } = await api.runs.candidate(runId);
       if (!candidate) return;
       setEdited(JSON.parse(candidate) as VideoTimeline);
       setLoaded(runId);

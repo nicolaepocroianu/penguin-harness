@@ -511,7 +511,7 @@ function AudioCard({
       ) : (
         <MediaTextReview
           key={text.runId}
-          endpoint={`${endpoint}/runs/${encodeURIComponent(text.runId)}/candidate`}
+          runId={text.runId}
           target={text.mediaText!}
           currentText={asset.script ?? ""}
           stale={text.inputRevision !== revision}

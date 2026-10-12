@@ -6,15 +6,18 @@
  * The run is an ordinary activity run, so the page's history polling follows it and its
  * Session shows its approvals; this view reads the report again once it settles.
  */
-import { useEffect, useRef, useState } from "react";
-import type { ActivityRun, ActivityRunSummary } from "@prismshadow/penguin-server/api";
-import { ApiError, apiFetch } from "../../api/client";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
+import { ApiError } from "../../api/client";
 import { Button } from "../../components/ui/button";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk } from "../../lib/tone";
+import { runStarted, useActivityClient } from "./activity-client";
+import { reportVersion } from "./panel-badges";
 import { indexRuns } from "./runs-index";
+import { useResource } from "./use-resource";
 import type { DraftBlock } from "./studio-draft";
 import {
   TEST_TONE,
@@ -35,16 +38,12 @@ import {
 } from "../../components/ui/table-classes";
 
 export function TestResultsView({
-  endpoint,
   runs,
   editable,
   runner,
   revision,
   blocked: gate,
-  onStarted,
 }: {
-  /** The activity's API path. */
-  endpoint: string;
   runs: ActivityRunSummary[];
   editable: boolean;
   /** Who writes and runs the tests, as the stage routes take it; null when no agent is chosen. */
@@ -53,12 +52,9 @@ export function TestResultsView({
   revision: string;
   /** Why the draft holds Run tests back (its `tests` gate), or null. */
   blocked: DraftBlock | null;
-  /** A test run has started; the page adds it to the history it polls. */
-  onStarted: (run: ActivityRun) => void;
 }) {
   const words = S.activities.tests;
-  const [state, setState] = useState<TestState | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const client = useActivityClient();
   const [startError, setStartError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const alive = useRef(true);
@@ -74,21 +70,25 @@ export function TestResultsView({
   // Read again when the latest test run settles, or another one starts, or the draft changes
   // (its criteria may have).
   const settledKey = latest ? `${latest.runId}:${latest.status}` : "";
-  useEffect(() => {
-    let cancelled = false;
-    apiFetch<unknown>(`${endpoint}/test-report`)
-      .then((value) => {
-        if (cancelled) return;
-        setState(readTestState(value));
-        setLoadError(null);
-      })
-      .catch((cause) => {
-        if (!cancelled) setLoadError(apiErrorText(cause));
-      });
-    return () => {
-      cancelled = true;
+  const read = useResource(
+    client.cache,
+    client.api.tests.report,
+    reportVersion(settledKey, revision),
+  );
+  const loadError = read.error ? apiErrorText(read.error) : null;
+  // A start refused for want of the test browser says so until the next read.
+  const [noBrowser, setNoBrowser] = useState<{ data: unknown } | null>(null);
+  const state = useMemo((): TestState | null => {
+    const current = read.data === undefined ? null : readTestState(read.data);
+    if (!noBrowser || noBrowser.data !== read.data) return current;
+    return {
+      report: current?.report ?? null,
+      runId: current?.runId ?? null,
+      criteria: current?.criteria ?? 0,
+      stale: current?.stale ?? false,
+      browserInstalled: false,
     };
-  }, [endpoint, settledKey, revision]);
+  }, [read.data, noBrowser]);
 
   const criteria = state?.criteria ?? 0;
   const blocked = testBlocked({
@@ -103,21 +103,12 @@ export function TestResultsView({
     setStarting(true);
     setStartError(null);
     try {
-      const run = await apiFetch<ActivityRun>(`${endpoint}/test`, {
-        method: "POST",
-        body: { ...runner, expectedRevision: revision },
-      });
-      if (alive.current) onStarted(run);
+      const run = await client.api.runs.start("test", runner, revision);
+      if (alive.current) runStarted(client, run);
     } catch (cause) {
       if (!alive.current) return;
       if (cause instanceof ApiError && cause.code === "test_browser_missing")
-        setState((current) => ({
-          report: current?.report ?? null,
-          runId: current?.runId ?? null,
-          criteria: current?.criteria ?? 0,
-          stale: current?.stale ?? false,
-          browserInstalled: false,
-        }));
+        setNoBrowser({ data: read.data });
       else setStartError(apiErrorText(cause));
     } finally {
       if (alive.current) setStarting(false);

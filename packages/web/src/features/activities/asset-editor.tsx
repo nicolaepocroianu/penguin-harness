@@ -168,12 +168,13 @@ export function AssetEditor({
     assetKey: string,
     timeline: VideoTimeline | null,
   ) => {
-    await draft.change("video-timeline", {
-      method: "PUT",
-      body: { language, assetKey, timeline },
-      keep: "none",
-      then: () => toastSuccess(S.activities.saved),
-    });
+    await draft.change(
+      (api, revision) => api.draft.videoTimeline(revision, { language, assetKey, timeline }),
+      {
+        keep: "none",
+        then: () => toastSuccess(S.activities.saved),
+      },
+    );
   };
   // An upload that would replace a bound file, held beside it until the author chooses.
   const [pendingUpload, setPendingUpload] = useState<{
@@ -641,12 +642,14 @@ export function AssetEditor({
                   editable={editable}
                   canSave={canAccept && !disabled}
                   onSave={(phonemes) =>
-                    void draft.change(`book-words/${encodeURIComponent(asset.key)}/phonemes`, {
-                      method: "PUT",
-                      body: { language, phonemes },
-                      keep: "none",
-                      then: () => toastSuccess(S.activities.bookWords.saved),
-                    })
+                    void draft.change(
+                      (api, revision) =>
+                        api.draft.wordSounds(revision, asset.key, { language, phonemes }),
+                      {
+                        keep: "none",
+                        then: () => toastSuccess(S.activities.bookWords.saved),
+                      },
+                    )
                   }
                   onEdit={editable && !disabled ? edit : undefined}
                 />
@@ -752,7 +755,7 @@ export function AssetEditor({
                           (run.status === "succeeded" || run.status === "conflict") && (
                             <MediaTextReview
                               key={`${endpoint}/${run.runId}`}
-                              endpoint={`${endpoint}/runs/${encodeURIComponent(run.runId)}/candidate`}
+                              runId={run.runId}
                               target={run.mediaText!}
                               currentText={
                                 asset.type === "image" ? asset.description : (asset.script ?? "")

@@ -51,6 +51,7 @@ import {
   recordingFailure,
   recordingUrl,
 } from "./scene-video";
+import { useActivityClient } from "./activity-client";
 
 type Asset = AssetManifest["assets"][string][number];
 
@@ -222,7 +223,6 @@ export function SceneCompositionView({
       )}
       {newestRecording && onCritique && (
         <SceneCritiqueView
-          endpoint={endpoint}
           critiques={runIndex.of("critique", target)}
           newestRecording={newestRecording.runId}
           canCritique={canGenerate && canRecord && !busy}
@@ -389,10 +389,12 @@ function CompositionPreview({
   const width = run.composition?.width ?? 640;
   const height = run.composition?.height ?? 480;
   const runPath = `${endpoint}/runs/${encodeURIComponent(run.runId)}`;
+  const { api } = useActivityClient();
 
   useEffect(() => {
     let cancelled = false;
-    void apiFetch<{ candidate: string | null }>(`${runPath}/candidate`)
+    void api.runs
+      .candidate(run.runId)
       .then((value) => {
         if (!cancelled) setCandidate(parseCandidate(value.candidate));
       })
@@ -400,7 +402,7 @@ function CompositionPreview({
     return () => {
       cancelled = true;
     };
-  }, [runPath]);
+  }, [api, run.runId]);
 
   useEffect(() => {
     const listen = (event: MessageEvent) => {

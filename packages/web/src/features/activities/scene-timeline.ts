@@ -62,11 +62,6 @@ export function issueText(issue: TimelineIssue): string {
   return S.activities.video.timeline.issues[issue.code](issue.asset);
 }
 
-/** Where a run's kept output is read, as `{ candidate }` with the output as a JSON string. */
-export function candidateUrl(endpoint: string, runId: string): string {
-  return `${endpoint}/runs/${encodeURIComponent(runId)}/candidate`;
-}
-
 /** Issues that stop a render: the server refuses while any is reported. */
 export function blocksRender(issue: TimelineIssue): boolean {
   return ["asset_missing", "asset_kind", "asset_unbound", "cut_past_recording"].includes(

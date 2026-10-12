@@ -10,8 +10,7 @@
  */
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router";
-import type { ActivityRun, ActivityRunSummary } from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
+import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
 import * as api from "../../api/endpoints";
 import { Button } from "../../components/ui/button";
 import { EmptyState } from "../../components/ui/empty-state";
@@ -21,6 +20,7 @@ import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { MessageStream } from "../chat/message-stream";
+import { runStarted, useActivityClient } from "./activity-client";
 import {
   conversationThreads,
   focusLabel,
@@ -41,13 +41,11 @@ import { ShowReasoningSwitch } from "./show-reasoning-switch";
 import { useShowReasoning } from "./run-log-prefs";
 
 export function ConversationPanel({
-  endpoint,
   runs,
   runner,
   revision,
   focus,
   editable,
-  onStarted,
   base,
   dirty,
   onAccept,
@@ -61,16 +59,12 @@ export function ConversationPanel({
   review = null,
   onReviewScript,
 }: {
-  /** The activity's API path. */
-  endpoint: string;
   runs: readonly ActivityRunSummary[];
   /** Who answers, as the stage routes take it; null when no agent is chosen. */
   runner: Record<string, string> | null;
   revision: string;
   focus: AssistFocus;
   editable: boolean;
-  /** A new conversation is a run, and belongs in the activity's history straight away. */
-  onStarted: (run: ActivityRun) => void;
   /** The saved draft a proposal is shown against. */
   base: ProposalBase;
   /** The author has unsaved edits of their own. */
@@ -121,14 +115,12 @@ export function ConversationPanel({
       review={review}
       onReviewScript={onReviewScript}
       initialStatus={startedRunning}
-      endpoint={endpoint}
       runner={runner}
       revision={revision}
       focus={focus}
       editable={editable}
       onFresh={() => setChoice(null)}
       onSession={(id) => setChoice(id)}
-      onStarted={onStarted}
     />
   );
 }
@@ -147,14 +139,12 @@ function Conversation({
   review,
   onReviewScript,
   initialStatus,
-  endpoint,
   runner,
   revision,
   focus,
   editable,
   onFresh,
   onSession,
-  onStarted,
   threads,
   onChooseThread,
 }: {
@@ -174,15 +164,14 @@ function Conversation({
   review: ScriptReview | null;
   onReviewScript?: (scene?: number) => void;
   initialStatus: "idle" | "running";
-  endpoint: string;
   runner: Record<string, string> | null;
   revision: string;
   focus: AssistFocus;
   editable: boolean;
   onFresh: () => void;
   onSession: (sessionId: string) => void;
-  onStarted: (run: ActivityRun) => void;
 }) {
+  const client = useActivityClient();
   const words = S.activities.studioConversation;
   const {
     stream,
@@ -239,18 +228,15 @@ function Conversation({
     try {
       if (!sessionId) {
         // Without the page context the agent is briefed on the activity as a whole.
-        const run = await apiFetch<ActivityRun>(`${endpoint}/assist`, {
-          method: "POST",
-          body: {
-            ...runner,
-            expectedRevision: revision,
-            message,
-            focus: withContext ? focus : null,
-          },
-        });
+        const run = await client.api.runs.start(
+          "assist",
+          { ...runner, message, focus: withContext ? focus : null },
+          revision,
+        );
         if (run.status !== "running" || !run.sessionId)
           throw new Error(run.error ?? S.activities.status[run.status]);
-        onStarted(run);
+        // A new conversation is a run, and belongs in the activity's history straight away.
+        runStarted(client, run);
         lastSent.current = withContext ? focus : null;
         setDraft("");
         setWithContext(true);

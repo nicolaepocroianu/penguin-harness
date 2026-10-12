@@ -8,7 +8,7 @@
  * nothing else says it did.
  */
 import { useCallback, useEffect, useState } from "react";
-import { apiFetch } from "../../api/client";
+import type { ActivityApi } from "./activity-api";
 import type { AssistProposal } from "./proposal";
 
 export interface ProposalRead {
@@ -18,15 +18,14 @@ export interface ProposalRead {
   error: string | null;
 }
 
-export function useAssistProposal(endpoint: string, runId: string | null) {
+export function useAssistProposal(api: ActivityApi, runId: string | null) {
   const [read, setRead] = useState<ProposalRead | null>(null);
   const [version, setVersion] = useState(0);
   useEffect(() => {
     if (!runId) return;
     let cancelled = false;
-    void apiFetch<{ proposal: AssistProposal | null; error: string | null }>(
-      `${endpoint}/runs/${encodeURIComponent(runId)}/proposal`,
-    )
+    void api.runs
+      .proposal(runId)
       .then((value) => {
         if (!cancelled) setRead({ runId, proposal: value.proposal, error: value.error });
       })
@@ -36,7 +35,7 @@ export function useAssistProposal(endpoint: string, runId: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [endpoint, runId, version]);
+  }, [api, runId, version]);
   const reload = useCallback(() => setVersion((value) => value + 1), []);
   // A read for another conversation is not this one's.
   return { read: read && read.runId === runId ? read : null, reload };

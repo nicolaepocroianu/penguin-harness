@@ -16,6 +16,7 @@ import type {
 } from "@prismshadow/penguin-server/api";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
+import type { ActivityApi, RunAccept, RunStart } from "./activity-api";
 import { applyMediaChange, type ProposalChange } from "./proposal";
 import { renumberManifestText } from "./ref-number";
 
@@ -126,8 +127,8 @@ export function blockedBy(action: DraftAction, facts: DraftFacts): DraftBlock | 
 }
 
 export interface DraftPorts {
-  /** One request to the activity's routes, `path` relative to the activity. */
-  request<T>(path: string, method: "GET" | "POST" | "PUT" | "PATCH", body?: unknown): Promise<T>;
+  /** The activity's routes. */
+  api: ActivityApi;
   /** The author's own save landed; the activity list is read again. */
   saved(): Promise<void>;
   toast(text: string): void;
@@ -198,9 +199,10 @@ export function readManifest(text: string): AssetManifest | null {
     : null;
 }
 
+/** One request to the activity's routes, naming the draft's revision where the route takes it. */
+export type DraftCall<R> = (api: ActivityApi, revision: string) => Promise<R>;
+
 interface CommitOptions<R> {
-  method?: "POST" | "PUT" | "PATCH";
-  body?: Record<string, unknown>;
   keep: KeepText;
   /** Where the response carries the draft; the response is the draft by default. */
   draftOf?: (result: R) => ActivityDraft;
@@ -370,10 +372,13 @@ export class StudioDraft {
    * Resolves with the server's answer, or null when the editor closed meanwhile. Callers run
    * it inside `act`.
    */
-  async commit<R = ActivityDraft>(path: string, options: CommitOptions<R>): Promise<R | null> {
+  async commit<R = ActivityDraft>(
+    call: DraftCall<R>,
+    options: CommitOptions<R>,
+  ): Promise<R | null> {
     if (!this.state.detail || (options.clean && this.state.dirty))
       throw new Error(S.activities.studioProposal.saveFirst);
-    const result = await this.send<R>(path, options.body ?? {}, options.method ?? "POST");
+    const result = await this.send(call);
     if (!this.live) return null;
     const draftOf = options.draftOf ?? ((value: R) => value as unknown as ActivityDraft);
     this.applyDraft(draftOf(result), options.keep);
@@ -382,31 +387,31 @@ export class StudioDraft {
 
   /** One change on its own: `commit` inside `act`, then `then` with the answer. */
   change<R = ActivityDraft>(
-    path: string,
+    call: DraftCall<R>,
     options: CommitOptions<R> & { then?: (result: R) => void },
   ): Promise<boolean> {
     return this.act(async () => {
-      const result = await this.commit(path, options);
+      const result = await this.commit(call, options);
       if (result !== null) options.then?.(result);
     });
   }
 
-  /** A request that names the draft's revision without changing the draft itself. */
-  send<R>(path: string, body: Record<string, unknown>, method: "POST" | "PUT" | "PATCH" = "POST") {
-    return this.ports.request<R>(path, method, { expectedRevision: this.revision, ...body });
+  /** A request against the draft as it stands, without applying anything it answers. */
+  send<R>(call: DraftCall<R>): Promise<R> {
+    return call(this.ports.api, this.revision);
   }
 
   /** Start one run against this draft; `then` gets it while the editor is still open. */
-  start(path: string, body: Record<string, unknown>, then: (run: ActivityRun) => void) {
+  start(path: RunStart, body: Record<string, unknown>, then: (run: ActivityRun) => void) {
     return this.act(async () => {
-      const run = await this.send<ActivityRun>(path, body);
+      const run = await this.send((api, revision) => api.runs.start(path, body, revision));
       if (this.live) then(run);
     });
   }
 
   /** Accept a run's candidate into the draft; settles once the draft has it. */
-  acceptRun(runId: string, path: string): Promise<boolean> {
-    return this.change(`runs/${encodeURIComponent(runId)}/${path}`, {
+  acceptRun(runId: string, path: RunAccept): Promise<boolean> {
+    return this.change((api, revision) => api.runs.accept(runId, path, revision), {
       keep: "none",
       then: () => this.ports.toast(S.activities.saved),
     });
@@ -415,7 +420,7 @@ export class StudioDraft {
   /** Read the draft again, replacing every text. */
   reload(): Promise<boolean> {
     return this.act(async () => {
-      const detail = await this.ports.request<ActivityDetail>("", "GET");
+      const detail = await this.ports.api.detail();
       if (this.live) this.replace(detail);
     });
   }
@@ -427,13 +432,14 @@ export class StudioDraft {
   async save(part: DraftPart, quiet = false): Promise<boolean> {
     if (!this.state.detail) return false;
     return this.act(async () => {
-      const [path, method, body] =
+      const { description, spec, media } = this.state;
+      const call: DraftCall<ActivityDraft> =
         part === "description"
-          ? (["description", "PATCH", { description: this.state.description }] as const)
+          ? (api, revision) => api.draft.description(revision, description)
           : part === "media"
-            ? (["media", "PUT", { manifest: JSON.parse(this.state.media) }] as const)
-            : (["apply-generated-spec", "POST", { spec: JSON.parse(this.state.spec) }] as const);
-      const draft = await this.commit(path, { method, body, keep: "unsaved" });
+            ? (api, revision) => api.draft.media(revision, JSON.parse(media))
+            : (api, revision) => api.draft.spec(revision, JSON.parse(spec));
+      const draft = await this.commit(call, { keep: "unsaved" });
       if (!draft) return;
       if (part === "spec") this.edit("spec", pretty(draft.spec));
       if (part === "media") this.edit("media", pretty(draft.mediaPlan?.manifest));
@@ -450,23 +456,20 @@ export class StudioDraft {
   async land(change: ProposalChange): Promise<void> {
     const detail = this.state.detail;
     if (!detail || this.state.dirty) throw new Error(S.activities.studioProposal.saveFirst);
-    const [path, method, body] =
-      change.target === "description"
-        ? (["description", "PATCH", { description: change.text }] as const)
-        : change.target === "spec"
-          ? (["apply-generated-spec", "POST", { spec: change.spec }] as const)
-          : ([
-              "media",
-              "PUT",
-              {
-                manifest: applyMediaChange(
-                  detail.draft.mediaPlan?.manifest ??
-                    fail(S.activities.studioProposal.missingAsset(change.assetKey)),
-                  change,
-                ),
-              },
-            ] as const);
-    const draft = await this.commit(path, { method, body, keep: "none" });
+    let call: DraftCall<ActivityDraft>;
+    if (change.target === "description")
+      call = (api, revision) => api.draft.description(revision, change.text);
+    else if (change.target === "spec")
+      call = (api, revision) => api.draft.spec(revision, change.spec);
+    else {
+      const manifest = applyMediaChange(
+        detail.draft.mediaPlan?.manifest ??
+          fail(S.activities.studioProposal.missingAsset(change.assetKey)),
+        change,
+      );
+      call = (api, revision) => api.draft.media(revision, manifest);
+    }
+    const draft = await this.commit(call, { keep: "none" });
     if (draft) this.ports.toast(S.activities.saved);
   }
 

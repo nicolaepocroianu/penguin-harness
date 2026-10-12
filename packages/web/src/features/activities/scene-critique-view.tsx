@@ -5,13 +5,12 @@
  */
 import { useEffect, useState } from "react";
 import type { ActivityRunSummary, SceneCritique } from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
-import { candidateUrl } from "./scene-timeline";
+import { useActivityClient } from "./activity-client";
 import { madeBy } from "./scene-video";
 
 const words = S.activities.video.critique;
@@ -42,14 +41,12 @@ export function critiqueSettles(critique: SceneCritique | null, newestRecording:
 }
 
 export function SceneCritiqueView({
-  endpoint,
   critiques,
   newestRecording,
   canCritique,
   onCritique,
   onImprove,
 }: {
-  endpoint: string;
   critiques: readonly ActivityRunSummary[];
   /** The newest recording's run, which a critique is of. */
   newestRecording: string;
@@ -59,6 +56,7 @@ export function SceneCritiqueView({
   /** Compose, record and critique round after round until it scores well. */
   onImprove?: () => void;
 }) {
+  const { api } = useActivityClient();
   const latest = critiques[0] ?? null;
   const running = latest?.status === "running";
   const [critique, setCritique] = useState<SceneCritique | null>(null);
@@ -67,7 +65,8 @@ export function SceneCritiqueView({
     let live = true;
     setCritique(null);
     if (!shownRun) return;
-    apiFetch<{ candidate: string | null }>(candidateUrl(endpoint, shownRun))
+    api.runs
+      .candidate(shownRun)
       .then(({ candidate }) => {
         if (live) setCritique(parseCritique(candidate));
       })
@@ -75,7 +74,7 @@ export function SceneCritiqueView({
     return () => {
       live = false;
     };
-  }, [endpoint, shownRun]);
+  }, [api, shownRun]);
   const scoredWell = critique ? critique.score >= CRITIQUE_GOOD : false;
   const good = critiqueSettles(critique, newestRecording);
   return (
