@@ -1,5 +1,5 @@
 /**
- * Whether a deploy could start, built over a fake git and a fake disk: the ref must be the
+ * Whether a deploy could start, built over fake clones and a fake disk: the ref must be the
  * canonical one, the layout mainOnly, the settings complete and the module's repository
  * known; each clone must be there, clean, pushed and pointing at the right remote, with main
  * in it. The deploy branches are reported, not required. The remote is asked only on request.
@@ -12,13 +12,13 @@ import {
   deployBranchName,
   remoteKey,
   sameRemote,
-  type DeployGitResult,
 } from "../src/activities/deploy-git.js";
 import {
   defaultDeploySettings,
   normalizeDeploySettings,
 } from "../src/activities/deploy-settings.js";
 import { WafLayout } from "../src/activities/waf-layout.js";
+import { FakeClones, type FakeRepo } from "./fake-clones.js";
 
 const HOME = path.resolve("/penguin-home");
 const WAF = path.join(HOME, "waf");
@@ -26,66 +26,16 @@ const MODULE_REMOTE = "git@github.com:org/waf-module-words.git";
 const DATA_REMOTE = "git@github.com:org/data.git";
 const MEDIA_REMOTE = "git@github.com:org/media.git";
 
-interface FakeRepo {
-  origin: string;
-  branch?: string;
-  dirty?: boolean;
-  ahead?: number;
-  branches?: string[];
-  remoteBranches?: string[];
-  /** The media clone's sparse folders; defaults to this product's. Null: not sparse. */
-  sparse?: string[] | null;
-  /** `git status` fails. */
-  statusFails?: boolean;
-  /** The branch has no upstream, so git cannot count what is unpushed. */
-  noUpstream?: boolean;
-  /** The remote cannot be reached. */
-  unreachable?: boolean;
-}
-
-/** A git that answers from a table of repositories by directory, recording every call. */
-function fakeGit(repos: Record<string, FakeRepo>, options: { missing?: boolean } = {}) {
-  const calls: Array<{ args: string[]; cwd: string }> = [];
-  const ok = (stdout = ""): DeployGitResult => ({ code: 0, stdout, stderr: "" });
-  const run = async (args: string[], cwd: string): Promise<DeployGitResult> => {
-    calls.push({ args, cwd });
-    if (options.missing)
-      return { code: null, stdout: "", stderr: "spawn git ENOENT", error: "not_found" };
-    if (args[0] === "--version") return ok("git version 2.45.0");
-    const repo = repos[cwd];
-    if (!repo) return { code: 128, stdout: "", stderr: "not a git repository" };
-    const joined = args.join(" ");
-    if (joined === "rev-parse --abbrev-ref HEAD") return ok(`${repo.branch ?? "main"}\n`);
-    if (joined === "status --porcelain")
-      return repo.statusFails
-        ? { code: 128, stdout: "", stderr: "fatal: index file corrupt" }
-        : ok(repo.dirty ? " M file.txt\n" : "");
-    if (joined === "rev-list --count @{u}..HEAD")
-      return repo.noUpstream
-        ? { code: 128, stdout: "", stderr: "fatal: no upstream configured" }
-        : ok(`${repo.ahead ?? 0}\n`);
-    if (joined === "sparse-checkout list")
-      return repo.sparse === null
-        ? { code: 128, stdout: "", stderr: "fatal: this worktree is not sparse" }
-        : ok(`${(repo.sparse ?? ["loom/words"]).join("\n")}\n`);
-    if (joined === "remote get-url origin") return ok(`${repo.origin}\n`);
-    if (args[0] === "rev-parse" && args[1] === "--verify") {
-      const branch = args[3]!.replace("refs/heads/", "");
-      return (repo.branches ?? ["main"]).includes(branch)
-        ? ok("abc\n")
-        : { code: 1, stdout: "", stderr: "" };
-    }
-    if (args[0] === "ls-remote") {
-      if (repo.unreachable)
-        return { code: 128, stdout: "", stderr: "ssh: Could not resolve hostname" };
-      const branch = args[3]!.replace("refs/heads/", "");
-      return ok(
-        (repo.remoteBranches ?? ["main"]).includes(branch) ? `abc\trefs/heads/${branch}\n` : "",
-      );
-    }
-    return { code: 1, stdout: "", stderr: `unexpected: ${joined}` };
-  };
-  return { run, calls };
+/** Clones that answer from a table of repositories by directory, recording every call. */
+function fakeClones(
+  repos: Record<string, FakeRepo & { noUpstream?: boolean }>,
+  options: { missing?: boolean } = {},
+) {
+  const clones = new FakeClones();
+  clones.gitMissing = options.missing === true;
+  for (const [dir, repo] of Object.entries(repos))
+    clones.add(dir, { ...repo, ...(repo.noUpstream ? { ahead: null } : {}) });
+  return clones;
 }
 
 const CHECKOUT = new WafLayout(WAF);
@@ -128,11 +78,11 @@ function input(overrides: Partial<DeployContextInput> = {}): DeployContextInput 
 }
 
 /** All three clones on disk and healthy. */
-function healthyRepos(): Record<string, FakeRepo> {
+function healthyRepos(): Record<string, FakeRepo & { noUpstream?: boolean }> {
   return {
     [PATHS.module]: { origin: MODULE_REMOTE, branches: ["main"] },
     [PATHS.activityData]: { origin: DATA_REMOTE, branches: ["main", "loom/words-activity-data"] },
-    [PATHS.media]: { origin: MEDIA_REMOTE },
+    [PATHS.media]: { origin: MEDIA_REMOTE, sparse: ["loom/words"] },
   };
 }
 
@@ -143,8 +93,8 @@ function disk(repos: Record<string, FakeRepo>) {
 describe("deploy context", () => {
   it("is ready when every check passes, and names Loom's branches", async () => {
     const repos = healthyRepos();
-    const git = fakeGit(repos);
-    const context = await buildDeployContext(input(), { git, exists: disk(repos) });
+    const clones = fakeClones(repos);
+    const context = await buildDeployContext(input(), { clones, exists: disk(repos) });
     expect(context.problems).toEqual([]);
     expect(context.ready).toBe(true);
     expect(context.branches).toEqual({
@@ -165,14 +115,14 @@ describe("deploy context", () => {
       activityData: { local: true, remote: null },
     });
     // Without Check remote, nothing reaches the remote.
-    expect(git.calls.some((call) => call.args[0] === "ls-remote")).toBe(false);
+    expect(clones.ops()).not.toContain("remoteHasBranch");
     expect(context.remoteChecked).toBe(false);
   });
 
   it("refuses a ref that is not the canonical one", async () => {
     const repos = healthyRepos();
     const context = await buildDeployContext(input({ canonical: false }), {
-      git: fakeGit(repos),
+      clones: fakeClones(repos),
       exists: disk(repos),
     });
     expect(context.ready).toBe(false);
@@ -186,7 +136,7 @@ describe("deploy context", () => {
         remotes: { ...REMOTES, module: null },
         layout: "mainAndSide",
       }),
-      { git: fakeGit({}), exists: async () => false },
+      { clones: fakeClones({}), exists: async () => false },
     );
     expect(context.problems).toEqual(
       expect.arrayContaining([
@@ -197,7 +147,7 @@ describe("deploy context", () => {
     // No module, so no module clone is expected either.
     expect(context.problems).not.toContainEqual({ code: "clone_missing", repo: "module" });
     const none = await buildDeployContext(input({ layout: null }), {
-      git: fakeGit(healthyRepos()),
+      clones: fakeClones(healthyRepos()),
       exists: disk(healthyRepos()),
     });
     // A spec that names no layout is mainOnly, as preview and assembly treat it.
@@ -209,7 +159,7 @@ describe("deploy context", () => {
     const repos = healthyRepos();
     const context = await buildDeployContext(
       input({ settings: defaultDeploySettings(), secrets: {} }),
-      { git: fakeGit(repos), exists: disk(repos) },
+      { clones: fakeClones(repos), exists: disk(repos) },
     );
     const fields = context.problems
       .filter((problem) => problem.code === "settings_missing")
@@ -218,14 +168,14 @@ describe("deploy context", () => {
   });
 
   it("names a WAF workspace that is not prepared, and looks at no clone", async () => {
-    const git = fakeGit({});
+    const clones = fakeClones({});
     const context = await buildDeployContext(input({ wafRoot: null }), {
-      git,
+      clones,
       exists: async () => false,
     });
     expect(context.problems).toEqual([{ code: "workspace_not_ready" }]);
     expect(context.ready).toBe(false);
-    expect(git.calls.map((call) => call.args[0])).toEqual(["--version"]);
+    expect(clones.ops()).toEqual(["available"]);
   });
 
   it("refuses a module remote no clone may be made from", async () => {
@@ -237,7 +187,7 @@ describe("deploy context", () => {
       "https://user:secret@git.example.org/org/words.git",
     ]) {
       const context = await buildDeployContext(input({ remotes: { ...REMOTES, module } }), {
-        git: fakeGit(repos),
+        clones: fakeClones(repos),
         exists: disk(repos),
       });
       expect(context.problems).toContainEqual({ code: "module_remote_invalid" });
@@ -251,7 +201,10 @@ describe("deploy context", () => {
     repos[PATHS.module]!.statusFails = true;
     repos[PATHS.activityData]!.noUpstream = true;
     repos[PATHS.media]!.branch = "some-other-branch";
-    const context = await buildDeployContext(input(), { git: fakeGit(repos), exists: disk(repos) });
+    const context = await buildDeployContext(input(), {
+      clones: fakeClones(repos),
+      exists: disk(repos),
+    });
     expect(context.ready).toBe(false);
     expect(context.problems).toEqual([
       { code: "clone_unknown", repo: "module", what: "status" },
@@ -265,7 +218,7 @@ describe("deploy context", () => {
     const repos = healthyRepos();
     repos[PATHS.activityData]!.unreachable = true;
     const context = await buildDeployContext(input({ checkRemote: true }), {
-      git: fakeGit(repos),
+      clones: fakeClones(repos),
       exists: disk(repos),
     });
     expect(context.ready).toBe(false);
@@ -275,21 +228,30 @@ describe("deploy context", () => {
   it("names a media clone that does not check out this product's folder", async () => {
     const repos = healthyRepos();
     repos[PATHS.media]!.sparse = ["loom/other"];
-    const context = await buildDeployContext(input(), { git: fakeGit(repos), exists: disk(repos) });
+    const context = await buildDeployContext(input(), {
+      clones: fakeClones(repos),
+      exists: disk(repos),
+    });
     expect(context.ready).toBe(false);
     expect(context.problems).toEqual([{ code: "media_path_missing", path: "loom/words" }]);
     // A parent folder in the sparse set brings the product's in; so does no sparse set at all.
     repos[PATHS.media]!.sparse = ["loom"];
-    const parent = await buildDeployContext(input(), { git: fakeGit(repos), exists: disk(repos) });
+    const parent = await buildDeployContext(input(), {
+      clones: fakeClones(repos),
+      exists: disk(repos),
+    });
     expect(parent.problems).toEqual([]);
     repos[PATHS.media]!.sparse = null;
-    const whole = await buildDeployContext(input(), { git: fakeGit(repos), exists: disk(repos) });
+    const whole = await buildDeployContext(input(), {
+      clones: fakeClones(repos),
+      exists: disk(repos),
+    });
     expect(whole.problems).toEqual([]);
   });
 
   it("names each missing clone", async () => {
     const context = await buildDeployContext(input(), {
-      git: fakeGit({}),
+      clones: fakeClones({}),
       exists: async () => false,
     });
     expect(context.problems).toEqual([
@@ -306,7 +268,10 @@ describe("deploy context", () => {
       [PATHS.activityData]: { origin: DATA_REMOTE, dirty: true, branches: [] },
       [PATHS.media]: { origin: MEDIA_REMOTE, ahead: 2, dirty: true },
     };
-    const context = await buildDeployContext(input(), { git: fakeGit(repos), exists: disk(repos) });
+    const context = await buildDeployContext(input(), {
+      clones: fakeClones(repos),
+      exists: disk(repos),
+    });
     expect(context.problems).toEqual([
       { code: "clone_remote_mismatch", repo: "module" },
       { code: "clone_dirty", repo: "activityData" },
@@ -319,7 +284,10 @@ describe("deploy context", () => {
     repos[PATHS.activityData]!.ahead = 1;
     repos[PATHS.module]!.ahead = 3;
     repos[PATHS.media]!.ahead = 2;
-    const context = await buildDeployContext(input(), { git: fakeGit(repos), exists: disk(repos) });
+    const context = await buildDeployContext(input(), {
+      clones: fakeClones(repos),
+      exists: disk(repos),
+    });
     expect(context.problems).toEqual([{ code: "clone_ahead", repo: "activityData", count: 1 }]);
   });
 
@@ -327,9 +295,9 @@ describe("deploy context", () => {
     const repos = healthyRepos();
     repos[PATHS.media]!.remoteBranches = [];
     repos[PATHS.module]!.remoteBranches = ["main", "loom/words-deploy"];
-    const git = fakeGit(repos);
+    const clones = fakeClones(repos);
     const context = await buildDeployContext(input({ checkRemote: true }), {
-      git,
+      clones,
       exists: disk(repos),
     });
     expect(context.remoteChecked).toBe(true);
@@ -344,7 +312,7 @@ describe("deploy context", () => {
     const repos = healthyRepos();
     delete repos[PATHS.media];
     const context = await buildDeployContext(input(), {
-      git: fakeGit(repos, { missing: true }),
+      clones: fakeClones(repos, { missing: true }),
       exists: disk(repos),
     });
     expect(context.problems).toEqual([

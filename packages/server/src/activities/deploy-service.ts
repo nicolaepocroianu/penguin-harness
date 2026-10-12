@@ -11,7 +11,7 @@
  * starts only on clean clones, so what it resets or switches is nobody's unsaved work. The
  * connection test is one read-only GET to Jenkins, made only when an admin presses it.
  *
- * Every git call and every Jenkins request goes through `DeployPorts`, which a test replaces,
+ * Every clone and every Jenkins request goes through `DeployPorts`, which a test replaces,
  * so no test reaches a network or a real remote.
  */
 import { createHash } from "node:crypto";
@@ -31,12 +31,7 @@ import type { ActivityDetail, ActivityProduct } from "./domain.js";
 import type { WafWorkspace } from "./waf-workspace.js";
 import { mediaSparsePath, WafLayout } from "./waf-layout.js";
 import { buildDeployContext } from "./deploy-context.js";
-import {
-  spawnGit,
-  type DeployGit,
-  type DeployGitOptions,
-  type DeployGitResult,
-} from "./deploy-git.js";
+import { gitClones, type Clones } from "./clone.js";
 import {
   DEPLOY_SECRETS_FILE,
   DEPLOY_SETTINGS_KEY,
@@ -103,8 +98,8 @@ export interface JenkinsRequest {
  * real one is used; a test stands in fakes so nothing reaches git or Jenkins.
  */
 export abstract class DeployPorts extends Interface<{
-  /** Runs one git command. Never throws. */
-  runGit?: (args: string[], cwd: string, opts?: DeployGitOptions) => Promise<DeployGitResult>;
+  /** The clones a deploy reads and works in. */
+  clones?: Clones;
   /** Makes one GET to Jenkins and returns its HTTP status; throws when nothing answered. */
   getJenkins?: (request: JenkinsRequest) => Promise<{ status: number }>;
   /** Every request a deploy makes to Jenkins (start a job, follow its build). */
@@ -240,9 +235,8 @@ export class ActivityDeployService implements ActivityDeploys {
     return this.wafWorkspace.requireRoot();
   }
 
-  private git(): DeployGit {
-    const run = this.ports.runGit;
-    return run ? { run } : spawnGit;
+  private clones(): Clones {
+    return this.ports.clones ?? gitClones();
   }
 
   private secretsPath(): string {
@@ -344,7 +338,7 @@ export class ActivityDeployService implements ActivityDeploys {
         secrets: this.secrets(),
         checkRemote: options.checkRemote === true,
       },
-      { git: this.git(), exists: exists },
+      { clones: this.clones(), exists: exists },
     );
   }
 
@@ -534,7 +528,7 @@ export class ActivityDeployService implements ActivityDeploys {
       selection: input.stage,
       stages,
       base: {
-        git: this.git(),
+        clones: this.clones(),
         jenkins: createDeployJenkins(
           {
             url: settings.qa.jenkinsUrl,
@@ -617,7 +611,7 @@ export class ActivityDeployService implements ActivityDeploys {
       selection,
       stages,
       base: {
-        git: this.git(),
+        clones: this.clones(),
         jenkins: createDeployJenkins(
           {
             url: settings.prod.jenkinsUrl,

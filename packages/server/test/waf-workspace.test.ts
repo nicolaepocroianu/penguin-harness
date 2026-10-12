@@ -4,13 +4,13 @@
  * navbar's dependencies, media arrives partial and sparse, and a product module is cloned on
  * first use — or started empty with origin set when its repository does not exist yet.
  *
- * git and npm are fakes: nothing here reaches a network or a real remote.
+ * The clones and npm are fakes: nothing here reaches a network or a real remote. What git does
+ * with a clone is `activity-clone.test.ts`'s.
  */
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { DeployGitOptions, DeployGitResult } from "../src/activities/deploy-git.js";
 import {
   normalizeWafWorkspaceSettings,
   type WafWorkspace,
@@ -18,74 +18,8 @@ import {
   defaultWafWorkspaceSettings,
   type WafWorkspaceStatus,
 } from "../src/activities/waf-workspace.js";
+import { FakeClones } from "./fake-clones.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser } from "./helpers.js";
-
-const ok = (stdout = ""): DeployGitResult => ({ code: 0, stdout, stderr: "" });
-
-/** A git that keeps each repository as a `.git` folder holding its origin and sparse paths. */
-function fakeGit(existing: ReadonlySet<string> = new Set(), diverged = new Set<string>()) {
-  const calls: Array<{ args: string[]; cwd: string; env?: Record<string, string> }> = [];
-  const read = (dir: string, name: string) =>
-    fs.readFile(path.join(dir, ".git", name), "utf8").catch(() => null);
-  const runGit = async (
-    args: string[],
-    cwd: string,
-    opts?: DeployGitOptions,
-  ): Promise<DeployGitResult> => {
-    calls.push({ args, cwd, ...(opts?.env ? { env: opts.env } : {}) });
-    const joined = args.join(" ");
-    if (args[0] === "clone") {
-      const [remote, dir] = args.slice(args.indexOf("--") + 1);
-      await fs.mkdir(path.join(dir!, ".git"), { recursive: true });
-      await fs.writeFile(path.join(dir!, ".git", "origin"), remote!);
-      await fs.writeFile(path.join(dir!, ".git", "branch"), args[args.indexOf("--branch") + 1]!);
-      return ok();
-    }
-    if (args[0] === "ls-remote") {
-      const remote = args[args.length - 1]!;
-      return existing.has(remote)
-        ? ok("abc\trefs/heads/main\n")
-        : { code: 128, stdout: "", stderr: "ERROR: Repository not found." };
-    }
-    if (args[0] === "init") {
-      await fs.mkdir(path.join(cwd, ".git"), { recursive: true });
-      return ok();
-    }
-    if (joined.startsWith("remote add origin ")) {
-      await fs.writeFile(path.join(cwd, ".git", "origin"), args[3]!);
-      return ok();
-    }
-    const origin = await read(cwd, "origin");
-    if (origin === null) return { code: 128, stdout: "", stderr: "not a git repository" };
-    if (joined === "remote get-url origin") return ok(`${origin}\n`);
-    if (joined === "branch --show-current") return ok(`${(await read(cwd, "branch")) ?? "main"}\n`);
-    if (args[0] === "remote" && args[1] === "set-branches") return ok();
-    if (args[0] === "fetch") return ok();
-    if (args[0] === "switch" || joined === "checkout -") {
-      const current = (await read(cwd, "branch")) ?? "main";
-      const next = args[0] === "switch" ? args[1]! : ((await read(cwd, "previous")) ?? "main");
-      await fs.writeFile(path.join(cwd, ".git", "previous"), current);
-      await fs.writeFile(path.join(cwd, ".git", "branch"), next);
-      return ok();
-    }
-    if (args[0] === "merge" && args[1] === "--ff-only")
-      return diverged.has(args[2]!.replace(/^origin\//, ""))
-        ? { code: 128, stdout: "", stderr: "fatal: Not possible to fast-forward, aborting." }
-        : ok();
-    if (joined === "status --porcelain") return ok("");
-    if (joined === "lfs install --local") return ok();
-    if (args[0] === "lfs" && args[1] === "pull") return ok();
-    if (args[0] === "sparse-checkout") {
-      const current = ((await read(cwd, "sparse")) ?? "").split("\n").filter(Boolean);
-      if (args[1] === "list") return ok(current.join("\n"));
-      const next = [...current, ...args.slice(args.indexOf("--") + 1)];
-      await fs.writeFile(path.join(cwd, ".git", "sparse"), next.join("\n"));
-      return ok();
-    }
-    return { code: 1, stdout: "", stderr: `unexpected: ${joined}` };
-  };
-  return { calls, runGit };
-}
 
 describe("WAF workspace", () => {
   const cleanups: (() => Promise<void>)[] = [];
@@ -99,13 +33,15 @@ describe("WAF workspace", () => {
     options: { autoPrepare?: boolean; diverged?: Set<string> } = {},
   ) {
     vi.stubEnv("WAF_ROOT_DIR", "");
-    const git = fakeGit(existing, options.diverged);
+    const clones = new FakeClones();
+    clones.existingRemotes = new Set(existing ?? []);
+    if (options.diverged) clones.cloned = { diverged: [...options.diverged] };
     const installs: string[] = [];
     const t = await createTestApp({
       wafCheckout: false,
       wafWorkspacePorts: {
         ...(options.autoPrepare ? { autoPrepare: true } : {}),
-        runGit: git.runGit,
+        clones,
         runProcess: async (_command, _args, options) => {
           installs.push(options.cwd);
           await fs.mkdir(path.join(options.cwd, "node_modules"), { recursive: true });
@@ -116,7 +52,7 @@ describe("WAF workspace", () => {
     cleanups.push(t.cleanup);
     const admin = apiClient(t.app, (await loginAdmin(t.app)).cookie);
     const workspace = t.deps.tree.api<WafWorkspace>("ActivitiesModule", "WafWorkspace");
-    return { t, git, installs, admin, workspace };
+    return { t, clones, installs, admin, workspace };
   }
 
   async function prepared(s: Awaited<ReturnType<typeof setup>>) {
@@ -165,7 +101,7 @@ describe("WAF workspace", () => {
       if (!status.preparing && status.lastError) throw new Error(status.lastError);
       await new Promise((resolve) => setTimeout(resolve, 5));
     }
-    expect(s.git.calls.filter((call) => call.args[0] === "clone")).toHaveLength(4);
+    expect(s.clones.ops().filter((op) => op === "cloneFrom")).toHaveLength(4);
     expect(await s.workspace.root()).toBe(status.root);
   });
 
@@ -175,9 +111,9 @@ describe("WAF workspace", () => {
       status: 409,
       code: "waf_workspace_not_ready",
     });
-    const dir = path.join(s.t.root, "waf", "framework", ".git");
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(path.join(dir, "origin"), "git@github.com:someone/else.git");
+    await s.clones.onDisk(path.join(s.t.root, "waf", "framework"), {
+      origin: "git@github.com:someone/else.git",
+    });
     await prepared(s);
     await expect(s.workspace.requireRoot()).rejects.toThrow(/someone\/else/);
   });
@@ -195,17 +131,20 @@ describe("WAF workspace", () => {
   it("clones the four shared repositories, media sparse without LFS, and installs two", async () => {
     const s = await setup();
     await prepared(s);
-    const clones = s.git.calls.filter((call) => call.args[0] === "clone");
-    expect(clones.map((call) => call.args.slice(-1)[0]!.replace(s.t.root, "~"))).toEqual([
+    const clones = s.clones.calls.filter((call) => call.op === "cloneFrom");
+    expect(clones.map((call) => call.dir.replace(s.t.root, "~"))).toEqual([
       path.join("~", "waf", "framework"),
       path.join("~", "waf", "modules", "navbar"),
       path.join("~", "waf", "media"),
       path.join("~", "waf", "waf-activity-data"),
     ]);
-    expect(clones[0]!.args).toContain("v2");
-    const media = clones[2]!;
-    expect(media.args).toEqual(expect.arrayContaining(["--filter=blob:none", "--sparse"]));
-    expect(media.env).toEqual({ GIT_LFS_SKIP_SMUDGE: "1" });
+    // One branch each, the framework's v2; only media is partial and sparse.
+    expect(clones.map((call) => call.args[1])).toEqual([
+      { branch: "v2", partial: false },
+      { branch: "main", partial: false },
+      { branch: "main", partial: true },
+      { branch: "main", partial: false },
+    ]);
     expect(s.installs.map((dir) => path.relative(s.t.root, dir))).toEqual([
       path.join("waf", "framework"),
       path.join("waf", "modules", "navbar"),
@@ -215,16 +154,16 @@ describe("WAF workspace", () => {
   it("leaves correct clones alone when prepared again", async () => {
     const s = await setup();
     await prepared(s);
-    const before = s.git.calls.length;
+    const before = s.clones.calls.length;
     await prepared(s);
-    expect(s.git.calls.slice(before).some((call) => call.args[0] === "clone")).toBe(false);
+    expect(s.clones.calls.slice(before).some((call) => call.op === "cloneFrom")).toBe(false);
   });
 
   it("refuses to reuse a clone of another remote", async () => {
     const s = await setup();
-    const dir = path.join(s.t.root, "waf", "framework", ".git");
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(path.join(dir, "origin"), "git@github.com:someone/else.git");
+    await s.clones.onDisk(path.join(s.t.root, "waf", "framework"), {
+      origin: "git@github.com:someone/else.git",
+    });
     const status = await prepared(s);
     expect(status.ready).toBe(false);
     expect(status.lastError).toMatch(/someone\/else/);
@@ -258,15 +197,13 @@ describe("WAF workspace", () => {
     const after = await prepared(s);
     expect(after.ready).toBe(true);
     expect(after.repos.find((repo) => repo.id === "framework")!.branch).toBe("v3");
-    // Switched without resetting: a branch the clone had keeps its own commits.
+    // Switched as origin has it, never reset: a clone with work of its own is refused first.
     const frameworkDir = path.join(s.t.root, "waf", "framework");
-    const switching = s.git.calls
-      .filter(
-        (call) =>
-          call.cwd === frameworkDir && ["switch", "merge", "checkout"].includes(call.args[0]!),
-      )
-      .map((call) => call.args.join(" "));
-    expect(switching).toEqual(["switch v3", "merge --ff-only origin/v3"]);
+    expect(
+      s.clones.calls
+        .filter((call) => call.dir === frameworkDir && call.op === "onBranchFromOrigin")
+        .map((call) => call.args),
+    ).toEqual([["v3", { work: "clean" }]]);
     expect(s.installs.length).toBe(installs + 1);
   });
 
@@ -291,19 +228,12 @@ describe("WAF workspace", () => {
     });
   });
 
-  it("adds a product's media folder once, smudging its LFS files without a pull", async () => {
+  it("adds a product's media folder to the sparse checkout once", async () => {
     const s = await setup();
     await prepared(s);
     await s.workspace.ensureMedia(["loom/words"]);
     await s.workspace.ensureMedia(["loom/words"]);
-    const adds = s.git.calls.filter((call) =>
-      call.args.join(" ").startsWith("sparse-checkout add"),
-    );
-    expect(adds).toHaveLength(1);
-    expect(adds[0]!.env?.GIT_LFS_SKIP_SMUDGE).toBeUndefined();
-    expect(s.git.calls.some((call) => call.args[0] === "lfs" && call.args[1] === "pull")).toBe(
-      false,
-    );
+    expect(s.clones.repo(path.join(s.t.root, "waf", "media"))?.sparse).toEqual(["loom/words"]);
     await expect(s.workspace.ensureMedia(["../escape"])).rejects.toThrow(/media folder/);
   });
 
@@ -312,14 +242,12 @@ describe("WAF workspace", () => {
     const s = await setup(new Set([remote]));
     await prepared(s);
     const old = await s.workspace.ensureModule("waf-module-old");
-    expect(await fs.readFile(path.join(old, ".git", "origin"), "utf8")).toBe(remote);
+    expect(s.clones.repo(old)?.origin).toBe(remote);
     const fresh = await s.workspace.ensureModule("waf-module-new");
-    expect(await fs.readFile(path.join(fresh, ".git", "origin"), "utf8")).toBe(
+    expect(s.clones.repo(fresh)?.origin).toBe(
       "git@github.com:waterfordresearchinstitute/waf-module-new.git",
     );
-    expect(s.git.calls.some((call) => call.args.join(" ") === "init --initial-branch=main")).toBe(
-      true,
-    );
+    expect(s.clones.ops(fresh)).toEqual(["create"]);
     await expect(s.workspace.ensureModule("../x")).rejects.toThrow(/module folder/);
   });
 
@@ -338,7 +266,7 @@ describe("WAF workspace", () => {
     expect(status.managed).toBe(false);
     expect(status.ready).toBe(true);
     expect(await s.workspace.root()).toBe(await fs.realpath(root));
-    expect(s.git.calls.some((call) => call.args[0] === "clone")).toBe(false);
+    expect(s.clones.ops()).not.toContain("cloneFrom");
   });
 });
 

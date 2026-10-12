@@ -6,14 +6,13 @@
  * ref's files live in the module), an existing checkout's clones are its owner's, and a second
  * press of Prepare clones leaves correct clones alone.
  *
- * git and Jenkins are fakes: nothing here reaches a network or a real remote.
+ * The clones and Jenkins are fakes: nothing here reaches a network or a real remote.
  */
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivityDetail } from "../src/activities/domain.js";
-import type { DeployGitResult } from "../src/activities/deploy-git.js";
 import type { JenkinsRequest } from "../src/activities/deploy-service.js";
 import type {
   DeployConnectionTestResponse,
@@ -21,6 +20,7 @@ import type {
   DeploySettingsResponse,
 } from "../src/activities/deploy-types.js";
 import { activitySpec } from "./activity-fixtures.js";
+import { FakeClones } from "./fake-clones.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser } from "./helpers.js";
 
 const PROJECT = "deployer-work";
@@ -28,63 +28,15 @@ const MODULE_REMOTE = "git@github.com:org/waf-module-words.git";
 const DATA_REMOTE = "git@github.com:org/data.git";
 const MEDIA_REMOTE = "git@github.com:org/media.git";
 
-/**
- * A git that keeps its repositories on disk as a `.git` folder holding the origin and the
- * sparse paths, so the service's own disk checks see what a clone left behind. A clone with
- * no sparse file is not sparse, as an existing checkout's media is not.
- */
-function fakeGit(options: { failClone?: string } = {}) {
-  const calls: Array<{ args: string[]; cwd: string }> = [];
-  const ok = (stdout = ""): DeployGitResult => ({ code: 0, stdout, stderr: "" });
-  const read = (dir: string, name: string) =>
-    fs.readFile(path.join(dir, ".git", name), "utf8").catch(() => null);
-  const runGit = async (args: string[], cwd: string): Promise<DeployGitResult> => {
-    calls.push({ args, cwd });
-    if (args[0] === "--version") return ok("git version 2.45.0");
-    // The workspace asks whether a module's repository exists before cloning it.
-    if (args[0] === "ls-remote" && args[2] === "--") return ok("abc\trefs/heads/main\n");
-    if (args[0] === "clone") {
-      const [remote, dir] = args.slice(args.indexOf("--") + 1);
-      if (remote === options.failClone)
-        return { code: 128, stdout: "", stderr: "Cloning...\nfatal: repository not found" };
-      await fs.mkdir(path.join(dir!, ".git"), { recursive: true });
-      await fs.writeFile(path.join(dir!, ".git", "origin"), remote!);
-      return ok();
-    }
-    // A new module in an existing checkout starts as an empty repository with origin set.
-    if (args[0] === "init") {
-      await fs.mkdir(path.join(cwd, ".git"), { recursive: true });
-      return ok();
-    }
-    if (args.join(" ").startsWith("remote add origin ")) {
-      await fs.writeFile(path.join(cwd, ".git", "origin"), args[3]!);
-      return ok();
-    }
-    const origin = await read(cwd, "origin");
-    if (origin === null) return { code: 128, stdout: "", stderr: "not a git repository" };
-    const joined = args.join(" ");
-    if (joined === "remote get-url origin") return ok(`${origin}\n`);
-    if (joined === "rev-parse --abbrev-ref HEAD") return ok("main\n");
-    if (joined === "status --porcelain") return ok("");
-    if (joined === "rev-list --count @{u}..HEAD") return ok("0\n");
-    if (args[0] === "rev-parse" && args[1] === "--verify")
-      return args[3] === "refs/heads/main" ? ok("abc\n") : { code: 1, stdout: "", stderr: "" };
-    if (args[0] === "ls-remote")
-      return ok(args[3] === "refs/heads/main" ? "abc\trefs/heads/main\n" : "");
-    if (args[0] === "lfs") return ok();
-    if (args[0] === "sparse-checkout") {
-      const sparse = await read(cwd, "sparse");
-      if (sparse === null && args[1] === "list")
-        return { code: 128, stdout: "", stderr: "fatal: this worktree is not sparse" };
-      const current = (sparse ?? "").split("\n").filter(Boolean);
-      if (args[1] === "list") return ok(current.join("\n"));
-      const next = args[1] === "set" ? args.slice(2) : [...current, ...args.slice(2)];
-      await fs.writeFile(path.join(cwd, ".git", "sparse"), next.join("\n"));
-      return ok();
-    }
-    return { code: 1, stdout: "", stderr: `unexpected: ${joined}` };
-  };
-  return { calls, runGit };
+/** Clones that answer from memory; a clone made through them is a `.git` folder on disk. */
+function fakeClones(options: { failClone?: string } = {}) {
+  const clones = new FakeClones();
+  if (options.failClone)
+    clones.failClone = {
+      remote: options.failClone,
+      stderr: "Cloning...\nfatal: repository not found",
+    };
+  return clones;
 }
 
 describe("activity deploy routes", () => {
@@ -100,21 +52,22 @@ describe("activity deploy routes", () => {
    * product's module (unless `module` is false): its owner cloned it, and Penguin writes the
    * product's files into it.
    */
-  async function checkout(options: { shared?: boolean; module?: boolean } = {}) {
+  async function checkout(
+    clones: FakeClones,
+    options: { shared?: boolean; module?: boolean } = {},
+  ) {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-deploy-waf-"));
     cleanups.push(() => fs.rm(root, { recursive: true, force: true }));
     await fs.mkdir(path.join(root, "framework", "src"), { recursive: true });
     await fs.writeFile(path.join(root, "framework", "package.json"), "{}");
     await fs.mkdir(path.join(root, "media"), { recursive: true });
     await fs.mkdir(path.join(root, "modules"), { recursive: true });
-    const clones: Array<[string, string]> = [];
+    const repos: Array<[string, string]> = [];
     if (options.shared !== false)
-      clones.push(["waf-activity-data", DATA_REMOTE], ["media", MEDIA_REMOTE]);
-    if (options.module !== false) clones.push(["modules/waf-module-words", MODULE_REMOTE]);
-    for (const [folder, remote] of clones) {
-      await fs.mkdir(path.join(root, folder, ".git"), { recursive: true });
-      await fs.writeFile(path.join(root, folder, ".git", "origin"), remote);
-    }
+      repos.push(["waf-activity-data", DATA_REMOTE], ["media", MEDIA_REMOTE]);
+    if (options.module !== false) repos.push(["modules/waf-module-words", MODULE_REMOTE]);
+    for (const [folder, remote] of repos)
+      await clones.onDisk(path.join(root, folder), { origin: remote });
     vi.stubEnv("WAF_ROOT_DIR", root);
     return root;
   }
@@ -124,18 +77,18 @@ describe("activity deploy routes", () => {
    * repositories cloned, media sparse with no product's folder yet. A product's module is
    * cloned into it when the product's first ref is made.
    */
-  async function managedWorkspace(root: string) {
+  async function managedWorkspace(clones: FakeClones, root: string) {
     const waf = path.join(root, "waf");
     for (const [folder, remote] of [
       ["framework", "git@github.com:org/waf-framework.git"],
       ["modules/navbar", "git@github.com:org/navbar.git"],
       ["media", MEDIA_REMOTE],
       ["waf-activity-data", DATA_REMOTE],
-    ] as const) {
-      await fs.mkdir(path.join(waf, folder, ".git"), { recursive: true });
-      await fs.writeFile(path.join(waf, folder, ".git", "origin"), remote);
-    }
-    await fs.writeFile(path.join(waf, "media", ".git", "sparse"), "");
+    ] as const)
+      await clones.onDisk(path.join(waf, folder), {
+        origin: remote,
+        ...(folder === "media" ? { sparse: [] } : {}),
+      });
     await fs.mkdir(path.join(waf, "framework", "node_modules"), { recursive: true });
     await fs.mkdir(path.join(waf, "modules", "navbar", "node_modules"), { recursive: true });
   }
@@ -152,19 +105,21 @@ describe("activity deploy routes", () => {
       managed?: boolean;
     } = {},
   ) {
-    const waf = options.managed ? null : await checkout(options.checkout);
-    const git = fakeGit(options);
+    const git = fakeClones(options);
+    const waf = options.managed ? null : await checkout(git, options.checkout);
     const jenkins: JenkinsRequest[] = [];
     const t = await createTestApp({
-      ...(options.managed ? { wafCheckout: false, beforeSeed: managedWorkspace } : {}),
+      ...(options.managed
+        ? { wafCheckout: false, beforeSeed: (root: string) => managedWorkspace(git, root) }
+        : {}),
       deployPorts: {
-        runGit: git.runGit,
+        clones: git,
         getJenkins: async (request) => {
           jenkins.push(request);
           return { status: 200 };
         },
       },
-      wafWorkspacePorts: { runGit: git.runGit },
+      wafWorkspacePorts: { clones: git },
     });
     cleanups.push(t.cleanup);
     const admin = apiClient(t.app, (await loginAdmin(t.app)).cookie);
@@ -346,8 +301,8 @@ describe("activity deploy routes", () => {
     // The module is cloned from the workspace's template, where a WAF checkout keeps it, and
     // the ref's files are written into the clone.
     const module = path.join(t.root, "waf", "modules", "waf-module-words");
-    const clones = git.calls.filter((call) => call.args[0] === "clone");
-    expect(clones.map((call) => call.args)).toEqual([["clone", "--", MODULE_REMOTE, module]]);
+    const clones = git.calls.filter((call) => call.op === "cloneFrom");
+    expect(clones.map((call) => [call.dir, call.args[0]])).toEqual([[module, MODULE_REMOTE]]);
     await fs.stat(
       path.join(module, "generated", "words", "refs", "words-1", "spec", "penguin.json"),
     );
@@ -357,28 +312,19 @@ describe("activity deploy routes", () => {
     const after = ((await prepared.json()) as DeployContextResponse).context;
     expect(after.problems).toEqual([]);
     expect(after.ready).toBe(true);
-    expect(git.calls.filter((call) => call.args[0] === "clone")).toHaveLength(1);
-    expect(
-      git.calls.some(
-        (call) =>
-          call.args[0] === "sparse-checkout" &&
-          call.args[1] === "add" &&
-          call.args.includes("loom/words"),
-      ),
-    ).toBe(true);
-    const asksOrigin = (call: { args: string[] }) =>
-      call.args[0] === "ls-remote" && call.args[2] === "origin";
+    expect(git.ops().filter((op) => op === "cloneFrom")).toHaveLength(1);
+    const media = path.join(t.root, "waf", "media");
+    expect(git.repo(media)?.sparse).toEqual(["loom/words"]);
+    const asksOrigin = (call: { op: string }) => call.op === "remoteHasBranch";
 
     const before = git.calls.length;
     const again = await client.post(`${endpoint}/deploy/clones`);
     expect(again.status).toBe(200);
     const second = git.calls.slice(before);
-    expect(second.some((call) => call.args[0] === "clone" || call.args[0] === "ls-remote")).toBe(
-      false,
-    );
     expect(
-      second.some((call) => call.args[0] === "sparse-checkout" && call.args[1] === "add"),
+      second.some((call) => ["cloneFrom", "remoteExists", "remoteHasBranch"].includes(call.op)),
     ).toBe(false);
+    expect(git.repo(media)?.sparse).toEqual(["loom/words"]);
     expect((await context(endpoint)).ready).toBe(true);
     expect(git.calls.some(asksOrigin)).toBe(false);
     // Check remote asks the remote, and only the owner may.
@@ -392,25 +338,20 @@ describe("activity deploy routes", () => {
     await fillSettings(admin);
     expect((await client.post(`${endpoint}/deploy/clones`)).status).toBe(200);
     // The checkout's clones are its owner's: Prepare clones clones nothing into it.
-    expect(git.calls.some((call) => call.args[0] === "clone")).toBe(false);
+    expect(git.ops()).not.toContain("cloneFrom");
     // The checkout's media was made sparse for another product's folder only.
-    const media = path.join(waf!, "media");
-    await fs.writeFile(path.join(media, ".git", "sparse"), "loom/other");
+    const media = git.repo(path.join(waf!, "media"))!;
+    media.sparse = ["loom/other"];
     const found = await context();
     expect(found.ready).toBe(false);
     expect(found.problems).toEqual([{ code: "media_path_missing", path: "loom/words" }]);
     // Prepare clones never changes an existing checkout's sparse set.
-    const before = git.calls.length;
     const again = await client.post(`${endpoint}/deploy/clones`);
     expect(again.status).toBe(200);
     expect(((await again.json()) as DeployContextResponse).context.ready).toBe(false);
-    expect(
-      git.calls
-        .slice(before)
-        .some((call) => call.args[0] === "sparse-checkout" && call.args[1] !== "list"),
-    ).toBe(false);
+    expect(media.sparse).toEqual(["loom/other"]);
     // A parent folder in the sparse set brings the product's folder with it.
-    await fs.writeFile(path.join(media, ".git", "sparse"), "loom/other\nloom");
+    media.sparse = ["loom/other", "loom"];
     expect((await context()).ready).toBe(true);
   });
 
@@ -421,10 +362,10 @@ describe("activity deploy routes", () => {
     });
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ error: { detail: { field: "moduleRemote" } } });
-    expect(git.calls.some((call) => call.args[0] === "clone")).toBe(false);
+    expect(git.ops()).not.toContain("cloneFrom");
     const activity = await createWords(client, base);
     expect((await context(`${base}/${activity.id}`)).module.remote).toBe(MODULE_REMOTE);
-    expect(git.calls.find((call) => call.args[0] === "clone")?.args).toContain(MODULE_REMOTE);
+    expect(git.calls.find((call) => call.op === "cloneFrom")?.args[0]).toBe(MODULE_REMOTE);
   });
 
   it("refuses a new product's ref when its module will not clone, with git's own output", async () => {
@@ -450,7 +391,7 @@ describe("activity deploy routes", () => {
     expect(await res.json()).toMatchObject({ error: { code: "module_not_a_clone" } });
     expect(await fs.readdir(taken)).toEqual(["notes.txt"]);
     expect(await fs.readFile(path.join(taken, "notes.txt"), "utf8")).toBe("mine");
-    expect(git.calls.some((call) => call.args[0] === "clone")).toBe(false);
+    expect(git.ops()).not.toContain("cloneFrom");
   });
 
   it("lets a project member read the context but not ask the remote or prepare clones", async () => {

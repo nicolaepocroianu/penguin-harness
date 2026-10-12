@@ -12,8 +12,8 @@
  * folders and gains a product's folder when that product needs it, fetching only that
  * folder's LFS objects (the approach of the media-workspaces prototype).
  *
- * git authenticates with the host's own SSH keys; Penguin stores no git credential. Every git
- * and npm call goes through `WafWorkspacePorts`, which a test replaces.
+ * git authenticates with the host's own SSH keys; Penguin stores no git credential. Every
+ * clone and npm call goes through `WafWorkspacePorts`, which a test replaces.
  */
 import fs from "node:fs";
 import fsp from "node:fs/promises";
@@ -22,7 +22,8 @@ import { Component, Interface, Use } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
 import type { Config } from "../hmr/capabilities.js";
 import type { Settings } from "../mechanisms/settings.js";
-import { sameRemote, spawnGit, type DeployGit } from "./deploy-git.js";
+import { CloneDiverged, CloneError, gitClones, type Clones } from "./clone.js";
+import { sameRemote } from "./deploy-git.js";
 import { spawnDeployProcess, type DeployProcess } from "./deploy-process.js";
 import { DEPLOY_SETTINGS_KEY, normalizeRemote } from "./deploy-settings.js";
 import { findWafRoot, WAF_REPO_PATHS, WafLayout } from "./waf-layout.js";
@@ -169,14 +170,9 @@ export function checkMediaFolder(folder: string): string {
   return folder;
 }
 
-/** Whether a failed `ls-remote` means the repository does not exist, not that it was unreachable. */
-export function repositoryMissing(stderr: string): boolean {
-  return /repository not found|does not appear to be a git repository|not found/i.test(stderr);
-}
-
 /** The parts of the workspace that touch the outside world; a test replaces them. */
 export abstract class WafWorkspacePorts extends Interface<{
-  runGit?: DeployGit["run"];
+  clones?: Clones;
   runProcess?: DeployProcess["run"];
   /**
    * Whether the server prepares a managed workspace that is not ready when it starts; true
@@ -271,9 +267,8 @@ export class WafWorkspaceService implements WafWorkspace {
     return path.join(this.config.root, WAF_WORKSPACE_DIR);
   }
 
-  private git(): DeployGit {
-    const run = this.ports.runGit;
-    return run ? { run } : spawnGit;
+  private clones(): Clones {
+    return this.ports.clones ?? gitClones();
   }
 
   private process(): DeployProcess {
@@ -329,14 +324,9 @@ export class WafWorkspaceService implements WafWorkspace {
         dirty: null,
         installed,
       };
-    const git = this.git();
-    const [remote, branch, status] = await Promise.all([
-      git.run(["remote", "get-url", "origin"], dir),
-      git.run(["branch", "--show-current"], dir),
-      git.run(["status", "--porcelain"], dir),
-    ]);
-    const origin = remote.code === 0 ? remote.stdout.trim() : null;
-    const current = branch.code === 0 ? branch.stdout.trim() || null : null;
+    const look = await this.clones().open(dir).state();
+    const origin = look.origin;
+    const current = look.branch;
     return {
       id,
       path: dir,
@@ -346,7 +336,7 @@ export class WafWorkspaceService implements WafWorkspace {
         !managed || (origin !== null && sameRemote(origin, this.settings().repos[id].remote)),
       branch: current,
       branchMatches: !managed || current === this.settings().repos[id].branch,
-      dirty: status.code === 0 ? status.stdout.trim() !== "" : null,
+      dirty: look.clean === null ? null : !look.clean,
       installed,
     };
   }
@@ -425,20 +415,15 @@ export class WafWorkspaceService implements WafWorkspace {
         `${where} is on ${status.branch ?? "no branch"}, not ${branch}, and has changes of its own. Commit or move them aside, then prepare again.`,
       );
     this.note(`Switching ${where} from ${status.branch ?? "no branch"} to ${branch}…`);
-    // A single-branch clone fetches only its first branch until told of another.
-    await this.gitOk(status.path, ["remote", "set-branches", "--add", "origin", branch]);
-    await this.gitOk(status.path, ["fetch", "origin", branch]);
-    // A branch the clone already has keeps its commits, fast-forwarded to origin's; one it
-    // has not is made from origin's. A local branch that has diverged fails, naming it.
-    await this.gitOk(status.path, ["switch", branch]);
+    // A branch that has diverged from origin's is left, the clone back on the branch it was
+    // on, so it reads as on another branch rather than as ready.
+    const clone = this.clones().open(status.path, { timeoutMs: WAF_LONG_TIMEOUT_MS });
     try {
-      await this.gitOk(status.path, ["merge", "--ff-only", `origin/${branch}`]);
+      await clone.onBranchFromOrigin(branch, { work: "clean" });
     } catch (error) {
-      // Left on the configured branch, the clone would read as ready although it is not
-      // origin's: it goes back to where it was, so it reads as on another branch.
-      await this.gitOk(status.path, ["checkout", "-"]);
+      if (!(error instanceof CloneDiverged)) throw error;
       throw new Error(
-        `${where}'s ${branch} has commits origin's does not, and origin's has commits it does not. Reconcile them, then prepare again. (${(error as Error).message})`,
+        `${where}'s ${branch} has commits origin's does not, and origin's has commits it does not. Reconcile them, then prepare again. (${error.message})`,
       );
     }
     return true;
@@ -452,24 +437,18 @@ export class WafWorkspaceService implements WafWorkspace {
     await fsp.mkdir(path.dirname(dir), { recursive: true });
     this.note(`Cloning ${remote} (${branch}) into ${WAF_REPO_PATHS[id]}…`);
     // Media is partial and sparse, with LFS objects left for ensureMedia to fetch per folder.
-    const media = id === "media";
-    const args = [
-      "clone",
-      "--branch",
-      branch,
-      "--single-branch",
-      ...(media ? ["--filter=blob:none", "--sparse"] : []),
-      "--",
-      remote,
-      dir,
-    ];
-    const cloned = await this.git().run(args, path.dirname(dir), {
-      timeoutMs: WAF_LONG_TIMEOUT_MS,
-      ...(media ? { env: { GIT_LFS_SKIP_SMUDGE: "1" } } : {}),
-    });
-    if (cloned.code !== 0)
-      throw new Error(`Cloning ${remote} failed: ${gitError(cloned.stderr, cloned.error)}`);
-    if (media) await this.gitOk(dir, ["lfs", "install", "--local"]);
+    try {
+      await this.clones().cloneFrom(remote, dir, {
+        branch,
+        partial: id === "media",
+        timeoutMs: WAF_LONG_TIMEOUT_MS,
+      });
+    } catch (error) {
+      // The clone itself failing names the remote; a failure after it names git's command.
+      if (error instanceof CloneError && error.args[0] === "clone")
+        throw new Error(`Cloning ${remote} failed: ${error.reason}`);
+      throw error;
+    }
   }
 
   private async install(dir: string): Promise<void> {
@@ -482,16 +461,6 @@ export class WafWorkspaceService implements WafWorkspace {
       throw new Error(
         `npm install failed in ${path.basename(dir)}: ${result.error ?? result.tail.slice(-2000)}`,
       );
-  }
-
-  private async gitOk(cwd: string, args: string[], env?: Record<string, string>) {
-    const result = await this.git().run(args, cwd, {
-      timeoutMs: WAF_LONG_TIMEOUT_MS,
-      ...(env ? { env } : {}),
-    });
-    if (result.code !== 0)
-      throw new Error(`git ${args[0]} failed: ${gitError(result.stderr, result.error)}`);
-    return result;
   }
 
   async requireRoot(): Promise<string> {
@@ -536,30 +505,35 @@ export class WafWorkspaceService implements WafWorkspace {
           `modules/${folder} exists but is not a git repository.`,
         );
       const remote = this.moduleRemote(folder);
-      const probe = await this.git().run(["ls-remote", "--heads", "--", remote], root);
-      if (probe.code === 0) {
-        const cloned = await this.git().run(["clone", "--", remote, dir], root, {
-          timeoutMs: WAF_LONG_TIMEOUT_MS,
-        });
-        if (cloned.code !== 0)
-          throw new HttpError(
-            502,
-            "module_clone_failed",
-            `Cloning ${remote} failed: ${gitError(cloned.stderr, cloned.error)}`,
-          );
-        return dir;
-      }
-      if (!repositoryMissing(probe.stderr))
+      const clones = this.clones();
+      let exists: boolean;
+      try {
+        exists = await clones.remoteExists(remote, root);
+      } catch (error) {
+        if (!(error instanceof CloneError)) throw error;
         throw new HttpError(
           502,
           "module_remote_unreachable",
-          `Could not reach ${remote}: ${gitError(probe.stderr, probe.error)}`,
+          `Could not reach ${remote}: ${error.reason}`,
         );
+      }
+      if (exists) {
+        try {
+          await clones.cloneFrom(remote, dir, { timeoutMs: WAF_LONG_TIMEOUT_MS });
+        } catch (error) {
+          if (!(error instanceof CloneError)) throw error;
+          throw new HttpError(
+            502,
+            "module_clone_failed",
+            `Cloning ${remote} failed: ${error.reason}`,
+          );
+        }
+        return dir;
+      }
       // A new module: its repository is made by whoever owns the organisation; the first
       // deploy pushes main to it.
       await fsp.mkdir(dir, { recursive: true });
-      await this.gitOk(dir, ["init", "--initial-branch=main"]);
-      await this.gitOk(dir, ["remote", "add", "origin", remote]);
+      await clones.create(dir, remote, { timeoutMs: WAF_LONG_TIMEOUT_MS });
       return dir;
     });
   }
@@ -574,8 +548,9 @@ export class WafWorkspaceService implements WafWorkspace {
       // A new one starts as Loom started one: an empty repository on main with origin set,
       // so a deploy can later push it. Nothing is fetched from the remote.
       await fsp.mkdir(dir, { recursive: true });
-      await this.gitOk(dir, ["init", "--initial-branch=main"]);
-      await this.gitOk(dir, ["remote", "add", "origin", this.moduleRemote(folder)]);
+      await this.clones().create(dir, this.moduleRemote(folder), {
+        timeoutMs: WAF_LONG_TIMEOUT_MS,
+      });
       return dir;
     });
   }
@@ -587,15 +562,9 @@ export class WafWorkspaceService implements WafWorkspace {
     // An existing checkout belongs to whoever made it; its media is theirs to fetch.
     if (this.external()) return;
     const dir = new WafLayout(root).repo("media");
-    await this.serial("media", async () => {
-      const listed = await this.gitOk(dir, ["sparse-checkout", "list"]);
-      const have = new Set(listed.stdout.split(/\r?\n/).map((line) => line.trim()));
-      const missing = wanted.filter((folder) => !have.has(folder));
-      // Adding a folder checks out only its files, and the LFS filter smudges them as it goes.
-      // Never `git lfs pull`: it lists the whole tree with sizes, which in a partial clone
-      // fetches every blob of the repository one at a time, and takes hours.
-      if (missing.length) await this.gitOk(dir, ["sparse-checkout", "add", "--", ...missing]);
-    });
+    await this.serial("media", () =>
+      this.clones().open(dir, { timeoutMs: WAF_LONG_TIMEOUT_MS }).include(wanted),
+    );
   }
 }
 
@@ -605,12 +574,4 @@ function safeJson(raw: string | null): unknown {
   } catch {
     return null;
   }
-}
-
-/** git's own words for why it failed, or why it never ran. */
-function gitError(stderr: string, error?: string): string {
-  if (error === "not_found") return "git is not installed on the server.";
-  if (error === "timed_out") return "it took too long.";
-  const text = stderr.trim();
-  return text ? text.slice(-2000) : (error ?? "unknown error");
 }

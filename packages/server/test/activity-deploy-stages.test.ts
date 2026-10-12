@@ -1,12 +1,14 @@
 /**
- * The module release's four stages, each run on its own against fakes: git, npm, the
- * stylesheet compiler, Jenkins and the clock answer from memory, and the module clone is a temp directory. No test here runs
- * git, npm or a request, and nothing is written outside the temp directory.
+ * The module release's four stages, each run on its own against fakes: the clone, npm, the
+ * stylesheet compiler, Jenkins and the clock answer from memory, and the module clone is a
+ * temp directory. No test here runs git, npm or a request, and nothing is written outside
+ * the temp directory. What git does with a clone is `activity-clone.test.ts`'s.
  */
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { CloneError, CloneStopped, type CloneOptions } from "../src/activities/clone.js";
 import type { DeployGitResult } from "../src/activities/deploy-git.js";
 import type { DeployJenkins, JenkinsBuildStatus } from "../src/activities/deploy-jenkins.js";
 import { JenkinsError } from "../src/activities/deploy-jenkins.js";
@@ -25,6 +27,7 @@ import {
   type DeployStageContext,
 } from "../src/activities/deploy-stages.js";
 import type { DeployContext, DeployStage } from "../src/activities/deploy-types.js";
+import { FakeClones, type FakeRepo } from "./fake-clones.js";
 
 const dirs: string[] = [];
 afterEach(async () => {
@@ -37,63 +40,16 @@ async function tempDir(prefix: string) {
   return dir;
 }
 
-/** A git that answers from a script: tags, the remote's branches, whether anything is staged. */
-function fakeGit(
-  state: {
-    tags?: string[][];
-    remoteMain?: boolean;
-    staged?: boolean;
-    fail?: string;
-    /** What git says when `fail` matches; a refusal naming the command by default. */
-    failWith?: string;
-    /** The working tree has authored work in it. */
-    dirty?: boolean;
-    /** Whether main exists locally, and as origin/main. */
-    localMain?: boolean;
-    originMain?: boolean;
-    /** A repository with no commit yet: HEAD names a branch that does not exist. */
-    unborn?: boolean;
-    /** What `ls-files --deleted` lists: origin's files a new module never had. */
-    deleted?: string[];
-  } = {},
-) {
-  const calls: string[][] = [];
-  let tagRead = 0;
-  const ok = (stdout = ""): DeployGitResult => ({ code: 0, stdout, stderr: "" });
-  return {
-    calls,
-    git: {
-      async run(args: string[]): Promise<DeployGitResult> {
-        calls.push(args);
-        const joined = args.join(" ");
-        if (state.fail && joined.startsWith(state.fail))
-          return { code: 1, stdout: "", stderr: state.failWith ?? `fatal: ${state.fail} refused` };
-        if (args[0] === "tag") {
-          const lists = state.tags ?? [[]];
-          const list = lists[Math.min(tagRead, lists.length - 1)]!;
-          tagRead++;
-          return ok(list.join("\n"));
-        }
-        if (args[0] === "ls-remote")
-          return ok(state.remoteMain === false ? "" : "abc\trefs/heads/main\n");
-        if (joined === "diff --cached --quiet")
-          return state.staged === false ? ok() : { code: 1, stdout: "", stderr: "" };
-        if (joined === "rev-parse --verify --quiet HEAD" && state.unborn)
-          return { code: 1, stdout: "", stderr: "" };
-        if (joined === "ls-files --deleted -z") return ok((state.deleted ?? []).join("\0"));
-        if (joined === "rev-parse HEAD") return ok("0123abcd\n");
-        if (joined === "status --porcelain") return ok(state.dirty ? "?? src/new.js\n" : "");
-        if (joined === "rev-parse --verify --quiet refs/heads/main" && state.localMain === false)
-          return { code: 1, stdout: "", stderr: "" };
-        if (
-          joined === "rev-parse --verify --quiet refs/remotes/origin/main" &&
-          state.originMain === false
-        )
-          return { code: 1, stdout: "", stderr: "" };
-        return ok();
-      },
-    },
-  };
+/** Clones that answer from memory, the module clone at `dir` described by `repo`. */
+function fakeClones(dir: string, repo: Partial<FakeRepo> = {}) {
+  const clones = new FakeClones();
+  clones.add(dir, { origin: "git@github.com:org/waf-module-words.git", ...repo });
+  return clones;
+}
+
+/** What was asked of the clones, by operation, with its arguments. */
+function asked(clones: FakeClones, op: string): unknown[][] {
+  return clones.calls.filter((call) => call.op === op).map((call) => call.args);
 }
 
 function fakeProcess(
@@ -194,7 +150,7 @@ function context(
     lines,
     controller,
     ctx: {
-      git: fakeGit().git,
+      clones: fakeClones(dir),
       jenkins: fakeJenkins().jenkins,
       process: fakeProcess().process,
       styles: fakeStyles().styles,
@@ -236,9 +192,9 @@ describe("verify_module", () => {
     await fs.writeFile(path.join(source, "package.json"), '{"name":"built"}');
     await fs.mkdir(path.join(source, "node_modules", "left"), { recursive: true });
     await fs.writeFile(path.join(source, "node_modules", "left", "x.js"), "");
-    const git = fakeGit();
+    const clones = fakeClones(dir);
     const npm = fakeProcess();
-    const { ctx, lines } = context({ dir, source, git: git.git, process: npm.process });
+    const { ctx, lines } = context({ dir, source, clones, process: npm.process });
     await run("verify_module", ctx);
     expect(await fs.readFile(path.join(dir, "src", "index.js"), "utf8")).toBe("export {};");
     expect(await fs.readFile(path.join(dir, "package.json"), "utf8")).toBe('{"name":"built"}');
@@ -250,155 +206,68 @@ describe("verify_module", () => {
       "npm run buildRelease",
     ]);
     expect(npm.calls.every((call) => call.cwd === dir)).toBe(true);
-    // Main is brought up to origin, never reset, and the copied module is committed on it.
-    expect(git.calls).toEqual([
-      ["fetch", "origin"],
-      ["status", "--porcelain"],
-      ["rev-parse", "--verify", "--quiet", "refs/heads/main"],
-      ["rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"],
-      ["checkout", "main"],
-      ["merge", "--ff-only", "origin/main"],
-      ["add", "--all"],
-      ["diff", "--cached", "--quiet"],
-      [
-        "-c",
-        "user.name=Deploy Bot",
-        "-c",
-        "user.email=deploy@example.org",
-        "commit",
-        "-m",
-        "Penguin Harness: words as authored",
-      ],
-      ["rev-parse", "HEAD"],
+    // Main is brought up to origin carrying the work, never reset, and the copied module is
+    // committed on it.
+    expect(clones.ops(dir)).toEqual(["fetch", "onBranchFromOrigin", "stage", "commitStaged"]);
+    expect(asked(clones, "onBranchFromOrigin")).toEqual([["main", { work: "carry" }]]);
+    expect(asked(clones, "stage")).toEqual([["all", {}]]);
+    expect(asked(clones, "commitStaged")).toEqual([
+      ["Penguin Harness: words as authored", { name: "Deploy Bot", email: "deploy@example.org" }],
     ]);
-    expect(git.calls.some((call) => ["reset", "clean"].includes(call[0]!))).toBe(false);
     expect(lines).toContain("Committed the authored module on main: 0123abcd.");
     expect(lines).toContain("$ npm run lint");
   });
 
-  it("carries authored work in the clone onto main and commits it, rather than dropping it", async () => {
+  it("says so when main already had everything authored", async () => {
     const dir = await moduleClone();
-    await fs.writeFile(path.join(dir, "authored.js"), "export const kept = true;");
-    const git = fakeGit({ dirty: true, localMain: false });
-    const { ctx } = context({ dir, git: git.git });
+    const { ctx, lines } = context({ dir, clones: fakeClones(dir, { nothingStaged: true }) });
     await run("verify_module", ctx);
-    // The work is set aside, main is made from origin's, and the work is put back on it.
-    expect(git.calls.slice(0, 8)).toEqual([
-      ["fetch", "origin"],
-      ["status", "--porcelain"],
-      ["stash", "push", "--include-untracked", "-m", "penguin-harness deploy"],
-      ["rev-parse", "--verify", "--quiet", "refs/heads/main"],
-      ["rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"],
-      ["checkout", "-b", "main", "origin/main"],
-      ["merge", "--ff-only", "origin/main"],
-      ["stash", "pop"],
-    ]);
-    expect(git.calls[8]).toEqual(["add", "--all"]);
-    expect(await fs.readFile(path.join(dir, "authored.js"), "utf8")).toBe(
-      "export const kept = true;",
-    );
-  });
-
-  it("starts main where a new module's clone is when neither it nor origin has one", async () => {
-    const dir = await moduleClone();
-    const git = fakeGit({ localMain: false, originMain: false, staged: false });
-    const { ctx, lines } = context({ dir, git: git.git });
-    await run("verify_module", ctx);
-    expect(git.calls).toContainEqual(["checkout", "-B", "main"]);
-    expect(git.calls.some((call) => call[0] === "merge")).toBe(false);
-    expect(git.calls.some((call) => call.includes("commit"))).toBe(false);
     expect(lines).toContain("Main already had everything authored.");
   });
 
-  it("commits a new module's first work, which git cannot stash before a first commit", async () => {
+  it("commits a new module's first work, which stays in place on main", async () => {
     const dir = await moduleClone();
     await fs.writeFile(path.join(dir, "authored.js"), "export const kept = true;");
-    const git = fakeGit({
-      dirty: true,
-      localMain: false,
-      originMain: false,
-      unborn: true,
-      fail: "stash push",
-      failWith: "You do not have the initial commit yet",
-    });
-    const { ctx, lines } = context({ dir, git: git.git });
+    const clones = fakeClones(dir, { dirty: true, unborn: true, branches: [] });
+    const { ctx, lines } = context({ dir, clones });
     await run("verify_module", ctx);
-    expect(git.calls).toContainEqual(["symbolic-ref", "HEAD", "refs/heads/main"]);
-    expect(git.calls.some((call) => call[0] === "checkout" || call[0] === "reset")).toBe(false);
-    expect(git.calls.some((call) => call.join(" ") === "stash pop")).toBe(false);
-    expect(git.calls).toContainEqual(["add", "--all"]);
     expect(lines).toContain("No commit yet: the new module's work stays in place.");
+    expect(clones.ops(dir).slice(-2)).toEqual(["stage", "commitStaged"]);
     expect(await fs.readFile(path.join(dir, "authored.js"), "utf8")).toBe(
       "export const kept = true;",
     );
   });
 
-  it("keeps origin's files when a new module's first deploy finds main there", async () => {
+  it("stops, with git's words, when main cannot be brought up to origin carrying the work", async () => {
     const dir = await moduleClone();
-    const git = fakeGit({
-      dirty: true,
-      localMain: false,
-      unborn: true,
-      deleted: ["README.md", "docs/setup.md"],
-      fail: "stash push",
-      failWith: "You do not have the initial commit yet",
-    });
-    const { ctx } = context({ dir, git: git.git });
-    await run("verify_module", ctx);
-    const at = (line: string) => git.calls.findIndex((call) => call.join(" ") === line);
-    expect(at("reset --mixed origin/main")).toBeGreaterThan(-1);
-    // Checked out before anything is staged, so the first commit never deletes them.
-    expect(at("checkout -- README.md docs/setup.md")).toBeGreaterThan(
-      at("reset --mixed origin/main"),
-    );
-    expect(at("add --all")).toBeGreaterThan(at("checkout -- README.md docs/setup.md"));
-  });
-
-  it("checks origin's many files out in batches, within the command line's limit", async () => {
-    const dir = await moduleClone();
-    const deleted = Array.from({ length: 1000 }, (_, i) => `res/images/scene-${i}/picture.png`);
-    const git = fakeGit({
-      dirty: true,
-      localMain: false,
-      unborn: true,
-      deleted,
-      fail: "stash push",
-      failWith: "You do not have the initial commit yet",
-    });
-    const { ctx } = context({ dir, git: git.git });
-    await run("verify_module", ctx);
-    const checkouts = git.calls.filter((call) => call[0] === "checkout" && call[1] === "--");
-    expect(checkouts.length).toBeGreaterThan(1);
-    expect(checkouts.flatMap((call) => call.slice(2))).toEqual(deleted);
-    for (const call of checkouts) expect(call.join(" ").length).toBeLessThan(10_000);
-  });
-
-  it("stops on a stash that fails in a module that has commits", async () => {
-    const dir = await moduleClone();
-    const git = fakeGit({ dirty: true, fail: "stash push", failWith: "needs merge" });
-    const { ctx } = context({ dir, git: git.git });
+    const clones = fakeClones(dir, { dirty: true, fail: { onBranchFromOrigin: "needs merge" } });
+    const { ctx } = context({ dir, clones });
     const failure = await run("verify_module", ctx).then(
       () => null,
       (error: unknown) => error,
     );
     expect(failure).toBeInstanceOf(DeployStageFailure);
-    expect((failure as DeployStageFailure).error.code).toBe("command_failed");
-    expect(git.calls.some((call) => ["symbolic-ref", "reset", "add"].includes(call[0]!))).toBe(
-      false,
-    );
+    expect((failure as DeployStageFailure).error).toMatchObject({
+      code: "command_failed",
+      output: "needs merge",
+    });
+    expect(clones.ops(dir)).not.toContain("stage");
   });
 
   it("names the repository to create when a new module's has not been made", async () => {
     const dir = await moduleClone();
-    const git = fakeGit({ fail: "fetch origin", failWith: "ERROR: Repository not found." });
-    const { ctx } = context({ dir, git: git.git });
+    const clones = fakeClones(dir, { fail: { fetch: "ERROR: Repository not found." } });
+    const { ctx } = context({ dir, clones });
     const failure = await run("verify_module", ctx).then(
       () => null,
       (error: unknown) => error,
     );
     expect(failure).toBeInstanceOf(DeployStageFailure);
-    expect((failure as DeployStageFailure).error.code).toBe("module_repository_missing");
-    expect(git.calls.some((call) => call[0] === "add")).toBe(false);
+    expect((failure as DeployStageFailure).error).toEqual({
+      code: "module_repository_missing",
+      remote: "git@github.com:org/waf-module-words.git",
+    });
+    expect(clones.ops(dir)).not.toContain("stage");
   });
 
   it("fails on a failing lint with the end of its output, and runs nothing after it", async () => {
@@ -445,18 +314,21 @@ describe("prepare_deploy", () => {
     );
     await fs.mkdir(path.join(dir, "res"));
     await fs.writeFile(path.join(dir, "res", "style.scss"), "a { b: c }");
-    const git = fakeGit();
+    const clones = fakeClones(dir);
     const npx = fakeProcess();
     const sass = fakeStyles();
     const { ctx, lines } = context({
       dir,
-      git: git.git,
+      clones,
       process: npx.process,
       styles: sass.styles,
       moduleVersion: "2.3.4",
     });
     await run("prepare_deploy", ctx);
-    expect(git.calls[0]).toEqual(["checkout", "-B", "loom/words-deploy", "main"]);
+    expect(clones.calls[0]).toMatchObject({
+      op: "branchFrom",
+      args: ["loom/words-deploy", "main"],
+    });
     const pkg = JSON.parse(await fs.readFile(path.join(dir, "package.json"), "utf8"));
     expect(pkg).toEqual({ name: "wafmodule-words", version: "2.3.4" });
     const lock = JSON.parse(await fs.readFile(path.join(dir, "package-lock.json"), "utf8"));
@@ -472,28 +344,22 @@ describe("prepare_deploy", () => {
     ]);
     expect(lines).toContain("$ sass@1.54.0 res/style.scss res/style.css --no-source-map");
     expect(lines).toContain("compiled");
-    expect(git.calls).toContainEqual([
-      "-c",
-      "user.name=Deploy Bot",
-      "-c",
-      "user.email=deploy@example.org",
-      "commit",
-      "-m",
-      "Prepare module deploy for words",
+    expect(asked(clones, "commitStaged")).toEqual([
+      ["Prepare module deploy for words", { name: "Deploy Bot", email: "deploy@example.org" }],
     ]);
     expect(ctx.metadata).toEqual({ moduleVersion: "2.3.4", commit: "0123abcd" });
   });
 
   it("keeps the version, skips a missing stylesheet and commits nothing when nothing changed", async () => {
     const dir = await moduleClone();
-    const git = fakeGit({ staged: false });
+    const clones = fakeClones(dir, { nothingStaged: true });
     const npx = fakeProcess();
     const sass = fakeStyles();
-    const { ctx } = context({ dir, git: git.git, process: npx.process, styles: sass.styles });
+    const { ctx, lines } = context({ dir, clones, process: npx.process, styles: sass.styles });
     await run("prepare_deploy", ctx);
     expect(npx.calls).toEqual([]);
     expect(sass.jobs).toEqual([]);
-    expect(git.calls.some((args) => args.includes("commit"))).toBe(false);
+    expect(lines).toContain("Nothing changed since the branch's last commit: nothing to commit.");
     expect(ctx.metadata).toEqual({ moduleVersion: "1.0.0" });
   });
 
@@ -501,9 +367,9 @@ describe("prepare_deploy", () => {
     const dir = await moduleClone();
     await fs.mkdir(path.join(dir, "res"));
     await fs.writeFile(path.join(dir, "res", "style.scss"), "a { b: ");
-    const git = fakeGit();
+    const clones = fakeClones(dir);
     const sass = fakeStyles({ code: 65, tail: 'Error: expected "}".' });
-    const { ctx } = context({ dir, git: git.git, styles: sass.styles });
+    const { ctx } = context({ dir, clones, styles: sass.styles });
     await expect(run("prepare_deploy", ctx)).rejects.toMatchObject({
       error: {
         code: "command_failed",
@@ -512,25 +378,27 @@ describe("prepare_deploy", () => {
         output: 'Error: expected "}".',
       },
     });
-    expect(git.calls.some((args) => args.includes("commit"))).toBe(false);
+    expect(clones.ops(dir)).not.toContain("commitStaged");
   });
 });
 
 describe("trigger_module_build", () => {
   it("notes the newest tag and build, pushes main when absent, pushes the branch and starts the job", async () => {
     const dir = await moduleClone();
-    const git = fakeGit({ tags: [["v1.2.0", "1.10.0-beta", "1.1.9"]], remoteMain: false });
+    const clones = fakeClones(dir, {
+      tags: [["v1.2.0", "1.10.0-beta", "1.1.9"]],
+      remoteBranches: [],
+    });
     const jenkins = fakeJenkins([{ state: "succeeded", number: 41 }]);
-    const { ctx } = context({ dir, git: git.git, jenkins: jenkins.jenkins });
+    const { ctx } = context({ dir, clones, jenkins: jenkins.jenkins });
     await run("trigger_module_build", ctx);
     expect(ctx.metadata).toEqual({ preBuildTag: "1.2.0", preBuildNumber: 41 });
     // A queued build has no number; the floor is the newest build Jenkins has.
     expect(jenkins.polls).toEqual([{ after: undefined, skipQueue: true }]);
-    expect(git.calls).toContainEqual(["fetch", "--tags", "origin"]);
-    const pushes = git.calls.filter((args) => args[0] === "push");
-    expect(pushes).toEqual([
-      ["push", "origin", "main"],
-      ["push", "--force-with-lease", "-u", "origin", "loom/words-deploy"],
+    expect(clones.ops(dir)).toContain("fetchTags");
+    expect(asked(clones, "push")).toEqual([
+      ["main", {}],
+      ["loom/words-deploy", { lease: true, track: true }],
     ]);
     expect(jenkins.triggers).toEqual([
       { job: "Build WAF Modules", params: { Modules: "words loom/words-deploy" } },
@@ -539,16 +407,14 @@ describe("trigger_module_build", () => {
 
   it("leaves main alone when the remote has it, and stops at a refused push", async () => {
     const dir = await moduleClone();
-    const git = fakeGit({ fail: "push --force-with-lease" });
+    const clones = fakeClones(dir, { fail: { push: "! [rejected] (stale info)" } });
     const jenkins = fakeJenkins();
-    const { ctx } = context({ dir, git: git.git, jenkins: jenkins.jenkins });
+    const { ctx } = context({ dir, clones, jenkins: jenkins.jenkins });
     await expect(run("trigger_module_build", ctx)).rejects.toMatchObject({
-      error: {
-        code: "command_failed",
-        command: "git push --force-with-lease -u origin loom/words-deploy",
-      },
+      error: { code: "command_failed", output: "! [rejected] (stale info)" },
     });
-    expect(git.calls.some((args) => args.join(" ") === "push origin main")).toBe(false);
+    // Origin has main, so only the deploy branch was pushed.
+    expect(asked(clones, "push")).toEqual([["loom/words-deploy", { lease: true, track: true }]]);
     expect(jenkins.triggers).toEqual([]);
   });
 
@@ -568,7 +434,7 @@ describe("trigger_module_build", () => {
 describe("await_module_build", () => {
   it("polls every 15 seconds until a newer tag appears, and records it", async () => {
     const dir = await moduleClone();
-    const git = fakeGit({ tags: [["1.2.0"], ["1.2.0"], ["1.2.0", "1.3.0"]] });
+    const clones = fakeClones(dir, { tags: [["1.2.0"], ["1.2.0"], ["1.2.0", "1.3.0"]] });
     const jenkins = fakeJenkins([
       { state: "queued", url: "https://jenkins.example.org/queue/item/7/" },
       { state: "building", number: 42, url: "https://jenkins.example.org/job/x/42/" },
@@ -577,7 +443,7 @@ describe("await_module_build", () => {
     const time = fakeClock();
     const { ctx } = context({
       dir,
-      git: git.git,
+      clones,
       jenkins: jenkins.jenkins,
       clock: time.clock,
       earlier: { trigger_module_build: { preBuildTag: "1.2.0", preBuildNumber: 41 } },
@@ -591,10 +457,9 @@ describe("await_module_build", () => {
 
   it("takes a first tag as new when the module had none", async () => {
     const dir = await moduleClone();
-    const git = fakeGit({ tags: [["0.1.0"]] });
     const { ctx } = context({
       dir,
-      git: git.git,
+      clones: fakeClones(dir, { tags: [["0.1.0"]] }),
       metadata: { preBuildTag: null, preBuildNumber: null },
     });
     await run("await_module_build", ctx);
@@ -606,7 +471,7 @@ describe("await_module_build", () => {
     const earlier = { trigger_module_build: { preBuildTag: "1.2.0", preBuildNumber: null } };
     const failed = context({
       dir,
-      git: fakeGit({ tags: [["1.2.0"]] }).git,
+      clones: fakeClones(dir, { tags: [["1.2.0"]] }),
       jenkins: fakeJenkins([{ state: "failed", result: "FAILURE", url: "https://j/x/1/" }]).jenkins,
       earlier,
     });
@@ -615,7 +480,7 @@ describe("await_module_build", () => {
     });
     const untagged = context({
       dir,
-      git: fakeGit({ tags: [["1.2.0", "1.1.0"]] }).git,
+      clones: fakeClones(dir, { tags: [["1.2.0", "1.1.0"]] }),
       jenkins: fakeJenkins([{ state: "succeeded" }]).jenkins,
       earlier,
     });
@@ -625,7 +490,7 @@ describe("await_module_build", () => {
     const time = fakeClock();
     const slow = context({
       dir,
-      git: fakeGit({ tags: [["1.2.0"]] }).git,
+      clones: fakeClones(dir, { tags: [["1.2.0"]] }),
       jenkins: fakeJenkins([{ state: "building" }]).jenkins,
       clock: time.clock,
       earlier,
@@ -649,7 +514,7 @@ describe("await_module_build", () => {
     const holder: { controller?: AbortController } = {};
     const made = context({
       dir,
-      git: fakeGit({ tags: [["1.2.0"]] }).git,
+      clones: fakeClones(dir, { tags: [["1.2.0"]] }),
       jenkins: fakeJenkins([{ state: "building" }]).jenkins,
       earlier: { trigger_module_build: { preBuildTag: "1.2.0" } },
       clock: {
@@ -665,29 +530,60 @@ describe("await_module_build", () => {
 });
 
 describe("Stop during git", () => {
-  it("hands git the run's signal, so Stop ends a push that is still going", async () => {
+  it("hands the clone the run's signal, so Stop ends a push that is still going", async () => {
     const dir = await moduleClone();
+    const clones = fakeClones(dir);
     const seen: Array<AbortSignal | undefined> = [];
-    const made = context({
-      dir,
-      git: {
-        run(args, _cwd, opts) {
-          seen.push(opts?.signal);
-          if (args[0] !== "push") return Promise.resolve({ code: 0, stdout: "", stderr: "" });
-          // A push that only ends when its signal aborts, as spawnGit stops its child.
-          return new Promise<DeployGitResult>((resolve) =>
-            opts?.signal?.addEventListener("abort", () =>
-              resolve({ code: null, stdout: "", stderr: "", error: "stopped" }),
-            ),
-          );
-        },
-      },
-    });
+    const open = clones.open.bind(clones);
+    clones.open = (where: string, options?: CloneOptions) => {
+      seen.push(options?.signal);
+      const clone = open(where, options);
+      // A push that only ends when its signal aborts, as a real clone stops git.
+      clone.push = () =>
+        new Promise((_, reject) =>
+          options?.signal?.addEventListener("abort", () => reject(new CloneStopped())),
+        );
+      return clone;
+    };
+    const made = context({ dir, clones });
     const pending = run("trigger_module_build", made.ctx);
     await new Promise((resolve) => setTimeout(resolve, 10));
     made.controller.abort();
     await expect(pending).rejects.toBeInstanceOf(DeployStopped);
+    expect(seen.length).toBeGreaterThan(0);
     expect(seen.every((signal) => signal === made.controller.signal)).toBe(true);
+  });
+
+  it("ends a stage with git's failure: missing, timed out, or failed with its output", async () => {
+    const dir = await moduleClone();
+    const args = ["fetch", "--tags", "origin"];
+    const failing = (result: DeployGitResult) => {
+      const clones = fakeClones(dir);
+      const open = clones.open.bind(clones);
+      clones.open = (where: string, options?: CloneOptions) => {
+        const clone = open(where, options);
+        clone.fetchTags = () => Promise.reject(new CloneError(args, result));
+        return clone;
+      };
+      return context({ dir, clones }).ctx;
+    };
+    const missing = failing({ code: null, stdout: "", stderr: "", error: "not_found" });
+    await expect(run("trigger_module_build", missing)).rejects.toMatchObject({
+      error: { code: "command_missing", command: "git" },
+    });
+    const slow = failing({ code: null, stdout: "", stderr: "", error: "timed_out" });
+    await expect(run("trigger_module_build", slow)).rejects.toMatchObject({
+      error: { code: "command_timed_out", command: "git fetch --tags origin" },
+    });
+    const refused = failing({ code: 128, stdout: "", stderr: "fatal: unable to access" });
+    await expect(run("trigger_module_build", refused)).rejects.toMatchObject({
+      error: {
+        code: "command_failed",
+        command: "git fetch --tags origin",
+        exitCode: 128,
+        output: "fatal: unable to access",
+      },
+    });
   });
 });
 
