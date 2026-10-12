@@ -1783,7 +1783,7 @@ export interface GoalResponse {
 }
 
 export interface TaskCreateResponse {
-  /** Current actual session_id: a Trace-less invalid Session self-heals and returns a new id; the frontend updates its route accordingly. */
+  /** The Session's id; a Trace-less Session rebuilt after a restart keeps it. */
   sessionId: string;
   /** True when `queueIfBusy` enqueued the input as a follow-up instead of starting it (absent/false: the task started). */
   queued?: boolean;

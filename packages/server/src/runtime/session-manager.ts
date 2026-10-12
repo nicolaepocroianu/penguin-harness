@@ -5,9 +5,9 @@
  *   - get-or-resume-or-heal: use it directly on an active-table hit; with a Trace,
  *     recover via `agent.resumeSession`; a stale Session that was created but never run
  *     and survived a process restart (no Trace) **self-heals** — recreated via
- *     createSession using the index row's workspace/modelId, yielding a new session_id
- *     and updating the index's primary key; the Task response body always returns the
- *     current actual id;
+ *     createSession under its own id, from the index row's workspace/model, so everything
+ *     that names the Session (a bot binding, a schedule, a desk, an activity run) still
+ *     finds it;
  *   - Credential effectiveness: a Project's models/credentials change bumps every affected
  *     Agent's config generation (invalidateProjectRuntimes); runtimes built earlier are
  *     discarded on their next idle access and re-resumed, so the next Task runs with the
@@ -236,7 +236,7 @@ export interface RuntimeSession {
 export interface SessionLoader {
   /**
    * Load a runtime Session from an index row: recover (with a Trace) or self-heal
-   * rebuild (no Trace, session_id will change). Throws HttpError(409) for unrecoverable
+   * rebuild (no Trace, under the row's id). Throws HttpError(409) for unrecoverable
    * cases such as a missing Workspace.
    */
   load(row: SessionRow): Promise<RuntimeSession>;
@@ -325,6 +325,8 @@ export function createCoreSessionLoader(
       const knownSource = sources?.get(row.sessionId);
       try {
         return await agent.createSession({
+          // Rebuilt under its own id: everything that names the Session keeps finding it.
+          sessionId: row.sessionId,
           workspaceDir: row.workspace,
           modelId: row.modelId,
           provider: row.provider,
@@ -1003,7 +1005,7 @@ export class SessionManager {
   /**
    * Start a Task: get-or-load → 409
    * mutual-exclusion check → publish the input messages first → drive run in the
-   * background. Returns the current actual session_id (the new id after self-heal).
+   * background. Returns the Session's id.
    * With `queueIfBusy`, a busy session (running/compacting) enqueues the input as a
    * follow-up instead of 409: it auto-starts as an ordinary next task once the session
    * returns to idle (`queued: true` in the result; see startQueuedFollowUp).
@@ -1636,9 +1638,8 @@ export class SessionManager {
    * approvals, no in-flight drive) and have been inactive past the timeout, releasing
    * the core Session's full in-memory history. This is purely memory reclamation: the
    * next access re-resumes via the loader, so correctness is unaffected. Lock-table
-   * entries are auto-cleaned by withLock once their chain drains (including leftover
-   * entries under the old id after self-heal). `now` / `idleMs` are injectable for
-   * tests and timers.
+   * entries are auto-cleaned by withLock once their chain drains. `now` / `idleMs` are
+   * injectable for tests and timers.
    */
   sweepIdle(now: number = Date.now(), idleMs: number = ENTRY_IDLE_MS): void {
     for (const [key, entry] of this.entries) {
@@ -1713,7 +1714,7 @@ export class SessionManager {
     return this.agentGenerations.get(agentKey(projectId, agentId)) ?? 0;
   }
 
-  /** get-or-resume-or-heal: use directly on an active-table hit; otherwise load via the loader, updating the index's primary key on self-heal. */
+  /** get-or-resume-or-heal: use directly on an active-table hit; otherwise load via the loader. */
   private async ensureEntry(sessionId: string): Promise<RuntimeEntry> {
     const existing = this.entries.get(sessionId);
     /** Background-task counts the discarded runtime last reported (see the publish below). */
@@ -1756,24 +1757,8 @@ export class SessionManager {
     // no entry to assign, and the loader applied the snapshot's level: re-read the pin.
     const pin = this.deps.sessions.findById(row.sessionId)?.thinkingLevel;
     if (pin && pin !== row.thinkingLevel) session.thinkingLevel = pin;
-    let currentId = row.sessionId;
-    if (session.sessionId !== row.sessionId) {
-      // Self-heal produced a new session_id: update the index's primary key; the SSE
-      // channel and pending state are naturally empty for it.
-      this.deps.sessions.replaceId(row.sessionId, session.sessionId);
-      currentId = session.sessionId;
-      // The lists hold the old id: announce the new one so they refetch and swap the row.
-      const source = this.deps.sources.get(row.sessionId) ?? undefined;
-      this.deps.notifyProjectUsers?.(row.projectId, {
-        type: "session_created",
-        projectId: row.projectId,
-        agentId: row.agentId,
-        sessionId: currentId,
-        ...(source ? { source } : {}),
-      });
-    }
     const entry: RuntimeEntry = {
-      sessionId: currentId,
+      sessionId: row.sessionId,
       projectId: row.projectId,
       agentId: row.agentId,
       provider: row.provider,
@@ -1797,9 +1782,9 @@ export class SessionManager {
       // discard path produces today.
       backgroundTasks: discardedBackgroundTasks ?? backgroundTaskCounts(session),
     };
-    this.entries.set(currentId, entry);
-    this.registerNoticeListener(currentId, session);
-    if (discardedBackgroundTasks !== undefined) this.publishBackgroundTasks(currentId);
+    this.entries.set(row.sessionId, entry);
+    this.registerNoticeListener(row.sessionId, session);
+    if (discardedBackgroundTasks !== undefined) this.publishBackgroundTasks(row.sessionId);
     return entry;
   }
 

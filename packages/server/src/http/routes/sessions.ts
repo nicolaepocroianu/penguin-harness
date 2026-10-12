@@ -1025,9 +1025,7 @@ export function sessionsRoutes(deps: SessionsRouteDeps): Hono<AppEnv> {
     // File attachments land in this Session's scratchpad (deleted along with the Session) and
     // are handed to the model as `[attached file: <path>]` lines on the message text. Written
     // even when the task ends up queued as a follow-up: the queued input must be complete, and
-    // the queue is drained by this same Session. A Trace-less Session that self-heals into a
-    // new id below keeps its files under the id they were written with — the paths in the
-    // message stay valid; only the delete-with-the-Session cleanup misses them in that case.
+    // the queue is drained by this same Session.
     const { input, written } = await attachFilesToInput(
       parsed.messages,
       parsed.attachments,
@@ -1035,7 +1033,7 @@ export function sessionsRoutes(deps: SessionsRouteDeps): Hono<AppEnv> {
       row.sessionId,
     );
     try {
-      // 202: the Task executes on the server, decoupled from the SSE connection; sessionId is the current actual id (the new id after self-heal).
+      // 202: the Task executes on the server, decoupled from the SSE connection.
       const { sessionId, queued } = await deps.manager.startTask(row.sessionId, input, {
         queueIfBusy,
         // Original content, kept while the input waits in the follow-up queue so a recall
