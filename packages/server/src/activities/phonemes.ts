@@ -7,11 +7,11 @@
  * with a time limit, and nothing it prints is trusted beyond sounds that pass the word
  * asset's own check. A word it cannot sound out is left for a model run the author accepts.
  */
-import { execFile } from "node:child_process";
 import { Component, Interface, Use } from "@prismshadow/penguin-core/kernel";
 import type { Settings } from "../mechanisms/settings.js";
 import { HttpError } from "../http/errors.js";
 import { cleanPhonemes } from "./book-words.js";
+import { runProgram } from "./run-program.js";
 import type { EspeakStatus } from "./book-word-types.js";
 
 /** The admin setting naming the espeak-ng program; unset runs `espeak-ng` from PATH. */
@@ -62,26 +62,11 @@ export type EspeakRunner = (
   timeoutMs: number,
 ) => Promise<EspeakCall>;
 
-/** The real runner: `execFile`, so arguments reach the program as they are. */
-export const runEspeak: EspeakRunner = (program, args, timeoutMs) =>
-  new Promise((resolve) => {
-    try {
-      execFile(
-        program,
-        [...args],
-        {
-          shell: false,
-          timeout: timeoutMs,
-          windowsHide: true,
-          encoding: "utf8",
-          maxBuffer: 64 * 1024,
-        },
-        (error, stdout) => resolve({ ok: !error, stdout: String(stdout ?? "") }),
-      );
-    } catch {
-      resolve({ ok: false, stdout: "" });
-    }
-  });
+/** The real runner: no shell, so arguments reach the program as they are. */
+export const runEspeak: EspeakRunner = async (program, args, timeoutMs) => {
+  const result = await runProgram({ command: program, args, timeoutMs });
+  return { ok: result.outcome === "exited" && result.code === 0, stdout: result.stdout };
+};
 
 /**
  * What the phonemes service runs. Absent, the real runner; a test stands in a fake so no

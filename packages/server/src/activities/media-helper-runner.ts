@@ -15,12 +15,11 @@
  * one install per dependency set is kept under the cache folder and linked into each run's
  * workspace as its node_modules.
  */
-import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Component, Interface, type Opaque } from "@prismshadow/penguin-core/kernel";
-import { stopTree } from "./sandbox-build-runner.js";
+import { runProgram } from "./run-program.js";
 
 /** Provider calls time out at two minutes; an install on a slow network gets as long again. */
 export const MEDIA_HELPER_TIMEOUT_MS = 5 * 60 * 1000;
@@ -71,47 +70,28 @@ interface ChildOutcome {
   timedOut: boolean;
 }
 
-function runChild(
+/** Runs one child to its end; a cancelled run, or one that could not start, rejects. */
+async function runChild(
   command: string,
   args: string[],
-  options: { cwd: string; env: NodeJS.ProcessEnv; shell: boolean; signal: AbortSignal },
+  options: { cwd: string; env: NodeJS.ProcessEnv; windowsShell?: boolean; signal: AbortSignal },
 ): Promise<ChildOutcome> {
-  return new Promise((resolve, reject) => {
-    if (options.signal.aborted) return reject(new Error("Generation cancelled."));
-    let output = "";
-    const collect = (chunk: Buffer) => {
-      output = (output + chunk.toString("utf8")).slice(-OUTPUT_MAX);
-    };
-    const child = spawn(command, args, {
-      cwd: options.cwd,
-      env: options.env,
-      stdio: ["ignore", "pipe", "pipe"],
-      shell: options.shell,
-    });
-    child.stdout.on("data", collect);
-    child.stderr.on("data", collect);
-    let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      stopTree(child);
-    }, MEDIA_HELPER_TIMEOUT_MS);
-    timer.unref();
-    const abort = () => stopTree(child);
-    options.signal.addEventListener("abort", abort, { once: true });
-    const settle = () => {
-      clearTimeout(timer);
-      options.signal.removeEventListener("abort", abort);
-    };
-    child.on("error", (error) => {
-      settle();
-      reject(error);
-    });
-    child.on("close", (code) => {
-      settle();
-      if (options.signal.aborted) reject(new Error("Generation cancelled."));
-      else resolve({ code, output, timedOut });
-    });
+  const result = await runProgram({
+    command,
+    args,
+    ...options,
+    timeoutMs: MEDIA_HELPER_TIMEOUT_MS,
+    outputMax: OUTPUT_MAX,
   });
+  if (result.outcome === "stopped" || options.signal.aborted)
+    throw new Error("Generation cancelled.");
+  // A program that ran and exited 127 (a command it runs was missing) reports its own words.
+  if (
+    result.code === null &&
+    (result.outcome === "not_found" || result.outcome === "failed_to_start")
+  )
+    throw new Error(result.error);
+  return { code: result.code, output: result.output, timedOut: result.outcome === "timed_out" };
 }
 
 /** The helper's last line: it prints only its own words, never a provider's response. */
@@ -133,14 +113,12 @@ export type DependencyInstaller = (
 const NPM_INSTALL = ["install", "--ignore-scripts", "--no-audit", "--no-fund", "--loglevel=error"];
 
 const npmInstall: DependencyInstaller = async (dir, env, signal) => {
-  // Windows resolves npm through its shell wrapper, which takes one command line; the
-  // arguments are fixed, so nothing needs quoting.
-  const shell = process.platform === "win32";
-  const installed = await runChild(
-    shell ? `npm ${NPM_INSTALL.join(" ")}` : "npm",
-    shell ? [] : NPM_INSTALL,
-    { cwd: dir, env, shell, signal },
-  ).catch((error: unknown) => {
+  const installed = await runChild("npm", NPM_INSTALL, {
+    cwd: dir,
+    env,
+    windowsShell: true,
+    signal,
+  }).catch((error: unknown) => {
     if (signal.aborted) throw error;
     return { code: null, output: "", timedOut: false };
   });
@@ -468,7 +446,6 @@ export async function runMediaHelper(run: MediaHelperRun): Promise<MediaHelperRe
       ...run.vault,
       ...(process.versions.electron !== undefined ? { ELECTRON_RUN_AS_NODE: "1" } : {}),
     },
-    shell: false,
     signal: run.signal,
   });
   if (made.code === 0) return { ok: true };

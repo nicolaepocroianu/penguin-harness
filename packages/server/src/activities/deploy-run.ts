@@ -17,7 +17,7 @@ import path from "node:path";
 import type { Db } from "../hmr/capabilities.js";
 import { HttpError } from "../http/errors.js";
 import { newId } from "./domain.js";
-import { clampLog } from "./sandbox-build-runner.js";
+import { clampLog } from "./run-program.js";
 import {
   DEPLOY_STAGE_DEFINITIONS,
   DeployStageFailure,

@@ -61,6 +61,40 @@ describe("ffmpeg", () => {
     expect((failed as FfmpegError).message).toContain("no-such-input.wav");
   });
 
+  it("stops an FFmpeg run past its time limit together with what it started", async () => {
+    // A stand-in FFmpeg (this Node) that starts a helper process and never ends. The helper is
+    // detached on Windows, where Node would otherwise end it with its parent on its own.
+    const script = `
+      const { spawn } = require("node:child_process");
+      const helper = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"], {
+        stdio: "ignore",
+        detached: process.platform === "win32",
+      });
+      console.error("helper " + helper.pid);
+      setInterval(() => {}, 1000);`;
+    const run = await startFfmpeg(["-e", script], {
+      purpose: "for this test",
+      timeoutMs: 1_500,
+      executable: process.execPath,
+    });
+    const failed = await run.finish().catch((error: unknown) => error);
+    expect(failed).toBeInstanceOf(FfmpegError);
+    expect((failed as FfmpegError).message).toContain("took longer");
+    const helper = Number(/helper (\d+)/.exec(run.stderr())?.[1]);
+    expect(helper).toBeGreaterThan(0);
+    const alive = () => {
+      try {
+        process.kill(helper, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    for (let waited = 0; alive() && waited < 10_000; waited += 50)
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(alive()).toBe(false);
+  }, 20_000);
+
   it("converts a WAV clip to MP3", async () => {
     const mp3 = await wavToMp3(silentWav());
     // An MP3 opens with an ID3 tag or a frame sync.
