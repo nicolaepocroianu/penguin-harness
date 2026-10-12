@@ -3,6 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** fix
 - **Scope:** `web`
+- **PR:** [#119](https://github.com/nicolaepocroianu/penguin-harness/pull/119)
 
 The studio's draft stopped freezing whenever the author held unsaved text, and stopped refusing
 a save because some unrelated part of the draft had moved. A newer saved draft, whether from the
