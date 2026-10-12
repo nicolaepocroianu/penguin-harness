@@ -139,12 +139,35 @@ reasoning belongs in the PR description rather than on disk.
 **A conclusion is not a deliverable.** Do not package findings as a standalone page, artifact or
 report file: it detaches them from the diff they are about and no one opens it twice. A review's
 findings go in PR comments, on the lines they concern; everything else goes in the PR description
-and in the reply to whoever asked.
+and in the reply to whoever asked. An architecture review's report is a working aid, not a
+deliverable — see below.
 
 `changelog/README.md` is the full spec and `reference/changelog.md` has the shape plus the traps
 (the metadata block's fixed order, translated headings, `#N` numbers that are often issues rather
 than PRs, and the `PR:` field everyone forgets). Read one of them before writing an entry rather
 than pattern-matching a neighbouring one.
+
+## Architecture reviews
+
+`improve-codebase-architecture` finds deepening candidates, `grilling` stress-tests one, and
+`codebase-design` and `domain-modeling` supply the language. Their rules here:
+
+- The review's HTML report is a temporary working aid: it goes to the OS temp directory and is never
+  committed. Each change that comes out of a review lands as its own PR, and that PR's description
+  carries the reasoning.
+- Name architecture with the `codebase-design` vocabulary — module, interface, depth, seam, adapter,
+  leverage, locality — and the domain with the glossary's terms.
+- Before proposing a candidate, check it against what this repo already fixes: the server kernel
+  contract (an `Interface` class plus a `@Component`, registered in its parent's `children` in
+  `packages/server/src/platform.ts`, `gen:ifaces` passing, swappable dependencies as ports with a
+  default component), the compatibility rule above (stored data stays readable as it is, or the user
+  decides), prompt-cache byte-identity, and `penguin-harness-frontend` for anything in the Web App.
+  A candidate that breaks one of them says so up front.
+- The glossary is the root `GLOSSARY.md`: terms and definitions only, no file names, classes or
+  tables.
+- Decisions live in `docs/adr/`, created with the first one. An ADR is the one deliberate exception to
+  "reasoning belongs in the PR description", and only for a decision that is hard to reverse,
+  surprising without context, and the result of a real trade-off.
 
 ## Backward compatibility is the user's call, not yours
 
