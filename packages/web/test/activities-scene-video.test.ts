@@ -47,7 +47,7 @@ function recording(overrides: Partial<ActivityRunSummary>): ActivityRunSummary {
       seconds: 6,
     },
     ...overrides,
-  };
+  } as ActivityRunSummary;
 }
 
 describe("scene video recordings in the studio", () => {
@@ -89,7 +89,10 @@ describe("scene video recordings in the studio", () => {
     // A cause the server names by its code is worded by the App, not by the server's sentence.
     const failed = recording({ status: "failed", error: "The recording is not a WebM video." });
     expect(
-      recordingFailure({ ...failed, video: { ...failed.video!, problem: "video_invalid" } }),
+      recordingFailure({
+        ...failed,
+        video: { ...failed.video!, problem: "video_invalid" },
+      } as ActivityRunSummary),
     ).toBe(S.activities.video.recordProblems.video_invalid);
     expect(
       recordingFailure(recording({ status: "cancelled", error: "Generation cancelled." })),

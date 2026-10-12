@@ -9,6 +9,10 @@ import type {
   ActivityRunSummary,
 } from "../src/activities/domain.js";
 import { ActivityGenerationService } from "../src/activities/generation.js";
+import { IMAGE_OUTPUT } from "../src/activities/run-kinds/image.js";
+import { MEDIA_TEXT_OUTPUT } from "../src/activities/run-kinds/media-text.js";
+import { MODULE_OUTPUT } from "../src/activities/run-kinds/module.js";
+import { SPEC_OUTPUT } from "../src/activities/run-kinds/spec.js";
 import type { ActivityRuns } from "../src/activities/run-store.js";
 import { ActivityLockService } from "../src/activities/activity-lock.js";
 import type { ServerEvent } from "../src/api/types.js";
@@ -82,7 +86,7 @@ describe("activity generation through Harness sessions", () => {
         }
         if (moduleOutput === "image") {
           await fs.writeFile(
-            path.join(row.workspace!, "image.png"),
+            path.join(row.workspace!, IMAGE_OUTPUT),
             output === "invalid" ? Buffer.from("invalid") : imagePng(),
           );
         } else if (moduleOutput === "media-text") {
@@ -90,7 +94,7 @@ describe("activity generation through Harness sessions", () => {
             await fs.readFile(path.join(row.workspace!, "media-text-input.json"), "utf8"),
           ) as { language: string; assetKey: string; type: "image" | "audio" };
           await fs.writeFile(
-            path.join(row.workspace!, "media-text.json"),
+            path.join(row.workspace!, MEDIA_TEXT_OUTPUT),
             output === "invalid"
               ? "invalid"
               : // The four fields the prompt asks for, whatever else the input carries.
@@ -114,7 +118,7 @@ describe("activity generation through Harness sessions", () => {
             await fs.writeFile(path.join(row.workspace!, name), content);
           }
           await fs.writeFile(
-            path.join(row.workspace!, "module-result.json"),
+            path.join(row.workspace!, MODULE_OUTPUT),
             JSON.stringify({
               files: [
                 ...("bookMode" in input
@@ -134,7 +138,7 @@ describe("activity generation through Harness sessions", () => {
               ],
             }),
           );
-        } else await fs.writeFile(path.join(row.workspace!, "activity-spec.json"), output);
+        } else await fs.writeFile(path.join(row.workspace!, SPEC_OUTPUT), output);
         yield requestEnd(fatal ? "fatal" : "completed");
       },
     });
@@ -1436,7 +1440,7 @@ describe("activity generation through Harness sessions", () => {
         f.activity.id,
         "default_agent",
         current.draft.contentRevision,
-        { mediaSpec: true },
+        { kind: "media-spec" },
       );
       await waitFor(() => f.waiting.has(run.sessionId!));
       return run;

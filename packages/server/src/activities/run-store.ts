@@ -56,7 +56,7 @@ type RunRow = { kind: ActivityRun["kind"]; record_json: string };
 
 function summaryOf(row: RunRow): ActivityRunSummary {
   const metadata = JSON.parse(row.record_json) as ActivityRunSummary;
-  return { ...metadata, kind: row.kind };
+  return { ...metadata, kind: row.kind } as ActivityRunSummary;
 }
 
 @Component()

@@ -52,7 +52,7 @@ function run(overrides: Partial<ActivityRunSummary>): ActivityRunSummary {
       images: [],
     },
     ...overrides,
-  };
+  } as ActivityRunSummary;
 }
 
 describe("scene compositions in the studio", () => {

@@ -43,3 +43,11 @@ export async function readArtifactBytes(
     await handle.close();
   }
 }
+
+/** How large an agent's written result may be, unless its kind says otherwise. */
+const MAX_CANDIDATE_BYTES = 2 * 1024 * 1024;
+
+/** Validate and read the same opened file; never reopen a task-controlled path to read it. */
+export async function readCandidate(file: string, maxBytes = MAX_CANDIDATE_BYTES): Promise<string> {
+  return (await readArtifactBytes(file, maxBytes)).toString("utf8");
+}

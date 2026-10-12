@@ -19,6 +19,7 @@ import type { ActivityDetail, ActivityDraft, ActivityRun } from "../src/activiti
 import type { ActivityGenerationService } from "../src/activities/generation.js";
 import type { ActivityAuthoring } from "../src/mechanisms/activities.js";
 import type { AcceptanceStage } from "../src/activities/acceptance-types.js";
+import type { RunRequest } from "../src/activities/run-request.js";
 import { INSTALL_MARKER } from "../src/activities/test-browser.js";
 import { runFfmpeg } from "../src/activities/ffmpeg.js";
 import type { BookWordsRefresh } from "../src/activities/book-word-types.js";
@@ -50,28 +51,14 @@ interface Captured {
  * Starts a run that only a stage sequence or a service starts, with no route of its own: the
  * one place this test names the generation service's start.
  */
-type DirectStart = (
+function directStart(
   service: ActivityGenerationService,
   activityId: string,
   revision: string,
-  request:
-    | { kind: "spec"; repair: string }
-    | { kind: "media-spec"; repair?: string }
-    | { kind: "test"; test: AcceptanceStage },
-) => Promise<ActivityRun>;
-
-const directStart: DirectStart = (service, activityId, revision, request) =>
-  service.start(
-    PROJECT,
-    activityId,
-    "default_agent",
-    revision,
-    request.kind === "spec"
-      ? { repair: request.repair }
-      : request.kind === "media-spec"
-        ? { mediaSpec: true, ...(request.repair ? { repair: request.repair } : {}) }
-        : { test: request.test },
-  );
+  request: RunRequest,
+): Promise<ActivityRun> {
+  return service.start(PROJECT, activityId, "default_agent", revision, request);
+}
 
 const BINARY = /\.(png|mp4|webm|mp3|wav)$/;
 

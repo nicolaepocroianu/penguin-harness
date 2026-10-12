@@ -485,14 +485,14 @@ export class PipelineRunner {
         throw new Error("Write the activity script before generating the specification.");
       if (step.step === "mediaSpec" && (!activity.draft.spec || activity.draft.status !== "valid"))
         throw new Error("Save a valid specification before listing its media.");
-      const pass = step.step === "mediaSpec" ? { mediaSpec: true as const } : {};
+      const kind = step.step === "mediaSpec" ? ("media-spec" as const) : ("spec" as const);
       // Loom's retry: a pass that wrote the wrong thing runs once more, told why.
       const first = await generation.start(
         projectId,
         activityId,
         input.agentId,
         activity.draft.contentRevision,
-        step.step === "mediaSpec" ? pass : undefined,
+        { kind },
         runtime,
       );
       try {
@@ -511,7 +511,7 @@ export class PipelineRunner {
             activityId,
             input.agentId,
             (await current()).draft.contentRevision,
-            { ...pass, repair: failed.error ?? (error as Error).message },
+            { kind, repair: failed.error ?? (error as Error).message },
             runtime,
           ),
         );
@@ -553,7 +553,7 @@ export class PipelineRunner {
           activityId,
           input.agentId,
           before.draft.contentRevision,
-          { mediaText: { ...target, translate: true } },
+          { kind: "media-text", mediaText: { ...target, translate: true } },
           runtime,
         );
         await this.follow(state, step, run);
@@ -612,7 +612,9 @@ export class PipelineRunner {
             activityId,
             input.agentId,
             before.draft.contentRevision,
-            step.step === "speech" ? { audio: { ...target, voice } } : { image: target },
+            step.step === "speech"
+              ? { kind: "speech", speech: { ...target, voice } }
+              : { kind: "image", image: target },
           );
         } catch (error) {
           // No image provider key: the images are left unbound, as missing sounds are, and the
@@ -699,7 +701,7 @@ export class PipelineRunner {
           activityId,
           input.agentId,
           before.draft.contentRevision,
-          { sound: { ...target, provider } },
+          { kind: "sound", sound: { ...target, provider } },
         );
         await this.follow(state, step, run);
         const after = await current();
@@ -733,7 +735,7 @@ export class PipelineRunner {
         activityId,
         input.agentId,
         activity.draft.contentRevision,
-        { assessment },
+        { kind: "assessment", assessment },
         runtime,
       );
       await this.follow(state, step, run);
@@ -784,6 +786,7 @@ export class PipelineRunner {
         input.agentId,
         activity.draft.contentRevision,
         {
+          kind: "module",
           ...(input.bookMode ? { bookMode: input.bookMode } : {}),
         },
         runtime,
@@ -857,6 +860,7 @@ export class PipelineRunner {
           input.agentId,
           await revision(),
           {
+            kind: "phonemes",
             phonemes: { language, words: missing.slice(start, start + PHONEMES_RUN_MAX_WORDS) },
           },
           runtime,
@@ -903,7 +907,8 @@ export class PipelineRunner {
         input.agentId,
         before.draft.contentRevision,
         {
-          audio: {
+          kind: "speech",
+          speech: {
             ...target,
             voice: voiceFor(provider, word?.voice, input.voice, target.language),
             provider,

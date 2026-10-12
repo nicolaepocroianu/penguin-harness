@@ -495,6 +495,7 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         input.agentId,
         expectedRevision,
         {
+          kind: "composition",
           composition: {
             language: input.language,
             assetKey: input.assetKey,
@@ -537,7 +538,7 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
         activityId,
         input.agentId,
         await revision(),
-        { critique: { language: input.language, assetKey: input.assetKey } },
+        { kind: "critique", critique: { language: input.language, assetKey: input.assetKey } },
         input.runtime,
       );
     let started = first;
