@@ -3,6 +3,7 @@
 - **Date:** 2026-10-12
 - **Type:** refactor
 - **Scope:** `web`
+- **PR:** [#109](https://github.com/nicolaepocroianu/penguin-harness/pull/109)
 
 The activity studio got a typed client for one activity's routes, `activity-api.ts`, and a keyed
 read cache, `resource-cache.ts`, with a `useResource` hook. The editor shares both with its views
