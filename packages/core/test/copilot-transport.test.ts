@@ -124,6 +124,62 @@ describe("Copilot AgentHub boundary", () => {
       }
     },
   );
+  it("keeps the arguments of parallel Responses tool calls that arrive without deltas", async () => {
+    // The ChatGPT Codex backend streams no argument deltas for a parallel batch: each call's
+    // arguments arrive only on its function_call_arguments.done event.
+    const events: Record<string, unknown>[] = ["a", "b"].flatMap((name) => [
+      {
+        type: "response.output_item.added",
+        item: { id: `fc_${name}`, type: "function_call", call_id: `call_${name}`, name: "read" },
+      },
+      {
+        type: "response.function_call_arguments.done",
+        item_id: `fc_${name}`,
+        arguments: JSON.stringify({ file_path: `${name}.txt` }),
+      },
+    ]);
+    events.push({
+      type: "response.completed",
+      response: { status: "completed", usage: { input_tokens: 10, output_tokens: 5 } },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async (url) =>
+        String(url).endsWith("/models")
+          ? Response.json({
+              data: [
+                {
+                  id: "supported",
+                  supported_endpoints: ["/responses"],
+                  capabilities: { type: "chat", supports: { tool_calls: true } },
+                },
+              ],
+            })
+          : new Response(
+              events.map((event) => "data: " + JSON.stringify(event) + "\n\n").join("") +
+                "data: [DONE]\n\n",
+              { headers: { "content-type": "text/event-stream" } },
+            ),
+      ),
+    );
+    const model = new GenerativeModel({
+      modelId: "supported",
+      clientType: "github-copilot",
+      apiKey: "gho_test",
+      tools: [{ name: "read", description: "Read a file" }],
+    });
+    const stream = model.streamGenerate({ newMessages: [userText("Read a and b")] });
+    const args: unknown[] = [];
+    let next = await stream.next();
+    while (!next.done) {
+      const payload = next.value.payload;
+      if ("type" in payload && payload.type === "tool_call") args.push(payload.arguments);
+      next = await stream.next();
+    }
+    expect(next.value.status).toBe("completed");
+    expect(args).toEqual(['{"file_path":"a.txt"}', '{"file_path":"b.txt"}']);
+  });
+
   it("isolates routing and credentials from vendor environment variables", () => {
     vi.stubEnv("OPENAI_API_KEY", "unrelated-key");
     vi.stubEnv("GITHUB_COPILOT_API_KEY", "");

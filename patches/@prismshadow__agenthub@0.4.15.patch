@@ -557,3 +557,45 @@ index 17c2010e03b56b3e0d4e2ea2e1623cf44d3ad4f3..edd8835eadb14ffebf856095858a936a
  var errors_1 = require("./errors");
  Object.defineProperty(exports, "AgentHubError", { enumerable: true, get: function () { return errors_1.AgentHubError; } });
  Object.defineProperty(exports, "EmptyResponseError", { enumerable: true, get: function () { return errors_1.EmptyResponseError; } });
+diff --git a/dist/openai_responses/client.js b/dist/openai_responses/client.js
+index fc1cbc9d9e3489a9d1b9047a925b13bd812aaeee..a145bcdf4d9f3a26652809dcb80f9e8c71064fd9 100644
+--- a/dist/openai_responses/client.js
++++ b/dist/openai_responses/client.js
+@@ -338,12 +338,14 @@ class OpenaiResponsesClient extends baseClient_1.LLMClient {
+             });
+         }
+         else if (openaiEventType === "response.function_call_arguments.done") {
+-            // a stop naming the item closes that call
++            // a stop naming the item closes that call; it carries the complete arguments, the
++            // only copy a server sends when it streams no deltas (the ChatGPT Codex backend does
++            // this for every call in a parallel batch)
+             eventType = "stop";
+             contentItems.push({
+                 type: "partial_tool_call",
+                 name: "",
+-                arguments: "",
++                arguments: modelOutput.arguments ?? "",
+                 tool_call_id: "",
+                 item_id: modelOutput.item_id,
+             });
+@@ -448,14 +450,17 @@ class OpenaiResponsesClient extends baseClient_1.LLMClient {
+                 // a stop that names calls closes them; the end of the response closes whatever a
+                 // gateway never closed on its own
+                 const closing = fragments.length > 0
+-                    ? fragments.map((item) => keyOf(item.item_id))
+-                    : [...openToolCalls.keys()];
+-                for (const key of closing) {
++                    ? fragments.map((item) => [keyOf(item.item_id), item.arguments])
++                    : [...openToolCalls.keys()].map((key) => [key, ""]);
++                for (const [key, complete] of closing) {
+                     const toolCall = openToolCalls.get(key);
+                     if (!toolCall) {
+                         continue;
+                     }
+                     openToolCalls.delete(key);
++                    if (complete) {
++                        toolCall.arguments = complete;
++                    }
+                     yield {
+                         role: "assistant",
+                         event_type: "delta",
