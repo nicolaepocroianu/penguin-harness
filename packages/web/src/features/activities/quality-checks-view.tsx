@@ -18,11 +18,11 @@ import { InfoPopover } from "../../components/ui/info-popover";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
+import { indexRuns } from "./runs-index";
 import {
   STATUS_TONE,
   checkBlocked,
   findingRows,
-  latestQualityRun,
   readQualityState,
   statusText,
   type QualityState,
@@ -154,7 +154,8 @@ export function QualityChecksView({
     },
     [],
   );
-  const latest = latestQualityRun(runs);
+  const runIndex = indexRuns(runs);
+  const latest = runIndex.latest("quality");
   const running = latest?.status === "running";
   // Read again when the latest quality run settles, or another one starts.
   const settledKey = latest ? `${latest.runId}:${latest.status}` : "";
@@ -177,7 +178,7 @@ export function QualityChecksView({
   const blocked = checkBlocked({
     editable,
     browserInstalled: state?.browserInstalled ?? true,
-    runs,
+    runs: runIndex,
     starting,
   });
 

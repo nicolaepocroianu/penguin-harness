@@ -7,10 +7,10 @@ import type {
   AcceptanceReport,
   AcceptanceResult,
   AcceptanceResultStatus,
-  ActivityRunSummary,
 } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
 import type { Tone } from "../../lib/tone";
+import type { RunsIndex } from "./runs-index";
 
 export interface TestState {
   report: AcceptanceReport | null;
@@ -105,16 +105,6 @@ export function resultRows(report: AcceptanceReport): ResultRow[] {
   }));
 }
 
-/** The newest test run, whatever its status. */
-export function latestTestRun(runs: readonly ActivityRunSummary[]): ActivityRunSummary | undefined {
-  return runs
-    .filter((run) => run.kind === "test")
-    .reduce<ActivityRunSummary | undefined>(
-      (newest, run) => (!newest || run.createdAt > newest.createdAt ? run : newest),
-      undefined,
-    );
-}
-
 /** Why Run tests cannot be pressed now, or null when it can. */
 export function testBlocked(input: {
   editable: boolean;
@@ -122,11 +112,11 @@ export function testBlocked(input: {
   unsaved: boolean;
   browserInstalled: boolean;
   criteria: number;
-  runs: readonly ActivityRunSummary[];
+  runs: RunsIndex;
   starting: boolean;
 }): "readonly" | "agent" | "unsaved" | "browser" | "running" | null {
   if (!input.editable) return "readonly";
-  if (input.starting || input.runs.some((run) => run.status === "running")) return "running";
+  if (input.starting || input.runs.busy) return "running";
   if (input.unsaved) return "unsaved";
   if (!input.hasAgent) return "agent";
   // Without criteria a run needs no browser: it records that there was nothing to test.

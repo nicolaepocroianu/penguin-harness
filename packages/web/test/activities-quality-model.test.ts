@@ -9,10 +9,10 @@ import {
   STATUS_TONE,
   checkBlocked,
   findingRows,
-  latestQualityRun,
   readQualityState,
   statusText,
 } from "../src/features/activities/quality-model";
+import { indexRuns } from "../src/features/activities/runs-index";
 
 const checkedAt = "2026-09-25T10:00:00.000Z";
 
@@ -165,25 +165,13 @@ describe("quality model", () => {
     ]);
   });
 
-  it("finds the newest quality run", () => {
-    expect(latestQualityRun([])).toBeUndefined();
-    expect(
-      latestQualityRun([
-        run({ runId: "a", createdAt: "2026-09-25T09:00:00.000Z" }),
-        run({ runId: "b", kind: "module", createdAt: "2026-09-25T11:00:00.000Z" }),
-        run({ runId: "c", createdAt: "2026-09-25T10:00:00.000Z" }),
-      ])?.runId,
-    ).toBe("c");
-  });
-
   it("offers Check quality only with the browser and nothing running", () => {
-    const base = { editable: true, browserInstalled: true, runs: [], starting: false };
+    const base = { editable: true, browserInstalled: true, runs: indexRuns([]), starting: false };
     expect(checkBlocked(base)).toBeNull();
     expect(checkBlocked({ ...base, editable: false })).toBe("readonly");
     expect(checkBlocked({ ...base, browserInstalled: false })).toBe("browser");
     expect(checkBlocked({ ...base, starting: true })).toBe("running");
-    expect(checkBlocked({ ...base, runs: [run({ kind: "module", status: "running" })] })).toBe(
-      "running",
-    );
+    const running = indexRuns([run({ kind: "module", status: "running" })]);
+    expect(checkBlocked({ ...base, runs: running })).toBe("running");
   });
 });

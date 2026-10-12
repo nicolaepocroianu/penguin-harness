@@ -14,10 +14,10 @@ import { InfoPopover } from "../../components/ui/info-popover";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk } from "../../lib/tone";
+import { indexRuns } from "./runs-index";
 import {
   TEST_TONE,
   countText,
-  latestTestRun,
   overallText,
   readTestState,
   resultRows,
@@ -66,7 +66,8 @@ export function TestResultsView({
     },
     [],
   );
-  const latest = latestTestRun(runs);
+  const runIndex = indexRuns(runs);
+  const latest = runIndex.latest("test");
   const running = latest?.status === "running";
   // Read again when the latest test run settles, or another one starts, or the draft changes
   // (its criteria may have).
@@ -94,7 +95,7 @@ export function TestResultsView({
     unsaved,
     browserInstalled: state?.browserInstalled ?? true,
     criteria,
-    runs,
+    runs: runIndex,
     starting,
   });
 

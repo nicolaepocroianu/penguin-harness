@@ -25,7 +25,6 @@ import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import {
   compositionFailure,
-  compositionRuns,
   formatSeconds,
   isShowable,
   PREVIEW_GRACE_MS,
@@ -39,9 +38,9 @@ import {
 } from "./scene-composition";
 import { MediaComparison } from "./media-comparison";
 import { MediaPlayer } from "./media-player";
-import { refineRuns } from "./scene-timeline";
+import { indexRuns } from "./runs-index";
 import { SceneTimelineView } from "./scene-timeline-view";
-import { critiqueRuns, SceneCritiqueView } from "./scene-critique-view";
+import { SceneCritiqueView } from "./scene-critique-view";
 import {
   captionsUrl,
   checkLine,
@@ -51,7 +50,6 @@ import {
   isRecordable,
   recordingFailure,
   recordingUrl,
-  videoRuns,
 } from "./scene-video";
 
 type Asset = AssetManifest["assets"][string][number];
@@ -112,11 +110,13 @@ export function SceneCompositionView({
   /** The asset's video now, shown beside a new recording. */
   current?: ReactNode;
 }) {
-  const compositions = compositionRuns(runs, language, asset.key);
-  const composing = compositions.some((run) => run.status === "running");
+  const runIndex = indexRuns(runs);
+  const target = { language, assetKey: asset.key };
+  const compositions = runIndex.of("composition", target);
+  const composing = runIndex.isRunning("composition", target);
   const shown = compositions.find(isShowable) ?? null;
-  const recordings = videoRuns(runs, language, asset.key);
-  const busy = recordings.some((run) => run.status === "running");
+  const recordings = runIndex.of("video", target);
+  const busy = runIndex.isRunning("video", target);
   const recording = recordings.some((run) => run.status === "running" && !run.video?.fromTimeline);
   const rendering = recordings.some((run) => run.status === "running" && run.video?.fromTimeline);
   // The newest recording that came out, which a timeline starts from; never a finished video.
@@ -141,26 +141,22 @@ export function SceneCompositionView({
   }, [endpoint]);
   // The activity's most recent look, so its scenes keep one look unless the author changes it.
   const lastLook = useMemo(
-    () =>
-      [...runs]
-        .filter((run) => run.kind === "composition")
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-        .find((run) => run.composition?.look)?.composition?.look ?? "",
-    [runs],
+    () => runIndex.of("composition").find((run) => run.composition?.look)?.composition?.look ?? "",
+    [runIndex],
   );
   const [chosenLook, setLook] = useState<string | null>(null);
   const look = chosenLook ?? lastLook;
   // Each recording's best critique, and the best of them.
   const critiqueScores = useMemo(() => {
     const scores = new Map<string, number>();
-    for (const run of runs)
-      if (run.kind === "critique" && run.critique?.score !== undefined) {
+    for (const run of runIndex.of("critique"))
+      if (run.critique?.score !== undefined) {
         const seen = scores.get(run.critique.recordingRunId);
         if (seen === undefined || run.critique.score > seen)
           scores.set(run.critique.recordingRunId, run.critique.score);
       }
     return scores;
-  }, [runs]);
+  }, [runIndex]);
   const bestScore = Math.max(-1, ...critiqueScores.values());
   const choice = sceneHasLearnerChoice(spec, compositionScene(asset));
   return (
@@ -227,7 +223,7 @@ export function SceneCompositionView({
       {newestRecording && onCritique && (
         <SceneCritiqueView
           endpoint={endpoint}
-          critiques={critiqueRuns(runs, language, asset.key)}
+          critiques={runIndex.of("critique", target)}
           newestRecording={newestRecording.runId}
           canCritique={canGenerate && canRecord && !busy}
           {...(editable ? { onCritique: () => onCritique(language, asset.key) } : {})}
@@ -247,7 +243,7 @@ export function SceneCompositionView({
           editable={editable}
           canChange={canRecord && !busy}
           rendering={rendering}
-          refinements={refineRuns(runs, language, asset.key)}
+          refinements={runIndex.of("timeline", target)}
           onSave={(timeline) => onSaveTimeline(language, asset.key, timeline)}
           onRender={() => onRenderTimeline(language, asset.key)}
           canRefine={canGenerate}

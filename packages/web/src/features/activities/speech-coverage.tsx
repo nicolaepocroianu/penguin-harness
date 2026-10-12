@@ -35,6 +35,7 @@ import {
   type InstructionType,
 } from "./instruction-type";
 import { soundStatuses, soundTally, type SoundState } from "./bulk-sound";
+import { indexRuns } from "./runs-index";
 import { providerLabel } from "./sound-model";
 import { mixedVoice } from "./voice-catalogue";
 import {
@@ -163,13 +164,14 @@ export function SpeechCoverage({
   // Derived from each line's words on every change, never stored (see instruction-type.ts).
   const types = useMemo(() => instructionTypes(assets, sources), [assets, sources]);
   const typeOf = (key: string): InstructionType => types.get(key) ?? "other";
-  const statuses = speechStatuses(assets, runs, language, sources);
+  const runIndex = indexRuns(runs);
+  const statuses = speechStatuses(assets, runIndex, language, sources);
   const toTranslate = statuses.filter(
     (status) => status.translation === "missing" || status.translation === "outdated",
   ).length;
   const unscripted = statuses.filter((status) => status.translation === "missing").length;
-  const tally = speechTally(assets, runs, language);
-  const pending = pendingSpeechKeys(assets, runs, language);
+  const tally = speechTally(assets, runIndex, language);
+  const pending = pendingSpeechKeys(assets, runIndex, language);
   const inType = (status: (typeof statuses)[number], entry: InstructionFilter) =>
     inInstructionFilter(typeOf(status.key), entry);
   // Each row's counts are taken within the other row's choice, so every count matches the
@@ -537,8 +539,9 @@ function SoundCoverage({
 }) {
   const [confirming, setConfirming] = useState(false);
   const words = S.activities.sound;
-  const statuses = soundStatuses(assets, runs, language);
-  const tally = soundTally(assets, runs, language);
+  const runIndex = indexRuns(runs);
+  const statuses = soundStatuses(assets, runIndex, language);
+  const tally = soundTally(assets, runIndex, language);
   if (!statuses.length) return null;
   const name = provider ? providerLabel(provider.id) : "";
   return (

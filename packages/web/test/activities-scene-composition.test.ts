@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { ActivityRunSummary, AssetManifest } from "@prismshadow/penguin-server/api";
 import {
   compositionFailure,
-  compositionRuns,
   formatSeconds,
   isShowable,
   parseCandidate,
@@ -57,23 +56,6 @@ function run(overrides: Partial<ActivityRunSummary>): ActivityRunSummary {
 }
 
 describe("scene compositions in the studio", () => {
-  it("lists an asset's compositions newest first, and nothing else", () => {
-    const runs = [
-      run({ runId: "old", createdAt: "2026-09-28T09:00:00.000Z" }),
-      run({ runId: "new" }),
-      run({ runId: "image", kind: "image" }),
-      run({
-        runId: "other",
-        composition: { ...run({}).composition!, assetKey: "outro-video" },
-      }),
-      run({ runId: "french", composition: { ...run({}).composition!, language: "fr-FR" } }),
-    ];
-    expect(compositionRuns(runs, "en-US", "intro-video").map((entry) => entry.runId)).toEqual([
-      "new",
-      "old",
-    ]);
-  });
-
   it("offers composing only for a scene with a bound image", () => {
     const video = asset("intro-video", "video", "intro");
     expect(sceneHasImage([video, asset("sky", "image", "intro")], video)).toBe(false);

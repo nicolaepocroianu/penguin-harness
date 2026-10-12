@@ -12,8 +12,9 @@ import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
 import { apiFetch } from "../../api/client";
 import { S } from "../../lib/strings";
 import type { Tone } from "../../lib/tone";
-import { latestQualityRun, readQualityState, type QualityState } from "./quality-model";
-import { latestTestRun, readTestState, type TestState } from "./test-results-model";
+import { readQualityState, type QualityState } from "./quality-model";
+import { indexRuns } from "./runs-index";
+import { readTestState, type TestState } from "./test-results-model";
 
 export interface PanelBadge {
   /** The figure on the chip; empty for a run in progress, which shows as a dot. */
@@ -70,8 +71,9 @@ export function usePanelBadges(
   revision: string,
   enabled: boolean,
 ): { tests: PanelBadge | null; quality: PanelBadge | null } {
-  const latestTest = latestTestRun(runs);
-  const latestQuality = latestQualityRun(runs);
+  const runIndex = indexRuns(runs);
+  const latestTest = runIndex.latest("test");
+  const latestQuality = runIndex.latest("quality");
   const testKey = latestTest ? `${latestTest.runId}:${latestTest.status}` : "";
   const qualityKey = latestQuality ? `${latestQuality.runId}:${latestQuality.status}` : "";
   const [tests, setTests] = useState<TestState | null>(null);

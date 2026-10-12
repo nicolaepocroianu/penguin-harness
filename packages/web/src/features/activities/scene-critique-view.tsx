@@ -17,22 +17,6 @@ import { madeBy } from "./scene-video";
 const words = S.activities.video.critique;
 const RUBRIC = ["story", "layout", "readability", "motion", "learners"] as const;
 
-/** The asset's critiques, newest first. */
-export function critiqueRuns(
-  runs: readonly ActivityRunSummary[],
-  language: string,
-  assetKey: string,
-): ActivityRunSummary[] {
-  return runs
-    .filter(
-      (run) =>
-        run.kind === "critique" &&
-        run.critique?.language === language &&
-        run.critique.assetKey === assetKey,
-    )
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-}
-
 /** Reads a critique run's kept output; null when it is not one. */
 export function parseCritique(text: string | null): SceneCritique | null {
   if (!text) return null;

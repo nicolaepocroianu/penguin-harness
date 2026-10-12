@@ -5,6 +5,7 @@
  */
 
 import type { ActivityRunSummary, AssetManifest } from "@prismshadow/penguin-server/api";
+import { indexRuns, type RunsIndex } from "./runs-index";
 
 type MediaAsset = AssetManifest["assets"][string][number];
 
@@ -48,30 +49,19 @@ const UNSUCCESSFUL = new Set<ActivityRunSummary["status"]>(["failed", "conflict"
  */
 export function speechStatuses(
   assets: readonly MediaAsset[],
-  runs: readonly ActivityRunSummary[] = [],
+  runs: RunsIndex = indexRuns([]),
   language = "",
   /** The default language's scripts by key, when `language` is not the default. */
   sources?: ReadonlyMap<string, string>,
 ): SpeechStatus[] {
-  const latest = new Map<string, ActivityRunSummary>();
-  const translating = new Set<string>();
-  for (const run of runs) {
-    if (run.kind === "audio" && run.audio?.language === language) {
-      const seen = latest.get(run.audio.assetKey);
-      if (!seen || run.createdAt > seen.createdAt) latest.set(run.audio.assetKey, run);
-    }
-    if (
-      run.kind === "media-text" &&
-      run.status === "running" &&
-      run.mediaText?.language === language &&
-      run.mediaText.translation
-    )
-      translating.add(run.mediaText.assetKey);
-  }
+  const translating = (assetKey: string) =>
+    runs
+      .of("media-text", { language, assetKey })
+      .some((run) => run.status === "running" && run.mediaText?.translation);
   const translationOf = (asset: MediaAsset): SpeechStatus["translation"] => {
     const source = sources?.get(asset.key);
     if (!source?.trim()) return undefined;
-    if (translating.has(asset.key)) return "translating";
+    if (translating(asset.key)) return "translating";
     if (!asset.script?.trim()) return "missing";
     // A script with no recorded source was written, not translated, and stands.
     if (asset.translatedFrom !== undefined && asset.translatedFrom !== source) return "outdated";
@@ -82,7 +72,7 @@ export function speechStatuses(
       // Music and effects are audio the module plays, not narration anyone speaks.
       .filter((asset) => asset.type === "audio" && !asset.kind)
       .map((asset) => {
-        const run = latest.get(asset.key);
+        const run = runs.latest("audio", { language, assetKey: asset.key });
         const translation = translationOf(asset);
         const base = {
           key: asset.key,
@@ -104,7 +94,7 @@ export function speechStatuses(
 /** The keys a bulk run would generate, in manifest order: missing, and failed to try again. */
 export function pendingSpeechKeys(
   assets: readonly MediaAsset[],
-  runs: readonly ActivityRunSummary[] = [],
+  runs: RunsIndex = indexRuns([]),
   language = "",
 ): string[] {
   return speechStatuses(assets, runs, language)
@@ -126,7 +116,7 @@ export interface SpeechTally {
 /** The counts behind the language summary line. */
 export function speechTally(
   assets: readonly MediaAsset[],
-  runs: readonly ActivityRunSummary[] = [],
+  runs: RunsIndex = indexRuns([]),
   language = "",
 ): SpeechTally {
   const statuses = speechStatuses(assets, runs, language);

@@ -10,6 +10,7 @@ import {
   soundStatuses,
   soundTally,
 } from "../src/features/activities/bulk-sound";
+import { indexRuns } from "../src/features/activities/runs-index";
 
 type MediaAsset = AssetManifest["assets"][string][number];
 
@@ -67,7 +68,7 @@ describe("the sounds a language still needs", () => {
         audio: { language: "es-MX", assetKey: "ding" } as ActivityRunSummary["audio"],
       }),
     ];
-    expect(soundStatuses(assets, runs, "en-US")).toEqual([
+    expect(soundStatuses(assets, indexRuns(runs), "en-US")).toEqual([
       { key: "chime", state: "ready" },
       { key: "whoosh", state: "failed", error: "provider refused: plan or key" },
       { key: "drum", state: "generating" },
@@ -78,7 +79,7 @@ describe("the sounds a language still needs", () => {
   });
 
   it("counts what the stage would generate: missing and failed, not generating or unprompted", () => {
-    expect(soundTally(assets, [soundRun("whoosh", "failed", "t1")], "en-US")).toEqual({
+    expect(soundTally(assets, indexRuns([soundRun("whoosh", "failed", "t1")]), "en-US")).toEqual({
       total: 6,
       ready: 1,
       pending: 3,
@@ -86,14 +87,14 @@ describe("the sounds a language still needs", () => {
       generating: 0,
       noPrompt: 2,
     });
-    expect(soundTally([assets[0]!], [], "en-US").total).toBe(0);
+    expect(soundTally([assets[0]!], indexRuns([]), "en-US").total).toBe(0);
   });
 
   it("ignores a narration's speech run for the same key", () => {
     const speech = soundRun("whoosh", "failed", "t2", {
       audio: { language: "en-US", assetKey: "whoosh", script: "", model: "m" } as never,
     });
-    expect(soundStatuses([sfx("whoosh")], [speech], "en-US")).toEqual([
+    expect(soundStatuses([sfx("whoosh")], indexRuns([speech]), "en-US")).toEqual([
       { key: "whoosh", state: "missing" },
     ]);
   });
@@ -107,8 +108,8 @@ describe("the kinds still needed", () => {
       sfx("drum", { kind: "music" }),
     ];
     const runs = [soundRun("drum", "running", "2026-09-25T10:01:00Z")];
-    expect(pendingSoundKinds(assets, runs, "en-US")).toEqual(["sfx"]);
-    expect(pendingSoundKinds(assets, [], "en-US")).toEqual(["sfx", "music"]);
+    expect(pendingSoundKinds(assets, indexRuns(runs), "en-US")).toEqual(["sfx"]);
+    expect(pendingSoundKinds(assets, indexRuns([]), "en-US")).toEqual(["sfx", "music"]);
   });
 });
 

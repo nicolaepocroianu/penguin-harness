@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityRunSummary, AssetManifest } from "@prismshadow/penguin-server/api";
+import { indexRuns } from "../src/features/activities/runs-index";
 import { buildSceneTree } from "../src/features/activities/scene-assets";
 import { storyboardFrames } from "../src/features/activities/storyboard";
 
@@ -51,7 +52,13 @@ const running = (assetKey: string, language = "en-US") =>
 
 describe("storyboard frames", () => {
   it("numbers scenes in order and shows each one's first image the saved plan has bound", () => {
-    const frames = storyboardFrames(buildSceneTree(spec, assets), assets, [], [], "en-US");
+    const frames = storyboardFrames(
+      buildSceneTree(spec, assets),
+      assets,
+      indexRuns([]),
+      [],
+      "en-US",
+    );
     expect(
       frames.map((frame) => [frame.number, frame.sceneId, frame.thumbnailKey, frame.firstAssetKey]),
     ).toEqual([
@@ -70,10 +77,12 @@ describe("storyboard frames", () => {
   it("marks the scenes an agent is generating for, in the language shown", () => {
     const tree = buildSceneTree(spec, assets);
     expect(
-      storyboardFrames(tree, assets, [running("rock")], [], "en-US").map((f) => f.working),
+      storyboardFrames(tree, assets, indexRuns([running("rock")]), [], "en-US").map(
+        (f) => f.working,
+      ),
     ).toEqual([false, true, false]);
     expect(
-      storyboardFrames(tree, assets, [running("rock", "es-MX")], [], "en-US").some(
+      storyboardFrames(tree, assets, indexRuns([running("rock", "es-MX")]), [], "en-US").some(
         (f) => f.working,
       ),
     ).toBe(false);
@@ -83,7 +92,7 @@ describe("storyboard frames", () => {
     const frames = storyboardFrames(
       buildSceneTree(spec, assets),
       assets,
-      [],
+      indexRuns([]),
       [
         { target: "media", language: "en-US", assetKey: "island", field: "description", text: "x" },
         { target: "description", text: "whole script" },

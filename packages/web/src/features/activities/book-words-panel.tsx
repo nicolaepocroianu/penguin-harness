@@ -22,11 +22,11 @@ import { InfoPopover } from "../../components/ui/info-popover";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { wordRecordingTally } from "./phoneme-timeline";
+import { indexRuns } from "./runs-index";
 import {
   PHONEMES_RUN_MAX_WORDS,
   bookWordAssets,
   isDecodable,
-  latestPhonemesRun,
   parseProposal,
   proposalRows,
   wordsWithoutSounds,
@@ -83,7 +83,7 @@ export function BookWordsPanel({
     };
   }, [endpoint]);
 
-  const run = latestPhonemesRun(runs, language);
+  const run = indexRuns(runs).latest("phonemes", { language });
   const [candidate, setCandidate] = useState<{ runId: string; text: string | null } | null>(null);
   const wanted = run?.status === "succeeded" && run.hasCandidate ? run.runId : null;
   useEffect(() => {

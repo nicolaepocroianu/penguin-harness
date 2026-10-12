@@ -4,7 +4,6 @@
  * Check quality may be pressed.
  */
 import type {
-  ActivityRunSummary,
   QualityFinding,
   QualityReport,
   QualityResults,
@@ -12,6 +11,7 @@ import type {
 } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
 import type { Tone } from "../../lib/tone";
+import type { RunsIndex } from "./runs-index";
 
 export interface QualityState {
   quality: QualityResults | null;
@@ -113,27 +113,15 @@ export function findingRows(report: QualityReport): FindingRow[] {
   });
 }
 
-/** The newest quality run, whatever its status. */
-export function latestQualityRun(
-  runs: readonly ActivityRunSummary[],
-): ActivityRunSummary | undefined {
-  return runs
-    .filter((run) => run.kind === "quality")
-    .reduce<ActivityRunSummary | undefined>(
-      (newest, run) => (!newest || run.createdAt > newest.createdAt ? run : newest),
-      undefined,
-    );
-}
-
 /** Why Check quality cannot be pressed now, or null when it can. */
 export function checkBlocked(input: {
   editable: boolean;
   browserInstalled: boolean;
-  runs: readonly ActivityRunSummary[];
+  runs: RunsIndex;
   starting: boolean;
 }): "readonly" | "browser" | "running" | null {
   if (!input.editable) return "readonly";
   if (!input.browserInstalled) return "browser";
-  if (input.starting || input.runs.some((run) => run.status === "running")) return "running";
+  if (input.starting || input.runs.busy) return "running";
   return null;
 }

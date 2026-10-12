@@ -1,7 +1,6 @@
 /**
  * The scene-video experiment's derivations, kept apart from the view so they can be tested
- * without a DOM: which compositions belong to an asset, whether its scene has an image to
- * compose from, what a kept composition's frames are, how a failed run is worded, and what the
+ * without a DOM: whether an asset's scene has an image to compose from, what a kept composition's frames are, how a failed run is worded, and what the
  * preview frame reports about itself.
  */
 import type {
@@ -14,22 +13,6 @@ import type {
 import { S } from "../../lib/strings";
 
 type Asset = AssetManifest["assets"][string][number];
-
-/** The asset's composition runs, newest first. */
-export function compositionRuns(
-  runs: readonly ActivityRunSummary[],
-  language: string,
-  assetKey: string,
-): ActivityRunSummary[] {
-  return runs
-    .filter(
-      (run) =>
-        run.kind === "composition" &&
-        run.composition?.language === language &&
-        run.composition.assetKey === assetKey,
-    )
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-}
 
 /** The scene a video or animation asset belongs to: the first that uses it. */
 export function compositionScene(asset: Asset): string | null {

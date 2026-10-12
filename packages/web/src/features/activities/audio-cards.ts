@@ -9,6 +9,7 @@ import type {
   MediaAsset,
 } from "@prismshadow/penguin-server/api";
 import { isUploadPath } from "./media-library";
+import type { RunsIndex } from "./runs-index";
 
 /** The ElevenLabs models a narration may be spoken with; the server's ELEVENLABS_SPEECH_MODELS. */
 export const ELEVENLABS_MODELS = ["eleven_v3", "eleven_v4", "eleven_multilingual_v2"] as const;
@@ -52,18 +53,14 @@ export type AudioCandidate =
  * since (saving an upload over a take retires the take).
  */
 export function newestTake(
-  runs: readonly ActivityRunSummary[],
+  runs: RunsIndex,
   language: string,
   key: string,
   revision: string,
   bound: { runId?: string; uploadedAt?: string },
 ): ActivityRunSummary | undefined {
-  return [...runs]
-    .filter(
-      (run) =>
-        run.kind === "audio" && run.audio?.language === language && run.audio?.assetKey === key,
-    )
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  return runs
+    .of("audio", { language, assetKey: key })
     .find(
       (run) =>
         run.status === "succeeded" &&
@@ -86,41 +83,20 @@ export function cardCandidate(
   return take ? { source: "generated", runId: take.runId } : null;
 }
 
-/** Whether a speech or sound run for this card is under way. */
-export function cardGenerating(
-  runs: readonly ActivityRunSummary[],
-  language: string,
-  key: string,
-): boolean {
-  return runs.some(
-    (run) =>
-      run.status === "running" &&
-      run.kind === "audio" &&
-      run.audio?.language === language &&
-      run.audio?.assetKey === key,
-  );
-}
-
 /**
  * The newest script suggestion for this card still worth showing: one under way, one with
  * text made from the current draft, or one that conflicted. Accepting one changes the draft,
  * which retires it.
  */
 export function pendingText(
-  runs: readonly ActivityRunSummary[],
+  runs: RunsIndex,
   language: string,
   key: string,
   revision: string,
 ): ActivityRunSummary | undefined {
-  const newest = [...runs]
-    .filter(
-      (run) =>
-        run.kind === "media-text" &&
-        run.mediaText?.language === language &&
-        run.mediaText?.assetKey === key &&
-        run.mediaText?.type === "audio",
-    )
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const newest = runs
+    .of("media-text", { language, assetKey: key })
+    .find((run) => run.mediaText?.type === "audio");
   if (!newest) return undefined;
   if (newest.status === "running") return newest;
   // A conflicted one stays readable (it can never be accepted), so the author sees why.

@@ -9,6 +9,7 @@ import {
   speechStatuses,
   speechTally,
 } from "../src/features/activities/bulk-speech";
+import { indexRuns } from "../src/features/activities/runs-index";
 import {
   clipTime,
   encodeWav,
@@ -107,14 +108,14 @@ describe("speech readiness", () => {
         error: status === "failed" ? "The voice timed out." : null,
         audio: { language, assetKey: key },
       }) as unknown as ActivityRunSummary;
-    const runs = [
+    const runs = indexRuns([
       run("needs_speech", "failed", "2026-09-23T10:00:00Z"),
       run("needs_speech", "failed", "2026-09-23T09:00:00Z"),
       run("also_needs", "failed", "2026-09-23T09:00:00Z"),
       run("also_needs", "running", "2026-09-23T10:00:00Z"),
       run("bound_upload", "failed", "2026-09-23T11:00:00Z"),
       run("no_script", "failed", "2026-09-23T11:00:00Z", "es-MX"),
-    ];
+    ]);
     const statuses = speechStatuses(assets, runs, "en-US");
     expect(statuses.find((status) => status.key === "needs_speech")).toMatchObject({
       state: "failed",
@@ -245,7 +246,7 @@ describe("translation", () => {
   } as unknown as ActivityRunSummary;
 
   it("marks what was never translated, what the default line has since changed, and what is being translated", () => {
-    const statuses = speechStatuses(spanish, [running], "es-MX", sources);
+    const statuses = speechStatuses(spanish, indexRuns([running]), "es-MX", sources);
     expect(statuses.map((status) => [status.key, status.translation])).toEqual([
       ["hello", "missing"],
       ["bye", "outdated"],
@@ -257,7 +258,9 @@ describe("translation", () => {
   });
 
   it("marks nothing without the default language's scripts to compare against", () => {
-    expect(speechStatuses(spanish, [], "es-MX").some((status) => status.translation)).toBe(false);
+    expect(
+      speechStatuses(spanish, indexRuns([]), "es-MX").some((status) => status.translation),
+    ).toBe(false);
   });
 });
 

@@ -1,7 +1,7 @@
 /**
  * Recording a composed scene to a video (experimental), kept apart from the view so it can be
- * tested without a DOM: which recordings belong to an asset, which composition can be recorded,
- * which recording is offered beside the current video, and how a failed one is worded.
+ * tested without a DOM: which composition can be recorded, which recording is offered beside
+ * the current video, and how a failed one is worded.
  */
 import type {
   ActivityRunSummary,
@@ -14,20 +14,6 @@ import { S } from "../../lib/strings";
 import type { Tone } from "../../lib/tone";
 
 type Asset = AssetManifest["assets"][string][number];
-
-/** The asset's video recordings, newest first. */
-export function videoRuns(
-  runs: readonly ActivityRunSummary[],
-  language: string,
-  assetKey: string,
-): ActivityRunSummary[] {
-  return runs
-    .filter(
-      (run) =>
-        run.kind === "video" && run.video?.language === language && run.video.assetKey === assetKey,
-    )
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-}
 
 /** Whether a composition run can be recorded: only one that succeeded and kept its page. */
 export function isRecordable(run: ActivityRunSummary | null): run is ActivityRunSummary {
