@@ -3,6 +3,7 @@
 - **Date:** 2026-10-12
 - **Type:** refactor
 - **Scope:** `server`
+- **PR:** [#116](https://github.com/nicolaepocroianu/penguin-harness/pull/116)
 
 The activities' seven hand-written child-process wrappers (deploy git, deploy npm/npx, the module build and Node build scripts, media helper runs and their npm installs, FFmpeg, the test browser's installer and lookup, espeak-ng), and with them the module builder's pinned-Sass install and compile, were moved onto one module, `packages/server/src/activities/run-program.ts`. It owns the spawn options, cmd.exe and its quoting for Windows `.cmd` wrappers, the time limit, the abort signal, the tree kill, the bounded output and line streaming, and reports one outcome: `exited`, `not_found`, `timed_out`, `stopped` or `failed_to_start`. Each caller maps that outcome to the shape it already returned.
 
