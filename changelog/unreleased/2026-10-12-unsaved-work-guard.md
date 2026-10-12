@@ -3,6 +3,7 @@
 - **Date:** 2026-10-12
 - **Type:** fix
 - **Scope:** `web`
+- **PR:** [#112](https://github.com/nicolaepocroianu/penguin-harness/pull/112)
 
 The activity studio got one unsaved-work guard (`unsaved-work.ts`, with
 `unsaved-work-context.tsx`). An editor holding unsaved work now registers it with
