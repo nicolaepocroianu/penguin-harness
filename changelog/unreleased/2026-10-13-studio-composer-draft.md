@@ -3,6 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** fix
 - **Scope:** `web`
+- **PR:** [#118](https://github.com/nicolaepocroianu/penguin-harness/pull/118)
 
 The activity studio's conversation composer stopped losing unsent text. Closing the side panel,
 switching conversations or leaving the activity used to throw it away; it now uses chat's Session
