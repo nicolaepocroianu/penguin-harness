@@ -1,4 +1,5 @@
 /** Pure helpers behind the activities landing and the embedded module preview. */
+import type { RunsIndex } from "./runs-index";
 
 export type ModuleViewport = { width: number; height: number };
 
@@ -73,19 +74,8 @@ export function sceneIds(spec: Record<string, unknown> | null | undefined): stri
     .filter(Boolean);
 }
 
-/** The newest assembled module that can be previewed, if any. */
-export function latestModuleRun<
-  T extends { kind: string; status: string; sessionId?: string | null },
->(runs: readonly T[]): T | undefined {
-  return runs.find((run) => run.kind === "module" && run.status === "succeeded" && run.sessionId);
-}
-
 /** The pinned successful assembly, or the newest successful assembly when the pin is absent. */
-export function playingModuleRunId<
-  T extends { runId: string; kind: string; status: string; createdAt: string },
->(runs: readonly T[], pinned?: string | null): string | null {
-  const builds = runs
-    .filter((run) => run.kind === "module" && run.status === "succeeded")
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+export function playingModuleRunId(runs: RunsIndex, pinned?: string | null): string | null {
+  const builds = runs.of("module").filter((run) => run.status === "succeeded");
   return (builds.find((run) => run.runId === pinned) ?? builds[0])?.runId ?? null;
 }

@@ -3,12 +3,12 @@ import type { AcceptanceReport, ActivityRunSummary } from "@prismshadow/penguin-
 import {
   TEST_TONE,
   countText,
-  latestTestRun,
   overallText,
   readTestState,
   resultRows,
   testBlocked,
 } from "../src/features/activities/test-results-model";
+import { indexRuns } from "../src/features/activities/runs-index";
 
 const report: AcceptanceReport = {
   overallStatus: "failed",
@@ -132,16 +132,6 @@ describe("test results model", () => {
     ]);
   });
 
-  it("finds the newest test run among other runs", () => {
-    const runs = [
-      run({ runId: "old", createdAt: "2026-09-25T08:00:00.000Z" }),
-      run({ runId: "quality", kind: "quality", createdAt: "2026-09-25T11:00:00.000Z" }),
-      run({ runId: "new", createdAt: "2026-09-25T10:00:00.000Z" }),
-    ];
-    expect(latestTestRun(runs)?.runId).toBe("new");
-    expect(latestTestRun([])).toBeUndefined();
-  });
-
   it("says why Run tests cannot be pressed", () => {
     const base = {
       editable: true,
@@ -149,12 +139,12 @@ describe("test results model", () => {
       unsaved: false,
       browserInstalled: true,
       criteria: 2,
-      runs: [] as ActivityRunSummary[],
+      runs: indexRuns([]),
       starting: false,
     };
     expect(testBlocked(base)).toBeNull();
     expect(testBlocked({ ...base, editable: false })).toBe("readonly");
-    expect(testBlocked({ ...base, runs: [run({ status: "running" })] })).toBe("running");
+    expect(testBlocked({ ...base, runs: indexRuns([run({ status: "running" })]) })).toBe("running");
     expect(testBlocked({ ...base, starting: true })).toBe("running");
     expect(testBlocked({ ...base, unsaved: true })).toBe("unsaved");
     expect(testBlocked({ ...base, hasAgent: false })).toBe("agent");

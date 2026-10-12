@@ -11,6 +11,7 @@ import type {
   SoundProviderId,
   SoundProviderStatus,
 } from "@prismshadow/penguin-server/api";
+import { indexRuns, type RunsIndex } from "./runs-index";
 import { SOUND_PROMPT_MAX, soundPromptOf } from "./sound-model";
 
 type MediaAsset = AssetManifest["assets"][string][number];
@@ -39,21 +40,17 @@ function promptUsable(asset: MediaAsset): boolean {
  */
 export function soundStatuses(
   assets: readonly MediaAsset[],
-  runs: readonly ActivityRunSummary[] = [],
+  runs: RunsIndex = indexRuns([]),
   language = "",
 ): SoundStatus[] {
-  const latest = new Map<string, ActivityRunSummary>();
-  for (const run of runs) {
-    if (run.kind !== "audio" || !run.audio?.sound || run.audio.language !== language) continue;
-    const seen = latest.get(run.audio.assetKey);
-    if (!seen || run.createdAt > seen.createdAt) latest.set(run.audio.assetKey, run);
-  }
   return assets
     .filter((asset) => asset.type === "audio" && !!asset.kind)
     .map((asset): SoundStatus => {
       if (asset.path) return { key: asset.key, state: "ready" };
       if (!promptUsable(asset)) return { key: asset.key, state: "noPrompt" };
-      const run = latest.get(asset.key);
+      const run = runs
+        .of("audio", { language, assetKey: asset.key })
+        .find((entry) => entry.audio?.sound);
       if (run?.status === "running") return { key: asset.key, state: "generating" };
       if (run && UNSUCCESSFUL.has(run.status))
         return { key: asset.key, state: "failed", ...(run.error ? { error: run.error } : {}) };
@@ -73,7 +70,7 @@ export interface SoundTally {
 
 export function soundTally(
   assets: readonly MediaAsset[],
-  runs: readonly ActivityRunSummary[] = [],
+  runs: RunsIndex = indexRuns([]),
   language = "",
 ): SoundTally {
   const statuses = soundStatuses(assets, runs, language);
@@ -94,7 +91,7 @@ export function soundTally(
  */
 export function pendingSoundKinds(
   assets: readonly MediaAsset[],
-  runs: readonly ActivityRunSummary[] = [],
+  runs: RunsIndex = indexRuns([]),
   language = "",
 ): SoundKind[] {
   const pending = new Set(

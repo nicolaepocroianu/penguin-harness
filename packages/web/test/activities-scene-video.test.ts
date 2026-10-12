@@ -8,10 +8,10 @@ import {
   isRecordable,
   recordingFailure,
   recordingUrl,
-  videoRuns,
   videosToCheck,
 } from "../src/features/activities/scene-video";
 import { runKindLabel } from "../src/features/activities/run-toasts";
+import { indexRuns } from "../src/features/activities/runs-index";
 import { S } from "../src/lib/strings";
 
 type Asset = AssetManifest["assets"][string][number];
@@ -51,20 +51,6 @@ function recording(overrides: Partial<ActivityRunSummary>): ActivityRunSummary {
 }
 
 describe("scene video recordings in the studio", () => {
-  it("lists an asset's recordings newest first, and nothing else", () => {
-    const runs = [
-      recording({ runId: "run_old", createdAt: "2026-09-28T09:00:00.000Z" }),
-      recording({ runId: "run_new", createdAt: "2026-09-28T11:00:00.000Z" }),
-      recording({ runId: "run_fr", video: { ...recording({}).video!, language: "fr-FR" } }),
-      recording({ runId: "run_other", video: { ...recording({}).video!, assetKey: "outro" } }),
-      recording({ runId: "run_comp", kind: "composition", video: undefined }),
-    ];
-    expect(videoRuns(runs, "en-US", "intro-video").map((run) => run.runId)).toEqual([
-      "run_new",
-      "run_old",
-    ]);
-  });
-
   it("records only a composition that succeeded and kept its page", () => {
     const composition = recording({ kind: "composition", video: undefined });
     expect(isRecordable(composition)).toBe(true);
@@ -75,16 +61,12 @@ describe("scene video recordings in the studio", () => {
   });
 
   it("offers the newest recording of this draft that is not bound or put aside", () => {
-    const runs = videoRuns(
-      [
-        recording({ runId: "run_a", createdAt: "2026-09-28T09:00:00.000Z" }),
-        recording({ runId: "run_b", createdAt: "2026-09-28T10:00:00.000Z" }),
-        recording({ runId: "run_c", createdAt: "2026-09-28T11:00:00.000Z", inputRevision: "old" }),
-        recording({ runId: "run_d", createdAt: "2026-09-28T12:00:00.000Z", status: "failed" }),
-      ],
-      "en-US",
-      "intro-video",
-    );
+    const runs = indexRuns([
+      recording({ runId: "run_a", createdAt: "2026-09-28T09:00:00.000Z" }),
+      recording({ runId: "run_b", createdAt: "2026-09-28T10:00:00.000Z" }),
+      recording({ runId: "run_c", createdAt: "2026-09-28T11:00:00.000Z", inputRevision: "old" }),
+      recording({ runId: "run_d", createdAt: "2026-09-28T12:00:00.000Z", status: "failed" }),
+    ]).of("video", { language: "en-US", assetKey: "intro-video" });
     expect(comparedRecording(runs, video, "r", new Set())?.runId).toBe("run_b");
     expect(comparedRecording(runs, video, "r", new Set(["run_b"]))?.runId).toBe("run_a");
     const bound: Asset = {

@@ -37,7 +37,6 @@ import {
   candidateId,
   candidateUrl,
   cardCandidate,
-  cardGenerating,
   cardLanguages,
   newestTake,
   pendingText,
@@ -53,6 +52,7 @@ import { MediaDetailsView } from "./media-details-view";
 import { fileFactsFor } from "./media-details";
 import { UPLOAD_ACCEPT } from "./media-library";
 import { MediaTextReview } from "./media-text-review";
+import { indexRuns } from "./runs-index";
 import {
   SOUND_PROMPT_MAX,
   canGenerateSound,
@@ -291,14 +291,15 @@ function AudioCard({
   const prompt = soundPromptOf(asset.script);
 
   const boundUpload = asset.path ? media.find((entry) => entry.path === asset.path) : undefined;
-  const take = newestTake(runs, language, asset.key, revision, {
+  const runIndex = indexRuns(runs);
+  const take = newestTake(runIndex, language, asset.key, revision, {
     runId: asset.generatedAudio?.runId,
     uploadedAt: !asset.generatedAudio ? boundUpload?.updatedAt : undefined,
   });
   const candidate = cardCandidate(take, pending);
   const currentSrc = boundAudioUrl(asset, endpoint);
-  const generating = cardGenerating(runs, language, asset.key);
-  const text = pendingText(runs, language, asset.key, revision);
+  const generating = runIndex.isRunning("audio", { language, assetKey: asset.key });
+  const text = pendingText(runIndex, language, asset.key, revision);
   const primary = primaryAction({
     narration,
     language,
@@ -308,14 +309,7 @@ function AudioCard({
     bound: !!asset.path,
   });
   // The newest run's failure, while nothing newer has replaced it.
-  const latest = runs
-    .filter(
-      (run) =>
-        run.kind === "audio" &&
-        run.audio?.language === language &&
-        run.audio?.assetKey === asset.key,
-    )
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const latest = runIndex.latest("audio", { language, assetKey: asset.key });
   const runError =
     latest && latest.status !== "succeeded" && latest.status !== "running" && latest.error
       ? latest.audio?.sound || latest.audio?.provider === "elevenlabs"

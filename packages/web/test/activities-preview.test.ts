@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   filterActivities,
   fitScale,
-  latestModuleRun,
   parseResolution,
   previewUrl,
   sceneIds,
@@ -64,18 +63,5 @@ describe("activity preview helpers", () => {
     expect(sceneIds({ scenes: [{}, { id: "" }, null] })).toEqual([]);
     expect(sceneIds(null)).toEqual([]);
     expect(sceneIds({ scenes: "nope" })).toEqual([]);
-  });
-
-  it("finds the newest previewable module run", () => {
-    const runs = [
-      { kind: "spec", status: "succeeded", sessionId: "s0" },
-      { kind: "module", status: "succeeded", sessionId: "s1" },
-      { kind: "module", status: "running", sessionId: "s2" },
-    ];
-    expect(latestModuleRun(runs)?.sessionId).toBe("s1");
-    expect(
-      latestModuleRun([{ kind: "module", status: "succeeded", sessionId: null }]),
-    ).toBeUndefined();
-    expect(latestModuleRun([])).toBeUndefined();
   });
 });

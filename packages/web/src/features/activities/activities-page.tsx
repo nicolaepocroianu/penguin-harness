@@ -81,7 +81,7 @@ import { SpecScenesView, readSpecView, writeSpecView, type SpecView } from "./sp
 import { Segmented } from "../../components/ui/segmented";
 import type { SavedReview, ScriptReview } from "./script-editor";
 import { ConversationPanel } from "./conversation-panel";
-import { focusFor, latestConversation } from "./conversation";
+import { conversationThreads, focusFor } from "./conversation";
 import { applyMediaChange, type ProposalChange } from "./proposal";
 import { ScriptEditor } from "./script-editor";
 import { PipelineControls, PipelinePanel } from "./pipeline-panel";
@@ -104,7 +104,8 @@ import { ProgressSteps, ProposalWaiting, RunningChip, qaFact, runPanel } from ".
 import { SandboxPanel } from "./sandbox-panel";
 import { sandboxHasModule, type SandboxStatusLike } from "./sandbox";
 import { JsonEditor } from "./json-editor";
-import { latestModuleRun, playingModuleRunId } from "./preview";
+import { playingModuleRunId } from "./preview";
+import { indexRuns } from "./runs-index";
 import { ActivityList } from "./activity-list";
 import { ProjectMediaView } from "./project-media-view";
 import type { GroupSort } from "./activity-groups";
@@ -477,6 +478,11 @@ function ActivityEditor({
   const [media, setMedia] = useState("");
   const [runs, setRuns] = useState<ActivityRunSummary[]>([]);
   const [sandboxModule, setSandboxModule] = useState(false);
+  const runIndex = indexRuns(runs);
+  // An assembly with a Session to preview, or a module only the sandbox knows is there.
+  const hasModule =
+    sandboxModule ||
+    runIndex.of("module").some((run) => run.status === "succeeded" && !!run.sessionId);
   const [refreshVersion, setRefreshVersion] = useState(0);
   // The activity's run of its stages, as the server last reported it (pipeline-run.ts).
   const [pipeline, setPipeline] = useState<PipelineState | null>(null);
@@ -642,7 +648,7 @@ function ActivityEditor({
   const [threadRunId, setThreadRunId] = useState<string | null | undefined>(undefined);
   const proposal = useAssistProposal(
     endpoint,
-    threadRunId === undefined ? (latestConversation(runs)?.runId ?? null) : threadRunId,
+    threadRunId === undefined ? (conversationThreads(runIndex)[0]?.runId ?? null) : threadRunId,
   );
   // The proposed script, while it still differs from the saved one.
   const proposedScript = proposal.read?.proposal?.changes.find(
@@ -712,10 +718,9 @@ function ActivityEditor({
         setRuns(history.runs);
         setSandboxModule(sandboxHasModule(sandbox));
         if (stages) setPipeline(pipelineOrNull(stages.pipeline));
-        if (sequences && Array.isArray(sequences.pipelines)) setPipelineHistory(sequences.pipelines);
-        active =
-          history.runs.some((run) => run.status === "running") ||
-          stages?.pipeline?.status === "running";
+        if (sequences && Array.isArray(sequences.pipelines))
+          setPipelineHistory(sequences.pipelines);
+        active = indexRuns(history.runs).busy || stages?.pipeline?.status === "running";
         if (!state.current.busy && state.current.revision === revisionAtStart) {
           if (!state.current.dirty) accept(value);
           else if (value.draft.contentRevision !== state.current.revision) setChanged(true);
@@ -893,7 +898,7 @@ function ActivityEditor({
       cancelled = true;
     };
   }, [projectId, available, editable, voiceLibraryReload]);
-  const running = runs.some((run) => run.status === "running");
+  const running = runIndex.busy;
   const pipelineRunning = pipeline?.status === "running";
   // The script saves itself a few seconds after typing stops, and holds off while
   // the pipeline runs so a save never moves the draft under a stage. Text typed during a
@@ -1234,7 +1239,7 @@ function ActivityEditor({
   const sections = workspaceSections({
     hasSpec: !!detail?.draft.spec,
     hasPlan: !!detail?.draft.mediaPlan,
-    hasModule: !!latestModuleRun(runs) || sandboxModule,
+    hasModule,
     usesAssessment,
   });
   const section = resolveSection(
@@ -1242,7 +1247,7 @@ function ActivityEditor({
     {
       hasSpec: !!detail?.draft.spec,
       hasPlan: !!detail?.draft.mediaPlan,
-      hasModule: !!latestModuleRun(runs) || sandboxModule,
+      hasModule,
       usesAssessment,
     },
     documentDirty,
@@ -1337,7 +1342,7 @@ function ActivityEditor({
   const frames = storyboardFrames(
     fullTree,
     detail?.draft.mediaPlan?.manifest.assets[language] ?? [],
-    runs,
+    runIndex,
     proposal.read?.proposal?.changes ?? [],
     language,
   );
@@ -1459,7 +1464,7 @@ function ActivityEditor({
                 projectId={projectId}
                 activityId={detail.id}
                 revision={detail.draft.contentRevision}
-                moduleRunId={playingModuleRunId(runs, detail.draft.pinnedModuleRunId)}
+                moduleRunId={playingModuleRunId(runIndex, detail.draft.pinnedModuleRunId)}
                 spec={detail.draft.spec}
                 languages={languages}
                 hasMedia={!!editedManifest?.assets[language]?.length}
@@ -1599,7 +1604,7 @@ function ActivityEditor({
         {error || loadError || S.activities.loading}
       </p>
     );
-  const runningRun = runs.find((run) => run.status === "running");
+  const runningRun = runIndex.running[0];
   // What the rail says beside each section: edits not yet saved, and how much there is.
   const railTrails = sectionTrails({
     descriptionDirty: description !== detail.draft.description,
@@ -1691,7 +1696,7 @@ function ActivityEditor({
                       text: S.activities.studioRefs.renumbered(from, value.refNum),
                     });
                     // An assembled module keeps the old number in its file names.
-                    if (latestModuleRun(runs) || sandboxModule)
+                    if (hasModule)
                       announce({ kind: "attention", text: S.activities.studioRefs.reassemble });
                     void onSaved();
                   }}
@@ -1721,7 +1726,7 @@ function ActivityEditor({
                   specDirty: spec !== pretty(detail.draft.spec),
                   media: scriptMedia?.totals ?? null,
                   videosToCheck: videosToCheck(detail.draft.mediaPlan?.manifest.assets, runs),
-                  hasModule: !!latestModuleRun(runs) || sandboxModule,
+                  hasModule,
                   qa: deployState ? qaFact(deployState) : null,
                 }}
                 canOpen={(key) => sections.some((entry) => entry.key === key && entry.enabled)}
@@ -2291,7 +2296,7 @@ function ActivityEditor({
                     onCancelQueue={() => setSpeechQueue(null)}
                     runs={runs}
                     languages={Object.entries(editedManifest.assets).map(([code, group]) => {
-                      const tally = speechTally(withoutBookWords(group), runs, code);
+                      const tally = speechTally(withoutBookWords(group), runIndex, code);
                       return { language: code, ready: tally.ready, total: tally.total };
                     })}
                     onLanguage={setLanguage}
@@ -2358,7 +2363,7 @@ function ActivityEditor({
                             soundProviders,
                             pendingSoundKinds(
                               editedManifest.assets[language] ?? [],
-                              runs,
+                              runIndex,
                               language,
                             ),
                           )

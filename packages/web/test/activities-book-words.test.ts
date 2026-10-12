@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { ActivityRunSummary, AssetManifest } from "@prismshadow/penguin-server/api";
+import type { AssetManifest } from "@prismshadow/penguin-server/api";
 import {
   bookWordAssets,
   cleanSounds,
   isDecodable,
-  latestPhonemesRun,
   parseProposal,
   proposalRows,
   sameSounds,
@@ -49,18 +48,6 @@ const group: MediaAsset[] = [
   word("sat", { phonemes: ["s", "a", "t"], phonemeSource: "author", customized: true }),
 ];
 
-const run = (over: Partial<ActivityRunSummary>): ActivityRunSummary =>
-  ({
-    runId: "run_1",
-    kind: "phonemes",
-    status: "succeeded",
-    createdAt: "2026-09-25T10:00:00.000Z",
-    inputRevision: "rev",
-    hasCandidate: true,
-    phonemes: { language: "en-US", words: ["cat"] },
-    ...over,
-  }) as ActivityRunSummary;
-
 describe("book words model", () => {
   it("tells words from the scene's own audio, and lists the ones without sounds", () => {
     expect(bookWordAssets(group).map((asset) => asset.key)).toEqual([
@@ -82,16 +69,7 @@ describe("book words model", () => {
     expect(isDecodable({ bookMode: "readAlong" }, true)).toBe(false);
   });
 
-  it("finds the newest phonemes run of a language and reads its proposal", () => {
-    const runs = [
-      run({ runId: "run_old", createdAt: "2026-09-25T09:00:00.000Z" }),
-      run({ runId: "run_new" }),
-      run({ runId: "run_es", phonemes: { language: "es-US", words: ["gato"] } }),
-      run({ runId: "run_audio", kind: "audio", phonemes: undefined }),
-    ];
-    expect(latestPhonemesRun(runs, "en-US")!.runId).toBe("run_new");
-    expect(latestPhonemesRun(runs, "fr-FR")).toBeUndefined();
-
+  it("reads a phonemes run's proposal", () => {
     const proposal = parseProposal(
       JSON.stringify({
         language: "en-US",

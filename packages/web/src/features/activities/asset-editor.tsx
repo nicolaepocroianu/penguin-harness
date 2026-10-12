@@ -27,6 +27,7 @@ import { MediaComparison } from "./media-comparison";
 import { AudioAssetEditor, AudioViewToggle, type AudioView } from "./audio-asset-editor";
 import { isUploadPath } from "./media-library";
 import { MediaPlayer } from "./media-player";
+import { indexRuns } from "./runs-index";
 import { WaveformPlayer } from "./waveform-player";
 import { MediaTextReview } from "./media-text-review";
 import type { SceneAssetSelection } from "./scene-asset-tree";
@@ -303,37 +304,24 @@ export function AssetEditor({
     change(updated.assets[language]!.find((entry) => entry.key === asset.key)!);
     onChange(updated);
   }
-  const audioCandidates = runs.filter(
-    (run) =>
-      run.kind === "audio" &&
-      run.audio?.language === language &&
-      run.audio?.assetKey === asset?.key,
-  );
-  const imageCandidates = runs.filter(
-    (run) =>
-      run.kind === "image" &&
-      run.image?.language === language &&
-      run.image?.assetKey === asset?.key,
-  );
-  const textCandidates = runs.filter(
-    (run) =>
-      run.kind === "media-text" &&
-      run.mediaText?.language === language &&
-      run.mediaText?.assetKey === asset?.key &&
-      run.mediaText?.type === asset?.type,
+  const runIndex = indexRuns(runs);
+  const candidates = (kind: "audio" | "image" | "media-text") =>
+    asset ? runIndex.of(kind, { language, assetKey: asset.key }) : [];
+  const audioCandidates = candidates("audio");
+  const imageCandidates = candidates("image");
+  const textCandidates = candidates("media-text").filter(
+    (run) => run.mediaText?.type === asset?.type,
   );
   // The newest take that could replace bound media, compared with it rather than listed.
   const compared = asset?.path
-    ? [...(asset.type === "audio" ? audioCandidates : imageCandidates)]
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-        .find(
-          (run) =>
-            run.status === "succeeded" &&
-            run.hasCandidate &&
-            run.inputRevision === revision &&
-            run.runId !== (asset.generatedAudio ?? asset.generatedImage)?.runId &&
-            !kept.has(run.runId),
-        )
+    ? (asset.type === "audio" ? audioCandidates : imageCandidates).find(
+        (run) =>
+          run.status === "succeeded" &&
+          run.hasCandidate &&
+          run.inputRevision === revision &&
+          run.runId !== (asset.generatedAudio ?? asset.generatedImage)?.runId &&
+          !kept.has(run.runId),
+      )
     : undefined;
   const upload =
     pendingUpload && pendingUpload.language === language && pendingUpload.key === asset?.key

@@ -25,7 +25,6 @@ import {
   conversationThreads,
   focusLabel,
   followUpText,
-  latestConversation,
   splitStudioContext,
   suggestionsFor,
   threadTime,
@@ -34,6 +33,7 @@ import {
 import { Select } from "../../components/ui/select";
 import type { ProposalBase, ProposalChange } from "./proposal";
 import { ProposalCard } from "./proposal-card";
+import { indexRuns } from "./runs-index";
 import type { ScriptReview } from "./script-editor";
 import type { ProposalRead } from "./use-assist-proposal";
 import { useSessionTranscript } from "./use-session-transcript";
@@ -94,11 +94,10 @@ export function ConversationPanel({
   /** Open the proposed script for review in the editor. */
   onReviewScript?: (scene?: number) => void;
 }) {
-  const latest = latestConversation(runs);
-  const threads = conversationThreads(runs);
+  const threads = conversationThreads(indexRuns(runs));
   // Undefined follows the newest conversation; null is a fresh one the next message starts.
   const [choice, setChoice] = useState<string | null | undefined>(undefined);
-  const sessionId = choice === undefined ? (latest?.sessionId ?? null) : choice;
+  const sessionId = choice === undefined ? (threads[0]?.sessionId ?? null) : choice;
   const run = sessionId ? runs.find((entry) => entry.sessionId === sessionId) : undefined;
   const startedRunning = run?.status === "running" ? "running" : "idle";
   const openRun = run?.runId ?? null;

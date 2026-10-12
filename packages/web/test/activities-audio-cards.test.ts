@@ -8,13 +8,13 @@ import {
   bindCandidateFile,
   boundAudioUrl,
   cardCandidate,
-  cardGenerating,
   cardLanguages,
   newestTake,
   pendingText,
   primaryAction,
   speechModelOf,
 } from "../src/features/activities/audio-cards";
+import { indexRuns } from "../src/features/activities/runs-index";
 
 const asset = (key: string, extra: Partial<MediaAsset> = {}): MediaAsset => ({
   key,
@@ -53,7 +53,7 @@ describe("the audio editor's language cards", () => {
   });
 
   it("compares the newest current take of that language that is not bound", () => {
-    const runs = [
+    const runs = indexRuns([
       run({ runId: "old", createdAt: "2026-10-08T09:00:00.000Z" }),
       run({ runId: "new", createdAt: "2026-10-08T11:00:00.000Z" }),
       run({ runId: "stale", createdAt: "2026-10-08T12:00:00.000Z", inputRevision: "before" }),
@@ -63,7 +63,7 @@ describe("the audio editor's language cards", () => {
         createdAt: "2026-10-08T14:00:00.000Z",
         audio: { language: "es-MX", assetKey: "hello", script: "Hola", voice: "v", model: "m" },
       }),
-    ];
+    ]);
     expect(newestTake(runs, "en-US", "hello", "rev", {})?.runId).toBe("new");
     expect(newestTake(runs, "en-US", "hello", "rev", { runId: "new" })?.runId).toBe("old");
     expect(newestTake(runs, "es-MX", "hello", "rev", {})?.runId).toBe("spanish");
@@ -83,8 +83,8 @@ describe("the audio editor's language cards", () => {
     expect(cardCandidate(undefined, null)).toBeNull();
   });
 
-  it("knows which card is generating and which suggestion is still open", () => {
-    const runs = [
+  it("knows which suggestion is still open", () => {
+    const runs = indexRuns([
       run({ runId: "a", status: "running" }),
       run({
         runId: "t",
@@ -92,9 +92,7 @@ describe("the audio editor's language cards", () => {
         audio: undefined,
         mediaText: { language: "es-MX", assetKey: "hello", type: "audio", text: "" },
       }),
-    ];
-    expect(cardGenerating(runs, "en-US", "hello")).toBe(true);
-    expect(cardGenerating(runs, "es-MX", "hello")).toBe(false);
+    ]);
     expect(pendingText(runs, "es-MX", "hello", "rev")?.runId).toBe("t");
     // Accepting changes the draft, which retires the suggestion.
     expect(pendingText(runs, "es-MX", "hello", "after")).toBeUndefined();

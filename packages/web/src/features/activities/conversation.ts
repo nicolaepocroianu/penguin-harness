@@ -9,6 +9,7 @@
  */
 import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
+import type { RunsIndex } from "./runs-index";
 import type { SceneAssetSelection } from "./scene-asset-tree";
 import type { WorkspaceSection } from "./workspace-model";
 
@@ -20,20 +21,12 @@ export interface AssistFocus {
   language?: string;
 }
 
-/** Every conversation about this activity that can be resumed, newest first. */
-export function conversationThreads(runs: readonly ActivityRunSummary[]): ActivityRunSummary[] {
-  return runs
-    .filter((run) => run.kind === "assist" && !!run.sessionId)
-    .sort((left, right) => (left.createdAt < right.createdAt ? 1 : -1));
-}
-
-/** The newest conversation about this activity that can be resumed, if there is one. */
-export function latestConversation(runs: readonly ActivityRunSummary[]): ActivityRunSummary | null {
-  let newest: ActivityRunSummary | null = null;
-  for (const run of runs)
-    if (run.kind === "assist" && run.sessionId && (!newest || run.createdAt > newest.createdAt))
-      newest = run;
-  return newest;
+/**
+ * Every conversation about this activity that can be resumed, newest first: the first is the
+ * one the panel resumes.
+ */
+export function conversationThreads(runs: RunsIndex): ActivityRunSummary[] {
+  return runs.of("assist").filter((run) => !!run.sessionId);
 }
 
 /**

@@ -4,7 +4,6 @@
  * same sound rule the server enforces, checked while the author types.
  */
 import type {
-  ActivityRunSummary,
   AssetManifest,
   BookWordsState,
   PhonemesCandidate,
@@ -52,16 +51,6 @@ export function isDecodable(
   if (!state) return false;
   if (state.bookMode) return state.bookMode === "decodable";
   return hasWords;
-}
-
-/** The newest phonemes run for a language, whatever its status. */
-export function latestPhonemesRun(
-  runs: readonly ActivityRunSummary[],
-  language: string,
-): ActivityRunSummary | undefined {
-  return runs
-    .filter((run) => run.kind === "phonemes" && run.phonemes?.language === language)
-    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0];
 }
 
 /** A phonemes run's candidate, or null when it is not one. */

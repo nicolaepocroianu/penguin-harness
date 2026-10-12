@@ -3,12 +3,7 @@
  * tested without a DOM: where it is read from, seconds as the fields show them, how long it
  * plays, which audio can be added to it, and how what the server reports is worded.
  */
-import type {
-  ActivityRunSummary,
-  AssetManifest,
-  TimelineIssue,
-  VideoTimeline,
-} from "@prismshadow/penguin-server/api";
+import type { AssetManifest, TimelineIssue, VideoTimeline } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
 
 type Asset = AssetManifest["assets"][string][number];
@@ -65,22 +60,6 @@ export function effectChoices(group: readonly Asset[]): Asset[] {
 /** What the server reports a timeline would get wrong, in the App's words. */
 export function issueText(issue: TimelineIssue): string {
   return S.activities.video.timeline.issues[issue.code](issue.asset);
-}
-
-/** The asset's timeline refinements by an agent, newest first. */
-export function refineRuns(
-  runs: readonly ActivityRunSummary[],
-  language: string,
-  assetKey: string,
-): ActivityRunSummary[] {
-  return runs
-    .filter(
-      (run) =>
-        run.kind === "timeline" &&
-        run.timelineEdit?.language === language &&
-        run.timelineEdit.assetKey === assetKey,
-    )
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 /** Where a run's kept output is read, as `{ candidate }` with the output as a JSON string. */

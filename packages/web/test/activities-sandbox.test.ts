@@ -1,18 +1,25 @@
 import { describe, expect, it } from "vitest";
+import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
 import { playUrl } from "../src/features/activities/sandbox";
 import { playingModuleRunId } from "../src/features/activities/preview";
+import { indexRuns } from "../src/features/activities/runs-index";
 import { readFileSync } from "node:fs";
 
 describe("the module the sandbox plays", () => {
   it("changes only after assembly succeeds, while a valid pin keeps its build", () => {
-    const old = { runId: "old", kind: "module", status: "succeeded", createdAt: "2026-10-01" };
-    const next = { runId: "next", kind: "module", status: "running", createdAt: "2026-10-02" };
-    expect(playingModuleRunId([next, old])).toBe("old");
-    expect(playingModuleRunId([{ ...next, status: "succeeded" }, old])).toBe("next");
-    expect(playingModuleRunId([{ ...next, status: "succeeded" }, old], "old")).toBe("old");
-    expect(playingModuleRunId([next, old], "next")).toBe("old");
-    expect(playingModuleRunId([{ ...next, status: "succeeded" }, old], "missing")).toBe("next");
-    expect(playingModuleRunId([next])).toBeNull();
+    const module = (runId: string, status: ActivityRunSummary["status"], createdAt: string) =>
+      ({ runId, kind: "module", status, createdAt }) as ActivityRunSummary;
+    const old = module("old", "succeeded", "2026-10-01");
+    const next = module("next", "running", "2026-10-02");
+    const built = { ...next, status: "succeeded" as const };
+    const playing = (runs: ActivityRunSummary[], pinned?: string) =>
+      playingModuleRunId(indexRuns(runs), pinned);
+    expect(playing([next, old])).toBe("old");
+    expect(playing([built, old])).toBe("next");
+    expect(playing([built, old], "old")).toBe("old");
+    expect(playing([next, old], "next")).toBe("old");
+    expect(playing([built, old], "missing")).toBe("next");
+    expect(playing([next])).toBeNull();
   });
 
   it("refreshes status and clears the previous failure when assembly changes", () => {

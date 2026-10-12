@@ -5,11 +5,15 @@
  * Pure, so the frames, their marks and the tree's marks come from the same reading of the
  * plan and the history.
  */
-import type { ActivityRunSummary, AssetManifest } from "@prismshadow/penguin-server/api";
+import type { AssetManifest } from "@prismshadow/penguin-server/api";
 import type { ProposalChange } from "./proposal";
+import type { RunKind, RunsIndex } from "./runs-index";
 import type { SceneAssetTree } from "./scene-assets";
 
 type MediaAsset = AssetManifest["assets"][string][number];
+
+/** The runs that make an asset's file or its text, which mark its frame as being worked on. */
+const MEDIA_KINDS: readonly RunKind[] = ["audio", "image", "media-text"];
 
 export interface StoryboardFrame {
   sceneId: string;
@@ -33,7 +37,7 @@ export interface StoryboardFrame {
 export function storyboardFrames(
   tree: SceneAssetTree,
   saved: readonly MediaAsset[],
-  runs: readonly ActivityRunSummary[],
+  runs: RunsIndex,
   proposal: readonly ProposalChange[],
   language: string,
 ): StoryboardFrame[] {
@@ -42,14 +46,8 @@ export function storyboardFrames(
       .filter((asset) => asset.type === "image" && (asset.path || asset.generatedImage))
       .map((asset) => asset.key),
   );
-  const busy = new Set(
-    runs
-      .filter((run) => run.status === "running")
-      .flatMap((run) => {
-        const target = run.audio ?? run.image ?? run.mediaText;
-        return target && target.language === language ? [target.assetKey] : [];
-      }),
-  );
+  const working = (assetKey: string) =>
+    MEDIA_KINDS.some((kind) => runs.isRunning(kind, { language, assetKey }));
   const proposed = new Set(
     proposal.flatMap((change) =>
       change.target === "media" && change.language === language ? [change.assetKey] : [],
@@ -67,7 +65,7 @@ export function storyboardFrames(
       firstAssetKey: images[0]?.key ?? assets[0]?.key ?? null,
       assetCount: assets.length,
       unbound: assets.filter((asset) => !asset.bound).length,
-      working: assets.some((asset) => busy.has(asset.key)),
+      working: assets.some((asset) => working(asset.key)),
       proposed: assets.some((asset) => proposed.has(asset.key)),
     };
   });
