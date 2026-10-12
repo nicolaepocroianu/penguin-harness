@@ -3,6 +3,7 @@
 - **Date:** 2026-10-12
 - **Type:** refactor
 - **Scope:** `web`
+- **PR:** [#108](https://github.com/nicolaepocroianu/penguin-harness/pull/108)
 
 The draft logic was moved out of the activity editor page into a draft module,
 `features/activities/studio-draft.ts`, with a thin `useStudioDraft` hook over it. The module
