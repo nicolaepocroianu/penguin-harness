@@ -11,8 +11,8 @@
  */
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
+import type { StyleCompiler } from "./module-builder.js";
 
 /** Long enough for a cold webpack build, short enough that a hung one is not forever. */
 export const BUILD_TIMEOUT_MS = 10 * 60 * 1000;
@@ -157,33 +157,26 @@ export function moduleBuildScript(workspace: string): "build" | "buildDebug" | n
   return null;
 }
 
-/** Where this server's own `sass` is, handed to a child so a module need not have it. */
-export function sassPath(): string {
-  return createRequire(import.meta.url).resolve("sass");
+/** A stylesheet compile as a build step's outcome, saying what it compiled when it did. */
+export function styleOutcome(
+  result: { code: number | null; tail: string; error?: string },
+  from: string,
+  to: string,
+): BuildOutcome {
+  if (result.code === 0 && !result.error)
+    return { ok: true, log: `${result.tail}Compiled ${from} to ${to}.\n` };
+  let why = `${from} did not compile.`;
+  if (result.error === "timed_out")
+    why = "The stylesheet compile was stopped after taking too long.";
+  else if (result.error === "stopped") why = "The stylesheet compile was stopped.";
+  return { ok: false, log: clampLog(`${result.tail}\n${why}`) };
 }
 
 /**
- * Compiles `res/style.scss` to `res/style.css`, in the module's workspace as its cwd.
- *
- * WAF's module builder copies `res/` as it finds it and only rewrites `url()`s in `.css`, so
- * a module whose stylesheet is SCSS builds without the `style.css` its definition requires.
- * Deploy compiles it first (`prepare_deploy`), and so did Loom's sandbox.
- */
-const STYLE_SCRIPT = String.raw`
-const fs = require('fs');
-const path = require('path');
-const res = path.resolve('res');
-const result = require(process.env.PENGUIN_SASS).compile(path.join(res, 'style.scss'), {
-    loadPaths: [res, path.resolve('node_modules')],
-    style: 'expanded',
-});
-fs.writeFileSync(path.join(res, 'style.css'), result.css);
-console.log('Compiled res/style.scss to res/style.css.');
-`;
-
-/**
  * Runs the module's build script (see `moduleBuildScript`) in its workspace and reports how
- * it went, compiling `res/style.scss` first as deploy does.
+ * it went, compiling `res/style.scss` to `res/style.css` first as deploy does: WAF's module
+ * builder copies `res/` as it finds it and only rewrites `url()`s in `.css`, so a module whose
+ * stylesheet is SCSS would build without the `style.css` its definition requires.
  *
  * Never throws. A build that could not start is a failed build with a reason — the author
  * asked to see their activity, and "npm is not installed" is an answer to that, while an
@@ -194,23 +187,17 @@ console.log('Compiled res/style.scss to res/style.css.');
  */
 export async function spawnModuleBuild(
   workspace: string,
-  options: { timeoutMs?: number } = {},
+  options: { timeoutMs?: number; compileStyle: StyleCompiler },
 ): Promise<BuildOutcome> {
   const script = moduleBuildScript(workspace);
   if (!script)
     return { ok: false, log: "The module's package.json has no build or buildDebug script." };
   let styleLog = "";
   if (existsSync(path.join(workspace, "res", "style.scss"))) {
-    let sass: string;
-    try {
-      sass = sassPath();
-    } catch {
-      return { ok: false, log: "The server has no sass compiler installed." };
-    }
-    const style = await spawnNodeScript(
-      STYLE_SCRIPT,
-      { cwd: workspace, env: { PENGUIN_SASS: sass } },
-      options,
+    const style = styleOutcome(
+      await options.compileStyle({ cwd: workspace, from: "res/style.scss", to: "res/style.css" }),
+      "res/style.scss",
+      "res/style.css",
     );
     if (!style.ok) return style;
     styleLog = style.log;

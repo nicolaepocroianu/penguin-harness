@@ -22,14 +22,14 @@ import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-c
 import { HttpError } from "../http/errors.js";
 import type { Config, Db } from "../hmr/capabilities.js";
 import type { Settings } from "../mechanisms/settings.js";
-import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
-import type { ActivityRuns } from "./run-store.js";
+import type { ActivityAuthoring } from "../mechanisms/activities.js";
 import { writeSecretFile } from "../secret-file.js";
-import { sandboxModuleRoot, withinRoot } from "./sandbox-paths.js";
+import type { ModuleBuilder } from "./module-builder.js";
+import type { ActivityModuleSource } from "./module-source.js";
 import { exportRevision, manifestAssetList, type ExportRef } from "./deploy-export.js";
 import type { ActivityDetail, ActivityProduct } from "./domain.js";
 import type { WafWorkspace } from "./waf-workspace.js";
-import { mediaSparsePath, moduleDocumentPath, WafLayout } from "./waf-layout.js";
+import { mediaSparsePath, WafLayout } from "./waf-layout.js";
 import { buildDeployContext } from "./deploy-context.js";
 import {
   spawnGit,
@@ -184,8 +184,8 @@ export class ActivityDeployService implements ActivityDeploys {
   @Use() private readonly config!: Config;
   @Use() private readonly serverSettings!: Settings;
   @Use() private readonly activities!: ActivityAuthoring;
-  @Use() private readonly generation!: ActivityGeneration;
-  @Use() private readonly runs!: ActivityRuns;
+  @Use() private readonly moduleSources!: ActivityModuleSource;
+  @Use() private readonly moduleBuilder!: ModuleBuilder;
   @Use() private readonly ports!: DeployPorts;
   @Use() private readonly db!: Db;
   @Use() private readonly events!: ActivityDeployEvents;
@@ -495,12 +495,10 @@ export class ActivityDeployService implements ActivityDeploys {
     if (prod) return this.startProd(projectId, activityId, input.stage, facts);
     const product = facts.product;
     const folder = product.moduleFolder;
-    const moduleRun = await this.generation
-      .latestRun(projectId, activityId, "module", "succeeded")
-      .catch(() => null);
-    const source = moduleRun ? sandboxModuleRoot(this.runs.workspace(moduleRun.runId)) : null;
-    const sourceReady = source !== null && (await exists(path.join(source, "package.json")));
-    const contentHash = sourceReady ? await moduleContentHash(source) : null;
+    // The newest assembled module, whatever the preview plays.
+    const module = await this.moduleSources.resolve(projectId, facts.activity, "deploy");
+    const source = module.source?.root ?? null;
+    const contentHash = source !== null ? await moduleContentHash(source) : null;
     const stages =
       input.stage === "qa"
         ? qaStages(releaseCurrent(this.active().store.stages(activityId), contentHash))
@@ -546,6 +544,7 @@ export class ActivityDeployService implements ActivityDeploys {
           this.ports.jenkinsFetch,
         ),
         process: run ? { run } : spawnDeployProcess,
+        styles: (job) => this.moduleBuilder.compileStyle(job),
         clock: {
           now: this.ports.now ?? realClock.now,
           sleep: this.ports.sleep ?? realClock.sleep,
@@ -555,7 +554,7 @@ export class ActivityDeployService implements ActivityDeploys {
         module: {
           folder,
           dir: checkout.module(folder).root,
-          source: sourceReady ? source : null,
+          source,
           contentHash,
         },
         qa: {
@@ -568,8 +567,7 @@ export class ActivityDeployService implements ActivityDeploys {
             frameworkVersion: settings.qa.frameworkVersion,
             activityBaseUrl: settings.qa.activityBaseUrl,
           },
-          snapshot: () =>
-            this.snapshot(projectId, activityId, product, sourceReady ? source : null),
+          snapshot: () => this.snapshot(projectId, activityId, product, module.documentRoots),
         },
         moduleVersion: input.moduleVersion ?? null,
       },
@@ -629,6 +627,7 @@ export class ActivityDeployService implements ActivityDeploys {
           this.ports.jenkinsFetch,
         ),
         process: run ? { run } : spawnDeployProcess,
+        styles: (job) => this.moduleBuilder.compileStyle(job),
         clock: {
           now: this.ports.now ?? realClock.now,
           sleep: this.ports.sleep ?? realClock.sleep,
@@ -679,61 +678,29 @@ export class ActivityDeployService implements ActivityDeploys {
   }
 
   /**
-   * The product's refs as a QA deploy exports them, read when the export runs. Each ref's
-   * configuration is the author's edit, else the one the newest assembled module wrote for it,
-   * else the checkout module's; its assessment is the one in effect (the canonical ref's edit,
-   * else the module's own for the ref, else the canonical ref's). Archived refs are not listed.
+   * The product's refs as a QA deploy exports them, read when the export runs: each ref's
+   * configuration and assessment in effect (see module-source.ts), read from the deployed
+   * module's document roots. Archived refs are not listed.
    */
   private async snapshot(
     projectId: string,
     activityId: string,
     product: ActivityProduct,
-    moduleRoot: string | null,
+    roots: readonly string[],
   ): Promise<DeployActivitySnapshot> {
     const deploying = await this.activities.getActivity(projectId, activityId);
-    const wafRoot = await this.wafWorkspace.root();
-    const checkout = wafRoot ? new WafLayout(wafRoot).moduleDir(product.moduleFolder) : null;
-    const roots = [moduleRoot, checkout].filter((root): root is string => root !== null);
-    const readDocument = async (
-      kind: "configuration" | "assessment",
-      refNums: number[],
-    ): Promise<unknown> => {
-      for (const root of roots)
-        for (const refNum of refNums) {
-          const file = withinRoot(root, moduleDocumentPath(kind, deploying.productCode, refNum));
-          if (!file) continue;
-          try {
-            return JSON.parse(await fsp.readFile(file, "utf8")) as unknown;
-          } catch {
-            /* Not there, or not JSON: try the next. */
-          }
-        }
-      return null;
-    };
+    const document = async (ref: ActivityDetail, kind: "configuration" | "assessment") =>
+      (await this.moduleSources.document(projectId, ref, kind, roots))?.value ?? null;
     const siblings = await this.productRefs(projectId, deploying, product);
     const refs: ExportRef[] = [];
-    const canonical = product.canonicalRefNum;
     for (const ref of siblings) {
-      const shared = canonical != null && canonical !== ref.refNum ? [canonical] : [];
-      const configurationEdit = await this.activities.effectiveModuleDocument(
-        projectId,
-        ref,
-        "configuration",
-      );
-      const assessmentEdit = await this.activities.effectiveModuleDocument(
-        projectId,
-        ref,
-        "assessment",
-      );
       const runtime = (ref.draft.spec as { runtime?: { usesAssessment?: unknown } } | null)
         ?.runtime;
       refs.push({
         refNum: ref.refNum,
         displayName: ref.displayName,
-        configuration:
-          configurationEdit?.value ?? (await readDocument("configuration", [ref.refNum])),
-        assessment:
-          assessmentEdit?.value ?? (await readDocument("assessment", [ref.refNum, ...shared])),
+        configuration: await document(ref, "configuration"),
+        assessment: await document(ref, "assessment"),
         usesAssessment: runtime?.usesAssessment === true,
         assets: manifestAssetList(ref.draft.mediaPlan?.manifest),
         archived: ref.archived,

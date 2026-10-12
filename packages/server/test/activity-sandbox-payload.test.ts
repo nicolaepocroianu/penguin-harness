@@ -10,16 +10,10 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SandboxBuilder } from "../src/activities/sandbox-builder.js";
 import { mediaVersion } from "../src/activities/media-origin.js";
-import {
-  ActivitySandboxService,
-  playLinkExpiry,
-  PLAY_TOKEN_TTL_MS,
-} from "../src/activities/sandbox-service.js";
+import { playLinkExpiry, PLAY_TOKEN_TTL_MS } from "../src/activities/sandbox-service.js";
 import { HttpError } from "../src/http/errors.js";
-import { wire } from "@prismshadow/penguin-core/kernel";
-import { ActivityRunStore } from "../src/activities/run-store.js";
+import { fakeModuleBuilder, wiredSandbox } from "./activity-sandbox-wiring.js";
 
 const PROJECT = "proj";
 const ACTIVITY = "act_1";
@@ -53,7 +47,7 @@ interface Built {
   createdAt: string;
 }
 
-/** A sandbox service with its two dependencies stood in for, over a real temp root. */
+/** A sandbox service with its dependencies stood in for, over a real temp root. */
 async function sandbox(options: {
   runs?: Built[];
   configuration?: unknown;
@@ -67,6 +61,8 @@ async function sandbox(options: {
   canonical?: boolean;
   /** An author's edits, as the authoring service would report them for this ref. */
   edits?: Partial<Record<"configuration" | "assessment", { value: unknown; stale: boolean }>>;
+  /** What a module build answers. */
+  build?: { ok: boolean; log: string };
 }) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-sandbox-"));
   const runs = options.runs ?? [
@@ -110,24 +106,31 @@ async function sandbox(options: {
     },
   };
 
-  const service = new ActivitySandboxService();
-  Object.assign(service, {
-    activities: {
-      getActivity: async () => activity,
-      isCanonicalRef: () => options.canonical ?? true,
-      effectiveModuleDocument: async (_project: string, _activity: unknown, kind: string) =>
-        options.edits?.[kind as "configuration"] ?? null,
-      productOf: () =>
-        options.moduleFolder ? { moduleFolder: options.moduleFolder, canonicalRefNum: 1 } : null,
-      draftWorkspace: () => path.join(root, "draft"),
-    },
-    // The real query returns only succeeded module runs; the service filters them again.
+  const activities: Record<string, unknown> = {
+    getActivity: async () => activity,
+    isCanonicalRef: () => options.canonical ?? true,
+    effectiveModuleDocument: async (_project: string, _activity: unknown, kind: string) =>
+      options.edits?.[kind as "configuration"] ?? null,
+    productOf: () =>
+      options.moduleFolder ? { moduleFolder: options.moduleFolder, canonicalRefNum: 1 } : null,
+    draftWorkspace: () => path.join(root, "draft"),
+  };
+  const builds = fakeModuleBuilder(options.build);
+  const service = wiredSandbox({
+    activities,
+    // The real query returns only succeeded module runs; the module source filters them again.
     generation: { list: async () => runs, moduleBuilds: async () => runs },
-    config: { root },
-    runs: wire(ActivityRunStore, { config: { root } }),
-    locateWafRoot: async () => options.wafRoot ?? null,
+    root,
+    wafRoot: options.wafRoot ?? null,
+    builder: builds.builder,
   });
-  return { service, root, cleanup: () => fs.rm(root, { recursive: true, force: true }) };
+  return {
+    service,
+    root,
+    activities,
+    builds,
+    cleanup: () => fs.rm(root, { recursive: true, force: true }),
+  };
 }
 
 describe("the payload a preview serves", () => {
@@ -304,43 +307,26 @@ describe("the payload a preview serves", () => {
   });
 
   it("builds on demand and reports it in an author's words", async () => {
-    const { service } = await build({});
-    let builds = 0;
-    Object.assign(service, {
-      builder: new SandboxBuilder({
-        build: async () => {
-          builds += 1;
-          return { ok: true, log: "compiled" };
-        },
-        sources: async () => [Date.now()],
-        now: () => Date.now(),
-      }),
-    });
+    const { service, root, builds } = await build({});
     const report = await service.build(PROJECT, ACTIVITY);
     expect(report.ok).toBe(true);
     expect(report.message).toBe("Built.");
     expect(report.log).toBe("compiled");
-    expect(builds).toBe(1);
+    expect(builds.runs).toEqual([path.join(root, "activity-runs", "run_new", "module")]);
   });
 
   it("coalesces concurrent requests into one build", async () => {
     // Four scene edits in a row must not start four webpack builds.
-    const { service } = await build({});
+    const { service, builds: fake } = await build({});
     let builds = 0;
     let release: (() => void) | null = null;
-    Object.assign(service, {
-      builder: new SandboxBuilder({
-        build: async () => {
-          builds += 1;
-          await new Promise<void>((resolve) => {
-            release = resolve;
-          });
-          return { ok: true, log: "compiled" };
-        },
-        sources: async () => [Date.now()],
-        now: () => Date.now(),
-      }),
-    });
+    fake.builder.buildRun = async () => {
+      builds += 1;
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return { ok: true, log: "compiled" };
+    };
     const requests = [1, 2, 3, 4].map(() => service.build(PROJECT, ACTIVITY, true));
     await vi.waitFor(() => expect(release).not.toBeNull());
     release!();
@@ -351,14 +337,7 @@ describe("the payload a preview serves", () => {
 
   it("reports a failed build as failed, with its output", async () => {
     // Never as a preview that simply never appears.
-    const { service } = await build({});
-    Object.assign(service, {
-      builder: new SandboxBuilder({
-        build: async () => ({ ok: false, log: "Module not found: ./missing" }),
-        sources: async () => [Date.now()],
-        now: () => Date.now(),
-      }),
-    });
+    const { service } = await build({ build: { ok: false, log: "Module not found: ./missing" } });
     const report = await service.build(PROJECT, ACTIVITY, true);
     expect(report.ok).toBe(false);
     expect(report.message).toBe("The build failed; see its output.");
@@ -367,13 +346,10 @@ describe("the payload a preview serves", () => {
 
   it("refuses to build from a ref that does not own the module", async () => {
     // A build writes into the shared module, and only the canonical ref owns it.
-    const { service } = await build({});
-    Object.assign(service, {
-      activities: {
-        ...(service as unknown as { activities: Record<string, unknown> }).activities,
-        isCanonicalRef: () => false,
-        productOf: () => ({ canonicalRefNum: 4 }),
-      },
+    const { service, activities } = await build({});
+    Object.assign(activities, {
+      isCanonicalRef: () => false,
+      productOf: () => ({ canonicalRefNum: 4 }),
     });
     await expect(service.build(PROJECT, ACTIVITY)).rejects.toThrow("Build it from that ref");
   });

@@ -105,6 +105,7 @@ function base(dir: string, overrides: Partial<DeployStageBase> = {}): DeployStag
     git: gitWithTags(["1.0.0"], ["1.0.0", "1.1.0"]),
     jenkins,
     process: quickProcess,
+    styles: async () => ({ code: 0, tail: "" }),
     clock: { now: () => 0, sleep: async () => {} },
     settings,
     productCode: "words",

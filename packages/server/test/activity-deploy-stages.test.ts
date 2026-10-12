@@ -1,6 +1,6 @@
 /**
- * The module release's four stages, each run on its own against fakes: git, npm, Jenkins and
- * the clock answer from memory, and the module clone is a temp directory. No test here runs
+ * The module release's four stages, each run on its own against fakes: git, npm, the
+ * stylesheet compiler, Jenkins and the clock answer from memory, and the module clone is a temp directory. No test here runs
  * git, npm or a request, and nothing is written outside the temp directory.
  */
 import fs from "node:fs/promises";
@@ -11,6 +11,7 @@ import { spawnGit, type DeployGitResult } from "../src/activities/deploy-git.js"
 import type { DeployJenkins, JenkinsBuildStatus } from "../src/activities/deploy-jenkins.js";
 import { JenkinsError } from "../src/activities/deploy-jenkins.js";
 import type { DeployProcessResult } from "../src/activities/deploy-process.js";
+import type { StyleJob } from "../src/activities/module-builder.js";
 import { defaultDeploySettings } from "../src/activities/deploy-settings.js";
 import {
   DEPLOY_STAGE_DEFINITIONS,
@@ -155,6 +156,18 @@ function fakeClock() {
   };
 }
 
+function fakeStyles(answer: Partial<DeployProcessResult> = {}) {
+  const jobs: StyleJob[] = [];
+  return {
+    jobs,
+    styles: async (job: StyleJob): Promise<DeployProcessResult> => {
+      jobs.push(job);
+      job.onOutput?.("compiled\n");
+      return { code: 0, tail: "compiled\n", ...answer };
+    },
+  };
+}
+
 async function moduleClone() {
   const dir = await tempDir("penguin-deploy-module-");
   await fs.writeFile(
@@ -184,6 +197,7 @@ function context(
       git: fakeGit().git,
       jenkins: fakeJenkins().jenkins,
       process: fakeProcess().process,
+      styles: fakeStyles().styles,
       clock: fakeClock().clock,
       settings: settings(),
       productCode: "words",
@@ -433,7 +447,14 @@ describe("prepare_deploy", () => {
     await fs.writeFile(path.join(dir, "res", "style.scss"), "a { b: c }");
     const git = fakeGit();
     const npx = fakeProcess();
-    const { ctx } = context({ dir, git: git.git, process: npx.process, moduleVersion: "2.3.4" });
+    const sass = fakeStyles();
+    const { ctx, lines } = context({
+      dir,
+      git: git.git,
+      process: npx.process,
+      styles: sass.styles,
+      moduleVersion: "2.3.4",
+    });
     await run("prepare_deploy", ctx);
     expect(git.calls[0]).toEqual(["checkout", "-B", "loom/words-deploy", "main"]);
     const pkg = JSON.parse(await fs.readFile(path.join(dir, "package.json"), "utf8"));
@@ -444,9 +465,13 @@ describe("prepare_deploy", () => {
       version: "2.3.4",
       packages: { "": { name: "wafmodule-words", version: "2.3.4" } },
     });
-    expect(npx.calls.map((call) => call.line)).toEqual([
-      "npx --yes -p sass@1.54.0 sass res/style.scss res/style.css --no-source-map",
+    // The stylesheet is compiled by the pinned Sass the preview uses, in the clone.
+    expect(npx.calls).toEqual([]);
+    expect(sass.jobs).toEqual([
+      expect.objectContaining({ cwd: dir, from: "res/style.scss", to: "res/style.css" }),
     ]);
+    expect(lines).toContain("$ sass@1.54.0 res/style.scss res/style.css --no-source-map");
+    expect(lines).toContain("compiled");
     expect(git.calls).toContainEqual([
       "-c",
       "user.name=Deploy Bot",
@@ -463,11 +488,31 @@ describe("prepare_deploy", () => {
     const dir = await moduleClone();
     const git = fakeGit({ staged: false });
     const npx = fakeProcess();
-    const { ctx } = context({ dir, git: git.git, process: npx.process });
+    const sass = fakeStyles();
+    const { ctx } = context({ dir, git: git.git, process: npx.process, styles: sass.styles });
     await run("prepare_deploy", ctx);
     expect(npx.calls).toEqual([]);
+    expect(sass.jobs).toEqual([]);
     expect(git.calls.some((args) => args.includes("commit"))).toBe(false);
     expect(ctx.metadata).toEqual({ moduleVersion: "1.0.0" });
+  });
+
+  it("fails on a stylesheet that does not compile, with the compiler's words", async () => {
+    const dir = await moduleClone();
+    await fs.mkdir(path.join(dir, "res"));
+    await fs.writeFile(path.join(dir, "res", "style.scss"), "a { b: ");
+    const git = fakeGit();
+    const sass = fakeStyles({ code: 65, tail: 'Error: expected "}".' });
+    const { ctx } = context({ dir, git: git.git, styles: sass.styles });
+    await expect(run("prepare_deploy", ctx)).rejects.toMatchObject({
+      error: {
+        code: "command_failed",
+        command: "sass@1.54.0 res/style.scss res/style.css --no-source-map",
+        exitCode: 65,
+        output: 'Error: expected "}".',
+      },
+    });
+    expect(git.calls.some((args) => args.includes("commit"))).toBe(false);
   });
 });
 

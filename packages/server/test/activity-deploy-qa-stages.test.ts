@@ -157,6 +157,7 @@ async function setup(
     git: git.git,
     jenkins: jenkins.jenkins,
     process: { run: async () => ({ code: 0, tail: "" }) },
+    styles: async () => ({ code: 0, tail: "" }),
     clock: clock.clock,
     settings,
     productCode: "words",

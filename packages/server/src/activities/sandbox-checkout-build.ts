@@ -5,13 +5,23 @@
  * webpack into a cache of its own, resolving dependencies from the module's
  * `node_modules` and then the framework's, and compiled `res/style.scss` beside it. This is
  * that build, ported, so a Loom-generated module previews the way it did in Loom. Its
- * output goes under Penguin's root; the checkout is only read.
+ * output goes under Penguin's root; the checkout is only read. Its stylesheet is compiled
+ * with the Sass a deploy uses (see module-builder.ts), before webpack runs.
  *
  * It runs as a child Node process rather than in the server. Webpack and the module's
  * TypeScript are the module's and the framework's own versions, loaded from the checkout,
  * and a build that exhausts memory or never returns must not take the server with it.
  */
-import { sassPath, spawnNodeScript, type BuildOutcome } from "./sandbox-build-runner.js";
+import { existsSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
+import path from "node:path";
+import type { StyleCompiler } from "./module-builder.js";
+import {
+  clampLog,
+  spawnNodeScript,
+  styleOutcome,
+  type BuildOutcome,
+} from "./sandbox-build-runner.js";
 
 /** What one checkout build needs to know. */
 export interface CheckoutBuildJob {
@@ -45,7 +55,7 @@ const job = JSON.parse(process.env.PENGUIN_CHECKOUT_BUILD);
 const moduleRoot = path.resolve(job.moduleRoot);
 const outputRoot = path.resolve(job.outputRoot);
 const frameworkRoot = path.resolve(job.frameworkRoot);
-const { moduleId, sassPath } = job;
+const { moduleId, styleName, styleCompiled } = job;
 
 function fail(message) {
     console.error(message);
@@ -130,27 +140,12 @@ function compileTypeScript(entry) {
     return path.join(outDir, path.relative(path.join(moduleRoot, 'src'), entry).replace(/\.ts$/, '.js'));
 }
 
-// A module's stylesheet is res/style; the navbar's is res/default. Either way the build
-// writes the name the definition asks for.
+// The server compiled an SCSS stylesheet into the output already; a plain one is copied.
 function buildStyle() {
-    const res = path.join(moduleRoot, 'res');
-    const name = ['style', 'default'].find((base) =>
-        fs.existsSync(path.join(res, base + '.scss')) || fs.existsSync(path.join(res, base + '.css'))
-    ) || 'style';
-    const output = path.join(outputRoot, name + '.css');
-    const scss = path.join(res, name + '.scss');
-    const css = path.join(res, name + '.css');
-    if (fs.existsSync(scss)) {
-        const sass = require(sassPath);
-        const result = sass.compile(scss, {
-            loadPaths: [res, path.join(moduleRoot, 'node_modules')],
-            style: 'expanded',
-        });
-        fs.writeFileSync(output, result.css);
-        return;
-    }
+    if (styleCompiled) return;
+    const css = path.join(moduleRoot, 'res', styleName + '.css');
     if (fs.existsSync(css)) {
-        fs.copyFileSync(css, output);
+        fs.copyFileSync(css, path.join(outputRoot, styleName + '.css'));
         return;
     }
     fail('The module has no res/style.scss or res/style.css.');
@@ -208,27 +203,48 @@ webpack(config(webpack), (error, stats) => {
 `;
 
 /**
- * Builds a checkout module into its output directory, and reports how it went.
+ * A module's stylesheet is `res/style`; the navbar's is `res/default`. Either way the build
+ * writes the name the definition asks for.
+ */
+function stylesheetName(moduleRoot: string): string {
+  const res = path.join(moduleRoot, "res");
+  const named = (base: string) =>
+    existsSync(path.join(res, `${base}.scss`)) || existsSync(path.join(res, `${base}.css`));
+  return ["style", "default"].find(named) ?? "style";
+}
+
+/**
+ * Builds a checkout module into its output directory, and reports how it went: an SCSS
+ * stylesheet compiled into the output first, then the build.
  *
  * Never throws, like every build here: a module that does not compile is an answer to the
  * author who asked to see it.
  */
-export function spawnCheckoutBuild(
+export async function spawnCheckoutBuild(
   job: CheckoutBuildJob,
-  options: { timeoutMs?: number } = {},
+  options: { timeoutMs?: number; compileStyle: StyleCompiler },
 ): Promise<BuildOutcome> {
-  let sass: string;
-  try {
-    sass = sassPath();
-  } catch {
-    return Promise.resolve({ ok: false, log: "The server has no sass compiler installed." });
+  const styleName = stylesheetName(job.moduleRoot);
+  const scss = `res/${styleName}.scss`;
+  const styleCompiled = existsSync(path.join(job.moduleRoot, scss));
+  let styleLog = "";
+  if (styleCompiled) {
+    const css = path.join(job.outputRoot, `${styleName}.css`);
+    await mkdir(job.outputRoot, { recursive: true });
+    const style = styleOutcome(
+      await options.compileStyle({ cwd: job.moduleRoot, from: scss, to: css }),
+      scss,
+      css,
+    );
+    if (!style.ok) return style;
+    styleLog = style.log;
   }
-  return spawnNodeScript(
+  const built = await spawnNodeScript(
     CHECKOUT_BUILD_SCRIPT,
     {
       cwd: job.moduleRoot,
       env: {
-        PENGUIN_CHECKOUT_BUILD: JSON.stringify({ ...job, sassPath: sass }),
+        PENGUIN_CHECKOUT_BUILD: JSON.stringify({ ...job, styleName, styleCompiled }),
         // Webpack 4, which Loom's modules pin, hashes with MD4; Node 17+ refuses it
         // without the legacy provider. Harmless to webpack 5.
         NODE_OPTIONS: [process.env.NODE_OPTIONS, "--openssl-legacy-provider"]
@@ -238,4 +254,5 @@ export function spawnCheckoutBuild(
     },
     options,
   );
+  return { ok: built.ok, log: clampLog(styleLog + built.log) };
 }

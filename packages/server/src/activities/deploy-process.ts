@@ -25,6 +25,8 @@ export interface DeployProcessOptions {
   signal?: AbortSignal;
   /** Each piece of output, as it arrives. */
   onOutput?: (text: string) => void;
+  /** Whether the program goes through the shell; on Windows by default, for npm and npx. */
+  shell?: boolean;
 }
 
 export interface DeployProcessResult {
@@ -40,7 +42,11 @@ export interface DeployProcess {
   run(command: string, args: string[], options: DeployProcessOptions): Promise<DeployProcessResult>;
 }
 
-/** The real port. On Windows npm and npx are shell wrappers, so they go through the shell. */
+/**
+ * The real port. On Windows npm and npx are shell wrappers, so they go through the shell
+ * unless the caller says otherwise (a program named by its path, whose arguments the shell
+ * would split at their spaces).
+ */
 export const spawnDeployProcess: DeployProcess = {
   run(command, args, options) {
     return new Promise((resolve) => {
@@ -59,7 +65,7 @@ export const spawnDeployProcess: DeployProcess = {
           cwd: options.cwd,
           env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
           stdio: ["ignore", "pipe", "pipe"],
-          shell: process.platform === "win32",
+          shell: options.shell ?? process.platform === "win32",
           windowsHide: true,
         });
       } catch {

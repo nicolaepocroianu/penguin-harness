@@ -11,12 +11,10 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { SandboxBuilder } from "../src/activities/sandbox-builder.js";
 import { ActivityPlayLinksService } from "../src/activities/play-links.js";
 import { ActivitySandboxService } from "../src/activities/sandbox-service.js";
 import { checkoutOutputRoot, definitionMediaFolders } from "../src/activities/sandbox-source.js";
-import { wire } from "@prismshadow/penguin-core/kernel";
-import { ActivityRunStore } from "../src/activities/run-store.js";
+import { fakeModuleBuilder, wiredSandbox } from "./activity-sandbox-wiring.js";
 
 const PROJECT = "proj";
 const ACTIVITY = "act_1";
@@ -81,8 +79,14 @@ async function setup(options: { runs?: boolean; canonical?: boolean } = {}) {
     title: "Sight Words",
     draft: { draftId: "d", status: "valid", spec, contentRevision: "rev0123456789abcdef" },
   };
-  const service = new ActivitySandboxService();
-  Object.assign(service, {
+  const generation: Record<string, unknown> = {
+    moduleBuilds: async () =>
+      options.runs
+        ? [{ runId: "run_1", kind: "module", status: "succeeded", createdAt: "2026-09-01" }]
+        : [],
+  };
+  const builds = fakeModuleBuilder();
+  const service = wiredSandbox({
     activities: {
       getActivity: async () => activity,
       isCanonicalRef: () => options.canonical ?? true,
@@ -90,17 +94,12 @@ async function setup(options: { runs?: boolean; canonical?: boolean } = {}) {
       productOf: () => ({ moduleFolder: FOLDER, canonicalRefNum: 1 }),
       draftWorkspace: () => path.join(penguin, "drafts"),
     },
-    generation: {
-      moduleBuilds: async () =>
-        options.runs
-          ? [{ runId: "run_1", kind: "module", status: "succeeded", createdAt: "2026-09-01" }]
-          : [],
-    },
-    config: { root: penguin },
-    runs: wire(ActivityRunStore, { config: { root: penguin } }),
-    locateWafRoot: async () => waf,
+    generation,
+    root: penguin,
+    wafRoot: waf,
+    builder: builds.builder,
   });
-  return { service, root, penguin, waf, moduleRoot };
+  return { service, root, penguin, waf, moduleRoot, generation, builds };
 }
 
 describe("previewing a module from the WAF checkout", () => {
@@ -235,21 +234,18 @@ describe("previewing a module from the WAF checkout", () => {
   });
 
   it("lets any ref build a checkout module, into Penguin's directory", async () => {
-    const { service, moduleRoot } = await made({ canonical: false });
-    const built: string[] = [];
-    Object.assign(service, {
-      checkoutBuilder: new SandboxBuilder({
-        build: async (workspace) => {
-          built.push(workspace);
-          return { ok: true, log: "compiled" };
-        },
-        sources: async () => [Date.now()],
-        now: () => Date.now(),
-      }),
-    });
+    const { service, moduleRoot, penguin, waf, builds } = await made({ canonical: false });
     const result = await service.build(PROJECT, ACTIVITY, true);
     expect(result.ok).toBe(true);
-    expect(built).toEqual([moduleRoot]);
+    expect(builds.checkouts).toEqual([
+      {
+        moduleRoot,
+        outputRoot: checkoutOutputRoot(penguin, FOLDER),
+        frameworkRoot: path.join(waf, "framework"),
+        moduleId: "sightWords",
+      },
+    ]);
+    expect(builds.runs).toEqual([]);
   });
 
   it("never writes to the checkout while reading it", async () => {
@@ -332,13 +328,10 @@ describe("playing a module run before it finishes", () => {
       themes: { park: { assets: {}, properties: {} } },
     });
     await write(path.join(runModule, "dist", "debug", "entry.js"), "window.fromRun = true;");
-    Object.assign(result.service, {
-      generation: {
-        moduleBuilds: async () => [],
-        run: async (_project: string, _activity: string, runId: string) => {
-          if (runId !== "run_2") throw new Error("run_not_found");
-          return { runId, ...run };
-        },
+    Object.assign(result.generation, {
+      run: async (_project: string, _activity: string, runId: string) => {
+        if (runId !== "run_2") throw new Error("run_not_found");
+        return { runId, ...run };
       },
     });
     return result;

@@ -7,7 +7,8 @@
  *                         commit all of it on main, and run `npm ci`, `npm run buildDebug`,
  *                         `npm run lint` and `npm run buildRelease` in it
  *   prepare_deploy        make the deploy branch from main, carrying that content; write the
- *                         package name and version; compile `res/style.scss` when there is one;
+ *                         package name and version; compile `res/style.scss` when there is one
+ *                         (with the pinned Sass the preview uses too, `module-builder.ts`);
  *                         commit as the configured identity (nothing to commit is not a failure)
  *   trigger_module_build  note the newest release tag and Jenkins build, push main when the
  *                         remote lacks it, push the deploy branch, and start the module build
@@ -40,7 +41,8 @@
  *
  * Everything runs in the WAF workspace's clones. The module and media clones hold authored
  * work, which the stages commit rather than discard; the activity-data clone is the deploy's
- * own and must be clean. git, Jenkins, the programs and the clock are ports, so a test runs every stage with
+ * own and must be clean. git, Jenkins, the programs, the stylesheet compiler and the clock are
+ * ports, so a test runs every stage with
  * fakes and nothing reaches a remote.
  */
 import fs from "node:fs/promises";
@@ -54,7 +56,8 @@ import {
 import { moduleShortName } from "./waf-layout.js";
 import type { DeployJenkins, JenkinsBuildStatus } from "./deploy-jenkins.js";
 import { JenkinsError } from "./deploy-jenkins.js";
-import type { DeployProcess } from "./deploy-process.js";
+import type { DeployProcess, DeployProcessResult } from "./deploy-process.js";
+import { SASS_PACKAGE, type StyleCompiler } from "./module-builder.js";
 import type { DeploySettings } from "./deploy-settings.js";
 import {
   ExportLayoutError,
@@ -91,9 +94,6 @@ export const MODULE_VERIFY_COMMANDS: readonly (readonly string[])[] = [
   ["run", "lint"],
   ["run", "buildRelease"],
 ];
-
-/** The Sass a module's stylesheet is compiled with, pinned as the WAF build pins it. */
-export const SASS_PACKAGE = "sass@1.54.0";
 
 /** How often the build is looked at while waiting for it. */
 export const BUILD_POLL_MS = 15_000;
@@ -208,6 +208,8 @@ export interface DeployStageContext {
   git: DeployGit;
   jenkins: DeployJenkins;
   process: DeployProcess;
+  /** Compiles a module's stylesheet with the pinned Sass, as the preview does. */
+  styles: StyleCompiler;
   clock: DeployClock;
   settings: DeploySettings;
   productCode: string;
@@ -353,16 +355,26 @@ function tailOf(text: string): string {
 }
 
 /** Runs a program in the clone, streaming its output to the log; a failure ends the stage. */
-async function program(ctx: DeployStageContext, command: string, args: readonly string[]) {
+function program(ctx: DeployStageContext, command: string, args: readonly string[]) {
+  return logged(ctx, command, `${command} ${args.join(" ")}`, (onOutput) =>
+    ctx.process.run(command, [...args], { cwd: ctx.module.dir, signal: ctx.signal, onOutput }),
+  );
+}
+
+/**
+ * Runs one step as the line `line` names it, streaming its output to the log; a failure ends
+ * the stage, naming `command` when it could not be started.
+ */
+async function logged(
+  ctx: DeployStageContext,
+  command: string,
+  line: string,
+  run: (onOutput: (text: string) => void) => Promise<DeployProcessResult>,
+) {
   checkStopped(ctx);
-  const line = `${command} ${args.join(" ")}`;
   ctx.log(`$ ${line}`);
   const out = lineWriter(ctx.log);
-  const result = await ctx.process.run(command, [...args], {
-    cwd: ctx.module.dir,
-    signal: ctx.signal,
-    onOutput: (text) => out.write(text),
-  });
+  const result = await run((text) => out.write(text));
   out.flush();
   if (result.error === "stopped" || ctx.signal.aborted) throw new DeployStopped();
   if (result.error === "not_found" || result.error === "not_started")
@@ -558,15 +570,19 @@ const prepareDeploy: DeployStageDefinition = {
     const version = await syncPackage(ctx);
     if (version) ctx.metadata.moduleVersion = version;
     if (await exists(path.join(ctx.module.dir, "res", "style.scss")))
-      await program(ctx, "npx", [
-        "--yes",
-        "-p",
-        SASS_PACKAGE,
+      await logged(
+        ctx,
         "sass",
-        "res/style.scss",
-        "res/style.css",
-        "--no-source-map",
-      ]);
+        `${SASS_PACKAGE} res/style.scss res/style.css --no-source-map`,
+        (onOutput) =>
+          ctx.styles({
+            cwd: ctx.module.dir,
+            from: "res/style.scss",
+            to: "res/style.css",
+            signal: ctx.signal,
+            onOutput,
+          }),
+      );
     else ctx.log("No res/style.scss: no stylesheet to compile.");
     await git(ctx, ["add", "--all"]);
     const staged = await git(ctx, ["diff", "--cached", "--quiet"], {
