@@ -5368,6 +5368,21 @@ test("makes a ref from the template, keeping one image and regenerating a narrat
       .getByRole("group", { name: "What to do with hello", exact: true })
       .getByRole("button", { name: "Regenerate", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
+  // The choices exist only on this page until the ref is made: leaving asks first, and
+  // declining keeps them.
+  const discard = page.getByRole("dialog", { name: "Discard unsaved changes?" });
+  await openSection(page, "Description");
+  await expect(
+    discard.getByText("Discard the choices you made for this new ref's assets?", { exact: true }),
+  ).toBeVisible();
+  await discard.getByRole("button", { name: "Cancel" }).click();
+  await expect(discard).toBeHidden();
+  await expect(page).toHaveURL(/section=newRef/);
+  await expect(
+    page
+      .getByRole("group", { name: "What to do with hello", exact: true })
+      .getByRole("button", { name: "Regenerate", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   const script = page.getByRole("textbox", { name: "Script", exact: true });
   await script.fill("");
   await expect(page.getByText("Write a script for hello.")).toBeVisible();

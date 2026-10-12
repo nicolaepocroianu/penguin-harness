@@ -3,6 +3,7 @@ import type { ActivityRunSummary, SoundProviderStatus } from "@prismshadow/pengu
 import {
   canGenerateSound,
   chosenProvider,
+  lengthFieldText,
   lengthText,
   parseLength,
   providerOptions,
@@ -74,6 +75,19 @@ describe("the Length field", () => {
     expect(parseLength(" 12 ")).toEqual({ ok: true, ms: 12000 });
     expect(parseLength("1.25")).toEqual({ ok: true, ms: 1250 });
     for (const text of ["0.5", "61", "abc", "-3"]) expect(parseLength(text)).toEqual({ ok: false });
+  });
+
+  it("shows the asset's length unless the author is typing it", () => {
+    expect(lengthFieldText(null, 2500)).toBe("2.5");
+    // The author's own spelling of the saved length stays while they type.
+    expect(lengthFieldText("2.50", 2500)).toBe("2.50");
+    expect(lengthFieldText("", undefined)).toBe("");
+    // Text that is not a length yet stays, to be corrected.
+    expect(lengthFieldText("abc", 2500)).toBe("abc");
+    expect(lengthFieldText("61", 2500)).toBe("61");
+    // A length set from elsewhere since the author typed shows.
+    expect(lengthFieldText("3", 4000)).toBe("4");
+    expect(lengthFieldText("3", undefined)).toBe("");
   });
 });
 

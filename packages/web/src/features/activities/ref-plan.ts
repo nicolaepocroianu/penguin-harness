@@ -150,6 +150,21 @@ export function keepAll(rows: readonly RefPlanRow[]): RefPlanRow[] {
   );
 }
 
+/**
+ * Whether the author decided anything for a row: another action, edited text, a voice, a
+ * chosen file or a library pick. Undecided rows are the template's, and nothing is lost.
+ */
+export function rowsDecided(rows: readonly RefPlanRow[]): boolean {
+  return rows.some(
+    (row) =>
+      row.action !== "keep" ||
+      row.text !== originalText(row) ||
+      row.voice !== null ||
+      row.fileName !== null ||
+      row.libraryPath !== null,
+  );
+}
+
 /** Every image marked to generate again. */
 export function regenerateAllImages(rows: readonly RefPlanRow[]): RefPlanRow[] {
   return rows.map((row) => (row.type === "image" ? { ...row, action: "regenerate" } : row));

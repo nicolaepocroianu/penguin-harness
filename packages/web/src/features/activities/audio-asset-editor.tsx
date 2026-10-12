@@ -58,7 +58,7 @@ import {
   canGenerateSound,
   chosenModel,
   chosenProvider,
-  lengthText,
+  lengthFieldText,
   parseLength,
   providerOptions,
   soundFailure,
@@ -291,7 +291,7 @@ function AudioCard({
   const soundProvider = chosenProvider(soundOptions, soundChoice);
   const soundModel = chosenModel(soundProvider, soundModelChoice);
   const maxSeconds = soundMaxSeconds(soundProvider?.id);
-  const lengthValue = lengthDraft ?? lengthText(asset.targetDurationMs);
+  const lengthValue = lengthFieldText(lengthDraft, asset.targetDurationMs);
   const length = parseLength(lengthValue);
   const validLength = length.ok && (length.ms ?? 10000) <= maxSeconds * 1000;
   const prompt = soundPromptOf(asset.script);

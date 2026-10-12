@@ -10,6 +10,7 @@ import {
   planRows,
   refNumberFrom,
   regenerateAllImages,
+  rowsDecided,
   sceneOrder,
   setAction,
   setFileName,
@@ -140,6 +141,17 @@ describe("bulk helpers", () => {
     expect(kept.find((row) => row.key === "cat")!.text).toBe("A cat");
     expect(kept.find((row) => row.key === "hello")!.voice).toBeNull();
     expect(kept.find((row) => row.key === "spare")!.fileName).toBeNull();
+  });
+
+  it("knows when the author has decided something a leave would lose", () => {
+    expect(rowsDecided(rows())).toBe(false);
+    expect(rowsDecided(setText(rows(), "cat", "A dog"))).toBe(true);
+    expect(rowsDecided(setText(rows(), "cat", "A cat"))).toBe(false);
+    expect(rowsDecided(setAction(rows(), "cat", "regenerate"))).toBe(true);
+    expect(rowsDecided(setFileName(rows(), "spare", "x.png"))).toBe(true);
+    expect(rowsDecided(voiceForAll(rows(), "Puck"))).toBe(true);
+    // Keeping everything as the template has it decides nothing.
+    expect(rowsDecided(keepAll(voiceForAll(rows(), "Puck")))).toBe(false);
   });
 });
 
