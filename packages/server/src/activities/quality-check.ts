@@ -18,9 +18,10 @@ import fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
-import type { Config, Log } from "../hmr/capabilities.js";
+import type { Log } from "../hmr/capabilities.js";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
+import type { ActivityRuns } from "./run-store.js";
 import type { Settings } from "../mechanisms/settings.js";
 import { openPage, type BrowserLauncher, type Viewport } from "./browser-session.js";
 import type { ActivityRun } from "./domain.js";
@@ -173,10 +174,10 @@ export abstract class ActivityQuality extends Interface<{
 
 @Component()
 export class ActivityQualityService implements ActivityQuality {
-  @Use() private readonly config!: Config;
   @Use() private readonly settings!: Settings;
   @Use() private readonly browser!: TestBrowser;
   @Use() private readonly generation!: ActivityGeneration;
+  @Use() private readonly runs!: ActivityRuns;
   @Use() private readonly activities!: ActivityAuthoring;
   @Use() private readonly sandbox!: ActivitySandbox;
   @Use() private readonly ports!: QualityCheckPorts;
@@ -232,7 +233,7 @@ export class ActivityQualityService implements ActivityQuality {
   }
 
   private workspace(runId: string): string {
-    return path.join(this.config.root, "activity-runs", runId);
+    return this.runs.workspace(runId);
   }
 
   private async check(run: ActivityRun, executable: string): Promise<void> {

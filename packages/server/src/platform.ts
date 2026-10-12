@@ -158,6 +158,8 @@ import {
   DefaultAcceptancePorts,
 } from "./activities/acceptance-service.js";
 import { ActivityGenerationService } from "./activities/generation.js";
+import { ActivityRunStore, ActivityRuns } from "./activities/run-store.js";
+import { ActivityLockService } from "./activities/activity-lock.js";
 import { ActivityAuthoring, ActivityGeneration } from "./mechanisms/activities.js";
 import { ProjectsRoutes } from "./http/routes/dirs.js";
 import { SandboxModule } from "./sandbox/service.js";
@@ -416,6 +418,8 @@ export class CodingAgentsModule {}
 
 @Module({
   children: [
+    ActivityRunStore,
+    ActivityLockService,
     ActivityService,
     ActivityGenerationService,
     ActivitySandboxService,
@@ -458,6 +462,7 @@ export class CodingAgentsModule {}
   exports: [
     ActivityAuthoring,
     ActivityGeneration,
+    ActivityRuns,
     ActivityVersions,
     ActivityModuleBuilds,
     TestBrowser,

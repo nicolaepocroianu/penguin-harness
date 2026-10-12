@@ -7,11 +7,10 @@
  * sandbox reads it to choose the module it serves. It is not part of the draft's revision, so
  * a pin never makes a candidate, a stage or a deploy out of date.
  */
-import path from "node:path";
 import { Component, Interface, Use } from "@prismshadow/penguin-core/kernel";
-import type { Config } from "../hmr/capabilities.js";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
+import type { ActivityRuns } from "./run-store.js";
 import type { ActivityDraft } from "./domain.js";
 import type { ModuleBuild, ModuleBuildDiff, ModuleBuildList } from "./module-build-types.js";
 import { compareModuleBuilds, moduleBuildFileCount, playingBuild } from "./module-builds.js";
@@ -39,7 +38,7 @@ export abstract class ActivityModuleBuilds extends Interface<{
 export class ActivityModuleBuildService implements ActivityModuleBuilds {
   @Use() private readonly authoring!: ActivityAuthoring;
   @Use() private readonly generation!: ActivityGeneration;
-  @Use() private readonly config!: Config;
+  @Use() private readonly runs!: ActivityRuns;
 
   async list(projectId: string, activityId: string): Promise<ModuleBuildList> {
     const activity = await this.authoring.getActivity(projectId, activityId);
@@ -97,7 +96,7 @@ export class ActivityModuleBuildService implements ActivityModuleBuilds {
   }
 
   private root(runId: string): string {
-    return sandboxModuleRoot(path.join(this.config.root, "activity-runs", runId));
+    return sandboxModuleRoot(this.runs.workspace(runId));
   }
 }
 

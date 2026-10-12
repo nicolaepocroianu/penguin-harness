@@ -18,7 +18,7 @@ import {
   type SessionSandboxMode,
 } from "@prismshadow/penguin-core";
 import { Component, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
-import type { Config, Db, Channels, Log, Paths } from "../hmr/capabilities.js";
+import type { Config, Channels, Log, Paths } from "../hmr/capabilities.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import type { AgentConfig, AgentLifecycle } from "../mechanisms/agents.js";
 import { CODING_AGENT_PROVIDER } from "../coding-agents/session-runtime.js";
@@ -27,7 +27,9 @@ import { publishToProjectUsers } from "../http/routes/events.js";
 import type { ChannelHub } from "../runtime/channel.js";
 import type { Sessions, SessionServiceIface } from "../runtime/session-manager.js";
 import { HttpError } from "../http/errors.js";
-import { ActivityLocks, atomicJson } from "./service.js";
+import { atomicJson } from "./service.js";
+import type { ActivityLock } from "./activity-lock.js";
+import type { ActivityRuns } from "./run-store.js";
 import {
   AUDIO_MAX_BYTES,
   SPEECH_OUTPUT_FILES,
@@ -378,7 +380,6 @@ function modulePackagesRoot(root: string): string {
 export class ActivityGenerationService implements ActivityGeneration {
   @Use() private readonly projectWork!: ProjectActivityWork;
   @Use() private readonly config!: Config;
-  @Use() private readonly db!: Db;
   @Use() private readonly activities!: ActivityAuthoring;
   @Use() private readonly agents!: AgentConfig;
   @Use() private readonly agentLifecycle!: AgentLifecycle;
@@ -397,7 +398,8 @@ export class ActivityGenerationService implements ActivityGeneration {
   @Use() private readonly wafWorkspace!: WafWorkspace;
   @Use() private readonly browser!: TestBrowser;
   @Use(SandboxModule) private readonly sandbox!: Sandbox;
-  private readonly locks = new ActivityLocks();
+  @Use() private readonly runs!: ActivityRuns;
+  @Use() private readonly lock!: ActivityLock;
   private readonly observers = new Map<string, Observer>();
   /** The test browser started for a confined run's checks, by run id; stopped when it ends. */
   private readonly browserServers = new Map<string, BrowserServerHandle>();
@@ -410,7 +412,7 @@ export class ActivityGenerationService implements ActivityGeneration {
   setup({ effect }: ClassCtx) {
     // A restart or hot replacement cannot prove an old task finished. Preserve its
     // workspace and record the uncertainty; retry always creates a new attempt.
-    for (const run of this.running())
+    for (const run of this.runs.running())
       this.finish(run, "interrupted", "Server restarted. Review the session and retry explicitly.");
     this.timer = setInterval(() => {
       if (!this.tick && !this.stopped) {
@@ -438,7 +440,7 @@ export class ActivityGenerationService implements ActivityGeneration {
     // closing the DB or booting a successor, so an entered publication can commit its
     // matching terminal record before the remaining attempts become interrupted.
     const finishRemaining = () => {
-      for (const run of this.running())
+      for (const run of this.runs.running())
         this.finish(run, "interrupted", "Server stopped before the result was published.");
     };
     if (this.operations.size) {
@@ -482,7 +484,7 @@ export class ActivityGenerationService implements ActivityGeneration {
   }
 
   private workspace(run: ActivityRun): string {
-    return path.join(this.config.root, "activity-runs", run.runId);
+    return this.runs.workspace(run.runId);
   }
 
   /**
@@ -526,46 +528,11 @@ export class ActivityGenerationService implements ActivityGeneration {
       flag: "wx",
     });
   }
-  private save(run: ActivityRun) {
-    const { candidate, kind: _kind, ...metadata } = run;
-    this.db.exec("BEGIN");
-    try {
-      const hasCandidate =
-        candidate !== null ||
-        !!this.db.prepare("SELECT 1 FROM activity_run_candidates WHERE run_id = ?").get(run.runId);
-      const result = this.db
-        .prepare("UPDATE activity_runs SET status = ?, record_json = ? WHERE run_id = ?")
-        .run(run.status, JSON.stringify({ ...metadata, hasCandidate }), run.runId);
-      if (result.changes && candidate !== null)
-        this.db
-          .prepare(
-            "INSERT INTO activity_run_candidates (run_id, candidate) VALUES (?, ?) ON CONFLICT(run_id) DO UPDATE SET candidate = excluded.candidate",
-          )
-          .run(run.runId, candidate);
-      this.db.exec("COMMIT");
-    } catch (error) {
-      this.db.exec("ROLLBACK");
-      throw error;
-    }
-  }
-  private running(): ActivityRun[] {
-    return (
-      this.db
-        .prepare("SELECT kind, record_json FROM activity_runs WHERE status = 'running'")
-        .all() as {
-        kind: ActivityRun["kind"];
-        record_json: string;
-      }[]
-    ).map((row) => {
-      const metadata = JSON.parse(row.record_json) as ActivityRunSummary;
-      return { ...metadata, kind: row.kind, candidate: null };
-    });
-  }
   private finish(run: ActivityRun, status: ActivityRun["status"], error: string | null = null) {
     run.status = status;
     run.error = error;
     run.finishedAt = new Date().toISOString();
-    this.save(run);
+    this.runs.save(run);
     this.observers.get(run.runId)?.unsubscribe();
     this.observers.delete(run.runId);
     const server = status === "running" ? undefined : this.browserServers.get(run.runId);
@@ -597,32 +564,14 @@ export class ActivityGenerationService implements ActivityGeneration {
 
   async list(projectId: string, activityId: string): Promise<ActivityRunSummary[]> {
     await this.activities.getActivity(projectId, activityId);
-    return (
-      this.db
-        .prepare(
-          "SELECT kind, record_json FROM activity_runs WHERE project_id = ? AND activity_id = ? ORDER BY created_at DESC, run_id DESC LIMIT 50",
-        )
-        .all(projectId, activityId) as { kind: ActivityRun["kind"]; record_json: string }[]
-    ).map((row) => {
-      const metadata = JSON.parse(row.record_json) as ActivityRunSummary;
-      return { ...metadata, kind: row.kind };
-    });
+    return this.runs.summaries(projectId, activityId, { limit: 50 });
   }
 
   private async getRun(projectId: string, activityId: string, runId: string): Promise<ActivityRun> {
     await this.activities.getActivity(projectId, activityId);
-    const row = this.db
-      .prepare(
-        "SELECT kind, record_json FROM activity_runs WHERE project_id = ? AND activity_id = ? AND run_id = ?",
-      )
-      .get(projectId, activityId, runId) as
-      { kind: ActivityRun["kind"]; record_json: string } | undefined;
-    if (!row) throw new HttpError(404, "run_not_found", "Generation not found.");
-    const payload = this.db
-      .prepare("SELECT candidate FROM activity_run_candidates WHERE run_id = ?")
-      .get(runId) as { candidate: string } | undefined;
-    const { hasCandidate: _, ...metadata } = JSON.parse(row.record_json) as ActivityRunSummary;
-    return { ...metadata, kind: row.kind, candidate: payload?.candidate ?? null };
+    const run = this.runs.get(projectId, activityId, runId);
+    if (!run) throw new HttpError(404, "run_not_found", "Generation not found.");
+    return run;
   }
 
   /**
@@ -816,7 +765,7 @@ export class ActivityGenerationService implements ActivityGeneration {
     const codingAgentId = media ? undefined : runtime?.codingAgentId;
     return this.track(
       this.projectWork.run(projectId, () =>
-        this.locks.run(activityId, async () => {
+        this.lock.run(activityId, async () => {
           if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
           // Scene videos are refused while the experiment is off, before anything about the
           // draft is checked, so an author always learns first that the experiment is off.
@@ -1073,7 +1022,7 @@ export class ActivityGenerationService implements ActivityGeneration {
             }
           }
           if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
-          if (this.running().some((run) => run.activityId === activityId))
+          if (this.runs.hasActive(activityId))
             throw new HttpError(
               409,
               "generation_running",
@@ -1141,7 +1090,6 @@ export class ActivityGenerationService implements ActivityGeneration {
             error: null,
             candidate: null,
           };
-          const { candidate: _candidate, kind: _kind, ...metadata } = run;
           // Penguin's own agent runs a stage's commands confined to the run's workspace, so
           // the WAF checkout is read-only to them by enforcement, not by the prompt's word.
           // With nothing able to confine, the run is refused here rather than left to fail
@@ -1163,26 +1111,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                   `Windows, macOS and Linux), then try again. (${problem})`,
               );
           }
-          this.db.exec("BEGIN");
-          try {
-            this.db
-              .prepare(
-                "INSERT INTO activity_runs (run_id, project_id, activity_id, status, created_at, kind, record_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
-              )
-              .run(
-                run.runId,
-                projectId,
-                activityId,
-                run.status,
-                run.createdAt,
-                run.kind,
-                JSON.stringify({ ...metadata, hasCandidate: false }),
-              );
-            this.db.exec("COMMIT");
-          } catch (error) {
-            this.db.exec("ROLLBACK");
-            throw error;
-          }
+          this.runs.open(run);
           try {
             const workspace = this.workspace(run);
             await fs.mkdir(workspace, { recursive: true });
@@ -1522,7 +1451,7 @@ export class ActivityGenerationService implements ActivityGeneration {
               ...(confined ? { sandboxMode: RUN_SANDBOX_MODE } : {}),
             });
             run.sessionId = session.sessionId;
-            this.save(run);
+            this.runs.save(run);
             if (this.stopped) {
               this.finish(run, "interrupted", "Server stopped before generation started.");
               return run;
@@ -1569,7 +1498,7 @@ export class ActivityGenerationService implements ActivityGeneration {
 
   cancel(projectId: string, activityId: string, runId: string): Promise<ActivityRun> {
     return this.track(
-      this.locks.run(activityId, async () => {
+      this.lock.run(activityId, async () => {
         if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
         const run = await this.getRun(projectId, activityId, runId);
         if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
@@ -1591,7 +1520,7 @@ export class ActivityGenerationService implements ActivityGeneration {
     try {
       const bytes = await this.localAudio.generate(request, controller.signal);
       await this.projectWork.run(run.projectId, () =>
-        this.locks.run(run.activityId, async () => {
+        this.lock.run(run.activityId, async () => {
           const currentRun = await this.getRun(run.projectId, run.activityId, run.runId);
           if (currentRun.status !== "running" || this.stopped || controller.signal.aborted) return;
           const current = await this.activities.getActivity(run.projectId, run.activityId);
@@ -1610,7 +1539,7 @@ export class ActivityGenerationService implements ActivityGeneration {
         }),
       );
     } catch (error) {
-      await this.locks.run(run.activityId, async () => {
+      await this.lock.run(run.activityId, async () => {
         const current = await this.getRun(run.projectId, run.activityId, run.runId);
         if (current.status !== "running") return;
         this.finish(
@@ -1634,7 +1563,7 @@ export class ActivityGenerationService implements ActivityGeneration {
     controller: AbortController,
   ): Promise<void> {
     const failed = async (error: unknown) => {
-      await this.locks.run(run.activityId, async () => {
+      await this.lock.run(run.activityId, async () => {
         const current = await this.getRun(run.projectId, run.activityId, run.runId);
         if (current.status !== "running") return;
         this.finish(
@@ -1659,7 +1588,7 @@ export class ActivityGenerationService implements ActivityGeneration {
         await failed(new Error(outcome.error));
         return;
       }
-      await this.locks.run(run.activityId, async () => {
+      await this.lock.run(run.activityId, async () => {
         const current = await this.getRun(run.projectId, run.activityId, run.runId);
         if (current.status !== "running" || this.stopped || controller.signal.aborted) return;
         try {
@@ -1723,7 +1652,7 @@ export class ActivityGenerationService implements ActivityGeneration {
       format,
     );
     run.candidate = JSON.stringify(timings?.length ? { ...result, wordTimings: timings } : result);
-    this.save(run);
+    this.runs.save(run);
     await this.projectWork.run(run.projectId, async () => {
       const current = await this.activities.getActivity(run.projectId, run.activityId);
       if (current.draft.contentRevision !== run.inputRevision)
@@ -1745,10 +1674,10 @@ export class ActivityGenerationService implements ActivityGeneration {
     target?: { video?: VideoTarget },
   ): Promise<ActivityRun> {
     return this.track(
-      this.locks.run(activityId, async () => {
+      this.lock.run(activityId, async () => {
         if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
         const activity = await this.activities.getActivity(projectId, activityId);
-        if (this.running().some((run) => run.activityId === activityId))
+        if (this.runs.hasActive(activityId))
           throw new HttpError(
             409,
             "generation_running",
@@ -1771,20 +1700,7 @@ export class ActivityGenerationService implements ActivityGeneration {
           error: null,
           candidate: null,
         };
-        const { candidate: _candidate, kind: _kind, ...metadata } = run;
-        this.db
-          .prepare(
-            "INSERT INTO activity_runs (run_id, project_id, activity_id, status, created_at, kind, record_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
-          )
-          .run(
-            run.runId,
-            projectId,
-            activityId,
-            run.status,
-            run.createdAt,
-            run.kind,
-            JSON.stringify({ ...metadata, hasCandidate: false }),
-          );
+        this.runs.open(run);
         await fs.mkdir(this.workspace(run), { recursive: true });
         return run;
       }),
@@ -1802,7 +1718,7 @@ export class ActivityGenerationService implements ActivityGeneration {
     videoCheck?: VideoCheck,
   ): Promise<boolean> {
     return this.track(
-      this.locks.run(activityId, async () => {
+      this.lock.run(activityId, async () => {
         if (this.stopped) return false;
         const run = await this.getRun(projectId, activityId, runId);
         if (run.status !== "running" || run.sessionId) return false;
@@ -1824,12 +1740,7 @@ export class ActivityGenerationService implements ActivityGeneration {
   }
 
   async isRunning(projectId: string, activityId: string, runId: string): Promise<boolean> {
-    const row = this.db
-      .prepare(
-        "SELECT status FROM activity_runs WHERE project_id = ? AND activity_id = ? AND run_id = ?",
-      )
-      .get(projectId, activityId, runId) as { status: string } | undefined;
-    return row?.status === "running";
+    return this.runs.get(projectId, activityId, runId)?.status === "running";
   }
 
   async latestRun(
@@ -1839,29 +1750,12 @@ export class ActivityGenerationService implements ActivityGeneration {
     status: ActivityRun["status"],
   ): Promise<ActivityRunSummary | null> {
     await this.activities.getActivity(projectId, activityId);
-    const row = this.db
-      .prepare(
-        "SELECT kind, record_json FROM activity_runs WHERE project_id = ? AND activity_id = ? AND kind = ? AND status = ? ORDER BY created_at DESC, run_id DESC LIMIT 1",
-      )
-      .get(projectId, activityId, kind, status) as
-      { kind: ActivityRun["kind"]; record_json: string } | undefined;
-    if (!row) return null;
-    const metadata = JSON.parse(row.record_json) as ActivityRunSummary;
-    return { ...metadata, kind: row.kind };
+    return this.runs.summaries(projectId, activityId, { kind, status, limit: 1 })[0] ?? null;
   }
 
   async moduleBuilds(projectId: string, activityId: string): Promise<ActivityRunSummary[]> {
     await this.activities.getActivity(projectId, activityId);
-    return (
-      this.db
-        .prepare(
-          "SELECT kind, record_json FROM activity_runs WHERE project_id = ? AND activity_id = ? AND kind = 'module' AND status = 'succeeded' ORDER BY created_at DESC, run_id DESC",
-        )
-        .all(projectId, activityId) as { kind: ActivityRun["kind"]; record_json: string }[]
-    ).map((row) => {
-      const metadata = JSON.parse(row.record_json) as ActivityRunSummary;
-      return { ...metadata, kind: row.kind };
-    });
+    return this.runs.summaries(projectId, activityId, { kind: "module", status: "succeeded" });
   }
 
   async audioContent(projectId: string, activityId: string, runId: string): Promise<Uint8Array> {
@@ -1900,7 +1794,7 @@ export class ActivityGenerationService implements ActivityGeneration {
   acceptImage(projectId: string, activityId: string, runId: string, expectedRevision: string) {
     return this.track(
       this.projectWork.run(projectId, () =>
-        this.locks.run(activityId, async () => {
+        this.lock.run(activityId, async () => {
           if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
           const run = await this.getRun(projectId, activityId, runId);
           if (run.kind !== "image" || run.status !== "succeeded" || !run.image || !run.candidate)
@@ -2043,7 +1937,7 @@ export class ActivityGenerationService implements ActivityGeneration {
   acceptVideo(projectId: string, activityId: string, runId: string, expectedRevision: string) {
     return this.track(
       this.projectWork.run(projectId, () =>
-        this.locks.run(activityId, async () => {
+        this.lock.run(activityId, async () => {
           if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
           if (!this.videoExperiment()) throw experimentOff();
           const run = await this.getRun(projectId, activityId, runId);
@@ -2076,7 +1970,7 @@ export class ActivityGenerationService implements ActivityGeneration {
   acceptMediaText(projectId: string, activityId: string, runId: string, expectedRevision: string) {
     return this.track(
       this.projectWork.run(projectId, () =>
-        this.locks.run(activityId, async () => {
+        this.lock.run(activityId, async () => {
           if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
           const run = await this.getRun(projectId, activityId, runId);
           if (
@@ -2125,7 +2019,7 @@ export class ActivityGenerationService implements ActivityGeneration {
   acceptAssessment(projectId: string, activityId: string, runId: string, expectedRevision: string) {
     return this.track(
       this.projectWork.run(projectId, () =>
-        this.locks.run(activityId, async () => {
+        this.lock.run(activityId, async () => {
           if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
           const run = await this.getRun(projectId, activityId, runId);
           if (run.kind !== "assessment" || run.status !== "succeeded" || !run.candidate)
@@ -2159,7 +2053,7 @@ export class ActivityGenerationService implements ActivityGeneration {
   acceptPhonemes(projectId: string, activityId: string, runId: string, expectedRevision: string) {
     return this.track(
       this.projectWork.run(projectId, () =>
-        this.locks.run(activityId, async () => {
+        this.lock.run(activityId, async () => {
           if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
           const run = await this.getRun(projectId, activityId, runId);
           if (run.kind !== "phonemes" || run.status !== "succeeded" || !run.candidate)
@@ -2188,7 +2082,7 @@ export class ActivityGenerationService implements ActivityGeneration {
   acceptAudio(projectId: string, activityId: string, runId: string, expectedRevision: string) {
     return this.track(
       this.projectWork.run(projectId, () =>
-        this.locks.run(activityId, async () => {
+        this.lock.run(activityId, async () => {
           if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
           const run = await this.getRun(projectId, activityId, runId);
           if (run.kind !== "audio" || run.status !== "succeeded" || !run.audio || !run.candidate)
@@ -2528,7 +2422,7 @@ export class ActivityGenerationService implements ActivityGeneration {
 
   private async collect(): Promise<void> {
     if (this.stopped) return;
-    const active = this.running();
+    const active = this.runs.running();
     const liveIds = new Set(active.map((run) => run.runId));
     for (const [runId, observer] of this.observers) {
       if (!liveIds.has(runId)) {
@@ -2537,9 +2431,9 @@ export class ActivityGenerationService implements ActivityGeneration {
       }
     }
     for (const initial of active) {
-      await this.locks.run(initial.activityId, async () => {
+      await this.lock.run(initial.activityId, async () => {
         if (this.stopped) return;
-        const run = this.running().find((item) => item.runId === initial.runId);
+        const run = this.runs.running().find((item) => item.runId === initial.runId);
         if (
           !run ||
           !run.sessionId ||
@@ -2588,7 +2482,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                   bytes,
                 );
                 run.candidate = JSON.stringify(result);
-                this.save(run);
+                this.runs.save(run);
                 if (this.stopped) return;
                 await this.projectWork.run(run.projectId, async () => {
                   const current = await this.activities.getActivity(run.projectId, run.activityId);
@@ -2619,7 +2513,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                   type: run.mediaText.type,
                   text,
                 });
-                this.save(run);
+                this.runs.save(run);
                 if (this.stopped) return;
                 await this.projectWork.run(run.projectId, async () => {
                   const current = await this.activities.getActivity(run.projectId, run.activityId);
@@ -2643,7 +2537,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                   run.phonemes,
                 );
                 run.candidate = JSON.stringify(candidate);
-                this.save(run);
+                this.runs.save(run);
                 if (this.stopped) return;
                 await this.projectWork.run(run.projectId, async () => {
                   const current = await this.activities.getActivity(run.projectId, run.activityId);
@@ -2664,7 +2558,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                 if (!run.composition) throw new Error("The composition run has no scene recorded.");
                 const candidate = await collectComposition(this.workspace(run), run.composition);
                 run.candidate = JSON.stringify(candidate);
-                this.save(run);
+                this.runs.save(run);
                 if (this.stopped) return;
                 await this.projectWork.run(run.projectId, async () => {
                   const current = await this.activities.getActivity(run.projectId, run.activityId);
@@ -2686,7 +2580,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                 const critiqued = await collectCritique(this.workspace(run), run.critique);
                 run.candidate = JSON.stringify(critiqued);
                 run.critique = { ...run.critique, score: critiqued.score };
-                this.save(run);
+                this.runs.save(run);
                 if (this.stopped) return;
                 this.finish(run, "succeeded");
                 return;
@@ -2698,7 +2592,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                 if (!run.timelineEdit) throw new Error("The timeline run has no video recorded.");
                 const timeline = await collectTimelineEdit(this.workspace(run), run.timelineEdit);
                 run.candidate = JSON.stringify(timeline);
-                this.save(run);
+                this.runs.save(run);
                 if (this.stopped) return;
                 await this.projectWork.run(run.projectId, async () => {
                   const current = await this.activities.getActivity(run.projectId, run.activityId);
@@ -2767,7 +2661,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                 const missing = coverageProblem(writtenItems(data), hints);
                 if (missing) throw new Error(missing);
                 run.candidate = JSON.stringify(data);
-                this.save(run);
+                this.runs.save(run);
                 if (this.stopped) return;
                 await this.projectWork.run(run.projectId, async () => {
                   const current = await this.activities.getActivity(run.projectId, run.activityId);
@@ -2782,7 +2676,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                 return;
               }
               run.candidate = await readCandidate(file);
-              this.save(run);
+              this.runs.save(run);
               if (this.stopped) return;
               const observer = this.observers.get(run.runId);
               if (!observer?.completed)
@@ -2815,7 +2709,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                 const unchecked = await playerCheckGap(this.workspace(run));
                 if (unchecked) run.unchecked = unchecked;
                 run.candidate = JSON.stringify(result);
-                this.save(run);
+                this.runs.save(run);
                 if (this.stopped) return;
                 await this.projectWork.run(run.projectId, async () => {
                   if (input.draft.contentRevision === run.inputRevision)

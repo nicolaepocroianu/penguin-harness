@@ -20,6 +20,7 @@ import path from "node:path";
 import { Component, Interface, Use, type Opaque } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
+import type { ActivityRuns } from "./run-store.js";
 import type { Config } from "../hmr/capabilities.js";
 import type { ActivityDraft, ActivityRecord, ModuleDocumentKind } from "./domain.js";
 import { playingBuild } from "./module-builds.js";
@@ -269,6 +270,7 @@ const RECORDING_PATH = /^generated\/run_[a-f0-9]{32}\.(?:mp4|webm)$/;
 export class ActivitySandboxService implements ActivitySandbox {
   @Use() private readonly activities!: ActivityAuthoring;
   @Use() private readonly generation!: ActivityGeneration;
+  @Use() private readonly runs!: ActivityRuns;
   @Use() private readonly config!: Config;
 
   @Use() private readonly wafWorkspace!: WafWorkspace;
@@ -322,9 +324,7 @@ export class ActivitySandboxService implements ActivitySandbox {
       await this.generation.moduleBuilds(projectId, activityId),
       pinnedRunId,
     );
-    return built
-      ? sandboxModuleRoot(path.join(this.config.root, "activity-runs", built.runId))
-      : null;
+    return built ? sandboxModuleRoot(this.runs.workspace(built.runId)) : null;
   }
 
   /**
@@ -375,7 +375,7 @@ export class ActivitySandboxService implements ActivitySandbox {
     if (run.status !== "running" && run.status !== "succeeded") return null;
     return {
       kind: "run",
-      root: sandboxModuleRoot(path.join(this.config.root, "activity-runs", run.runId)),
+      root: sandboxModuleRoot(this.runs.workspace(run.runId)),
     };
   }
 

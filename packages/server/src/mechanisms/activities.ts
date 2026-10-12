@@ -122,7 +122,7 @@ export abstract class ActivityGeneration extends Interface<{
   /**
    * Records a run the server does itself, with no Session or agent (a quality check), under
    * the same one-run-per-activity rule as every other run. The caller does the work in the
-   * run's workspace (`activity-runs/<runId>`) and then settles it.
+   * run's workspace (`ActivityRuns.workspace`) and then settles it.
    */
   openDeterministic(
     projectId: string,

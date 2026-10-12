@@ -23,6 +23,7 @@ import { HttpError } from "../http/errors.js";
 import type { Config, Db } from "../hmr/capabilities.js";
 import type { Settings } from "../mechanisms/settings.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
+import type { ActivityRuns } from "./run-store.js";
 import { writeSecretFile } from "../secret-file.js";
 import { sandboxModuleRoot, withinRoot } from "./sandbox-paths.js";
 import { exportRevision, manifestAssetList, type ExportRef } from "./deploy-export.js";
@@ -184,6 +185,7 @@ export class ActivityDeployService implements ActivityDeploys {
   @Use() private readonly serverSettings!: Settings;
   @Use() private readonly activities!: ActivityAuthoring;
   @Use() private readonly generation!: ActivityGeneration;
+  @Use() private readonly runs!: ActivityRuns;
   @Use() private readonly ports!: DeployPorts;
   @Use() private readonly db!: Db;
   @Use() private readonly events!: ActivityDeployEvents;
@@ -492,14 +494,11 @@ export class ActivityDeployService implements ActivityDeploys {
       );
     if (prod) return this.startProd(projectId, activityId, input.stage, facts);
     const product = facts.product;
-    const home = this.config.root;
     const folder = product.moduleFolder;
     const moduleRun = await this.generation
       .latestRun(projectId, activityId, "module", "succeeded")
       .catch(() => null);
-    const source = moduleRun
-      ? sandboxModuleRoot(path.join(home, "activity-runs", moduleRun.runId))
-      : null;
+    const source = moduleRun ? sandboxModuleRoot(this.runs.workspace(moduleRun.runId)) : null;
     const sourceReady = source !== null && (await exists(path.join(source, "package.json")));
     const contentHash = sourceReady ? await moduleContentHash(source) : null;
     const stages =

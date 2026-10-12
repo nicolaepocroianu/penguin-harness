@@ -17,6 +17,7 @@ import type { RuntimeSession } from "../src/runtime/session-manager.js";
 import type { SessionRow } from "../src/db/repos/sessions.js";
 import { apiClient, createTestApp, provisionUser, waitFor } from "./helpers.js";
 import { activitySpec } from "./activity-fixtures.js";
+import type { ActivityRuns } from "../src/activities/run-store.js";
 
 // A product code no WAF checkout on the machine has, so the module source is Penguin's own.
 const PRODUCT = "zz-assess-gen";
@@ -244,6 +245,7 @@ describe("assessment generation", () => {
     Object.assign(sandbox, {
       activities: t.deps.tree.api<ActivityAuthoring>("ActivitiesModule", "ActivityAuthoring"),
       generation: t.deps.tree.api<ActivityGeneration>("ActivitiesModule", "ActivityGeneration"),
+      runs: t.deps.tree.api<ActivityRuns>("ActivitiesModule", "ActivityRuns"),
       config: { root: t.root },
       locateWafRoot: async () => null,
     });

@@ -15,6 +15,8 @@ import { SandboxBuilder } from "../src/activities/sandbox-builder.js";
 import { ActivityPlayLinksService } from "../src/activities/play-links.js";
 import { ActivitySandboxService } from "../src/activities/sandbox-service.js";
 import { checkoutOutputRoot, definitionMediaFolders } from "../src/activities/sandbox-source.js";
+import { wire } from "@prismshadow/penguin-core/kernel";
+import { ActivityRunStore } from "../src/activities/run-store.js";
 
 const PROJECT = "proj";
 const ACTIVITY = "act_1";
@@ -95,6 +97,7 @@ async function setup(options: { runs?: boolean; canonical?: boolean } = {}) {
           : [],
     },
     config: { root: penguin },
+    runs: wire(ActivityRunStore, { config: { root: penguin } }),
     locateWafRoot: async () => waf,
   });
   return { service, root, penguin, waf, moduleRoot };

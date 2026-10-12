@@ -13,6 +13,7 @@ import { scaffoldModule } from "../src/activities/waf-module.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../src/mechanisms/activities.js";
 import { activitySpec, refFilesDir } from "./activity-fixtures.js";
 import { apiClient, createTestApp, provisionUser } from "./helpers.js";
+import type { ActivityRuns } from "../src/activities/run-store.js";
 
 // A product code no WAF checkout on the machine has, so the module source is Penguin's own.
 const PRODUCT = "zz-edit-docs";
@@ -271,6 +272,7 @@ describe("module document edits", () => {
     Object.assign(sandbox, {
       activities: t.deps.tree.api<ActivityAuthoring>("ActivitiesModule", "ActivityAuthoring"),
       generation: t.deps.tree.api<ActivityGeneration>("ActivitiesModule", "ActivityGeneration"),
+      runs: t.deps.tree.api<ActivityRuns>("ActivitiesModule", "ActivityRuns"),
       config: { root: t.root },
       locateWafRoot: async () => null,
     });
