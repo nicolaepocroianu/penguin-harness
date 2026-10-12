@@ -205,6 +205,7 @@ export function ScriptEditor({
   acceptBlocked,
   reveal = null,
   review: reviewRequest = null,
+  compare = null,
   media = null,
   onChange,
   onSave,
@@ -232,6 +233,8 @@ export function ScriptEditor({
   reveal?: { scene: number; at: number } | null;
   /** Open the proposal for review, at a scene when one is given; `at` repeats a request. */
   review?: { scene?: number; at: number } | null;
+  /** Compare the script with the saved one; `at` repeats a request. */
+  compare?: { at: number } | null;
   /** What the media plan says about the script's elements and scenes. */
   media?: ScriptMedia | null;
   onChange: (value: string) => void;
@@ -479,6 +482,10 @@ export function ScriptEditor({
     // Only a new request moves the review; the base changing under it does not.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewRequest]);
+
+  useEffect(() => {
+    if (compare) setChoice("saved");
+  }, [compare]);
 
   function goTo(line: number) {
     const view = viewRef.current;

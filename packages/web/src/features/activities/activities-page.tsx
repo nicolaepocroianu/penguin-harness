@@ -96,6 +96,7 @@ import { activityApi, projectActivitiesApi, type RunStart } from "./activity-api
 import { ActivityClientContext, runStarted, summarize } from "./activity-client";
 import { ResourceCache } from "./resource-cache";
 import { useResource } from "./use-resource";
+import { ConflictNotice } from "./conflict-notice";
 import { pretty, type DraftBlock } from "./studio-draft";
 import { useStudioDraft } from "./use-studio-draft";
 import { ActivityList } from "./activity-list";
@@ -488,6 +489,8 @@ function ActivityEditor({
   const [revealScene, setRevealScene] = useState<{ scene: number; at: number } | null>(null);
   /** A request to review the agent's proposed script, from the header or the chat. */
   const [reviewRequest, setReviewRequest] = useState<{ scene?: number; at: number } | null>(null);
+  /** A request to compare the script with the saved one, from the conflict notice. */
+  const [compareScript, setCompareScript] = useState<{ at: number } | null>(null);
   /** Where the script editor's review of a proposal stands, for the chat to say. */
   const [scriptReview, setScriptReview] = useState<ScriptReview | null>(null);
   /** A review of the proposed script set aside, kept while the author is elsewhere. */
@@ -1421,9 +1424,17 @@ function ActivityEditor({
               </p>
             )}
             {changed && (
-              <p role="status" className={`rounded-md border p-3 text-xs ${toneStrip.attention}`}>
-                {S.activities.remoteChanged}
-              </p>
+              <ConflictNotice
+                conflicts={draft.state.conflicts}
+                saved={detail.draft}
+                timelines={draft.state.timelines}
+                editable={editable && available}
+                onResolve={(fields, choice) => draft.resolve(fields, choice)}
+                onCompareScript={() => {
+                  setSection("description");
+                  setCompareScript({ at: Date.now() });
+                }}
+              />
             )}
           </>
         }
@@ -1618,6 +1629,7 @@ function ActivityEditor({
               acceptBlocked={dirty ? S.activities.studioProposal.saveFirst : null}
               reveal={revealScene}
               review={reviewRequest}
+              compare={compareScript}
               media={scriptMedia}
               onOpenClip={openClip}
               onReview={setScriptReview}

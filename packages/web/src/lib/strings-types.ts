@@ -1949,7 +1949,29 @@ export type Strings = {
     discardRefPlan: string;
     discardTitle: string;
     discardConfirm: string;
-    remoteChanged: string;
+    /** A field the author was editing changed in the saved draft; `parts` names them. */
+    remoteChanged: (parts: string) => string;
+    /** The ways out of a conflict, per thing in conflict. */
+    conflict: {
+      keepMine: string;
+      takeTheirs: string;
+      /** The buttons' accessible names, with the part they act on. */
+      keepMineFor: (part: string) => string;
+      takeTheirsFor: (part: string) => string;
+      compareScript: string;
+      /** Both versions of a timeline, by how long each plays, in seconds. */
+      timelineVersions: (saved: string, mine: string) => string;
+    };
+    /** The parts `remoteChanged` names. */
+    conflictParts: {
+      script: string;
+      spec: string;
+      media: string;
+      asset: (key: string) => string;
+      timeline: (key: string) => string;
+      /** Joins the parts: all but the last, then the last. */
+      and: (list: string, last: string) => string;
+    };
     saveFirst: string;
     readOnly: string;
     runningHelp: string;

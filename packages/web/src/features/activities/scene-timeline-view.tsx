@@ -43,6 +43,14 @@ type Asset = AssetManifest["assets"][string][number];
 
 const words = S.activities.video.timeline;
 
+/** The timeline edits the draft holds, by language and asset, and how they are saved. */
+export interface TimelineEdits {
+  edit: (language: string, assetKey: string) => VideoTimeline | null;
+  change: (language: string, assetKey: string, timeline: VideoTimeline) => void;
+  drop: (language: string, assetKey: string) => void;
+  save: (language: string, assetKey: string, timeline: VideoTimeline | null) => Promise<boolean>;
+}
+
 export function SceneTimelineView({
   asset,
   group,
@@ -54,6 +62,9 @@ export function SceneTimelineView({
   rendering,
   refinements,
   canRefine = false,
+  edit,
+  onEdit,
+  onDrop,
   onSave,
   onRender,
   onRefine,
@@ -74,21 +85,29 @@ export function SceneTimelineView({
   refinements: readonly ActivityRunSummary[];
   /** Whether an agent may be asked now (one is chosen and nothing else runs). */
   canRefine?: boolean;
-  /** Save the timeline on the video, or with null drop it. */
-  onSave: (timeline: VideoTimeline | null) => Promise<void>;
+  /** The author's edit of the timeline, which the draft holds until it is saved; null for none. */
+  edit: VideoTimeline | null;
+  onEdit: (timeline: VideoTimeline) => void;
+  /** Drop the edit: the editor closed, and the author agreed to lose it. */
+  onDrop: () => void;
+  /** Save the timeline on the video, or with null drop it; settles true once saved. */
+  onSave: (timeline: VideoTimeline | null) => Promise<boolean>;
   onRender: () => void;
   /** Ask an agent to refine the timeline; absent where it cannot be offered. */
   onRefine?: () => void;
 }) {
   const { api } = useActivityClient();
   const [view, setView] = useState<VideoTimelineView | null>(null);
-  const [edited, setEdited] = useState<VideoTimeline | null>(null);
-  // Edits are this editor's own until saved, for this asset in this language: leaving the
-  // scenes, or showing another asset or language, asks before throwing them away.
+  // The draft holds the edit, so a newer saved draft no longer takes it away; it is still
+  // this editor's own: leaving the scenes, or showing another asset or language, asks before
+  // throwing it away, and closing the editor drops it.
   useHeldWork(
     { label: "scene timeline", section: "scenes", asset: { key: asset.key, language } },
-    edited !== null,
+    edit !== null,
   );
+  const drop = useRef(onDrop);
+  drop.current = onDrop;
+  useEffect(() => () => drop.current(), [language, asset.key]);
   // Time fields whose text does not read as seconds: what they show is not what would be saved.
   const [invalid, setInvalid] = useState<ReadonlySet<string>>(new Set());
   const validity = (key: string) => (valid: boolean) =>
@@ -109,9 +128,7 @@ export function SceneTimelineView({
     api
       .videoTimeline(language, asset.key)
       .then((next) => {
-        if (!live) return;
-        setView(next);
-        setEdited(null);
+        if (live) setView(next);
       })
       .catch((error: unknown) => {
         if (live) setFailure(words.loadFailed((error as Error).message));
@@ -132,7 +149,7 @@ export function SceneTimelineView({
     try {
       const { candidate } = await api.runs.candidate(runId);
       if (!candidate) return;
-      setEdited(JSON.parse(candidate) as VideoTimeline);
+      onEdit(JSON.parse(candidate) as VideoTimeline);
       setLoaded(runId);
     } catch (error) {
       setFailure(words.loadFailed((error as Error).message));
@@ -140,9 +157,9 @@ export function SceneTimelineView({
   };
   if (failure) return <p className={`text-xs ${toneInk.danger}`}>{failure}</p>;
   if (!view) return null;
-  const timeline = edited ?? view.timeline;
-  const dirty = edited !== null;
-  const change = (next: VideoTimeline) => setEdited(next);
+  const timeline = edit ?? view.timeline;
+  const dirty = edit !== null;
+  const change = onEdit;
   const locked = !editable || saving;
   const blocked = view.issues.some(blocksRender);
   const mistyped = invalid.size > 0;
