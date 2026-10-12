@@ -1,6 +1,5 @@
 import { useState } from "react";
-import type { ActivityDetail } from "@prismshadow/penguin-server/api";
-import { ApiError, apiFetch } from "../../api/client";
+import { ApiError } from "../../api/client";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
@@ -8,6 +7,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Modal } from "../../components/ui/modal";
 import { Select } from "../../components/ui/select";
+import { projectActivitiesApi } from "./activity-api";
 
 /** Loom-style create dialog: the fields an activity starts with, nothing more. */
 export function CreateActivityDialog({
@@ -31,19 +31,13 @@ export function CreateActivityDialog({
     setCreating(true);
     setError("");
     try {
-      const result = await apiFetch<ActivityDetail>(
-        `/api/projects/${encodeURIComponent(projectId)}/activities`,
-        {
-          method: "POST",
-          body: {
-            productCode,
-            refNum: Number(refNum),
-            title,
-            activityType,
-            ...(activityType === "book" ? { bookMode } : {}),
-          },
-        },
-      );
+      const result = await projectActivitiesApi(projectId).create({
+        productCode,
+        refNum: Number(refNum),
+        title,
+        activityType,
+        ...(activityType === "book" ? { bookMode } : {}),
+      });
       setProductCode("");
       setRefNum("");
       setTitle("");

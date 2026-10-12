@@ -8,25 +8,43 @@
 import type {
   ActivityDetail,
   ActivityDraft,
+  ActivityRecord,
   ActivityRun,
   ActivityRunSummary,
+  ActivitySummary,
   AssetManifest,
   BookWordsRefresh,
   BookWordsState,
+  ClaimModuleProductResponse,
   DeployContextResponse,
+  DeployLogResponse,
+  DeployRunResponse,
   DeployStateResponse,
   ElevenLabsVoices,
+  ImplementationFeature,
   MediaStat,
+  ModuleBuildDiff,
+  ModuleBuildList,
+  ModuleDocuments,
+  ModuleProductsResponse,
   PipelineState,
+  ProjectMediaListing,
+  RefNumberSuggestion,
   SandboxBuildReport,
   SandboxStatus,
+  SceneLookSummary,
   SoundSetup,
   SpeechSetup,
   UploadedMedia,
+  VersionDiff,
+  VersionSaveResult,
+  VersionSummary,
   VideoSetup,
   VideoTimeline,
+  VideoTimelineView,
 } from "@prismshadow/penguin-server/api";
 import { apiFetch, type ApiFetchOptions } from "../../api/client";
+import type { ModuleDocumentKind } from "./module-document";
 import type { AssistProposal } from "./proposal";
 import type { Resource } from "./resource-cache";
 
@@ -62,8 +80,11 @@ export type RunAccept =
 const activitiesPath = (projectId: string) =>
   `/api/projects/${encodeURIComponent(projectId)}/activities`;
 
-/** The project's activity setup: what languages, voices and providers its activities can use. */
-export function activitySetupApi(projectId: string, send: ApiSend = apiFetch) {
+/**
+ * The project's activities as a whole: the list, making one, the module products, the media
+ * library, and the setup every activity uses (languages, voices, providers, scene looks).
+ */
+export function projectActivitiesApi(projectId: string, send: ApiSend = apiFetch) {
   const base = activitiesPath(projectId);
   const resource = <T>(path: string): Resource<T> => ({
     key: `${base}/${path}`,
@@ -80,7 +101,32 @@ export function activitySetupApi(projectId: string, send: ApiSend = apiFetch) {
     /** The ElevenLabs library; `refresh` skips the server's ten-minute list. */
     elevenLabsVoices: (refresh: boolean) =>
       send<ElevenLabsVoices>(`${base}/elevenlabs-voices${refresh ? "?refresh=1" : ""}`),
+    sceneLooks: () => send<{ looks: SceneLookSummary[] }>(`${base}/scene-looks`),
+    /** The activities; `summaries` adds each one's card summary, which fans out over them all. */
+    list: (summaries: boolean) =>
+      send<{ activities: ActivityRecord[]; summaries?: Record<string, ActivitySummary> }>(
+        summaries ? `${base}?summary=1` : base,
+      ),
+    /** The refs of one product, by its collection. */
+    refs: (collectionId: string) =>
+      send<{ activities: ActivityRecord[] }>(`${base}?${new URLSearchParams({ collectionId })}`),
+    create: (body: Record<string, unknown>) => send<ActivityDetail>(base, { method: "POST", body }),
+    moduleProducts: () => send<ModuleProductsResponse>(`${base}/module-products`),
+    claimModuleProduct: (body: { moduleFolder: string; productCode: string }) =>
+      send<ClaimModuleProductResponse>(`${base}/module-products/claim`, { method: "POST", body }),
+    /** The project's media, by activity. */
+    mediaLibrary: () => send<ProjectMediaListing>(`${base}/media-library`),
+    /** Another activity of the project: a ref just made from this one, say. */
+    activity: (activityId: string) => activityApi(projectId, activityId, send),
   };
+}
+
+export type ProjectActivitiesApi = ReturnType<typeof projectActivitiesApi>;
+
+/** The implementation features an activity can ask for, and which it does. */
+export interface ImplementationFeatures {
+  features: ImplementationFeature[];
+  selectedIds: string[];
 }
 
 /** One activity's routes. */
@@ -145,6 +191,63 @@ export function activityApi(projectId: string, activityId: string, send: ApiSend
         }),
     },
     bookWords: () => get<BookWordsState>("book-words"),
+    /** A video's timeline as the studio reads it. */
+    videoTimeline: (language: string, assetKey: string) =>
+      get<VideoTimelineView>(
+        `video-timeline?language=${encodeURIComponent(language)}&assetKey=${encodeURIComponent(assetKey)}`,
+      ),
+    ref: {
+      /** Whether this ref is the product's canonical one, and the number a new ref would take. */
+      nextNumber: () => get<RefNumberSuggestion>("refs/next-number"),
+      renumber: (refNum: number, expectedRevision: string) =>
+        call<ActivityDetail>("POST", "ref-number", { refNum, expectedRevision }),
+      identity: (body: { displayName?: string; stable?: boolean }) =>
+        call<ActivityRecord>("PATCH", "identity", body),
+      tags: (tags: string[]) => call<{ tags: string[] }>("PUT", "tags", { tags }),
+      /** A new ref of this product, made from this one. */
+      create: (body: Record<string, unknown>) => call<ActivityDetail>("POST", "refs", body),
+      remove: () => send<unknown>(endpoint, { method: "DELETE" }),
+    },
+    versions: {
+      status: () => get<unknown>("versions/status"),
+      list: () => get<{ versions?: VersionSummary[] }>("versions"),
+      diff: (versionId: string) =>
+        get<VersionDiff>(`versions/${encodeURIComponent(versionId)}/diff?against=current`),
+      restore: (versionId: string, expectedRevision: string) =>
+        call<ActivityDraft>("POST", `versions/${encodeURIComponent(versionId)}/restore`, {
+          expectedRevision,
+        }),
+      /** Save the draft as a version; a null label leaves it unnamed. */
+      save: (label: string | null) => call<VersionSaveResult>("POST", "versions", { label }),
+    },
+    moduleDocuments: {
+      read: () => get<ModuleDocuments>("module-documents"),
+      save: (kind: ModuleDocumentKind, value: unknown, expectedRevision: string) =>
+        call<ActivityDraft>("PUT", `module-documents/${kind}`, { value, expectedRevision }),
+      discard: (kind: ModuleDocumentKind, expectedRevision: string) =>
+        call<ActivityDraft>("POST", `module-documents/${kind}/discard`, { expectedRevision }),
+    },
+    moduleBuilds: {
+      list: () => get<Partial<ModuleBuildList>>("module-builds"),
+      diff: (from: string, to: string) =>
+        get<ModuleBuildDiff>(
+          `module-builds/diff?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+        ),
+      /** Play `runId`'s build in place of the newest; null plays the newest again. */
+      pin: (runId: string | null, expectedRevision: string) =>
+        call<ActivityDraft>(
+          "POST",
+          runId === null ? "module-builds/unpin" : `module-builds/${encodeURIComponent(runId)}/pin`,
+          { expectedRevision },
+        ),
+    },
+    implementationFeatures: {
+      read: resource("implementation-features", () =>
+        get<ImplementationFeatures>("implementation-features"),
+      ),
+      save: (selectedIds: string[]) =>
+        call<ImplementationFeatures>("PUT", "implementation-features", { selectedIds }),
+    },
     tests: {
       /** The latest test report, read raw; `readTestState` reads it. */
       report: resource("test-report", () => get<unknown>("test-report")),
@@ -161,10 +264,17 @@ export function activityApi(projectId: string, activityId: string, send: ApiSend
         get<DeployContextResponse>(`deploy/context${checkRemote ? "?checkRemote=1" : ""}`),
       prepareClones: () =>
         send<DeployContextResponse>(`${endpoint}/deploy/clones`, { method: "POST" }),
+      start: (body: Record<string, unknown>) => call<DeployRunResponse>("POST", "deploy", body),
+      stop: () => send<DeployRunResponse>(`${endpoint}/deploy/stop`, { method: "POST" }),
+      /** A deploy run's log from `after` on. */
+      log: (runId: string, after: number) =>
+        get<DeployLogResponse>(`deploy/runs/${runId}/log?after=${after}`),
     },
     sandbox: {
       status: () => get<SandboxStatus>("sandbox/status"),
       build: (force: boolean) => call<SandboxBuildReport>("POST", "sandbox/build", { force }),
+      /** The sandbox's payload; `query` is the search string, "" or starting with "?". */
+      payload: (query: string) => get<{ configuration: unknown }>(`sandbox/payload${query}`),
     },
     pipeline: {
       current: () => get<{ pipeline: PipelineState | null }>("pipeline"),
@@ -178,6 +288,9 @@ export function activityApi(projectId: string, activityId: string, send: ApiSend
         call<UploadedMedia>("POST", "media-uploads", body),
       /** The saved draft's media stats, for a bound clip's file details. */
       stats: resource("media-stats", () => get<{ media: MediaStat[] }>("media-stats")),
+      /** Copy a file another activity of the project uploaded into this one's uploads. */
+      copy: (body: { fromActivityId: string; path: string }) =>
+        call<UploadedMedia>("POST", "media-uploads/copy", body),
     },
   };
 }

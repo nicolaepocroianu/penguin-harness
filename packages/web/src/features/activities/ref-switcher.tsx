@@ -10,7 +10,7 @@
 import { useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router";
 import type { ActivityDetail, ActivityRecord } from "@prismshadow/penguin-server/api";
-import { ApiError, apiFetch } from "../../api/client";
+import { ApiError } from "../../api/client";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
@@ -27,6 +27,7 @@ import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { normalizeTagInput } from "./activity-tags";
 import { checkRefNumber } from "./ref-number";
+import { useActivityClient } from "./activity-client";
 
 /** Whether two tag lists hold the same tags in the same order. */
 const sameTags = (left: readonly string[], right: readonly string[]) =>
@@ -61,7 +62,6 @@ function renumberErrorText(cause: unknown): string {
 }
 
 export function RefSwitcher({
-  base,
   activity,
   editable,
   revision,
@@ -71,8 +71,6 @@ export function RefSwitcher({
   onNewRef,
   onReload,
 }: {
-  /** The project's activities API path. */
-  base: string;
   activity: ActivityRecord;
   editable: boolean;
   /** The saved draft's revision; a renumber is refused if the draft moved past it. */
@@ -88,6 +86,7 @@ export function RefSwitcher({
   /** Load the saved draft again; absent while it cannot be. The caller confirms a discard. */
   onReload?: () => void;
 }) {
+  const { api, project } = useActivityClient();
   const words = S.activities.studioRefs;
   const tagWords = S.activities.tags;
   const deleteWords = S.activities.deleteActivity;
@@ -115,7 +114,8 @@ export function RefSwitcher({
   useEffect(() => {
     if (!editable) return;
     let cancelled = false;
-    apiFetch<{ canonical?: unknown }>(`${base}/${encodeURIComponent(activity.id)}/refs/next-number`)
+    api.ref
+      .nextNumber()
       .then((value) => {
         if (!cancelled) setCanonical(value?.canonical === true);
       })
@@ -125,13 +125,12 @@ export function RefSwitcher({
     return () => {
       cancelled = true;
     };
-  }, [base, activity.id, activity.refNum, editable]);
+  }, [api, activity.refNum, editable]);
 
   useEffect(() => {
     let cancelled = false;
-    apiFetch<{ activities: ActivityRecord[] }>(
-      `${base}?${new URLSearchParams({ collectionId: activity.collectionId })}`,
-    )
+    project
+      .refs(activity.collectionId)
       .then((value) => {
         if (cancelled) return;
         setRefs(
@@ -147,7 +146,7 @@ export function RefSwitcher({
       cancelled = true;
     };
   }, [
-    base,
+    project,
     activity.collectionId,
     activity.productCode,
     activity.displayName,
@@ -184,17 +183,10 @@ export function RefSwitcher({
     setSaving(true);
     setError(null);
     try {
-      const path = `${base}/${encodeURIComponent(activity.id)}`;
-      const record = await apiFetch<ActivityRecord>(`${path}/identity`, {
-        method: "PATCH",
-        body: { displayName: name, stable },
-      });
+      const record = await api.ref.identity({ displayName: name, stable });
       onIdentity(record);
       if (!sameTags(nextTags, activity.tags ?? [])) {
-        const saved = await apiFetch<{ tags: string[] }>(`${path}/tags`, {
-          method: "PUT",
-          body: { tags: nextTags },
-        });
+        const saved = await api.ref.tags(nextTags);
         onIdentity({ ...record, tags: saved.tags });
       }
       setTagText("");
@@ -222,10 +214,7 @@ export function RefSwitcher({
     setNumberBusy(true);
     setNumberError(null);
     try {
-      const detail = await apiFetch<ActivityDetail>(
-        `${base}/${encodeURIComponent(activity.id)}/ref-number`,
-        { method: "POST", body: { refNum: check.refNum, expectedRevision: revision } },
-      );
+      const detail = await api.ref.renumber(check.refNum, revision);
       setRenumbering(false);
       onRenumbered(detail, from);
     } catch (cause) {
@@ -239,7 +228,7 @@ export function RefSwitcher({
     setDeleting(true);
     setDeleteError(null);
     try {
-      await apiFetch(`${base}/${encodeURIComponent(activity.id)}`, { method: "DELETE" });
+      await api.ref.remove();
       setConfirmDelete(false);
       onDeleted();
     } catch (cause) {

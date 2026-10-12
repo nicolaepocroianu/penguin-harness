@@ -2259,6 +2259,8 @@ export const en: Strings = {
     unsaved: "Unsaved changes",
     discard: "Discard your unsaved edits and load another draft?",
     discardSection: "Discard your unsaved edits to this document and open another section?",
+    discardTimeline: "Discard your unsaved edits to this video's timeline?",
+    discardFile: "Discard the new file you have not saved to this asset yet?",
     discardTitle: "Discard unsaved changes?",
     discardConfirm: "Discard",
     remoteChanged:

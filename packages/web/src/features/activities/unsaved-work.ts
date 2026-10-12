@@ -1,20 +1,34 @@
 /**
  * The unsaved work of the activity studio, in one place. An editor holding work the server has
- * not seen says so here, and whatever is about to throw work away (switching section, leaving
- * the activity's route, unloading the page, changing Project, reloading the draft) asks what it
- * would lose first. Plain TS so it runs in node; `unsaved-work-context.tsx` is its React side.
+ * not seen says so here, and whatever is about to throw work away (switching section or the
+ * asset shown in Scenes, leaving the activity's route, unloading the page, changing Project,
+ * reloading the draft) asks what it would lose first. Plain TS so it runs in node; `unsaved-work-context.tsx` is its React side.
  */
 import type { WorkspaceSection } from "./workspace-model";
 
+/** What holds the work; it also says what the dialog that asks about losing it says. */
+export type HeldWorkLabel = "draft" | "module document" | "scene timeline" | "unsaved file";
+
+/** The asset an editor in Scenes shows, by its key and, where that matters, its language. */
+export interface ShownAsset {
+  key: string;
+  language?: string;
+}
+
 /** Work some editor holds unsaved. */
 export interface HeldWork {
-  /** What holds it, as a developer reads it: "draft", "module document", "scene timeline". */
-  label: string;
+  label: HeldWorkLabel;
   /**
    * The section whose editor holds the work itself, so it goes when that section closes.
    * Absent for work the page holds (the draft's texts), which survives a section switch.
    */
   section?: WorkspaceSection;
+  /**
+   * Work the asset editor in Scenes holds: for one asset, which goes when another is shown
+   * (a language too when the work is that language's), or for whichever asset is shown
+   * ("editor"), which goes only when the editor closes for the storyboard.
+   */
+  asset?: ShownAsset | "editor";
 }
 
 /** Something that would throw unsaved work away. */
@@ -24,7 +38,44 @@ export type Leave =
   /** Leaving the activity: another route, unloading the page, another Project. */
   | { kind: "activity" }
   /** Replacing the draft's texts with the server's: a reload, a candidate specification. */
-  | { kind: "draftText" };
+  | { kind: "draftText" }
+  /** Showing another asset in Scenes, or the storyboard in its place (`to` null). */
+  | { kind: "asset"; to: ShownAsset | null };
+
+/** Which words the dialog asks with, by what a leave would throw away. */
+export type DiscardWording = "draft" | "document" | "timeline" | "file";
+
+/**
+ * What the dialog says before `lost` goes. Leaving the activity, or the draft's texts, keeps
+ * the words it always had; inside the workspace the words name the work at stake.
+ */
+export function discardWording(leave: Leave, lost: readonly HeldWork[]): DiscardWording {
+  if (leave.kind === "activity" || leave.kind === "draftText") return "draft";
+  if (lost.some((work) => work.label === "scene timeline")) return "timeline";
+  if (lost.some((work) => work.label === "unsaved file")) return "file";
+  return "document";
+}
+
+function sameWork(left: HeldWork, right: HeldWork): boolean {
+  const asset = (work: HeldWork) =>
+    work.asset === undefined || work.asset === "editor"
+      ? work.asset
+      : `${work.asset.language ?? ""}/${work.asset.key}`;
+  return (
+    left.label === right.label && left.section === right.section && asset(left) === asset(right)
+  );
+}
+
+/** Whether showing `to` (null: the storyboard) throws `work` away. */
+function goesWith(work: HeldWork, to: ShownAsset | null): boolean {
+  if (work.asset === undefined) return false;
+  if (to === null) return true;
+  if (work.asset === "editor") return false;
+  return (
+    work.asset.key !== to.key ||
+    (work.asset.language !== undefined && work.asset.language !== to.language)
+  );
+}
 
 export class UnsavedWork {
   private readonly works = new Map<number, HeldWork>();
@@ -40,8 +91,7 @@ export class UnsavedWork {
   /** What the holder `id` holds now; null when it holds nothing. */
   set(id: number, work: HeldWork | null): void {
     const before = this.works.get(id);
-    if (work === null ? !before : before?.label === work.label && before.section === work.section)
-      return;
+    if (work === null ? !before : !!before && sameWork(before, work)) return;
     if (work === null) this.works.delete(id);
     else this.works.set(id, work);
     this.changed();
@@ -57,6 +107,7 @@ export class UnsavedWork {
     return this.held().filter((work) => {
       if (leave.kind === "activity") return true;
       if (leave.kind === "draftText") return work.section === undefined;
+      if (leave.kind === "asset") return goesWith(work, leave.to);
       return leave.to !== leave.from && work.section === leave.from;
     });
   }

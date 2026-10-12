@@ -24,7 +24,6 @@ import type {
   UploadedMedia,
   VoiceOption,
 } from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
 import { toastAttention, toastError, toastInfo, toastSuccess } from "../../components/ui/toast";
 import { discoverCodingAgents, listCodingAgents } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
@@ -93,7 +92,7 @@ import { sandboxHasModule } from "./sandbox";
 import { JsonEditor } from "./json-editor";
 import { playingModuleRunId } from "./preview";
 import { indexRuns } from "./runs-index";
-import { activityApi, activitySetupApi, type RunStart } from "./activity-api";
+import { activityApi, projectActivitiesApi, type RunStart } from "./activity-api";
 import { ActivityClientContext, runStarted, summarize } from "./activity-client";
 import { ResourceCache } from "./resource-cache";
 import { useResource } from "./use-resource";
@@ -103,6 +102,7 @@ import { ActivityList } from "./activity-list";
 import { ProjectMediaView } from "./project-media-view";
 import type { GroupSort } from "./activity-groups";
 import { UnsavedWorkProvider, useUnsavedWork, useUnsavedWorkGuard } from "./unsaved-work-context";
+import type { ShownAsset } from "./unsaved-work";
 import { usePanelBadges } from "./panel-badges";
 import { videosToCheck } from "./scene-video";
 import { applyVoice, optionsFromVoices } from "./voice-catalogue";
@@ -114,7 +114,6 @@ import {
   wordCatalogue,
 } from "./speech-provider";
 
-const basePath = (projectId: string) => `/api/projects/${encodeURIComponent(projectId)}/activities`;
 /** No run read yet: one array, so the runs index is built once for it. */
 const NO_RUNS: ActivityRunSummary[] = [];
 /** The language table before it is read, or when what came back is not one. */
@@ -214,10 +213,7 @@ function ActivityWorkspace({
     const withSummaries = openActivityId.current === undefined;
     const request = ++requested.current;
     try {
-      const result = await apiFetch<{
-        activities: ActivityRecord[];
-        summaries?: Record<string, ActivitySummary>;
-      }>(withSummaries ? `${basePath(projectId)}?summary=1` : basePath(projectId));
+      const result = await projectActivitiesApi(projectId).list(withSummaries);
       if (mounted.current) {
         if (request > appliedItems.current) {
           appliedItems.current = request;
@@ -453,11 +449,14 @@ function ActivityEditor({
   // Controlled, so moving between sections does not close it.
   const [mediaOpen, setMediaOpen] = useState(false);
   const client = useMemo(
-    () => ({ api: activityApi(projectId, activityId), cache: new ResourceCache() }),
+    () => ({
+      api: activityApi(projectId, activityId),
+      project: projectActivitiesApi(projectId),
+      cache: new ResourceCache(),
+    }),
     [projectId, activityId],
   );
-  const { api, cache } = client;
-  const setup = useMemo(() => activitySetupApi(projectId), [projectId]);
+  const { api, cache, project } = client;
   const runs = useResource(cache, api.runs.list).data ?? NO_RUNS;
   const [sandboxModule, setSandboxModule] = useState(false);
   const runIndex = indexRuns(runs);
@@ -478,7 +477,7 @@ function ActivityEditor({
   const [pipelineChoice, setPipelineChoice] = useState<PipelineSelection>("all");
   // The languages the product supports: what the activity may be translated into.
   // A table is kept only when it is one; anything else offers no language to add.
-  const languageTable = useResource(cache, setup.languages, "").data;
+  const languageTable = useResource(cache, project.languages, "").data;
   const languageSetup =
     Array.isArray(languageTable?.languages) && typeof languageTable.defaultLanguage === "string"
       ? languageTable
@@ -713,9 +712,9 @@ function ActivityEditor({
   // Which sound providers the Media Agent can use: it makes every sound, whoever runs the
   // other stages.
   const setupVersion = available && editable ? "" : null;
-  const soundProviders = useResource(cache, setup.sound, setupVersion).data?.providers ?? null;
+  const soundProviders = useResource(cache, project.sound, setupVersion).data?.providers ?? null;
   // Whether the scene-video experiment is on; the studio shows nothing of it until it is.
-  const videoSetup = useResource(cache, setup.video, setupVersion).data ?? null;
+  const videoSetup = useResource(cache, project.video, setupVersion).data ?? null;
   // The voices, and which speech providers the Media Agent's Vault has keys for; then the
   // Media Agent's ElevenLabs library, which replaces the bare ElevenLabs default once it loads.
   const [speechProviders, setSpeechProviders] = useState<SpeechProviderStatus[] | null>(null);
@@ -728,7 +727,7 @@ function ActivityEditor({
   useEffect(() => {
     if (!available || !editable) return;
     let cancelled = false;
-    void setup
+    void project
       .speech()
       .then(async (value) => {
         if (cancelled) return;
@@ -741,7 +740,7 @@ function ActivityEditor({
         if (!Array.isArray(value.catalogue)) return;
         setVoiceLibrary((state) => ({ ...state, loading: true }));
         try {
-          const library = await setup.elevenLabsVoices(voiceLibraryReload > 0);
+          const library = await project.elevenLabsVoices(voiceLibraryReload > 0);
           if (cancelled) return;
           setVoiceOptions([
             ...catalogue.filter((option) => option.providerId !== "elevenlabs"),
@@ -759,7 +758,7 @@ function ActivityEditor({
     return () => {
       cancelled = true;
     };
-  }, [setup, available, editable, voiceLibraryReload]);
+  }, [project, available, editable, voiceLibraryReload]);
   // Where the script's autosave stands, as the editor's status line says it.
   const scriptSave = draft.state.scriptSave;
   const scriptDirty = edited.description;
@@ -1028,15 +1027,22 @@ function ActivityEditor({
     frame.general
       ? S.activities.studioBoard.shared
       : S.activities.studioBoard.scene(frame.number, frame.sceneId);
+  /**
+   * Show another asset in Scenes, or the storyboard in its place (`to` null): the asset
+   * editor's unsaved work (a timeline, a file not saved yet) asks first.
+   */
+  const showAsset = (to: ShownAsset | null, then: () => void) =>
+    unsaved.confirm({ kind: "asset", to }, then);
   const openFrame = (frame: StoryboardFrame | undefined) =>
     frame?.firstAssetKey
       ? {
           label: frameLabel(frame),
-          open: () => {
-            setKind("all");
-            setSelected({ sceneId: frame.sceneId, key: frame.firstAssetKey! });
-            setBoardScene(frame.sceneId);
-          },
+          open: () =>
+            showAsset({ key: frame.firstAssetKey!, language }, () => {
+              setKind("all");
+              setSelected({ sceneId: frame.sceneId, key: frame.firstAssetKey! });
+              setBoardScene(frame.sceneId);
+            }),
         }
       : null;
   const openable = frames.filter((frame) => frame.firstAssetKey);
@@ -1045,10 +1051,11 @@ function ActivityEditor({
     here >= 0
       ? {
           label: frameLabel(openable[here]!),
-          onBoard: () => {
-            setBoardScene(openable[here]!.sceneId);
-            setBoard(true);
-          },
+          onBoard: () =>
+            showAsset(null, () => {
+              setBoardScene(openable[here]!.sceneId);
+              setBoard(true);
+            }),
           previous: openFrame(openable[here - 1]),
           next: openFrame(openable[here + 1]),
         }
@@ -1148,9 +1155,11 @@ function ActivityEditor({
                     pick,
                   );
                   if (!found) return null;
-                  setSelected(found);
-                  setBoard(false);
-                  setSection("scenes");
+                  showAsset({ key: found.key, language }, () => {
+                    setSelected(found);
+                    setBoard(false);
+                    setSection("scenes");
+                  });
                   return found.key;
                 }}
               />
@@ -1320,7 +1329,6 @@ function ActivityEditor({
                   {detail.title}
                 </h2>
                 <RefSwitcher
-                  base={basePath(projectId)}
                   activity={detail}
                   editable={editable && available}
                   onIdentity={(record) => {
@@ -1427,7 +1435,12 @@ function ActivityEditor({
                   size="sm"
                   label={S.activities.mediaLanguage}
                   value={language}
-                  onChange={(event) => setLanguage(event.target.value)}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    showAsset(selection && { key: selection.key, language: next }, () =>
+                      setLanguage(next),
+                    );
+                  }}
                 >
                   {Object.keys(editedManifest?.assets ?? {}).map((code) => (
                     <option key={code} value={code}>
@@ -1442,14 +1455,19 @@ function ActivityEditor({
               section={section}
               selection={section === "scenes" && !board ? selection : null}
               onChoose={(target) => {
-                if (target.kind === "section") {
-                  setSection(target.section);
-                  if (target.section === "scenes") setBoard(true);
-                } else if (target.kind === "asset") {
-                  setSelected(target.selection);
-                  setBoard(false);
-                  setSection("scenes");
-                } else {
+                if (target.kind === "section" && target.section === "scenes")
+                  showAsset(null, () => {
+                    setSection("scenes");
+                    setBoard(true);
+                  });
+                else if (target.kind === "section") setSection(target.section);
+                else if (target.kind === "asset")
+                  showAsset({ key: target.selection.key, language }, () => {
+                    setSelected(target.selection);
+                    setBoard(false);
+                    setSection("scenes");
+                  });
+                else {
                   // A scene lives in the script; its row opens the script at its heading.
                   setSection("description");
                   setRevealScene({ scene: target.sceneNumber, at: Date.now() });
@@ -1665,7 +1683,6 @@ function ActivityEditor({
             <ModuleDocumentView
               // One editor per document, so unsaved text never carries to the other kind.
               key={section}
-              endpoint={endpoint}
               kind={section === "module" ? "definition" : section}
               subject={panelSubject}
               revision={detail.draft.contentRevision}
@@ -1945,19 +1962,14 @@ function ActivityEditor({
                   />
                 )}
                 {section === "features" && (
-                  <ImplementationFeaturesView
-                    endpoint={endpoint}
-                    editable={editable && available}
-                  />
+                  <ImplementationFeaturesView editable={editable && available} />
                 )}
                 {section === "stats" && (
-                  <ActivityStatsView endpoint={endpoint} revision={detail.draft.contentRevision} />
+                  <ActivityStatsView revision={detail.draft.contentRevision} />
                 )}
                 {section === "newRef" && available && (
                   <CreateRefView
                     key={detail.id}
-                    base={basePath(projectId)}
-                    endpoint={endpoint}
                     template={detail}
                     editable={editable}
                     voices={voiceOptions}
@@ -1985,7 +1997,6 @@ function ActivityEditor({
                 {section === "deploy" && available && (
                   <DeployPanel
                     key={detail.id}
-                    endpoint={endpoint}
                     productCode={detail.productCode}
                     editable={editable}
                     pinnedBuild={Boolean(detail.draft.pinnedModuleRunId)}
@@ -1996,7 +2007,6 @@ function ActivityEditor({
                   <GenerationHistory
                     runs={runs}
                     draftRevision={detail.draft.contentRevision}
-                    endpoint={endpoint}
                     editable={editable}
                     busy={busy}
                     onCancel={(runId) =>

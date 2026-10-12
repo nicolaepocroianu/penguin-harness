@@ -8,7 +8,6 @@
  * a page chose to say.
  */
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
-import { apiFetch } from "../../api/client";
 import { Button } from "../../components/ui/button";
 import { EmptyState } from "../../components/ui/empty-state";
 import { Select } from "../../components/ui/select";
@@ -28,6 +27,7 @@ import {
 } from "./state-map";
 import { liveTargets } from "./map-split";
 import type { PlayerInteractable } from "./player-bridge";
+import { useActivityClient } from "./activity-client";
 
 /** A trigger in the author's words; an event keeps the name the module gave it. */
 function triggerText(trigger: MapTrigger): string {
@@ -427,7 +427,6 @@ function SceneGraph({
 }
 
 export function StateMapView({
-  base,
   language,
   reportedScene,
   reportedPhase,
@@ -442,8 +441,6 @@ export function StateMapView({
   /** Whether the map is shown; the header stays either way, so it can be shown again. */
   open: boolean;
   onToggle: () => void;
-  /** The activity's sandbox API path. */
-  base: string;
   language: string;
   reportedScene: string | null;
   reportedPhase: string | null;
@@ -457,6 +454,7 @@ export function StateMapView({
   /** Pin or unpin a tap target's outline, as its chip under the player does. */
   onPin: (id: string) => void;
 }) {
+  const { api } = useActivityClient();
   const words = S.activities.studioPlayer.map;
   const [read, setRead] = useState<
     | { state: "loading" }
@@ -471,7 +469,8 @@ export function StateMapView({
     let cancelled = false;
     setRead({ state: "loading" });
     const query = language ? `?${new URLSearchParams({ language })}` : "";
-    apiFetch<{ configuration: unknown }>(`${base}/payload${query}`)
+    api.sandbox
+      .payload(query)
       .then((payload) => {
         if (cancelled) return;
         const machine = machineOf(payload.configuration);
@@ -483,7 +482,7 @@ export function StateMapView({
     return () => {
       cancelled = true;
     };
-  }, [base, language, open]);
+  }, [api, language, open]);
   // A scene change in the player takes the map with it; a scene the author picked holds
   // until then.
   useEffect(() => setChoice(null), [reportedScene]);

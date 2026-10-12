@@ -41,14 +41,11 @@ import { DeployRelease } from "./deploy-release";
 import type { Announcement } from "./run-toasts";
 
 export function DeployPanel({
-  endpoint,
   productCode,
   editable,
   pinnedBuild = false,
   onAnnounce,
 }: {
-  /** The activity's API path. */
-  endpoint: string;
   /** The activity's product code, which the QA deploy's confirmation names. */
   productCode: string;
   /** Whether the viewer owns the project: only the owner prepares clones or asks the remote. */
@@ -294,7 +291,6 @@ export function DeployPanel({
           )}
           {state && context.branches.deploy && (
             <DeployRelease
-              endpoint={endpoint}
               editable={editable}
               run={state.run}
               stages={state.stages}
@@ -314,7 +310,6 @@ export function DeployPanel({
               <DeployQa run={state.run} stages={state.stages} />
               {state.production && (
                 <DeployProd
-                  endpoint={endpoint}
                   editable={editable}
                   isAdmin={isAdmin}
                   production={state.production}

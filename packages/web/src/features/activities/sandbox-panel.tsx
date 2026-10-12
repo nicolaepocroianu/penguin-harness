@@ -595,7 +595,6 @@ function SandboxPlayer({
           <StateMapView
             open={showMap}
             onToggle={toggleMap}
-            base={`/api/projects/${encodeURIComponent(projectId)}/activities/${encodeURIComponent(activityId)}/sandbox`}
             language={language}
             reportedScene={report?.state.sceneId ?? null}
             reportedPhase={report?.state.phase ?? null}

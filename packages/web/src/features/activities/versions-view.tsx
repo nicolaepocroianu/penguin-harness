@@ -9,11 +9,10 @@ import type {
   ActivityDraft,
   VersionDiff,
   VersionFileName,
-  VersionSaveResult,
   VersionStatus,
   VersionSummary,
 } from "@prismshadow/penguin-server/api";
-import { ApiError, apiFetch } from "../../api/client";
+import { ApiError } from "../../api/client";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
@@ -46,6 +45,7 @@ import {
   TD,
   TH,
 } from "../../components/ui/table-classes";
+import { useActivityClient } from "./activity-client";
 
 /** A version being compared with the current draft, and what the compare found. */
 interface Comparison {
@@ -57,15 +57,12 @@ interface Comparison {
 }
 
 export function VersionsView({
-  endpoint,
   editable,
   draftRevision,
   unsaved = false,
   onAnnounce,
   onRestored,
 }: {
-  /** The activity's API path. */
-  endpoint: string;
   /** Whether this user may save and restore versions (the project owner). */
   editable: boolean;
   /** The draft's revision; a new one can change which version is current. */
@@ -76,6 +73,7 @@ export function VersionsView({
   /** The draft a restore made; the page shows it in place of the one it had. */
   onRestored?: (draft: ActivityDraft) => void;
 }) {
+  const { api } = useActivityClient();
   const words = S.activities.versions;
   const [versions, setVersions] = useState<VersionSummary[] | null>(null);
   const [status, setStatus] = useState<VersionStatus | null>(null);
@@ -102,7 +100,8 @@ export function VersionsView({
     const read = ++reads.current;
     setLoadError("");
     // The deploy status is a line beside the list: when it cannot be read it is left out.
-    void apiFetch<unknown>(`${endpoint}/versions/status`)
+    void api.versions
+      .status()
       .then((result) => {
         if (alive.current && read === reads.current)
           setStatus(isVersionStatus(result) ? result : null);
@@ -111,7 +110,7 @@ export function VersionsView({
         if (alive.current && read === reads.current) setStatus(null);
       });
     try {
-      const result = await apiFetch<{ versions?: VersionSummary[] }>(`${endpoint}/versions`);
+      const result = await api.versions.list();
       if (alive.current && read === reads.current)
         setVersions(Array.isArray(result.versions) ? result.versions : []);
     } catch (error) {
@@ -124,7 +123,7 @@ export function VersionsView({
     if (comparison) void compare(comparison.versionId, comparison.seq, comparison.tab);
     // A new draft revision can change which version is current.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint, draftRevision]);
+  }, [api, draftRevision]);
 
   // Only the latest compare may land, as with the list.
   const compares = useRef(0);
@@ -132,9 +131,7 @@ export function VersionsView({
     const read = ++compares.current;
     setComparison({ versionId, seq, diff: null, error: "", tab });
     try {
-      const diff = await apiFetch<VersionDiff>(
-        `${endpoint}/versions/${encodeURIComponent(versionId)}/diff?against=current`,
-      );
+      const diff = await api.versions.diff(versionId);
       if (!alive.current || read !== compares.current) return;
       const tabs = compareTabs(diff);
       setComparison({
@@ -155,10 +152,7 @@ export function VersionsView({
     setRestoreBusy(true);
     setRestoreError("");
     try {
-      const draft = await apiFetch<ActivityDraft>(
-        `${endpoint}/versions/${encodeURIComponent(restoring.versionId)}/restore`,
-        { method: "POST", body: { expectedRevision: draftRevision } },
-      );
+      const draft = await api.versions.restore(restoring.versionId, draftRevision);
       if (!alive.current) return;
       onAnnounce({ kind: "success", text: words.restored(restoring.seq) });
       setRestoring(null);
@@ -182,10 +176,7 @@ export function VersionsView({
     }
     setSaving(true);
     try {
-      const result = await apiFetch<VersionSaveResult>(`${endpoint}/versions`, {
-        method: "POST",
-        body: { label },
-      });
+      const result = await api.versions.save(label);
       if (!alive.current) return;
       onAnnounce(saveAnnouncement(result));
       setOpen(false);

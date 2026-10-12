@@ -7,12 +7,7 @@
  * bare success.
  */
 import { useEffect, useMemo, useState } from "react";
-import type {
-  ClaimModuleProductResponse,
-  ModuleProduct,
-  ModuleProductsResponse,
-} from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
+import type { ClaimModuleProductResponse, ModuleProduct } from "@prismshadow/penguin-server/api";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, toneStrip } from "../../lib/tone";
@@ -20,6 +15,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Modal } from "../../components/ui/modal";
 import { filterModuleProducts, moduleProductKey } from "./module-products";
+import { projectActivitiesApi } from "./activity-api";
 
 export function OpenModuleDialog({
   projectId,
@@ -31,7 +27,7 @@ export function OpenModuleDialog({
   onOpened: () => void;
 }) {
   const words = S.activities.openFromModules;
-  const base = `/api/projects/${encodeURIComponent(projectId)}/activities`;
+  const project = useMemo(() => projectActivitiesApi(projectId), [projectId]);
   const [products, setProducts] = useState<ModuleProduct[] | null>(null);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -42,7 +38,8 @@ export function OpenModuleDialog({
 
   useEffect(() => {
     let live = true;
-    apiFetch<ModuleProductsResponse>(`${base}/module-products`)
+    project
+      .moduleProducts()
       .then((value) => {
         if (live) setProducts(value.products);
       })
@@ -52,7 +49,7 @@ export function OpenModuleDialog({
     return () => {
       live = false;
     };
-  }, [base]);
+  }, [project]);
 
   const visible = useMemo(() => filterModuleProducts(products ?? [], search), [products, search]);
 
@@ -60,9 +57,9 @@ export function OpenModuleDialog({
     const key = moduleProductKey(product);
     setOpening(key);
     try {
-      const result = await apiFetch<ClaimModuleProductResponse>(`${base}/module-products/claim`, {
-        method: "POST",
-        body: { moduleFolder: product.moduleFolder, productCode: product.productCode },
+      const result = await project.claimModuleProduct({
+        moduleFolder: product.moduleFolder,
+        productCode: product.productCode,
       });
       setResults((current) => ({ ...current, [key]: result }));
       onOpened();

@@ -40,6 +40,7 @@ import { isBookWord } from "./book-words";
 import { SceneCompositionView } from "./scene-composition-view";
 import { captionsUrl, recordingUrl } from "./scene-video";
 import type { StudioDraft } from "./studio-draft";
+import { useHeldWork } from "./unsaved-work-context";
 
 export function AssetEditor({
   manifest,
@@ -182,6 +183,11 @@ export function AssetEditor({
     key: string;
     stored: UploadedMedia;
   } | null>(null);
+  // It waits here whichever asset is shown, so only closing the editor asks before it is lost.
+  useHeldWork(
+    { label: "unsaved file", section: "scenes", asset: "editor" },
+    pendingUpload !== null,
+  );
   // New takes the author chose to keep the current media over; they stay in the candidates.
   const [kept, setKept] = useState<ReadonlySet<string>>(new Set());
   // A clip's length, once a waveform on this page has decoded it.

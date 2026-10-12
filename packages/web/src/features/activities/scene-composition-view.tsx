@@ -16,7 +16,6 @@ import type {
   VideoCheck,
   VideoTimeline,
 } from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { InfoPopover } from "../../components/ui/info-popover";
@@ -111,6 +110,7 @@ export function SceneCompositionView({
   /** The asset's video now, shown beside a new recording. */
   current?: ReactNode;
 }) {
+  const { project } = useActivityClient();
   const runIndex = indexRuns(runs);
   const target = { language, assetKey: asset.key };
   const compositions = runIndex.of("composition", target);
@@ -130,7 +130,8 @@ export function SceneCompositionView({
   const [looks, setLooks] = useState<SceneLookSummary[]>([]);
   useEffect(() => {
     let live = true;
-    apiFetch<{ looks: SceneLookSummary[] }>(`${endpoint.replace(/\/[^/]+$/, "")}/scene-looks`)
+    project
+      .sceneLooks()
       .then((value) => {
         // A server without looks answers something else; the picker then stays hidden.
         if (live) setLooks(Array.isArray(value?.looks) ? value.looks : []);
@@ -139,7 +140,7 @@ export function SceneCompositionView({
     return () => {
       live = false;
     };
-  }, [endpoint]);
+  }, [project]);
   // The activity's most recent look, so its scenes keep one look unless the author changes it.
   const lastLook = useMemo(
     () => runIndex.of("composition").find((run) => run.composition?.look)?.composition?.look ?? "",
@@ -237,7 +238,6 @@ export function SceneCompositionView({
           asset={asset}
           group={group}
           language={language}
-          endpoint={endpoint}
           revision={revision}
           newestRecording={newestRecording?.runId ?? null}
           editable={editable}

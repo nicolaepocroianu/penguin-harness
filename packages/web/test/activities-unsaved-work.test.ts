@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { UnsavedWork, type HeldWork } from "../src/features/activities/unsaved-work";
+import {
+  UnsavedWork,
+  discardWording,
+  type HeldWork,
+} from "../src/features/activities/unsaved-work";
 
 const draft: HeldWork = { label: "draft" };
 const document: HeldWork = { label: "module document", section: "configuration" };
-const timeline: HeldWork = { label: "scene timeline", section: "scenes" };
+const timeline: HeldWork = {
+  label: "scene timeline",
+  section: "scenes",
+  asset: { key: "intro-video", language: "en-US" },
+};
 
 const labels = (works: readonly HeldWork[]) => works.map((work) => work.label);
 
@@ -86,5 +94,37 @@ describe("the unsaved-work guard", () => {
     work.set(id, null);
     expect(heard).toBe(2);
     expect(work.getVersion()).toBe(version + 2);
+  });
+
+  it("asks before the asset editor shows another asset only for that asset's work", () => {
+    const work = new UnsavedWork();
+    const card: HeldWork = {
+      label: "unsaved file",
+      section: "scenes",
+      asset: { key: "intro-video" },
+    };
+    const beside: HeldWork = { label: "unsaved file", section: "scenes", asset: "editor" };
+    for (const held of [draft, timeline, card, beside]) work.set(work.holder(), held);
+    const leaving = (to: { key: string; language?: string } | null) =>
+      labels(work.lost({ kind: "asset", to }));
+    // Another asset: its timeline and its card go; a file held beside whichever asset is
+    // shown stays, and so does the draft.
+    expect(leaving({ key: "sky", language: "en-US" })).toEqual(["scene timeline", "unsaved file"]);
+    // The same asset in another language: only the timeline, which is that language's.
+    expect(leaving({ key: "intro-video", language: "es-MX" })).toEqual(["scene timeline"]);
+    expect(leaving({ key: "intro-video", language: "en-US" })).toEqual([]);
+    // The storyboard closes the editor: everything it holds goes.
+    expect(leaving(null)).toEqual(["scene timeline", "unsaved file", "unsaved file"]);
+  });
+
+  it("asks in the words of the work at stake", () => {
+    const file: HeldWork = { label: "unsaved file", section: "scenes", asset: "editor" };
+    const section = { kind: "section", from: "scenes", to: "description" } as const;
+    expect(discardWording(section, [document])).toBe("document");
+    expect(discardWording(section, [file, timeline])).toBe("timeline");
+    expect(discardWording({ kind: "asset", to: null }, [file])).toBe("file");
+    // Leaving the activity, or the draft's texts, keeps the words it always had.
+    expect(discardWording({ kind: "activity" }, [timeline])).toBe("draft");
+    expect(discardWording({ kind: "draftText" }, [draft])).toBe("draft");
   });
 });

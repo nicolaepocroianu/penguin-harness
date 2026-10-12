@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { LibraryFile, ProjectMediaListing } from "@prismshadow/penguin-server/api";
-import { ApiError, apiFetch } from "../../api/client";
+import { ApiError } from "../../api/client";
 import { Button, labelButtonClass } from "../../components/ui/button";
 import { ChipGroup } from "../../components/ui/chip-group";
 import { EmptyState } from "../../components/ui/empty-state";
@@ -49,6 +49,7 @@ import {
   type LibraryView,
 } from "./project-media";
 import { SCENE_ASSET_ICON } from "./scene-asset-icons";
+import { projectActivitiesApi } from "./activity-api";
 
 const LINK = "text-left font-medium text-brand-600 hover:text-brand-700 dark:text-brand-300";
 
@@ -89,7 +90,8 @@ export function ProjectMediaView({
   }, []);
   useEffect(() => {
     if (!available) return;
-    void apiFetch<ProjectMediaListing>(`${basePath(projectId)}/media-library`)
+    void projectActivitiesApi(projectId)
+      .mediaLibrary()
       .then((value) => {
         if (alive.current) setListing(value);
       })

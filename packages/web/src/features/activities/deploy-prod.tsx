@@ -6,12 +6,8 @@
  * section already follows.
  */
 import { useEffect, useRef, useState } from "react";
-import type {
-  DeployProductionState,
-  DeployRun,
-  DeployRunResponse,
-} from "@prismshadow/penguin-server/api";
-import { ApiError, apiFetch } from "../../api/client";
+import type { DeployProductionState, DeployRun } from "@prismshadow/penguin-server/api";
+import { ApiError } from "../../api/client";
 import { Button } from "../../components/ui/button";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { InfoPopover } from "../../components/ui/info-popover";
@@ -31,9 +27,9 @@ import {
   TD,
   TH,
 } from "../../components/ui/table-classes";
+import { useActivityClient } from "./activity-client";
 
 export function DeployProd({
-  endpoint,
   editable,
   isAdmin,
   production,
@@ -44,7 +40,6 @@ export function DeployProd({
   onSettled,
   onAnnounce,
 }: {
-  endpoint: string;
   /** Whether the viewer owns the project. */
   editable: boolean;
   /** Whether the viewer is a server admin: PROD is an admin's who owns the project. */
@@ -60,6 +55,7 @@ export function DeployProd({
   onSettled: () => void;
   onAnnounce: (announcement: Announcement) => void;
 }) {
+  const { api } = useActivityClient();
   const words = S.activities.deploy;
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
@@ -89,10 +85,7 @@ export function DeployProd({
     setBusy(true);
     setError(null);
     try {
-      const value = await apiFetch<DeployRunResponse>(`${endpoint}/deploy`, {
-        method: "POST",
-        body: { stage: "prod", target: "prod", confirm: typed },
-      });
+      const value = await api.deploy.start({ stage: "prod", target: "prod", confirm: typed });
       if (!alive.current) return;
       close();
       onRun(value.run);
