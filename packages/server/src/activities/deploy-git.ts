@@ -10,9 +10,9 @@
  * remote.
  */
 import { spawn } from "node:child_process";
-import path from "node:path";
 import { stopTree } from "./sandbox-build-runner.js";
 import type { BranchState, CloneState } from "./deploy-types.js";
+import { moduleShortName } from "./waf-layout.js";
 
 /** How long one git call may take unless the caller says otherwise. */
 export const GIT_TIMEOUT_MS = 60_000;
@@ -135,14 +135,6 @@ export async function gitAvailable(git: DeployGit, cwd: string): Promise<boolean
   return result.code === 0;
 }
 
-/** A module folder's short name (`waf-module-abc` → `abc`), which its deploy branch is named from. */
-export function moduleShortName(moduleFolder: string): string {
-  const folder = moduleFolder.trim();
-  for (const prefix of ["waf-module-", "wafmodule-"])
-    if (folder.startsWith(prefix)) return folder.slice(prefix.length);
-  return folder;
-}
-
 /** The module branch a deploy pushes, named as Loom named it so its branch is reused. */
 export function deployBranchName(moduleFolder: string): string {
   return `loom/${moduleShortName(moduleFolder)}-deploy`;
@@ -151,21 +143,6 @@ export function deployBranchName(moduleFolder: string): string {
 /** The activity-data branch a deploy pushes, named as Loom named it so its branch is reused. */
 export function activityDataBranchName(productCode: string): string {
   return `loom/${productCode}-activity-data`;
-}
-
-/**
- * The folder of the media repository an activity's media lives in. The repository is the
- * checkout's `media/` folder, so a manifest's `media/loom/<pc>/...` is `loom/<pc>/...` in it.
- */
-export function mediaSparsePath(productCode: string): string {
-  return `loom/${productCode}`;
-}
-
-/** A manifest's `media/...` path as a path inside the media repository; null for any other. */
-export function mediaRepoPath(reference: string): string | null {
-  return reference.startsWith("media/") && reference.length > "media/".length
-    ? reference.slice("media/".length)
-    : null;
 }
 
 /** The branch every deploy starts from. */
@@ -299,19 +276,4 @@ export async function branchState(
     checkRemote ? remoteBranchExists(git, dir, branch) : Promise.resolve(null),
   ]);
   return { local, remote };
-}
-
-/** The clones a deploy works in: the WAF workspace's, laid out as a WAF checkout is. */
-export interface DeployClonePaths {
-  module: string;
-  activityData: string;
-  media: string;
-}
-
-export function deployClonePaths(wafRoot: string, moduleFolder: string): DeployClonePaths {
-  return {
-    module: path.join(wafRoot, "modules", moduleFolder),
-    activityData: path.join(wafRoot, "waf-activity-data"),
-    media: path.join(wafRoot, "media"),
-  };
 }

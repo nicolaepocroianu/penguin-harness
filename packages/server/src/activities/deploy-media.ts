@@ -11,7 +11,7 @@
  * written only inside the draft roots and the media clone.
  */
 import fs from "node:fs/promises";
-import { mediaRepoPath } from "./deploy-git.js";
+import { mediaRepoPath } from "./waf-layout.js";
 import { sidecarPath } from "./ref-media.js";
 import { withinRoot } from "./sandbox-paths.js";
 

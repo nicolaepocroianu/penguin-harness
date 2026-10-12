@@ -28,10 +28,9 @@ import { sandboxModuleRoot, withinRoot } from "./sandbox-paths.js";
 import { exportRevision, manifestAssetList, type ExportRef } from "./deploy-export.js";
 import type { ActivityDetail, ActivityProduct } from "./domain.js";
 import type { WafWorkspace } from "./waf-workspace.js";
+import { mediaSparsePath, moduleDocumentPath, WafLayout } from "./waf-layout.js";
 import { buildDeployContext } from "./deploy-context.js";
 import {
-  deployClonePaths,
-  mediaSparsePath,
   spawnGit,
   type DeployGit,
   type DeployGitOptions,
@@ -528,7 +527,7 @@ export class ActivityDeployService implements ActivityDeploys {
     const settings = this.stored();
     const secrets = this.secrets();
     const run = this.ports.runProcess;
-    const paths = deployClonePaths(await this.requireWafRoot(), folder);
+    const checkout = new WafLayout(await this.requireWafRoot());
     const activity = facts.activity;
     // The runner checks again: another start may have begun while this one read the clones.
     return runner.start({
@@ -556,13 +555,13 @@ export class ActivityDeployService implements ActivityDeploys {
         productCode: activity.productCode,
         module: {
           folder,
-          dir: paths.module,
+          dir: checkout.module(folder).root,
           source: sourceReady ? source : null,
           contentHash,
         },
         qa: {
-          activityData: { dir: paths.activityData },
-          media: { dir: paths.media },
+          activityData: { dir: checkout.repo("activityData") },
+          media: { dir: checkout.repo("media") },
           refNum: activity.refNum,
           target: {
             tier: settings.qa.tier,
@@ -639,7 +638,7 @@ export class ActivityDeployService implements ActivityDeploys {
         productCode: facts.activity.productCode,
         module: {
           folder: product.moduleFolder,
-          dir: deployClonePaths(await this.requireWafRoot(), product.moduleFolder).module,
+          dir: new WafLayout(await this.requireWafRoot()).module(product.moduleFolder).root,
           source: null,
         },
         prod: {
@@ -694,14 +693,15 @@ export class ActivityDeployService implements ActivityDeploys {
   ): Promise<DeployActivitySnapshot> {
     const deploying = await this.activities.getActivity(projectId, activityId);
     const wafRoot = await this.wafWorkspace.root();
-    const checkout = wafRoot
-      ? withinRoot(path.join(wafRoot, "modules"), product.moduleFolder)
-      : null;
+    const checkout = wafRoot ? new WafLayout(wafRoot).moduleDir(product.moduleFolder) : null;
     const roots = [moduleRoot, checkout].filter((root): root is string => root !== null);
-    const readDocument = async (folder: string, names: string[]): Promise<unknown> => {
+    const readDocument = async (
+      kind: "configuration" | "assessment",
+      refNums: number[],
+    ): Promise<unknown> => {
       for (const root of roots)
-        for (const name of names) {
-          const file = withinRoot(path.join(root, folder), name);
+        for (const refNum of refNums) {
+          const file = withinRoot(root, moduleDocumentPath(kind, deploying.productCode, refNum));
           if (!file) continue;
           try {
             return JSON.parse(await fsp.readFile(file, "utf8")) as unknown;
@@ -713,12 +713,9 @@ export class ActivityDeployService implements ActivityDeploys {
     };
     const siblings = await this.productRefs(projectId, deploying, product);
     const refs: ExportRef[] = [];
-    const code = deploying.productCode;
     const canonical = product.canonicalRefNum;
     for (const ref of siblings) {
-      const own = `${code}-${ref.refNum}.json`;
-      const shared =
-        canonical != null && canonical !== ref.refNum ? [`${code}-${canonical}.json`] : [];
+      const shared = canonical != null && canonical !== ref.refNum ? [canonical] : [];
       const configurationEdit = await this.activities.effectiveModuleDocument(
         projectId,
         ref,
@@ -734,8 +731,10 @@ export class ActivityDeployService implements ActivityDeploys {
       refs.push({
         refNum: ref.refNum,
         displayName: ref.displayName,
-        configuration: configurationEdit?.value ?? (await readDocument("configurations", [own])),
-        assessment: assessmentEdit?.value ?? (await readDocument("assessments", [own, ...shared])),
+        configuration:
+          configurationEdit?.value ?? (await readDocument("configuration", [ref.refNum])),
+        assessment:
+          assessmentEdit?.value ?? (await readDocument("assessment", [ref.refNum, ...shared])),
         usesAssessment: runtime?.usesAssessment === true,
         assets: manifestAssetList(ref.draft.mediaPlan?.manifest),
         archived: ref.archived,

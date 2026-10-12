@@ -18,7 +18,8 @@
  * with the module like the rest. `penguin.json` is written last: a draft whose other files
  * changed after it reads as "draft" until it is saved again, as `draft.json` did before.
  *
- * Pure paths and file I/O; the service owns locking, validation and the index.
+ * File I/O only: where the folders are is waf-layout.ts; the service owns locking, validation
+ * and the index.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -32,40 +33,8 @@ export const REF_DESCRIPTION_FILE = "activity_description.txt";
 export const REF_MANIFEST_FILE = "asset_manifest.json";
 export const REF_FEATURES_FILE = "implementation_features.json";
 export const PENGUIN_FILE = "penguin.json";
-
-/** `<wafRoot>/modules/<moduleFolder>/generated/<pc>`. */
-export function productDir(wafRoot: string, moduleFolder: string, productCode: string): string {
-  return path.join(wafRoot, "modules", moduleFolder, "generated", productCode);
-}
-
-/** Loom's folder name for one ref: `<pc>-<ref>`. */
-export function refFolderName(productCode: string, refNum: number): string {
-  return `${productCode}-${refNum}`;
-}
-
-/** `<product>/refs/<pc>-<ref>`: the ref's folder, which its number names. */
-export function refDir(
-  wafRoot: string,
-  moduleFolder: string,
-  productCode: string,
-  refNum: number,
-): string {
-  return path.join(
-    productDir(wafRoot, moduleFolder, productCode),
-    "refs",
-    refFolderName(productCode, refNum),
-  );
-}
-
-/** `<ref>/spec`, where every file of the ref's draft is. */
-export function refSpecDir(
-  wafRoot: string,
-  moduleFolder: string,
-  productCode: string,
-  refNum: number,
-): string {
-  return path.join(refDir(wafRoot, moduleFolder, productCode, refNum), "spec");
-}
+/** The behaviour machine, on the product (Loom's canonical one) or on a ref once implemented. */
+export const STATE_MACHINE_FILE = "state-machine.json";
 
 /** What `penguin.json` holds for a ref: the draft less what Loom's files carry. */
 export interface PenguinRefState {
@@ -227,13 +196,12 @@ export async function writeRefMetadata(specDir: string, ref: RefMetadata): Promi
   );
 }
 
-/** Loom's product metadata, and which project owns the product. */
+/** Loom's product metadata, and which project owns the product, in the product's `spec/`. */
 export async function writeProductFiles(
-  dir: string,
+  spec: string,
   product: ProductMetadata,
   owner: PenguinProductState,
 ): Promise<void> {
-  const spec = path.join(dir, "spec");
   await writeFileAtomic(
     path.join(spec, REF_METADATA_FILE),
     json({
@@ -252,10 +220,9 @@ export async function writeProductFiles(
   await writeFileAtomic(path.join(spec, PENGUIN_FILE), json(owner));
 }
 
-/** The product's owner, or null when no Penguin project owns it yet. */
-export async function readProductOwner(dir: string): Promise<PenguinProductState | null> {
-  const state = (await readJson(path.join(dir, "spec", PENGUIN_FILE))) as
-    PenguinProductState | undefined;
+/** The product's owner from its `spec/`, or null when no Penguin project owns it yet. */
+export async function readProductOwner(spec: string): Promise<PenguinProductState | null> {
+  const state = (await readJson(path.join(spec, PENGUIN_FILE))) as PenguinProductState | undefined;
   return state && typeof state === "object" && state.schemaVersion === 1 ? state : null;
 }
 

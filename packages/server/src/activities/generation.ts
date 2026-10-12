@@ -239,6 +239,7 @@ import {
   repairPrompt,
 } from "./spec-prompts.js";
 import { Sandbox, SandboxModule } from "../sandbox/service.js";
+import { moduleDocumentPath, refSpecPath } from "./waf-layout.js";
 
 const MAX_CANDIDATE_BYTES = 2 * 1024 * 1024;
 
@@ -2793,8 +2794,8 @@ export class ActivityGenerationService implements ActivityGeneration {
                 const requiredMediaFiles =
                   input.draft.mediaPlan && input.draft.contentRevision === run.inputRevision
                     ? [
-                        `module/generated/${input.productCode}/refs/${input.productCode}-${input.refNum}/spec/asset_manifest.json`,
-                        `module/configurations/${input.productCode}-${input.refNum}.json`,
+                        `module/${refSpecPath(input.productCode, input.refNum)}/asset_manifest.json`,
+                        `module/${moduleDocumentPath("configuration", input.productCode, input.refNum)}`,
                       ]
                     : [];
                 if (run.bookMode)

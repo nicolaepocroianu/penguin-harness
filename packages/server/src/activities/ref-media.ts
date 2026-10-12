@@ -21,20 +21,9 @@ import path from "node:path";
 import { Component, Interface } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
 import { FfmpegError, runFfmpeg } from "./ffmpeg.js";
-import { withinRoot } from "./sandbox-paths.js";
+import { refMediaFolder, WafLayout } from "./waf-layout.js";
 
 const RUN_ID = /^run_[a-f0-9]{32}$/;
-
-/** `media/loom/<pc>/<pc>-<ref>`: the ref's media folder, as a manifest names it. */
-export function refMediaFolder(productCode: string, refNum: number): string {
-  return `media/loom/${productCode}/${productCode}-${refNum}`;
-}
-
-/** A manifest's `media/...` path as a file under the WAF root, or null when it would leave it. */
-export function mediaFile(wafRoot: string, reference: string): string | null {
-  if (!reference.startsWith("media/")) return null;
-  return withinRoot(wafRoot, reference);
-}
 
 /** `media/loom/<pc>/<pc>-<ref>/candidates/<runId>.<ext>`: a take not accepted yet. */
 export function candidateReference(
@@ -55,7 +44,7 @@ export interface UploadHome {
 
 export function uploadHome(wafRoot: string, productCode: string, refNum: number): UploadHome {
   const prefix = `${refMediaFolder(productCode, refNum)}/uploads/`;
-  return { dir: path.join(wafRoot, ...prefix.split("/").filter(Boolean)), prefix };
+  return { dir: new WafLayout(wafRoot).mediaFile(prefix)!, prefix };
 }
 
 /** What made an accepted file, as Loom's sidecar `<key>.json` records it. */
@@ -144,8 +133,9 @@ export function readdressMedia(
  * existing file; candidates stay behind, since they were never the template's media.
  */
 export async function copyRefMedia(wafRoot: string, from: string, to: string): Promise<void> {
-  const source = mediaFile(wafRoot, from);
-  const target = mediaFile(wafRoot, to);
+  const checkout = new WafLayout(wafRoot);
+  const source = checkout.mediaFile(from);
+  const target = checkout.mediaFile(to);
   if (!source || !target) return;
   const stat = await fs.lstat(source).catch(() => null);
   if (!stat || !stat.isDirectory()) return;

@@ -49,9 +49,9 @@ import {
   BASE_BRANCH,
   activityDataBranchName,
   deployBranchName,
-  moduleShortName,
   type DeployGit,
 } from "./deploy-git.js";
+import { moduleShortName } from "./waf-layout.js";
 import type { DeployJenkins, JenkinsBuildStatus } from "./deploy-jenkins.js";
 import { JenkinsError } from "./deploy-jenkins.js";
 import type { DeployProcess } from "./deploy-process.js";

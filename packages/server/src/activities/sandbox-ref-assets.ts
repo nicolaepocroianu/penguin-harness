@@ -11,6 +11,7 @@
  * regenerated clip at the same path would keep playing the old sound until someone cleared
  * their cache.
  */
+import { mediaRepoPath } from "./waf-layout.js";
 
 /** Where the framework substitutes the media root. Loom's token, and the modules read it. */
 const MEDIA_TOKEN = "{{MEDIA}}";
@@ -47,8 +48,9 @@ function text(value: unknown): string {
  */
 export function mediaUrl(asset: ManifestAsset, versionToken: VersionToken = ""): string {
   const relative = text(asset.path).replace(/\\/g, "/").replace(/^\/+/, "");
-  if (!relative.startsWith("media/")) return "";
-  const url = `${MEDIA_TOKEN}/${relative.slice("media/".length)}`;
+  const inRepo = mediaRepoPath(relative);
+  if (inRepo === null) return "";
+  const url = `${MEDIA_TOKEN}/${inRepo}`;
   const version = typeof versionToken === "function" ? versionToken(asset) : versionToken;
   return version ? `${url}?v=${version}` : url;
 }

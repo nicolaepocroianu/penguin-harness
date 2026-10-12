@@ -10,6 +10,8 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import { STATE_MACHINE_FILE } from "./ref-files.js";
+import { ModuleLayout } from "./waf-layout.js";
 
 export const STATE_MACHINE_CONFIGURATION_KEY = "stateMachine";
 export const ACTIVITY_SCENES_CONFIGURATION_KEY = "activityScenes";
@@ -138,10 +140,10 @@ export async function readModuleStateMachine(
   productCode: string,
   refNum: number,
 ): Promise<Json | null> {
-  const product = path.join(moduleRoot, "generated", productCode);
+  const module = new ModuleLayout(moduleRoot);
   for (const file of [
-    path.join(product, "spec", "state-machine.json"),
-    path.join(product, "refs", `${productCode}-${refNum}`, "spec", "state-machine.json"),
+    path.join(module.productSpecDir(productCode), STATE_MACHINE_FILE),
+    path.join(module.refSpecDir(productCode, refNum), STATE_MACHINE_FILE),
   ]) {
     const text = await fs.readFile(file, "utf8").catch(() => null);
     if (text === null) continue;

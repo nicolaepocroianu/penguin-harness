@@ -32,9 +32,7 @@ import { seedMediaPlaceholders } from "./media-placeholder.js";
 import {
   candidateReference,
   copyRefMedia,
-  mediaFile,
   readdressMedia,
-  refMediaFolder,
   uploadHome,
   wavToMp3,
   writeSidecar,
@@ -70,13 +68,11 @@ import { readBoundImage, type ImageRequest } from "./image.js";
 import type { WafWorkspace } from "./waf-workspace.js";
 import {
   PENGUIN_FILE,
-  productDir,
   readFeatureFile,
   readProductOwner,
   readRefDraft,
-  refDir,
-  refSpecDir,
   REF_FEATURES_FILE,
+  REF_METADATA_FILE,
   writeFeatureFile,
   writeProductFiles,
   writeRefDraft,
@@ -134,7 +130,8 @@ import {
   type RefNumberSuggestion,
 } from "./ref-template.js";
 import { adoptLoomProduct, describeAdoption, type CarriedBinding } from "./loom-adopt.js";
-import { mapProductMetadata, parseRefDirName, readLoomProduct } from "./loom-read.js";
+import { mapProductMetadata, readLoomProduct } from "./loom-read.js";
+import { mediaSparsePath, parseRefFolderName, refMediaFolder, WafLayout } from "./waf-layout.js";
 import type { ClaimModuleProductResponse, ModuleProduct } from "./module-product-types.js";
 
 /** A run's id, as a pinned module build names one. */
@@ -593,7 +590,7 @@ export class ActivityService implements ActivityAuthoring {
   ): Promise<void> {
     await this.projectWork.run(projectId, async () => {
       const activity = await this.getActivity(projectId, activityId);
-      const root = await this.requireWafRoot();
+      const checkout = await this.checkout();
       // The video, and the captions a timeline render kept beside it.
       for (const extension of [format, "vtt"]) {
         const reference = candidateReference(
@@ -602,7 +599,7 @@ export class ActivityService implements ActivityAuthoring {
           runId,
           extension,
         );
-        await fs.rm(mediaFile(root, reference)!, { force: true });
+        await fs.rm(checkout.mediaFile(reference)!, { force: true });
       }
     });
   }
@@ -662,7 +659,7 @@ export class ActivityService implements ActivityAuthoring {
           "video_asset_changed",
           "The video or animation this was recorded for is no longer in the media plan.",
         );
-      const root = await this.requireWafRoot();
+      const checkout = await this.checkout();
       // The video this replaces goes back to its run's candidate, so a timeline that cuts from
       // it can still read it, and keeping it again later still works.
       const replaced = asset.generatedVideo;
@@ -681,7 +678,7 @@ export class ActivityService implements ActivityAuthoring {
       // Captions travel beside their video; a video without them leaves none behind.
       if (result.captions)
         await this.acceptCandidate(activity, result.runId, "vtt", captionsPath(asset.path), null);
-      else await fs.rm(mediaFile(root, captionsPath(asset.path))!, { force: true });
+      else await fs.rm(checkout.mediaFile(captionsPath(asset.path))!, { force: true });
       // Measured from the file this replaces.
       delete asset.durationMs;
       return { ...draft, mediaPlan: { ...plan, manifest } };
@@ -734,15 +731,14 @@ export class ActivityService implements ActivityAuthoring {
   }
   async readCaptions(projectId: string, activityId: string, runId: string): Promise<string | null> {
     const activity = await this.getActivity(projectId, activityId);
-    const root = await this.requireWafRoot();
-    const candidate = mediaFile(
-      root,
+    const checkout = await this.checkout();
+    const candidate = checkout.mediaFile(
       candidateReference(activity.productCode, activity.refNum, runId, "vtt"),
     )!;
     const bound = Object.values(activity.draft.mediaPlan?.manifest.assets ?? {})
       .flat()
       .find((asset) => asset.generatedVideo?.runId === runId && asset.path);
-    for (const file of [candidate, bound && mediaFile(root, captionsPath(bound.path!))]) {
+    for (const file of [candidate, bound && checkout.mediaFile(captionsPath(bound.path!))]) {
       if (!file) continue;
       const text = await fs.readFile(file, "utf8").catch(() => null);
       if (text !== null) return text;
@@ -755,7 +751,7 @@ export class ActivityService implements ActivityAuthoring {
     reference: string,
   ): Promise<string | null> {
     await this.getActivity(projectId, activityId);
-    const file = mediaFile(await this.requireWafRoot(), reference);
+    const file = (await this.checkout()).mediaFile(reference);
     const stat = file ? await fs.lstat(file).catch(() => null) : null;
     return stat?.isFile() && !stat.isSymbolicLink() ? file : null;
   }
@@ -798,7 +794,7 @@ export class ActivityService implements ActivityAuthoring {
     const bound = Object.values(activity.draft.mediaPlan?.manifest.assets ?? {})
       .flat()
       .find((asset) => asset.generatedVideo && asset.path === mediaPath)?.generatedVideo;
-    return bound ? mediaFile(await this.requireWafRoot(), mediaPath) : null;
+    return bound ? (await this.checkout()).mediaFile(mediaPath) : null;
   }
 
   private collectionDir(projectId: string, collectionId: string): string {
@@ -1948,10 +1944,10 @@ export class ActivityService implements ActivityAuthoring {
     workspace: string,
     draft: ActivityDraft,
   ): Promise<ActivityDraft> {
-    const root = await this.requireWafRoot();
+    const checkout = await this.checkout();
     const folder = refMediaFolder(activity.productCode, activity.refNum);
     const copy = async (from: string, reference: string) => {
-      const to = mediaFile(root, reference);
+      const to = checkout.mediaFile(reference);
       if (!to || (await exists(to))) return;
       const stat = await fs.lstat(from).catch(() => null);
       if (!stat?.isFile()) return;
@@ -2028,19 +2024,19 @@ export class ActivityService implements ActivityAuthoring {
     from: ActivityRecord,
     to: ActivityRecord,
   ): Promise<{ from: string; to: string }[]> {
-    const root = await this.requireWafRoot();
-    const module = path.join(root, "modules", this.moduleFolderOf(from));
-    const named = (ref: ActivityRecord, folder: string) =>
-      path.join(module, folder, `${ref.productCode}-${ref.refNum}.json`);
+    const checkout = await this.checkout();
+    const module = checkout.module(this.moduleFolderOf(from));
+    const named = (ref: ActivityRecord, kind: "configuration" | "assessment") =>
+      module.document(kind, ref.productCode, ref.refNum);
     const media = (ref: ActivityRecord) =>
-      mediaFile(root, refMediaFolder(ref.productCode, ref.refNum))!;
+      checkout.mediaFile(refMediaFolder(ref.productCode, ref.refNum))!;
     return [
       {
         from: path.dirname(await this.draftFilesDir(from)),
         to: path.dirname(await this.draftFilesDir(to)),
       },
-      { from: named(from, "configurations"), to: named(to, "configurations") },
-      { from: named(from, "assessments"), to: named(to, "assessments") },
+      { from: named(from, "configuration"), to: named(to, "configuration") },
+      { from: named(from, "assessment"), to: named(to, "assessment") },
       { from: media(from), to: media(to) },
     ];
   }
@@ -2058,7 +2054,7 @@ export class ActivityService implements ActivityAuthoring {
     bytes: Uint8Array,
   ): Promise<void> {
     const reference = candidateReference(activity.productCode, activity.refNum, runId, extension);
-    const file = mediaFile(await this.requireWafRoot(), reference)!;
+    const file = (await this.checkout()).mediaFile(reference)!;
     await fs.mkdir(path.dirname(file), { recursive: true });
     await fs.writeFile(file, bytes, { flag: "wx" });
   }
@@ -2074,14 +2070,14 @@ export class ActivityService implements ActivityAuthoring {
     runId: string,
     extension: string,
   ): Promise<string> {
-    const root = await this.requireWafRoot();
+    const checkout = await this.checkout();
     const reference = candidateReference(activity.productCode, activity.refNum, runId, extension);
-    const candidate = mediaFile(root, reference)!;
+    const candidate = checkout.mediaFile(reference)!;
     if (await exists(candidate)) return candidate;
     const bound = Object.values(activity.draft.mediaPlan?.manifest.assets ?? {})
       .flat()
       .find((asset) => asset[field]?.runId === runId && asset.path);
-    return (bound && mediaFile(root, bound.path!)) || candidate;
+    return (bound && checkout.mediaFile(bound.path!)) || candidate;
   }
 
   /**
@@ -2095,12 +2091,11 @@ export class ActivityService implements ActivityAuthoring {
     reference: string,
     sidecar: Parameters<typeof writeSidecar>[1] | null,
   ): Promise<void> {
-    const root = await this.requireWafRoot();
-    const candidate = mediaFile(
-      root,
+    const checkout = await this.checkout();
+    const candidate = checkout.mediaFile(
       candidateReference(activity.productCode, activity.refNum, runId, extension),
     )!;
-    const target = mediaFile(root, reference);
+    const target = checkout.mediaFile(reference);
     if (!target) throw new HttpError(400, "media_path_invalid", "The media path is invalid.");
     // Accepted already (the same take accepted twice): the file is where it belongs.
     if (!(await exists(candidate))) return;
@@ -2120,10 +2115,9 @@ export class ActivityService implements ActivityAuthoring {
     extension: string,
     reference: string,
   ): Promise<void> {
-    const root = await this.requireWafRoot();
-    const from = mediaFile(root, reference);
-    const to = mediaFile(
-      root,
+    const checkout = await this.checkout();
+    const from = checkout.mediaFile(reference);
+    const to = checkout.mediaFile(
       candidateReference(activity.productCode, activity.refNum, runId, extension),
     )!;
     if (!from || !(await exists(from)) || (await exists(to))) return;
@@ -2136,6 +2130,11 @@ export class ActivityService implements ActivityAuthoring {
     return this.wafWorkspace.requireRoot();
   }
 
+  /** The WAF workspace's checkout, laid out (see waf-layout.ts). */
+  private async checkout(): Promise<WafLayout> {
+    return new WafLayout(await this.requireWafRoot());
+  }
+
   private moduleFolderOf(activity: ActivityRecord): string {
     return (
       this.productOf(activity)?.moduleFolder ??
@@ -2145,12 +2144,9 @@ export class ActivityService implements ActivityAuthoring {
 
   /** `generated/<pc>/refs/<pc>-<ref>/spec` in the ref's module: where its draft is. */
   async draftFilesDir(activity: ActivityRecord): Promise<string> {
-    return refSpecDir(
-      await this.requireWafRoot(),
-      this.moduleFolderOf(activity),
-      activity.productCode,
-      activity.refNum,
-    );
+    return (await this.checkout())
+      .module(this.moduleFolderOf(activity))
+      .refSpecDir(activity.productCode, activity.refNum);
   }
 
   /**
@@ -2164,19 +2160,19 @@ export class ActivityService implements ActivityAuthoring {
     productCode: string,
     refNum: number,
   ): Promise<void> {
-    const root = await this.requireWafRoot();
+    const checkout = await this.checkout();
     await this.wafWorkspace.authoringModule(moduleFolder);
     // The product's media folder, checked out of the partial media clone with its LFS files.
-    await this.wafWorkspace.ensureMedia([`loom/${productCode}`]);
-    const dir = productDir(root, moduleFolder, productCode);
-    const owner = await readProductOwner(dir);
+    await this.wafWorkspace.ensureMedia([mediaSparsePath(productCode)]);
+    const module = checkout.module(moduleFolder);
+    const owner = await readProductOwner(module.productSpecDir(productCode));
     if (owner && owner.projectId !== projectId)
       throw new HttpError(
         409,
         "product_taken",
         `Product ${productCode} belongs to another project.`,
       );
-    const ref = refDir(root, moduleFolder, productCode, refNum);
+    const ref = module.refDir(productCode, refNum);
     if (await exists(ref))
       throw new HttpError(
         409,
@@ -2184,7 +2180,7 @@ export class ActivityService implements ActivityAuthoring {
         `Ref ${refNum} of ${productCode} already has files in its module.`,
       );
     // Media already at the ref's address (Loom's, say) is someone else's, not this ref's.
-    if (await exists(mediaFile(root, refMediaFolder(productCode, refNum))!))
+    if (await exists(checkout.mediaFile(refMediaFolder(productCode, refNum))!))
       throw new HttpError(
         409,
         "activity_exists",
@@ -2208,7 +2204,7 @@ export class ActivityService implements ActivityAuthoring {
             )
             .get(productId, product.canonicalRefNum) as { title: string } | undefined);
     await writeProductFiles(
-      productDir(await this.requireWafRoot(), product.moduleFolder, product.productCode),
+      (await this.checkout()).module(product.moduleFolder).productSpecDir(product.productCode),
       {
         productCode: product.productCode,
         title: canonical?.title ?? product.productCode,
@@ -2697,8 +2693,7 @@ export class ActivityService implements ActivityAuthoring {
       { recursive: true, force: true },
     );
     await fs.rm(path.dirname(await this.draftFilesDir(activity)), { recursive: true, force: true });
-    const media = mediaFile(
-      await this.requireWafRoot(),
+    const media = (await this.checkout()).mediaFile(
       refMediaFolder(activity.productCode, activity.refNum),
     );
     if (media) await fs.rm(media, { recursive: true, force: true });
@@ -2821,7 +2816,7 @@ export class ActivityService implements ActivityAuthoring {
    * lost. Read from each product's metadata and its refs' folders only.
    */
   async moduleProducts(projectId: string): Promise<ModuleProduct[]> {
-    const modules = path.join(await this.requireWafRoot(), "modules");
+    const checkout = await this.checkout();
     const indexed = new Map(
       (
         this.db
@@ -2832,54 +2827,44 @@ export class ActivityService implements ActivityAuthoring {
       ).map((row) => [`${row.folder}\u0000${row.code}`, row]),
     );
     const found: ModuleProduct[] = [];
-    const folders = await fs.readdir(modules, { withFileTypes: true }).catch(() => []);
-    for (const folder of folders
-      .filter((entry) => entry.isDirectory())
-      .map((e) => e.name)
-      .sort()) {
-      const generated = path.join(modules, folder, "generated");
-      const codes = await fs.readdir(generated, { withFileTypes: true }).catch(() => []);
-      for (const code of codes
-        .filter((entry) => entry.isDirectory())
-        .map((e) => e.name)
-        .sort()) {
-        // Open in another project: not offered. Open in this one: offered with the refs it
-        // does not have yet (one that failed to open, or one added to the module since).
-        const open = indexed.get(`${folder}\u0000${code}`);
-        if (open && open.projectId !== projectId) continue;
-        const have = new Set(
-          open
-            ? (
-                this.db
-                  .prepare("SELECT ref_num AS refNum FROM activities WHERE product_id = ?")
-                  .all(open.productId) as { refNum: number }[]
-              ).map((row) => row.refNum)
-            : [],
-        );
-        const dir = path.join(generated, code);
-        const owner = await readProductOwner(dir).catch(() => null);
-        if (owner && owner.projectId !== projectId) continue;
-        const metadata = mapProductMetadata(
-          code,
-          folder,
-          await fs
-            .readFile(path.join(dir, "spec", "activity_metadata.json"), "utf8")
-            .then((text) => JSON.parse(text) as unknown)
-            .catch(() => null),
-        );
-        const refNums = (await fs.readdir(path.join(dir, "refs")).catch(() => [] as string[]))
-          .map((name) => parseRefDirName(code, name))
-          .filter((refNum): refNum is number => refNum !== null && !have.has(refNum))
-          .sort((left, right) => left - right);
-        if (!refNums.length) continue;
-        found.push({
-          moduleFolder: folder,
-          productCode: code,
-          title: metadata.title,
-          activityType: metadata.activityType,
-          refNums,
-        });
-      }
+    for (const { moduleFolder: folder, productCode: code } of await checkout.products()) {
+      // Open in another project: not offered. Open in this one: offered with the refs it
+      // does not have yet (one that failed to open, or one added to the module since).
+      const open = indexed.get(`${folder}\u0000${code}`);
+      if (open && open.projectId !== projectId) continue;
+      const have = new Set(
+        open
+          ? (
+              this.db
+                .prepare("SELECT ref_num AS refNum FROM activities WHERE product_id = ?")
+                .all(open.productId) as { refNum: number }[]
+            ).map((row) => row.refNum)
+          : [],
+      );
+      const module = checkout.module(folder);
+      const spec = module.productSpecDir(code);
+      const owner = await readProductOwner(spec).catch(() => null);
+      if (owner && owner.projectId !== projectId) continue;
+      const metadata = mapProductMetadata(
+        code,
+        folder,
+        await fs
+          .readFile(path.join(spec, REF_METADATA_FILE), "utf8")
+          .then((text) => JSON.parse(text) as unknown)
+          .catch(() => null),
+      );
+      const refNums = (await fs.readdir(module.refsDir(code)).catch(() => [] as string[]))
+        .map((name) => parseRefFolderName(code, name))
+        .filter((refNum): refNum is number => refNum !== null && !have.has(refNum))
+        .sort((left, right) => left - right);
+      if (!refNums.length) continue;
+      found.push({
+        moduleFolder: folder,
+        productCode: code,
+        title: metadata.title,
+        activityType: metadata.activityType,
+        refNums,
+      });
     }
     return found;
   }
@@ -2896,7 +2881,7 @@ export class ActivityService implements ActivityAuthoring {
     projectId: string,
     input: { moduleFolder: string; productCode: string; collectionId?: string },
   ): Promise<ClaimModuleProductResponse> {
-    const root = await this.requireWafRoot();
+    const checkout = await this.checkout();
     const moduleFolder = normalizeModuleFolder(input.moduleFolder, input.productCode);
     let productCode: string;
     try {
@@ -2904,24 +2889,23 @@ export class ActivityService implements ActivityAuthoring {
     } catch (error) {
       throw new HttpError(400, "activity_invalid", (error as Error).message);
     }
-    const dir = productDir(root, moduleFolder, productCode);
     // One claim of a product at a time: two would both find it unowned.
     return this.locks.run(`claim:${moduleFolder}/${productCode}`, () =>
-      this.claimLocked(projectId, root, dir, moduleFolder, productCode, input.collectionId),
+      this.claimLocked(projectId, checkout, moduleFolder, productCode, input.collectionId),
     );
   }
 
   private async claimLocked(
     projectId: string,
-    root: string,
-    dir: string,
+    checkout: WafLayout,
     moduleFolder: string,
     productCode: string,
     collectionId: string | undefined,
   ): Promise<ClaimModuleProductResponse> {
-    if (!(await exists(path.join(dir, "refs"))))
+    const module = checkout.module(moduleFolder);
+    if (!(await exists(module.refsDir(productCode))))
       throw new HttpError(404, "module_product_not_found", "No such product in the modules.");
-    const owner = await readProductOwner(dir);
+    const owner = await readProductOwner(module.productSpecDir(productCode));
     if (owner && owner.projectId !== projectId)
       throw new HttpError(
         409,
@@ -2936,7 +2920,7 @@ export class ActivityService implements ActivityAuthoring {
     const reopened = openRow ? this.mapProduct(openRow) : null;
     if (reopened && reopened.projectId !== projectId)
       throw new HttpError(409, "product_open", `Product ${productCode} is already open.`);
-    const read = await readLoomProduct(path.join(root, "modules"), moduleFolder, productCode);
+    const read = await readLoomProduct(checkout, moduleFolder, productCode);
     if (!read.refs.length)
       throw new HttpError(404, "module_product_not_found", "This product has no refs.");
     const adoption = adoptLoomProduct(read.product, read.refs);
@@ -3007,7 +2991,7 @@ export class ActivityService implements ActivityAuthoring {
         );
     const activityIds: string[] = [];
     for (const mapped of pending) {
-      const specDir = refSpecDir(root, moduleFolder, productCode, mapped.refNum);
+      const specDir = module.refSpecDir(productCode, mapped.refNum);
       const penguin = await readRefDraft(specDir).catch(() => null);
       const activity: ActivityRecord = {
         id: penguin?.activityId ?? newId("act"),

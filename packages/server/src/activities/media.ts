@@ -8,6 +8,7 @@ import {
   type AudioKind,
 } from "./playback.js";
 import { mediaTargetPath } from "./languages.js";
+import { mediaRepoPath } from "./waf-layout.js";
 import type { SpeechProviderId } from "./speech-types.js";
 import { parseTimeline } from "./video-timeline.js";
 import type { VideoTimeline } from "./video-timeline-types.js";
@@ -134,7 +135,7 @@ export type GeneratedAudioFormat = "wav" | "mp3";
 
 /**
  * Where an accepted generated file is bound: Loom's path for the asset in the media repository,
- * `media/loom/<pc>/<pc>-<ref>/<folder>/<language>/<key>.<extension>` (see ref-media.ts).
+ * `media/loom/<pc>/<pc>-<ref>/<folder>/<language>/<key>.<extension>` (see waf-layout.ts).
  */
 export function generatedMediaPath(
   address: ActivityAddress,
@@ -790,8 +791,9 @@ export function mediaConfiguration(manifest: AssetManifest): Record<string, unkn
   for (const [language, assets] of Object.entries(manifest.assets)) {
     const bindings: Record<string, string> = {};
     for (const asset of assets) {
-      if (!asset.path) continue;
-      const url = `{{MEDIA}}/${asset.path.slice("media/".length)}`;
+      const inRepo = asset.path ? mediaRepoPath(asset.path) : null;
+      if (inRepo === null) continue;
+      const url = `{{MEDIA}}/${inRepo}`;
       bindings[asset.key] = url;
       if (asset.sourceKey) bindings[asset.sourceKey] = url;
     }

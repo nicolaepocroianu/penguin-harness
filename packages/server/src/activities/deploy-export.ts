@@ -11,7 +11,7 @@
  * Pure: the service reads the refs, the stage writes the files.
  */
 import { contentRevision } from "./domain.js";
-import { moduleShortName } from "./deploy-git.js";
+import { moduleShortName } from "./waf-layout.js";
 import { DEPLOY_LAYOUT } from "./deploy-context.js";
 import { MEDIA_TOKEN } from "./deploy-settings.js";
 import { isLanguageCode } from "./sandbox-configuration.js";

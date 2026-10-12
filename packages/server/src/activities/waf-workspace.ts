@@ -25,7 +25,7 @@ import type { Settings } from "../mechanisms/settings.js";
 import { sameRemote, spawnGit, type DeployGit } from "./deploy-git.js";
 import { spawnDeployProcess, type DeployProcess } from "./deploy-process.js";
 import { DEPLOY_SETTINGS_KEY, normalizeRemote } from "./deploy-settings.js";
-import { findWafRoot } from "./waf-module.js";
+import { findWafRoot, WAF_REPO_PATHS, WafLayout } from "./waf-layout.js";
 import type {
   WafRepoId,
   WafRepoStatus,
@@ -55,14 +55,6 @@ export const WAF_LOG_LINES = 200;
 
 /** The shared repositories every activity needs; product modules are cloned on demand. */
 export const WAF_REPO_IDS: readonly WafRepoId[] = ["framework", "navbar", "media", "activityData"];
-
-/** Where each shared repository sits in the workspace, as a WAF checkout places it. */
-export const WAF_REPO_PATHS: Record<WafRepoId, string> = {
-  framework: "framework",
-  navbar: "modules/navbar",
-  media: "media",
-  activityData: "waf-activity-data",
-};
 
 /** The repositories whose dependencies are installed: the player and navbar build with them. */
 const INSTALLED: ReadonlySet<WafRepoId> = new Set(["framework", "navbar"]);
@@ -312,19 +304,17 @@ export class WafWorkspaceService implements WafWorkspace {
     // Called on every request that needs the checkout, so only the disk is looked at; a
     // clone of the wrong remote is caught by status() and prepare(), never made by Penguin.
     const root = this.managedRoot();
-    const has = (relative: string) => fs.existsSync(path.join(root, relative));
-    const ready =
-      has("framework/.git") &&
-      has("framework/node_modules") &&
-      has("modules/navbar/.git") &&
-      has("modules/navbar/node_modules") &&
-      has("media/.git") &&
-      has("waf-activity-data/.git");
+    const checkout = new WafLayout(root);
+    const has = (id: WafRepoId, entry: string) =>
+      fs.existsSync(path.join(checkout.repo(id), entry));
+    const ready = WAF_REPO_IDS.every(
+      (id) => has(id, ".git") && (!INSTALLED.has(id) || has(id, "node_modules")),
+    );
     return ready ? root : null;
   }
 
   private async repoStatus(root: string, id: WafRepoId, managed: boolean): Promise<WafRepoStatus> {
-    const dir = path.join(root, WAF_REPO_PATHS[id]);
+    const dir = new WafLayout(root).repo(id);
     const present = fs.existsSync(path.join(dir, ".git"));
     const installed = INSTALLED.has(id) ? fs.existsSync(path.join(dir, "node_modules")) : null;
     if (!present)
@@ -404,7 +394,7 @@ export class WafWorkspaceService implements WafWorkspace {
 
   private async prepareAll(): Promise<void> {
     const root = this.managedRoot();
-    await fsp.mkdir(path.join(root, "modules"), { recursive: true });
+    await fsp.mkdir(new WafLayout(root).modulesDir, { recursive: true });
     for (const id of WAF_REPO_IDS) {
       const status = await this.repoStatus(root, id, true);
       if (status.present && !status.remoteMatches)
@@ -456,7 +446,7 @@ export class WafWorkspaceService implements WafWorkspace {
 
   private async cloneShared(root: string, id: WafRepoId): Promise<void> {
     const { remote, branch } = this.settings().repos[id];
-    const dir = path.join(root, WAF_REPO_PATHS[id]);
+    const dir = new WafLayout(root).repo(id);
     if (fs.existsSync(dir) && (await fsp.readdir(dir)).length > 0)
       throw new Error(`${WAF_REPO_PATHS[id]} exists but is not a clone. Move it aside first.`);
     await fsp.mkdir(path.dirname(dir), { recursive: true });
@@ -536,7 +526,7 @@ export class WafWorkspaceService implements WafWorkspace {
   async ensureModule(moduleFolder: string): Promise<string> {
     const folder = checkModuleFolder(moduleFolder);
     const root = await this.requireRoot();
-    const dir = path.join(root, "modules", folder);
+    const dir = new WafLayout(root).module(folder).root;
     return this.serial(`module:${folder}`, async () => {
       if (fs.existsSync(path.join(dir, ".git"))) return dir;
       if (fs.existsSync(dir) && (await fsp.readdir(dir)).length > 0)
@@ -577,7 +567,7 @@ export class WafWorkspaceService implements WafWorkspace {
   async authoringModule(moduleFolder: string): Promise<string> {
     const folder = checkModuleFolder(moduleFolder);
     if (!this.external()) return this.ensureModule(folder);
-    const dir = path.join(await this.requireRoot(), "modules", folder);
+    const dir = new WafLayout(await this.requireRoot()).module(folder).root;
     return this.serial(`module:${folder}`, async () => {
       // A module the checkout already has is its owner's, repository and all.
       if (fs.existsSync(dir)) return dir;
@@ -596,7 +586,7 @@ export class WafWorkspaceService implements WafWorkspace {
     const root = await this.requireRoot();
     // An existing checkout belongs to whoever made it; its media is theirs to fetch.
     if (this.external()) return;
-    const dir = path.join(root, WAF_REPO_PATHS.media);
+    const dir = new WafLayout(root).repo("media");
     await this.serial("media", async () => {
       const listed = await this.gitOk(dir, ["sparse-checkout", "list"]);
       const have = new Set(listed.stdout.split(/\r?\n/).map((line) => line.trim()));

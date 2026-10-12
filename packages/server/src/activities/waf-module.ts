@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import templates from "./waf-templates.json" with { type: "json" };
-import type { ActivityDetail } from "./domain.js";
+import type { ActivityDetail, ModuleDocumentKind } from "./domain.js";
 import { contentRevision, validateActivitySpec } from "./domain.js";
 import { keepsEdit } from "./module-overrides.js";
 import { DEFAULT_LANGUAGE_CODE, findLanguage } from "./languages.js";
@@ -44,29 +44,7 @@ import { bookReaderControllerTemplate } from "./book-reader-controller-template.
 import { bookReaderViewTemplate } from "./book-reader-view-template.js";
 import { bookReaderAdapterTemplate } from "./book-reader-adapter-template.js";
 import { bookReaderEntryTemplate } from "./book-reader-entry-template.js";
-
-/** Loom's WAF checkout convention; discovery only walks ancestors, never the disk. */
-export async function findWafRoot(
-  start = process.cwd(),
-  configured = process.env.WAF_ROOT_DIR,
-): Promise<string | null> {
-  let current = path.resolve(configured || start);
-  for (;;) {
-    try {
-      const entries = await Promise.all(
-        ["framework/package.json", "framework/src", "modules", "media"].map((name) =>
-          fs.stat(path.join(current, name)),
-        ),
-      );
-      if (entries[0]?.isFile() && entries.slice(1).every((entry) => entry.isDirectory()))
-        return await fs.realpath(current);
-    } catch {
-      /* An ancestor may be the workspace root. */
-    }
-    if (configured || path.dirname(current) === current) return null;
-    current = path.dirname(current);
-  }
-}
+import { moduleDocumentPath, ModuleLayout, refSpecPath, WafLayout } from "./waf-layout.js";
 
 /** Source templates are vendored from Loom's html_module, compiled into every deployment. */
 /**
@@ -260,7 +238,7 @@ export function scaffoldModule(
       states: { complete: { entry: { type: "finalizeActivity" }, type: "final" } },
     };
   }
-  const refDir = `generated/${activity.productCode}/refs/${activity.productCode}-${activity.refNum}/spec`;
+  const refDir = refSpecPath(activity.productCode, activity.refNum);
   const machine = bookMode
     ? bookStateMachineDefinition(String(spec.id))
     : {
@@ -297,10 +275,11 @@ export function scaffoldModule(
   // A book's configuration already carries its fixed reader machine and scene catalog.
   if (!bookMode && activity.activityType !== "book")
     syncStateMachineConfiguration(configuration, activity.productCode, machine, spec);
-  json(`configurations/${activity.productCode}-${activity.refNum}.json`, configuration);
-  if (edits?.assessment)
-    json(`assessments/${activity.productCode}-${activity.refNum}.json`, edits.assessment.value);
-  if (edits?.definition) json("definition.json", edits.definition.value);
+  const document = (kind: ModuleDocumentKind) =>
+    moduleDocumentPath(kind, activity.productCode, activity.refNum);
+  json(document("configuration"), configuration);
+  if (edits?.assessment) json(document("assessment"), edits.assessment.value);
+  if (edits?.definition) json(document("definition"), edits.definition.value);
   return files;
 }
 
@@ -360,15 +339,16 @@ export async function prepareModule(
     },
   );
   await stageSkills(workspace, skills, libraryPlugin("waf-authoring")?.skills ?? []);
+  const checkout = new WafLayout(wafRoot);
   await fs.writeFile(
     path.join(workspace, "waf-context.json"),
     JSON.stringify(
       {
         wafRoot,
-        framework: path.join(wafRoot, "framework"),
-        media: path.join(wafRoot, "media"),
+        framework: checkout.repo("framework"),
+        media: checkout.repo("media"),
         generatedMedia: path.join(workspace, "media"),
-        navbar: path.join(wafRoot, "modules", "navbar"),
+        navbar: checkout.repo("navbar"),
       },
       null,
       2,
@@ -437,12 +417,13 @@ export async function verifyMediaArtifacts(
   bookMode?: BookMode,
 ): Promise<void> {
   const edits = activity.draft.moduleDocuments;
-  const moduleFile = (folder: string) =>
-    path.join(workspace, "module", folder, `${activity.productCode}-${activity.refNum}.json`);
+  const module = new ModuleLayout(path.join(workspace, "module"));
+  const moduleFile = (kind: ModuleDocumentKind) =>
+    module.document(kind, activity.productCode, activity.refNum);
   // An author's edit may be added to by the assembly, never changed.
   if (
     edits?.assessment &&
-    !keepsEdit(JSON.parse(await read(moduleFile("assessments"))), edits.assessment.value)
+    !keepsEdit(JSON.parse(await read(moduleFile("assessment"))), edits.assessment.value)
   )
     throw new Error("Assembly changed the edited assessment.");
   if (edits?.configuration) {
@@ -457,7 +438,7 @@ export async function verifyMediaArtifacts(
     };
     if (
       !keepsEdit(
-        authored(JSON.parse(await read(moduleFile("configurations")))),
+        authored(JSON.parse(await read(moduleFile("configuration")))),
         authored(edits.configuration.value),
       )
     )
@@ -465,29 +446,21 @@ export async function verifyMediaArtifacts(
   }
   if (
     edits?.definition &&
-    !keepsEdit(
-      JSON.parse(await read(path.join(workspace, "module", "definition.json"))),
-      edits.definition.value,
-    )
+    !keepsEdit(JSON.parse(await read(moduleFile("definition"))), edits.definition.value)
   )
     throw new Error("Assembly changed the edited module definition.");
   if (!activity.draft.mediaPlan) return;
-  const prefix = `module/generated/${activity.productCode}/refs/${activity.productCode}-${activity.refNum}/spec`;
   const manifest = validateManifest(
-    JSON.parse(await read(path.join(workspace, prefix, "asset_manifest.json"))),
+    JSON.parse(
+      await read(
+        path.join(module.refSpecDir(activity.productCode, activity.refNum), "asset_manifest.json"),
+      ),
+    ),
     activity,
   );
   if (contentRevision(manifest) !== contentRevision(wafManifest(activity.draft.mediaPlan.manifest)))
     throw new Error("Assembly changed the approved media manifest.");
-  const configuration = JSON.parse(
-    await read(
-      path.join(
-        workspace,
-        "module/configurations",
-        `${activity.productCode}-${activity.refNum}.json`,
-      ),
-    ),
-  );
+  const configuration = JSON.parse(await read(moduleFile("configuration")));
   const expected = (
     bookMode ? compileBookConfiguration(activity, bookMode, manifest) : mediaConfiguration(manifest)
   )[activity.productCode] as Record<string, unknown>;
@@ -538,14 +511,7 @@ export async function restoreApprovedManifest(
   activity: ActivityDetail,
 ): Promise<void> {
   if (!activity.draft.mediaPlan) return;
-  const segments = [
-    "module",
-    "generated",
-    activity.productCode,
-    "refs",
-    `${activity.productCode}-${activity.refNum}`,
-    "spec",
-  ];
+  const segments = ["module", ...refSpecPath(activity.productCode, activity.refNum).split("/")];
   let dir = workspace;
   for (const segment of segments) {
     dir = path.join(dir, segment);
@@ -575,10 +541,10 @@ export async function syncAssembledStateMachine(
   const moduleRoot = path.join(workspace, "module");
   const machine = await readModuleStateMachine(moduleRoot, activity.productCode, activity.refNum);
   if (!machine) return;
-  const file = path.join(
-    moduleRoot,
-    "configurations",
-    `${activity.productCode}-${activity.refNum}.json`,
+  const file = new ModuleLayout(moduleRoot).document(
+    "configuration",
+    activity.productCode,
+    activity.refNum,
   );
   const text = await fs.readFile(file, "utf8").catch(() => null);
   if (text === null) return;
