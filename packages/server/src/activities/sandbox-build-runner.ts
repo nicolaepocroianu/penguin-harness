@@ -9,10 +9,10 @@
  * harness's. A preview built by anything else would be a
  * preview of something the deployment will never produce.
  */
-import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { StyleCompiler } from "./module-builder.js";
+import { clampLog, runProgram, type ProgramResult, type ProgramSpec } from "./run-program.js";
 
 /** Long enough for a cold webpack build, short enough that a hung one is not forever. */
 export const BUILD_TIMEOUT_MS = 10 * 60 * 1000;
@@ -25,117 +25,40 @@ export interface BuildOutcome {
   log: string;
 }
 
-/**
- * Keeps the *end* of the output when there is too much of it.
- *
- * The error is at the end. Truncating from the end would throw away the only part anyone
- * reads, which is what makes a log useless rather than merely long.
- */
-export function clampLog(log: string, max = BUILD_LOG_MAX): string {
-  if (log.length <= max) return log;
-  return `… ${log.length - max} earlier characters omitted …\n${log.slice(-max)}`;
-}
-
-/**
- * Stops a build and everything it started.
- *
- * On Windows `npm` is a shell wrapper, so signalling the child kills the wrapper and leaves
- * webpack running — the process holds the workspace, `close` does not fire until the real
- * build finishes on its own, and a timeout that waits for it is not a timeout. Found by the
- * timeout test, which took the full sixty seconds it was meant to cut short.
- */
-export function stopTree(child: { pid?: number; kill(signal?: NodeJS.Signals): boolean }): void {
-  if (process.platform === "win32" && child.pid) {
-    try {
-      spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
-      return;
-    } catch {
-      // Fall through to the signal, which at least stops the wrapper.
-    }
+/** What a build's log ends with when it did not succeed. */
+function buildTrailer(result: ProgramResult): string | null {
+  switch (result.outcome) {
+    case "exited":
+      return result.code === 0 ? null : `The build exited with code ${result.code}.`;
+    case "timed_out":
+      return "The build was stopped after taking too long.";
+    case "not_found":
+      return result.code === null
+        ? `The build could not be started: ${result.error}`
+        : `The build exited with code ${result.code}: a program it runs was not found.`;
+    default:
+      return `The build could not be started: ${result.error ?? result.outcome}`;
   }
-  child.kill("SIGTERM");
-  // A build ignoring SIGTERM would otherwise hold the workspace forever.
-  setTimeout(() => child.kill("SIGKILL"), 10_000).unref();
-}
-
-/** How a build's child process is started. */
-interface ChildSpec {
-  command: string;
-  args: string[];
-  cwd: string;
-  env?: NodeJS.ProcessEnv;
-  /** Written to the child's stdin, which is then closed. */
-  stdin?: string;
-  shell?: boolean;
 }
 
 /**
  * Runs one build child and reports how it went. Never throws: a build that could not start
  * is a failed build with a reason.
  */
-function runBuildChild(spec: ChildSpec, options: { timeoutMs?: number }): Promise<BuildOutcome> {
-  return new Promise((resolve) => {
-    const chunks: string[] = [];
-    let size = 0;
-    const collect = (chunk: Buffer) => {
-      const text = chunk.toString("utf8");
-      chunks.push(text);
-      size += text.length;
-      // Bounded as it arrives: a build looping on an error can print gigabytes, and the
-      // point of a log is the end of it.
-      while (size > BUILD_LOG_MAX * 2 && chunks.length > 1) size -= chunks.shift()!.length;
-    };
-    const finish = (ok: boolean, trailer?: string) =>
-      resolve({
-        ok,
-        log: clampLog(
-          chunks.join("") +
-            (trailer
-              ? `
-${trailer}`
-              : ""),
-        ),
-      });
-
-    let child;
-    try {
-      child = spawn(spec.command, spec.args, {
-        cwd: spec.cwd,
-        env: spec.env,
-        stdio: [spec.stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
-        shell: spec.shell ?? false,
-      });
-    } catch (error) {
-      finish(false, `The build could not be started: ${(error as Error).message}`);
-      return;
-    }
-
-    child.stdout?.on("data", collect);
-    child.stderr?.on("data", collect);
-    if (spec.stdin !== undefined) {
-      // A child that dies before reading its script closes the pipe; that failure is the
-      // exit code's to report, not an unhandled stream error.
-      child.stdin?.on("error", () => {});
-      child.stdin?.end(spec.stdin);
-    }
-
-    let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      stopTree(child);
-    }, options.timeoutMs ?? BUILD_TIMEOUT_MS);
-    timer.unref();
-
-    child.on("error", (error: Error) => {
-      clearTimeout(timer);
-      finish(false, `The build could not be started: ${error.message}`);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      if (timedOut) finish(false, "The build was stopped after taking too long.");
-      else finish(code === 0, code === 0 ? undefined : `The build exited with code ${code}.`);
-    });
+async function runBuildChild(
+  spec: Omit<ProgramSpec, "timeoutMs" | "outputMax">,
+  options: { timeoutMs?: number },
+): Promise<BuildOutcome> {
+  const result = await runProgram({
+    ...spec,
+    timeoutMs: options.timeoutMs ?? BUILD_TIMEOUT_MS,
+    outputMax: BUILD_LOG_MAX,
   });
+  const trailer = buildTrailer(result);
+  return {
+    ok: trailer === null,
+    log: clampLog(result.output + (trailer ? `\n${trailer}` : ""), BUILD_LOG_MAX, result.omitted),
+  };
 }
 
 /**
@@ -169,7 +92,7 @@ export function styleOutcome(
   if (result.error === "timed_out")
     why = "The stylesheet compile was stopped after taking too long.";
   else if (result.error === "stopped") why = "The stylesheet compile was stopped.";
-  return { ok: false, log: clampLog(`${result.tail}\n${why}`) };
+  return { ok: false, log: clampLog(`${result.tail}\n${why}`, BUILD_LOG_MAX) };
 }
 
 /**
@@ -203,16 +126,10 @@ export async function spawnModuleBuild(
     styleLog = style.log;
   }
   const build = await runBuildChild(
-    {
-      command: "npm",
-      args: ["run", script],
-      cwd: workspace,
-      // Windows resolves npm through its shell wrapper.
-      shell: process.platform === "win32",
-    },
+    { command: "npm", args: ["run", script], cwd: workspace, windowsShell: true },
     options,
   );
-  return { ok: build.ok, log: clampLog(styleLog + build.log) };
+  return { ok: build.ok, log: clampLog(styleLog + build.log, BUILD_LOG_MAX) };
 }
 
 /**
@@ -232,7 +149,7 @@ export function spawnNodeScript(
       args: ["-"],
       cwd: input.cwd,
       env: { ...process.env, ...input.env },
-      stdin: script,
+      input: script,
     },
     options,
   );

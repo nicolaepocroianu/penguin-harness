@@ -4,7 +4,6 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   BUILD_LOG_MAX,
-  clampLog,
   moduleBuildScript,
   spawnModuleBuild,
 } from "../src/activities/sandbox-build-runner.js";
@@ -27,20 +26,7 @@ function compiler(result: Partial<StyleResult> = {}) {
   };
 }
 
-describe("keeping a build log readable", () => {
-  it("leaves a log that fits", () => {
-    expect(clampLog("short")).toBe("short");
-  });
-
-  it("keeps the end, because that is where the error is", () => {
-    // Truncating from the end throws away the only part anyone reads.
-    const log = `${"a".repeat(100)}ERROR: the real problem`;
-    const clamped = clampLog(log, 30);
-    expect(clamped).toContain("ERROR: the real problem");
-    expect(clamped).toContain("earlier characters omitted");
-    expect(clamped.length).toBeLessThan(log.length);
-  });
-
+describe("a build log", () => {
   it("has a bound a webpack failure fits inside", () => {
     expect(BUILD_LOG_MAX).toBeGreaterThan(64 * 1024);
   });

@@ -9,8 +9,7 @@
  * Tests replace the port with a fake; nothing here is reached by a test that talks to a real
  * remote.
  */
-import { spawn } from "node:child_process";
-import { stopTree } from "./sandbox-build-runner.js";
+import { runProgram } from "./run-program.js";
 import type { BranchState, CloneState } from "./deploy-types.js";
 import { moduleShortName } from "./waf-layout.js";
 
@@ -59,73 +58,29 @@ export function gitEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv
   };
 }
 
-function bounded(text: string): string {
-  return text.length > GIT_OUTPUT_MAX ? text.slice(-GIT_OUTPUT_MAX) : text;
-}
-
 /** The real port: `git` on this server's PATH. Never throws. */
 export const spawnGit: DeployGit = {
-  run(args, cwd, opts = {}) {
-    return new Promise((resolve) => {
-      if (opts.signal?.aborted) {
-        resolve({ code: null, stdout: "", stderr: "", error: "stopped" });
-        return;
-      }
-      let stdout = "";
-      let stderr = "";
-      let child;
-      try {
-        child = spawn("git", args, {
-          cwd,
-          env: gitEnv({ ...process.env, ...opts.env }),
-          stdio: ["ignore", "pipe", "pipe"],
-          shell: false,
-          windowsHide: true,
-        });
-      } catch (error) {
-        const code = (error as NodeJS.ErrnoException).code;
-        resolve({
-          code: null,
-          stdout: "",
-          stderr: (error as Error).message,
-          error: code === "ENOENT" ? "not_found" : "not_started",
-        });
-        return;
-      }
-      child.stdout?.on("data", (chunk: Buffer) => (stdout = bounded(stdout + chunk.toString())));
-      child.stderr?.on("data", (chunk: Buffer) => (stderr = bounded(stderr + chunk.toString())));
-      let timedOut = false;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        stopTree(child);
-      }, opts.timeoutMs ?? GIT_TIMEOUT_MS);
-      timer.unref();
-      let stopped = false;
-      const onAbort = () => {
-        stopped = true;
-        stopTree(child);
-      };
-      opts.signal?.addEventListener("abort", onAbort, { once: true });
-      const settle = () => {
-        clearTimeout(timer);
-        opts.signal?.removeEventListener("abort", onAbort);
-      };
-      child.on("error", (error: NodeJS.ErrnoException) => {
-        settle();
-        resolve({
-          code: null,
-          stdout,
-          stderr: error.message,
-          error: error.code === "ENOENT" ? "not_found" : "not_started",
-        });
-      });
-      child.on("close", (code) => {
-        settle();
-        if (stopped) resolve({ code: null, stdout, stderr, error: "stopped" });
-        else if (timedOut) resolve({ code: null, stdout, stderr, error: "timed_out" });
-        else resolve({ code, stdout, stderr });
-      });
+  async run(args, cwd, opts = {}) {
+    const result = await runProgram({
+      command: "git",
+      args,
+      cwd,
+      env: gitEnv({ ...process.env, ...opts.env }),
+      timeoutMs: opts.timeoutMs ?? GIT_TIMEOUT_MS,
+      signal: opts.signal,
+      outputMax: GIT_OUTPUT_MAX,
     });
+    const { code, stdout, stderr } = result;
+    switch (result.outcome) {
+      case "exited":
+        return { code, stdout, stderr };
+      case "not_found":
+        return { code, stdout, stderr: result.error ?? stderr, error: "not_found" };
+      case "failed_to_start":
+        return { code: null, stdout, stderr: result.error ?? stderr, error: "not_started" };
+      default:
+        return { code: null, stdout, stderr, error: result.outcome };
+    }
   },
 };
 

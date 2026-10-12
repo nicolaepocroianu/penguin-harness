@@ -1,16 +1,11 @@
 /**
  * The programs a deploy runs besides git (npm, npx): started without a prompt, their output
- * streamed to the deploy's log as it arrives, bounded, stopped at a time limit or when the
- * engineer presses Stop — and with them everything they started.
+ * streamed to the deploy's log line by line as it arrives, bounded, stopped at a time limit or
+ * when the engineer presses Stop — and with them everything they started (`run-program.ts`).
  *
- * The spawn, time limit and tree kill follow `spawnModuleBuild` in `sandbox-build-runner.ts`,
- * whose `stopTree` and `clampLog` this reuses; what differs is that output is handed on line
- * by line and an abort signal stops the child.
- *
- * Tests replace the port with a fake; nothing here is reached by a test.
+ * Tests replace the port with a fake.
  */
-import { spawn } from "node:child_process";
-import { clampLog, stopTree } from "./sandbox-build-runner.js";
+import { runProgram } from "./run-program.js";
 
 /** How long one program may run unless the caller says otherwise. */
 export const PROCESS_TIMEOUT_MS = 20 * 60 * 1000;
@@ -23,7 +18,7 @@ export interface DeployProcessOptions {
   timeoutMs?: number;
   /** Aborting it stops the program and everything it started. */
   signal?: AbortSignal;
-  /** Each piece of output, as it arrives. */
+  /** The output as it arrives; the real port hands it on a whole line at a time. */
   onOutput?: (text: string) => void;
   /** Whether the program goes through the shell; on Windows by default, for npm and npx. */
   shell?: boolean;
@@ -48,56 +43,28 @@ export interface DeployProcess {
  * would split at their spaces).
  */
 export const spawnDeployProcess: DeployProcess = {
-  run(command, args, options) {
-    return new Promise((resolve) => {
-      let tail = "";
-      const keep = (text: string) => {
-        tail = clampLog(tail + text, PROCESS_TAIL_MAX * 2);
-        options.onOutput?.(text);
-      };
-      if (options.signal?.aborted) {
-        resolve({ code: null, tail: "", error: "stopped" });
-        return;
-      }
-      let child;
-      try {
-        child = spawn(command, args, {
-          cwd: options.cwd,
-          env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
-          stdio: ["ignore", "pipe", "pipe"],
-          shell: options.shell ?? process.platform === "win32",
-          windowsHide: true,
-        });
-      } catch {
-        resolve({ code: null, tail: "", error: "not_started" });
-        return;
-      }
-      child.stdout?.on("data", (chunk: Buffer) => keep(chunk.toString("utf8")));
-      child.stderr?.on("data", (chunk: Buffer) => keep(chunk.toString("utf8")));
-      let ended: "timed_out" | "stopped" | null = null;
-      const stop = (why: "timed_out" | "stopped") => {
-        if (ended) return;
-        ended = why;
-        stopTree(child);
-      };
-      const timer = setTimeout(() => stop("timed_out"), options.timeoutMs ?? PROCESS_TIMEOUT_MS);
-      timer.unref();
-      const onAbort = () => stop("stopped");
-      options.signal?.addEventListener("abort", onAbort, { once: true });
-      const done = (result: DeployProcessResult) => {
-        clearTimeout(timer);
-        options.signal?.removeEventListener("abort", onAbort);
-        resolve({ ...result, tail: tail.slice(-PROCESS_TAIL_MAX) });
-      };
-      child.on("error", (error: NodeJS.ErrnoException) =>
-        done({ code: null, tail, error: error.code === "ENOENT" ? "not_found" : "not_started" }),
-      );
-      child.on("close", (code) => {
-        if (ended) done({ code: null, tail, error: ended });
-        // A shell that cannot find the program says so with 127 (sh) or 9009 (cmd).
-        else if (code === 127 || code === 9009) done({ code, tail, error: "not_found" });
-        else done({ code, tail });
-      });
+  async run(command, args, options) {
+    const result = await runProgram({
+      command,
+      args,
+      cwd: options.cwd,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+      windowsShell: options.shell ?? true,
+      timeoutMs: options.timeoutMs ?? PROCESS_TIMEOUT_MS,
+      signal: options.signal,
+      outputMax: PROCESS_TAIL_MAX,
+      onLine: options.onOutput ? (line) => options.onOutput!(`${line}\n`) : undefined,
     });
+    const { code, output: tail } = result;
+    switch (result.outcome) {
+      case "exited":
+        return { code, tail };
+      case "not_found":
+        return { code, tail, error: "not_found" };
+      case "failed_to_start":
+        return { code: null, tail, error: "not_started" };
+      default:
+        return { code: null, tail, error: result.outcome };
+    }
   },
 };

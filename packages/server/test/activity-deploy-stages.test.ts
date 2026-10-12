@@ -7,7 +7,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { spawnGit, type DeployGitResult } from "../src/activities/deploy-git.js";
+import type { DeployGitResult } from "../src/activities/deploy-git.js";
 import type { DeployJenkins, JenkinsBuildStatus } from "../src/activities/deploy-jenkins.js";
 import { JenkinsError } from "../src/activities/deploy-jenkins.js";
 import type { DeployProcessResult } from "../src/activities/deploy-process.js";
@@ -688,13 +688,6 @@ describe("Stop during git", () => {
     made.controller.abort();
     await expect(pending).rejects.toBeInstanceOf(DeployStopped);
     expect(seen.every((signal) => signal === made.controller.signal)).toBe(true);
-  });
-
-  it("stops the real git at once when the signal has already aborted", async () => {
-    const controller = new AbortController();
-    controller.abort();
-    const result = await spawnGit.run(["--version"], os.tmpdir(), { signal: controller.signal });
-    expect(result).toMatchObject({ code: null, error: "stopped" });
   });
 });
 

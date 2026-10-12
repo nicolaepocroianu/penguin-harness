@@ -13,10 +13,10 @@
  *
  * A missing FFmpeg is reported (503 `ffmpeg_missing`), never worked around.
  */
-import { spawn } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import { HttpError } from "../http/errors.js";
+import { startProgram } from "./run-program.js";
 
 let bundled: string | null | undefined;
 
@@ -62,7 +62,7 @@ export interface FfmpegRun {
   write(chunk: Uint8Array): Promise<void>;
   /** Closes stdin and waits for FFmpeg to exit; answers stdout. Rejects unless it exited 0. */
   finish(): Promise<Buffer>;
-  /** Stops FFmpeg; `finish` then rejects. */
+  /** Stops FFmpeg and anything it started; `finish` then rejects. */
   kill(): void;
   /** What FFmpeg has written to stderr so far, at most `stderrLimit` characters of its end. */
   stderr(): string;
@@ -70,9 +70,10 @@ export interface FfmpegRun {
 
 /**
  * Starts FFmpeg with `args` (never through a shell), its stdin open for `write`. Rejects with
- * 503 `ffmpeg_missing` when there is no FFmpeg to start; `timeoutMs` bounds the whole run.
+ * 503 `ffmpeg_missing` when there is no FFmpeg to start; `timeoutMs` bounds the whole run, and
+ * a run past it is stopped together with anything it started.
  */
-export function startFfmpeg(
+export async function startFfmpeg(
   args: string[],
   options: {
     purpose: string;
@@ -82,97 +83,39 @@ export function startFfmpeg(
     stderrLimit?: number;
   },
 ): Promise<FfmpegRun> {
-  return new Promise((resolve, reject) => {
-    let child;
-    try {
-      child = spawn(options.executable ?? ffmpegPath(), args, {
-        stdio: ["pipe", "pipe", "pipe"],
-        windowsHide: true,
-        shell: false,
-      });
-    } catch (error) {
-      reject(ffmpegMissing(options.purpose, error));
-      return;
-    }
-    const out: Buffer[] = [];
-    // The end of stderr, in the chunks it came in: whole chunks fall off the front once the
-    // rest still holds the limit, so a long report is not copied again with every chunk.
-    const limit = options.stderrLimit ?? 4000;
-    const errChunks: string[] = [];
-    let errLength = 0;
-    const err = () => errChunks.join("").slice(-limit);
-    let started = false;
-    let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill();
-    }, options.timeoutMs);
-    child.stdout.on("data", (chunk: Buffer) => out.push(chunk));
-    child.stderr.on("data", (chunk: Buffer) => {
-      const text = chunk.toString();
-      errChunks.push(text);
-      errLength += text.length;
-      while (errChunks.length > 1 && errLength - errChunks[0]!.length >= limit)
-        errLength -= errChunks.shift()!.length;
-    });
-    // A closed pipe after FFmpeg failed is reported by its exit, not here.
-    child.stdin.on("error", () => {});
-    const exited = new Promise<number | null>((settle, fail) => {
-      child.on("error", (error: NodeJS.ErrnoException) => {
-        clearTimeout(timer);
-        const missing = error.code === "ENOENT" ? ffmpegMissing(options.purpose, error) : error;
-        if (!started) reject(missing);
-        fail(missing);
-      });
-      child.on("close", (code) => {
-        clearTimeout(timer);
-        settle(code);
-      });
-    });
-    // Swallowed here; `finish` reports it.
-    exited.catch(() => {});
-    child.on("spawn", () => {
-      started = true;
-      resolve({
-        write: (chunk) =>
-          new Promise<void>((done, fail) => {
-            if (child.stdin.destroyed || child.exitCode !== null) {
-              fail(new FfmpegError("ffmpeg stopped reading its input.", err().trim()));
-              return;
-            }
-            if (child.stdin.write(chunk)) {
-              done();
-              return;
-            }
-            // Full pipe: wait for room, unless FFmpeg exits first.
-            const drained = () => {
-              child.off("close", closed);
-              done();
-            };
-            const closed = () => {
-              child.stdin.off("drain", drained);
-              fail(new FfmpegError("ffmpeg stopped reading its input.", err().trim()));
-            };
-            child.stdin.once("drain", drained);
-            child.once("close", closed);
-          }),
-        finish: async () => {
-          child.stdin.end();
-          const code = await exited;
-          if (timedOut)
-            throw new FfmpegError(`ffmpeg took longer than ${options.timeoutMs} ms.`, err().trim());
-          if (code !== 0)
-            throw new FfmpegError(
-              err().trim() || `ffmpeg exited with ${code ?? "a signal"}`,
-              err().trim(),
-            );
-          return Buffer.concat(out);
-        },
-        kill: () => child.kill(),
-        stderr: err,
-      });
-    });
+  const run = startProgram({
+    command: options.executable ?? ffmpegPath(),
+    args,
+    timeoutMs: options.timeoutMs,
+    holdInput: true,
+    stdout: "bytes",
+    outputMax: options.stderrLimit ?? 4000,
   });
+  if (!(await run.started)) {
+    const failed = await run.result;
+    throw ffmpegMissing(options.purpose, new Error(failed.error ?? failed.outcome));
+  }
+  const err = () => run.output().stderr;
+  return {
+    write: async (chunk) => {
+      if (!(await run.write(chunk)))
+        throw new FfmpegError("ffmpeg stopped reading its input.", err().trim());
+    },
+    finish: async () => {
+      run.endInput();
+      const result = await run.result;
+      if (result.outcome === "timed_out")
+        throw new FfmpegError(`ffmpeg took longer than ${options.timeoutMs} ms.`, err().trim());
+      if (result.outcome !== "exited" || result.code !== 0)
+        throw new FfmpegError(
+          err().trim() || `ffmpeg exited with ${result.code ?? "a signal"}`,
+          err().trim(),
+        );
+      return result.stdoutBytes ?? Buffer.alloc(0);
+    },
+    kill: () => run.stop(),
+    stderr: err,
+  };
 }
 
 /** Runs FFmpeg once on `input` (or nothing) and answers its stdout. */

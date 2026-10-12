@@ -16,8 +16,9 @@ import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import type { StyleCompiler } from "./module-builder.js";
+import { clampLog } from "./run-program.js";
 import {
-  clampLog,
+  BUILD_LOG_MAX,
   spawnNodeScript,
   styleOutcome,
   type BuildOutcome,
@@ -254,5 +255,5 @@ export async function spawnCheckoutBuild(
     },
     options,
   );
-  return { ok: built.ok, log: clampLog(styleLog + built.log) };
+  return { ok: built.ok, log: clampLog(styleLog + built.log, BUILD_LOG_MAX) };
 }

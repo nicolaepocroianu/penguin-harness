@@ -16,7 +16,6 @@
  * Tests never download anything: the installer and the executable lookup are ports
  * (`TestBrowserPorts`) a test replaces.
  */
-import { spawn } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -33,7 +32,7 @@ import type { Settings } from "../mechanisms/settings.js";
 import { hostOnly } from "../services/preview-token.js";
 import { PLAYER_BROWSER_ARGS } from "./browser-session.js";
 import { playBase } from "./play-routes.js";
-import { clampLog, stopTree } from "./sandbox-build-runner.js";
+import { clampLog, runProgram } from "./run-program.js";
 import type { ActivityPlayLinks } from "./play-links.js";
 import type { TestBrowserInstallError, TestBrowserStatus } from "./test-browser-types.js";
 
@@ -188,74 +187,39 @@ export function chromiumVersion(coreDir: string | null): string | null {
   }
 }
 
-/** Collects a child's output, keeping the end when there is too much. */
-function collector(max: number) {
-  const chunks: string[] = [];
-  let size = 0;
-  return {
-    add(chunk: Buffer) {
-      const text = chunk.toString("utf8");
-      chunks.push(text);
-      size += text.length;
-      while (size > max * 2 && chunks.length > 1) size -= chunks.shift()!.length;
-    },
-    text: () => clampLog(chunks.join(""), max),
-  };
-}
-
 /**
  * Runs Playwright's installer for Chromium. `--no-shell`: checks launch the full browser by
  * its executable path, so the separate headless shell would be a second download for nothing.
  */
-export function spawnPlaywrightInstall(
+export async function spawnPlaywrightInstall(
   spec: TestBrowserInstallSpec,
 ): Promise<TestBrowserInstallOutcome> {
-  return new Promise((resolve) => {
-    const log = collector(INSTALL_LOG_MAX);
-    const finish = (result: TestBrowserInstallOutcome["result"], trailer?: string) =>
-      resolve({
-        result,
-        log: clampLog(log.text() + (trailer ? `\n${trailer}` : ""), INSTALL_LOG_MAX),
-      });
-    if (spec.signal.aborted) {
-      finish("not_started");
-      return;
-    }
-    let child;
-    try {
-      child = spawn(process.execPath, [spec.cliPath, "install", "--no-shell", "chromium"], {
-        cwd: spec.browsersDir,
-        env: nodeChildEnv(spec.env),
-        stdio: ["ignore", "pipe", "pipe"],
-        shell: false,
-        windowsHide: true,
-      });
-    } catch (error) {
-      finish("not_started", (error as Error).message);
-      return;
-    }
-    child.stdout?.on("data", log.add);
-    child.stderr?.on("data", log.add);
-    let timedOut = false;
-    const stop = () => stopTree(child);
-    const timer = setTimeout(() => {
-      timedOut = true;
-      stop();
-    }, spec.timeoutMs);
-    timer.unref();
-    spec.signal.addEventListener("abort", stop, { once: true });
-    child.on("error", (error: Error) => {
-      clearTimeout(timer);
-      spec.signal.removeEventListener("abort", stop);
-      finish("not_started", error.message);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      spec.signal.removeEventListener("abort", stop);
-      if (timedOut) finish("timed_out");
-      else finish(code === 0 ? "ok" : "failed", code === 0 ? undefined : `exit code ${code}`);
-    });
+  if (spec.signal.aborted) return { result: "not_started", log: "" };
+  const run = await runProgram({
+    command: process.execPath,
+    args: [spec.cliPath, "install", "--no-shell", "chromium"],
+    cwd: spec.browsersDir,
+    env: nodeChildEnv(spec.env),
+    timeoutMs: spec.timeoutMs,
+    signal: spec.signal,
+    outputMax: INSTALL_LOG_MAX,
   });
+  const outcome = (result: TestBrowserInstallOutcome["result"], trailer?: string) => ({
+    result,
+    log: clampLog(run.output + (trailer ? `\n${trailer}` : ""), INSTALL_LOG_MAX, run.omitted),
+  });
+  switch (run.outcome) {
+    case "exited":
+      return run.code === 0 ? outcome("ok") : outcome("failed", `exit code ${run.code}`);
+    case "timed_out":
+      return outcome("timed_out");
+    case "stopped":
+      return outcome("failed", "stopped");
+    default:
+      return run.code === null
+        ? outcome("not_started", run.error)
+        : outcome("failed", `exit code ${run.code}`);
+  }
 }
 
 /**
@@ -264,39 +228,20 @@ export function spawnPlaywrightInstall(
  * process would pin the answer to whatever the environment held then, and setting it here
  * would leak into every agent this server starts.
  */
-export function locatePlaywrightChromium(browsersDir: string): Promise<string | null> {
+export async function locatePlaywrightChromium(browsersDir: string): Promise<string | null> {
   const coreDir = playwrightCoreDir();
-  if (!coreDir) return Promise.resolve(null);
+  if (!coreDir) return null;
   const script =
     "const { chromium } = require(process.argv[1]);" +
     "process.stdout.write(String(chromium.executablePath() || ''));";
-  return new Promise((resolve) => {
-    let out = "";
-    let child;
-    try {
-      child = spawn(process.execPath, ["-e", script, path.join(coreDir, "index.js")], {
-        env: nodeChildEnv({ PLAYWRIGHT_BROWSERS_PATH: browsersDir }),
-        stdio: ["ignore", "pipe", "ignore"],
-        shell: false,
-        windowsHide: true,
-      });
-    } catch {
-      resolve(null);
-      return;
-    }
-    const timer = setTimeout(() => child.kill(), 30_000);
-    timer.unref();
-    child.stdout?.on("data", (chunk: Buffer) => (out += chunk.toString("utf8")));
-    child.on("error", () => {
-      clearTimeout(timer);
-      resolve(null);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      const found = out.trim();
-      resolve(code === 0 && found !== "" ? found : null);
-    });
+  const run = await runProgram({
+    command: process.execPath,
+    args: ["-e", script, path.join(coreDir, "index.js")],
+    env: nodeChildEnv({ PLAYWRIGHT_BROWSERS_PATH: browsersDir }),
+    timeoutMs: 30_000,
   });
+  const found = run.stdout.trim();
+  return run.outcome === "exited" && run.code === 0 && found !== "" ? found : null;
 }
 
 /** The loopback authority this server answers on, for a browser on the same machine. */
