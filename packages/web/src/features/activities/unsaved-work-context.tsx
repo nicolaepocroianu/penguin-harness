@@ -46,6 +46,8 @@ function discardText(wording: DiscardWording): string {
       return S.activities.discardFile;
     case "document":
       return S.activities.discardSection;
+    case "refPlan":
+      return S.activities.discardRefPlan;
     case "draft":
       return S.activities.discard;
   }
@@ -116,10 +118,17 @@ export function useUnsavedWork(): UnsavedWorkGuard {
  * author discarded counts again as soon as the editor still holds it; an editor that goes
  * holds nothing.
  */
-export function useHeldWork(work: HeldWork, held: boolean): void {
+export function useHeldWork(
+  work: HeldWork,
+  held: boolean,
+): {
+  /** Stop holding at once: the work just landed and must not hold up what follows it. */
+  release: () => void;
+} {
   const guard = useContext(UnsavedWorkContext);
   if (!guard) throw new Error("useHeldWork outside the activities host");
   const [id] = useState(() => guard.work.holder());
   useLayoutEffect(() => guard.work.set(id, held ? work : null));
   useLayoutEffect(() => () => guard.work.set(id, null), [guard, id]);
+  return { release: () => guard.work.set(id, null) };
 }

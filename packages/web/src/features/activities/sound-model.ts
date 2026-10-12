@@ -56,6 +56,22 @@ export function parseLength(text: string): { ok: true; ms: number | undefined } 
   return { ok: true, ms: Math.round(seconds * 1000) };
 }
 
+/**
+ * What the Length field shows: the asset's length, unless the author is typing. Text that
+ * does not read as a length stays so it can be corrected; text that reads as the asset's own
+ * length keeps the author's spelling ("2.50"); anything else gives way to the asset's length,
+ * so a change from elsewhere shows.
+ */
+export function lengthFieldText(
+  typed: string | null,
+  targetDurationMs: number | undefined,
+): string {
+  if (typed === null) return lengthText(targetDurationMs);
+  const parsed = parseLength(typed);
+  if (!parsed.ok || parsed.ms === targetDurationMs) return typed;
+  return lengthText(targetDurationMs);
+}
+
 export interface SoundModelOption {
   id: string;
   /** Why this model cannot make the sound now, worded; null when it can. */

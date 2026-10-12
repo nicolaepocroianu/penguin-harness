@@ -127,4 +127,17 @@ describe("the unsaved-work guard", () => {
     expect(discardWording({ kind: "activity" }, [timeline])).toBe("draft");
     expect(discardWording({ kind: "draftText" }, [draft])).toBe("draft");
   });
+
+  it("asks before an editor starts over only for that editor's work", () => {
+    const work = new UnsavedWork();
+    const plan: HeldWork = { label: "new ref plan", section: "newRef" };
+    for (const held of [draft, plan]) work.set(work.holder(), held);
+    const restart = { kind: "restart", label: "new ref plan" } as const;
+    expect(labels(work.lost(restart))).toEqual(["new ref plan"]);
+    expect(discardWording(restart, [plan])).toBe("refPlan");
+    // Leaving the page for another section loses the plan too, in the same words.
+    const section = { kind: "section", from: "newRef", to: "scenes" } as const;
+    expect(labels(work.lost(section))).toEqual(["new ref plan"]);
+    expect(discardWording(section, [plan])).toBe("refPlan");
+  });
 });

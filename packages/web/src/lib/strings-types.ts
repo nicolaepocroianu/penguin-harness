@@ -1945,6 +1945,8 @@ export type Strings = {
     discardTimeline: string;
     /** Before an uploaded or trimmed file the asset has not saved is lost. */
     discardFile: string;
+    /** Before the choices made on the new-ref page are lost. */
+    discardRefPlan: string;
     discardTitle: string;
     discardConfirm: string;
     remoteChanged: string;

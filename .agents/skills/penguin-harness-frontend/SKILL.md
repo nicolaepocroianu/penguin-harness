@@ -215,6 +215,31 @@ Modals and `Dropdown` additionally register in the Esc-layer stack (`modal.tsx`'
 so Escape only acts on the topmost layer. A portal panel does not need to — capture plus
 `stopPropagation` already gets there first.
 
+## Unsaved work
+
+Every input that holds work the server has not seen gets exactly one treatment. Pick the first
+that fits:
+
+1. **Save it** when committing is safe and cheap: commit as the author goes, or on blur. The
+   studio draft's autosaves and a provider or voice pick are this case.
+2. **Keep it** when it is a message not yet sent: persist it so it comes back, as the chat
+   composer's draft does.
+3. **Guard it** when it is costly and cannot commit on its own: register it with the
+   unsaved-work guard (`unsaved-work.ts`) through `useHeldWork(work, held)`. Say which section
+   holds it, and which asset when an editor in Scenes holds it, so the guard asks before exactly
+   the moves that lose it: a section switch, another asset or the storyboard, leaving the
+   activity, another Project, or the editor starting over. Give the work a label and its own
+   discard copy, in the strings, so the dialog names what is lost. A module document, a scene
+   video's timeline, a file not yet saved to an asset and the new-ref page's choices are this
+   case.
+4. **Leave it** when it lives inside a modal, is a single paste, or is a safety confirmation
+   (a typed product code). Closing a modal is already the author saying no.
+
+Never reach for a fifth: an editor that keeps work in local state with none of these loses it
+without a word, and nothing else in the page can see it. A field that shows what the author
+typed must also give way to the server's value once the typing is valid and saved, or a later
+change from elsewhere stays masked.
+
 ## The rest of the house style
 
 - **Stacking contexts**: chrome creates none; dropdown/user menus `z-40`; modal and drawer overlays

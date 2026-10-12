@@ -50,6 +50,7 @@ import {
   planRows,
   refNumberFrom,
   regenerateAllImages,
+  rowsDecided,
   sceneOrder,
   setAction,
   setFileName,
@@ -62,6 +63,7 @@ import {
 } from "./ref-plan";
 import { useActivityClient } from "./activity-client";
 import type { ActivityApi } from "./activity-api";
+import { useHeldWork, useUnsavedWork } from "./unsaved-work-context";
 
 const ACTIONS: readonly RowAction[] = ["keep", "regenerate", "upload", "library"];
 
@@ -143,6 +145,14 @@ export function CreateRefView({
   const files = useRef(new Map<string, File>());
   const [picking, setPicking] = useState<RefPlanRow | null>(null);
   const [creating, setCreating] = useState(false);
+  // The rows' decisions, edited narration and chosen files exist only here until the ref is
+  // made: leaving the page, or starting the rows over in another language, asks first.
+  const landed = useRef(false);
+  const unsaved = useUnsavedWork();
+  const plan = useHeldWork(
+    { label: "new ref plan", section: "newRef" },
+    !landed.current && rowsDecided(rows),
+  );
   const [error, setError] = useState<string | null>(null);
   const [marking, setMarking] = useState(false);
   const alive = useRef(true);
@@ -178,9 +188,11 @@ export function CreateRefView({
     editable && canonical && template.stable && !!manifest && !found.length && !creating;
 
   function chooseLanguage(next: string) {
-    setLanguage(next);
-    files.current.clear();
-    setRows(voiceForAll(planRows(manifest, next, order), voice || null));
+    unsaved.confirm({ kind: "restart", label: "new ref plan" }, () => {
+      setLanguage(next);
+      files.current.clear();
+      setRows(voiceForAll(planRows(manifest, next, order), voice || null));
+    });
   }
 
   async function markStable() {
@@ -243,6 +255,9 @@ export function CreateRefView({
       problem = apiErrorText(cause);
     }
     if (alive.current) setCreating(false);
+    // Made: the plan is the new ref's now, and opening it must not ask about the plan.
+    landed.current = true;
+    plan.release();
     onCreated(detail, problem);
   }
 

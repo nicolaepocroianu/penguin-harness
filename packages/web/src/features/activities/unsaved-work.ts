@@ -7,7 +7,8 @@
 import type { WorkspaceSection } from "./workspace-model";
 
 /** What holds the work; it also says what the dialog that asks about losing it says. */
-export type HeldWorkLabel = "draft" | "module document" | "scene timeline" | "unsaved file";
+export type HeldWorkLabel =
+  "draft" | "module document" | "scene timeline" | "unsaved file" | "new ref plan";
 
 /** The asset an editor in Scenes shows, by its key and, where that matters, its language. */
 export interface ShownAsset {
@@ -40,10 +41,12 @@ export type Leave =
   /** Replacing the draft's texts with the server's: a reload, a candidate specification. */
   | { kind: "draftText" }
   /** Showing another asset in Scenes, or the storyboard in its place (`to` null). */
-  | { kind: "asset"; to: ShownAsset | null };
+  | { kind: "asset"; to: ShownAsset | null }
+  /** An editor starting its own work over, which loses what that editor holds. */
+  | { kind: "restart"; label: HeldWorkLabel };
 
 /** Which words the dialog asks with, by what a leave would throw away. */
-export type DiscardWording = "draft" | "document" | "timeline" | "file";
+export type DiscardWording = "draft" | "document" | "timeline" | "file" | "refPlan";
 
 /**
  * What the dialog says before `lost` goes. Leaving the activity, or the draft's texts, keeps
@@ -53,6 +56,7 @@ export function discardWording(leave: Leave, lost: readonly HeldWork[]): Discard
   if (leave.kind === "activity" || leave.kind === "draftText") return "draft";
   if (lost.some((work) => work.label === "scene timeline")) return "timeline";
   if (lost.some((work) => work.label === "unsaved file")) return "file";
+  if (lost.some((work) => work.label === "new ref plan")) return "refPlan";
   return "document";
 }
 
@@ -108,6 +112,7 @@ export class UnsavedWork {
       if (leave.kind === "activity") return true;
       if (leave.kind === "draftText") return work.section === undefined;
       if (leave.kind === "asset") return goesWith(work, leave.to);
+      if (leave.kind === "restart") return work.label === leave.label;
       return leave.to !== leave.from && work.section === leave.from;
     });
   }
