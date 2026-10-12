@@ -3,6 +3,7 @@
 - **Date:** 2026-10-12
 - **Type:** fix
 - **Scope:** `web`, `skills`
+- **PR:** [#117](https://github.com/nicolaepocroianu/penguin-harness/pull/117)
 
 The frontend skill gained an "Unsaved work" section. It says each input holding work the server
 has not seen gets exactly one treatment, in this order of preference: save it, keep it, guard it
