@@ -3846,6 +3846,77 @@ test("the conversation panel lists its threads and shows the open one's proposal
   expect(f.errors).toEqual([]);
 });
 
+test("the studio composer keeps its unsent text, and the conversation it was written for", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  const run = (runId, kind, createdAt, status = "succeeded") => ({
+    kind,
+    runId,
+    activityId: "act_test",
+    projectId,
+    sessionId: `session_${runId}`,
+    status,
+    createdAt,
+    inputRevision: "1",
+    hasCandidate: false,
+    error: null,
+    ...(kind === "assist" ? { assist: { focus: null } } : {}),
+  });
+  // A run under way keeps the history read every couple of seconds.
+  const runs = [
+    run("run_busy", "spec", "2026-09-19T10:00:00Z", "running"),
+    run("run_old", "assist", "2026-09-20T10:00:00Z"),
+  ];
+  let reads = 0;
+  await page.route("**/*", (route) => {
+    const request = route.request();
+    const p = new URL(request.url()).pathname;
+    const json = (value) =>
+      route.fulfill({ contentType: "application/json", body: JSON.stringify(value) });
+    if (p === `${base}/act_test/runs` && request.method() === "GET") {
+      reads += 1;
+      return json({ runs });
+    }
+    const match = p.match(/\/runs\/(run_old|run_new)\/proposal$/);
+    if (match)
+      return json({
+        proposal:
+          match[1] === "run_new"
+            ? { summary: "Newest idea.", changes: [{ target: "description", text: "x" }] }
+            : null,
+        error: null,
+      });
+    if (/^\/api\/sessions\/session_run_\w+\/messages$/.test(p)) return json({ messages: [] });
+    return route.fallback();
+  });
+  await page.reload();
+  let panel = await openPanel(page, "Chat");
+  const composer = () =>
+    page
+      .getByRole("complementary", { name: "Chat", exact: true })
+      .getByRole("textbox", { name: "Ask the agent about this activity", exact: true });
+  await composer().fill("Half a thought");
+  // Closing the panel and opening it again brings the unsent text back.
+  await panelTab(page, "Chat").click();
+  await expect(panel).toBeHidden();
+  panel = await openPanel(page, "Chat");
+  await expect(composer()).toHaveValue("Half a thought");
+
+  // A newer conversation arriving while the composer holds text does not take the text, or
+  // the conversation it was written for, away.
+  runs.push(run("run_new", "assist", "2026-09-22T10:00:00Z"));
+  const before = reads;
+  await expect.poll(() => reads).toBeGreaterThan(before + 1);
+  await expect(composer()).toHaveValue("Half a thought");
+  await expect(panel.getByText("Newest idea.", { exact: true })).toHaveCount(0);
+  // Once the composer is empty the panel follows the newest conversation again.
+  await composer().fill("");
+  await expect(panel.getByText("Newest idea.", { exact: true })).toBeVisible();
+  expect(f.errors).toEqual([]);
+});
+
 test("a run's session transcript opens in place in the Sessions panel", async ({ page }) => {
   const f = await fixture(page);
   await create(page);

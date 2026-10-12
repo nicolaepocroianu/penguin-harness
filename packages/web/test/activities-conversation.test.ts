@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
 import {
+  composerDraftKey,
   conversationThreads,
   focusFor,
   focusLabel,
@@ -9,8 +10,10 @@ import {
   splitMovedTo,
   splitStudioBrief,
   splitStudioContext,
+  shownConversation,
   threadTime,
 } from "../src/features/activities/conversation";
+import { sessionDraftKey } from "../src/features/chat/draft-cache";
 import { indexRuns } from "../src/features/activities/runs-index";
 import { runTitle } from "../src/features/activities/sessions-panel";
 import { STUDIO_PANELS, readSidePanel } from "../src/features/activities/workspace-model";
@@ -32,6 +35,26 @@ describe("conversation panel", () => {
     ]);
     expect(conversationThreads(runs).map((thread) => thread.runId)).toEqual(["new", "old"]);
     expect(conversationThreads(indexRuns([]))).toEqual([]);
+  });
+
+  it("keeps unsent text in the Session's own slot, or the activity's before there is one", () => {
+    const activity = { projectId: "p1", activityId: "act_1" };
+    // The same slot the chat page reads for that Session, so the text follows it there.
+    expect(composerDraftKey("u1", "s-1", activity)).toBe(sessionDraftKey("u1", "s-1"));
+    expect(composerDraftKey("u1", null, activity)).toBe("penguin.chatDraft.activity.u1.p1.act_1");
+    expect(composerDraftKey("u2", null, activity)).not.toBe(composerDraftKey("u1", null, activity));
+    expect(composerDraftKey(null, "s-1", activity)).toBeNull();
+  });
+
+  it("follows the newest conversation unless the composer holds text for the one shown", () => {
+    const follow = { choice: undefined, newest: "s-new", shown: "s-old", holding: false };
+    expect(shownConversation(follow)).toBe("s-new");
+    // Text written for the conversation shown keeps it, a new one included.
+    expect(shownConversation({ ...follow, holding: true })).toBe("s-old");
+    expect(shownConversation({ ...follow, shown: null, holding: true })).toBeNull();
+    // A choice the author made stands either way.
+    expect(shownConversation({ ...follow, choice: "s-mid", holding: true })).toBe("s-mid");
+    expect(shownConversation({ ...follow, choice: null })).toBeNull();
   });
 
   it("focuses an asset only while the scenes section shows it", () => {

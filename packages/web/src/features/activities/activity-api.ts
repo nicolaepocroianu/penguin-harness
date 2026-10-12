@@ -144,6 +144,8 @@ export function activityApi(projectId: string, activityId: string, send: ApiSend
     load,
   });
   return {
+    projectId,
+    activityId,
     endpoint,
     detail: () => get<ActivityDetail>(""),
     runs: {

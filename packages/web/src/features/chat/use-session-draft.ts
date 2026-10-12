@@ -13,6 +13,10 @@
  * shell per session would bloat localStorage); discard on a successful send cancels the
  * pending timer first, otherwise it would write the just-cleared draft back.
  *
+ * The slot is a cache key (`useDraftSlot`): the activity studio's composer keeps its text in
+ * the same Session slot, so a message started in either place is there in the other, and in
+ * its own activity slot (`activityDraftKey`) before the conversation has a Session.
+ *
  * ChatPage keys session content blocks by sessionId, so ChatInput remounts accordingly, but
  * this hook is mounted on ChatPage itself and does not remount — switching sessions is
  * handled by the [key] effect: cleanup flushes the old session via its stale closure, setup
@@ -26,7 +30,14 @@ import type { DraftCache } from "./draft-cache";
 
 const SAVE_DEBOUNCE_MS = 300;
 
-export function useSessionDraft(sessionId: string | null): {
+/** The draft of an existing session's input area, in the slot the chat page and the studio share. */
+export function useSessionDraft(sessionId: string | null): DraftSlot {
+  // No user (shouldn't happen under RequireAuth) disables caching entirely: must not read/write account-agnostic keys (#68).
+  const userId = useAuth().user?.userId ?? null;
+  return useDraftSlot(userId && sessionId ? sessionDraftKey(userId, sessionId) : null);
+}
+
+export interface DraftSlot {
   /** Initial draft value for the current session (recomputed with sessionId; consumed by ChatInput after it remounts on sessionId). */
   initial: DraftCache;
   onTextChange: (text: string) => void;
@@ -37,10 +48,13 @@ export function useSessionDraft(sessionId: string | null): {
   onSkillsChange: (names: string[]) => void;
   /** Discard the current session's draft after a successful send. */
   discard: () => void;
-} {
-  // No user (shouldn't happen under RequireAuth) disables caching entirely: must not read/write account-agnostic keys (#68).
-  const userId = useAuth().user?.userId ?? null;
-  const key = userId && sessionId ? sessionDraftKey(userId, sessionId) : null;
+}
+
+/**
+ * The draft kept under one cache `key`; null keeps nothing. The key names the slot: a
+ * Session's (`sessionDraftKey`) or a studio's new conversation (`activityDraftKey`).
+ */
+export function useDraftSlot(key: string | null): DraftSlot {
   const initial = useMemo<DraftCache>(() => (key ? loadDraft(key) : {}), [key]);
 
   const textRef = useRef(initial.text ?? "");

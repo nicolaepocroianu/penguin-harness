@@ -76,6 +76,14 @@ export const sessionDraftKey = (userId: string, sessionId: string): string =>
   `penguin.chatDraft.session.${userId}.${sessionId}`;
 
 /**
+ * Cache key for an activity studio's new conversation, before it has a Session: one per
+ * "user × Project × activity". Once the conversation has a Session its text lives under that
+ * Session's key, the slot the chat page reads too.
+ */
+export const activityDraftKey = (userId: string, projectId: string, activityId: string): string =>
+  `penguin.chatDraft.activity.${userId}.${projectId}.${activityId}`;
+
+/**
  * A cached model reference must be a paired `{ provider, modelId }` object; anything else — the
  * old string-typed modelId, a half reference, a non-object — yields undefined and the field is
  * dropped. Shared by the two model fields (the draft's selection and the staged `/model` switch).
