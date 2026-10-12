@@ -454,4 +454,53 @@ describe("the field-level merge", () => {
     expect(draft.state.spec).toBe('{"title":"Typed"}');
     expect([...draft.state.conflicts]).toEqual(["spec"]);
   });
+
+  it("keeps the author's version of a conflict when they choose it, and saves it at once", async () => {
+    const { draft, calls } = editing();
+    draft.receive(planAt("r2", { timeline: cut(9000) }), "r1");
+    expect(draft.state.changed).toBe(true);
+    draft.resolve(["timeline:en-US/intro-video"], "mine");
+    expect(draft.state.changed).toBe(false);
+    expect(draft.timeline("en-US", "intro-video")).toEqual(cut(4000));
+    // The edit now sits on the newer draft: a later poll of it raises nothing.
+    draft.receive(planAt("r2", { timeline: cut(9000) }), "r2");
+    expect(draft.state.changed).toBe(false);
+    // The save names the newer revision, so it is not refused, and it lands.
+    const saving = draft.saveTimeline("en-US", "intro-video", cut(4000));
+    expect(calls).toMatchObject([{ path: "video-timeline", body: { expectedRevision: "r2" } }]);
+    calls[0]!.answer(planAt("r3", { timeline: cut(4000) }).draft);
+    expect(await saving).toBe(true);
+    expect(calls).toHaveLength(1);
+    expect(draft.timeline("en-US", "intro-video")).toBeNull();
+  });
+
+  it("drops the author's version of a conflict when they take the saved one", () => {
+    const { draft } = editing();
+    draft.edit("description", "Mine");
+    const theirs = planAt("r2", { timeline: cut(9000) });
+    theirs.draft.description = "Theirs";
+    draft.receive(theirs, "r1");
+    draft.resolve(["description"], "theirs");
+    expect(draft.state).toMatchObject({ description: "Theirs", dirty: false });
+    expect([...draft.state.conflicts]).toEqual(["timeline:en-US/intro-video"]);
+    draft.resolve(["timeline:en-US/intro-video"], "theirs");
+    expect(draft.timeline("en-US", "intro-video")).toBeNull();
+    expect(draft.state.changed).toBe(false);
+  });
+
+  it("takes the saved value of one asset's property and keeps the author's others", () => {
+    const { draft } = studio();
+    draft.replace(planAt("r1", {}));
+    draft.edit(
+      "media",
+      JSON.stringify(withVideo({ description: "Mine" }, { description: "Hello there" }), null, 2),
+    );
+    draft.receive(planAt("r2", { description: "Theirs" }), "r1");
+    expect([...draft.state.conflicts]).toEqual(["asset:en-US/intro-video#description"]);
+    draft.resolve(["asset:en-US/intro-video#description"], "theirs");
+    const group = (JSON.parse(draft.state.media) as AssetManifest).assets["en-US"]!;
+    expect(group.find((asset) => asset.key === "intro-video")!.description).toBe("Theirs");
+    expect(group.find((asset) => asset.key === "hello")!.description).toBe("Hello there");
+    expect(draft.state.changed).toBe(false);
+  });
 });

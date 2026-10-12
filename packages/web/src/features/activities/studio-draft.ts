@@ -21,7 +21,14 @@ import { ApiError } from "../../api/client";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import type { ActivityApi, RunAccept, RunStart } from "./activity-api";
-import { mergeDraft, pretty, savesConflict, type FieldId } from "./draft-merge";
+import {
+  mediaWithSaved,
+  mergeDraft,
+  pretty,
+  savedValue,
+  savesConflict,
+  type FieldId,
+} from "./draft-merge";
 import { applyMediaChange, type ProposalChange } from "./proposal";
 import { renumberManifestText } from "./ref-number";
 
@@ -354,6 +361,34 @@ export class StudioDraft {
     const current = this.state.detail;
     if (!current) return;
     this.adopt(withDraft(current, draft), { keepTexts: keep === "unsaved", wrote });
+  }
+
+  /**
+   * Settle a conflict on `fields`, as the author chose. `mine` keeps their edit over the newer
+   * saved draft, which their next save then writes; `theirs` drops their edit for the saved
+   * value.
+   */
+  resolve(fields: readonly FieldId[], choice: "mine" | "theirs"): void {
+    const detail = this.state.detail;
+    if (!detail) return;
+    const conflicts = new Set(this.state.conflicts);
+    for (const field of fields) conflicts.delete(field);
+    if (choice === "mine") {
+      for (const field of fields) this.bases.set(field, savedValue(detail.draft, field));
+      this.set({ conflicts });
+      return;
+    }
+    for (const field of fields) this.bases.delete(field);
+    const patch: Partial<DraftState> = { conflicts };
+    if (fields.includes("description")) patch.description = detail.draft.description;
+    if (fields.includes("spec")) patch.spec = pretty(detail.draft.spec);
+    const media = fields.filter(writes("media"));
+    if (media.length) patch.media = mediaWithSaved(this.state.media, detail.draft, media);
+    const timelines = { ...this.state.timelines };
+    for (const field of fields)
+      if (field.startsWith("timeline:")) delete timelines[field.slice("timeline:".length)];
+    patch.timelines = timelines;
+    this.set(patch);
   }
 
   /** A timeline's edit, which its editor shows until it is saved; null when there is none. */

@@ -21,8 +21,14 @@ timeline being edited. This is done by a new module, `draft-merge.ts`.
 - **Comparison.** Values are compared regardless of key order.
 - **Conflict notice.** The "saved draft changed" notice now names the parts in conflict. It uses
   the new `remoteChanged(parts)` and `conflictParts` strings.
-- **Saving a conflicted field** is refused with the existing "Draft changed" text, so the author
-  reloads first.
+- **Resolving a conflict.** The conflict notice offers two choices for each thing in conflict:
+  - "Keep mine": the edit now sits on the newer draft, and the next save writes it.
+  - "Use saved": the edit is dropped and the saved value shows.
+
+  For the script, the notice can also open the script editor's comparison with the saved script.
+  For a timeline, it says how long each version plays.
+- **Saving a conflicted field** is refused with the existing "Draft changed" text until the
+  author resolves the conflict or reloads.
 - **Refused saves.** When the server refuses a save with `draft_conflict`, the draft is read
   again and merged. If what the save writes is not in conflict, it is sent once more.
 - **Media plan saves.** The media autosave and Save send the merged plan: the server's newer

@@ -9399,6 +9399,53 @@ test("a timeline's edit outlives a newer draft from elsewhere, and saves over it
     timeline: { cuts: [{ inMs: 0, outMs: 4000 }] },
   });
   expect(f.savedDraft().mediaPlan.manifest.assets["en-US"][1].description).toBe("A pink sky");
+
+  // The same timeline changed elsewhere while it is edited here: both are kept, the notice
+  // names it, and keeping the author's version lets it save over the newer draft.
+  await timeline.getByRole("textbox", { name: /^To \(s\)/ }).fill("3");
+  await expect(timeline.getByText("Plays for 3 s", { exact: true })).toBeVisible();
+  const theirs = f.changeSavedDraft((draft) => {
+    draft.mediaPlan.manifest.assets["en-US"][0].timeline = {
+      ...draft.mediaPlan.manifest.assets["en-US"][0].timeline,
+      cuts: [{ ...started.cuts[0], outMs: 5000 }],
+    };
+  });
+  const before = f.activityRequests;
+  await page.clock.fastForward(30_000);
+  await expect.poll(() => f.activityRequests).toBeGreaterThan(before);
+  const notice = page.getByRole("status").filter({ hasText: "The saved draft changed" });
+  await expect(notice).toContainText("the timeline of intro-video");
+  await expect(notice).toContainText("The saved one plays for 5 s, yours for 3 s.");
+  await expect(timeline.getByText("Plays for 3 s", { exact: true })).toBeVisible();
+  await notice
+    .getByRole("button", { name: "Keep my edits to the timeline of intro-video", exact: true })
+    .click();
+  await expect(notice).toHaveCount(0);
+  await timeline.getByRole("button", { name: "Save timeline", exact: true }).click();
+  await expect.poll(() => saves.length).toBe(2);
+  expect(saves[1]).toMatchObject({
+    expectedRevision: theirs,
+    timeline: { cuts: [{ outMs: 3000 }] },
+  });
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(f.savedDraft().mediaPlan.manifest.assets["en-US"][0].timeline.cuts[0].outMs).toBe(3000);
+
+  // Taking the saved version instead drops the author's: the script elsewhere wins.
+  await openSection(page, "Description");
+  const script = page.getByRole("textbox", { name: "Activity Script", exact: true });
+  await script.fill("My version of the script");
+  f.changeSavedDraft((draft) => {
+    draft.description = "The script from another tab";
+  });
+  const later = f.activityRequests;
+  await page.clock.fastForward(30_000);
+  await expect.poll(() => f.activityRequests).toBeGreaterThan(later);
+  await expect(notice).toContainText("the script");
+  await notice
+    .getByRole("button", { name: "Use the saved version of the script", exact: true })
+    .click();
+  await expect(notice).toHaveCount(0);
+  await expect(script).toHaveText("The script from another tab");
   expect(f.errors).toEqual([]);
 });
 

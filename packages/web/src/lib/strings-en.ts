@@ -2265,7 +2265,16 @@ export const en: Strings = {
     discardTitle: "Discard unsaved changes?",
     discardConfirm: "Discard",
     remoteChanged: (parts: string) =>
-      `The saved draft changed ${parts} while you were editing it. Your edits are still here; reload before applying them.`,
+      `The saved draft changed ${parts} while you were editing it. Your edits are still here: keep them, or use the saved version.`,
+    conflict: {
+      keepMine: "Keep mine",
+      takeTheirs: "Use saved",
+      keepMineFor: (part: string) => `Keep my edits to ${part}`,
+      takeTheirsFor: (part: string) => `Use the saved version of ${part}`,
+      compareScript: "Compare with the saved script",
+      timelineVersions: (saved: string, mine: string) =>
+        `The saved one plays for ${saved} s, yours for ${mine} s.`,
+    },
     conflictParts: {
       script: "the script",
       spec: "the specification",

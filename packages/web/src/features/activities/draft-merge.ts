@@ -279,3 +279,75 @@ export function savesConflict(
     );
   return conflicts.has(`timeline:${part.timeline}`);
 }
+
+/** One thing in conflict, as the author resolves it: its fields go together. */
+export interface ConflictGroup {
+  kind: "script" | "spec" | "media" | "asset" | "timeline";
+  /** The asset, for an asset's properties or its timeline. */
+  key?: string;
+  /** The timeline's language. */
+  language?: string;
+  fields: FieldId[];
+}
+
+/** The conflicts, one entry per thing the author resolves at once. */
+export function conflictGroups(conflicts: Iterable<FieldId>): ConflictGroup[] {
+  const groups = new Map<string, ConflictGroup>();
+  const add = (id: string, group: Omit<ConflictGroup, "fields">, field: FieldId) => {
+    const found = groups.get(id) ?? { ...group, fields: [] };
+    found.fields.push(field);
+    groups.set(id, found);
+  };
+  for (const field of conflicts) {
+    if (field === "description") add("script", { kind: "script" }, field);
+    else if (field === "spec") add("spec", { kind: "spec" }, field);
+    else if (field === "media" || field.startsWith("manifest#"))
+      add("media", { kind: "media" }, field);
+    else if (field.startsWith("timeline:")) {
+      const id = field.slice("timeline:".length);
+      const slash = id.indexOf("/");
+      add(
+        field,
+        { kind: "timeline", language: id.slice(0, slash), key: id.slice(slash + 1) },
+        field,
+      );
+    } else if (field.startsWith("asset:")) {
+      const id = field.slice("asset:".length).split("#")[0]!;
+      add(`asset:${id}`, { kind: "asset", key: id.slice(id.indexOf("/") + 1) }, field);
+    }
+  }
+  return [...groups.values()];
+}
+
+/** What the saved draft holds for one field, as a merge's base. */
+export function savedValue(draft: ActivityDraft, field: FieldId): unknown {
+  if (field === "description") return draft.description;
+  if (field === "spec") return draft.spec ?? null;
+  const manifest = draft.mediaPlan?.manifest ?? null;
+  if (field === "media") return manifest;
+  if (field.startsWith("timeline:")) return savedTimeline(draft, field.slice("timeline:".length));
+  const fields = manifestFields(manifest);
+  return fields.has(field) ? fields.get(field) : ABSENT;
+}
+
+/** The media plan's text with `fields` set back to what the saved draft holds. */
+export function mediaWithSaved(
+  text: string,
+  draft: ActivityDraft,
+  fields: readonly FieldId[],
+): string {
+  const server = draft.mediaPlan?.manifest ?? null;
+  const local = textValue(text);
+  if (fields.includes("media") || !local || typeof local !== "object" || "#text" in local)
+    return pretty(server);
+  const merged = manifestFields(local);
+  const theirs = manifestFields(server);
+  for (const field of fields) {
+    // An asset's presence takes its properties with it.
+    const related = [...new Set([...merged.keys(), ...theirs.keys()])].filter(
+      (id) => id === field || id.startsWith(`${field}#`),
+    );
+    for (const id of related) merged.set(id, theirs.has(id) ? theirs.get(id) : ABSENT);
+  }
+  return pretty(buildManifest(local, merged, server));
+}
