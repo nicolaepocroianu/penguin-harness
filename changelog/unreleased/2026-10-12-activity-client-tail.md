@@ -3,6 +3,7 @@
 - **Date:** 2026-10-12
 - **Type:** fix
 - **Scope:** `web`
+- **PR:** [#113](https://github.com/nicolaepocroianu/penguin-harness/pull/113)
 
 ## Guard fixes
 
