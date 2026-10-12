@@ -3,6 +3,7 @@
 - **Date:** 2026-10-12
 - **Type:** fix
 - **Scope:** `server`
+- **PR:** [#111](https://github.com/nicolaepocroianu/penguin-harness/pull/111)
 
 Activity run records, their candidates and their folders moved behind one server component,
 `ActivityRuns`: opening, saving, reading and listing runs, finding the activity whose run a
