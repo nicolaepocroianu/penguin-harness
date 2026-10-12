@@ -41,6 +41,9 @@ export function mcpConnectOutcome(results: McpServerConnectResult[]): {
   };
 }
 
+/** The shape every id `formatSessionId` makes. */
+export const SESSION_ID_RE = /^session-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}-[0-9a-f]{8}$/;
+
 /** Generate a Session id of the form `session-YYYY-MM-DD-HH-mm-ss-<8-hex>` (local timezone, zero-padded: 4-digit year, 2 digits for the rest; hex from randomUUID). */
 export function formatSessionId(date: Date = new Date()): string {
   const pad = (n: number) => n.toString().padStart(2, "0");

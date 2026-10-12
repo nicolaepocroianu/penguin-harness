@@ -27,7 +27,6 @@ export abstract class SessionIndex extends Interface<{
   updateTitle(sessionId: string, title: string): void;
   updateTitleIfNull(sessionId: string, title: string): void;
   setArchived(sessionId: string, archivedAt: string | null): void;
-  replaceId(oldSessionId: string, newSessionId: string): void;
   deleteByAgent(projectId: string, agentId: string): void;
   deleteByProject(projectId: string): void;
   deleteById(sessionId: string): void;

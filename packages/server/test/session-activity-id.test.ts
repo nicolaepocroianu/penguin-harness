@@ -1,16 +1,15 @@
 /**
  * A session's `activityId`: activity-run sessions are listed Project-wide as their activity's,
- * kept out of an Agent's own pages on request, and stay their run's when a Session is rebuilt
- * under a new id. (The lookup itself is ActivityRuns', tested in activity-run-store.test.ts.)
+ * and kept out of an Agent's own pages on request. (The lookup itself is ActivityRuns', tested
+ * in activity-run-store.test.ts.)
  */
 import { describe, expect, it } from "vitest";
 import type { ActivityDetail } from "../src/activities/domain.js";
-import type { ActivityRuns } from "../src/activities/run-store.js";
 import type { ActivityRunSessionsResponse, SessionsResponse } from "../src/api/types.js";
 import { apiClient, createTestApp, provisionUser } from "./helpers.js";
 
 describe("session -> activity", () => {
-  it("lists runs Project-wide, keeps them out of an Agent's pages on request, and follows a self-healed id", async () => {
+  it("lists runs Project-wide, and keeps them out of an Agent's pages on request", async () => {
     const t = await createTestApp();
     try {
       const owner = await provisionUser(t.app, "activity_stream_owner");
@@ -85,44 +84,6 @@ describe("session -> activity", () => {
       ).json()) as SessionsResponse;
       expect(own.sessions.map((s) => s.sessionId)).toEqual(["plain-chat"]);
       expect(own.counts?.active).toBe(1);
-
-      // A stage sequence that recorded the Session, as the Stages panel's history reads it.
-      t.deps.db
-        .prepare(
-          "INSERT INTO activity_pipelines (pipeline_id, project_id, activity_id, status, record_json, started_at) VALUES (?, ?, ?, ?, ?, ?)",
-        )
-        .run(
-          "pipe-1",
-          projectId,
-          activity.id,
-          "stopped",
-          JSON.stringify({
-            pipelineId: "pipe-1",
-            currentSessionId: "run-session-12",
-            steps: [
-              { step: "spec", sessionId: "run-session-11" },
-              { step: "build", sessionId: "run-session-12" },
-            ],
-          }),
-          "2026-10-10T10:00:00.000Z",
-        );
-
-      // A Trace-less Session rebuilt under a new id stays its run's.
-      t.deps.sessionsRepo.replaceId("run-session-12", "run-session-12-healed");
-      const runs = t.deps.tree.api<ActivityRuns>("ActivitiesModule", "ActivityRuns");
-      expect(runs.activityOfSession("run-session-12-healed")).toBe(activity.id);
-      expect(runs.activityOfSession("run-session-12")).toBeUndefined();
-      // ...and the sequence that recorded it opens the rebuilt one.
-      const pipeline = t.deps.db
-        .prepare("SELECT record_json FROM activity_pipelines WHERE pipeline_id = ?")
-        .get("pipe-1") as { record_json: string };
-      expect(JSON.parse(pipeline.record_json)).toMatchObject({
-        currentSessionId: "run-session-12-healed",
-        steps: [
-          { step: "spec", sessionId: "run-session-11" },
-          { step: "build", sessionId: "run-session-12-healed" },
-        ],
-      });
     } finally {
       await t.cleanup();
     }

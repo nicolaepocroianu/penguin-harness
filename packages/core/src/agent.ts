@@ -64,6 +64,7 @@ import type { SessionConfig } from "./session.js";
 import {
   createTempWorkspace,
   formatSessionId,
+  SESSION_ID_RE,
   mcpConnectOutcome,
   sessionEnvironment,
 } from "./internal/session-support.js";
@@ -242,6 +243,13 @@ export interface CreateSessionOptions {
   subagentDepth?: number;
   /** Session origin recorded in session_meta (absent = user-created); the subagent spawn site passes "subagent", callers driven by a scheduled task pass "schedule", and a Benchmark evaluation or optimization passes "benchmark". */
   source?: "subagent" | "schedule" | "benchmark";
+  /**
+   * Rebuild a Session that has no Trace under its existing id — one created but never run,
+   * whose runtime was lost (a restart). Absent, a new id is minted. It must have the shape
+   * `createSession` gives ids, and no Trace may exist for it: a Session with one continues
+   * through `resumeSession`.
+   */
+  sessionId?: string;
 }
 
 export interface ResumeSessionOptions {
@@ -591,6 +599,7 @@ export class Agent {
    * Docs: /docs/sessions-and-traces § "Run model".
    */
   async createSession(opts: CreateSessionOptions = {}): Promise<Session> {
+    if (opts.sessionId !== undefined) await this.checkRebuiltSessionId(opts.sessionId);
     // Model is validated first (before creating the Workspace, so failure leaves no
     // temporary workspace behind): the reference must be the complete (provider, model_id)
     // pair — the config's unique key — and must name an entry in the Project config; a
@@ -650,7 +659,7 @@ export class Agent {
         this.state.agentId,
       );
     }
-    const sessionId = formatSessionId();
+    const sessionId = opts.sessionId ?? formatSessionId();
     const spec: SessionSpec = {
       sessionId,
       workspaceDir,
@@ -680,6 +689,24 @@ export class Agent {
     });
 
     return this.newSession(spec, context, rt, trace, { ...(hooks ? { hooks } : {}) });
+  }
+
+  /**
+   * An id `createSession` may rebuild a Session under (CreateSessionOptions.sessionId): one of
+   * the shape it mints, with no Trace yet — a Session that has one is resumed, never rebuilt.
+   */
+  private async checkRebuiltSessionId(sessionId: string): Promise<void> {
+    if (!SESSION_ID_RE.test(sessionId)) {
+      throw new Error(
+        `Not a Session id: ${sessionId} (expected session-YYYY-MM-DD-HH-mm-ss-<8 hex digits>).`,
+      );
+    }
+    const dir = tracesDir(this.state.root, this.state.projectId, this.state.agentId);
+    if (await findLatestTraceFile(dir, sessionId)) {
+      throw new Error(
+        `Session ${sessionId} already has a Trace; resume it with resumeSession instead of rebuilding it.`,
+      );
+    }
   }
 
   /**

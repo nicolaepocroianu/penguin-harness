@@ -3,7 +3,7 @@
  * real LLM requests are made): driving and state transitions, 409 mutual
  * exclusion, the four approval modes and taking effect immediately on change,
  * an organization's session denying rather than waiting for a person who is not there,
- * abort collapsing to deny, self-healing id swaps, vault invalidation re-resuming
+ * abort collapsing to deny, a rebuilt Session keeping its id, vault invalidation re-resuming
  * stale runtimes, and LLM / tool errors in the message stream being persisted
  * (core doesn't throw, so try/catch can't catch them).
  */
@@ -44,7 +44,6 @@ import type { ServerEvent } from "../src/api/types.js";
 import { openDatabase } from "../src/db/database.js";
 import { HttpError } from "../src/http/errors.js";
 import { SessionsRepo } from "../src/db/repos/sessions.js";
-import { ActivityRunStore } from "../src/activities/run-store.js";
 import type { SessionRow } from "../src/db/repos/sessions.js";
 import { ChannelHub } from "../src/runtime/channel.js";
 import type { ChannelEvent } from "../src/runtime/channel.js";
@@ -160,11 +159,7 @@ describe("session-manager", () => {
 
   beforeEach(() => {
     db = openDatabase(":memory:");
-    // A self-healed Session's id follows into the activity runs that named it.
-    sessions = wire(SessionsRepo, {
-      db,
-      runs: wire(ActivityRunStore, { db, config: { root: "" } }),
-    });
+    sessions = wire(SessionsRepo, { db });
     sessions.insert(ROW);
     channels = new ChannelHub();
     sources = new SessionSources();
@@ -1117,16 +1112,14 @@ describe("session-manager", () => {
     manager.endSessionDeletion("session-1");
   });
 
-  it("self-heal: when the loader returns a new session_id, the index primary key is updated and the actual current id returned", async () => {
+  it("a Session the loader rebuilt keeps its id: its row, its runtime and its usage stay under it", async () => {
     sessions.updateApprovalMode("session-1", "allow-all");
-    const manager = makeManager(loaderOf(approvalFakeSession("session-2-healed")));
+    const manager = makeManager(loaderOf(approvalFakeSession("session-1")));
     const { sessionId } = await manager.startTask("session-1", [userText("go")]);
-    expect(sessionId).toBe("session-2-healed");
-    expect(sessions.findById("session-1")).toBeNull();
-    expect(sessions.findById("session-2-healed")).not.toBeNull();
-    await waitFor(() => manager.statusOf("session-2-healed") === "idle");
-    // Usage is attributed under the new id.
-    expect(recordedCtx[0]!.sessionId).toBe("session-2-healed");
+    expect(sessionId).toBe("session-1");
+    expect(sessions.findById("session-1")).not.toBeNull();
+    await waitFor(() => manager.statusOf("session-1") === "idle");
+    expect(recordedCtx[0]!.sessionId).toBe("session-1");
   });
 
   it("after the channel is swept and rebuilt, drive still sends to the current channel (re-get before every publish)", async () => {

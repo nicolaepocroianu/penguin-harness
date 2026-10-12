@@ -193,7 +193,7 @@ describe("ActivityRuns", () => {
     expect(isRunWorkspace(t.root, t.root)).toBe(false);
   });
 
-  it("finds runs by their Session, per project, and follows a renamed Session", async () => {
+  it("finds runs by their Session, per project", async () => {
     const { create, activity, runs, newRun } = await setup();
     const other = await create("runstore-other", "letters");
     const settle = (run: ActivityRun) => {
@@ -215,13 +215,6 @@ describe("ActivityRuns", () => {
     expect([...runs.sessionActivities("runstore-other")]).toEqual([["s9", other.id]]);
     expect(runs.activityOfSession("s1")).toBe(activity.id);
     expect(runs.activityOfSession("s-unknown")).toBeUndefined();
-
-    runs.renameSession("s1", "s1-healed");
-    expect(runs.activityOfSession("s1-healed")).toBe(activity.id);
-    expect(runs.activityOfSession("s1")).toBeUndefined();
-    expect(runs.summaries("runstore-work", activity.id, { kind: "spec" })[0]?.sessionId).toBe(
-      "s1-healed",
-    );
   });
 });
 

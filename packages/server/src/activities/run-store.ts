@@ -46,8 +46,6 @@ export abstract class ActivityRuns extends Interface<{
   hasActive(activityId: string): boolean;
   /** The run's folder, where its agent or the server does its work. */
   workspace(runId: string): string;
-  /** A Session rebuilt under a new id stays the Session of the runs that named the old one. */
-  renameSession(oldSessionId: string, newSessionId: string): void;
   /** The activity whose run the Session is, if it is one. */
   activityOfSession(sessionId: string): string | undefined;
   /** Every run Session of a project, session id to activity id, in one read. */
@@ -160,15 +158,6 @@ export class ActivityRunStore implements ActivityRuns {
 
   workspace(runId: string): string {
     return path.join(this.config.root, RUNS_DIR, runId);
-  }
-
-  renameSession(oldSessionId: string, newSessionId: string): void {
-    this.db
-      .prepare(
-        `UPDATE activity_runs SET record_json = json_set(record_json, '$.sessionId', ?)
-          WHERE json_extract(record_json, '$.sessionId') = ?`,
-      )
-      .run(newSessionId, oldSessionId);
   }
 
   activityOfSession(sessionId: string): string | undefined {

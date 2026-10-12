@@ -12,7 +12,8 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAgent } from "../src/index.js";
 import { formatSessionId } from "../src/internal/session-support.js";
-import { projectDir } from "../src/state/paths.js";
+import { projectDir, tracesDir } from "../src/state/paths.js";
+import { findLatestTraceFile } from "../src/trace/resume.js";
 import { modelVisiblePath } from "../src/internal/model-visible-path.js";
 import { stubProviderKeys } from "./provider-keys.js";
 
@@ -106,5 +107,58 @@ describe("Agent.createSession session id + no .penguin symlink", () => {
     );
     expect(prompt).toContain(`CWD: ${modelVisiblePath(ws)}`);
     expect(prompt).not.toContain(".penguin");
+  });
+});
+
+describe("Agent.createSession rebuilding a Session under its existing id", () => {
+  const ID = "session-2026-06-19-15-28-08-0a1b2c3d";
+
+  async function workspaceDir(): Promise<string> {
+    const ws = path.join(tmpRoot, "ws-rebuilt");
+    await fs.mkdir(ws, { recursive: true });
+    return ws;
+  }
+
+  it("keeps the id, in session_meta and in the Trace it writes", async () => {
+    const agent = await createAgent();
+    const session = await agent.createSession({
+      workspaceDir: await workspaceDir(),
+      sessionId: ID,
+    });
+    try {
+      expect(session.sessionId).toBe(ID);
+      expect((session.metaMessage.payload as { session_id: string }).session_id).toBe(ID);
+      for await (const _ of (
+        session as unknown as { ensureReady(): AsyncGenerator<unknown> }
+      ).ensureReady()) {
+        // drain
+      }
+      const dir = tracesDir(tmpRoot, agent.state.projectId, agent.state.agentId);
+      expect((await findLatestTraceFile(dir, ID))?.path).toMatch(new RegExp(`${ID}_001\.jsonl$`));
+    } finally {
+      session.dispose();
+    }
+  });
+
+  it("refuses an id that already has a Trace: that Session is resumed, not rebuilt", async () => {
+    const agent = await createAgent();
+    const dir = path.join(
+      tracesDir(tmpRoot, agent.state.projectId, agent.state.agentId),
+      "2026-06-19",
+    );
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, `${ID}_001.jsonl`), "{}\n", "utf8");
+    await expect(
+      agent.createSession({ workspaceDir: await workspaceDir(), sessionId: ID }),
+    ).rejects.toThrow(/already has a Trace/);
+  });
+
+  it("refuses an id of any other shape", async () => {
+    const agent = await createAgent();
+    for (const sessionId of ["../escape", "session-2026-06-19", `${ID}x`, ""]) {
+      await expect(
+        agent.createSession({ workspaceDir: await workspaceDir(), sessionId }),
+      ).rejects.toThrow(/Not a Session id/);
+    }
   });
 });

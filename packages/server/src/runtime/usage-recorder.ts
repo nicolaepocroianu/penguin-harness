@@ -24,7 +24,7 @@ import type { UsageRecording, UsageStore } from "../mechanisms/observability.js"
 export interface UsageContext {
   projectId: string;
   agentId: string;
-  /** Top-level Session id (the current actual id after self-heal). */
+  /** Top-level Session id. */
   sessionId: string;
   /** Vendor grouping for the top-level Session's model (paired with modelId; the fallback attribution when the origin mapping has no hit). */
   provider: string;

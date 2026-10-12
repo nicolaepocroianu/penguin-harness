@@ -114,6 +114,13 @@ Recovery guarantees structural legality:
 - Only committed turns are replayed, with `tool_call` / `tool_call_output` pairing intact.
 - Incomplete model output (thinking, text) is allowed to be lost.
 
+### A Session with no Trace
+
+A Session that was created but never run has no Trace to resume. A host that keeps its own record of
+such a Session rebuilds it with `createSession({ sessionId, ... })`: the Session keeps its id, and
+its Trace is written under that id once it runs. `createSession` refuses an id that already has a
+Trace, which is a Session to resume.
+
 ### Damaged files
 
 - A truncated last line left by an abnormal process exit is tolerated and ignored.

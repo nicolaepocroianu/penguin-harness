@@ -80,6 +80,18 @@ describe("session-loader", () => {
     expect(activityRunFloor(root, path.join(root, "workspaces", "w1"))).toBeUndefined();
   });
 
+  it("rebuilds a Session with no Trace under its own id", async () => {
+    const workspace = path.join(root, "ws-same-id");
+    await fs.mkdir(workspace, { recursive: true });
+    const create = vi
+      .spyOn(Agent.prototype, "createSession")
+      .mockResolvedValue({ dispose: () => {} } as never);
+    (await createCoreSessionLoader(root).load(row(workspace))).dispose?.();
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: SID, workspaceDir: workspace }),
+    );
+  });
+
   it("applies the floor when a Session with no Trace is rebuilt as well", async () => {
     const workspace = path.join(root, "ws-no-trace");
     await fs.mkdir(workspace, { recursive: true });
@@ -176,6 +188,8 @@ describe("session-loader", () => {
     const sources = new SessionSources();
     sources.set(SID, "schedule");
     const known = await createCoreSessionLoader(root, sources).load(healRow);
+    // Rebuilt under the row's own id, so whatever names the Session still finds it.
+    expect(known.sessionId).toBe(SID);
     const knownMeta = (known as unknown as { metaMessage: { payload: { source?: string } } })
       .metaMessage;
     expect(knownMeta.payload.source).toBe("schedule");
