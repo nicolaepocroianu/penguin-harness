@@ -11,7 +11,7 @@ import type {
 } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
 import type { Tone } from "../../lib/tone";
-import type { RunsIndex } from "./runs-index";
+import type { DraftBlock } from "./studio-draft";
 
 export interface QualityState {
   quality: QualityResults | null;
@@ -113,15 +113,17 @@ export function findingRows(report: QualityReport): FindingRow[] {
   });
 }
 
-/** Why Check quality cannot be pressed now, or null when it can. */
+/**
+ * Why Check quality cannot be pressed now, or null when it can: the draft's own reason (its
+ * `quality` gate) with this panel's, the test browser and a run it is starting.
+ */
 export function checkBlocked(input: {
-  editable: boolean;
+  gate: DraftBlock | null;
   browserInstalled: boolean;
-  runs: RunsIndex;
   starting: boolean;
 }): "readonly" | "browser" | "running" | null {
-  if (!input.editable) return "readonly";
+  if (input.gate === "readonly") return "readonly";
   if (!input.browserInstalled) return "browser";
-  if (input.starting || input.runs.busy) return "running";
+  if (input.starting || input.gate === "running") return "running";
   return null;
 }

@@ -17,6 +17,7 @@ import type {
   VideoTimeline,
 } from "@prismshadow/penguin-server/api";
 import { Button } from "../../components/ui/button";
+import { toastSuccess } from "../../components/ui/toast";
 import { Textarea } from "../../components/ui/input";
 import { Select } from "../../components/ui/select";
 import { S } from "../../lib/strings";
@@ -38,6 +39,7 @@ import { PhonemeTimelineView } from "./phoneme-timeline-view";
 import { isBookWord } from "./book-words";
 import { SceneCompositionView } from "./scene-composition-view";
 import { captionsUrl, recordingUrl } from "./scene-video";
+import type { StudioDraft } from "./studio-draft";
 
 export function AssetEditor({
   manifest,
@@ -48,18 +50,9 @@ export function AssetEditor({
   runs,
   endpoint,
   editable,
-  disabled,
-  canGenerate,
-  canGenerateMedia = canGenerate,
-  canAccept,
-  canPreview,
-  revision,
+  draft,
   voices,
   defaultVoice,
-  mediaDirty,
-  mediaSave = null,
-  onChange,
-  onSaveMedia,
   onGenerateAudio,
   onGenerateSound,
   soundProviders = null,
@@ -67,10 +60,7 @@ export function AssetEditor({
   voiceLibrary = null,
   onReloadVoices,
   onGenerateImage,
-  onAcceptAudio,
-  onAcceptImage,
   onGenerateText,
-  onAcceptText,
   onUpload,
   onMediaCopied,
   sceneNav,
@@ -78,12 +68,8 @@ export function AssetEditor({
   defaultLanguage = "en-US",
   languageName = (code) => code,
   mediaStats,
-  savedManifest,
-  onSaveSounds,
   onCompose,
   onRecordVideo,
-  onAcceptVideo,
-  onSaveTimeline,
   onRenderTimeline,
   onRefineTimeline,
   onCritique,
@@ -100,23 +86,12 @@ export function AssetEditor({
   runs: ActivityRunSummary[];
   endpoint: string;
   editable: boolean;
-  disabled: boolean;
-  canGenerate: boolean;
-  /** Speech and image runs, which only a Penguin agent can make; defaults to `canGenerate`. */
-  canGenerateMedia?: boolean;
-  canAccept: boolean;
-  canPreview: boolean;
-  revision: string;
+  /** The draft being edited: its saved state, its gates and the changes that save it. */
+  draft: StudioDraft;
   /** The voices a narration can be spoken in. */
   voices: readonly VoiceOption[];
   /** The voice a narration naming none of its own is generated with. */
   defaultVoice: string;
-  /** Whether the manifest holds edits the server has not seen. */
-  mediaDirty: boolean;
-  /** Where the autosave of this editor's own edits stands; null before the first one. */
-  mediaSave?: "pending" | "saving" | "saved" | "failed" | null;
-  onChange: (manifest: AssetManifest) => void;
-  onSaveMedia: () => void;
   onGenerateAudio: (
     language: string,
     assetKey: string,
@@ -134,11 +109,7 @@ export function AssetEditor({
   /** Read the ElevenLabs library again, past the server's ten-minute list. */
   onReloadVoices?: () => void;
   onGenerateImage: (language: string, assetKey: string) => void;
-  /** Bind a speech or sound take; the cards show "Saving…" until it settles. */
-  onAcceptAudio: (runId: string) => void | Promise<unknown>;
-  onAcceptImage: (runId: string) => void;
   onGenerateText: (language: string, assetKey: string) => void;
-  onAcceptText: (runId: string) => void;
   onUpload: (file: File) => Promise<UploadedMedia>;
   /** A file was copied in from another activity of the project. */
   onMediaCopied?: () => void;
@@ -149,10 +120,6 @@ export function AssetEditor({
   languageName?: (code: string) => string;
   /** The server's media stats for the saved draft: undefined while loading, null if unreadable. */
   mediaStats?: readonly MediaStat[] | null;
-  /** The media plan as saved, which is what `mediaStats` describes. */
-  savedManifest?: AssetManifest;
-  /** Save the author's sounds for a decodable book's word. */
-  onSaveSounds?: (language: string, assetKey: string, phonemes: string[]) => void;
   /**
    * Ask an agent to compose the scene of a video or animation asset. Given only while the
    * scene-video experiment is on; absent, the editor shows nothing of it.
@@ -160,12 +127,6 @@ export function AssetEditor({
   onCompose?: (language: string, assetKey: string, look?: string) => void;
   /** Record a kept composition to a video (experimental, like `onCompose`). */
   onRecordVideo?: (compositionRunId: string) => void;
-  /** Save a video's timeline, or with null drop it (experimental). */
-  onSaveTimeline?: (
-    language: string,
-    assetKey: string,
-    timeline: VideoTimeline | null,
-  ) => Promise<void>;
   /** Render a video's timeline to its finished video (experimental). */
   onRenderTimeline?: (language: string, assetKey: string) => void;
   /** Ask an agent to refine a video's timeline (experimental). */
@@ -174,8 +135,6 @@ export function AssetEditor({
   onCritique?: (language: string, assetKey: string) => void;
   /** Compose, record and critique a video round after round until it scores well. */
   onImprove?: (language: string, assetKey: string, look?: string) => void;
-  /** Bind a recorded video to its asset. */
-  onAcceptVideo?: (runId: string) => void;
   /** The saved specification, for the scene-video advisory about learner choices. */
   spec?: unknown;
   /**
@@ -189,6 +148,33 @@ export function AssetEditor({
     next: { label: string; open: () => void } | null;
   };
 }) {
+  const disabled = draft.can("edit") !== null;
+  const canGenerate = draft.can("agentRun") === null;
+  const canGenerateMedia = draft.can("mediaRun") === null;
+  const canAccept = draft.can("draftChange") === null;
+  const canPreview = draft.can("preview") === null;
+  const revision = draft.revision;
+  const mediaDirty = draft.state.edited.media;
+  const mediaSave = draft.state.mediaSave;
+  // The media plan as saved, which is what `mediaStats` describes.
+  const savedManifest = draft.state.detail?.draft.mediaPlan?.manifest;
+  const onChange = (value: AssetManifest) => draft.editManifest(value);
+  const onAcceptAudio = (runId: string) => draft.acceptRun(runId, "accept-audio");
+  const onAcceptImage = (runId: string) => void draft.acceptRun(runId, "accept-image");
+  const onAcceptText = (runId: string) => void draft.acceptRun(runId, "accept-media-text");
+  const onAcceptVideo = (runId: string) => void draft.acceptRun(runId, "accept-video");
+  const onSaveTimeline = async (
+    language: string,
+    assetKey: string,
+    timeline: VideoTimeline | null,
+  ) => {
+    await draft.change("video-timeline", {
+      method: "PUT",
+      body: { language, assetKey, timeline },
+      keep: "none",
+      then: () => toastSuccess(S.activities.saved),
+    });
+  };
   // An upload that would replace a bound file, held beside it until the author chooses.
   const [pendingUpload, setPendingUpload] = useState<{
     language: string;
@@ -639,7 +625,7 @@ export function AssetEditor({
                 canRecord={canAccept}
                 onRecord={onRecordVideo}
                 onAcceptVideo={onAcceptVideo}
-                {...(onSaveTimeline ? { onSaveTimeline } : {})}
+                onSaveTimeline={onSaveTimeline}
                 {...(onRenderTimeline ? { onRenderTimeline } : {})}
                 {...(onRefineTimeline ? { onRefineTimeline } : {})}
                 {...(onCritique ? { onCritique } : {})}
@@ -652,9 +638,16 @@ export function AssetEditor({
                 <BookWordFields
                   key={`${language}/${asset.key}/${(asset.phonemes ?? []).join(" ")}`}
                   asset={asset}
-                  editable={editable && !!onSaveSounds}
+                  editable={editable}
                   canSave={canAccept && !disabled}
-                  onSave={(phonemes) => onSaveSounds?.(language, asset.key, phonemes)}
+                  onSave={(phonemes) =>
+                    void draft.change(`book-words/${encodeURIComponent(asset.key)}/phonemes`, {
+                      method: "PUT",
+                      body: { language, phonemes },
+                      keep: "none",
+                      then: () => toastSuccess(S.activities.bookWords.saved),
+                    })
+                  }
                   onEdit={editable && !disabled ? edit : undefined}
                 />
                 <section className="space-y-1" aria-label={S.activities.bookWords.recording}>
@@ -796,7 +789,12 @@ export function AssetEditor({
             </p>
           )}
           {mediaDirty && mediaSave !== "pending" && mediaSave !== "saving" && (
-            <Button size="sm" variant="primary" disabled={disabled} onClick={onSaveMedia}>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={disabled}
+              onClick={() => void draft.save("media")}
+            >
               {S.activities.saveMedia}
             </Button>
           )}

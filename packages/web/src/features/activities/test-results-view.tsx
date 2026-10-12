@@ -15,6 +15,7 @@ import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk } from "../../lib/tone";
 import { indexRuns } from "./runs-index";
+import type { DraftBlock } from "./studio-draft";
 import {
   TEST_TONE,
   countText,
@@ -39,7 +40,7 @@ export function TestResultsView({
   editable,
   runner,
   revision,
-  unsaved,
+  blocked: gate,
   onStarted,
 }: {
   /** The activity's API path. */
@@ -50,7 +51,8 @@ export function TestResultsView({
   runner: Record<string, string> | null;
   /** The draft revision the tests start from. */
   revision: string;
-  unsaved: boolean;
+  /** Why the draft holds Run tests back (its `tests` gate), or null. */
+  blocked: DraftBlock | null;
   /** A test run has started; the page adds it to the history it polls. */
   onStarted: (run: ActivityRun) => void;
 }) {
@@ -90,12 +92,9 @@ export function TestResultsView({
 
   const criteria = state?.criteria ?? 0;
   const blocked = testBlocked({
-    editable,
-    hasAgent: runner !== null,
-    unsaved,
+    gate,
     browserInstalled: state?.browserInstalled ?? true,
     criteria,
-    runs: runIndex,
     starting,
   });
 

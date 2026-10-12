@@ -10,7 +10,7 @@ import type {
 } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
 import type { Tone } from "../../lib/tone";
-import type { RunsIndex } from "./runs-index";
+import type { DraftBlock } from "./studio-draft";
 
 export interface TestState {
   report: AcceptanceReport | null;
@@ -105,20 +105,19 @@ export function resultRows(report: AcceptanceReport): ResultRow[] {
   }));
 }
 
-/** Why Run tests cannot be pressed now, or null when it can. */
+/**
+ * Why Run tests cannot be pressed now, or null when it can: the draft's own reason (its
+ * `tests` gate) with this panel's, a run it is starting and the test browser, in between.
+ */
 export function testBlocked(input: {
-  editable: boolean;
-  hasAgent: boolean;
-  unsaved: boolean;
+  gate: DraftBlock | null;
   browserInstalled: boolean;
   criteria: number;
-  runs: RunsIndex;
   starting: boolean;
 }): "readonly" | "agent" | "unsaved" | "browser" | "running" | null {
-  if (!input.editable) return "readonly";
-  if (input.starting || input.runs.busy) return "running";
-  if (input.unsaved) return "unsaved";
-  if (!input.hasAgent) return "agent";
+  if (input.gate === "readonly") return "readonly";
+  if (input.starting || input.gate === "running") return "running";
+  if (input.gate === "unsaved" || input.gate === "agent") return input.gate;
   // Without criteria a run needs no browser: it records that there was nothing to test.
   if (input.criteria > 0 && !input.browserInstalled) return "browser";
   return null;
