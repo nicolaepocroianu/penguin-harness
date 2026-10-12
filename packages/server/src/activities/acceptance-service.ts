@@ -17,9 +17,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
-import type { Config, Log } from "../hmr/capabilities.js";
+import type { Log } from "../hmr/capabilities.js";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
+import type { ActivityRuns } from "./run-store.js";
 import { readArtifactBytes } from "./artifact.js";
 import {
   acceptanceCriteria,
@@ -90,9 +91,9 @@ export abstract class ActivityAcceptance extends Interface<{
 
 @Component()
 export class ActivityAcceptanceService implements ActivityAcceptance {
-  @Use() private readonly config!: Config;
   @Use() private readonly browser!: TestBrowser;
   @Use() private readonly generation!: ActivityGeneration;
+  @Use() private readonly runs!: ActivityRuns;
   @Use() private readonly activities!: ActivityAuthoring;
   @Use() private readonly sandbox!: ActivitySandbox;
   @Use() private readonly ports!: AcceptancePorts;
@@ -107,7 +108,7 @@ export class ActivityAcceptanceService implements ActivityAcceptance {
   }
 
   private workspace(runId: string): string {
-    return path.join(this.config.root, "activity-runs", runId);
+    return this.runs.workspace(runId);
   }
 
   async browserInstalled(): Promise<boolean> {

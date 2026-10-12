@@ -18,6 +18,8 @@ import {
   PLAY_TOKEN_TTL_MS,
 } from "../src/activities/sandbox-service.js";
 import { HttpError } from "../src/http/errors.js";
+import { wire } from "@prismshadow/penguin-core/kernel";
+import { ActivityRunStore } from "../src/activities/run-store.js";
 
 const PROJECT = "proj";
 const ACTIVITY = "act_1";
@@ -122,6 +124,7 @@ async function sandbox(options: {
     // The real query returns only succeeded module runs; the service filters them again.
     generation: { list: async () => runs, moduleBuilds: async () => runs },
     config: { root },
+    runs: wire(ActivityRunStore, { config: { root } }),
     locateWafRoot: async () => options.wafRoot ?? null,
   });
   return { service, root, cleanup: () => fs.rm(root, { recursive: true, force: true }) };

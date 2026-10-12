@@ -19,6 +19,7 @@ import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-c
 import type { Config, Log } from "../hmr/capabilities.js";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
+import type { ActivityRuns } from "./run-store.js";
 import { hostOnly } from "../services/preview-token.js";
 import type { BrowserLauncher } from "./browser-session.js";
 import { COMPOSITION_FILE } from "./composition.js";
@@ -168,6 +169,7 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
   @Use() private readonly config!: Config;
   @Use() private readonly browser!: TestBrowser;
   @Use() private readonly generation!: ActivityGeneration;
+  @Use() private readonly runs!: ActivityRuns;
   @Use() private readonly activities!: ActivityAuthoring;
   @Use() private readonly compositions!: ActivityCompositions;
   @Use() private readonly ports!: VideoRenderPorts;
@@ -288,7 +290,7 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
     url: string,
     target: VideoTarget,
   ): Promise<void> {
-    const dir = path.join(this.config.root, "activity-runs", run.runId, RECORDING_DIR);
+    const dir = path.join(this.runs.workspace(run.runId), RECORDING_DIR);
     await this.produce(run, dir, async () => {
       const { file, layout } = await renderComposition({
         executablePath: executable,
@@ -393,7 +395,7 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
       video: target,
     });
     this.recording.add(activityId);
-    const dir = path.join(this.config.root, "activity-runs", run.runId, TIMELINE_DIR);
+    const dir = path.join(this.runs.workspace(run.runId), TIMELINE_DIR);
     void this.produce(run, dir, () =>
       this.renderTimeline(run, dir, timeline, input.language),
     ).finally(() => this.recording.delete(activityId));

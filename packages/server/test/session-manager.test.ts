@@ -44,6 +44,7 @@ import type { ServerEvent } from "../src/api/types.js";
 import { openDatabase } from "../src/db/database.js";
 import { HttpError } from "../src/http/errors.js";
 import { SessionsRepo } from "../src/db/repos/sessions.js";
+import { ActivityRunStore } from "../src/activities/run-store.js";
 import type { SessionRow } from "../src/db/repos/sessions.js";
 import { ChannelHub } from "../src/runtime/channel.js";
 import type { ChannelEvent } from "../src/runtime/channel.js";
@@ -159,7 +160,11 @@ describe("session-manager", () => {
 
   beforeEach(() => {
     db = openDatabase(":memory:");
-    sessions = wire(SessionsRepo, { db: db });
+    // A self-healed Session's id follows into the activity runs that named it.
+    sessions = wire(SessionsRepo, {
+      db,
+      runs: wire(ActivityRunStore, { db, config: { root: "" } }),
+    });
     sessions.insert(ROW);
     channels = new ChannelHub();
     sources = new SessionSources();

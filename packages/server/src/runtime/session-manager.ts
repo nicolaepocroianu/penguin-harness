@@ -96,6 +96,7 @@ import type { SandboxService } from "../sandbox/service.js";
 import type { AuthState, Channels, Clock, Config, Log } from "../hmr/capabilities.js";
 import type { Members, ProjectConfigStore, Projects } from "../mechanisms/projects.js";
 import type { SessionIndex, SessionOrigins } from "../mechanisms/sessions.js";
+import { isRunWorkspace, type ActivityRuns } from "../activities/run-store.js";
 import type { Errors, UsageRecording } from "../mechanisms/observability.js";
 import type { TraceIndex, TraceIndexStore } from "../mechanisms/traces.js";
 import type { Settings } from "../mechanisms/settings.js";
@@ -2336,6 +2337,7 @@ export class SessionsModule {
   @Use() private readonly log!: Log;
   @Use() private readonly settings!: Settings;
   @Use() private readonly sessionsRepo!: SessionIndex;
+  @Use() private readonly activityRuns!: ActivityRuns;
   @Use() private readonly sources!: SessionOrigins;
   @Use() private readonly recorder!: UsageRecording;
   @Use() private readonly errors!: Errors;
@@ -2468,8 +2470,8 @@ export class SessionsModule {
       // wrong organization.
       orgIdOfSession: (sessionId) => orgCache.ownerOfSession(sessionId)?.orgId,
       orgIdsOfProject: (projectId) => orgCache.orgIdsOfProject(projectId),
-      activityIdOfSession: (sessionId) => sessionsRepo.activityIdOfSession(sessionId),
-      activityIdsOfProject: (projectId) => sessionsRepo.activityIdsOfProject(projectId),
+      activityIdOfSession: (sessionId) => this.activityRuns.activityOfSession(sessionId),
+      activityIdsOfProject: (projectId) => this.activityRuns.sessionActivities(projectId),
       notifyProjectUsers,
       pathPrepend: env.pathPrepend,
       confineSpawn: env.confineSpawn,
@@ -2498,14 +2500,11 @@ function withCodingAgents(
 
 /**
  * The confinement floor a rebuilt Session gets because of where it works: `workspace-write`
- * for one whose Workspace is an activity run's (`<root>/activity-runs/<runId>`, the run's own
- * Session and its subagents alike), none otherwise.
+ * for one whose Workspace is an activity run's folder (the run's own Session and its subagents
+ * alike), none otherwise.
  */
 export function activityRunFloor(root: string, workspace: string): SessionSandboxMode | undefined {
-  const rel = path.relative(path.resolve(root, "activity-runs"), path.resolve(workspace));
-  return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel)
-    ? "workspace-write"
-    : undefined;
+  return isRunWorkspace(root, workspace) ? "workspace-write" : undefined;
 }
 
 /** Builds the loader a manager runs sessions through; a test stands in a fake session. */

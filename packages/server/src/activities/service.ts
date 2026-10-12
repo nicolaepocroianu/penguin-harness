@@ -1,4 +1,3 @@
-import { AsyncLocalStorage } from "node:async_hooks";
 import fs from "node:fs/promises";
 import { buildReadiness } from "./build-readiness.js";
 import type { GeneratedAudioFormat, MediaAsset } from "./media.js";
@@ -16,6 +15,8 @@ import { Component, Use } from "@prismshadow/penguin-core/kernel";
 import { projectDir } from "@prismshadow/penguin-core";
 import type { Config, Db } from "../hmr/capabilities.js";
 import type { ActivityAuthoring } from "../mechanisms/activities.js";
+import { ActivityLocks, type ActivityLock } from "./activity-lock.js";
+import type { ActivityRuns } from "./run-store.js";
 import type { ProjectActivityWork } from "../mechanisms/projects.js";
 import { HttpError } from "../http/errors.js";
 import {
@@ -149,21 +150,6 @@ function hasLegacyMedia(draft: ActivityDraft): boolean {
     );
 }
 
-/** Serializes compare-and-publish operations within the server's single-writer lifetime. */
-export class ActivityLocks {
-  private readonly pending = new Map<string, Promise<unknown>>();
-  async run<T>(key: string, operation: () => Promise<T>): Promise<T> {
-    const previous = this.pending.get(key) ?? Promise.resolve();
-    const next = previous.catch(() => {}).then(operation);
-    this.pending.set(key, next);
-    try {
-      return await next;
-    } finally {
-      if (this.pending.get(key) === next) this.pending.delete(key);
-    }
-  }
-}
-
 export async function atomicJson(file: string, value: unknown): Promise<void> {
   const temp = `${file}.${newId("tmp")}`;
   try {
@@ -186,9 +172,10 @@ export class ActivityService implements ActivityAuthoring {
   @Use() private readonly phonemes!: ActivityPhonemes;
   @Use() private readonly wafWorkspace!: WafWorkspace;
   @Use() private readonly audioEncode!: AudioEncodePorts;
+  @Use() private readonly lock!: ActivityLock;
+  @Use() private readonly runs!: ActivityRuns;
+  /** Locks of keys other than one activity (a collection's numbering, a claimed module). */
   private readonly locks = new ActivityLocks();
-  /** The activities whose lock the running work already holds, through `exclusive`. */
-  private readonly held = new AsyncLocalStorage<ReadonlySet<string>>();
 
   async imageContent(projectId: string, activityId: string, input: ImageRequest) {
     const activity = await this.getActivity(projectId, activityId);
@@ -273,7 +260,7 @@ export class ActivityService implements ActivityAuthoring {
         `Unknown implementation feature: ${unknown.join(", ")}.`,
       );
     return this.projectWork.run(projectId, () =>
-      this.locks.run(activityId, async () => {
+      this.lock.join(activityId, async () => {
         const activity = await this.getActivity(projectId, activityId);
         const selection = normalizeFeatureSelection(selectedIds);
         await writeFeatureFile(await this.draftFilesDir(activity), selection);
@@ -1769,11 +1756,7 @@ export class ActivityService implements ActivityAuthoring {
   ): Promise<T> {
     // Inside an exclusive run of this activity, a draft change joins it instead of waiting
     // behind it for ever.
-    if (this.held.getStore()?.has(activityId)) return operation();
-    const held = new Set([...(this.held.getStore() ?? []), activityId]);
-    return this.projectWork.run(projectId, () =>
-      this.locks.run(activityId, () => this.held.run(held, operation)),
-    );
+    return this.projectWork.run(projectId, () => this.lock.join(activityId, operation));
   }
   /**
    * The draft made to hold `content`, as a restore of a saved version writes it: status and
@@ -2362,7 +2345,7 @@ export class ActivityService implements ActivityAuthoring {
       throw new HttpError(400, "activity_invalid", (error as Error).message);
     }
     return this.projectWork.run(projectId, () =>
-      this.locks.run(activityId, async () => {
+      this.lock.join(activityId, async () => {
         const activity = await this.getActivity(projectId, activityId);
         const now = new Date().toISOString();
         const next: ActivityRecord = {
@@ -2403,7 +2386,7 @@ export class ActivityService implements ActivityAuthoring {
       throw new HttpError(400, "activity_invalid", (error as Error).message);
     }
     return this.projectWork.run(projectId, () =>
-      this.locks.run(activityId, async () => {
+      this.lock.join(activityId, async () => {
         const collectionId = (await this.getActivity(projectId, activityId)).collectionId;
         // The create lock keeps a new ref from taking the number between check and write.
         return this.locks.run(`create:${collectionId}`, async () => {
@@ -2422,11 +2405,7 @@ export class ActivityService implements ActivityAuthoring {
               "draft_conflict",
               "Draft changed. Reload it before renumbering the ref.",
             );
-          if (
-            this.db
-              .prepare("SELECT 1 FROM activity_runs WHERE activity_id = ? AND status = 'running'")
-              .get(activityId)
-          )
+          if (this.runs.hasActive(activityId))
             throw new HttpError(
               409,
               "run_active",
@@ -2598,7 +2577,7 @@ export class ActivityService implements ActivityAuthoring {
     }
     return this.projectWork.run(projectId, () =>
       // The template's lock keeps its draft from changing while it is read and copied.
-      this.locks.run(templateId, async () => {
+      this.lock.join(templateId, async () => {
         const template = await this.getActivity(projectId, templateId);
         if (!template.productId || !this.isCanonicalRef(template))
           throw new HttpError(
@@ -2745,13 +2724,9 @@ export class ActivityService implements ActivityAuthoring {
    */
   async archiveActivity(projectId: string, activityId: string): Promise<void> {
     return this.projectWork.run(projectId, () =>
-      this.locks.run(activityId, async () => {
+      this.lock.join(activityId, async () => {
         const activity = await this.getActivity(projectId, activityId);
-        if (
-          this.db
-            .prepare("SELECT 1 FROM activity_runs WHERE activity_id = ? AND status = 'running'")
-            .get(activityId)
-        )
+        if (this.runs.hasActive(activityId))
           throw new HttpError(
             409,
             "run_active",

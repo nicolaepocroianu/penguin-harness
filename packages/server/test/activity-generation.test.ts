@@ -9,6 +9,8 @@ import type {
   ActivityRunSummary,
 } from "../src/activities/domain.js";
 import { ActivityGenerationService } from "../src/activities/generation.js";
+import type { ActivityRuns } from "../src/activities/run-store.js";
+import { ActivityLockService } from "../src/activities/activity-lock.js";
 import type { ServerEvent } from "../src/api/types.js";
 import { wire, type ClassCtx } from "@prismshadow/penguin-core/kernel";
 import type { ActivityAuthoring } from "../src/mechanisms/activities.js";
@@ -1767,7 +1769,8 @@ describe("activity generation through Harness sessions", () => {
     const restarted = wire(ActivityGenerationService, {
       config: f.t.deps.config,
       projectWork: f.t.deps.tree.api<ProjectActivityWork>("ProjectsModule", "ProjectActivityWork"),
-      db: f.t.deps.db,
+      runs: f.t.deps.tree.api<ActivityRuns>("ActivitiesModule", "ActivityRuns"),
+      lock: wire(ActivityLockService, {}),
       activities: f.t.deps.tree.api<ActivityAuthoring>("ActivitiesModule", "ActivityAuthoring"),
       agents: f.t.deps.agentConfigService,
       sessions: f.t.deps.manager,
