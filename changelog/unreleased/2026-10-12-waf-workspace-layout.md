@@ -3,7 +3,7 @@
 - **Date:** 2026-10-12
 - **Type:** refactor
 - **Scope:** `server`
-- **PR:** [#PENDING](https://github.com/nicolaepocroianu/penguin-harness/pull/PENDING)
+- **PR:** [#110](https://github.com/nicolaepocroianu/penguin-harness/pull/110)
 
 The folder grammar of the WAF checkout and of the module repositories in it moved into `activities/waf-layout.ts`. `WafLayout` (a checkout at its root) and `ModuleLayout` (a module repository at its root) became the only places that join these paths, strip a manifest's `media/` prefix, name module documents and check that a folder chosen by stored data stays inside `modules/` or the media repository. Every path resolves to the string it resolved to before.
 
