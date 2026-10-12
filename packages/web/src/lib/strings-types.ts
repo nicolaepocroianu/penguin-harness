@@ -1941,6 +1941,10 @@ export type Strings = {
     discard: string;
     /** Leaving a section whose editor holds unsaved text. */
     discardSection: string;
+    /** Before unsaved edits to a scene video's timeline are lost. */
+    discardTimeline: string;
+    /** Before an uploaded or trimmed file the asset has not saved is lost. */
+    discardFile: string;
     discardTitle: string;
     discardConfirm: string;
     remoteChanged: string;

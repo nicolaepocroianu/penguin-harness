@@ -3,9 +3,8 @@
  * its module assembly to reproduce exactly. Each switch saves at once, since there is
  * nothing else on the page to save; the selection is read by the next assembly.
  */
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import type { ImplementationFeature } from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
 import { Badge } from "../../components/ui/badge";
 import { FieldLabel } from "../../components/ui/field";
 import { InfoPopover } from "../../components/ui/info-popover";
@@ -14,11 +13,8 @@ import { Switch } from "../../components/ui/switch";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
-
-interface FeatureState {
-  features: ImplementationFeature[];
-  selectedIds: string[];
-}
+import { useActivityClient } from "./activity-client";
+import { useResource } from "./use-resource";
 
 function FeatureRow({
   feature,
@@ -50,30 +46,14 @@ function FeatureRow({
   );
 }
 
-export function ImplementationFeaturesView({
-  endpoint,
-  editable,
-}: {
-  endpoint: string;
-  editable: boolean;
-}) {
+export function ImplementationFeaturesView({ editable }: { editable: boolean }) {
   const words = S.activities.implementationFeatures;
-  const [state, setState] = useState<FeatureState | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { api, cache } = useActivityClient();
+  const read = useResource(cache, api.implementationFeatures.read, "");
+  const state = read.data ?? null;
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const error = saveError ?? (read.error ? apiErrorText(read.error) : null);
   const [saving, setSaving] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    apiFetch<FeatureState>(`${endpoint}/implementation-features`)
-      .then((value) => {
-        if (!cancelled) setState(value);
-      })
-      .catch((cause) => {
-        if (!cancelled) setError(apiErrorText(cause));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [endpoint]);
 
   async function toggle(featureId: string, on: boolean) {
     if (!state) return;
@@ -81,16 +61,14 @@ export function ImplementationFeaturesView({
       ? [...state.selectedIds, featureId]
       : state.selectedIds.filter((id) => id !== featureId);
     setSaving(true);
-    setError(null);
+    setSaveError(null);
     try {
-      setState(
-        await apiFetch<FeatureState>(`${endpoint}/implementation-features`, {
-          method: "PUT",
-          body: { selectedIds },
-        }),
+      cache.put(
+        api.implementationFeatures.read,
+        await api.implementationFeatures.save(selectedIds),
       );
     } catch (cause) {
-      setError(apiErrorText(cause));
+      setSaveError(apiErrorText(cause));
     } finally {
       setSaving(false);
     }

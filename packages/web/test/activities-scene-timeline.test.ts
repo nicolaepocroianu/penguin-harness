@@ -8,7 +8,6 @@ import {
   musicChoices,
   narrationChoices,
   timelineLength,
-  timelineUrl,
   toSeconds,
   withCut,
 } from "../src/features/activities/scene-timeline";
@@ -92,8 +91,5 @@ describe("scene timeline helpers", () => {
     );
     expect(blocksRender({ code: "asset_missing", asset: "x" })).toBe(true);
     expect(blocksRender({ code: "past_end", asset: "x" })).toBe(false);
-    expect(timelineUrl("/api/x", "en-US", "intro video")).toBe(
-      "/api/x/video-timeline?language=en-US&assetKey=intro%20video",
-    );
   });
 });

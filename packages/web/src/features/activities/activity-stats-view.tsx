@@ -2,17 +2,17 @@
  * Activity Stats: the media plan counted and weighed, by asset type and by
  * language, in the app's own table style.
  */
-import { useEffect, useState } from "react";
 import type { MediaStat } from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
 import { Button } from "../../components/ui/button";
 import { EmptyState } from "../../components/ui/empty-state";
 import { SkeletonList } from "../../components/ui/skeleton";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
+import { useActivityClient } from "./activity-client";
 import { statsTables, type StatsRow } from "./activity-stats";
 import { fileSizeText } from "./media-library";
+import { useResource } from "./use-resource";
 
 function StatsTable({
   heading,
@@ -55,33 +55,24 @@ function StatsTable({
   );
 }
 
-export function ActivityStatsView({ endpoint, revision }: { endpoint: string; revision: string }) {
+export function ActivityStatsView({ revision }: { revision: string }) {
   const words = S.activities.activityStats;
-  const [stats, setStats] = useState<MediaStat[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [version, setVersion] = useState(0);
-  useEffect(() => {
-    let cancelled = false;
-    apiFetch<{ media: MediaStat[] }>(`${endpoint}/media-stats`)
-      .then((value) => {
-        if (cancelled) return;
-        setStats(value.media);
-        setError(null);
-      })
-      .catch((cause) => {
-        if (!cancelled) setError(apiErrorText(cause));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [endpoint, revision, version]);
+  // The same read the scenes' file details use, by the draft's revision.
+  const { api, cache } = useActivityClient();
+  const read = useResource(cache, api.media.stats, revision);
+  const stats = read.data?.media ?? null;
+  const error = read.error ? apiErrorText(read.error) : null;
 
   const tables = stats ? statsTables(stats) : null;
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-2">
         <h3 className="min-w-0 flex-1 text-sm font-semibold">{S.activities.sectionNames.stats}</h3>
-        <Button size="sm" variant="ghost" onClick={() => setVersion((value) => value + 1)}>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => void cache.read(api.media.stats, revision).catch(() => undefined)}
+        >
           {words.reload}
         </Button>
       </div>

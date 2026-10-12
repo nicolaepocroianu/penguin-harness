@@ -9,7 +9,6 @@ import type {
   ModuleBuildDiff,
   ModuleBuildList,
 } from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { InfoPopover } from "../../components/ui/info-popover";
@@ -38,6 +37,7 @@ import {
   TD,
   TH,
 } from "../../components/ui/table-classes";
+import { useActivityClient } from "./activity-client";
 
 interface Comparison {
   from: string;
@@ -48,15 +48,12 @@ interface Comparison {
 }
 
 export function ModuleBuildsView({
-  endpoint,
   editable,
   draftRevision,
   buildsKey,
   onAnnounce,
   onDraft,
 }: {
-  /** The activity's API path. */
-  endpoint: string;
   /** Whether this user may pin a build (the project owner). */
   editable: boolean;
   /** The draft's revision, which a pin or unpin sends; a pin leaves it as it was. */
@@ -67,6 +64,7 @@ export function ModuleBuildsView({
   /** The draft a pin or unpin made. */
   onDraft: (draft: ActivityDraft) => void;
 }) {
+  const { api } = useActivityClient();
   const words = S.activities.moduleBuilds;
   const [list, setList] = useState<ModuleBuildList | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -88,7 +86,7 @@ export function ModuleBuildsView({
     const read = ++reads.current;
     setLoadError("");
     try {
-      const answer = await apiFetch<Partial<ModuleBuildList>>(`${endpoint}/module-builds`);
+      const answer = await api.moduleBuilds.list();
       if (!alive.current || read !== reads.current) return;
       const result: ModuleBuildList = {
         builds: Array.isArray(answer.builds) ? answer.builds : [],
@@ -105,16 +103,14 @@ export function ModuleBuildsView({
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint, buildsKey, draftRevision]);
+  }, [api, buildsKey, draftRevision]);
 
   const compares = useRef(0);
   async function compare(from: string, to: string) {
     const read = ++compares.current;
     setComparison({ from, to, diff: null, error: "", file: null });
     try {
-      const diff = await apiFetch<ModuleBuildDiff>(
-        `${endpoint}/module-builds/diff?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
-      );
+      const diff = await api.moduleBuilds.diff(from, to);
       if (!alive.current || read !== compares.current) return;
       setComparison({ from, to, diff, error: "", file: textFiles(diff)[0]?.path ?? null });
     } catch (error) {
@@ -127,12 +123,7 @@ export function ModuleBuildsView({
     setPinning(true);
     setPinError("");
     try {
-      const draft = await apiFetch<ActivityDraft>(
-        runId === null
-          ? `${endpoint}/module-builds/unpin`
-          : `${endpoint}/module-builds/${encodeURIComponent(runId)}/pin`,
-        { method: "POST", body: { expectedRevision: draftRevision } },
-      );
+      const draft = await api.moduleBuilds.pin(runId, draftRevision);
       if (!alive.current) return;
       onAnnounce({
         kind: "success",

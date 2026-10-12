@@ -9386,7 +9386,16 @@ test("edits, saves and renders a scene video's timeline", async ({ page }) => {
   await openSection(page, "Description");
   await expect(discard).toBeVisible();
   await expect(
-    discard.getByText("Discard your unsaved edits to this document and open another section?"),
+    discard.getByText("Discard your unsaved edits to this video's timeline?", { exact: true }),
+  ).toBeVisible();
+  await discard.getByRole("button", { name: "Cancel" }).click();
+  await expect(discard).toBeHidden();
+  await expect(timeline.getByText("Plays for 4 s", { exact: true })).toBeVisible();
+  // Showing another asset closes this one's timeline too, so it asks the same way.
+  await page.getByRole("treeitem", { name: "sky", exact: true, level: 4 }).click();
+  await expect(discard).toBeVisible();
+  await expect(
+    discard.getByText("Discard your unsaved edits to this video's timeline?", { exact: true }),
   ).toBeVisible();
   await discard.getByRole("button", { name: "Cancel" }).click();
   await expect(discard).toBeHidden();

@@ -16,7 +16,6 @@ import type {
   VideoTimeline,
   VideoTimelineView,
 } from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { FieldLabel } from "../../components/ui/field";
@@ -34,7 +33,6 @@ import {
   musicChoices,
   narrationChoices,
   timelineLength,
-  timelineUrl,
   toSeconds,
   withCut,
 } from "./scene-timeline";
@@ -49,7 +47,6 @@ export function SceneTimelineView({
   asset,
   group,
   language,
-  endpoint,
   revision,
   newestRecording,
   editable,
@@ -65,7 +62,6 @@ export function SceneTimelineView({
   /** The assets of the language shown, which the timeline's audio is chosen from. */
   group: readonly Asset[];
   language: string;
-  endpoint: string;
   revision: string;
   /** The newest recording's run, so a new recording starts a new default timeline. */
   newestRecording: string | null;
@@ -87,8 +83,12 @@ export function SceneTimelineView({
   const { api } = useActivityClient();
   const [view, setView] = useState<VideoTimelineView | null>(null);
   const [edited, setEdited] = useState<VideoTimeline | null>(null);
-  // Edits are this editor's own until saved: leaving the scenes asks before throwing them away.
-  useHeldWork({ label: "scene timeline", section: "scenes" }, edited !== null);
+  // Edits are this editor's own until saved, for this asset in this language: leaving the
+  // scenes, or showing another asset or language, asks before throwing them away.
+  useHeldWork(
+    { label: "scene timeline", section: "scenes", asset: { key: asset.key, language } },
+    edited !== null,
+  );
   // Time fields whose text does not read as seconds: what they show is not what would be saved.
   const [invalid, setInvalid] = useState<ReadonlySet<string>>(new Set());
   const validity = (key: string) => (valid: boolean) =>
@@ -106,7 +106,8 @@ export function SceneTimelineView({
   useEffect(() => {
     let live = true;
     setFailure(null);
-    apiFetch<VideoTimelineView>(timelineUrl(endpoint, language, asset.key))
+    api
+      .videoTimeline(language, asset.key)
       .then((next) => {
         if (!live) return;
         setView(next);
@@ -118,7 +119,7 @@ export function SceneTimelineView({
     return () => {
       live = false;
     };
-  }, [endpoint, language, asset.key, revision, newestRecording]);
+  }, [api, language, asset.key, revision, newestRecording]);
 
   const refinement = refinements[0] ?? null;
   const refining = refinement?.status === "running";

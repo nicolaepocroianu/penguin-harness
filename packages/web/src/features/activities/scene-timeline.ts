@@ -1,17 +1,12 @@
 /**
  * A scene video's timeline in the studio (experimental), kept apart from the view so it can be
- * tested without a DOM: where it is read from, seconds as the fields show them, how long it
+ * tested without a DOM: seconds as the fields show them, how long it
  * plays, which audio can be added to it, and how what the server reports is worded.
  */
 import type { AssetManifest, TimelineIssue, VideoTimeline } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
 
 type Asset = AssetManifest["assets"][string][number];
-
-/** Where a video's timeline is read (GET) and saved (PUT). */
-export function timelineUrl(endpoint: string, language: string, assetKey: string): string {
-  return `${endpoint}/video-timeline?language=${encodeURIComponent(language)}&assetKey=${encodeURIComponent(assetKey)}`;
-}
 
 /** Milliseconds as a seconds field shows them: up to two decimals, no trailing zeros. */
 export function toSeconds(ms: number): string {

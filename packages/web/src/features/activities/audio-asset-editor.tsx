@@ -78,6 +78,7 @@ import {
 import { VoicePicker } from "./voice-picker";
 import { WaveformPlayer } from "./waveform-player";
 import { WordTimingsView } from "./word-timings-view";
+import { useHeldWork } from "./unsaved-work-context";
 
 export type AudioView = "simplified" | "advanced";
 
@@ -252,8 +253,13 @@ function AudioCard({
   const advanced = view === "advanced";
   const narration = !asset.kind;
   const locked = !editable || disabled;
-  // A file uploaded or trimmed here, waiting for Save; generating replaces it.
+  // A file uploaded or trimmed here, waiting for Save; generating replaces it. The card goes
+  // with its asset, so showing another asks before the choice is lost.
   const [pending, setPending] = useState<PendingAudio | null>(null);
+  useHeldWork(
+    { label: "unsaved file", section: "scenes", asset: { key: asset.key } },
+    pending !== null,
+  );
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [accepting, setAccepting] = useState(false);

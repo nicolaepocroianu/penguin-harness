@@ -8,14 +8,12 @@
 import { useEffect, useRef, useState } from "react";
 import type {
   DeployLogLine,
-  DeployLogResponse,
   DeployRun,
-  DeployRunResponse,
   DeployStage,
   DeployStageSelection,
   DeployStageState,
 } from "@prismshadow/penguin-server/api";
-import { ApiError, apiFetch } from "../../api/client";
+import { ApiError } from "../../api/client";
 import { Button } from "../../components/ui/button";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { InfoPopover } from "../../components/ui/info-popover";
@@ -38,6 +36,7 @@ import {
   versionProblem,
 } from "./deploy-model";
 import type { Announcement } from "./run-toasts";
+import { useActivityClient } from "./activity-client";
 
 /** What this section starts: the release, the QA deploy or one of their stages. PROD is the PROD bar's. */
 type QaSelection = Exclude<DeployStageSelection, "prod">;
@@ -46,7 +45,6 @@ type QaSelection = Exclude<DeployStageSelection, "prod">;
 const POLL_MS = 1000;
 
 export function DeployRelease({
-  endpoint,
   editable,
   run,
   stages,
@@ -58,7 +56,6 @@ export function DeployRelease({
   onSettled,
   onAnnounce,
 }: {
-  endpoint: string;
   editable: boolean;
   run: DeployRun | null;
   stages: readonly DeployStageState[];
@@ -75,6 +72,7 @@ export function DeployRelease({
   onSettled: () => void;
   onAnnounce: (announcement: Announcement) => void;
 }) {
+  const { api } = useActivityClient();
   const words = S.activities.deploy;
   const [confirm, setConfirm] = useState<QaSelection | null>(null);
   const [version, setVersion] = useState("");
@@ -109,9 +107,7 @@ export function DeployRelease({
     follow.current = true;
     const tick = async () => {
       try {
-        const res = await apiFetch<DeployLogResponse>(
-          `${endpoint}/deploy/runs/${runId}/log?after=${cursor}`,
-        );
+        const res = await api.deploy.log(runId, cursor);
         if (cancelled) return;
         cursor = res.log.next;
         setLines((previous) => appendLog(previous, res.log));
@@ -144,7 +140,7 @@ export function DeployRelease({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [endpoint, runId]);
+  }, [api, runId]);
 
   // The log opens by itself once a run goes or has written something, and again for each new
   // run; within a run the reader may fold it.
@@ -165,12 +161,9 @@ export function DeployRelease({
     setBusy("start");
     setError(null);
     try {
-      const value = await apiFetch<DeployRunResponse>(`${endpoint}/deploy`, {
-        method: "POST",
-        body: {
-          stage: selection,
-          ...(selection === "release" && version.trim() ? { moduleVersion: version.trim() } : {}),
-        },
+      const value = await api.deploy.start({
+        stage: selection,
+        ...(selection === "release" && version.trim() ? { moduleVersion: version.trim() } : {}),
       });
       if (!alive.current) return;
       setConfirm(null);
@@ -204,9 +197,7 @@ export function DeployRelease({
     setBusy("stop");
     setError(null);
     try {
-      const value = await apiFetch<DeployRunResponse>(`${endpoint}/deploy/stop`, {
-        method: "POST",
-      });
+      const value = await api.deploy.stop();
       if (alive.current) onRun(value.run);
     } catch (cause) {
       if (alive.current) setError(apiErrorText(cause));

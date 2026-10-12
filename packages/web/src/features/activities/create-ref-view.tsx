@@ -16,7 +16,7 @@ import type {
   UploadedMedia,
   VoiceOption,
 } from "@prismshadow/penguin-server/api";
-import { ApiError, apiFetch } from "../../api/client";
+import { ApiError } from "../../api/client";
 import { Button, labelButtonClass } from "../../components/ui/button";
 import { ChipGroup } from "../../components/ui/chip-group";
 import { HiddenFileInput } from "../../components/ui/hidden-file-input";
@@ -60,6 +60,8 @@ import {
   type RefPlanRow,
   type RowAction,
 } from "./ref-plan";
+import { useActivityClient } from "./activity-client";
+import type { ActivityApi } from "./activity-api";
 
 const ACTIONS: readonly RowAction[] = ["keep", "regenerate", "upload", "library"];
 
@@ -94,20 +96,15 @@ function typeName(row: RefPlanRow): string {
 }
 
 /** Store a chosen file as an upload of an activity, and hand back its reference. */
-async function uploadTo(endpoint: string, file: File): Promise<UploadedMedia> {
+async function uploadTo(api: ActivityApi, file: File): Promise<UploadedMedia> {
   const buffer = new Uint8Array(await file.arrayBuffer());
   let binary = "";
   for (let index = 0; index < buffer.length; index += 0x8000)
     binary += String.fromCharCode(...buffer.subarray(index, index + 0x8000));
-  return apiFetch<UploadedMedia>(`${endpoint}/media-uploads`, {
-    method: "POST",
-    body: { name: file.name, dataBase64: btoa(binary) },
-  });
+  return api.media.upload({ name: file.name, dataBase64: btoa(binary) });
 }
 
 export function CreateRefView({
-  base,
-  endpoint,
   template,
   editable,
   voices,
@@ -117,10 +114,6 @@ export function CreateRefView({
   onOpenAssessment,
   onCreated,
 }: {
-  /** The project's activities API path. */
-  base: string;
-  /** The template's API path. */
-  endpoint: string;
   template: ActivityDetail;
   editable: boolean;
   voices: readonly VoiceOption[];
@@ -132,6 +125,8 @@ export function CreateRefView({
   /** The ref exists; `problem` says what failed after it was made, if anything did. */
   onCreated: (detail: ActivityDetail, problem: string | null) => void;
 }) {
+  const { api, project } = useActivityClient();
+  const { endpoint } = api;
   const words = S.activities.createRef;
   const manifest = template.draft.mediaPlan?.manifest;
   const languages = Object.keys(manifest?.assets ?? {});
@@ -160,7 +155,8 @@ export function CreateRefView({
 
   useEffect(() => {
     let cancelled = false;
-    apiFetch<RefNumberSuggestion>(`${endpoint}/refs/next-number`)
+    api.ref
+      .nextNumber()
       .then((value) => {
         if (cancelled || typeof value?.refNum !== "number") return;
         setSuggestion(value);
@@ -172,7 +168,7 @@ export function CreateRefView({
     return () => {
       cancelled = true;
     };
-  }, [endpoint]);
+  }, [api]);
 
   const taken = suggestion?.taken ?? [];
   const found = blockers(rows, refText, taken);
@@ -191,10 +187,7 @@ export function CreateRefView({
     setMarking(true);
     setError(null);
     try {
-      const record = await apiFetch<ActivityRecord>(`${endpoint}/identity`, {
-        method: "PATCH",
-        body: { stable: true },
-      });
+      const record = await api.ref.identity({ stable: true });
       onIdentity(record);
     } catch (cause) {
       if (alive.current) setError(apiErrorText(cause));
@@ -210,13 +203,10 @@ export function CreateRefView({
     setError(null);
     let detail: ActivityDetail;
     try {
-      detail = await apiFetch<ActivityDetail>(`${endpoint}/refs`, {
-        method: "POST",
-        body: {
-          refNum,
-          ...(name.trim() ? { displayName: name.trim() } : {}),
-          decisions: decisions(rows, language),
-        },
+      detail = await api.ref.create({
+        refNum,
+        ...(name.trim() ? { displayName: name.trim() } : {}),
+        decisions: decisions(rows, language),
       });
     } catch (cause) {
       if (alive.current) {
@@ -226,7 +216,7 @@ export function CreateRefView({
       return;
     }
     // The ref exists from here on. What follows finishes it; a failure is said, not undone.
-    const made = `${base}/${encodeURIComponent(detail.id)}`;
+    const made = project.activity(detail.id);
     let problem: string | null = null;
     try {
       const toUpload = rows.filter((row) => row.editable && row.action === "upload");
@@ -237,18 +227,17 @@ export function CreateRefView({
           const asset = next.assets[language]?.find((entry) => entry.key === row.key);
           if (asset) asset.path = stored.path;
         }
-        await apiFetch(`${made}/media`, {
-          method: "PUT",
-          body: { manifest: next, expectedRevision: detail.draft.contentRevision },
-        });
+        await made.draft.media(detail.draft.contentRevision, next);
       }
       // Only the language decided here: other languages keep the template's assets and
       // voices, so the chosen voice cannot reach narrations the page never showed. Speech and
       // images are made by the builtin Media Agent.
       if (generate)
-        await apiFetch(`${made}/pipeline`, {
-          method: "POST",
-          body: { agentId: "media_agent", stage: "assets", language, ...(voice ? { voice } : {}) },
+        await made.pipeline.start({
+          agentId: "media_agent",
+          stage: "assets",
+          language,
+          ...(voice ? { voice } : {}),
         });
     } catch (cause) {
       problem = apiErrorText(cause);

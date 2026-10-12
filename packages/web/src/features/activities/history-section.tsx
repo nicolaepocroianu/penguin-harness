@@ -31,7 +31,6 @@ const runTone: Record<ActivityRun["status"], Tone> = {
 export function GenerationHistory({
   runs,
   draftRevision,
-  endpoint,
   editable,
   busy,
   onCancel,
@@ -45,8 +44,6 @@ export function GenerationHistory({
   runs: readonly ActivityRunSummary[];
   /** The draft's revision, which says when a module was built from an older one. */
   draftRevision: string;
-  /** The activity's API path. */
-  endpoint: string;
   editable: boolean;
   busy: boolean;
   onCancel: (runId: string) => void;
@@ -70,7 +67,6 @@ export function GenerationHistory({
   return (
     <div className="space-y-6">
       <VersionsView
-        endpoint={endpoint}
         editable={editable}
         draftRevision={draftRevision}
         unsaved={unsaved}
@@ -79,7 +75,6 @@ export function GenerationHistory({
       />
       {(builds || pinnedModuleRunId) && (
         <ModuleBuildsView
-          endpoint={endpoint}
           editable={editable}
           draftRevision={draftRevision}
           buildsKey={builds}

@@ -15,7 +15,6 @@ import type {
   ActivityRunSummary,
   ModuleDocuments,
 } from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, toneStrip } from "../../lib/tone";
@@ -38,6 +37,7 @@ import { EDITOR_HEADER, EDITOR_NOTICES, JsonEditor } from "./json-editor";
 import { SpecDiffView } from "./spec-diff-view";
 import { DefinitionSummaryView } from "./definition-summary-view";
 import { useHeldWork } from "./unsaved-work-context";
+import { useActivityClient } from "./activity-client";
 
 /** What the Assessment Data section needs to generate an assessment and offer the result. */
 export interface AssessmentGenerationProps {
@@ -54,7 +54,6 @@ export interface AssessmentGenerationProps {
 }
 
 export function ModuleDocumentView({
-  endpoint,
   kind,
   subject,
   revision,
@@ -63,7 +62,6 @@ export function ModuleDocumentView({
   generation,
   onOpenSection,
 }: {
-  endpoint: string;
   kind: ModuleDocumentKind;
   /** Which activity and ref this is, for the title, as Loom names its panels. */
   subject: string;
@@ -78,6 +76,7 @@ export function ModuleDocumentView({
   /** How to open another build document's section from the definition's summary, when it is open. */
   onOpenSection?: (section: "configuration" | "assessment") => (() => void) | undefined;
 }) {
+  const { api } = useActivityClient();
   const words = S.activities.moduleDocuments;
   const [documents, setDocuments] = useState<ModuleDocuments | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +94,8 @@ export function ModuleDocumentView({
   const [savedValue, setSavedValue] = useState<unknown>(undefined);
   useEffect(() => {
     let cancelled = false;
-    apiFetch<ModuleDocuments>(`${endpoint}/module-documents`)
+    api.moduleDocuments
+      .read()
       .then((value) => {
         if (cancelled) return;
         setDocuments(value);
@@ -112,7 +112,7 @@ export function ModuleDocumentView({
     return () => {
       cancelled = true;
     };
-  }, [endpoint, revision, kind]);
+  }, [api, revision, kind]);
 
   const shown = documents?.source ? documents[kind] : null;
   const dirty = !!shown && hasUnsavedText(text, shown.value, savedValue);
@@ -137,12 +137,7 @@ export function ModuleDocumentView({
     (generation !== undefined && documents.canonicalRefNum === generation.refNum);
   const generate =
     kind === "assessment" && generation && editable && canonical ? (
-      <AssessmentGeneration
-        endpoint={endpoint}
-        revision={revision}
-        current={document?.value ?? null}
-        {...generation}
-      />
+      <AssessmentGeneration revision={revision} current={document?.value ?? null} {...generation} />
     ) : null;
   if (!document)
     return (
@@ -165,10 +160,7 @@ export function ModuleDocumentView({
     setProblem(null);
     setBusy(true);
     try {
-      const draft = await apiFetch<ActivityDraft>(`${endpoint}/module-documents/${kind}`, {
-        method: "PUT",
-        body: { value, expectedRevision: revision },
-      });
+      const draft = await api.moduleDocuments.save(kind, value, revision);
       // The next read shows the document as saved.
       loaded.current = null;
       setSavedValue(value);
@@ -195,10 +187,7 @@ export function ModuleDocumentView({
     setProblem(null);
     setBusy(true);
     try {
-      const draft = await apiFetch<ActivityDraft>(`${endpoint}/module-documents/${kind}/discard`, {
-        method: "POST",
-        body: { expectedRevision: revision },
-      });
+      const draft = await api.moduleDocuments.discard(kind, revision);
       // The module's own document comes back on the next read; show it, not the edit.
       loaded.current = null;
       onSaved(draft, words.discarded);
@@ -351,7 +340,7 @@ export function ModuleDocumentView({
         {kind === "definition" ? (
           <div className="max-w-5xl space-y-3">
             <DefinitionSummaryView
-              endpoint={endpoint}
+              endpoint={api.endpoint}
               revision={revision}
               text={text}
               unsaved={text !== saved}
@@ -391,7 +380,6 @@ export function ModuleDocumentView({
  * or why it failed. Nothing changes until "Use it" is pressed.
  */
 function AssessmentGeneration({
-  endpoint,
   revision,
   current,
   usesAssessment,
@@ -399,7 +387,8 @@ function AssessmentGeneration({
   blocked,
   onGenerate,
   onAccept,
-}: AssessmentGenerationProps & { endpoint: string; revision: string; current: unknown }) {
+}: AssessmentGenerationProps & { revision: string; current: unknown }) {
+  const { api } = useActivityClient();
   const words = S.activities.assessment;
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(new Set());
   const latest = assessmentRunState(runs, revision, dismissed);
@@ -408,9 +397,8 @@ function AssessmentGeneration({
   useEffect(() => {
     if (!candidateRunId) return;
     let cancelled = false;
-    apiFetch<{ candidate: string | null }>(
-      `${endpoint}/runs/${encodeURIComponent(candidateRunId)}/candidate`,
-    )
+    api.runs
+      .candidate(candidateRunId)
       .then((read) => {
         let value: unknown = null;
         try {
@@ -426,7 +414,7 @@ function AssessmentGeneration({
     return () => {
       cancelled = true;
     };
-  }, [endpoint, candidateRunId]);
+  }, [api, candidateRunId]);
 
   if (!usesAssessment) return <p className="text-xs text-gray-500">{words.unused}</p>;
   const running = latest?.state === "running";

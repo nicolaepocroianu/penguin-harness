@@ -16,7 +16,13 @@ import {
 } from "react";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { S } from "../../lib/strings";
-import { UnsavedWork, type HeldWork, type Leave } from "./unsaved-work";
+import {
+  UnsavedWork,
+  discardWording,
+  type DiscardWording,
+  type HeldWork,
+  type Leave,
+} from "./unsaved-work";
 
 export interface UnsavedWorkGuard {
   work: UnsavedWork;
@@ -31,10 +37,24 @@ const UnsavedWorkContext = createContext<UnsavedWorkGuard | null>(null);
 
 export const UnsavedWorkProvider = UnsavedWorkContext.Provider;
 
+/** The dialog's words for what is at stake. */
+function discardText(wording: DiscardWording): string {
+  switch (wording) {
+    case "timeline":
+      return S.activities.discardTimeline;
+    case "file":
+      return S.activities.discardFile;
+    case "document":
+      return S.activities.discardSection;
+    case "draft":
+      return S.activities.discard;
+  }
+}
+
 /** The guard and the dialog it asks through; the activities host renders `modal`. */
 export function useUnsavedWorkGuard(): { guard: UnsavedWorkGuard; modal: ReactNode } {
   const [work] = useState(() => new UnsavedWork());
-  const [asking, setAsking] = useState<Leave | null>(null);
+  const [asking, setAsking] = useState<DiscardWording | null>(null);
   const pending = useRef<(() => void) | null>(null);
   const cancel = useRef<(() => void) | null>(null);
   const confirm = useCallback(
@@ -53,7 +73,7 @@ export function useUnsavedWorkGuard(): { guard: UnsavedWorkGuard; modal: ReactNo
         then();
       };
       cancel.current = onCancel ?? null;
-      setAsking(leave);
+      setAsking(discardWording(leave, lost));
     },
     [work],
   );
@@ -77,9 +97,7 @@ export function useUnsavedWorkGuard(): { guard: UnsavedWorkGuard; modal: ReactNo
       onClose={close}
       onConfirm={proceed}
     >
-      <p className="text-sm">
-        {asking?.kind === "section" ? S.activities.discardSection : S.activities.discard}
-      </p>
+      <p className="text-sm">{asking ? discardText(asking) : null}</p>
     </ConfirmModal>
   );
   return { guard, modal };

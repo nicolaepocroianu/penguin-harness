@@ -5,11 +5,13 @@
  */
 import { createContext, useContext } from "react";
 import type { ActivityRun, ActivityRunSummary } from "@prismshadow/penguin-server/api";
-import type { ActivityApi } from "./activity-api";
+import type { ActivityApi, ProjectActivitiesApi } from "./activity-api";
 import type { ResourceCache } from "./resource-cache";
 
 export interface ActivityClient {
   api: ActivityApi;
+  /** The routes of the project the activity belongs to: its other refs, its setup. */
+  project: ProjectActivitiesApi;
   cache: ResourceCache;
 }
 
@@ -27,7 +29,10 @@ export function summarize({ candidate, ...run }: ActivityRun): ActivityRunSummar
 }
 
 /** A run just started: it shows at the top of the history at once, and the history is read again. */
-export function runStarted({ api, cache }: ActivityClient, run: ActivityRun): void {
+export function runStarted(
+  { api, cache }: Pick<ActivityClient, "api" | "cache">,
+  run: ActivityRun,
+): void {
   cache.update(api.runs.list, (runs = []) => [
     summarize(run),
     ...runs.filter((item) => item.runId !== run.runId),

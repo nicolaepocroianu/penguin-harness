@@ -6,7 +6,6 @@
  */
 import { useEffect, useRef, useState } from "react";
 import type { LibraryFile, UploadedMedia } from "@prismshadow/penguin-server/api";
-import { apiFetch } from "../../api/client";
 import { Button } from "../../components/ui/button";
 import { ChipGroup } from "../../components/ui/chip-group";
 import { Input } from "../../components/ui/input";
@@ -24,6 +23,7 @@ import {
 import { MediaPlayer } from "./media-player";
 import { otherActivitiesFiles, selectionKey } from "./project-media";
 import type { SceneAssetType } from "./scene-assets";
+import { useActivityClient } from "./activity-client";
 
 type Scope = "here" | "all";
 
@@ -73,6 +73,7 @@ export function MediaLibraryModal({
   const alive = useRef(true);
   const words = S.activities.projectMedia;
   const { projectBase, activityId } = activityEndpointParts(endpoint);
+  const { api, project } = useActivityClient();
   const kind = uploadKindFor(type);
   useEffect(() => {
     alive.current = true;
@@ -82,14 +83,15 @@ export function MediaLibraryModal({
   }, []);
   useEffect(() => {
     if (scope !== "all" || others || othersError) return;
-    void apiFetch<{ files: LibraryFile[] }>(`${projectBase}/media-library`)
+    void project
+      .mediaLibrary()
       .then((value) => {
         if (alive.current) setOthers(value.files);
       })
       .catch((e: unknown) => {
         if (alive.current) setOthersError(apiErrorText(e));
       });
-  }, [scope, others, othersError, projectBase]);
+  }, [scope, others, othersError, project]);
 
   const needle = query.trim().toLowerCase();
   const pool = otherActivitiesFiles(others ?? [], activityId, kind);
@@ -131,9 +133,9 @@ export function MediaLibraryModal({
     setCopying(true);
     setCopyError("");
     try {
-      const stored = await apiFetch<UploadedMedia>(`${endpoint}/media-uploads/copy`, {
-        method: "POST",
-        body: { fromActivityId: entry.from.activityId, path: entry.from.path },
+      const stored = await api.media.copy({
+        fromActivityId: entry.from.activityId,
+        path: entry.from.path,
       });
       toastSuccess(words.copied(stored.name));
       onPick(stored.path, stored);
