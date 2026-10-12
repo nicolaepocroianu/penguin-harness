@@ -37,6 +37,7 @@ import {
 import { EDITOR_HEADER, EDITOR_NOTICES, JsonEditor } from "./json-editor";
 import { SpecDiffView } from "./spec-diff-view";
 import { DefinitionSummaryView } from "./definition-summary-view";
+import { useHeldWork } from "./unsaved-work-context";
 
 /** What the Assessment Data section needs to generate an assessment and offer the result. */
 export interface AssessmentGenerationProps {
@@ -59,7 +60,6 @@ export function ModuleDocumentView({
   revision,
   editable,
   onSaved,
-  onDirty,
   generation,
   onOpenSection,
 }: {
@@ -73,8 +73,6 @@ export function ModuleDocumentView({
   editable: boolean;
   /** A save or a discard changed the draft; `text` is what to announce. */
   onSaved: (draft: ActivityDraft, text: string) => void;
-  /** Whether the text differs from the document, so leaving can ask before throwing it away. */
-  onDirty?: (dirty: boolean) => void;
   /** For the assessment: generating it, and the result waiting to be used. */
   generation?: AssessmentGenerationProps;
   /** How to open another build document's section from the definition's summary, when it is open. */
@@ -118,10 +116,11 @@ export function ModuleDocumentView({
 
   const shown = documents?.source ? documents[kind] : null;
   const dirty = !!shown && hasUnsavedText(text, shown.value, savedValue);
-  useEffect(() => {
-    onDirty?.(dirty);
-  }, [onDirty, dirty]);
-  useEffect(() => () => onDirty?.(false), [onDirty]);
+  // The text is this editor's own, so closing its section throws it away: leaving asks first.
+  useHeldWork(
+    { label: "module document", section: kind === "definition" ? "module" : kind },
+    dirty,
+  );
 
   // Each document fills the pane, so what stands in for one is padded.
   const pad = "p-4";

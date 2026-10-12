@@ -16,7 +16,6 @@ import {
   readRailWidth,
   resolveSection,
   sectionFromParam,
-  sectionSwitchDiscards,
   workspaceSections,
   writeRailCollapsed,
   writeRailWidth,
@@ -214,24 +213,7 @@ describe("sectionFromParam", () => {
   });
 });
 
-describe("sectionSwitchDiscards", () => {
-  it("asks only when leaving a module document with unsaved text", () => {
-    for (const current of ["configuration", "assessment", "module"] as const) {
-      expect(sectionSwitchDiscards(current, "description", true)).toBe(true);
-      expect(sectionSwitchDiscards(current, "description", false)).toBe(false);
-      // Choosing the open section again keeps its editor.
-      expect(sectionSwitchDiscards(current, current, true)).toBe(false);
-    }
-    expect(sectionSwitchDiscards("module", "configuration", true)).toBe(true);
-  });
-
-  it("never asks for the script or the specification, whose text the page keeps", () => {
-    expect(sectionSwitchDiscards("description", "module", true)).toBe(false);
-    expect(sectionSwitchDiscards("specification", "scenes", true)).toBe(false);
-  });
-});
-
-describe("resolveSection with an unsaved module document", () => {
+describe("resolveSection with a section holding unsaved work", () => {
   const noModule = { hasSpec: true, hasPlan: true, hasModule: false };
   it("keeps the document open when its availability lapses", () => {
     expect(resolveSection("configuration", noModule)).not.toBe("configuration");
@@ -239,10 +221,7 @@ describe("resolveSection with an unsaved module document", () => {
     expect(resolveSection("module", noModule, true)).toBe("module");
   });
 
-  it("holds only the documents whose editors keep their own text", () => {
-    expect(
-      resolveSection("stats", { hasSpec: true, hasPlan: false, hasModule: false }, true),
-    ).not.toBe("stats");
+  it("holds only a section that was chosen", () => {
     expect(resolveSection(null, noModule, true)).toBe(resolveSection(null, noModule));
   });
 });
