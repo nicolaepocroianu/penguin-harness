@@ -28,3 +28,7 @@ packages/waf-state-machine/
 # third-party agent skills, kept byte for byte so skills-lock.json's hashes and `npx skills update` hold
 .agents/skills/impeccable/
 .agents/skills/web-design-guidelines/
+.agents/skills/codebase-design/
+.agents/skills/domain-modeling/
+.agents/skills/grilling/
+.agents/skills/improve-codebase-architecture/
