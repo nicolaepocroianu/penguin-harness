@@ -127,6 +127,16 @@ export interface RunStory {
   facts: OutcomeFact[];
 }
 
+/** GET /api/admin/activity-outcomes/tally */
+export interface OutcomeTallyResponse {
+  tallies: OutcomeTally[];
+}
+
+/** GET /api/admin/activity-outcomes/history */
+export interface OutcomeHistoryResponse {
+  runs: RunStory[];
+}
+
 /** One file of a bundled skill a run may be given. */
 export interface LibraryFile {
   plugin: string;
