@@ -12,7 +12,12 @@ import { requestBegin, requestEnd } from "@prismshadow/penguin-core";
 import { HARNESS_VERSION } from "../src/activities/acceptance-harness.js";
 import { DISCARDED_PROPOSAL_FILE } from "../src/activities/assist.js";
 import type { ActivityDeployEvents } from "../src/activities/deploy-events.js";
-import { newId, type ActivityDetail, type ActivityRun } from "../src/activities/domain.js";
+import {
+  newId,
+  type ActivityDetail,
+  type ActivityDraft,
+  type ActivityRun,
+} from "../src/activities/domain.js";
 import type { ActivityGenerationService } from "../src/activities/generation.js";
 import type { LibraryFile } from "../src/activities/outcome-types.js";
 import type { ActivityOutcomes } from "../src/activities/outcomes.js";
@@ -22,6 +27,7 @@ import type { SessionRow } from "../src/db/repos/sessions.js";
 import type { ActivityAuthoring } from "../src/mechanisms/activities.js";
 import type { RuntimeSession } from "../src/runtime/session-manager.js";
 import { activitySpec } from "./activity-fixtures.js";
+import { imagePng } from "./image-fixtures.js";
 import { apiClient, createTestApp, provisionUser, waitFor } from "./helpers.js";
 
 const PROJECT = "ledger-work";
@@ -468,28 +474,196 @@ describe("the outcome ledger", () => {
     expect(await f.outcomes.history(PROJECT, f.activity.id, stray.runId)).toEqual([]);
   });
 
-  it("is shown a specification run by the engine as it opens, as its Session starts and as it ends", async () => {
-    let finish: () => void = () => {};
-    const f = await fixture({
-      session: (row) => ({
-        sessionId: row.sessionId,
-        dispose: () => {},
-        toolPermission: () => "rw",
-        generateTitle: async () => ({ title: null, usage: null }),
-        compactability: () => "ok",
-        steer: () => false,
-        skipReconnectWait: () => false,
-        async *compact() {},
-        async *run() {
-          yield requestBegin();
-          await new Promise<void>((resolve) => {
-            finish = resolve;
-          });
-          await fs.writeFile(path.join(row.workspace!, SPEC_OUTPUT), JSON.stringify(activitySpec));
-          yield requestEnd("completed");
-        },
-      }),
+  /** Changes the draft's script through the author's own route, as the studio does. */
+  async function describeAs(f: Awaited<ReturnType<typeof fixture>>, description: string) {
+    const current = await f.authoring.getActivity(PROJECT, f.activity.id);
+    const response = await f.client.patch(`${f.base}/${f.activity.id}/description`, {
+      description,
+      expectedRevision: current.draft.contentRevision,
     });
+    expect(response.status, await response.clone().text()).toBe(200);
+  }
+
+  it("counts what authors and nobody change against the run that wrote the part", async () => {
+    const f = await fixture();
+    const endpoint = `${f.base}/${f.activity.id}`;
+    await describeAs(f, "Teach sight words");
+    /** A conversation that proposed a script, applied through the studio's route. */
+    const propose = async (text: string) => {
+      const chat = f.open("assist", { assist: { focus: null } } as Partial<ActivityRun>);
+      f.start(chat);
+      f.settle(chat);
+      await f.stage(chat, {
+        "proposal.json": JSON.stringify({ changes: [{ target: "description", text }] }),
+      });
+      const current = await f.authoring.getActivity(PROJECT, f.activity.id);
+      const applied = await f.client.post(`${endpoint}/runs/${chat.runId}/proposal/apply`, {
+        expectedRevision: current.draft.contentRevision,
+      });
+      expect(applied.status, await applied.clone().text()).toBe(200);
+      return chat;
+    };
+    const first = await propose("Teach three sight words");
+    expect((await f.story(first)).facts.slice(-2)).toMatchObject([
+      { fact: "part", detail: { part: "script", change: "accept", actor: "author" } },
+      { fact: "accepted", detail: { actor: "author" } },
+    ]);
+    await describeAs(f, "Teach four sight words");
+    // Nothing names who made this one.
+    await f.authoring.updateDescription(
+      PROJECT,
+      f.activity.id,
+      "Teach five sight words",
+      (await f.authoring.getActivity(PROJECT, f.activity.id)).draft.contentRevision,
+    );
+    const second = await propose("Teach six sight words");
+    // Back to the script the author wrote before either conversation.
+    await describeAs(f, "Teach sight words");
+
+    const metrics = (await f.outcomes.tally({ kind: "assist" }))[0]!.metrics;
+    expect(metrics).toMatchObject({
+      accepted: 2,
+      "accepted.author": 2,
+      "edits.author": 1,
+      "edits.unattributed": 1,
+      replaced: 1,
+      reverted: 1,
+    });
+    expect(metrics["editedBytes.author"]).toBeGreaterThan(0);
+    expect(metrics["editedBytes.unattributed"]).toBeGreaterThan(0);
+    expect(
+      (await f.story(first)).facts.map((fact) => [
+        fact.fact,
+        fact.detail.change,
+        fact.detail.actor,
+      ]),
+    ).toEqual([
+      ["opened", undefined, undefined],
+      ["started", undefined, undefined],
+      ["settled", undefined, undefined],
+      ["part", "accept", "author"],
+      ["accepted", undefined, "author"],
+      ["part", "edit", "author"],
+      ["part", "edit", "unattributed"],
+    ]);
+    expect((await f.story(second)).facts.at(-1)).toMatchObject({
+      fact: "part",
+      detail: { change: "revert", actor: "author", fromRun: second.runId, run: null },
+    });
+  });
+
+  it("keeps who a part came from across a renumbered ref and a pinned build, which edit nothing", async () => {
+    const f = await fixture();
+    const endpoint = `${f.base}/${f.activity.id}`;
+    const specced = await f.client.post(`${endpoint}/apply-generated-spec`, {
+      spec: {
+        ...activitySpec,
+        scenes: [
+          {
+            id: "intro",
+            description: "Look",
+            media: { images: [{ key: "cat", description: "A cat" }] },
+          },
+        ],
+      },
+      expectedRevision: f.activity.draft.contentRevision,
+    });
+    const planned = (await (
+      await f.client.post(`${endpoint}/plan-media`, {
+        expectedRevision: ((await specced.json()) as ActivityDraft).contentRevision,
+      })
+    ).json()) as ActivityDraft;
+    const image = f.open("image", {
+      inputRevision: planned.contentRevision,
+      image: { language: "en-US", assetKey: "cat", prompt: "A cat", model: "m" },
+    } as Partial<ActivityRun>);
+    f.start(image);
+    const drawn = await f.authoring.storeImage(PROJECT, f.activity.id, image.runId, imagePng(2, 2));
+    f.settle(image, "succeeded", { candidate: JSON.stringify(drawn) });
+    // Accepted by the author, through the engine's accept.
+    const accepted = await f.client.post(`${endpoint}/runs/${image.runId}/accept-image`, {
+      expectedRevision: planned.contentRevision,
+    });
+    expect(accepted.status, await accepted.clone().text()).toBe(200);
+    expect((await f.outcomes.tally({ kind: "image" }))[0]!.metrics).toMatchObject({
+      accepted: 1,
+      "accepted.author": 1,
+    });
+    const before = (await f.story(image)).facts.length;
+    const revision = async () =>
+      (await f.authoring.getActivity(PROJECT, f.activity.id)).draft.contentRevision;
+
+    // A new number moves the image's file and rewrites its path outside any change.
+    const renumbered = await f.client.post(`${endpoint}/ref-number`, {
+      refNum: 2,
+      expectedRevision: await revision(),
+    });
+    expect(renumbered.status, await renumbered.clone().text()).toBe(200);
+    // Pinning a build changes which build plays, not the draft's content.
+    const build = f.settle(f.open("module"));
+    const pinned = await f.client.post(`${endpoint}/module-builds/${build.runId}/pin`, {
+      expectedRevision: await revision(),
+    });
+    expect(pinned.status, await pinned.clone().text()).toBe(200);
+    await describeAs(f, "Look at the cat");
+
+    expect((await f.story(image)).facts).toHaveLength(before);
+    expect((await f.outcomes.tally({ kind: "image" }))[0]!.metrics).toEqual({
+      succeeded: 1,
+      seconds: 60,
+      accepted: 1,
+      "accepted.author": 1,
+    });
+    // The image is still the run's: a deploy of the draft as it is credits it.
+    f.events.emit({
+      projectId: PROJECT,
+      activityId: f.activity.id,
+      runId: "dep_qa",
+      target: "qa",
+      revision: null,
+      moduleRunId: null,
+      deployedAt: "2026-10-13T12:00:00.000Z",
+    });
+    await f.authoring.exclusive(PROJECT, f.activity.id, async () => {});
+    expect((await f.story(image)).facts.at(-1)).toMatchObject({
+      fact: "deployed",
+      detail: { target: "qa", as: "part" },
+    });
+  });
+
+  /** A specification run's Session, held until the test lets it write and finish. */
+  function specSessions() {
+    let finish: (() => void) | null = null;
+    const session = (row: SessionRow): RuntimeSession => ({
+      sessionId: row.sessionId,
+      dispose: () => {},
+      toolPermission: () => "rw",
+      generateTitle: async () => ({ title: null, usage: null }),
+      compactability: () => "ok",
+      steer: () => false,
+      skipReconnectWait: () => false,
+      async *compact() {},
+      async *run() {
+        yield requestBegin();
+        await new Promise<void>((resolve) => {
+          finish = resolve;
+        });
+        await fs.writeFile(path.join(row.workspace!, SPEC_OUTPUT), JSON.stringify(activitySpec));
+        yield requestEnd("completed");
+      },
+    });
+    return {
+      session,
+      waiting: () => finish !== null,
+      finish: () => {
+        finish?.();
+        finish = null;
+      },
+    };
+  }
+
+  /** The Project's default model, and a script to generate from. */
+  async function readyForSpec(f: Awaited<ReturnType<typeof fixture>>) {
     await f.t.deps.projectConfigService.writeRaw(PROJECT, {
       default_model: { provider: "custom", model_id: "activity-test" },
       models: [
@@ -502,23 +676,34 @@ describe("the outcome ledger", () => {
         },
       ],
     });
-    const endpoint = `${f.base}/${f.activity.id}`;
-    const described = await f.client.patch(`${endpoint}/description`, {
-      description: "Teach sight words",
-      expectedRevision: f.activity.draft.contentRevision,
-    });
-    const started = await f.client.post(`${endpoint}/generate-spec`, {
-      agentId: "default_agent",
-      expectedRevision: ((await described.json()) as { contentRevision: string }).contentRevision,
-    });
-    expect(started.status, await started.clone().text()).toBe(202);
-    const run = (await started.json()) as ActivityRun;
-    expect((await f.story(run)).facts.map((fact) => fact.fact)).toEqual(["opened", "started"]);
-    finish();
+    await describeAs(f, "Teach sight words");
+  }
+
+  async function settleSpec(
+    f: Awaited<ReturnType<typeof fixture>>,
+    sessions: ReturnType<typeof specSessions>,
+    run: ActivityRun,
+  ) {
+    sessions.finish();
     await waitFor(() => f.t.deps.manager.statusOf(run.sessionId!) === "idle");
     await f.t.deps.tree
       .api<ActivityGenerationService>("ActivitiesModule", "ActivityGeneration")
       .reconcile();
+  }
+
+  it("is shown a specification run by the engine as it opens, as its Session starts and as it ends", async () => {
+    const sessions = specSessions();
+    const f = await fixture({ session: sessions.session });
+    await readyForSpec(f);
+    const started = await f.client.post(`${f.base}/${f.activity.id}/generate-spec`, {
+      agentId: "default_agent",
+      expectedRevision: (await f.authoring.getActivity(PROJECT, f.activity.id)).draft
+        .contentRevision,
+    });
+    expect(started.status, await started.clone().text()).toBe(202);
+    const run = (await started.json()) as ActivityRun;
+    expect((await f.story(run)).facts.map((fact) => fact.fact)).toEqual(["opened", "started"]);
+    await settleSpec(f, sessions, run);
     const story = await f.story(run);
     // The Project's default model, as the Session was created with it.
     expect(story.recipe).toEqual({
@@ -526,10 +711,44 @@ describe("the outcome ledger", () => {
       library: [],
       penguin: "9.9.9",
     });
-    expect(story.facts.map((fact) => [fact.fact, fact.detail.status])).toEqual([
-      ["opened", undefined],
-      ["started", undefined],
-      ["settled", "succeeded"],
+    // An author started it, and the run applied its own specification.
+    expect(story.facts.map((fact) => [fact.fact, fact.detail])).toEqual([
+      ["opened", { by: "author" }],
+      ["started", expect.anything()],
+      ["part", expect.objectContaining({ part: "spec", change: "accept", actor: "run" })],
+      ["accepted", { actor: "run" }],
+      ["settled", { status: "succeeded" }],
     ]);
+  });
+
+  it("ties a run the Stages start to them, even when the run applies its own result", async () => {
+    const sessions = specSessions();
+    const f = await fixture({ session: sessions.session });
+    await readyForSpec(f);
+    const endpoint = `${f.base}/${f.activity.id}`;
+    const pipeline = await f.client.post(`${endpoint}/pipeline`, {
+      stage: "spec",
+      agentId: "default_agent",
+    });
+    expect(pipeline.status, await pipeline.clone().text()).toBe(202);
+    await waitFor(sessions.waiting, 10_000);
+    const [summary] = f.runs.summaries(PROJECT, f.activity.id, { kind: "spec" });
+    const run = summary as unknown as ActivityRun;
+    await settleSpec(f, sessions, run);
+    const stages = async () =>
+      (
+        (await (await f.client.get(`${endpoint}/pipeline`)).json()) as {
+          pipeline: { status: string };
+        }
+      ).pipeline.status;
+    await vi.waitFor(async () => expect(await stages()).toBe("succeeded"));
+    expect((await f.story(run)).facts.find((fact) => fact.fact === "opened")?.detail).toEqual({
+      by: "stages",
+    });
+    expect((await f.outcomes.tally({ kind: "spec" }))[0]!.metrics).toMatchObject({
+      "startedBy.stages": 1,
+      accepted: 1,
+      "accepted.run": 1,
+    });
   });
 });

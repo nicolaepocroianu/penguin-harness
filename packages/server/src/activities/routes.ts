@@ -24,6 +24,7 @@ import type { ClaimModuleProductResponse, ModuleProductsResponse } from "./modul
 import { BUNDLE_FILE_NAME, BUNDLE_MAX_ITEMS } from "./media-bundle.js";
 import type { BundleItem } from "./media-library-types.js";
 import { ActivityPipelines, parseSelection } from "./pipeline-run.js";
+import type { ActivityOutcomes } from "./outcomes.js";
 import type { SoundProviderId } from "./sound-types.js";
 import { ActivityVersions, VERSION_LABEL_MAX } from "./version-service.js";
 import type { ActivityQuality } from "./quality-check.js";
@@ -106,6 +107,7 @@ export class ActivityRoutes {
   @Use() private readonly compositions!: ActivityCompositions;
   @Use() private readonly videoRenders!: ActivityVideoRenders;
   @Use() private readonly config!: Config;
+  @Use() private readonly outcomes!: ActivityOutcomes;
   @Bind("activities") routes!: Hono<AppEnv>;
 
   setup() {
@@ -121,7 +123,8 @@ export class ActivityRoutes {
       if (read || (c.req.method === "POST" && BUNDLE_PATH.test(c.req.path)))
         this.access.requireProjectAccess(c.var.user.userId, projectId);
       else this.access.requireProjectOwner(c.var.user.userId, projectId);
-      await next();
+      // What a request changes in a draft is its author's doing, and so is a run it starts.
+      await this.outcomes.attribute({ actor: "author" }, () => next());
     });
     app.get("/", async (c) => {
       const projectId = requireValidId(c, "projectId");
@@ -1548,12 +1551,15 @@ export class ActivityRoutes {
           projectId,
           activityId,
           { reason: "before_proposal", author: c.var.user.userId, expectedRevision },
+          // Applying it accepts what the conversation proposed.
           () =>
-            this.activities.applyProposal(
-              projectId,
-              activityId,
-              proposal.changes,
-              expectedRevision,
+            this.outcomes.attribute({ runId: pathParam(c, "runId") }, () =>
+              this.activities.applyProposal(
+                projectId,
+                activityId,
+                proposal.changes,
+                expectedRevision,
+              ),
             ),
         ),
       );

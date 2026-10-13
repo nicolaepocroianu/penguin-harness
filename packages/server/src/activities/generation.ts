@@ -987,10 +987,13 @@ export class ActivityGenerationService implements ActivityGeneration {
             throw new HttpError(409, acceptance.changed.code, acceptance.changed.message);
           if (run.inputRevision !== expectedRevision)
             throw await acceptance.draftChanged(this.kindServices(), run as Run);
-          return acceptance.apply(
-            this.kindServices(),
-            run as Run & { candidate: string },
-            expectedRevision,
+          // The draft change accepts this run, made by whoever asked: an author or the Stages.
+          return this.outcomes.attribute({ runId }, () =>
+            acceptance.apply(
+              this.kindServices(),
+              run as Run & { candidate: string },
+              expectedRevision,
+            ),
           );
         }),
       ),
@@ -1357,8 +1360,9 @@ export class ActivityGenerationService implements ActivityGeneration {
               }
               if (this.stopped) return;
               if (settlement.apply) {
-                // Cancellation and completion share the activity lock.
-                await settlement.apply();
+                // Cancellation and completion share the activity lock. The run applies its own
+                // result, whoever started it.
+                await this.outcomes.attribute({ actor: "run", runId: run.runId }, settlement.apply);
                 this.finish(run, "succeeded");
               } else if (settlement.draftChanged)
                 await this.succeedIfDraftUnchanged(run, settlement.draftChanged, settlement.verify);
