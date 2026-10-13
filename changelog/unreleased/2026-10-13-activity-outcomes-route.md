@@ -3,7 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** feature
 - **Scope:** `server`
-- **PR:** [#PR](https://github.com/nicolaepocroianu/penguin-harness/pull/PR)
+- **PR:** [#128](https://github.com/nicolaepocroianu/penguin-harness/pull/128)
 
 `GET /api/admin/activity-outcomes/tally` answered the
 [outcome ledger](2026-10-13-activity-outcome-ledger.md)'s counts for one run kind (`kind`), per
