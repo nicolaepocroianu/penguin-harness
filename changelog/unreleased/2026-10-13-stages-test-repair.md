@@ -3,7 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** feature
 - **Scope:** `server`, `web`
-- **PR:** [#PR](https://github.com/nicolaepocroianu/penguin-harness/pull/PR)
+- **PR:** [#126](https://github.com/nicolaepocroianu/penguin-harness/pull/126)
 
 The Stages' test step played the module build the sequence had just assembled rather than
 whatever the preview played, and every test run recorded the build it played. When checks that
