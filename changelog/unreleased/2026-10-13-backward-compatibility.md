@@ -3,7 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** process
 - **Scope:** `server`
-- **PR:** [#124](https://github.com/nicolaepocroianu/penguin-harness/pull/124)
+- **PR:** [#124](https://github.com/nicolaepocroianu/penguin-harness/pull/124), [#126](https://github.com/nicolaepocroianu/penguin-harness/pull/126)
 
 The [outcome ledger](2026-10-13-activity-outcome-ledger.md) added migration 25
 (`activity-outcomes`): the tables `activity_outcome_recipes`, `activity_run_outcomes`,
@@ -31,3 +31,9 @@ recorded recipe and outcome; the runs, their folders and the drafts stay.
 A deploy's stage metadata gained an optional `moduleRunId`, the module build `verify_module`
 checked, carried to the QA and PROD wait stages. It rewrote no existing record: a deploy recorded
 before it has none, and its event names no build. An older build ignores the field.
+
+The [Stages' test repair](2026-10-13-stages-test-repair.md) changed no schema either. A test
+run's record gained an optional `test.moduleRunId`, the module build it played. It rewrote no
+existing record: an older test run has none, and the outcome ledger then infers the build it
+played as the preview's at the time, as before. An older build ignores the field, and reuses a
+newer run's tests as it reused any.

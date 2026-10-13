@@ -18,8 +18,12 @@ export type RunRequest =
   | { kind: "spec"; repair?: string }
   /** The media pass: list the media the scenes' tags ask for (`generate_media_spec`). */
   | { kind: "media-spec"; repair?: string }
-  /** The module assembled from the specification; a book names its reading mode. */
-  | { kind: "module"; bookMode?: string }
+  /**
+   * The module assembled from the specification; a book names its reading mode (a repair takes
+   * the repaired build's when it names none). A repair round starts from a build the tests
+   * played, told which of their checks it failed.
+   */
+  | { kind: "module"; bookMode?: string; repair?: { fromRunId: string; testRunId: string } }
   /**
    * A narration run: its voice, and the provider (Gemini, or the narration's own, when
    * absent) and model that speak it.

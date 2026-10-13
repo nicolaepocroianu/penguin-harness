@@ -100,6 +100,11 @@ What became of a run after it ended: whether its candidate was accepted or repla
 found, how much authors changed what it wrote, and whether it reached a deploy.
 _Avoid_: Result, feedback, signal
 
+**Repair round**:
+One more run of a stage, told what the attempt before it got wrong; stages allow at most one per
+stage.
+_Avoid_: Retry, fix-up pass
+
 ### Modules
 
 **Module**:

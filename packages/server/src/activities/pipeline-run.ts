@@ -41,7 +41,7 @@ import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activi
 import type { ActivitySandbox } from "./sandbox-service.js";
 import type { ActivityAcceptance } from "./acceptance-service.js";
 import type { ActivityOutcomes } from "./outcomes.js";
-import { acceptanceCriteria } from "./acceptance-collect.js";
+import { acceptanceCriteria, failedChecks } from "./acceptance-collect.js";
 import {
   DEFAULT_SPEECH_PROVIDER,
   ELEVENLABS_BUILTIN_VOICE_ID,
@@ -323,7 +323,7 @@ export type StagesPort = Pick<
     "runAndAccept" | "cancel" | "elevenLabsDefaultVoice" | "soundSetup" | "speechSetup"
   > &
   Pick<ActivitySandbox, "currentAssessment"> &
-  Pick<ActivityAcceptance, "browserInstalled" | "testRun"> &
+  Pick<ActivityAcceptance, "browserInstalled" | "testRun" | "state"> &
   Pick<ActivityOutcomes, "attribute">;
 
 export interface PipelineDeps {
@@ -692,14 +692,17 @@ export class PipelineRunner {
         step.note = "noBrowser";
         return;
       }
-      // What the tests play is the acceptance service's to choose (its testRun).
-      const request = await stages.testRun(projectId, activityId);
+      // The tests play the build this sequence just made, when it made one, else what the
+      // preview plays: the acceptance service resolves which (its testRun).
+      const request = await stages.testRun(projectId, activityId, this.builtModule(state));
       if (!request) {
         step.status = "skipped";
         step.note = "noCriteria";
         return;
       }
-      await this.run(state, step, input, request, runtime);
+      const tested = await this.run(state, step, input, request, runtime);
+      if (tested.outcome !== "skipped")
+        await this.repairRound(state, step, input, tested.run, runtime);
       return;
     }
 
@@ -714,6 +717,77 @@ export class PipelineRunner {
     const unchecked = outcome.outcome === "skipped" ? undefined : outcome.run.unchecked;
     if (unchecked)
       step.note = unchecked === "noBrowser" ? "moduleNotChecked" : "moduleCheckSkipped";
+  }
+
+  /** The module build this sequence made, when its module step made one. */
+  private builtModule(state: PipelineState): string | undefined {
+    const step = state.steps.find((entry) => entry.step === "module");
+    return step?.status === "succeeded" ? step.runIds.at(-1) : undefined;
+  }
+
+  /**
+   * After a test run: when checks that ran saw the module do something wrong, one module run
+   * repairs the build the tests played, told what they found, and the same tests run again on
+   * what it builds. The step stays succeeded either way; its note says when checks still fail.
+   * A check that never ran is a problem with the tests, which a module run cannot repair.
+   */
+  private async repairRound(
+    state: PipelineState,
+    step: PipelineStepState,
+    input: PipelineInput,
+    tested: ActivityRun,
+    runtime?: { codingAgentId?: string },
+  ): Promise<void> {
+    const { projectId, activityId } = state;
+    const found = await this.findings(projectId, activityId, tested.runId);
+    if (!found.failing) return;
+    const build = tested.test?.moduleRunId;
+    if (!found.ran || !build) {
+      step.note = "testsFailing";
+      return;
+    }
+    let retested: ActivityRun;
+    try {
+      const repaired = await this.run(
+        state,
+        step,
+        input,
+        { kind: "module", repair: { fromRunId: build, testRunId: tested.runId } },
+        runtime,
+      );
+      if (repaired.outcome === "skipped") throw new Error(repaired.message);
+      const request = await this.deps.stages.testRun(projectId, activityId, repaired.run.runId);
+      if (!request) throw new Error("The specification has no acceptance criteria to test.");
+      const again = await this.run(state, step, input, request, runtime);
+      if (again.outcome === "skipped") throw new Error(again.message);
+      retested = again.run;
+    } catch (error) {
+      if (error instanceof Stopped || this.stopping.has(activityId)) throw error;
+      // The round did not finish: what the first tests found stands.
+      step.note = "testsFailing";
+      return;
+    }
+    const again = await this.findings(projectId, activityId, retested.runId);
+    // Only the same checks, run as they were handed, can show the repair worked.
+    step.note = again.failing || !again.reused ? "testsStillFailing" : null;
+  }
+
+  /**
+   * What a finished test run's report found: whether any check failed, whether any that ran
+   * did, and whether the run ran the tests it was handed unchanged.
+   */
+  private async findings(
+    projectId: string,
+    activityId: string,
+    runId: string,
+  ): Promise<{ failing: boolean; ran: boolean; reused: boolean }> {
+    const { report, runId: latest } = await this.deps.stages.state(projectId, activityId);
+    if (!report || latest !== runId) return { failing: false, ran: false, reused: false };
+    return {
+      failing: report.overallStatus === "failed",
+      ran: failedChecks(report).length > 0,
+      reused: report.reused,
+    };
   }
 
   /** A step its run's kind left undone, noted by the reason the kind gave. */
@@ -934,7 +1008,9 @@ export class ActivityPipelineService implements ActivityPipelines {
         currentAssessment: (projectId, activityId) =>
           sandbox.currentAssessment(projectId, activityId),
         browserInstalled: () => acceptance.browserInstalled(),
-        testRun: (projectId, activityId) => acceptance.testRun(projectId, activityId),
+        testRun: (projectId, activityId, moduleRunId) =>
+          acceptance.testRun(projectId, activityId, moduleRunId),
+        state: (projectId, activityId) => acceptance.state(projectId, activityId),
         attribute: (cause, operation) => outcomes.attribute(cause, operation),
       },
     });

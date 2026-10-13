@@ -171,6 +171,14 @@ export function acceptanceReport(
   };
 }
 
+/**
+ * The checks that ran and saw the activity do something wrong: failed results the server did not
+ * decide. A criterion whose check never ran is a test problem, not a module one.
+ */
+export function failedChecks(report: AcceptanceReport): AcceptanceResult[] {
+  return report.results.filter((result) => result.status === "failed" && !result.code);
+}
+
 /** The report of a run with nothing to test. */
 export function skippedReport(checkedAt: string, specRevision: string | null): AcceptanceReport {
   return {

@@ -71,6 +71,7 @@ export const testKind: SessionRunKind<RunRequestOf<"test">, AcceptanceStage, Tes
       harnessVersion: HARNESS_VERSION,
       reused: test.cachedTest !== null,
       ...(test.cachedTest !== null ? { cachedTestHash: testFileHash(test.cachedTest) } : {}),
+      ...(test.moduleRunId ? { moduleRunId: test.moduleRunId } : {}),
     },
   }),
   async stage({ services, activity, prepared: test, run, workspace, confined }) {

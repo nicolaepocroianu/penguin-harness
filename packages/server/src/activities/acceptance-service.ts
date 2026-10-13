@@ -41,6 +41,7 @@ import { contentRevision, type ActivityDetail, type ActivityRun } from "./domain
 import type { RunRequestOf } from "./run-request.js";
 import { viewportOf } from "./quality-check.js";
 import type { ActivitySandbox } from "./sandbox-service.js";
+import type { ActivityModuleSource } from "./module-source.js";
 import { atomicJson } from "./service.js";
 import { playwrightCoreDir, type TestBrowser } from "./test-browser.js";
 
@@ -90,9 +91,15 @@ export abstract class ActivityAcceptance extends Interface<{
   browserInstalled(): Promise<boolean>;
   /**
    * The test run the draft's acceptance criteria make now, for a caller that starts it itself;
-   * null when there are none. Refuses as `start` does.
+   * null when there are none. It plays `moduleRunId` when one is named (409
+   * `module_build_missing` unless that is a succeeded module build of this activity), else the
+   * module the preview plays. Refuses as `start` does.
    */
-  testRun(projectId: string, activityId: string): Promise<RunRequestOf<"test"> | null>;
+  testRun(
+    projectId: string,
+    activityId: string,
+    moduleRunId?: string,
+  ): Promise<RunRequestOf<"test"> | null>;
 }>() {}
 
 @Component()
@@ -102,6 +109,7 @@ export class ActivityAcceptanceService implements ActivityAcceptance {
   @Use() private readonly runs!: ActivityRuns;
   @Use() private readonly activities!: ActivityAuthoring;
   @Use() private readonly sandbox!: ActivitySandbox;
+  @Use() private readonly moduleSources!: ActivityModuleSource;
   @Use() private readonly ports!: AcceptancePorts;
   @Use() private readonly log!: Log;
 
@@ -148,23 +156,30 @@ export class ActivityAcceptanceService implements ActivityAcceptance {
     );
   }
 
-  async testRun(projectId: string, activityId: string): Promise<RunRequestOf<"test"> | null> {
+  async testRun(
+    projectId: string,
+    activityId: string,
+    moduleRunId?: string,
+  ): Promise<RunRequestOf<"test"> | null> {
     if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
     return this.testRequest(
       projectId,
       activityId,
       await this.activities.getActivity(projectId, activityId),
+      moduleRunId,
     );
   }
 
   /**
    * The test run the draft's acceptance criteria make now, or null when it has none. What the
-   * tests play is chosen here: the module the sandbox plays for the ref, behind its play link.
+   * tests play is chosen here, behind its play link: the module build named, else the module
+   * the sandbox plays for the ref. The build is recorded with the run.
    */
   private async testRequest(
     projectId: string,
     activityId: string,
     activity: ActivityDetail,
+    moduleRunId?: string,
   ): Promise<RunRequestOf<"test"> | null> {
     const spec = activity.draft.spec;
     if (!spec || activity.draft.status !== "valid")
@@ -194,10 +209,12 @@ export class ActivityAcceptanceService implements ActivityAcceptance {
         "test_browser_unavailable",
         "This copy of Penguin does not include Playwright, so it cannot run the tests.",
       );
-    const sandbox = await this.sandbox.status(projectId, activityId);
-    if (!sandbox.playable) throw new HttpError(409, "preview_not_built", sandbox.message);
-
-    const playUrl = await this.browser.playUrl(projectId, activityId);
+    const build = await this.playedBuild(projectId, activity, moduleRunId);
+    const playUrl = await this.browser.playUrl(
+      projectId,
+      activityId,
+      build ? { runId: build } : {},
+    );
     const cachedTest = await this.reusableTest(projectId, activityId, criteria, specRevision);
     return {
       kind: "test",
@@ -212,8 +229,34 @@ export class ActivityAcceptanceService implements ActivityAcceptance {
         },
         cachedTest,
         playwrightVersion: version,
+        ...(build ? { moduleRunId: build } : {}),
       },
     };
+  }
+
+  /**
+   * The module build the tests play: the one named, when it is a succeeded module build of this
+   * activity; else the build the preview plays, while the preview can play; undefined when that
+   * is a module in the WAF checkout.
+   */
+  private async playedBuild(
+    projectId: string,
+    activity: ActivityDetail,
+    moduleRunId: string | undefined,
+  ): Promise<string | undefined> {
+    if (moduleRunId !== undefined) {
+      const run = await this.generation.run(projectId, activity.id, moduleRunId).catch(() => null);
+      if (run?.kind !== "module" || run.status !== "succeeded")
+        throw new HttpError(
+          409,
+          "module_build_missing",
+          "The tests can only play a module build of this activity that succeeded.",
+        );
+      return moduleRunId;
+    }
+    const sandbox = await this.sandbox.status(projectId, activity.id);
+    if (!sandbox.playable) throw new HttpError(409, "preview_not_built", sandbox.message);
+    return (await this.moduleSources.build(projectId, activity, "preview"))?.runId;
   }
 
   /** Nothing to test: a finished run with a skipped report, and no Session. */

@@ -13,11 +13,11 @@
  * - what a run's checks found, read from its record and its folder once, as it ends (a later
  *   change to the folder changes nothing), and which module build a test or quality run judged;
  * - a later run of the same target superseding an earlier one;
- * - how each part of a draft changed (an accepted candidate, an edit or a return to an earlier
- *   version, by digest and size, never by text), which run's work it changed, and who changed it:
- *   the ambient cause an author's route, the Stages or a run applying its own result runs its
- *   work under (`attribute`). A change no cause owns counts as unattributed, never as an
- *   author's edit;
+ * - how each part of a draft changed (an accepted candidate, an amendment by a run of another
+ *   kind, an edit or a return to an earlier version, by digest and size, never by text), which
+ *   run's work it changed, and who changed it: the ambient cause an author's route, the Stages or
+ *   a run applying its own result runs its work under (`attribute`). A change no cause owns
+ *   counts as unattributed, never as an author's edit; an amendment counts as a run's edit;
  * - which runs reached a deploy: the module build it shipped, and every run whose parts the
  *   deployed draft holds.
  *
@@ -114,7 +114,7 @@ interface PartRow {
 /** What a part fact records: digests, sizes and run ids. */
 interface PartChange {
   part: string;
-  change: "accept" | "edit" | "revert";
+  change: "accept" | "amend" | "edit" | "revert";
   /** Who made the change: the cause's actor, or `unattributed` with none. */
   actor: string;
   from: string | null;
@@ -125,6 +125,8 @@ interface PartChange {
   /** The run the part came from before the change, and after it. */
   fromRun: string | null;
   run: string | null;
+  /** The run of another kind that amended the part, which stays the run's it was. */
+  amendedBy?: string;
 }
 
 /** The kinds whose report judges a module build, by the prefix their numbers have. */
@@ -374,11 +376,13 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
   }
 
   /**
-   * The module build a test or quality run plays: the one the preview plays when the run opens,
-   * which is the pin the ledger last saw on the draft while it is a succeeded build, else the
-   * newest.
+   * The module build a test or quality run plays: the one a test run names; else the one the
+   * preview plays when the run opens, which is the pin the ledger last saw on the draft while it
+   * is a succeeded build, else the newest.
    */
   private judgedBuild(run: ActivityRun): string | null {
+    // A test run names the build it played.
+    if (run.test?.moduleRunId) return run.test.moduleRunId;
     const builds = this.runs.summaries(run.projectId, run.activityId, {
       kind: "module",
       status: "succeeded",
@@ -472,8 +476,7 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
     // No cause names who made it: it counts as unattributed, never as an author's edit.
     const actor = cause?.actor ?? "unattributed";
     // A change under a run's cause accepts that run's candidate, when it is a run of this activity.
-    const accepting =
-      cause?.runId && this.runs.get(projectId, activityId, cause.runId) ? cause.runId : null;
+    const accepting = cause?.runId ? this.runs.get(projectId, activityId, cause.runId) : null;
     const parts = this.partsBefore(activityId, before);
     const was = draftParts(before);
     const now = draftParts(after);
@@ -488,9 +491,14 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
       // the run it came from then.
       let kind: PartChange["change"] = "edit";
       let run = fromRun;
-      if (accepting) {
+      const owner = fromRun ? this.runs.get(projectId, activityId, fromRun) : null;
+      if (accepting && owner && owner.runId !== accepting.runId && owner.kind !== accepting.kind)
+        // A run of another kind amending the part (the media pass over the specification) edits
+        // what the run that made it made; it does not take the part over.
+        kind = "amend";
+      else if (accepting) {
         kind = "accept";
-        run = accepting;
+        run = accepting.runId;
       } else if (to) {
         const earlier = this.earlierProvenance(activityId, part, to);
         if (earlier !== undefined) {
@@ -509,16 +517,22 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
         revision: after.contentRevision,
         fromRun,
         run,
+        ...(kind === "amend" && accepting ? { amendedBy: accepting.runId } : {}),
       };
-      this.fact({ projectId, activityId, runId: accepting ?? fromRun }, "part", after.updatedAt, {
-        ...changed,
-      });
+      this.fact(
+        { projectId, activityId, runId: accepting?.runId ?? fromRun },
+        "part",
+        after.updatedAt,
+        { ...changed },
+      );
       if (fromRun && fromRun !== changed.run && this.row(fromRun))
         // Its work was replaced by another run's, or taken back to what was there before it.
         this.count(fromRun, changed.change === "accept" ? "replaced" : "reverted");
-      if (changed.change === "edit" && fromRun && this.row(fromRun)) {
-        this.count(fromRun, `edits.${actor}`);
-        this.count(fromRun, `editedBytes.${actor}`, changed.bytes);
+      if ((kind === "edit" || kind === "amend") && fromRun && this.row(fromRun)) {
+        // An amendment is a later run's edit, whoever applied it.
+        const by = kind === "amend" ? "run" : actor;
+        this.count(fromRun, `edits.${by}`);
+        this.count(fromRun, `editedBytes.${by}`, changed.bytes);
       }
       if (to === null)
         this.db
@@ -526,7 +540,8 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
           .run(activityId, part);
       else this.putPart(activityId, part, changed.run, to, changed.size, after.updatedAt);
     }
-    if (accepting) this.accepted(accepting, { projectId, activityId }, actor, after.updatedAt);
+    if (accepting)
+      this.accepted(accepting.runId, { projectId, activityId }, cause?.actor, after.updatedAt);
     const pin = (draft: ActivityDraft) => draft.pinnedModuleRunId ?? null;
     if (pin(before) !== pin(after))
       this.fact({ projectId, activityId, runId: null }, "pinned", after.updatedAt, {
@@ -534,19 +549,31 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
       });
   }
 
-  /** A run's candidate became part of the draft: who accepted it, and when, kept the first time. */
+  /**
+   * A run's candidate became part of the draft: who accepted it, and when, kept the first time.
+   * With no actor named, whoever started the run accepted it, else the run itself.
+   */
   private accepted(
     runId: string,
     activity: { projectId: string; activityId: string },
-    actor: string,
+    named: OutcomeCause["actor"],
     at: string,
   ): void {
     const row = this.row(runId);
     if (!row || row.accepted_by !== null) return;
+    const actor = named ?? this.startedBy(row) ?? "run";
     this.db
       .prepare("UPDATE activity_run_outcomes SET accepted_by = ?, accepted_at = ? WHERE run_id = ?")
       .run(actor, at, runId);
     this.fact({ ...activity, runId }, "accepted", at, { actor });
+  }
+
+  /** Who started a run, as it opened; undefined when no cause named anyone. */
+  private startedBy(row: OutcomeRow): string | undefined {
+    const name = Object.keys(JSON.parse(row.metrics_json) as Metrics).find((key) =>
+      key.startsWith("startedBy."),
+    );
+    return name?.slice("startedBy.".length);
   }
 
   private putPart(
@@ -662,11 +689,15 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
         .all(activityId) as { detail_json: string }[]
     ).map((row) => JSON.parse(row.detail_json) as PartChange);
     const last = changes.findLastIndex((change) => change.revision === revision);
-    const runs = new Map<string, string | null>();
+    // Each part's runs: the one it came from, and those of other kinds that amended it since.
+    const runs = new Map<string, string[]>();
     for (const change of changes.slice(0, last + 1))
       if (change.to === null) runs.delete(change.part);
-      else runs.set(change.part, change.run);
-    return [...new Set([...runs.values()].filter((runId): runId is string => runId !== null))];
+      else if (change.change === "amend" && change.amendedBy)
+        runs.set(change.part, [...(runs.get(change.part) ?? []), change.amendedBy]);
+      else if (change.change !== "edit" || !runs.has(change.part))
+        runs.set(change.part, change.run ? [change.run] : []);
+    return [...new Set([...runs.values()].flat())];
   }
 
   // ---- reads ----
