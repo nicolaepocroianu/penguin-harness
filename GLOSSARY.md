@@ -157,3 +157,8 @@ _Avoid_: Run, attempt, sample
 A check of a case's activity that only the evaluator holds and runs; no agent being scored or
 changing the recipe can read or change it.
 _Avoid_: Private test, holdout test
+
+**Reflection cycle**:
+One round of improving the recipe: find a recurring failure in outcomes, change one thing, score it
+on the activity bench, and propose it for review only if it scores better.
+_Avoid_: Optimization round, self-improvement loop
