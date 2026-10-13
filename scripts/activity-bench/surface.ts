@@ -6,6 +6,7 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
+import ts from "typescript";
 
 /** What a recipe is made of: the authoring plugin's skills, its readme and its icon. */
 export const RECIPE_SURFACE: readonly string[] = [
@@ -25,20 +26,70 @@ export const VERSIONED_MANIFESTS: readonly string[] = [
 ];
 
 /**
- * The stage prompt sources the surface also takes, once each run kind's prompt text lives in a
- * file of its own (decision 18). Until then a prompt edit is out of surface: the files that hold
- * a prompt also hold the code that collects and checks a run.
+ * The stage prompts' own modules (decision 18), which hold prompt text and nothing else. A
+ * candidate may change their text — what is inside a string or template literal — and nothing
+ * more: an import, a name, a substitution or a new statement is out of surface, so a prompt
+ * edit can never change how a run is collected or checked.
  */
-export const PROMPT_SOURCES: readonly string[] = [];
+export const PROMPT_SOURCES: readonly string[] = [
+  "assessment",
+  "assist",
+  "composition",
+  "critique",
+  "image",
+  "media-text",
+  "module",
+  "phonemes",
+  "spec",
+  "test",
+  "timeline",
+].map((name) => `packages/server/src/activities/prompts/${name}.ts`);
 
 /** Git's modes for a symbolic link and a submodule. */
 const LINK_MODES = ["120000", "160000"];
 
 export function inSurface(file: string): boolean {
-  return (
-    RECIPE_SURFACE.some((entry) =>
-      entry.endsWith("/") ? file.startsWith(entry) : file === entry,
-    ) || PROMPT_SOURCES.includes(file)
+  return RECIPE_SURFACE.some((entry) =>
+    entry.endsWith("/") ? file.startsWith(entry) : file === entry,
+  );
+}
+
+/**
+ * A prompt module's shape: its tokens, with the text of every string and template literal left
+ * out — but a module's name and a property's, which are code. Doc comments are not tokens.
+ */
+export function promptShape(text: string): string {
+  const source = ts.createSourceFile("prompt.ts", text, ts.ScriptTarget.Latest, true);
+  const tokens: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isJSDoc(node)) return;
+    const children = node.getChildren(source);
+    if (children.length) {
+      for (const child of children) visit(child);
+      return;
+    }
+    tokens.push(`${node.kind}:${isPromptText(node) ? "" : node.getText(source)}`);
+  };
+  visit(source);
+  return tokens.join("\n");
+}
+
+function isPromptText(node: ts.Node): boolean {
+  if (
+    ts.isNoSubstitutionTemplateLiteral(node) ||
+    ts.isTemplateHead(node) ||
+    ts.isTemplateMiddle(node) ||
+    ts.isTemplateTail(node)
+  )
+    return true;
+  if (!ts.isStringLiteral(node)) return false;
+  const parent = node.parent;
+  return !(
+    ts.isImportDeclaration(parent) ||
+    ts.isExportDeclaration(parent) ||
+    ts.isExternalModuleReference(parent) ||
+    ts.isLiteralTypeNode(parent) ||
+    ((ts.isPropertyAssignment(parent) || ts.isPropertySignature(parent)) && parent.name === node)
   );
 }
 
@@ -98,6 +149,15 @@ export async function outsideSurface(repo: string, base: string, head: string): 
       continue;
     }
     if (inSurface(file)) continue;
+    if (PROMPT_SOURCES.includes(file)) {
+      const [before, after] = await Promise.all([
+        fileAt(repo, base, file),
+        fileAt(repo, head, file),
+      ]);
+      if (before !== null && after !== null && promptShape(before) === promptShape(after)) continue;
+      outside.push(`${file} (more than its prompt text)`);
+      continue;
+    }
     if (VERSIONED_MANIFESTS.includes(file)) {
       const [before, after] = await Promise.all([
         manifestWithoutVersion(repo, base, file),
@@ -108,6 +168,15 @@ export async function outsideSurface(repo: string, base: string, head: string): 
     outside.push(file);
   }
   return outside;
+}
+
+/** A file as a commit has it; null when it has none. */
+async function fileAt(repo: string, sha: string, file: string): Promise<string | null> {
+  try {
+    return await git(repo, ["show", `${sha}:${file}`]);
+  } catch {
+    return null;
+  }
 }
 
 /** A JSON manifest at a commit with its `version` left out; null when it is not there or not JSON. */

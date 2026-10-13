@@ -22,6 +22,11 @@
  */
 
 import { PLAYER_BROWSER_ARGS } from "./browser-session.js";
+import {
+  ACCEPTANCE_PROMPT,
+  ACCEPTANCE_REUSE_PROMPT,
+  HARNESS_API as harnessApi,
+} from "./prompts/test.js";
 
 export const HARNESS_VERSION = 2;
 
@@ -371,32 +376,31 @@ const missing = input.criteria.filter((text) => !covered.has(text));
 console.log(results.length + " checks ran; " + missing.length + " criteria have no check.");
 `;
 
-/** The harness's API, as a test run and a module run's player check are told it. */
-export const HARNESS_API = `The harness (${ACCEPTANCE_HARNESS_FILE}) exports:
-- criteria: the acceptance criteria, in order; scenes: the specification's scene ids.
-- criterion(text, testName, fn): registers the check for one criterion; text must be the criterion exactly as it appears in criteria. The check passes when fn resolves and fails with the message of the Error it throws.
-- openActivity({ scene?, language? }): opens the played activity (on a scene when given) and waits until it starts; returns activity.
-- activity.state() -> { state, sceneId, phase, index, interactive }; activity.history() and activity.mediaHistory() list the states and media events so far.
-- activity.waitForState(name, { timeoutMs?, afterIndex? }); activity.waitForMedia(key, { kind?: "audio" | "video", status?: "started" | "completed" | "interrupted" | "failed" | "unavailable", timeoutMs?, afterIndex? }).
-- activity.interactables() -> [{ id, inputType, description? }]; activity.tap(id), activity.hold(id, ms), activity.drag(id, toId) act on those tap targets like a learner.
-- activity.pause() and activity.resume() pause and resume the activity as the learner's pause key does, waiting for the framework's pause overlay to show and to go; check pause and resume with these, not with events of your own.
-- activity.page is the Playwright page, for reading what is on screen.
-- To look into the activity outside a check, use openActivity too. A Chromium you launch yourself must be given ${PLAYER_BROWSER_ARGS.join(" ")}, or the framework pauses for audio and its pause overlay takes every tap.
-- expect(condition, message) fails the check with message; skip(reason) marks a criterion that cannot be checked by playing the activity (for example the style of the art) as skipped.`;
+/**
+ * The harness's API, as a test run and a module run's player check are told it: its text is in
+ * prompts/test.ts.
+ */
+export const HARNESS_API = harnessApi({
+  ACCEPTANCE_HARNESS_FILE,
+  PLAYER_BROWSER_ARGS: PLAYER_BROWSER_ARGS.join(" "),
+});
 
-/** What a test run's agent is asked to do when no earlier tests fit. */
-export const acceptancePrompt = `Write and run the acceptance tests for this activity. Work in this workspace.
-${ACCEPTANCE_INPUT_FILE} lists the acceptance criteria (criteria), the scenes and the viewport. activity-spec.json is the specification and description.md the activity script; read them to learn the states, tap targets and media each criterion is about.
-${HARNESS_API}
-Write ${ACCEPTANCE_TEST_FILE} as an ES module that imports only from ./${ACCEPTANCE_HARNESS_FILE}. Register exactly one criterion() for each entry of criteria, in order, passing criteria[i] as its text. Each check opens the activity with openActivity(), drives it only through the harness and throws an Error saying what it expected and what it saw when the criterion is not met. Do not use fixed waits as assertions or make network requests.
-Then run npm install --ignore-scripts (package.json pins the playwright-core this server uses) and node ${ACCEPTANCE_RUNNER_FILE}, with Harness's normal exec_command approval. The runner writes ${ACCEPTANCE_RESULTS_FILE}. If it says the tests could not run, fix ${ACCEPTANCE_TEST_FILE} and run it again. A failing criterion is a result to report, not a test to change: never weaken a check to make it pass, and never write ${ACCEPTANCE_RESULTS_FILE} yourself.
-Do not edit ${ACCEPTANCE_INPUT_FILE}, ${ACCEPTANCE_HARNESS_FILE}, ${ACCEPTANCE_RUNNER_FILE}, package.json or the activity files. Do not print environment variables or credentials. Do not delegate or write outside this workspace.
-Finish only after node ${ACCEPTANCE_RUNNER_FILE} has written ${ACCEPTANCE_RESULTS_FILE}.`;
+/** The acceptance prompt: its text is in prompts/test.ts. */
+export const acceptancePrompt = ACCEPTANCE_PROMPT({
+  ACCEPTANCE_HARNESS_FILE,
+  ACCEPTANCE_INPUT_FILE,
+  ACCEPTANCE_RESULTS_FILE,
+  ACCEPTANCE_RUNNER_FILE,
+  ACCEPTANCE_TEST_FILE,
+  PLAYER_BROWSER_ARGS: PLAYER_BROWSER_ARGS.join(" "),
+});
 
-/** What a test run's agent is asked to do when an earlier run's tests fit these criteria. */
-export const acceptanceReusePrompt = `Run the acceptance tests for this activity. Work in this workspace.
-${ACCEPTANCE_TEST_FILE} was written by an earlier run for these same acceptance criteria and this same specification. Do not rewrite it.
-Run npm install --ignore-scripts (package.json pins the playwright-core this server uses) and node ${ACCEPTANCE_RUNNER_FILE}, with Harness's normal exec_command approval. The runner writes ${ACCEPTANCE_RESULTS_FILE}. Only if it says the tests could not run at all, fix ${ACCEPTANCE_TEST_FILE} using the harness described below and run it again.
-${HARNESS_API}
-A failing criterion is a result to report, not a test to change. Never write ${ACCEPTANCE_RESULTS_FILE} yourself. Do not edit ${ACCEPTANCE_INPUT_FILE}, ${ACCEPTANCE_HARNESS_FILE}, ${ACCEPTANCE_RUNNER_FILE}, package.json or the activity files. Do not print environment variables or credentials. Do not delegate or write outside this workspace.
-Finish only after node ${ACCEPTANCE_RUNNER_FILE} has written ${ACCEPTANCE_RESULTS_FILE}.`;
+/** The acceptance reuse prompt: its text is in prompts/test.ts. */
+export const acceptanceReusePrompt = ACCEPTANCE_REUSE_PROMPT({
+  ACCEPTANCE_HARNESS_FILE,
+  ACCEPTANCE_INPUT_FILE,
+  ACCEPTANCE_RESULTS_FILE,
+  ACCEPTANCE_RUNNER_FILE,
+  ACCEPTANCE_TEST_FILE,
+  PLAYER_BROWSER_ARGS: PLAYER_BROWSER_ARGS.join(" "),
+});

@@ -180,6 +180,10 @@ export interface SessionRunKind<
    * whose record lacks it.
    */
   stage(input: StageInput<Prepared, Run>): Promise<Staged>;
+  /**
+   * The Session's first message. Its text lives in a prompt-only module under `prompts/`
+   * (decision 18); the kind only picks the parts and fills in the names and inputs.
+   */
   prompt(input: StageInput<Prepared, Run>, staged: Staged): string;
   /** Roots the Session may read and never change. */
   protectedRoots?(input: StageInput<Prepared, Run>): ProtectedRoot[];

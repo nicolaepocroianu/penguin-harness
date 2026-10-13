@@ -3,6 +3,14 @@ import type { MediaAsset } from "./media.js";
 import { HttpError } from "../http/errors.js";
 import { DEFAULT_LANGUAGE_CODE, findLanguage } from "./languages.js";
 import { IMAGE_STYLE, NARRATION_WRITING } from "./media-style.js";
+import {
+  MEDIA_TEXT_AUDIO_FIELD,
+  MEDIA_TEXT_AUDIO_GUIDANCE,
+  MEDIA_TEXT_IMAGE_FIELD,
+  MEDIA_TEXT_IMAGE_GUIDANCE,
+  MEDIA_TEXT_PROMPT,
+  MEDIA_TEXT_TRANSLATION_PROMPT,
+} from "./prompts/media-text.js";
 
 export interface MediaTextTarget {
   language: string;
@@ -58,28 +66,27 @@ export function mediaTextTarget(
   };
 }
 
+/** The prompt for one media-text run; its text is in prompts/media-text.ts. */
 export function mediaTextPrompt(target: MediaTextTarget): string {
+  const language = JSON.stringify(target.language);
+  const assetKey = JSON.stringify(target.assetKey);
   if (target.translation)
-    return `Read input.json for the saved activity context and media-text-input.json for the selected target.
-Translate the spoken script in media-text-input.json's translation.from into ${target.translation.languageName}, for young learners hearing it read aloud. Keep its meaning, tone and length; translate every word that will be spoken, and leave anything a learner must find or say (a letter, a sound, a word being taught) as the activity needs it.
-Write only spoken words: no SSML, markup, stage directions or notes.
-Do not change the activity structure, scene ids, asset key, media type, usages, or any other asset. Do not run media generators, delegate, or change any other files.
-Write exactly one JSON object to media-text.json using normal Harness tools, with no markdown or extra fields:
-{"language":${JSON.stringify(target.language)},"assetKey":${JSON.stringify(target.assetKey)},"type":"audio","text":"the translated script, non-empty and at most 5000 characters"}`;
-  const field = target.type === "image" ? "image prompt" : "spoken script";
-  // The house style the media is made in (media-style.ts): an image prompt describes what to
-  // draw and leaves the drawing style to the image run; a script is written to be spoken.
-  const guidance =
-    target.type === "image"
-      ? `For an image, describe what the picture shows using the activity and scene context: the subject, what it is doing, and anything the learner must notice. Every image is drawn in this house style, so do not restate it or ask for a different one:\n${IMAGE_STYLE}`
-      : `For audio, improve only the spoken script; do not add SSML, markup, or stage directions. Write it in this house style:\n${NARRATION_WRITING}`;
-  return `Read input.json for the saved activity context and media-text-input.json for the selected target.
-Improve only the selected ${field} for the existing media asset, preserving its source intent and language.
-${guidance}
-Do not change the activity structure, scene ids, asset key, media type, usages, or any other asset. Do not run media generators, delegate, or change any other files.
-Write exactly one JSON object to media-text.json using normal Harness tools, with no markdown or extra fields:
-{"language":${JSON.stringify(target.language)},"assetKey":${JSON.stringify(target.assetKey)},"type":${JSON.stringify(target.type)},"text":"a non-empty replacement text of at most 5000 characters"}
-Read the current ${field} from media-text-input.json before writing the candidate.`;
+    return MEDIA_TEXT_TRANSLATION_PROMPT({
+      languageName: target.translation.languageName,
+      language,
+      assetKey,
+    });
+  const image = target.type === "image";
+  return MEDIA_TEXT_PROMPT({
+    field: image ? MEDIA_TEXT_IMAGE_FIELD : MEDIA_TEXT_AUDIO_FIELD,
+    // The house style the media is made in (media-style.ts).
+    guidance: image
+      ? MEDIA_TEXT_IMAGE_GUIDANCE({ IMAGE_STYLE })
+      : MEDIA_TEXT_AUDIO_GUIDANCE({ NARRATION_WRITING }),
+    language,
+    assetKey,
+    type: JSON.stringify(target.type),
+  });
 }
 
 export function parseMediaTextCandidate(value: string, target: MediaTextTarget): string {

@@ -24,6 +24,7 @@ import type {
   CompositionProblemCode,
   CompositionTarget,
 } from "./composition-types.js";
+import { COMPOSITION_PROMPT } from "./prompts/composition.js";
 
 export const COMPOSITION_FILE = "composition.html";
 export const COMPOSITION_FRAMES_FILE = "frames.json";
@@ -344,17 +345,24 @@ export const COMPOSITION_SKILL_FILE = "scene-composition-skill.md";
 export const COMPOSITION_PREVIOUS_FILE = "previous-composition.html";
 export const COMPOSITION_PREVIOUS_FRAMES_FILE = "previous-frames.json";
 
-export const compositionPrompt = `Compose a short animated scene for this activity. Work in this workspace.
-Read ${COMPOSITION_INPUT_FILE}: the scene's description, the description of the video or animation asset, the canvas size, and the scene's images (each a file under ${COMPOSITION_IMAGE_DIR}/). description.md and input.json describe the whole activity.
-Write two files:
-1. ${COMPOSITION_FILE}: start from ${COMPOSITION_TEMPLATE_FILE} and keep its head as it is (the Content-Security-Policy meta tag, ${COMPOSITION_GSAP_FILE} and ${COMPOSITION_BRIDGE_FILE}) and the #stage element at the canvas size. Build the scene inside #stage from the staged images, when there are any, and plain HTML, CSS and inline SVG; a scene with no images is drawn entirely with HTML, CSS and inline SVG. Animate it with one GSAP timeline created paused, gsap.timeline({ paused: true }), and assign it to window.__composition.timeline; drive every change from that timeline, with no timers or event handlers of your own. It must be deterministic: no Math.random or other randomness. Use only the staged files, referenced by their relative paths (${COMPOSITION_IMAGE_DIR}/<file>, ${COMPOSITION_GSAP_FILE}, ${COMPOSITION_BRIDGE_FILE}); never load anything from the network (no http or https URLs, fonts, CDNs or fetch). Keep it under 512 KB.
-2. ${COMPOSITION_FRAMES_FILE}: {"frames": [{"id": "frame-1", "description": "what this frame shows", "seconds": 3}]} describing each storyboard frame in order, about ${FRAME_SECONDS} seconds each, ${MIN_SECONDS} to ${MAX_SECONDS} seconds in total, matching the timeline.
-Read ${COMPOSITION_SKILL_FILE} and follow it: how to plan the frames, lay out the stage, write text and motion for young learners, mark the main objects with data-focal, time the timeline to the frames, and check the scene before finishing.
-When ${COMPOSITION_INPUT_FILE} names a look, the scene is made in it: read ${COMPOSITION_LOOK_GUIDE}, link <link rel="stylesheet" href="${COMPOSITION_LOOK_FILE}"> in the head, and take every main colour, the font and the corner radius from its variables (var(--look-...)).
-When ${COMPOSITION_PREVIOUS_FILE} is staged, it is the best version of this scene so far: start ${COMPOSITION_FILE} from it rather than from the template, keep what works, and change only what previousRecordingFindings ask for; keep its frames (${COMPOSITION_PREVIOUS_FRAMES_FILE}) unless a finding is about them.
-When ${COMPOSITION_INPUT_FILE} lists previousRecordingFindings, the last recording of this scene had those problems: fix every one of them.
-Do not edit the staged files. Do not delegate this task.
-Use Harness's normal approval flow for tool actions. Finish only after writing both files.`;
+/** The composition prompt: its text is in prompts/composition.ts. */
+export const compositionPrompt = COMPOSITION_PROMPT({
+  COMPOSITION_BRIDGE_FILE,
+  COMPOSITION_FILE,
+  COMPOSITION_FRAMES_FILE,
+  COMPOSITION_GSAP_FILE,
+  COMPOSITION_IMAGE_DIR,
+  COMPOSITION_INPUT_FILE,
+  COMPOSITION_LOOK_FILE,
+  COMPOSITION_LOOK_GUIDE,
+  COMPOSITION_PREVIOUS_FILE,
+  COMPOSITION_PREVIOUS_FRAMES_FILE,
+  COMPOSITION_SKILL_FILE,
+  COMPOSITION_TEMPLATE_FILE,
+  FRAME_SECONDS,
+  MAX_SECONDS,
+  MIN_SECONDS,
+});
 
 /**
  * The frames an agent described, checked: 1–20 frames with unique ids, a description and a

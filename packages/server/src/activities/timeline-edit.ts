@@ -20,6 +20,7 @@ import path from "node:path";
 import type { MediaAsset } from "./media.js";
 import { cutStarts, isNarration, narrationLengthMs, parseTimeline } from "./video-timeline.js";
 import type { TimelineEditTarget, VideoTimeline } from "./video-timeline-types.js";
+import { TIMELINE_PROMPT } from "./prompts/timeline.js";
 
 export const TIMELINE_INPUT_FILE = "timeline-input.json";
 export const TIMELINE_OUTPUT_FILE = "timeline.json";
@@ -131,16 +132,8 @@ export async function stageTimelineEdit(
   );
 }
 
-export const timelineEditPrompt = `Refine the timeline of a scene video so its sound follows its picture. Work in this workspace.
-Read ${TIMELINE_INPUT_FILE}: the scene, the video, its current timeline (every time in whole milliseconds), the storyboard frames the video shows and when each starts and ends, and the narration, music and sound effects the scene has, with each narration's script and length.
-Write ${TIMELINE_OUTPUT_FILE}: the whole timeline again, in exactly the same shape as the current one.
-- Keep version, width, height and fps as they are, and cut only from the recordings the current cuts use (the same source objects). You may change where cuts start and end and how each begins ("cut", "fade" or "fadeblack" with transitionMs; the first cut is always "cut" with 0).
-- Start each narration over the frame it talks about, a moment after that frame begins. Never let two narrations overlap: one ends (its startMs plus its length) before the next starts, with a short gap. Every narration ends before the video does. Leave out a narration only when it plainly belongs to another part of the scene.
-- Place a sound effect where a frame shows it happening, at volume 0 to 1.
-- Use music only from the scene's list, at volume 0.2 to 0.4, with "duck": true so it lowers under narration, or "music": null when the scene has none.
-- Keep captions on unless there is no narration.
-Use only the asset keys listed in ${TIMELINE_INPUT_FILE}. Do not edit ${TIMELINE_INPUT_FILE}. Do not delegate this task.
-Use Harness's normal approval flow for tool actions. Finish only after writing ${TIMELINE_OUTPUT_FILE}.`;
+/** The timeline edit prompt: its text is in prompts/timeline.ts. */
+export const timelineEditPrompt = TIMELINE_PROMPT({ TIMELINE_INPUT_FILE, TIMELINE_OUTPUT_FILE });
 
 /** Why what the agent wrote is not a timeline Penguin keeps. */
 export class TimelineEditProblem extends Error {}

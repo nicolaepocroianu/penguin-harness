@@ -8,6 +8,8 @@
  * The catalogue is Loom's, unchanged, so imported selections keep their meaning. A ref's
  * selection is kept beside its draft, outside its revision, and only the assembly reads it.
  */
+import { MODULE_FEATURES_CLAUSE } from "./prompts/module.js";
+
 export interface ImplementationFeature {
   id: string;
   label: string;
@@ -98,14 +100,11 @@ export function unknownFeatureIds(value: readonly string[]): string[] {
 }
 
 /**
- * The part of the assembly prompt that asks for the selected features, Loom's wording
- * adapted to where Penguin puts things: the features in the run's workspace, their source
- * modules in the WAF checkout the run may read but not change.
+ * The part of the assembly prompt that asks for the selected features: its text is in
+ * prompts/module.ts.
  */
 export function featureClause(features: readonly ImplementationFeature[]): string {
   if (!features.length) return "";
   const names = features.map((feature) => `${feature.label} (${feature.id})`).join(", ");
-  return `
-
-Selected implementation features: ${names}. Read ${RUN_FEATURES_FILE} in this workspace, and each feature's source files under modules/<sourceModule>/ in the WAF checkout. Bake each selected feature into the module using the exact required symbols, selectors, DOM structure, styling, positioning, and interaction pattern from its source module. Activity-specific data may be adapted, but parallel renamed implementations do not satisfy a selected feature. The selected feature contract takes precedence over generic implementation guidance when the two conflict. Required selectors must be emitted by the runtime DOM and styled in res/style.scss; copying unused selectors or helper declarations does not bake in the feature. Required symbols must be called by the implemented behavior, not merely left as unused definitions. Preserve all required style fragments exactly, including their animation durations, easing, keyframe stops, transforms, and other motion values.`;
+  return MODULE_FEATURES_CLAUSE({ names, RUN_FEATURES_FILE });
 }
