@@ -16,6 +16,7 @@
  *     it (null)
  */
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { isValidId } from "@prismshadow/penguin-core";
 import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
@@ -36,7 +37,14 @@ import { readBenchmarkDir } from "../services/benchmark-service.js";
 export const BENCH_HOME_SETTING = "activityBenchHome";
 
 /** What a bench home keeps besides its Projects' Benchmarks: never read. */
-const BENCH_OWN = new Set(["seed", "claude-config", "recipes", "trials", "seed-server"]);
+const BENCH_OWN = new Set([
+  "seed",
+  "claude-config",
+  "recipes",
+  "trials",
+  "seed-server",
+  "evaluations",
+]);
 
 /** A bench's Benchmark: one per case-set revision and scorer. */
 const BENCH_BENCHMARK = /^activity-bench-r(\d+)$/;
@@ -140,6 +148,14 @@ export class ActivityBenchRoutes {
     const root = await fs.realpath(this.paths.root).catch(() => this.paths.root);
     if (overlaps(home, root))
       throw refuse("A bench home is a folder of its own, apart from this server's data folder.");
+    // As the bench itself refuses: Penguin's default home, the user's home folder holding it, and
+    // anything inside it.
+    const penguinHome = path.join(os.homedir(), ".penguin");
+    const resolvedPenguinHome = await fs.realpath(penguinHome).catch(() => penguinHome);
+    if (overlaps(home, resolvedPenguinHome))
+      throw refuse(
+        "A bench home is a folder of its own, apart from the home folder and ~/.penguin.",
+      );
     return home;
   }
 

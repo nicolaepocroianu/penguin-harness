@@ -25,12 +25,14 @@ Nothing can be acted on, and nothing runs the bench.
   written there. The section reads:
   - each folder's `benchmark_config.toml` and `scoreboard.yaml`;
   - its case folders, by name only, to count them.
-- The section never reads the bench's vault, trials, seed, recipes or Claude login, nor any other
-  folder of the bench home. It follows no link: a linked Project, Benchmark folder, config or
-  scoreboard is not listed.
+- The section never reads the bench's vault, trials, held-out evaluations, seed, recipes or Claude
+  login, nor any other folder of the bench home. It follows no link: a linked Project, Benchmark
+  folder, config or scoreboard is not listed.
 - `PUT /api/admin/activity-bench { home }` chooses the bench home, or forgets it with `null`.
-  - The home must be an absolute folder on the server, apart from Penguin's own data folder, and
-    is stored resolved in `server_settings` (`activityBenchHome`).
+  - The home must be an absolute folder on the server. As with the bench itself, it must be apart
+    from Penguin's own data folder and from `~/.penguin`, which rules out the user's home folder
+    and anything inside `~/.penguin`. It is stored resolved in `server_settings`
+    (`activityBenchHome`).
   - A home that later stops being a folder is reported as `home_missing`.
   - Both routes are for admins only.
 - The Evaluation Center reads Benchmark folders with the same reader for a Project's Benchmarks

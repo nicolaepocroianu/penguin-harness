@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivityBenchResponse } from "../src/api/types.js";
 import { readBenchBoards } from "../src/activities/bench-boards.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser } from "./helpers.js";
@@ -71,6 +71,7 @@ function benchHome(): string {
   benchmark(path.join(home, "trials", "benchmarks", "activity-bench-r1"), "A trial");
   benchmark(path.join(home, "seed", "benchmarks", "activity-bench-r1"), "The seed");
   write(path.join(home, "vault", "waterford.sealed"), "sealed");
+  benchmark(path.join(home, "evaluations", "benchmarks", "activity-bench-r1"), "Held out");
   write(path.join(home, "bench.json"), '{ "project": "bench" }');
   return home;
 }
@@ -202,6 +203,33 @@ describe("the bench home's admin route", () => {
       const response = await admin.put(ROUTE, { home });
       expect(response.status, String(home)).toBe(400);
       expect(await response.json()).toMatchObject({ error: { code: "bench_home_invalid" } });
+    }
+  });
+
+  it("refuses the home folder, ~/.penguin, and anything inside ~/.penguin", async () => {
+    const { admin } = await fixture();
+    // A home folder of the test's own, so the user's is never looked at.
+    const userHome = tempDir();
+    fs.mkdirSync(path.join(userHome, ".penguin", "dev-data"), { recursive: true });
+    fs.mkdirSync(path.join(userHome, "bench"), { recursive: true });
+    vi.spyOn(os, "homedir").mockReturnValue(userHome);
+    try {
+      for (const home of [
+        userHome,
+        path.join(userHome, ".penguin"),
+        path.join(userHome, ".penguin", "dev-data"),
+      ]) {
+        const response = await admin.put(ROUTE, { home });
+        expect(response.status, home).toBe(400);
+        expect(await response.json()).toMatchObject({
+          error: { code: "bench_home_invalid", message: expect.stringContaining("~/.penguin") },
+        });
+      }
+      // A folder of its own beside them is a bench home.
+      const own = await admin.put(ROUTE, { home: path.join(userHome, "bench") });
+      expect(own.status, await own.clone().text()).toBe(200);
+    } finally {
+      vi.restoreAllMocks();
     }
   });
 
