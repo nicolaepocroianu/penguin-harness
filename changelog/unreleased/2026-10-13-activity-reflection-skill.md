@@ -3,7 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** process
 - **Scope:** `skills`, `tooling`
-- **PR:** pending
+- **PR:** [#132](https://github.com/nicolaepocroianu/penguin-harness/pull/132)
 
 `.agents/skills/activity-reflection/SKILL.md` walked a person or an agent through one reflection
 cycle: read the outcome ledger through its admin route (with the person's own session), the
