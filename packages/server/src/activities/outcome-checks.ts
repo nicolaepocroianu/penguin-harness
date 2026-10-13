@@ -98,8 +98,10 @@ function qualityMetrics(workspace: string): Metrics {
 
 /**
  * The numbers a settled run's checks give, by kind: an acceptance test run's report, a module
- * run's player check, a quality run's findings, a recording's video check, a composition's lint,
- * a critique's score, and whether a specification pass may be repaired.
+ * run's player check (and `unchecked.<why>` when the module was not seen to play: no test browser,
+ * the check never ran, or its run changed what the check rests on), a quality run's findings, a
+ * recording's video check, a composition's lint, a critique's score, and whether a specification
+ * pass may be repaired.
  */
 export function checkMetrics(run: ActivityRun, workspace: string): Metrics {
   switch (run.kind) {
@@ -108,6 +110,13 @@ export function checkMetrics(run: ActivityRun, workspace: string): Metrics {
     case "quality":
       return qualityMetrics(workspace);
     case "module": {
+      // A player check whose run changed what it rests on counts as untrusted, with none of its
+      // results, and leaves the module unchecked.
+      if (run.playerCheck?.untrusted)
+        return {
+          "playerCheck.untrusted": 1,
+          [`unchecked.${run.unchecked ?? "untrusted"}`]: 1,
+        };
       const results = readJson(path.join(workspace, PLAYER_CHECK_DIR, ACCEPTANCE_RESULTS_FILE));
       return {
         ...criteriaCounts(list(results, "results"), "playerCheck"),

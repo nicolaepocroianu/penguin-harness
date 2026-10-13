@@ -17,16 +17,18 @@
  * its tap targets), and taps, holds and drags like a learner would. Neither script prints the
  * environment or any request's headers.
  *
+ * Tests an earlier run wrote for the same criteria are not handed to an agent again: the server
+ * runs them itself, with these same sources from memory (confined-checks.ts, decision 17).
+ *
  * Raise `HARNESS_VERSION` whenever the harness API changes, so tests written against an older
  * one are written again rather than reused.
  */
 
+import path from "node:path";
+import { readArtifactBytes } from "./artifact.js";
+import { testFileHash } from "./acceptance-collect.js";
 import { PLAYER_BROWSER_ARGS } from "./browser-session.js";
-import {
-  ACCEPTANCE_PROMPT,
-  ACCEPTANCE_REUSE_PROMPT,
-  HARNESS_API as harnessApi,
-} from "./prompts/test.js";
+import { ACCEPTANCE_PROMPT, HARNESS_API as harnessApi } from "./prompts/test.js";
 
 export const HARNESS_VERSION = 2;
 
@@ -40,6 +42,39 @@ export const ACCEPTANCE_REPORT_DIR = "reports";
 export const ACCEPTANCE_REPORT_FILE = "test.json";
 /** The most bytes an earlier run's test file may have to be reused. */
 export const TEST_FILE_MAX_BYTES = 256 * 1024;
+
+/**
+ * The files the server stages for a run's checks, a test run's or a module run's player check,
+ * which the run must leave as they are: the harness, the runner, the input, and the package.json
+ * pinning playwright-core (what npm installs from it is the run's own, and not compared).
+ */
+export const CHECK_FILES = [
+  ACCEPTANCE_HARNESS_FILE,
+  ACCEPTANCE_RUNNER_FILE,
+  ACCEPTANCE_INPUT_FILE,
+  "package.json",
+] as const;
+
+/** The SHA-256 of each check file in `dir` as it is now, by name; a missing file has none. */
+export async function checkFileDigests(dir: string): Promise<Record<string, string>> {
+  const digests: Record<string, string> = {};
+  for (const name of CHECK_FILES) {
+    const bytes = await readArtifactBytes(path.join(dir, name), TEST_FILE_MAX_BYTES).catch(
+      () => null,
+    );
+    if (bytes) digests[name] = testFileHash(bytes);
+  }
+  return digests;
+}
+
+/** Whether a check file in `dir` is not as `staged` records it: changed, gone, or new. */
+export async function checkFilesChanged(
+  dir: string,
+  staged: Readonly<Record<string, string>>,
+): Promise<boolean> {
+  const now = await checkFileDigests(dir);
+  return CHECK_FILES.some((name) => now[name] !== staged[name]);
+}
 
 export const activityHarnessSource = `// Penguin's acceptance harness: drive the played activity in the test browser.
 // Tests import only from this file. Do not edit it.
@@ -387,16 +422,6 @@ export const HARNESS_API = harnessApi({
 
 /** The acceptance prompt: its text is in prompts/test.ts. */
 export const acceptancePrompt = ACCEPTANCE_PROMPT({
-  ACCEPTANCE_HARNESS_FILE,
-  ACCEPTANCE_INPUT_FILE,
-  ACCEPTANCE_RESULTS_FILE,
-  ACCEPTANCE_RUNNER_FILE,
-  ACCEPTANCE_TEST_FILE,
-  PLAYER_BROWSER_ARGS: PLAYER_BROWSER_ARGS.join(" "),
-});
-
-/** The acceptance reuse prompt: its text is in prompts/test.ts. */
-export const acceptanceReusePrompt = ACCEPTANCE_REUSE_PROMPT({
   ACCEPTANCE_HARNESS_FILE,
   ACCEPTANCE_INPUT_FILE,
   ACCEPTANCE_RESULTS_FILE,

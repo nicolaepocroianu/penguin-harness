@@ -26,6 +26,8 @@ import {
   ACCEPTANCE_TEST_FILE,
   TEST_FILE_MAX_BYTES,
   activityHarnessSource,
+  checkFileDigests,
+  checkFilesChanged,
   runAcceptanceSource,
 } from "../acceptance-harness.js";
 import {
@@ -123,7 +125,8 @@ async function playerCheckGap(
  * Stages a module run's player check in `PLAYER_CHECK_DIR`: the acceptance harness and its
  * runner, over a play link for this run's own module, so the agent checks what it built in
  * the real framework rather than a page of its own. Nothing without the test browser or a
- * Playwright to drive it; the prompt says what the agent does then.
+ * Playwright to drive it; the prompt says what the agent does then. What it staged is recorded
+ * on the run, which is saved before its Session starts.
  */
 async function stagePlayerCheck(
   services: RunKindServices,
@@ -158,6 +161,7 @@ async function stagePlayerCheck(
   await fs.writeFile(path.join(dir, ACCEPTANCE_RUNNER_FILE), runAcceptanceSource, {
     flag: "wx",
   });
+  run.playerCheck = { staged: await checkFileDigests(dir) };
 }
 
 /**
@@ -384,6 +388,13 @@ export const moduleKind: SessionRunKind<
   outputs: [MODULE_OUTPUT],
   missing: `${MODULE_OUTPUT} or a required artifact`,
   async collect({ services, run, workspace, observed, stopping, save }) {
+    // A run that changed what its player check rests on reported results nothing vouches for,
+    // whether it then succeeds or fails.
+    if (
+      run.playerCheck &&
+      (await checkFilesChanged(path.join(workspace, PLAYER_CHECK_DIR), run.playerCheck.staged))
+    )
+      run.playerCheck = { ...run.playerCheck, untrusted: true };
     run.candidate = await readCandidate(path.join(workspace, MODULE_OUTPUT));
     save(run);
     if (stopping()) return null;

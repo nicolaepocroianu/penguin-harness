@@ -20,7 +20,6 @@ import {
   ACCEPTANCE_RUNNER_FILE,
   ACCEPTANCE_TEST_FILE,
   acceptancePrompt,
-  acceptanceReusePrompt,
 } from "../src/activities/acceptance-harness.js";
 import { REPAIR_DIR, modulePrompt, moduleRepairClause } from "../src/activities/waf-module.js";
 
@@ -158,13 +157,6 @@ describe("what the built prompts keep saying about checks", () => {
       `A failing criterion is a result to report, not a test to change: never weaken a check to make it pass, and never write ${ACCEPTANCE_RESULTS_FILE} yourself.`,
     );
     expect(acceptancePrompt).toContain(doNotEdit);
-    expect(acceptanceReusePrompt).toContain(
-      `${ACCEPTANCE_TEST_FILE} was written by an earlier run for these same acceptance criteria and this same specification. Do not rewrite it.`,
-    );
-    expect(acceptanceReusePrompt).toContain(
-      `A failing criterion is a result to report, not a test to change. Never write ${ACCEPTANCE_RESULTS_FILE} yourself.`,
-    );
-    expect(acceptanceReusePrompt).toContain(doNotEdit);
   });
 
   it("a module run may not weaken or edit its player check, nor a repair the tests it answers", () => {

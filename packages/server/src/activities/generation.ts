@@ -102,7 +102,9 @@ import {
   type Acceptance,
   type AnyRunKind,
   type RunKindServices,
+  type Observed,
   type ServerRunKind,
+  type SessionRunKind,
   type StageInput,
 } from "./run-kinds/contract.js";
 import { modulePackagesRoot } from "./run-kinds/module.js";
@@ -500,6 +502,9 @@ export class ActivityGenerationService implements ActivityGeneration {
           if (kind.needsScript && !activity.draft.description.trim()) throw scriptRequired();
           const services = this.kindServices();
           const prepared: unknown = await kind.check(services, request, activity, projectId);
+          // A run that needs no agent (decision 17) is the server's own work: nobody's agent's,
+          // with no Session and no sandbox.
+          const work = kind.runner === "session" ? (kind.serverWork?.(prepared) ?? null) : null;
           // The module stage comes minutes after the first stages: its packages are installed
           // into the shared cache meanwhile, so it links them rather than waiting on npm.
           void (this.mediaHelper.warmModuleDependencies ?? warmModuleDependencies)(
@@ -527,8 +532,8 @@ export class ActivityGenerationService implements ActivityGeneration {
             projectId,
             draftId: activity.draft.draftId,
             inputRevision: activity.draft.contentRevision,
-            agentId: owner,
-            ...(codingAgentId ? { codingAgentId } : {}),
+            agentId: work ? "" : owner,
+            ...(codingAgentId && !work ? { codingAgentId } : {}),
             sessionId: null,
             status: "running",
             createdAt: new Date().toISOString(),
@@ -544,7 +549,8 @@ export class ActivityGenerationService implements ActivityGeneration {
           // unless an admin turned confinement off for this server (System settings > WAF
           // workspace). With nothing able to confine, the run is refused here rather than left
           // to fail at its first command.
-          const confined = !codingAgentId && !local && this.settings.getConfineActivityAgents();
+          const confined =
+            !work && !codingAgentId && !local && this.settings.getConfineActivityAgents();
           if (confined) {
             const problem = this.sandbox.confinementProblem(RUN_SANDBOX_MODE);
             if (problem !== null)
@@ -602,6 +608,21 @@ export class ActivityGenerationService implements ActivityGeneration {
               expectedRevision,
             };
             const staged: unknown = await kind.stage(stage);
+            if (work && kind.runner === "session") {
+              if (this.stopped)
+                throw new HttpError(503, "activity_stopping", "Server is stopping.");
+              // What the kind recorded on the run as it staged it is kept before the work
+              // starts, as it is before a Session's.
+              this.runs.save(run);
+              const controller = new AbortController();
+              this.localRuns.set(run.runId, controller);
+              void this.track(
+                this.workOnServer(run, kind, () => work(stage, controller.signal), controller),
+              ).catch((error: unknown) => {
+                this.log.line(`[activities] Server work settlement failed: ${String(error)}`);
+              });
+              return run;
+            }
             if (kind.runner === "server") {
               // Speech and sound need no agent: the server runs the staged helper itself, as
               // Loom's audio stage calls its provider, and collects the clip as a Session's
@@ -816,6 +837,84 @@ export class ActivityGenerationService implements ActivityGeneration {
       await failed(error);
     } finally {
       this.localRuns.delete(run.runId);
+    }
+  }
+
+  /**
+   * A Session kind's run whose work the server does itself (decision 17): what the work wrote is
+   * collected as a completed Session's would be; a failure is the work's own words. A run
+   * cancelled, or a server stopping, meanwhile is left as it is.
+   */
+  private async workOnServer(
+    run: ActivityRun,
+    kind: SessionKind,
+    work: () => Promise<void>,
+    controller: AbortController,
+  ): Promise<void> {
+    try {
+      const failure = await work().then(
+        () => null,
+        (error: unknown) => ({ error }),
+      );
+      await this.lock.run(run.activityId, async () => {
+        const current = this.runs.get(run.projectId, run.activityId, run.runId);
+        if (!current || current.status !== "running" || this.stopped || controller.signal.aborted)
+          return;
+        if (failure) this.finish(current, "failed", messageOf(failure.error));
+        else await this.settle(current, kind, { completed: true, error: null });
+      });
+    } finally {
+      this.localRuns.delete(run.runId);
+    }
+  }
+
+  /**
+   * Ends a run as its kind's `collect` settles what its agent, or the server in its place, wrote.
+   * A failure to collect fails the run, or makes it a conflict when the draft changed.
+   */
+  private async settle(
+    run: ActivityRun,
+    kind: SessionKind,
+    observed: Observed | undefined,
+  ): Promise<void> {
+    try {
+      const settlement = await kind.collect({
+        services: this.kindServices(),
+        run,
+        workspace: this.workspace(run),
+        observed,
+        stopping: () => this.stopped,
+        save: (saved) => this.runs.save(saved),
+      });
+      if (!settlement) return;
+      if ("settled" in settlement) {
+        this.finish(
+          run,
+          settlement.settled,
+          settlement.settled === "failed" ? settlement.error : null,
+        );
+        return;
+      }
+      if (this.stopped) return;
+      if (settlement.apply) {
+        // Cancellation and completion share the activity lock. The run applies its own
+        // result, whoever started it.
+        await this.outcomes.attribute({ actor: "run", runId: run.runId }, settlement.apply);
+        this.finish(run, "succeeded");
+      } else if (settlement.draftChanged)
+        await this.succeedIfDraftUnchanged(run, settlement.draftChanged, settlement.verify);
+      else this.finish(run, "succeeded");
+    } catch (error) {
+      if (this.stopped && run.candidate === null) return;
+      const conflict = error instanceof HttpError && error.code === "draft_conflict";
+      kind.failed?.(run, error);
+      const message =
+        (error as NodeJS.ErrnoException).code === "ENOENT"
+          ? `The session ended without ${kind.missing ?? kind.outputs.join(" or ")}.`
+          : error instanceof Error
+            ? error.message
+            : "Could not collect generation output.";
+      this.finish(run, conflict ? "conflict" : "failed", message);
     }
   }
 
@@ -1342,45 +1441,7 @@ export class ActivityGenerationService implements ActivityGeneration {
               this.finish(run, "failed", stoppedShort.error ?? "The coding agent did not finish.");
               return;
             }
-            try {
-              const settlement = await kind.collect({
-                services: this.kindServices(),
-                run,
-                workspace: this.workspace(run),
-                observed: this.observers.get(run.runId),
-                stopping: () => this.stopped,
-                save: (saved) => this.runs.save(saved),
-              });
-              if (!settlement) return;
-              if ("settled" in settlement) {
-                this.finish(
-                  run,
-                  settlement.settled,
-                  settlement.settled === "failed" ? settlement.error : null,
-                );
-                return;
-              }
-              if (this.stopped) return;
-              if (settlement.apply) {
-                // Cancellation and completion share the activity lock. The run applies its own
-                // result, whoever started it.
-                await this.outcomes.attribute({ actor: "run", runId: run.runId }, settlement.apply);
-                this.finish(run, "succeeded");
-              } else if (settlement.draftChanged)
-                await this.succeedIfDraftUnchanged(run, settlement.draftChanged, settlement.verify);
-              else this.finish(run, "succeeded");
-            } catch (error) {
-              if (this.stopped && run.candidate === null) return;
-              const conflict = error instanceof HttpError && error.code === "draft_conflict";
-              kind.failed?.(run, error);
-              const message =
-                (error as NodeJS.ErrnoException).code === "ENOENT"
-                  ? `The session ended without ${kind.missing ?? kind.outputs.join(" or ")}.`
-                  : error instanceof Error
-                    ? error.message
-                    : "Could not collect generation output.";
-              this.finish(run, conflict ? "conflict" : "failed", message);
-            }
+            await this.settle(run, kind, this.observers.get(run.runId));
           });
         } catch {
           // A user may have resumed this session between the idle probe and its lock.
@@ -1391,8 +1452,11 @@ export class ActivityGenerationService implements ActivityGeneration {
   }
 }
 
+/** A kind whose agent works in a Session, of any request. */
+type SessionKind = SessionRunKind<RunRequest, unknown, ActivityRun, unknown>;
+
 /** The kinds whose agent works in a Session, by the kind of run they record. */
-const SESSION_KINDS = new Map(
+const SESSION_KINDS = new Map<ActivityRunKind, SessionKind>(
   Object.values(RUN_KINDS).flatMap((kind) =>
     kind.runner === "session" ? [[kind.run as ActivityRunKind, kind] as const] : [],
   ),

@@ -22,7 +22,7 @@ export const HARNESS_API = (values: {
 - To look into the activity outside a check, use openActivity too. A Chromium you launch yourself must be given ${values.PLAYER_BROWSER_ARGS}, or the framework pauses for audio and its pause overlay takes every tap.
 - expect(condition, message) fails the check with message; skip(reason) marks a criterion that cannot be checked by playing the activity (for example the style of the art) as skipped.`;
 
-/** What a test run's agent is asked to do when no earlier tests fit. */
+/** What a test run's agent is asked to do: write the tests, and run them. */
 export const ACCEPTANCE_PROMPT = (values: {
   readonly ACCEPTANCE_HARNESS_FILE: string;
   readonly ACCEPTANCE_INPUT_FILE: string;
@@ -37,20 +37,4 @@ ${HARNESS_API(values)}
 Write ${values.ACCEPTANCE_TEST_FILE} as an ES module that imports only from ./${values.ACCEPTANCE_HARNESS_FILE}. Register exactly one criterion() for each entry of criteria, in order, passing criteria[i] as its text. Each check opens the activity with openActivity(), drives it only through the harness and throws an Error saying what it expected and what it saw when the criterion is not met. Do not use fixed waits as assertions or make network requests.
 Then run npm install --ignore-scripts (package.json pins the playwright-core this server uses) and node ${values.ACCEPTANCE_RUNNER_FILE}, with Harness's normal exec_command approval. The runner writes ${values.ACCEPTANCE_RESULTS_FILE}. If it says the tests could not run, fix ${values.ACCEPTANCE_TEST_FILE} and run it again. A failing criterion is a result to report, not a test to change: never weaken a check to make it pass, and never write ${values.ACCEPTANCE_RESULTS_FILE} yourself.
 Do not edit ${values.ACCEPTANCE_INPUT_FILE}, ${values.ACCEPTANCE_HARNESS_FILE}, ${values.ACCEPTANCE_RUNNER_FILE}, package.json or the activity files. Do not print environment variables or credentials. Do not delegate or write outside this workspace.
-Finish only after node ${values.ACCEPTANCE_RUNNER_FILE} has written ${values.ACCEPTANCE_RESULTS_FILE}.`;
-
-/** What a test run's agent is asked to do when an earlier run's tests fit these criteria. */
-export const ACCEPTANCE_REUSE_PROMPT = (values: {
-  readonly ACCEPTANCE_HARNESS_FILE: string;
-  readonly ACCEPTANCE_INPUT_FILE: string;
-  readonly ACCEPTANCE_RESULTS_FILE: string;
-  readonly ACCEPTANCE_RUNNER_FILE: string;
-  readonly ACCEPTANCE_TEST_FILE: string;
-  readonly PLAYER_BROWSER_ARGS: string;
-}) =>
-  `Run the acceptance tests for this activity. Work in this workspace.
-${values.ACCEPTANCE_TEST_FILE} was written by an earlier run for these same acceptance criteria and this same specification. Do not rewrite it.
-Run npm install --ignore-scripts (package.json pins the playwright-core this server uses) and node ${values.ACCEPTANCE_RUNNER_FILE}, with Harness's normal exec_command approval. The runner writes ${values.ACCEPTANCE_RESULTS_FILE}. Only if it says the tests could not run at all, fix ${values.ACCEPTANCE_TEST_FILE} using the harness described below and run it again.
-${HARNESS_API(values)}
-A failing criterion is a result to report, not a test to change. Never write ${values.ACCEPTANCE_RESULTS_FILE} yourself. Do not edit ${values.ACCEPTANCE_INPUT_FILE}, ${values.ACCEPTANCE_HARNESS_FILE}, ${values.ACCEPTANCE_RUNNER_FILE}, package.json or the activity files. Do not print environment variables or credentials. Do not delegate or write outside this workspace.
 Finish only after node ${values.ACCEPTANCE_RUNNER_FILE} has written ${values.ACCEPTANCE_RESULTS_FILE}.`;

@@ -154,6 +154,13 @@ describe("what each run kind hands its agent", () => {
       testBrowserPorts: {
         locateExecutable: async (dir) => path.join(dir, "chromium-0000", "chrome"),
         launchServer: async () => ({ endpoint: "ws://127.0.0.1:1/browser", close: async () => {} }),
+        // The server's own run of earlier tests never ends either, until it is stopped.
+        runChecks: (request) =>
+          new Promise((resolve) => {
+            const stop = () => resolve({ ran: false, reason: "Stopped." });
+            if (request.signal.aborted) stop();
+            else request.signal.addEventListener("abort", stop, { once: true });
+          }),
       },
     });
     const root = t.root;
@@ -474,6 +481,9 @@ describe("what each run kind hands its agent", () => {
       await directStart(service, b.id, await rev(), { kind: "test", test: stage(null) }),
       b.endpoint,
     );
+    // Tests an earlier run wrote are the server's to run (decision 17): no agent is told
+    // anything, and no browser server is started for a Session's checks. What is staged
+    // beside them is pinned all the same.
     await capture(
       "test-reuse",
       await directStart(service, b.id, await rev(), {

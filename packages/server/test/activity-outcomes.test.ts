@@ -385,6 +385,32 @@ describe("the outcome ledger", () => {
     });
   });
 
+  it("counts a player check whose run changed what it rests on as untrusted, and its module unchecked", async () => {
+    const f = await fixture();
+    const results = JSON.stringify({ results: [{ status: "passed" }, { status: "passed" }] });
+    const staged = { "activity-harness.mjs": "a".repeat(64) };
+    const checks = async (run: ActivityRun) =>
+      (await f.story(run)).facts.find((fact) => fact.fact === "checks")?.detail;
+    const assembled = async (fields: Partial<ActivityRun>) => {
+      const run = f.open("module", { playerCheck: { staged } });
+      f.start(run);
+      await f.stage(run, { "player-check/acceptance-results.json": results });
+      return f.settle(run, "succeeded", fields);
+    };
+    expect(await checks(await assembled({}))).toEqual({ "playerCheck.passed": 2 });
+    // Its results count for nothing, and the module was not seen to play.
+    expect(await checks(await assembled({ playerCheck: { staged, untrusted: true } }))).toEqual({
+      "playerCheck.untrusted": 1,
+      "unchecked.untrusted": 1,
+    });
+    // A module unchecked for a reason of its own keeps that reason.
+    expect(
+      await checks(
+        await assembled({ unchecked: "notRun", playerCheck: { staged, untrusted: true } }),
+      ),
+    ).toEqual({ "playerCheck.untrusted": 1, "unchecked.notRun": 1 });
+  });
+
   it("judges the build a test run names, else the one the preview plays: pinned, else the newest", async () => {
     const f = await fixture();
     const older = f.open("module");
