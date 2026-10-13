@@ -3,6 +3,7 @@
 - **Date:** 2026-10-12
 - **Type:** refactor
 - **Scope:** `server`
+- **PR:** [#122](https://github.com/nicolaepocroianu/penguin-harness/pull/122)
 
 Every kind of activity run moved out of the generation service into a module of its own under
 `packages/server/src/activities/run-kinds/`: the specification and media passes, module
