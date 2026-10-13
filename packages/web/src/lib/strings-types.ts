@@ -4109,6 +4109,23 @@ export type Strings = {
   };
   benchmark: {
     title: string;
+    /** The activity bench's scores, read here (admin only). */
+    activityBench: {
+      title: string;
+      about: string;
+      home: string;
+      homePick: string;
+      homeMenuHint: string;
+      homeClear: string;
+      homeHint: string;
+      homeMissing: string;
+      loadFailed: (reason: string) => string;
+      empty: string;
+      /** A board's origin under its title: the bench's Project and the Benchmark's folder. */
+      origin: (project: string, id: string) => string;
+      evaluationsLabel: (title: string) => string;
+      colSummary: string;
+    };
     guideFlow: { title: string; text: string }[];
     guideCreateMember: string;
     searchPlaceholder: string;

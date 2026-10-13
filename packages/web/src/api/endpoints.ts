@@ -227,6 +227,8 @@ import type {
   OutcomeRunsQuery,
   OutcomeRunsResponse,
   OutcomeTallyResponse,
+  ActivityBenchResponse,
+  ActivityBenchUpdateRequest,
 } from "@prismshadow/penguin-server/api";
 import type { MCPServerConfig } from "@prismshadow/penguin-core/interfaces";
 import { ApiError, apiFetch, apiFetchWithMeta } from "./client";
@@ -310,6 +312,19 @@ export const adminOutcomeHistory = (projectId: string, activityId: string, runId
 
 export const adminOutcomeProjects = () =>
   apiFetch<OutcomeProjectsResponse>("/api/admin/activity-outcomes/projects");
+
+// The activity bench's scores, read in the Evaluation Center (admin only) ----------------
+
+/** The bench home an admin chose, and the Benchmarks it holds; read only. */
+export const adminActivityBench = () =>
+  apiFetch<ActivityBenchResponse>("/api/admin/activity-bench");
+
+/** Chooses the bench home (an absolute folder on the server), or forgets it (null). */
+export const adminSetActivityBenchHome = (home: string | null) =>
+  apiFetch<ActivityBenchResponse>("/api/admin/activity-bench", {
+    method: "PUT",
+    body: { home } satisfies ActivityBenchUpdateRequest,
+  });
 
 /** Server-global settings (admin only): currently the "use system HTTP proxy" switch. */
 export const adminGetSettings = () => apiFetch<ServerSettingsResponse>("/api/admin/settings");

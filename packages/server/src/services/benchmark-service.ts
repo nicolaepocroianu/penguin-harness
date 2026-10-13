@@ -448,77 +448,86 @@ export class BenchmarkService implements Benchmarks {
     }
   }
 
-  private async readBenchmark(benchDir: string, id: string): Promise<BenchmarkSummary> {
-    // benchmark_config.toml: title, description, per-case run count and build status (falls
-    // back to defaults if corrupt). The model isn't part of the config — each evaluation
-    // carries the Model actually used for that run.
-    let title = id;
-    let description: string | undefined;
-    let runs: number | undefined;
-    let status: BenchmarkStatus = "published";
-    try {
-      const config = asRecord(
-        parseToml(await fs.readFile(path.join(benchDir, "benchmark_config.toml"), "utf8")),
-      );
-      if (typeof config.title === "string" && config.title !== "") title = config.title;
-      if (typeof config.description === "string" && config.description !== "") {
-        description = config.description;
-      }
-      const configRuns = numberOr(config.runs);
-      if (configRuns !== undefined && Number.isInteger(configRuns) && configRuns >= 1) {
-        runs = configRuns;
-      }
-      // The two states that make a Benchmark unusable are literal: "draft" while it is still
-      // being built, "failed" when its calibration never produced a result to freeze. A config
-      // written before this field existed has none, and an unrecognized value is neither, so
-      // both read as published.
-      const raw = stringOr(config.status);
-      status = raw === "draft" ? "draft" : raw === "failed" ? "failed" : "published";
-    } catch {
-      // Missing or corrupt: title falls back to the directory name.
-    }
-
-    // scoreboard.yaml: evaluations[] is appended over time; bad entries are dropped one by one.
-    let evaluations: BenchmarkEvaluation[] = [];
-    try {
-      const scoreboard = asRecord(
-        parseYaml(await fs.readFile(path.join(benchDir, "scoreboard.yaml"), "utf8")),
-      );
-      if (Array.isArray(scoreboard.evaluations)) {
-        evaluations = scoreboard.evaluations
-          .map(toEvaluation)
-          .filter((e): e is BenchmarkEvaluation => e !== null);
-      }
-    } catch {
-      // No scores yet.
-    }
-
-    // Case count: number of semantic Case subfolders.
-    let caseCount = 0;
-    try {
-      const entries = await fs.readdir(benchDir, { withFileTypes: true });
-      caseCount = entries.filter((e) => e.isDirectory() && e.name.startsWith("CASE-")).length;
-    } catch {
-      // Stays at 0.
-    }
-
-    return {
-      id,
-      title,
-      ...(description !== undefined ? { description } : {}),
-      ...(runs !== undefined ? { runs } : {}),
-      status,
-      caseCount,
-      evaluations,
-      // Which Agents this Benchmark has evaluated is a fact of its scoreboard, not of its
-      // config: first-seen order, so the list reads in the order the Agents were tested.
-      agentIds: [
-        ...new Set(
-          evaluations
-            .map((evaluation) => evaluation.agentId)
-            .filter((agentId): agentId is string => agentId !== null),
-        ),
-      ],
-    };
+  private readBenchmark(benchDir: string, id: string): Promise<BenchmarkSummary> {
+    return readBenchmarkDir(benchDir, id);
   }
+}
+
+/**
+ * One Benchmark folder as the Evaluation Center lists it: its config, its scoreboard and its case
+ * count, each read tolerantly. Reads and never writes; also what an activity bench home's
+ * Benchmarks are read with (activities/bench-boards.ts).
+ */
+export async function readBenchmarkDir(benchDir: string, id: string): Promise<BenchmarkSummary> {
+  // benchmark_config.toml: title, description, per-case run count and build status (falls
+  // back to defaults if corrupt). The model isn't part of the config — each evaluation
+  // carries the Model actually used for that run.
+  let title = id;
+  let description: string | undefined;
+  let runs: number | undefined;
+  let status: BenchmarkStatus = "published";
+  try {
+    const config = asRecord(
+      parseToml(await fs.readFile(path.join(benchDir, "benchmark_config.toml"), "utf8")),
+    );
+    if (typeof config.title === "string" && config.title !== "") title = config.title;
+    if (typeof config.description === "string" && config.description !== "") {
+      description = config.description;
+    }
+    const configRuns = numberOr(config.runs);
+    if (configRuns !== undefined && Number.isInteger(configRuns) && configRuns >= 1) {
+      runs = configRuns;
+    }
+    // The two states that make a Benchmark unusable are literal: "draft" while it is still
+    // being built, "failed" when its calibration never produced a result to freeze. A config
+    // written before this field existed has none, and an unrecognized value is neither, so
+    // both read as published.
+    const raw = stringOr(config.status);
+    status = raw === "draft" ? "draft" : raw === "failed" ? "failed" : "published";
+  } catch {
+    // Missing or corrupt: title falls back to the directory name.
+  }
+
+  // scoreboard.yaml: evaluations[] is appended over time; bad entries are dropped one by one.
+  let evaluations: BenchmarkEvaluation[] = [];
+  try {
+    const scoreboard = asRecord(
+      parseYaml(await fs.readFile(path.join(benchDir, "scoreboard.yaml"), "utf8")),
+    );
+    if (Array.isArray(scoreboard.evaluations)) {
+      evaluations = scoreboard.evaluations
+        .map(toEvaluation)
+        .filter((e): e is BenchmarkEvaluation => e !== null);
+    }
+  } catch {
+    // No scores yet.
+  }
+
+  // Case count: number of semantic Case subfolders.
+  let caseCount = 0;
+  try {
+    const entries = await fs.readdir(benchDir, { withFileTypes: true });
+    caseCount = entries.filter((e) => e.isDirectory() && e.name.startsWith("CASE-")).length;
+  } catch {
+    // Stays at 0.
+  }
+
+  return {
+    id,
+    title,
+    ...(description !== undefined ? { description } : {}),
+    ...(runs !== undefined ? { runs } : {}),
+    status,
+    caseCount,
+    evaluations,
+    // Which Agents this Benchmark has evaluated is a fact of its scoreboard, not of its
+    // config: first-seen order, so the list reads in the order the Agents were tested.
+    agentIds: [
+      ...new Set(
+        evaluations
+          .map((evaluation) => evaluation.agentId)
+          .filter((agentId): agentId is string => agentId !== null),
+      ),
+    ],
+  };
 }
