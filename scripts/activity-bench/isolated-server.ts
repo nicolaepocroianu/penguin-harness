@@ -108,16 +108,23 @@ export interface SeedPreflightOptions {
   agentId: string;
 }
 
+/** What a seed must have on disk, before any server is started: why it does not, or null. */
+export async function checkSeedFiles(layout: BenchLayout, project: string): Promise<string | null> {
+  if (!fs.existsSync(path.join(layout.seed, project)))
+    return `The seed home ${layout.seed} has no Project ${project}.`;
+  if (!(await findChromium(path.join(layout.seed, "browsers"))))
+    return `The seed home ${layout.seed} has no test browser installed.`;
+  return null;
+}
+
 /**
  * The bench's preflight of a seed: its Project and test browser are there, and one start on a
  * throwaway copy says the rest (checkSeedServer). The seed itself is never started or changed.
  */
 export async function seedPreflight(options: SeedPreflightOptions): Promise<SeedCheck> {
   const { layout, project, agentId } = options;
-  if (!fs.existsSync(path.join(layout.seed, project)))
-    return { refused: `The seed home ${layout.seed} has no Project ${project}.` };
-  if (!(await findChromium(path.join(layout.seed, "browsers"))))
-    return { refused: `The seed home ${layout.seed} has no test browser installed.` };
+  const missing = await checkSeedFiles(layout, project);
+  if (missing) return { refused: missing };
   const dir = path.join(layout.trials, `preflight-${randomBytes(4).toString("hex")}`);
   let server: Server | null = null;
   try {
@@ -138,11 +145,11 @@ function bootTrial(worktree: string, layout: BenchLayout, dir: string): Promise<
     worktree,
     home: path.join(dir, "home"),
     dir,
+    claudeConfig: layout.claudeConfig,
     env: {
-      // The seed's workspace is prepared once, by a person: a trial home never clones.
+      // The seed's workspace is prepared once, by `pnpm bench seed`: a trial home never clones.
       PENGUIN_WAF_AUTO_PREPARE: "0",
       PENGUIN_BUNDLED_BROWSERS: path.join(layout.seed, "browsers"),
-      CLAUDE_CONFIG_DIR: layout.claudeConfig,
     },
   });
 }
@@ -214,6 +221,9 @@ export class IsolatedServer implements AuthoringHost {
 
   async preflight(shas: string[]): Promise<SeedCheck> {
     const { project, agentId } = this.options;
+    // What the seed lacks on disk is said before any recipe is built.
+    const missing = await checkSeedFiles(this.layout, project);
+    if (missing) return { refused: missing };
     for (const sha of new Set(shas)) {
       try {
         await this.recipe(sha);

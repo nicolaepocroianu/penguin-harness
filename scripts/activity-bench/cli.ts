@@ -24,7 +24,7 @@ import { HarnessCheckRunner, findChromium } from "./checks.js";
 import { IsolatedServer, benchLayout, seedPreflight } from "./isolated-server.js";
 import { NoTerminal, ttyPrompter } from "./prompt.js";
 import { proveAndSeal } from "./seal.js";
-import { SeedRefusal, projectIdOf, seedBench } from "./seed.js";
+import { SeedRefusal, projectIdOf, readBenchConfig, seedBench } from "./seed.js";
 import { bootServer } from "./server-boot.js";
 import type { CaseVault, Verdict } from "./types.js";
 import { PlainVault, SealedVault } from "./vault.js";
@@ -258,8 +258,9 @@ async function seed(
     );
   const layout = benchLayout(home);
   const project = typeof values["project-name"] === "string" ? values["project-name"] : "Bench";
-  const config = fs.existsSync(path.join(home, "bench.json")) ? readConfig(home) : null;
-  const agentId = config?.agent ?? DEFAULT_AGENT;
+  // Whatever bench.json already says is kept and filled in; it need not be complete yet.
+  const config = readBenchConfig(home) as Partial<BenchConfig>;
+  const agentId = typeof config.agent === "string" && config.agent ? config.agent : DEFAULT_AGENT;
   const log = (line: string) => process.stderr.write(`${line}\n`);
   const report = await seedBench(
     {
@@ -270,11 +271,15 @@ async function seed(
       mainRef:
         typeof values["main-ref"] === "string"
           ? values["main-ref"]
-          : (config?.mainRef ?? DEFAULT_MAIN_REF),
+          : typeof config.mainRef === "string" && config.mainRef
+            ? config.mainRef
+            : DEFAULT_MAIN_REF,
       trialEstimateUsd: number(
         values["trial-estimate"] as string | undefined,
         "trial-estimate",
-        config?.trialEstimateUsd ?? DEFAULT_TRIAL_ESTIMATE_USD,
+        typeof config.trialEstimateUsd === "number" && config.trialEstimateUsd > 0
+          ? config.trialEstimateUsd
+          : DEFAULT_TRIAL_ESTIMATE_USD,
       ),
     },
     {
@@ -283,6 +288,7 @@ async function seed(
           worktree: REPO,
           home: layout.seed,
           dir: path.join(home, "seed-server"),
+          claudeConfig: layout.claudeConfig,
           // The seed is prepared by asking, step by step, not by the server on its own.
           env: { PENGUIN_WAF_AUTO_PREPARE: "0" },
         }),

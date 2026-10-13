@@ -120,6 +120,8 @@ function parseRef(text: string): ModelRef | null {
 export async function seedBench(options: SeedOptions, ports: SeedPorts): Promise<SeedReport> {
   const projectId = projectIdOf(options.projectName);
   const layout = benchLayout(options.home);
+  // Read before anything is started: a bench.json that cannot be kept stops the seed here.
+  const existing = readBenchConfig(options.home);
   fs.mkdirSync(layout.seed, { recursive: true });
   const server = await ports.server();
   let model: string;
@@ -132,7 +134,7 @@ export async function seedBench(options: SeedOptions, ports: SeedPorts): Promise
   } finally {
     await server.stop();
   }
-  writeBenchConfig(options.home, {
+  writeBenchConfig(options.home, existing, {
     project: projectId,
     agent: options.agentId,
     trialEstimateUsd: options.trialEstimateUsd,
@@ -234,9 +236,7 @@ async function ensureDefaultModel(
     });
   } catch (error) {
     // Whatever the server answered, the key is not repeated.
-    throw new SeedRefusal(
-      `The default model could not be set: ${message(error).split(apiKey).join("<the key>")}`,
-    );
+    throw new SeedRefusal(`The default model could not be set: ${redact(message(error), apiKey)}`);
   }
   ports.log(`Default model set to ${ref}; its key is stored in the seed's Project only.`);
   return ref;
@@ -305,8 +305,12 @@ async function ensureWorkspace(
     log("The WAF workspace is prepared.");
     return;
   }
-  log("Preparing the WAF workspace: cloning the framework, navbar, media and activity data…");
-  ({ status } = await server.call<{ status: WorkspaceStatus }>("POST", `${route}/prepare`));
+  // A preparation already under way (the server's own, say) is waited for, not started again.
+  if (status.preparing) log("The WAF workspace is being prepared; waiting for it…");
+  else {
+    log("Preparing the WAF workspace: cloning the framework, navbar, media and activity data…");
+    ({ status } = await server.call<{ status: WorkspaceStatus }>("POST", `${route}/prepare`));
+  }
   const deadline = Date.now() + WORKSPACE_TIMEOUT_MS;
   while (status.preparing) {
     if (Date.now() > deadline)
@@ -361,16 +365,39 @@ async function ensureBrowser(
 }
 
 /** bench.json with these fields set; whatever else it says (its vault) is kept. */
-function writeBenchConfig(home: string, fields: Record<string, unknown>): void {
+function writeBenchConfig(
+  home: string,
+  existing: Record<string, unknown>,
+  fields: Record<string, unknown>,
+): void {
   const file = path.join(home, "bench.json");
-  let existing: Record<string, unknown> = {};
-  try {
-    const parsed: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
-      existing = parsed as Record<string, unknown>;
-  } catch {
-    // None yet, or not JSON: written afresh.
-  }
   fs.mkdirSync(home, { recursive: true });
-  fs.writeFileSync(file, `${JSON.stringify({ ...existing, ...fields }, null, 2)}\n`);
+  fs.writeFileSync(`${file}.tmp`, `${JSON.stringify({ ...existing, ...fields }, null, 2)}\n`);
+  fs.renameSync(`${file}.tmp`, file);
+}
+
+/**
+ * What the bench home's bench.json says now, however little: nothing when there is none. One
+ * that is there and is not a JSON object is refused rather than replaced.
+ */
+export function readBenchConfig(home: string): Record<string, unknown> {
+  const file = path.join(home, "bench.json");
+  if (!fs.existsSync(file)) return {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (error) {
+    throw new SeedRefusal(`${file} is not JSON (${message(error)}): fix or remove it first.`);
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+    throw new SeedRefusal(`${file} must hold a JSON object: fix or remove it first.`);
+  return parsed as Record<string, unknown>;
+}
+
+/** `text` with every appearance of `secret` — as typed, and as JSON writes it — replaced. */
+export function redact(text: string, secret: string): string {
+  let out = text;
+  for (const form of new Set([secret, JSON.stringify(secret).slice(1, -1)]))
+    if (form) out = out.split(form).join("<the key>");
+  return out;
 }

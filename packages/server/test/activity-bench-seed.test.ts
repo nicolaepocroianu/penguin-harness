@@ -7,20 +7,23 @@
  * The command's own refusals (no terminal, a bench home it may not use) run the real CLI.
  */
 import { spawnSync } from "node:child_process";
+import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { checkSeedServer, benchLayout } from "../../../scripts/activity-bench/isolated-server.js";
-import type { Prompter } from "../../../scripts/activity-bench/prompt.js";
+import { NoTerminal, hiddenFrom, type Prompter } from "../../../scripts/activity-bench/prompt.js";
 import {
   SeedRefusal,
   projectIdOf,
+  readBenchConfig,
+  redact,
   seedBench,
   type SeedPorts,
 } from "../../../scripts/activity-bench/seed.js";
-import type { Server } from "../../../scripts/activity-bench/server-boot.js";
+import { bootEnv, type Server } from "../../../scripts/activity-bench/server-boot.js";
 import { INSTALL_MARKER } from "../src/activities/test-browser.js";
 import { FakeClones } from "./fake-clones.js";
 import { apiClient, createTestApp, loginAdmin } from "./helpers.js";
@@ -223,6 +226,11 @@ describe("preparing the seed", () => {
       expect(text, where).not.toContain(FAKE_KEY);
     // The masked key the server shows is not the key either.
     expect(JSON.stringify(models)).not.toContain(FAKE_KEY);
+    // On disk, the key is in the Project's own config and in no other file of the home.
+    const holding = filesHolding(s.t.root, FAKE_KEY);
+    expect(holding.length).toBeGreaterThan(0);
+    for (const file of holding) expect(path.basename(file)).toBe(".project_config.toml");
+    expect(filesHolding(home, FAKE_KEY)).toEqual([]);
 
     // Again: every step is found done; nothing is asked, cloned or installed again.
     const again = scriptedPrompter([]);
@@ -310,4 +318,125 @@ describe("preparing the seed", () => {
     expect(inRepo.status).toBe(64);
     expect(inRepo.stderr).toContain("give the bench a folder of its own");
   });
+
+  it("starts every bench server with the bench's own Claude folder, never the person's", () => {
+    vi.stubEnv("CLAUDE_CONFIG_DIR", path.join(os.homedir(), ".claude"));
+    vi.stubEnv("ANTHROPIC_API_KEY", "not-for-the-server");
+    vi.stubEnv("PENGUIN_HOME", path.join(os.homedir(), ".penguin"));
+    const env = bootEnv(
+      { home: "/bench/seed", claudeConfig: "/bench/claude-config", env: { PENGUIN_X: "1" } },
+      "/bench/seed-server/server.port",
+      "token",
+    );
+    expect(env).toMatchObject({
+      CLAUDE_CONFIG_DIR: "/bench/claude-config",
+      PENGUIN_HOME: "/bench/seed",
+      PENGUIN_DESKTOP_TOKEN: "token",
+      HOST: "127.0.0.1",
+      PORT: "0",
+      PENGUIN_X: "1",
+    });
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+    // The plumbing stays (the server needs PATH and a home directory to run at all).
+    expect(env.PATH ?? env.Path).toBeTruthy();
+  });
+
+  it("repeats nothing the server answered with the key in it, as typed or as JSON", async () => {
+    const home = tempDir();
+    const key = 'FAKE"KEY\\with-escapes-only-for-this-test';
+    const s = await seedServer();
+    const echoing: Server = {
+      ...s.server,
+      call: (method, route, body) => {
+        if (method === "PUT" && route.endsWith("/models"))
+          throw new Error(`400: ${JSON.stringify(body)} and plainly ${key}`);
+        return s.server.call(method, route, body);
+      },
+    };
+    const run = ports(echoing, home, scriptedPrompter(["1", key]).prompt);
+    let refused = "";
+    await seedBench(options(home), run).catch((error: Error) => {
+      refused = error.message;
+    });
+    expect(refused).toContain("The default model could not be set");
+    expect(refused).toContain("<the key>");
+    expect(refused).not.toContain(key);
+    expect(refused).not.toContain(JSON.stringify(key).slice(1, -1));
+    expect(run.logged.join("\n")).not.toContain("with-escapes-only");
+    expect(redact('a FAKE\\"KEY b', 'FAKE"KEY')).toBe("a <the key> b");
+  });
+
+  it("fills in a bench.json that is there, and refuses one it cannot keep", async () => {
+    const home = tempDir();
+    expect(readBenchConfig(home)).toEqual({});
+    fs.writeFileSync(path.join(home, "bench.json"), '{ "vault": "vault/x.sealed" }\n');
+    expect(readBenchConfig(home)).toEqual({ vault: "vault/x.sealed" });
+    fs.writeFileSync(path.join(home, "bench.json"), "{ not json\n");
+    expect(() => readBenchConfig(home)).toThrow(/is not JSON/);
+    fs.writeFileSync(path.join(home, "bench.json"), "[]\n");
+    expect(() => readBenchConfig(home)).toThrow(/must hold a JSON object/);
+    // Refused before any server is started.
+    let started = 0;
+    const s = await seedServer();
+    const run = ports(s.server, home, scriptedPrompter([]).prompt);
+    run.server = async () => {
+      started++;
+      return s.server;
+    };
+    await expect(seedBench(options(home), run)).rejects.toThrow(SeedRefusal);
+    expect(started).toBe(0);
+    expect(fs.readFileSync(path.join(home, "bench.json"), "utf8")).toBe("[]\n");
+  });
+
+  it("stops asking for a hidden line when the terminal's input ends", async () => {
+    const input = () => {
+      const stdin = new EventEmitter() as EventEmitter & {
+        isTTY: boolean;
+        setRawMode(mode: boolean): void;
+        setEncoding(encoding: string): void;
+        resume(): void;
+        pause(): void;
+      };
+      stdin.isTTY = true;
+      stdin.setRawMode = () => {};
+      stdin.setEncoding = () => {};
+      stdin.resume = () => {};
+      stdin.pause = () => {};
+      return stdin;
+    };
+    const written: string[] = [];
+    const out = { write: (text: string) => written.push(text) };
+    const typed = input();
+    const line = hiddenFrom("Key: ", typed, out);
+    typed.emit("data", "ab");
+    typed.emit("data", "c\u007f\r");
+    await expect(line).resolves.toBe("ab");
+    const ended = input();
+    const noLine = hiddenFrom("Key: ", ended, out);
+    ended.emit("end");
+    await expect(noLine).rejects.toThrow(NoTerminal);
+    const ctrlD = input();
+    const cut = hiddenFrom("Key: ", ctrlD, out);
+    ctrlD.emit("data", "ab\u0004");
+    await expect(cut).rejects.toThrow(/ended before a line/);
+    const notTerminal = input();
+    notTerminal.isTTY = false;
+    await expect(hiddenFrom("Key: ", notTerminal, out)).rejects.toThrow(NoTerminal);
+    // Nothing typed reached the output: the question and the line ends only.
+    expect(written.join("")).not.toContain("ab");
+  });
 });
+
+/** Every file under `root` whose text holds `needle`. */
+function filesHolding(root: string, needle: string): string[] {
+  const found: string[] = [];
+  const visit = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) visit(full);
+      else if (entry.isFile() && fs.readFileSync(full, "latin1").includes(needle)) found.push(full);
+    }
+  };
+  visit(root);
+  return found;
+}

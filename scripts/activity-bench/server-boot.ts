@@ -29,13 +29,39 @@ export interface BootOptions {
   home: string;
   /** Where the server's port file and log go. */
   dir: string;
+  /**
+   * The bench's own CLAUDE_CONFIG_DIR (decision 19): the server's coding-agent discovery reads
+   * a Claude login from there, never from the person's ~/.claude.
+   */
+  claudeConfig: string;
   /** Environment besides the plumbing and what the boot sets itself. */
   env?: Record<string, string>;
 }
 
+/**
+ * The environment a bench server starts with: the system plumbing of this process's, what the
+ * caller adds, and what every bench server has — its home, loopback, a port of its own, the
+ * token, and the bench's Claude folder. Nothing of the person's Claude or Penguin settings.
+ */
+export function bootEnv(
+  options: Pick<BootOptions, "home" | "claudeConfig" | "env">,
+  portFile: string,
+  token: string,
+): Record<string, string> {
+  return plainEnv({
+    ...options.env,
+    PENGUIN_HOME: options.home,
+    HOST: "127.0.0.1",
+    PORT: "0",
+    PENGUIN_PORT_FILE: portFile,
+    PENGUIN_DESKTOP_TOKEN: token,
+    CLAUDE_CONFIG_DIR: options.claudeConfig,
+  });
+}
+
 /** Starts a server from `worktree` on `home`, signed in as its admin; throws InfrastructureError. */
 export async function bootServer(options: BootOptions): Promise<Server> {
-  const { worktree, home, dir } = options;
+  const { worktree, dir } = options;
   fs.mkdirSync(dir, { recursive: true });
   const portFile = path.join(dir, "server.port");
   fs.rmSync(portFile, { force: true });
@@ -46,14 +72,7 @@ export async function bootServer(options: BootOptions): Promise<Server> {
     [path.join(worktree, "node_modules", "tsx", "dist", "cli.mjs"), path.join("src", "index.ts")],
     {
       cwd: path.join(worktree, "packages", "server"),
-      env: plainEnv({
-        ...options.env,
-        PENGUIN_HOME: home,
-        HOST: "127.0.0.1",
-        PORT: "0",
-        PENGUIN_PORT_FILE: portFile,
-        PENGUIN_DESKTOP_TOKEN: token,
-      }),
+      env: bootEnv(options, portFile, token),
       stdio: ["ignore", log, log],
     },
   );
