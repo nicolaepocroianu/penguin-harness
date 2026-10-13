@@ -205,6 +205,12 @@ export const KEY_RULES: readonly KeyRule[] = [
   },
   {
     kind: "exact",
+    key: "penguin.activitySpec.view",
+    scope: "browser",
+    why: "Whether the Activity Spec reads as scenes or as JSON; a display choice of this browser, holds no entity.",
+  },
+  {
+    kind: "exact",
     key: "penguin.dock.launcherY",
     scope: "browser",
     why: "Where the floating dock launcher rests along the chat body's edge; chrome layout, holds no entity.",

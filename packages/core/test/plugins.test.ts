@@ -4,7 +4,7 @@
  * category grouping, the preinstall filter, the name lookups, the doc conventions every
  * shipped skill follows, and the README tables that repeat the library for human readers.
  */
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -27,6 +27,13 @@ import {
 
 const pluginsRoot = path.resolve(import.meta.dirname, "../../../plugins");
 
+/**
+ * Plugins whose skills are reference contracts staged into activity runs rather than skills a
+ * user invokes by name, so the "## Before you start" convention does not apply: there is nobody
+ * to ask in a headless run, and the staged text is what the activity stages already read.
+ */
+const CONTRACT_PLUGINS = new Set(["waf-authoring"]);
+
 /** Minimal LibraryPlugin for groupPlugins unit tests. */
 const fakePlugin = (name: string, category?: string): LibraryPlugin => ({
   name,
@@ -41,7 +48,12 @@ describe("loadLibraryPlugins", () => {
   it("loads every plugin directory sorted by name, each with a date-sequence version and a category", () => {
     const plugins = loadLibraryPlugins();
     expect(plugins.map((p) => p.name)).toEqual([...plugins.map((p) => p.name)].sort());
-    expect(plugins.length).toBe(14);
+    // Every directory under plugins/ that carries a plugin.json is a library plugin; the
+    // sandbox backends beside them are kernel packages with no manifest.
+    const manifests = readdirSync(pluginsRoot).filter((name) =>
+      existsSync(path.join(pluginsRoot, name, "plugin.json")),
+    );
+    expect(plugins.map((p) => p.name)).toEqual(manifests.sort());
     for (const plugin of plugins) {
       expect(plugin.version, plugin.name).toMatch(PLUGIN_VERSION_PATTERN);
       expect(
@@ -54,6 +66,8 @@ describe("loadLibraryPlugins", () => {
   });
 
   it("stamps the plugin's metadata into each skill: slim file frontmatter, full installable frontmatter", async () => {
+    // An exemption that names no plugin any more is one nobody would notice going stale.
+    for (const name of CONTRACT_PLUGINS) expect(libraryPlugin(name), name).toBeDefined();
     for (const plugin of loadLibraryPlugins()) {
       // Chinese in a manifest is written as real characters, not \uXXXX escapes.
       const rawManifest = await fs.readFile(
@@ -85,9 +99,11 @@ describe("loadLibraryPlugins", () => {
         expect(skill.icon, `${plugin.name}/${skill.name} icon`).toBe(plugin.icon);
         await expect(fs.access(path.join(dir, "icon.svg"))).rejects.toThrow();
         // Every shipped skill asks before starting when the message only names it.
-        expect(skill.content, `${skill.name} lacks ## Before you start`).toMatch(
-          /^## Before you start$/m,
-        );
+        if (!CONTRACT_PLUGINS.has(plugin.name)) {
+          expect(skill.content, `${skill.name} lacks ## Before you start`).toMatch(
+            /^## Before you start$/m,
+          );
+        }
       }
     }
   });
