@@ -1,11 +1,14 @@
 /**
  * Run tests, over HTTP: when a test run is refused, when it finishes skipped without a
  * Session, what it stages for its agent, how its results become the report, and when it
- * reuses an earlier run's tests.
+ * reuses an earlier run's tests, which the server runs itself with no agent (decision 17).
  *
  * No browser starts and no model is called: the test browser's "executable" is a file this
- * test writes, and the Session is a fake whose agent writes the files a real one would.
+ * test writes, the Session is a fake whose agent writes the files a real one would, and the
+ * server's own run of earlier tests is a stand-in that answers what the runner would have.
+ * activity-confined-checks.test.ts runs real checks in a real browser.
  */
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -23,10 +26,10 @@ import type { ActivityGenerationService } from "../src/activities/generation.js"
 import type { AcceptanceStateResponse } from "../src/activities/acceptance-types.js";
 import {
   acceptancePrompt,
-  acceptanceReusePrompt,
   activityHarnessSource,
   runAcceptanceSource,
 } from "../src/activities/acceptance-harness.js";
+import type { ChecksOutcome, ConfinedChecksRequest } from "../src/activities/confined-checks.js";
 import { INSTALL_MARKER } from "../src/activities/test-browser.js";
 import { PLAYER_CHECK_DIR } from "../src/activities/waf-module.js";
 import { SandboxService } from "../src/sandbox/service.js";
@@ -122,6 +125,12 @@ describe("acceptance test runs", () => {
     process.env.WAF_ROOT_DIR = root;
     // The browser server a confined run's checks connect to: a stand-in that records its life.
     const browserServers: { endpoint: string; closed: boolean }[] = [];
+    // The server's own run of earlier tests: a stand-in that records what it was asked.
+    let checks: (request: ConfinedChecksRequest) => Promise<ChecksOutcome> = async () => ({
+      ran: true,
+      results: JSON.stringify({ results: [] }),
+    });
+    const checked: ConfinedChecksRequest[] = [];
     const t = await createTestApp({
       ...(options.sandbox ? { sandbox: options.sandbox } : {}),
       testBrowserPorts: {
@@ -138,6 +147,10 @@ describe("acceptance test runs", () => {
               server.closed = true;
             },
           };
+        },
+        runChecks: (request) => {
+          checked.push(request);
+          return checks(request);
         },
       },
     });
@@ -218,20 +231,30 @@ describe("acceptance test runs", () => {
     const runs = async () =>
       ((await (await client.get(`${endpoint}/runs`)).json()) as { runs: ActivityRunSummary[] })
         .runs;
-    /** Starts a run and waits until its fake agent has finished and it has been collected. */
+    const store = t.deps.tree.api<ActivityRuns>("ActivitiesModule", "ActivityRuns");
+    /**
+     * Starts a run and waits until it has been collected: once its fake agent has finished, or,
+     * for tests an earlier run wrote, once the server has run them.
+     */
     const runToEnd = async (next: Agent) => {
       agent = next;
       const response = await start();
       expect(response.status, await response.clone().text()).toBe(202);
       const run = (await response.json()) as ActivityRun;
       expect(run).toMatchObject({ kind: "test", status: "running" });
-      await waitFor(() => t.deps.manager.statusOf(run.sessionId!) === "idle");
-      await service.reconcile();
+      if (run.sessionId) {
+        await waitFor(() => t.deps.manager.statusOf(run.sessionId!) === "idle");
+        await service.reconcile();
+      }
+      await waitFor(() => store.get(projectId, activityId, run.runId)?.status !== "running");
       const settled = (await runs()).find((entry) => entry.runId === run.runId)!;
       return { run, settled, workspace: path.join(t.root, "activity-runs", run.runId) };
     };
     const useAgent = (next: Agent) => {
       agent = next;
+    };
+    const useChecks = (next: typeof checks) => {
+      checks = next;
     };
     return {
       t,
@@ -247,6 +270,9 @@ describe("acceptance test runs", () => {
       home,
       revision,
       useAgent,
+      useChecks,
+      checked,
+      store,
       browserServers,
     };
   }
@@ -369,8 +395,9 @@ describe("acceptance test runs", () => {
     ]);
   });
 
-  it("reuses the tests for unchanged criteria, and writes new ones when they change", async () => {
-    const { client, endpoint, report, runToEnd, prompts, seen } = await setup();
+  it("runs the tests for unchanged criteria itself, and has new ones written when they change", async () => {
+    const f = await setup();
+    const { client, endpoint, report, runToEnd, seen, sessions, checked } = f;
     const passing = {
       results: CRITERIA.map((criterion) => ({
         criterion,
@@ -380,22 +407,44 @@ describe("acceptance test runs", () => {
       })),
     };
     await runToEnd(writesResults(passing, "// written once\n"));
+    expect(sessions).toHaveLength(1);
 
-    // Unchanged criteria: the earlier test file is in the workspace before the agent starts,
-    // and the agent is told to run it.
-    const second = await runToEnd(async (workspace) => {
-      expect(await fs.readFile(path.join(workspace, "acceptance.test.mjs"), "utf8")).toBe(
-        "// written once\n",
-      );
-      await fs.writeFile(path.join(workspace, "acceptance-results.json"), JSON.stringify(passing));
+    // Unchanged criteria: the server runs the earlier test file itself. No agent is started,
+    // so none can change what the checks rest on or write their results.
+    f.useChecks(async () => ({ ran: true, results: JSON.stringify(passing) }));
+    const second = await runToEnd(async () => {
+      throw new Error("No agent runs the tests an earlier run wrote.");
     });
-    expect(seen[1]).toContain("acceptance.test.mjs");
-    expect(prompts[1]).toContain(JSON.stringify(acceptanceReusePrompt).slice(1, 60));
-    expect(second.settled.test).toMatchObject({ reused: true });
+    expect(sessions).toHaveLength(1);
+    expect(second.run).toMatchObject({ sessionId: null, agentId: "" });
+    expect(second.settled).toMatchObject({ status: "succeeded", sessionId: null, agentId: "" });
+    expect(second.settled.test).toMatchObject({
+      reused: true,
+      cachedTestHash: createHash("sha256").update("// written once\n").digest("hex"),
+    });
+    // It ran the earlier file against the play link the run staged, with nothing of a
+    // confined Session's: no browser server was started for it.
+    expect(checked).toHaveLength(1);
+    const staged = JSON.parse(
+      await fs.readFile(path.join(second.workspace, "acceptance-input.json"), "utf8"),
+    );
+    expect(staged.browserEndpoint).toBeUndefined();
+    expect(checked[0]).toMatchObject({ test: "// written once\n", input: staged });
+    expect(checked[0]!.signal.aborted).toBe(false);
+    expect(f.browserServers).toHaveLength(1);
+    // The folder holds what ran and what it found, as a Session's would.
+    expect(await fs.readFile(path.join(second.workspace, "acceptance.test.mjs"), "utf8")).toBe(
+      "// written once\n",
+    );
+    expect(
+      JSON.parse(await fs.readFile(path.join(second.workspace, "acceptance-results.json"), "utf8")),
+    ).toEqual(passing);
     const reused = JSON.parse(
       await fs.readFile(path.join(second.workspace, "reports", "test.json"), "utf8"),
     );
     expect(reused).toMatchObject({ overallStatus: "passed", reused: true });
+    expect(reused.untrusted).toBeUndefined();
+    expect((await report()).runId).toBe(second.run.runId);
     expect((await report()).stale).toBe(false);
 
     // A changed criterion: the tests are written again.
@@ -410,15 +459,104 @@ describe("acceptance test runs", () => {
     // The report now tested an earlier specification.
     expect((await report()).stale).toBe(true);
     const third = await runToEnd(writesResults(passing));
-    expect(seen[2]).not.toContain("acceptance.test.mjs");
+    expect(sessions).toHaveLength(2);
+    expect(seen[1]).not.toContain("acceptance.test.mjs");
     expect(third.settled.test).toMatchObject({ reused: false });
+    expect(third.settled.agentId).toBe("default_agent");
     expect((await report()).stale).toBe(false);
+  });
 
-    // Handed the tests again, the agent rewrites them: the report does not claim reuse.
-    const fourth = await runToEnd(writesResults(passing, "// rewritten\n"));
-    expect(seen[3]).toContain("acceptance.test.mjs");
-    expect(fourth.settled.test).toMatchObject({ reused: true });
-    expect((await report()).report).toMatchObject({ reused: false });
+  it("fails a run whose earlier tests could not run, and keeps the report it had", async () => {
+    const f = await setup();
+    const passing = {
+      results: CRITERIA.map((criterion) => ({ criterion, status: "passed", durationMs: 4 })),
+    };
+    const first = await f.runToEnd(writesResults(passing));
+    f.useChecks(async () => ({
+      ran: false,
+      reason: "The test browser did not start: no display.",
+    }));
+    const second = await f.runToEnd(async () => {});
+    expect(second.settled).toMatchObject({
+      status: "failed",
+      error: "The test browser did not start: no display.",
+    });
+    expect(f.sessions).toHaveLength(1);
+    const state = await f.report();
+    expect(state.runId).toBe(first.run.runId);
+    expect(state.report).toMatchObject({ overallStatus: "passed" });
+  });
+
+  it("runs the tests again for the Stages as the server's own work, and hands back how it ended", async () => {
+    const f = await setup();
+    await f.runToEnd(writesResults({ results: [] }, "// the first tests\n"));
+    const api = <T>(name: string) => f.t.deps.tree.api<T>("ActivitiesModule", name);
+    const acceptance = api<ActivityAcceptance>("ActivityAcceptance");
+    const generation = api<ActivityGenerationService>("ActivityGeneration");
+    const projectId = "tests_owner-tests";
+    const activityId = f.endpoint.split("/").at(-1)!;
+    // What the Stages' repair round asks for after a repair: the tests the first run wrote.
+    const request = await acceptance.testRun(projectId, activityId);
+    expect(request?.test.cachedTest).toBe("// the first tests\n");
+    const failing = {
+      results: [{ criterion: CRITERIA[0], status: "failed", durationMs: 3, error: "Saw intro." }],
+    };
+    f.useChecks(async () => ({ ran: true, results: JSON.stringify(failing) }));
+    const outcome = await generation.runAndAccept(projectId, activityId, request!, {
+      agentId: "default_agent",
+    });
+    expect(outcome).toMatchObject({
+      outcome: "succeeded",
+      run: { kind: "test", status: "succeeded", sessionId: null, agentId: "" },
+    });
+    expect(f.sessions).toHaveLength(1);
+    const state = await f.report();
+    expect(state.runId).toBe(outcome.outcome === "succeeded" ? outcome.run.runId : null);
+    expect(state.report).toMatchObject({ overallStatus: "failed", reused: true });
+    expect(state.report?.untrusted).toBeUndefined();
+  });
+
+  it("keeps what it staged in the run's record before the server runs earlier tests", async () => {
+    const f = await setup();
+    await f.runToEnd(writesResults({ results: [] }));
+    const recorded: (Record<string, string> | undefined)[] = [];
+    f.useChecks(async () => {
+      // The record as it is stored when the checks start.
+      recorded.push(...f.store.running().map((run) => run.test?.staged));
+      return { ran: true, results: JSON.stringify({ results: [] }) };
+    });
+    const { settled } = await f.runToEnd(async () => {});
+    expect(settled.status, settled.error ?? "").toBe("succeeded");
+    expect(Object.keys(recorded[0] ?? {}).sort()).toEqual([
+      "acceptance-input.json",
+      "activity-harness.mjs",
+      "package.json",
+      "run-acceptance.mjs",
+    ]);
+  });
+
+  it("stops the server's run of earlier tests when the run is cancelled", async () => {
+    const f = await setup();
+    await f.runToEnd(writesResults({ results: [] }));
+    let stopped = false;
+    f.useChecks(
+      (request) =>
+        new Promise<ChecksOutcome>((resolve) => {
+          request.signal.addEventListener("abort", () => {
+            stopped = true;
+            resolve({ ran: false, reason: "The acceptance tests were stopped." });
+          });
+        }),
+    );
+    const response = await f.start();
+    expect(response.status).toBe(202);
+    const run = (await response.json()) as ActivityRun;
+    await waitFor(() => f.checked.length === 1);
+    const cancelled = await f.client.post(`${f.endpoint}/runs/${run.runId}/cancel`, {});
+    expect(cancelled.status).toBe(200);
+    await waitFor(() => stopped);
+    const settled = (await f.runs()).find((entry) => entry.runId === run.runId)!;
+    expect(settled.status).toBe("cancelled");
   });
 
   it("fails the run with a worded error when the results file is malformed or too large", async () => {
@@ -466,7 +604,8 @@ describe("acceptance test runs", () => {
     const passing = {
       results: CRITERIA.map((criterion) => ({ criterion, status: "passed", durationMs: 4 })),
     };
-    await f.runToEnd(writesResults(passing));
+    // An empty test file is none to reuse: the next run is an agent's too.
+    await f.runToEnd(writesResults(passing, ""));
     expect((await f.report()).report).toMatchObject({ overallStatus: "passed" });
     expect((await f.report()).report?.untrusted).toBeUndefined();
     await f.runToEnd(async (workspace) => {
@@ -611,6 +750,67 @@ describe("acceptance test runs", () => {
     const unchecked = await assemble(bare);
     const files = await fs.readdir(path.join(bare.t.root, "activity-runs", unchecked.runId));
     expect(files).not.toContain(PLAYER_CHECK_DIR);
+  });
+
+  it("records a module run's player check as staged, and marks it untrusted when the run changed it", async () => {
+    const f = await setup();
+    await f.client.patch(`${f.endpoint}/description`, {
+      description: "Tap the cat, then celebrate.",
+      expectedRevision: await f.revision(),
+    });
+    const applied = await f.client.post(`${f.endpoint}/apply-generated-spec`, {
+      spec: { ...activitySpec, acceptance_criterias: CRITERIA },
+      expectedRevision: await f.revision(),
+    });
+    expect(applied.status, await applied.clone().text()).toBe(200);
+    const service = f.t.deps.tree.api<ActivityGenerationService>(
+      "ActivitiesModule",
+      "ActivityGeneration",
+    );
+    const projectId = "tests_owner-tests";
+    const activityId = f.endpoint.split("/").at(-1)!;
+    /** Assembles with the agent given, and answers the run's record once it is collected. */
+    const assemble = async (agent: Agent) => {
+      f.useAgent(agent);
+      const response = await f.client.post(`${f.endpoint}/assemble-module`, {
+        agentId: "default_agent",
+        expectedRevision: await f.revision(),
+      });
+      expect(response.status, await response.clone().text()).toBe(202);
+      const run = (await response.json()) as ActivityRun;
+      await waitFor(() => f.t.deps.manager.statusOf(run.sessionId!) === "idle");
+      await service.reconcile();
+      await waitFor(() => f.store.get(projectId, activityId, run.runId)?.status !== "running");
+      return f.store.get(projectId, activityId, run.runId)!;
+    };
+    const results = async (workspace: string) =>
+      fs.writeFile(
+        path.join(workspace, PLAYER_CHECK_DIR, "acceptance-results.json"),
+        JSON.stringify({ results: [] }),
+      );
+
+    const clean = await assemble(results);
+    expect(Object.keys(clean.playerCheck?.staged ?? {}).sort()).toEqual([
+      "acceptance-input.json",
+      "activity-harness.mjs",
+      "package.json",
+      "run-acceptance.mjs",
+    ]);
+    expect(clean.playerCheck?.untrusted).toBeUndefined();
+
+    // Whether the run then succeeds or not, a check that rests on a changed runner is untrusted.
+    const tampered = await assemble(async (workspace) => {
+      await fs.appendFile(
+        path.join(workspace, PLAYER_CHECK_DIR, "run-acceptance.mjs"),
+        "\n// every check passes\n",
+      );
+      await results(workspace);
+    });
+    expect(tampered.playerCheck).toMatchObject({ untrusted: true });
+    // The record keeps the runner as it was staged, not as the run left it.
+    expect(tampered.playerCheck?.staged["run-acceptance.mjs"]).toBe(
+      clean.playerCheck?.staged["run-acceptance.mjs"],
+    );
   });
 
   it("connects a confined run's checks to a browser the server started, and stops it after", async () => {

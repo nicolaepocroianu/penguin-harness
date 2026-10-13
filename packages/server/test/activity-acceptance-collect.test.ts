@@ -16,7 +16,6 @@ import {
 } from "../src/activities/acceptance-collect.js";
 import {
   acceptancePrompt,
-  acceptanceReusePrompt,
   activityHarnessSource,
   runAcceptanceSource,
 } from "../src/activities/acceptance-harness.js";
@@ -228,6 +227,5 @@ describe("the staged harness", () => {
     expect(runAcceptanceSource).toContain("executablePath: input.browserPath");
     expect(acceptancePrompt).toContain("npm install --ignore-scripts");
     expect(acceptancePrompt).toContain("node run-acceptance.mjs");
-    expect(acceptanceReusePrompt).toContain("Do not rewrite it.");
   });
 });

@@ -5,8 +5,9 @@
  * known), what it records about itself, what it stages in its workspace, what its agent is
  * told, how what the agent wrote becomes the run's candidate, and how an accepted candidate
  * changes the draft. The engine does everything else: the activity's lock, the run store,
- * Sessions and their observers, cancellation, shutdown, and the shared tail that keeps a
- * candidate only while the draft is the one the run started from.
+ * Sessions and their observers, the work a kind has the server do in place of a Session,
+ * cancellation, shutdown, and the shared tail that keeps a candidate only while the draft is the
+ * one the run started from.
  */
 import { libraryPlugin, type ProtectedRoot } from "@prismshadow/penguin-core";
 import type { ActivityAuthoring } from "../../mechanisms/activities.js";
@@ -187,6 +188,17 @@ export interface SessionRunKind<
   prompt(input: StageInput<Prepared, Run>, staged: Staged): string;
   /** Roots the Session may read and never change. */
   protectedRoots?(input: StageInput<Prepared, Run>): ProtectedRoot[];
+  /**
+   * The work the server does itself in place of this run's Session, when the run needs no agent
+   * (decision 17: a test run that reuses the checks an earlier run wrote); null when it needs one.
+   * Such a run is nobody's agent's: it gets no Session, no prompt and no sandbox. `stage` stages
+   * it as ever, the work then writes what its agent would have, and `collect` collects that as a
+   * completed Session's. The work rejects with why it could not be done, which fails the run;
+   * `signal` aborts when the run is cancelled or the server stops.
+   */
+  serverWork?(
+    prepared: Prepared,
+  ): ((input: StageInput<Prepared, Run>, signal: AbortSignal) => Promise<void>) | null;
   /** The files the agent writes; its result is read from the first. */
   readonly outputs: readonly string[];
   /** How a failure names what the Session did not write, when not the outputs. */

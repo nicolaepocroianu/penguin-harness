@@ -1,6 +1,6 @@
 /**
  * Running one program: the single place the activities start a child process (git, npm and
- * npx, Node scripts, FFmpeg, Playwright's installer, espeak-ng).
+ * npx, Node scripts, FFmpeg, Playwright's installer, espeak-ng, the confined acceptance checks).
  *
  * What it hides: the spawn options (no shell, no window, no prompt on stdin), Windows' shell
  * for `.cmd` wrappers and its quoting, the time limit, the caller's abort signal, stopping the
@@ -63,6 +63,11 @@ export interface ProgramSpec {
   stdout?: "text" | "bytes";
   /** Each line of text output as it is completed; a last line without a newline at the end. */
   onLine?: (line: string, stream: ProgramStream) => void;
+  /**
+   * A Node program's IPC channel: `message` is sent to it once it has started, and each message
+   * it sends back is handed to `onMessage`, before its outcome is.
+   */
+  ipc?: { message: unknown; onMessage: (message: unknown) => void };
 }
 
 /** What a program printed: the end of each stream, and of both as they interleaved. */
@@ -215,7 +220,7 @@ export function startProgram(spec: ProgramSpec): RunningProgram {
     proc = spawn(file, args, {
       cwd: spec.cwd,
       env: spec.env,
-      stdio: [piped ? "pipe" : "ignore", "pipe", "pipe"],
+      stdio: [piped ? "pipe" : "ignore", "pipe", "pipe", ...(spec.ipc ? ["ipc" as const] : [])],
       shell: false,
       windowsHide: true,
       windowsVerbatimArguments: verbatim,
@@ -254,6 +259,12 @@ export function startProgram(spec: ProgramSpec): RunningProgram {
   timer.unref();
   spec.signal?.addEventListener("abort", onAbort, { once: true });
 
+  if (spec.ipc) {
+    const { message, onMessage } = spec.ipc;
+    proc.on("message", onMessage);
+    // A program that exits before reading it closes the channel; its exit says so.
+    proc.on("spawn", () => proc.send(message as never, () => {}));
+  }
   proc.on("spawn", () => {
     spawned = true;
     markStarted(true);

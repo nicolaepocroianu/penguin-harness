@@ -1,6 +1,7 @@
 /**
- * Acceptance tests of the played activity: an agent writes (or reuses) tests of the
- * specification's criteria and runs them in the test browser; the report is the result.
+ * Acceptance tests of the played activity: an agent writes tests of the specification's criteria
+ * and runs them in the test browser; the report is the result. Tests an earlier run wrote for the
+ * same criteria are run again by the server itself, with no agent (decision 17).
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -17,8 +18,9 @@ import {
   HARNESS_VERSION,
   TEST_FILE_MAX_BYTES,
   acceptancePrompt,
-  acceptanceReusePrompt,
   activityHarnessSource,
+  checkFileDigests,
+  checkFilesChanged,
   runAcceptanceSource,
 } from "../acceptance-harness.js";
 import {
@@ -32,29 +34,6 @@ import type { TestRun } from "../domain.js";
 import type { RunRequestOf } from "../run-request.js";
 import { atomicJson } from "../service.js";
 import { hasValidSpec, requireCompleted, type SessionRunKind } from "./contract.js";
-
-/**
- * The files the server stages for a test run's checks, which the run must leave as they are: the
- * harness, the runner, the input, and the package.json pinning playwright-core (what npm installs
- * from it is the run's own, and not compared).
- */
-const STAGED_FILES = [
-  ACCEPTANCE_HARNESS_FILE,
-  ACCEPTANCE_RUNNER_FILE,
-  ACCEPTANCE_INPUT_FILE,
-  "package.json",
-];
-
-/** The SHA-256 of each staged file as it is in the workspace now; a missing file has none. */
-async function stagedDigests(workspace: string): Promise<Record<string, string | null>> {
-  const digests: Record<string, string | null> = {};
-  for (const name of STAGED_FILES)
-    digests[name] = await readArtifactBytes(path.join(workspace, name), TEST_FILE_MAX_BYTES).then(
-      (bytes) => testFileHash(bytes),
-      () => null,
-    );
-  return digests;
-}
 
 /**
  * Whether a test run left the test file it was handed as it was: only then did it reuse the
@@ -120,18 +99,24 @@ export const testKind: SessionRunKind<RunRequestOf<"test">, AcceptanceStage, Tes
       await fs.writeFile(path.join(workspace, ACCEPTANCE_TEST_FILE), test.cachedTest, {
         flag: "wx",
       });
-    // Recorded with the run, which is saved before its Session starts: what the report's
-    // results rest on is checked against it once the run ends.
-    const staged = await stagedDigests(workspace);
-    run.test = {
-      ...run.test!,
-      staged: Object.fromEntries(
-        Object.entries(staged).filter((entry): entry is [string, string] => entry[1] !== null),
-      ),
-    };
+    // Recorded with the run, which is saved before its Session, or the server's work, starts:
+    // what the report's results rest on is checked against it once the run ends.
+    run.test = { ...run.test!, staged: await checkFileDigests(workspace) };
   },
-  prompt: ({ prepared }) =>
-    prepared.cachedTest !== null ? acceptanceReusePrompt : acceptancePrompt,
+  // Only a run that writes its tests has an agent: the tests an earlier run wrote are run again
+  // by the server, with its own harness and runner, so no agent can change what they rest on.
+  prompt: () => acceptancePrompt,
+  serverWork: ({ cachedTest, input }) =>
+    cachedTest === null
+      ? null
+      : async ({ services, workspace }, signal) => {
+          const outcome = await services.browser.runChecks({ test: cachedTest, input }, signal);
+          if (!outcome.ran) throw new Error(outcome.reason);
+          // Where a Session's runner writes them, for `collect` to read as it reads those.
+          await fs.writeFile(path.join(workspace, ACCEPTANCE_RESULTS_FILE), outcome.results, {
+            flag: "wx",
+          });
+        },
   outputs: [ACCEPTANCE_RESULTS_FILE],
   async collect({ run, workspace, observed }) {
     requireCompleted(observed, "Test Session did not complete.");
@@ -146,11 +131,8 @@ export const testKind: SessionRunKind<RunRequestOf<"test">, AcceptanceStage, Tes
     });
     // A run that changed the harness, the runner or the input its checks rest on reported
     // results nothing vouches for.
-    const staged = run.test.staged;
-    if (staged) {
-      const now = await stagedDigests(workspace);
-      if (STAGED_FILES.some((name) => now[name] !== staged[name])) report.untrusted = true;
-    }
+    if (run.test.staged && (await checkFilesChanged(workspace, run.test.staged)))
+      report.untrusted = true;
     const reports = path.join(workspace, ACCEPTANCE_REPORT_DIR);
     await fs.mkdir(reports, { recursive: true });
     await atomicJson(path.join(reports, ACCEPTANCE_REPORT_FILE), report);

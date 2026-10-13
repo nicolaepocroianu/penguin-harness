@@ -3,7 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** process
 - **Scope:** `server`
-- **PR:** [#124](https://github.com/nicolaepocroianu/penguin-harness/pull/124), [#126](https://github.com/nicolaepocroianu/penguin-harness/pull/126), [#127](https://github.com/nicolaepocroianu/penguin-harness/pull/127)
+- **PR:** [#124](https://github.com/nicolaepocroianu/penguin-harness/pull/124), [#126](https://github.com/nicolaepocroianu/penguin-harness/pull/126), [#127](https://github.com/nicolaepocroianu/penguin-harness/pull/127), [#134](https://github.com/nicolaepocroianu/penguin-harness/pull/134)
 
 The [outcome ledger](2026-10-13-activity-outcome-ledger.md) added migration 25
 (`activity-outcomes`): the tables `activity_outcome_recipes`, `activity_run_outcomes`,
@@ -45,3 +45,13 @@ was handed), and a test report (`reports/test.json` in the run's folder) an opti
 None rewrote an existing record or report: an older test run has no digests, so its report is
 never marked, and an older repair run has no test file digest, which only a repair round started
 by this build reads. An older build ignores all three and shows an untrusted report as any other.
+
+The [server's own re-tests](2026-10-13-server-run-retests.md) changed no schema either. A test run
+that reuses earlier tests is recorded with no agent (`agentId: ""`) and no Session, as a skipped
+test run already was, and its report has the same shape as any. A module run's record gained an
+optional `playerCheck`: the SHA-256 of each file staged for its player check, and `untrusted` when
+the run changed any. Neither rewrote an existing record or report. An older module run has no
+`playerCheck`, so its check is never marked untrusted, and the outcome ledger counts its results
+as before. An older build ignores the field and counts an untrusted check's results like any
+others. It also reuses the test file a server-run re-test left, as it reuses any, and has its own
+agent run it.

@@ -31,6 +31,12 @@ import type { Config } from "../hmr/capabilities.js";
 import type { Settings } from "../mechanisms/settings.js";
 import { hostOnly } from "../services/preview-token.js";
 import { PLAYER_BROWSER_ARGS } from "./browser-session.js";
+import {
+  runConfinedChecks,
+  type ChecksOutcome,
+  type ChecksRequest,
+  type ConfinedChecksRequest,
+} from "./confined-checks.js";
 import { playBase } from "./play-routes.js";
 import { clampLog, runProgram } from "./run-program.js";
 import type { ActivityPlayLinks } from "./play-links.js";
@@ -118,6 +124,8 @@ export abstract class TestBrowserPorts extends Interface<{
   playwrightCoreDir?: string | null;
   /** Starts the browser as a Playwright server (see `launchPlaywrightServer`). */
   launchServer?: (executable: string, coreDir: string) => Promise<BrowserServerHandle>;
+  /** Runs an earlier run's checks, confined (see `runConfinedChecks`). */
+  runChecks?: (request: ConfinedChecksRequest) => Promise<ChecksOutcome>;
 }>() {}
 
 /** A test browser this server runs for one activity run: where to reach it, and how to stop it. */
@@ -276,6 +284,15 @@ export abstract class TestBrowser extends Interface<{
    * caller stops it when the run ends.
    */
   launchServer(): Promise<Opaque<"BrowserServerHandle", BrowserServerHandle> | null>;
+  /**
+   * Runs checks an earlier test run wrote against their play link, as the server's own work
+   * (decision 17): with this server's harness and runner, confined, in the test browser locked
+   * to the play link. Answers the results, or why the checks could not run; never throws.
+   */
+  runChecks(
+    request: ChecksRequest,
+    signal: Opaque<"AbortSignal", AbortSignal>,
+  ): Promise<ChecksOutcome>;
 }>() {}
 
 @Component()
@@ -365,6 +382,27 @@ export class TestBrowserService implements TestBrowser {
     const executable = await this.executablePath();
     if (coreDir === null || executable === null) return null;
     return (this.ports.launchServer ?? launchPlaywrightServer)(executable, coreDir);
+  }
+
+  async runChecks(request: ChecksRequest, signal: AbortSignal): Promise<ChecksOutcome> {
+    const coreDir = this.coreDir();
+    if (coreDir === null)
+      return {
+        ran: false,
+        reason: "This copy of Penguin does not include Playwright, so it cannot run the tests.",
+      };
+    const executable = await this.executablePath();
+    if (executable === null)
+      return {
+        ran: false,
+        reason: "The test browser is not installed. An admin installs it in System settings.",
+      };
+    return (this.ports.runChecks ?? runConfinedChecks)({
+      ...request,
+      signal,
+      executable,
+      coreDir,
+    });
   }
 
   async install(): Promise<TestBrowserStatus> {

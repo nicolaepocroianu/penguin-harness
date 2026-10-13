@@ -2,9 +2,9 @@
  * Run tests: check each acceptance criterion of the specification against the played activity.
  *
  * This service decides whether a test run can start and prepares it; the run itself is an
- * ordinary agent run (`ActivityGeneration.start` with `test`), a traced Session with
- * approvals, in which the agent writes `acceptance.test.mjs` against Penguin's harness API and
- * runs it in the test browser. The generation service collects `acceptance-results.json` into
+ * ordinary run (`ActivityGeneration.start` with `test`): a traced Session with approvals, in
+ * which the agent writes `acceptance.test.mjs` against Penguin's harness API and runs it in the
+ * test browser, unless there are tests to reuse. The generation service collects `acceptance-results.json` into
  * the run's report, `reports/test.json`; the latest finished test run's report is the
  * activity's.
  *
@@ -12,7 +12,9 @@
  * with a skipped report and starts no Session. Without the test browser, or without an
  * assembled module to play, a run is refused. When the latest finished test run tested the
  * same criteria of the same specification with the same harness, its test file is copied into
- * the new run and the agent only runs it.
+ * the new run and the server runs it itself, with no agent and no Session (decision 17): the
+ * same run kind, collected into the same report, which no agent could change (see
+ * confined-checks.ts).
  */
 import fs from "node:fs/promises";
 import path from "node:path";

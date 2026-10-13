@@ -242,6 +242,20 @@ describe("a program's input", () => {
   });
 });
 
+describe("a Node program's IPC channel", () => {
+  it("sends it a message and hands on what it sends back before its outcome", async () => {
+    const received: unknown[] = [];
+    const result = await runProgram(
+      node(
+        'process.once("message", (m) => process.send({ echo: m }, () => process.send("bye", () => process.exit(0))));',
+        { ipc: { message: { hello: "there" }, onMessage: (message) => received.push(message) } },
+      ),
+    );
+    expect(result).toMatchObject({ outcome: "exited", code: 0 });
+    expect(received).toEqual([{ echo: { hello: "there" } }, "bye"]);
+  });
+});
+
 describe("arguments through the Windows shell", () => {
   it("reach the program as they were given", async () => {
     const args = ["plain", "with space", 'say "hi"', "100%", "a&b", "(paren)"];
