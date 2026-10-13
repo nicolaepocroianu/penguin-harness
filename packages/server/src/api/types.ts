@@ -4962,6 +4962,18 @@ export type {
   QualityWaiver,
 } from "../activities/quality-types.js";
 export type {
+  OutcomeDimension,
+  OutcomeFact,
+  OutcomeHistoryResponse,
+  OutcomeQuery,
+  OutcomeTally,
+  OutcomeTallyResponse,
+  RecipeLibrary,
+  RecipeSkill,
+  RunRecipe,
+  RunStory,
+} from "../activities/outcome-types.js";
+export type {
   VersionDiff,
   VersionFileDiff,
   VersionFileName,
