@@ -1,3 +1,4 @@
+import type { ActivityRunStatus, OutcomeFactName } from "@prismshadow/penguin-server/api";
 import type { PeakWindows } from "../features/models/model-grouping";
 
 /** Shared dictionary contract for supported translations. */
@@ -2552,16 +2553,13 @@ export type Strings = {
       runsLimited: (count: number) => string;
       runsEmpty: string;
       runColumns: { started: string; project: string; activity: string; status: string };
-      /** How a run ended, as the ledger records it. */
-      runStatus: Record<
-        "running" | "succeeded" | "failed" | "conflict" | "cancelled" | "interrupted",
-        string
-      >;
+      /** How a run ended, as the ledger records it: every status, so none shows unworded. */
+      runStatus: Record<ActivityRunStatus, string>;
       history: string;
       historyTitle: (runId: string) => string;
       historyEmpty: string;
-      /** The ledger's facts by name; one it does not know shows as its own name. */
-      facts: Record<string, string>;
+      /** The ledger's facts by name: every one, so none shows unworded. */
+      facts: Record<OutcomeFactName, string>;
     };
   };
   project: {

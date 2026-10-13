@@ -6029,6 +6029,8 @@ test("an admin installs the test browser from System settings", async ({ page })
 test("an admin reads what became of activity runs in System settings", async ({ page }) => {
   const f = await fixture(page);
   const asked = [];
+  /** Every method the page sent the ledger, checked once the flow is over. */
+  const methods = new Set();
   const recipe = {
     runtime: "agent:custom/activity-test",
     library: [{ plugin: "waf-authoring", version: "2026.10.01.1", skills: [] }],
@@ -6065,8 +6067,7 @@ test("an admin reads what became of activity runs in System settings", async ({ 
         },
       });
     if (p.startsWith("/api/admin/activity-outcomes/")) {
-      // Only ever read: nothing on the page writes to the ledger.
-      expect(request.method()).toBe("GET");
+      methods.add(request.method());
       asked.push(`${p.slice("/api/admin/activity-outcomes/".length)}?${url.searchParams}`);
     }
     if (p === "/api/admin/activity-outcomes/projects") return json({ projects: [projectId] });
@@ -6148,6 +6149,8 @@ test("an admin reads what became of activity runs in System settings", async ({ 
   expect(asked.some((query) => query.startsWith("runs?") && query.includes("key=agent"))).toBe(
     true,
   );
+  // Only ever read: nothing on the page writes to the ledger.
+  expect([...methods]).toEqual(["GET"]);
   expect(f.errors).toEqual([]);
 });
 

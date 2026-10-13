@@ -104,13 +104,26 @@ export interface OutcomeTally {
   metrics: Record<string, number>;
 }
 
+/**
+ * What the ledger records happening: to a run (`opened` … `deployed`), or to an activity's draft
+ * (`pinned`, a module build pinned to play, which names no run).
+ */
+export type OutcomeFactName =
+  | "opened"
+  | "started"
+  | "settled"
+  | "checks"
+  | "judged"
+  | "superseded"
+  | "discarded"
+  | "part"
+  | "accepted"
+  | "deployed"
+  | "pinned";
+
 /** One thing that happened to a run, with when. */
 export interface OutcomeFact {
-  /**
-   * `opened`, `started`, `settled`, `checks`, `judged`, `superseded`, `discarded`, `part`,
-   * `accepted`, `deployed`.
-   */
-  fact: string;
+  fact: OutcomeFactName;
   at: string;
   /** Numbers, digests and ids only: never what an author or an agent wrote. */
   detail: Record<string, unknown>;
@@ -150,7 +163,7 @@ export interface OutcomeRun {
   activityId: string;
   startedAt: string;
   /** How it ended, or `running`. */
-  status: string;
+  status: ActivityRun["status"];
 }
 
 /** GET /api/admin/activity-outcomes/runs */

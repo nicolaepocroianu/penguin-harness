@@ -4964,6 +4964,7 @@ export type {
 export type {
   OutcomeDimension,
   OutcomeFact,
+  OutcomeFactName,
   OutcomeHistoryResponse,
   OutcomeProjectsResponse,
   OutcomeQuery,

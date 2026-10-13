@@ -41,6 +41,9 @@ import {
   type OutcomeWindow,
 } from "./activity-outcomes-model";
 
+/** The runs list a tally row opens, which its toggle names as what it controls. */
+const RUNS_SECTION_ID = "activity-outcomes-runs";
+
 /** What a read is doing: still loading, failed, or done. */
 type Loaded<T> =
   { state: "loading" } | { state: "failed"; reason: string } | { state: "ready"; value: T };
@@ -196,8 +199,12 @@ export function ActivityOutcomesSection() {
       </ReadView>
 
       {chosen && (
-        <section aria-labelledby="activity-outcomes-runs" className="space-y-2">
-          <h4 id="activity-outcomes-runs" className="text-sm font-medium">
+        <section
+          id={RUNS_SECTION_ID}
+          aria-labelledby={`${RUNS_SECTION_ID}-title`}
+          className="space-y-2"
+        >
+          <h4 id={`${RUNS_SECTION_ID}-title`} className="text-sm font-medium">
             {words.runsTitle(tallyName(chosen))}
           </h4>
           <ReadView loaded={runs}>
@@ -291,6 +298,7 @@ function TallyTable({
                   <button
                     type="button"
                     aria-expanded={open}
+                    aria-controls={RUNS_SECTION_ID}
                     aria-label={words.showRuns(name(tally))}
                     onClick={() => onChoose(tally)}
                     className="text-left font-medium text-gray-900 underline-offset-2 hover:underline dark:text-gray-100"
@@ -345,7 +353,6 @@ function RunTable({
   const words = S.admin.activityOutcomes;
   if (runs.length === 0)
     return <p className="text-sm text-gray-500 dark:text-gray-400">{words.runsEmpty}</p>;
-  const status: Record<string, string> = words.runStatus;
   return (
     <>
       <div className={TABLE_WRAP}>
@@ -369,7 +376,7 @@ function RunTable({
                 </td>
                 <td className={TD}>{run.projectId}</td>
                 <td className={`${TD} font-mono text-xs`}>{run.activityId}</td>
-                <td className={TD}>{status[run.status] ?? run.status}</td>
+                <td className={TD}>{words.runStatus[run.status]}</td>
                 <td className={`${TD} text-right`}>
                   <Button
                     size="sm"

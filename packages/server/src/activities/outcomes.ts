@@ -44,6 +44,7 @@ import type {
   OutcomeCause,
   OutcomeDimension,
   OutcomeFact,
+  OutcomeFactName,
   OutcomeQuery,
   OutcomeRun,
   OutcomeRunsQuery,
@@ -239,7 +240,7 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
           projectId: row.project_id,
           activityId: row.activity_id,
           startedAt: row.started_at,
-          status: row.status,
+          status: row.status as ActivityRun["status"],
         }));
     } catch (error) {
       this.log.line(`[activity-outcomes] could not list ${query.kind} runs: ${messageOf(error)}`);
@@ -340,7 +341,7 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
 
   private fact(
     run: Pick<ActivityRun, "projectId" | "activityId"> & { runId: string | null },
-    fact: string,
+    fact: OutcomeFactName,
     at: string,
     detail: Record<string, unknown> = {},
   ): void {
@@ -834,7 +835,7 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
       )
       .all(activityId, ...(runId !== undefined ? [runId] : [])) as {
       run_id: string;
-      fact: string;
+      fact: OutcomeFactName;
       at: string;
       detail_json: string;
     }[];
