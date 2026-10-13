@@ -3,7 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** feature
 - **Scope:** `server`
-- **PR:** [#PR](https://github.com/nicolaepocroianu/penguin-harness/pull/PR)
+- **PR:** [#125](https://github.com/nicolaepocroianu/penguin-harness/pull/125)
 
 `ActivityOutcomes` gained `attribute(cause, operation)`: the draft changes witnessed inside
 `operation`, and the runs opened inside it, belong to `cause` — an author, the Stages, or a run
