@@ -3,7 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** fix
 - **Scope:** `tooling`, `skills`
-- **PR:** pending
+- **PR:** [#130](https://github.com/nicolaepocroianu/penguin-harness/pull/130)
 
 The [activity bench](2026-10-13-activity-bench.md) ran each check in a confined Node process, but
 the browser the check drove ran unconfined, as the person running the bench: a trial's own tests
