@@ -256,6 +256,8 @@ function world(
     reports?: AcceptanceReport[];
     /** A module run that repairs a build fails. */
     failRepair?: boolean;
+    /** The tests a repair was handed were rewritten before they ran again. */
+    testsRewritten?: boolean;
   } = {},
 ) {
   let revision = 1;
@@ -378,9 +380,15 @@ function world(
       else if (request.kind === "module" && request.repair) {
         started.push("module-repair");
         repairs.push(request.repair);
+        // It records the test file it was handed, as the module kind does.
+        run.repair = { ...request.repair, testSha256: "sha-of-the-tests" };
       } else started.push(target ? `${kind}:${target.language}:${target.assetKey}` : kind);
-      if (request.kind === "test" && request.test.moduleRunId)
-        run.test = { moduleRunId: request.test.moduleRunId } as ActivityRun["test"];
+      // Every test run is handed the earlier tests; a repair that rewrote them hands on others.
+      if (request.kind === "test")
+        run.test = {
+          ...(request.test.moduleRunId ? { moduleRunId: request.test.moduleRunId } : {}),
+          cachedTestHash: options.testsRewritten ? "sha-of-rewritten-tests" : "sha-of-the-tests",
+        } as ActivityRun["test"];
       told?.(run);
       if (holding) await Promise.race([holding, aborted(signal)]);
       if (signal?.aborted) return { outcome: "stopped", run };
@@ -971,6 +979,33 @@ describe("running the stages", () => {
         status: "succeeded",
         note: "testsFailing",
       });
+    });
+
+    it("trusts the second tests only as the test file the repair was handed", async () => {
+      const w = world({
+        criteria,
+        testsRewritten: true,
+        reports: [testReport(["failed"]), testReport(["passed"], true)],
+      });
+      expect((await all(w)).steps.at(-1)).toMatchObject({
+        status: "succeeded",
+        note: "testsStillFailing",
+      });
+    });
+
+    it("repairs nothing from a report nothing vouches for, and trusts no such second report", async () => {
+      const untrusted = (report: AcceptanceReport): AcceptanceReport => ({
+        ...report,
+        untrusted: true,
+      });
+      const first = world({ criteria, reports: [untrusted(testReport(["passed"]))] });
+      expect((await all(first)).steps.at(-1)).toMatchObject({ note: "testsFailing" });
+      expect(first.repairs).toEqual([]);
+      const second = world({
+        criteria,
+        reports: [testReport(["failed"]), untrusted(testReport(["passed"], true))],
+      });
+      expect((await all(second)).steps.at(-1)).toMatchObject({ note: "testsStillFailing" });
     });
 
     it("keeps the first findings when the round cannot finish", async () => {

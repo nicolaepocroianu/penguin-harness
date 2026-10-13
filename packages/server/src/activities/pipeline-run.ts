@@ -746,6 +746,7 @@ export class PipelineRunner {
       step.note = "testsFailing";
       return;
     }
+    let repairedRun: ActivityRun;
     let retested: ActivityRun;
     try {
       const repaired = await this.run(
@@ -756,6 +757,7 @@ export class PipelineRunner {
         runtime,
       );
       if (repaired.outcome === "skipped") throw new Error(repaired.message);
+      repairedRun = repaired.run;
       const request = await this.deps.stages.testRun(projectId, activityId, repaired.run.runId);
       if (!request) throw new Error("The specification has no acceptance criteria to test.");
       const again = await this.run(state, step, input, request, runtime);
@@ -768,13 +770,17 @@ export class PipelineRunner {
       return;
     }
     const again = await this.findings(projectId, activityId, retested.runId);
-    // Only the same checks, run as they were handed, can show the repair worked.
-    step.note = again.failing || !again.reused ? "testsStillFailing" : null;
+    // Only the same checks, run as they were handed, can show the repair worked: the test file
+    // the repair was handed, which a repair run could rewrite in the first tests' folder.
+    const handed = repairedRun.repair?.testSha256;
+    const same = handed !== undefined && retested.test?.cachedTestHash === handed;
+    step.note = again.failing || !again.reused || !same ? "testsStillFailing" : null;
   }
 
   /**
    * What a finished test run's report found: whether any check failed, whether any that ran
-   * did, and whether the run ran the tests it was handed unchanged.
+   * did, and whether the run ran the tests it was handed unchanged. A report the run may have
+   * changed what it rests on proves nothing: it counts as failing, with nothing to repair.
    */
   private async findings(
     projectId: string,
@@ -783,6 +789,7 @@ export class PipelineRunner {
   ): Promise<{ failing: boolean; ran: boolean; reused: boolean }> {
     const { report, runId: latest } = await this.deps.stages.state(projectId, activityId);
     if (!report || latest !== runId) return { failing: false, ran: false, reused: false };
+    if (report.untrusted) return { failing: true, ran: false, reused: false };
     return {
       failing: report.overallStatus === "failed",
       ran: failedChecks(report).length > 0,

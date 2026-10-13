@@ -365,6 +365,24 @@ describe("the outcome ledger", () => {
       "playerCheck.failed": 1,
       "judged.tests.passed": 1,
     });
+
+    // A report whose run changed what its checks rest on counts as untrusted, and nothing more.
+    const tampered = f.open("test");
+    f.start(tampered);
+    await f.stage(tampered, {
+      "reports/test.json": JSON.stringify({ ...report, untrusted: true }),
+    });
+    f.settle(tampered);
+    expect((await f.story(tampered)).facts.find((fact) => fact.fact === "checks")?.detail).toEqual({
+      "tests.untrusted": 1,
+    });
+    expect((await f.outcomes.tally({ kind: "module" }))[0]!.metrics).toEqual({
+      succeeded: 1,
+      seconds: 60,
+      "playerCheck.passed": 1,
+      "playerCheck.failed": 1,
+      "judged.tests.untrusted": 1,
+    });
   });
 
   it("judges the build a test run names, else the one the preview plays: pinned, else the newest", async () => {

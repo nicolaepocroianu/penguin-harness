@@ -37,3 +37,11 @@ run's record gained an optional `test.moduleRunId`, the module build it played. 
 existing record: an older test run has none, and the outcome ledger then infers the build it
 played as the preview's at the time, as before. An older build ignores the field, and reuses a
 newer run's tests as it reused any.
+
+The [test run tamper check](2026-10-13-test-run-tamper-check.md) changed no schema either. A test
+run's record gained an optional `test.staged` (the SHA-256 of each file staged for its checks), a
+module run's record an optional `repair` (the build, the tests and the test file a repair round
+was handed), and a test report (`reports/test.json` in the run's folder) an optional `untrusted`.
+None rewrote an existing record or report: an older test run has no digests, so its report is
+never marked, and an older repair run has no test file digest, which only a repair round started
+by this build reads. An older build ignores all three and shows an untrusted report as any other.

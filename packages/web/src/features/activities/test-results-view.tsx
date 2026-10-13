@@ -179,6 +179,11 @@ export function TestResultsView({
               {words.stale}
             </p>
           )}
+          {report.untrusted && (
+            <p className={`text-xs ${toneInk.attention}`} data-testid="tests-untrusted">
+              {words.untrusted}
+            </p>
+          )}
           <p
             className={`text-sm ${toneInk[TEST_TONE[report.overallStatus]]}`}
             data-testid="tests-status"

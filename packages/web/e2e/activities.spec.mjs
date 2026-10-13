@@ -6319,12 +6319,20 @@ test("runs the tests and lists each criterion's result", async ({ page }) => {
   await expect(page.getByText(/^Last run /)).toBeVisible();
   await expect(runTests).toBeEnabled();
   await expect(page.getByTestId("tests-stale")).toHaveCount(0);
+  await expect(page.getByTestId("tests-untrusted")).toHaveCount(0);
 
   // Once the specification changes, the old results are marked out of date.
   stale = true;
   await reopenPanel(page, "Tests");
   await expect(page.getByTestId("tests-stale")).toHaveText(
     "Out of date: the specification changed since these tests ran. Run tests again to check it.",
+  );
+
+  // Results from a run that changed what its checks rest on say they cannot be trusted.
+  current = { ...report, untrusted: true };
+  await reopenPanel(page, "Tests");
+  await expect(page.getByTestId("tests-untrusted")).toHaveText(
+    "These results cannot be trusted: the test run changed the harness, runner or input its checks were given. Run tests again.",
   );
   expect(f.errors).toEqual([]);
 });

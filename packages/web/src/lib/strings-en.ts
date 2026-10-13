@@ -969,6 +969,8 @@ export const en: Strings = {
         "The specification has no acceptance criteria, so there is nothing to test. Add them to acceptance_criterias.",
       stale:
         "Out of date: the specification changed since these tests ran. Run tests again to check it.",
+      untrusted:
+        "These results cannot be trusted: the test run changed the harness, runner or input its checks were given. Run tests again.",
       noAgent: "Choose an agent under the Activity Script first.",
       saveFirst: "Save your edits before running the tests.",
       loadFailed: "Could not load the test results.",

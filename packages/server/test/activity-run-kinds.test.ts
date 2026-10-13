@@ -33,10 +33,14 @@ import { moduleKind } from "../src/activities/run-kinds/module.js";
 import { PHONEMES_FILE } from "../src/activities/phonemes-run.js";
 import { experimentOff } from "../src/activities/video-experiment.js";
 import {
+  ACCEPTANCE_HARNESS_FILE,
+  ACCEPTANCE_INPUT_FILE,
   ACCEPTANCE_REPORT_DIR,
   ACCEPTANCE_REPORT_FILE,
   ACCEPTANCE_RESULTS_FILE,
+  ACCEPTANCE_RUNNER_FILE,
 } from "../src/activities/acceptance-harness.js";
+import { testFileHash } from "../src/activities/acceptance-collect.js";
 import { CURRENT_SPEC_FILE, SPEC_TEMPLATE_FILE } from "../src/activities/spec-prompts.js";
 import { activitySpec } from "./activity-fixtures.js";
 import { imagePng } from "./image-fixtures.js";
@@ -393,6 +397,53 @@ describe("collecting what an agent wrote", () => {
     expect(report.specRevision).toBe("s1");
   });
 
+  it("marks a report untrusted when the run changed the harness, runner or input it was staged", async () => {
+    const stagedRun = async (change?: string) => {
+      const dir = await workspace();
+      const current = run("test", {
+        test: { criteria: ["It plays."], specRevision: "s1", harnessVersion: 2, reused: false },
+      });
+      await testKind.stage({
+        services: services(),
+        activity: activity({ spec: activitySpec, status: "valid" }),
+        prepared: {
+          input: {
+            playUrl: "http://127.0.0.1:1/play",
+            viewport: { width: 640, height: 480 },
+            criteria: ["It plays."],
+            browserPath: "/browsers/chrome",
+            scenes: ["intro"],
+            specRevision: "s1",
+          },
+          cachedTest: null,
+          playwrightVersion: "1.2.3",
+        },
+        run: current,
+        workspace: dir,
+        confined: false,
+        description: "",
+        expectedRevision: "r1",
+      });
+      expect(Object.keys(current.test?.staged ?? {}).sort()).toEqual([
+        ACCEPTANCE_INPUT_FILE,
+        ACCEPTANCE_HARNESS_FILE,
+        ACCEPTANCE_RUNNER_FILE,
+      ]);
+      if (change) await fs.appendFile(path.join(dir, change), "\n// changed by the run\n");
+      await fs.writeFile(
+        path.join(dir, ACCEPTANCE_RESULTS_FILE),
+        JSON.stringify({ results: [{ criterion: "It plays.", status: "passed", durationMs: 5 }] }),
+      );
+      await testKind.collect(collecting(current, dir));
+      return JSON.parse(
+        await fs.readFile(path.join(dir, ACCEPTANCE_REPORT_DIR, ACCEPTANCE_REPORT_FILE), "utf8"),
+      ) as { untrusted?: true };
+    };
+    expect((await stagedRun()).untrusted).toBeUndefined();
+    for (const name of [ACCEPTANCE_HARNESS_FILE, ACCEPTANCE_RUNNER_FILE, ACCEPTANCE_INPUT_FILE])
+      expect((await stagedRun(name)).untrusted, name).toBe(true);
+  });
+
   it("settles a conversation by its Session alone", async () => {
     const dir = await workspace();
     expect(await assistKind.collect(collecting(run("assist"), dir))).toEqual({
@@ -505,11 +556,16 @@ describe("a module repair round", () => {
   it("starts from a build the tests played, told the checks that ran and failed", async () => {
     const world = await repairing();
     expect(await world.may()).toEqual({ ok: true });
-    expect((await world.prepared()).repair).toEqual({
+    const prepared = await world.prepared();
+    expect(prepared.repair).toEqual({
       fromRunId: BUILD,
       testRunId: TESTS,
       failed: [{ criterion: "It starts.", testName: "starts", saw: "Nothing started." }],
       testFile: "// the checks\n",
+    });
+    // The run records the test file it was handed, which the tests run again must still be.
+    expect(moduleKind.record(prepared)).toEqual({
+      repair: { fromRunId: BUILD, testRunId: TESTS, testSha256: testFileHash("// the checks\n") },
     });
   });
 
@@ -517,6 +573,8 @@ describe("a module repair round", () => {
     const refused = async (options: Parameters<typeof repairing>[0]) =>
       ((await (await repairing(options)).may()) as { refusal: { code: string } }).refusal.code;
     expect(await refused({ build: { kind: "spec" } })).toBe("repair_build_missing");
+    // A build of an earlier draft carries that draft's configuration.
+    expect(await refused({ build: { inputRevision: "r0" } })).toBe("repair_build_stale");
     expect(await refused({ build: { status: "failed" } })).toBe("repair_build_missing");
     expect(await refused({ built: false })).toBe("repair_build_missing");
     expect(await refused({ tests: { status: "running" } })).toBe("repair_tests_missing");
@@ -530,6 +588,14 @@ describe("a module repair round", () => {
             reused: false,
             moduleRunId: `run_${"d".repeat(32)}`,
           },
+        },
+      }),
+    ).toBe("repair_tests_mismatch");
+    // Tests that name no build played none the repair could start from.
+    expect(
+      await refused({
+        tests: {
+          test: { criteria: [], specRevision: "s", harnessVersion: 2, reused: false },
         },
       }),
     ).toBe("repair_tests_mismatch");
