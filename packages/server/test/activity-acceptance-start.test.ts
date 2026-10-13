@@ -440,6 +440,45 @@ describe("acceptance test runs", () => {
     expect(nothing.settled.error).toBe("The session ended without acceptance-results.json.");
     expect((await report()).report).toBeNull();
   });
+
+  it("keeps what it staged in the run's record before the run's Session starts", async () => {
+    const f = await setup();
+    const store = f.t.deps.tree.api<ActivityRuns>("ActivitiesModule", "ActivityRuns");
+    const startTask = f.t.deps.manager.startTask.bind(f.t.deps.manager);
+    const recorded: (Record<string, string> | undefined)[] = [];
+    vi.spyOn(f.t.deps.manager, "startTask").mockImplementation(async (...args) => {
+      // The record as it is stored when the agent is set to work.
+      recorded.push(...store.running().map((run) => run.test?.staged));
+      return startTask(...args);
+    });
+    await f.runToEnd(writesResults({ results: [] }));
+    expect(recorded).toHaveLength(1);
+    expect(Object.keys(recorded[0] ?? {}).sort()).toEqual([
+      "acceptance-input.json",
+      "activity-harness.mjs",
+      "package.json",
+      "run-acceptance.mjs",
+    ]);
+  });
+
+  it("marks a report untrusted when its run changed the harness its checks rest on", async () => {
+    const f = await setup();
+    const passing = {
+      results: CRITERIA.map((criterion) => ({ criterion, status: "passed", durationMs: 4 })),
+    };
+    await f.runToEnd(writesResults(passing));
+    expect((await f.report()).report).toMatchObject({ overallStatus: "passed" });
+    expect((await f.report()).report?.untrusted).toBeUndefined();
+    await f.runToEnd(async (workspace) => {
+      await fs.appendFile(
+        path.join(workspace, "activity-harness.mjs"),
+        "\n// every check passes\n",
+      );
+      await writesResults(passing)(workspace);
+    });
+    expect((await f.report()).report).toMatchObject({ overallStatus: "passed", untrusted: true });
+  });
+
   it("records the module build each test run plays, and plays the build it is named", async () => {
     const f = await setup();
     const api = <T>(name: string) => f.t.deps.tree.api<T>("ActivitiesModule", name);

@@ -849,6 +849,8 @@ export type Strings = {
       noCriteria: string;
       /** The report tested an earlier revision of the specification. */
       stale: string;
+      /** The run changed the harness, runner or input its checks rest on. */
+      untrusted: string;
       noAgent: string;
       saveFirst: string;
       loadFailed: string;
@@ -923,7 +925,8 @@ export type Strings = {
         | "moduleNotChecked"
         | "moduleCheckSkipped"
         | "testsFailing"
-        | "testsStillFailing",
+        | "testsStillFailing"
+        | "testsUntrusted",
         string
       >;
       running: (step: string) => string;

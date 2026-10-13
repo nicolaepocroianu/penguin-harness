@@ -12,6 +12,7 @@ import { compileBookConfiguration, type BookMode } from "../book-configuration.j
 import {
   contentRevision,
   validateActivitySpec,
+  type ActivityDetail,
   type ActivityRunFields,
   type ModuleRun,
 } from "../domain.js";
@@ -32,6 +33,7 @@ import {
   failedChecks,
   readAcceptanceReport,
   specSceneIds,
+  testFileHash,
 } from "../acceptance-collect.js";
 import { playwrightVersion } from "../acceptance-service.js";
 import {
@@ -165,10 +167,11 @@ async function stagePlayerCheck(
  */
 async function repairOf(
   services: RunKindServices,
+  activity: ActivityDetail,
   projectId: string,
-  activityId: string,
   asked: { fromRunId: string; testRunId: string },
 ): Promise<{ repair: ModuleRepair; bookMode?: string }> {
+  const activityId = activity.id;
   const run = (runId: string) => services.run(projectId, activityId, runId).catch(() => null);
   const built = await run(asked.fromRunId);
   if (
@@ -181,6 +184,13 @@ async function repairOf(
       "repair_build_missing",
       "A repair starts from a module build of this activity that succeeded.",
     );
+  // A build of another draft carries that draft's configuration: assemble it again instead.
+  if (built.inputRevision !== activity.draft.contentRevision)
+    throw new HttpError(
+      409,
+      "repair_build_stale",
+      "The draft changed since that build was assembled. Assemble the module again.",
+    );
   const tested = await run(asked.testRunId);
   if (tested?.kind !== "test" || tested.status !== "succeeded")
     throw new HttpError(
@@ -188,8 +198,12 @@ async function repairOf(
       "repair_tests_missing",
       "A repair answers a test run of this activity that finished.",
     );
-  if (tested.test?.moduleRunId !== undefined && tested.test.moduleRunId !== built.runId)
-    throw new HttpError(409, "repair_tests_mismatch", "Those tests played another module build.");
+  if (tested.test?.moduleRunId !== built.runId)
+    throw new HttpError(
+      409,
+      "repair_tests_mismatch",
+      "Those tests did not play that module build.",
+    );
   const workspace = services.workspace(tested.runId);
   const report = await fs
     .readFile(path.join(workspace, ACCEPTANCE_REPORT_DIR, ACCEPTANCE_REPORT_FILE), "utf8")
@@ -271,7 +285,7 @@ export const moduleKind: SessionRunKind<
         "Save a valid specification before assembling a module.",
       );
     const repair = request.repair
-      ? await repairOf(services, projectId, activity.id, request.repair)
+      ? await repairOf(services, activity, projectId, request.repair)
       : undefined;
     // A repair keeps the reading mode the build it repairs was assembled in.
     const requested = request.bookMode ?? repair?.bookMode;
@@ -311,7 +325,19 @@ export const moduleKind: SessionRunKind<
       ...(repair ? { repair: repair.repair } : {}),
     };
   },
-  record: ({ bookMode }) => (bookMode ? { bookMode } : {}),
+  record: ({ bookMode, repair }) => ({
+    ...(bookMode ? { bookMode } : {}),
+    // The test file the repair was handed, which the tests run again must still be.
+    ...(repair
+      ? {
+          repair: {
+            fromRunId: repair.fromRunId,
+            testRunId: repair.testRunId,
+            testSha256: testFileHash(repair.testFile),
+          },
+        }
+      : {}),
+  }),
   input: ({ bookMode }) => (bookMode ? { bookMode } : {}),
   async stage({ services, activity, prepared, run, workspace, confined, expectedRevision }) {
     const { projectId, activityId } = run;

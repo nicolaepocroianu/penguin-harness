@@ -42,6 +42,11 @@ export interface AcceptanceReport {
   /** Whether the run reused the tests an earlier run wrote for the same criteria. */
   reused: boolean;
   skippedReason?: AcceptanceSkipReason;
+  /**
+   * Set when the run changed the harness, the runner or the input the server staged for its
+   * checks: the results are then not known to be what the checks found.
+   */
+  untrusted?: true;
 }
 
 /** GET /:activityId/test-report. */
@@ -92,6 +97,11 @@ export interface AcceptanceRunRecord {
    * and on older records.
    */
   moduleRunId?: string;
+  /**
+   * The SHA-256 of each file the server staged for the checks (the harness, the runner and the
+   * input), by name, as it staged them; absent on older records.
+   */
+  staged?: Record<string, string>;
 }
 
 /** A test run's start, as the acceptance service hands it to the generation service. */

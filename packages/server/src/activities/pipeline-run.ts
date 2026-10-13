@@ -740,12 +740,18 @@ export class PipelineRunner {
   ): Promise<void> {
     const { projectId, activityId } = state;
     const found = await this.findings(projectId, activityId, tested.runId);
+    // What a report nothing vouches for found is no ground to rebuild on.
+    if (found.untrusted) {
+      step.note = "testsUntrusted";
+      return;
+    }
     if (!found.failing) return;
     const build = tested.test?.moduleRunId;
     if (!found.ran || !build) {
       step.note = "testsFailing";
       return;
     }
+    let repairedRun: ActivityRun;
     let retested: ActivityRun;
     try {
       const repaired = await this.run(
@@ -756,6 +762,7 @@ export class PipelineRunner {
         runtime,
       );
       if (repaired.outcome === "skipped") throw new Error(repaired.message);
+      repairedRun = repaired.run;
       const request = await this.deps.stages.testRun(projectId, activityId, repaired.run.runId);
       if (!request) throw new Error("The specification has no acceptance criteria to test.");
       const again = await this.run(state, step, input, request, runtime);
@@ -768,25 +775,33 @@ export class PipelineRunner {
       return;
     }
     const again = await this.findings(projectId, activityId, retested.runId);
-    // Only the same checks, run as they were handed, can show the repair worked.
-    step.note = again.failing || !again.reused ? "testsStillFailing" : null;
+    // Only the same checks, run as they were handed, can show the repair worked: the test file
+    // the repair was handed, which a repair run could rewrite in the first tests' folder.
+    const handed = repairedRun.repair?.testSha256;
+    const same = handed !== undefined && retested.test?.cachedTestHash === handed;
+    if (again.untrusted) step.note = "testsUntrusted";
+    else if (again.failing || !again.reused || !same) step.note = "testsStillFailing";
+    else step.note = null;
   }
 
   /**
    * What a finished test run's report found: whether any check failed, whether any that ran
-   * did, and whether the run ran the tests it was handed unchanged.
+   * did, whether the run ran the tests it was handed unchanged, and whether it changed the files
+   * its checks rest on, which leaves nothing it found to go by.
    */
   private async findings(
     projectId: string,
     activityId: string,
     runId: string,
-  ): Promise<{ failing: boolean; ran: boolean; reused: boolean }> {
+  ): Promise<{ failing: boolean; ran: boolean; reused: boolean; untrusted: boolean }> {
     const { report, runId: latest } = await this.deps.stages.state(projectId, activityId);
-    if (!report || latest !== runId) return { failing: false, ran: false, reused: false };
+    if (!report || latest !== runId)
+      return { failing: false, ran: false, reused: false, untrusted: false };
     return {
       failing: report.overallStatus === "failed",
       ran: failedChecks(report).length > 0,
       reused: report.reused,
+      untrusted: report.untrusted === true,
     };
   }
 

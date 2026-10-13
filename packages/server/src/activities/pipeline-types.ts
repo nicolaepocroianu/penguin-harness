@@ -62,7 +62,9 @@ export type PipelineNote =
   /** Acceptance checks fail, and the module was not rebuilt with what they found. */
   | "testsFailing"
   /** Acceptance checks still fail after the module was rebuilt once with what they found. */
-  | "testsStillFailing";
+  | "testsStillFailing"
+  /** The test run changed the files its checks rest on, so its results cannot be trusted. */
+  | "testsUntrusted";
 
 export interface PipelineStepState {
   step: PipelineStep;

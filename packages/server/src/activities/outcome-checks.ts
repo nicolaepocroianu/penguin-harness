@@ -66,10 +66,14 @@ function criteriaCounts(results: Record<string, unknown>[], prefix: string): Met
   return metrics;
 }
 
-/** An acceptance test run's report, counted: criteria by how they ended, and whether reused. */
+/**
+ * An acceptance test run's report, counted: criteria by how they ended, and whether reused. A
+ * report whose run changed what its checks rest on counts as untrusted, and nothing else.
+ */
 function testMetrics(workspace: string): Metrics {
   const report = readJson(path.join(workspace, ACCEPTANCE_REPORT_DIR, ACCEPTANCE_REPORT_FILE));
   if (!report || typeof report !== "object") return {};
+  if ((report as { untrusted?: unknown }).untrusted === true) return { "tests.untrusted": 1 };
   const metrics = criteriaCounts(list(report, "results"), "tests");
   if ((report as { reused?: unknown }).reused === true) metrics["tests.reused"] = 1;
   return metrics;
