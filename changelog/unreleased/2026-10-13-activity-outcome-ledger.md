@@ -30,8 +30,9 @@ runs, each with its recipe and facts). No route, prompt, staged file or screen c
 - Each change to a draft was kept per part (the script, the specification, each media asset per
   language, the rest of the media plan, each edited module document) as digests, sizes and the
   number of bytes the change rewrote, never as text, and as an edit or a return to an earlier
-  version. With nothing yet naming who made a change, every change counted as unattributed. A
-  changed pin was kept to tell which build a later test or quality run played.
+  version. Nothing yet named the run a part came from, so no change was counted against a run;
+  once one is named, an edit no cause owns counts against it as unattributed, never as an
+  author's edit. A changed pin was kept to tell which build a later test or quality run played.
 - A deploy that reached QA or PROD credited the module build it shipped. `DeployedEvent` gained
   `moduleRunId`, which the deploy recorded in its stage metadata from `verify_module` on to the
   QA and PROD wait stages.

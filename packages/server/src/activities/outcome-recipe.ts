@@ -29,8 +29,16 @@ export function recipeId(recipe: RunRecipe): string {
   return sha256(JSON.stringify(canonical(recipe)));
 }
 
-/** Every file of the bundled plugins a run kind stages, with its digest. */
+/** The bundled library as first read; it is fixed for the life of the process. */
+let bundled: LibraryFile[] | null = null;
+
+/** Every file of the bundled plugins a run kind stages, with its digest; read once. */
 export function bundledLibrary(): LibraryFile[] {
+  bundled ??= readBundledLibrary();
+  return bundled;
+}
+
+function readBundledLibrary(): LibraryFile[] {
   const files: LibraryFile[] = [];
   for (const name of STAGED_PLUGINS) {
     const plugin = libraryPlugin(name);
