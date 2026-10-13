@@ -3508,6 +3508,27 @@ export interface BenchmarksResponse {
   benchmarks: BenchmarkSummary[];
 }
 
+/** One Benchmark of an activity bench home: read from its `<home>/<project>/benchmarks/`, never written. */
+export interface ActivityBenchBoard extends BenchmarkSummary {
+  /** The bench's seed Project the Benchmark scored, as its folder in the bench home is named. */
+  project: string;
+}
+
+/** GET|PUT /api/admin/activity-bench: the bench home an admin chose, and its Benchmarks. */
+export interface ActivityBenchResponse {
+  /** The bench home, as the admin chose it; null until one is chosen. */
+  home: string | null;
+  boards: ActivityBenchBoard[];
+  /** Why the bench home could not be read: it is no longer a folder on this server. Null otherwise. */
+  problem: "home_missing" | null;
+}
+
+/** PUT /api/admin/activity-bench. */
+export interface ActivityBenchUpdateRequest {
+  /** An absolute folder on the server, or null to forget it. */
+  home: string | null;
+}
+
 export type CaseMaterial = "statement" | "rubric";
 
 /** Public Benchmark Case metadata. Rubric and Gold content are never included. */

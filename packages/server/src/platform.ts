@@ -168,6 +168,7 @@ import {
   DefaultActivityOutcomePorts,
 } from "./activities/outcomes.js";
 import { ActivityOutcomeRoutes } from "./activities/outcome-routes.js";
+import { ActivityBenchRoutes } from "./activities/bench-boards.js";
 import { ActivityLockService } from "./activities/activity-lock.js";
 import { ActivityAuthoring, ActivityGeneration } from "./mechanisms/activities.js";
 import { ProjectsRoutes } from "./http/routes/dirs.js";
@@ -458,6 +459,7 @@ export class CodingAgentsModule {}
     ActivityQualityService,
     QualityAdminRoutes,
     ActivityOutcomeRoutes,
+    ActivityBenchRoutes,
     DefaultEspeakPorts,
     ActivityPhonemesService,
     PhonemesAdminRoutes,

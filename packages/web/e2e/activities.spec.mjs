@@ -6154,6 +6154,120 @@ test("an admin reads what became of activity runs in System settings", async ({ 
   expect(f.errors).toEqual([]);
 });
 
+test("an admin reads the activity bench's scores in the Evaluation Center", async ({ page }) => {
+  const f = await fixture(page);
+  const requests = [];
+  let home = null;
+  const board = {
+    id: "activity-bench-r2",
+    project: "bench",
+    title: "Activity authoring, revision 2",
+    runs: 1,
+    status: "published",
+    caseCount: 3,
+    agentIds: ["activity_agent"],
+    evaluations: [
+      {
+        time: "2026-10-12T10:00:00.000Z",
+        agentId: "activity_agent",
+        version: 1,
+        provider: "custom",
+        modelId: "activity-test",
+        thinkingLevel: "medium",
+        summaryTitle: "1111111: the base",
+        score: 60,
+        cost: 1.5,
+        durationMs: 60000,
+        cases: [],
+      },
+      {
+        time: "2026-10-13T10:00:00.000Z",
+        agentId: "activity_agent",
+        version: 2,
+        provider: "custom",
+        modelId: "activity-test",
+        thinkingLevel: "medium",
+        summaryTitle: "2222222: the module prompt",
+        score: 70,
+        cost: 1.5,
+        durationMs: 60000,
+        cases: [],
+      },
+    ],
+  };
+  const view = () => ({ home, boards: home ? [board] : [], problem: null });
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const p = url.pathname;
+    const json = (value, status = 200) =>
+      route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
+    if (p === "/api/me")
+      return json({
+        user: { userId: "author", isAdmin: true, passwordIsInitial: false },
+        previewIsolated: true,
+        desktopMode: false,
+        companyMode: false,
+        sessionVia: "password",
+        uploadLimits: {
+          attachmentMaxMb: 100,
+          attachmentTotalMb: 120,
+          attachmentMaxCount: 20,
+          imageMaxMb: 20,
+          attachmentLimitMinMb: 1,
+          attachmentLimitMaxMb: 200,
+        },
+      });
+    if (p === `/api/projects/${projectId}/benchmarks`) return json({ benchmarks: [] });
+    if (p === `/api/projects/${projectId}/models`) return json({ models: [] });
+    if (p === `/api/projects/${projectId}/dirs`) {
+      const at = url.searchParams.get("path") || "/srv";
+      return json(
+        at === "/srv"
+          ? {
+              path: "/srv",
+              parent: null,
+              entries: [{ name: "bench-home", path: "/srv/bench-home" }],
+            }
+          : { path: at, parent: "/srv", entries: [] },
+      );
+    }
+    if (p === "/api/admin/activity-bench") {
+      requests.push(request.method());
+      if (request.method() === "PUT") home = request.postDataJSON().home;
+      return json(view());
+    }
+    return route.fallback();
+  });
+  await page.goto(`${origin}/benchmark`);
+  const section = page.getByRole("region", { name: "Activity bench" });
+  await expect(section.getByText("Choose the bench home")).toBeVisible();
+  await expect(section.getByTestId("bench-board")).toHaveCount(0);
+
+  // The bench home is chosen once, with the server's folder browser.
+  await section.getByRole("button", { name: "Bench home" }).click();
+  await page.getByRole("button", { name: "bench-home" }).click();
+  await page.getByRole("button", { name: "Use this dir" }).click();
+  const shown = section.getByTestId("bench-board");
+  await expect(shown).toHaveCount(1);
+  await expect(shown).toContainText("Activity authoring, revision 2");
+  await expect(shown).toContainText("bench · activity-bench-r2");
+  // Newest first, each with what the bench recorded.
+  const rows = shown.getByTestId("bench-evaluation");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first()).toContainText("2222222: the module prompt");
+  await expect(rows.first()).toContainText("v2");
+
+  // Read on every visit; the one write is the admin choosing the home.
+  await page.reload();
+  await expect(
+    page.getByRole("region", { name: "Activity bench" }).getByTestId("bench-board"),
+  ).toHaveCount(1);
+  expect(requests).toEqual(["GET", "PUT", "GET"]);
+  expect(home).toBe("/srv/bench-home");
+  expect(f.errors).toEqual([]);
+});
+
 test("checks quality and lists what must be fixed", async ({ page }) => {
   const f = await fixture(page);
   await create(page);

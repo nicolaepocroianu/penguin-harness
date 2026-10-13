@@ -5806,6 +5806,22 @@ Scenarios:
 
   benchmark: {
     title: "Evaluation Center",
+    activityBench: {
+      title: "Activity bench",
+      about:
+        "The scores pnpm bench keeps for activity authoring: each Benchmark it scored a recipe on, with the evaluation it recorded for every recipe compared. They are read here from the bench home on this server, as they are, and nothing here changes them or runs the bench. The bench's vault, its trials and its seed are never read.",
+      home: "Bench home",
+      homePick: "Choose the bench home",
+      homeMenuHint: "Pick the folder pnpm bench keeps its home in.",
+      homeClear: "Forget the bench home",
+      homeHint: "A folder on this server, apart from Penguin's own data folder.",
+      homeMissing: "The bench home is no longer a folder on this server.",
+      loadFailed: (reason: string): string => `Could not read the bench home: ${reason}`,
+      empty: "The bench home holds no activity bench Benchmarks yet.",
+      origin: (project: string, id: string): string => `${project} · ${id}`,
+      evaluationsLabel: (title: string): string => `Evaluations of ${title}`,
+      colSummary: "Summary",
+    },
     guideFlow: [
       {
         title: "Create",

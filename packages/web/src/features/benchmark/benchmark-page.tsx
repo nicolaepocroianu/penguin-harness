@@ -39,6 +39,7 @@ import { AiCreateModal, CreateButtons, pickDefaultAgent } from "../ai-create";
 import { latestWithDelta, matchesBenchmarkQuery, sparklineSeries } from "./benchmark-metrics";
 import { benchmarkCreateExamples, benchmarkCreateTail } from "./benchmark-prompts";
 import { benchmarkRoute } from "./benchmark-route";
+import { ActivityBenchSection } from "./activity-bench-section";
 import { CreateBenchmarkModal } from "./create-benchmark-modal";
 import { ScoreSparkline } from "./score-sparkline";
 import { UseBenchmarkModal } from "./use-benchmark-modal";
@@ -510,6 +511,9 @@ export function BenchmarkPage() {
         )}
 
         {body}
+
+        {/* The activity bench's own scores, beside the Project's: admins only, read only. */}
+        <ActivityBenchSection projectId={projectId} />
       </div>
 
       <AiCreateModal
