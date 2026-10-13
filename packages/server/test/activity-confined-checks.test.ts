@@ -222,6 +222,13 @@ criterion("spawn", () => {
 });
 criterion("env", () => {
   expect(process.env.PENGUIN_CHECKS_SECRET === undefined, "It saw the server's environment.");
+  // What Node needs, its IPC channel, and what Windows' process spawning adds on its own.
+  const needed = /^(PATH|TEMP|TMP|TMPDIR|SYSTEMROOT|WINDIR|NODE_CHANNEL_\\w+)$/i;
+  const windows = /^(HOMEDRIVE|HOMEPATH|LOGONSERVER|SYSTEMDRIVE|USERDOMAIN|USERNAME|USERPROFILE)$/i;
+  const kept = Object.keys(process.env).filter(
+    (key) => !needed.test(key) && !(process.platform === "win32" && windows.test(key)),
+  );
+  expect(kept.length === 0, "It was given more than Node needs: " + kept.join(", "));
 });
 criterion("file", async () => {
   const activity = await openActivity();
@@ -266,6 +273,20 @@ criterion("port", async () => {
       "A check may import only the harness and Node's own modules",
     );
     expect(!refused.ran && refused.reason).toMatch(/^The acceptance tests could not run: /);
+
+    // What the child itself saw go wrong beats a line a check printed to look like the runner.
+    const forged = await run(
+      `import { runner } from "./activity-harness.mjs";
+console.error("The acceptance tests could not run: a reason a check made up.");
+runner.closeAll = () => { throw new Error("The runner was broken."); };
+`,
+      `${page.url}/play`,
+      ["Anything."],
+    );
+    expect(forged).toEqual({
+      ran: false,
+      reason: "The acceptance tests could not run: The runner was broken.",
+    });
 
     const stuck = await run("await new Promise(() => {});\n", `${page.url}/play`, ["Anything."], {
       timeoutMs: 3_000,
