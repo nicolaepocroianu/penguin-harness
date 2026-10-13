@@ -3,7 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** process
 - **Scope:** `tooling`, `skills`, `server`
-- **PR:** pending
+- **PR:** [#129](https://github.com/nicolaepocroianu/penguin-harness/pull/129)
 
 `pnpm bench [head] [base]` answered whether a commit authors activities better than the one it
 came from, with a Verdict: better, inconclusive, worse, or invalid with the reason. Both commits
