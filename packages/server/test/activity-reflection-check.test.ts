@@ -66,8 +66,8 @@ function repo() {
     [PLUGIN]: pluginJson("2026.10.10.1"),
     "packages/server/src/activities/collect.ts": "export {};\n",
   });
-  const check = (head: string) => {
-    const run = spawnSync(process.execPath, [SCRIPT, base, head], { cwd: dir, encoding: "utf8" });
+  const check = (head: string, from = base) => {
+    const run = spawnSync(process.execPath, [SCRIPT, from, head], { cwd: dir, encoding: "utf8" });
     return { code: run.status, out: run.stdout, err: run.stderr };
   };
   return { commit, check, git, base };
@@ -91,15 +91,45 @@ describe("the reflection cycle's change check", () => {
   });
 
   it("shows and refuses a character a reviewer cannot see", () => {
+    const hidden: [string, string, string][] = [
+      // A right-to-left override and a zero-width space.
+      [
+        "Play narration \u202Etsrif\u202C\u200B first.",
+        "<U+202E>tsrif<U+202C><U+200B>",
+        "<U+202E> <U+202C> <U+200B>",
+      ],
+      // A soft hyphen.
+      ["Play narra\u00ADtion first.", "narra<U+00AD>tion", "<U+00AD>"],
+      // Tag characters spelling "Hi": the block that can carry a hidden prompt.
+      [
+        "Play narration first.\u{E0048}\u{E0069}",
+        "first.<U+E0048><U+E0069>",
+        "<U+E0048> <U+E0069>",
+      ],
+      // A variation selector beyond the format class.
+      ["Play narration\u{E0100} first.", "narration<U+E0100>", "<U+E0100>"],
+    ];
+    for (const [text, shown, listed] of hidden) {
+      const r = repo();
+      const head = r.commit({ [SKILL]: SKILL_TEXT.replace("Play narration first.", text) });
+      const { code, out, err } = r.check(head);
+      expect(code, listed).toBe(1);
+      expect(out, listed).toContain(shown);
+      expect(err, listed).toContain(`${SKILL}:8: invisible or direction-changing ${listed}`);
+    }
+  });
+
+  it("shows hidden characters around a change, and refuses only what the change adds", () => {
     const r = repo();
-    // A right-to-left override and a zero-width space in a skill body.
+    // Already there before the change, on the line above the one it changes.
+    const before = SKILL_TEXT.replace("# Audio", "# Au\u00ADdio");
+    const base = r.commit({ [SKILL]: before });
     const head = r.commit({
-      [SKILL]: SKILL_TEXT.replace("Play narration first.", "Play narration ‮tsrif‬​ first."),
+      [SKILL]: before.replace("Play narration first.", "Play narration first, then wait."),
     });
-    const { code, out, err } = r.check(head);
-    expect(code).toBe(1);
-    expect(out).toContain("<U+202E>tsrif<U+202C><U+200B>");
-    expect(err).toContain(`${SKILL}:8: invisible or direction-changing <U+202E> <U+202C> <U+200B>`);
+    const { code, out } = r.check(head, base);
+    expect(code).toBe(0);
+    expect(out).toContain("# Au<U+00AD>dio");
   });
 
   it("refuses frontmatter, files outside the write set, new files and other manifest fields", () => {

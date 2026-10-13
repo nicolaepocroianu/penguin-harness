@@ -12,10 +12,12 @@
  *    - an existing stage prompt module under packages/server/src/activities/prompts/, changed
  *      in place (the bench refuses anything there but a change of its literals' text);
  *    - the plugin's plugin.json and package.json, in their `version` only.
- * 2. No added line holds a character that is invisible or turns text around: U+200B–U+200F,
- *    U+202A–U+202E, U+2060–U+2064, U+2066–U+2069 and U+FEFF. Text that reads one way to a
- *    reviewer and another to a model is how a change hides what it does.
- * 3. Prints the change as a word diff with every such character shown as <U+XXXX>.
+ * 2. No added line holds a character that is invisible or turns text around (HIDDEN below:
+ *    every format, control, private-use and separator character, and the invisible marks and
+ *    fillers beyond them). Text that reads one way to a reviewer and another to a model is how
+ *    a change hides what it does.
+ * 3. Prints the change as a word diff with every such character shown as <U+XXXX> — in the lines
+ *    it changes and in the lines around them alike; only added lines are refused for them.
  *
  * Exit 0 when the change holds, 1 when it does not (each reason printed), 64 on usage.
  */
@@ -25,8 +27,16 @@ import { isDeepStrictEqual } from "node:util";
 const SKILLS = "plugins/waf-authoring/skills/";
 const PROMPTS = "packages/server/src/activities/prompts/";
 const MANIFESTS = ["plugins/waf-authoring/plugin.json", "plugins/waf-authoring/package.json"];
-/** Zero-width, joiner, direction mark, embedding, override, isolate and word-joiner characters. */
-const HIDDEN = /[​-‏‪-‮⁠-⁤⁦-⁩﻿]/g;
+/**
+ * Characters a reviewer cannot see or that turn text around: every format, control, private-use,
+ * line- and paragraph-separator character (soft hyphen, zero-width and joiner characters,
+ * direction marks, embeddings, overrides and isolates, the tag block that can spell a hidden
+ * prompt, interlinear annotations), plus the invisible marks and fillers outside those classes
+ * (combining grapheme joiner, Hangul fillers, Khmer vowels, Mongolian selectors, variation
+ * selectors). Tab, line feed and carriage return are text.
+ */
+const HIDDEN =
+  /(?![\t\n\r])[\p{Cf}\p{Cc}\p{Co}\p{Zl}\p{Zp}\u034F\u115F\u1160\u17B4\u17B5\u180B-\u180D\u3164\uFFA0\uFE00-\uFE0F\u{E0100}-\u{E01EF}]/gu;
 
 const [base, head = "HEAD", ...extra] = process.argv.slice(2);
 if (!base || extra.length) {

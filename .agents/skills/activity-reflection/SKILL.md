@@ -63,44 +63,55 @@ AGENTS.md, the harness, a collector, a check, a test, the bench or the golden (d
 check below refuses all of that; the bench itself refuses anything outside its recipe surface as
 `out_of_surface`.
 
-Commit the change alone, then check it:
+Commit the change alone: this is **commit 1**, the one the bench scores. For a skill-body change,
+raise `plugins/waf-authoring/plugin.json`'s dated version in the same commit (it is in the bench's
+surface, and CI's `scripts/check-plugin-versions.mjs` requires it). Then check it:
 
 ```bash
 node scripts/activity-reflection/check-change.mjs origin/main HEAD
 ```
 
-It refuses a file outside the write set, a changed frontmatter, and any character a reviewer
-cannot see (U+200B–U+200F, U+202A–U+202E, U+2060–U+2064, U+2066–U+2069, U+FEFF), and prints the
-change as a word diff with those characters shown as `<U+XXXX>`. Read that diff, not the plain
-one: text can read one way to a person and another to a model.
+It refuses a file outside the write set, a changed frontmatter, a manifest changed beyond its
+version, and any added character a reviewer cannot see: every format, control, private-use and
+line- or paragraph-separator character (soft hyphen, zero-width and joiner characters, direction
+marks, embeddings, overrides and isolates, the tag block that can spell a hidden prompt), and the
+invisible marks and fillers beyond them (variation selectors, the combining grapheme joiner,
+Hangul fillers). It prints the change as a word diff with every such character shown as
+`<U+XXXX>`, in the changed lines and the lines around them. Read that diff, not the plain one:
+text can read one way to a person and another to a model.
 
 ## 4. Score it
 
 Ask the person before running the bench: a full comparison costs real money (up to the $150
-cap) and they type the vault's passphrase. Then, with the change as `HEAD`:
+cap) and they type the vault's passphrase. Then, with commit 1 as `HEAD`:
 
 ```bash
 pnpm bench HEAD origin/main
 ```
 
-- **better**: go on to the proposal.
+- **better**: note commit 1's sha and the evaluation id the Verdict gives, and go on.
 - **inconclusive, worse or invalid**: drop the branch. Keep what you tried and the numbers in
   the conversation. Do not try variations of the same change to chase a better number; a new
   hypothesis is a new cycle.
 
 ## 5. Propose it, for a person to decide
 
-Only on **better**, add a second commit (the bench scored the first; this one changes no
-behaviour):
+Only on **better**, add **commit 2**, which changes no behaviour:
 
-- raise `plugins/waf-authoring/plugin.json`'s dated version (CI's
-  `scripts/check-plugin-versions.mjs` requires it);
+- add `changelog/unreleased/<date>-waf-authoring-<topic>.md` (Type `fix`);
 - for a prompt change, refresh the run-kinds golden with `UPDATE_RUN_KIND_GOLDEN=1` on
   `packages/server/test/activity-run-kinds-golden.test.ts`, and check its diff is exactly your
-  text change;
-- add `changelog/unreleased/<date>-waf-authoring-<topic>.md` (Type `fix`).
+  text change.
 
-Open the PR on the fork (`gh pr create --repo nicolaepocroianu/penguin-harness`). Its description
-carries the hypothesis, the change, the check script's output, and the Verdict: dev delta and its
-90% interval, held-out, both guardrails, the Claude Code check, cost and the evaluation id. Then
-stop: the person reviews and merges, or not.
+Both are outside the bench's surface, so the PR's head is `out_of_surface` by construction: the
+scored recipe is commit 1. Open the PR on the fork (`gh pr create --repo
+nicolaepocroianu/penguin-harness`). Its description carries:
+
+- the hypothesis and the change;
+- **the scored commit (commit 1's sha) and the evaluation id**; re-scoring it is
+  `pnpm bench <commit 1> origin/main`, never the PR head;
+- the check script's output;
+- the Verdict: dev delta and its 90% interval, held-out, both guardrails, the Claude Code check
+  and the cost.
+
+Then stop: the person reviews and merges, or not.
