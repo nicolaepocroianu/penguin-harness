@@ -9,7 +9,7 @@ import {
   restoreApprovedManifest,
   stageSkills,
 } from "../src/activities/waf-module.js";
-import { readCandidate } from "../src/activities/generation.js";
+import { readCandidate } from "../src/activities/artifact.js";
 import type { ActivityDetail } from "../src/activities/domain.js";
 import { activitySpec } from "./activity-fixtures.js";
 import { planMedia } from "../src/activities/media.js";

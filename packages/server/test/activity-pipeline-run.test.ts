@@ -13,6 +13,8 @@ import {
   translationTargets,
 } from "../src/activities/pipeline-run.js";
 import { contentRevision, type ActivityRun } from "../src/activities/domain.js";
+import type { RunRequest } from "../src/activities/run-request.js";
+import { runKindOf } from "../src/activities/run-kinds/index.js";
 import type { AssetManifest, MediaAsset } from "../src/activities/media.js";
 import { drawnOutScript, geminiScript, syncWordScripts } from "../src/activities/pronunciation.js";
 import type { SpeechProviderId } from "../src/activities/speech-types.js";
@@ -53,6 +55,21 @@ function manifest(withRomanian = false): AssetManifest {
   };
 }
 
+/** The asset a speech, sound, image or media text request is for. */
+function assetTarget(request: RunRequest): { language: string; assetKey: string } | undefined {
+  switch (request.kind) {
+    case "speech":
+      return request.speech;
+    case "sound":
+      return request.sound;
+    case "image":
+      return request.image;
+    case "media-text":
+      return request.mediaText;
+    default:
+      return undefined;
+  }
+}
 describe("choosing the work", () => {
   it("also preflights unrecorded book words, respecting the selected asset", () => {
     const media = manifest();
@@ -265,26 +282,16 @@ function world(
       _a: string,
       agentId: string,
       expected: string,
-      module?: any,
-      runtime?: any,
+      request: RunRequest,
+      runtime?: { codingAgentId?: string },
     ) {
       if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
-      if (module?.image && options.noImageKey)
+      if (request.kind === "image" && options.noImageKey)
         throw new HttpError(400, "image_credential_missing", "Add GEMINI_API_KEY first.");
-      if (module?.assessment) assessmentInputs.push(module.assessment);
-      const kind: ActivityRun["kind"] = module?.assessment
-        ? "assessment"
-        : module?.audio || module?.sound
-          ? "audio"
-          : module?.image
-            ? "image"
-            : module?.mediaText
-              ? "media-text"
-              : module?.mediaSpec
-                ? "media-spec"
-                : module && module.repair === undefined
-                  ? "module"
-                  : "spec";
+      if (request.kind === "assessment") assessmentInputs.push(request.assessment);
+      const kind = runKindOf(request);
+      // An asset run keeps its target as its run does: a sound's as the run's audio.
+      const target = assetTarget(request);
       const run = {
         kind,
         runId: `run_${runs.length + 1}`,
@@ -293,22 +300,16 @@ function world(
         error: null,
         agentId,
         codingAgentId: runtime?.codingAgentId,
-        // A sound run keeps its target as the run's audio, as the real service does.
-        audio: module?.audio ?? module?.sound,
-        image: module?.image,
-        mediaText: module?.mediaText,
+        ...(kind === "audio" || kind === "image" || kind === "media-text"
+          ? { [kind === "media-text" ? "mediaText" : kind]: target }
+          : {}),
       } as unknown as ActivityRun;
       runs.push(run);
-      if (module?.sound)
+      if (request.kind === "sound")
         started.push(
-          `sound:${module.sound.provider}:${module.sound.language}:${module.sound.assetKey}`,
+          `sound:${request.sound.provider}:${request.sound.language}:${request.sound.assetKey}`,
         );
-      else
-        started.push(
-          kind === "audio" || kind === "image" || kind === "media-text"
-            ? `${kind}:${(module.audio ?? module.image ?? module.mediaText).language}:${(module.audio ?? module.image ?? module.mediaText).assetKey}`
-            : kind,
-        );
+      else started.push(target ? `${kind}:${target.language}:${target.assetKey}` : kind);
       return run;
     },
     async list() {
@@ -615,19 +616,19 @@ describe("running the stages", () => {
 
   it("runs a failed media pass once more, told why, and stops when that fails too", async () => {
     const w = world({ fail: "media-spec" });
-    const modules: unknown[] = [];
+    const requests: unknown[] = [];
     const start = w.generation.start.bind(w.generation);
-    (w.generation as { start: typeof start }).start = (p, a, agent, expected, module, runtime) => {
-      modules.push(module);
-      return start(p, a, agent, expected, module, runtime);
+    (w.generation as { start: typeof start }).start = (p, a, agent, expected, request, runtime) => {
+      requests.push(request);
+      return start(p, a, agent, expected, request, runtime);
     };
     await w.runner.start("proj", "act", { selection: "all", agentId: "agent" }).done;
     const final = w.runner.status("act")!;
     expect(w.started).toEqual(["spec", "media-spec", "media-spec"]);
-    expect(modules).toEqual([
-      undefined,
-      { mediaSpec: true },
-      { mediaSpec: true, repair: "media-spec broke" },
+    expect(requests).toEqual([
+      { kind: "spec" },
+      { kind: "media-spec" },
+      { kind: "media-spec", repair: "media-spec broke" },
     ]);
     expect(final.steps[1]).toMatchObject({
       step: "mediaSpec",
@@ -1103,10 +1104,10 @@ function wordWorld(
   const asked: string[][] = [];
   const acceptedSounds: string[] = [];
   const generation = {
-    async start(_p: string, _a: string, agentId: string, expected: string, module?: any) {
+    async start(_p: string, _a: string, agentId: string, expected: string, request: RunRequest) {
       if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
-      if (module.phonemes) {
-        asked.push(module.phonemes.words);
+      if (request.kind === "phonemes") {
+        asked.push(request.phonemes.words as string[]);
         if (options.stopDuringFirstSounds && asked.length === 1) void runner.stop("act");
         const run = {
           kind: "phonemes",
@@ -1115,13 +1116,14 @@ function wordWorld(
           status: "running",
           error: null,
           agentId,
-          phonemes: module.phonemes,
+          phonemes: request.phonemes,
         } as unknown as ActivityRun;
         runs.push(run);
         return run;
       }
-      const asset = group().find((item) => item.key === module.audio.assetKey)!;
-      started.push({ ...module.audio, script: asset.script });
+      if (request.kind !== "speech") throw new Error(`Unexpected ${request.kind} run.`);
+      const asset = group().find((item) => item.key === request.speech.assetKey)!;
+      started.push({ ...request.speech, script: asset.script });
       const run = {
         kind: "audio",
         runId: `run_${runs.length + 1}`,
@@ -1129,7 +1131,7 @@ function wordWorld(
         status: "running",
         error: null,
         agentId,
-        audio: module.audio,
+        audio: request.speech,
       } as unknown as ActivityRun;
       runs.push(run);
       return run;

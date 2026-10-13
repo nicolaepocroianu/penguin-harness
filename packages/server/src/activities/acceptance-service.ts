@@ -169,6 +169,7 @@ export class ActivityAcceptanceService implements ActivityAcceptance {
       agentId,
       expectedRevision,
       {
+        kind: "test",
         test: {
           input: {
             playUrl,

@@ -195,7 +195,7 @@ describe("sound generation without an agent", () => {
       (await f.current()).id,
       "default_agent",
       (await f.current()).draft.contentRevision,
-      { sound: { language: "en-US", assetKey: "door", provider: "elevenlabs" } },
+      { kind: "sound", sound: { language: "en-US", assetKey: "door", provider: "elevenlabs" } },
       { codingAgentId: "claude" },
     );
     expect(run.agentId).toBe("media_agent");

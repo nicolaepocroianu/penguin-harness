@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readCandidate } from "../src/activities/generation.js";
+import { readCandidate } from "../src/activities/artifact.js";
 
 describe("activity candidate handle reads", () => {
   const directories: string[] = [];

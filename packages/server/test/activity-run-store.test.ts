@@ -64,7 +64,7 @@ describe("ActivityRuns", () => {
         error: null,
         candidate: null,
         ...overrides,
-      };
+      } as ActivityRun;
     };
     return { t, client, create, activity, runs, newRun };
   }

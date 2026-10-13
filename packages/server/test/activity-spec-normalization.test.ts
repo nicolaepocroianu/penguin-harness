@@ -12,7 +12,7 @@ import {
   readableAssetKey,
   reconcileAssetKeys,
 } from "../src/activities/spec-normalization.js";
-import { specOfPass } from "../src/activities/generation.js";
+import { specOfPass } from "../src/activities/run-kinds/spec.js";
 import {
   activitySpecPrompt,
   mediaSpecPrompt,

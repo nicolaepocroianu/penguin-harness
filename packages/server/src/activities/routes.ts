@@ -256,6 +256,7 @@ export class ActivityRoutes {
           runner.agentId,
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
           {
+            kind: "module",
             bookMode: optionalString(body, "bookMode", { maxLen: 32 }) || undefined,
           },
           runner.runtime,
@@ -329,6 +330,7 @@ export class ActivityRoutes {
           runner.agentId,
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
           {
+            kind: "timeline",
             timeline: {
               language: requireString(body, "language", { minLen: 5, maxLen: 5 }),
               assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
@@ -376,6 +378,7 @@ export class ActivityRoutes {
           runner.agentId,
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
           {
+            kind: "critique",
             critique: {
               language: requireString(body, "language", { minLen: 5, maxLen: 5 }),
               assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
@@ -430,6 +433,7 @@ export class ActivityRoutes {
           runner.agentId,
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
           {
+            kind: "composition",
             composition: {
               language: requireString(body, "language", { minLen: 5, maxLen: 5 }),
               assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
@@ -557,6 +561,7 @@ export class ActivityRoutes {
           runner.agentId,
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
           {
+            kind: "phonemes",
             phonemes: {
               language: requireString(body, "language", { minLen: 5, maxLen: 5 }),
               words: body.words,
@@ -590,6 +595,7 @@ export class ActivityRoutes {
           requireString(body, "agentId", { minLen: 1, maxLen: 128 }),
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
           {
+            kind: "image",
             image: {
               language: requireString(body, "language", { minLen: 5, maxLen: 5 }),
               assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
@@ -609,6 +615,7 @@ export class ActivityRoutes {
           runner.agentId,
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
           {
+            kind: "media-text",
             mediaText: {
               language: requireString(body, "language", { minLen: 5, maxLen: 5 }),
               assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
@@ -634,7 +641,10 @@ export class ActivityRoutes {
           activityId,
           runner.agentId,
           expectedRevision,
-          { assessment: { current: await this.currentAssessment(projectId, activityId) } },
+          {
+            kind: "assessment",
+            assessment: { current: await this.currentAssessment(projectId, activityId) },
+          },
           runner.runtime,
         ),
         202,
@@ -944,7 +954,8 @@ export class ActivityRoutes {
           requireString(body, "agentId", { minLen: 1, maxLen: 128 }),
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
           {
-            audio: {
+            kind: "speech",
+            speech: {
               language: requireString(body, "language", { minLen: 5, maxLen: 5 }),
               assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
               voice: requireString(body, "voice", { minLen: 1, maxLen: 128 }),
@@ -968,6 +979,7 @@ export class ActivityRoutes {
           requireString(body, "agentId", { minLen: 1, maxLen: 128 }),
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
           {
+            kind: "sound",
             sound: {
               language: requireString(body, "language", { minLen: 5, maxLen: 5 }),
               assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 128 }),
@@ -1242,7 +1254,7 @@ export class ActivityRoutes {
           pathParam(c, "activityId"),
           runner.agentId,
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
-          undefined,
+          { kind: "spec" },
           runner.runtime,
         ),
         202,
@@ -1260,6 +1272,7 @@ export class ActivityRoutes {
           runner.agentId,
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
           {
+            kind: "assist",
             assist: {
               message: requireString(body, "message", { minLen: 1, maxLen: ASSIST_MESSAGE_MAX }),
               focus: parseAssistFocus(body.focus),

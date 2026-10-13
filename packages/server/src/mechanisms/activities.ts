@@ -19,7 +19,7 @@ import type {
 } from "../activities/video-types.js";
 import type { ImageTarget, ImageResult } from "../activities/generated-image.js";
 import type { MediaTextTarget } from "../activities/media-text.js";
-import type { AssistFocus, AssistProposal, ProposalChange } from "../activities/assist.js";
+import type { AssistProposal, ProposalChange } from "../activities/assist.js";
 import type { UploadedMedia } from "../activities/upload.js";
 import type {
   ClaimModuleProductResponse,
@@ -41,7 +41,7 @@ import type {
   ModuleDocumentKind,
   ModuleDocumentOverride,
 } from "../activities/domain.js";
-import type { AcceptanceStage } from "../activities/acceptance-types.js";
+import type { RunRequest } from "../activities/run-request.js";
 import type {
   BookWordsRefresh,
   BookWordsState,
@@ -55,51 +55,8 @@ export abstract class ActivityGeneration extends Interface<{
     activityId: string,
     agentId: string,
     expectedRevision: string,
-    module?: {
-      bookMode?: string;
-      /**
-       * A narration run: its voice, and the provider (Gemini, or the narration's own, when
-       * absent) and model that speak it.
-       */
-      audio?: {
-        language: string;
-        assetKey: string;
-        voice: string;
-        provider?: string;
-        model?: string;
-      };
-      /** A music or sound-effect run for one asset, made by the named provider. */
-      sound?: { language: string; assetKey: string; provider: string; model?: string };
-      image?: { language: string; assetKey: string };
-      mediaText?: { language: string; assetKey: string; translate?: boolean };
-      /** An assist run: the author's first message and what they had open. */
-      assist?: { message: string; focus: AssistFocus | null };
-      /**
-       * An assessment run on the canonical ref of a specification that uses one, given the
-       * assessment in effect now (the author's edit, else the module's own; null for none).
-       */
-      assessment?: { current: Record<string, unknown> | null };
-      /**
-       * An acceptance test run, prepared by the acceptance service: what to test, where, and
-       * an earlier run's tests when they fit the same criteria.
-       */
-      test?: AcceptanceStage;
-      /** Sounds for a decodable book's words, proposed by a model for the author to accept. */
-      phonemes?: { language: string; words: unknown };
-      /**
-       * An animated composition of a video or animation asset's scene, from its description
-       * and bound images (experimental: refused while `activityVideoExperiment` is off).
-       */
-      composition?: { language: string; assetKey: string; look?: string };
-      /** An agent refining a video or animation's timeline (experimental). */
-      timeline?: { language: string; assetKey: string };
-      /** An agent critiquing a video or animation's newest recording (experimental). */
-      critique?: { language: string; assetKey: string };
-      /** The media pass: list the media the scenes' tags ask for (`generate_media_spec`). */
-      mediaSpec?: true;
-      /** A specification or media pass run again, told why the previous attempt failed. */
-      repair?: string;
-    },
+    /** What the run is asked to do; its kind decides what it may need and records. */
+    request: RunRequest,
     /** Run on an external coding agent instead of the Penguin agent `agentId` names. */
     runtime?: { codingAgentId?: string },
   ): Promise<ActivityRun>;
