@@ -151,7 +151,12 @@ export class HarnessCheckRunner implements CheckRunner {
   ): Promise<CheckRun> {
     let browser: Awaited<ReturnType<typeof startGuardedBrowser>>;
     try {
-      browser = await startGuardedBrowser(this.playwright, this.browserPath, PLAYER_BROWSER_ARGS);
+      browser = await startGuardedBrowser(
+        this.playwright,
+        this.browserPath,
+        PLAYER_BROWSER_ARGS,
+        playUrl,
+      );
     } catch (error) {
       return {
         ran: false,

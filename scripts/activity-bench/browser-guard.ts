@@ -6,14 +6,16 @@
  *
  * Two locks, neither of which the check can lift:
  *
- * - The network: Chromium starts with a proxy that leads nowhere for everything but loopback,
- *   which Chromium never proxies; every host name but loopback resolves to nothing; and WebRTC
- *   may not send UDP around the proxy. A page reaches the played module and nothing else.
+ * - The network: Chromium starts with a proxy that leads nowhere for everything but the played
+ *   module's own port on loopback; every host name but loopback resolves to nothing; and WebRTC
+ *   may not send UDP around the proxy. A page reaches the played module and nothing else — not
+ *   another service on this machine either.
  * - The protocol: the check never meets the browser's own endpoint. It connects to a guard
- *   that passes each call on, except a navigation to anything but an http(s) loopback address,
- *   a context with its own proxy or recordings, files the browser would read from this disk,
- *   raw DevTools sessions, the browser's own HTTP client, tracing, artifacts and launching
- *   browsers. A refused call fails in the check like any error.
+ *   that passes on only calls on the kinds of object the harness and a test's page work use,
+ *   and of those refuses a navigation anywhere but the played module's origin, a context with
+ *   its own proxy or recordings, files the browser would read from or write to this disk, raw
+ *   DevTools sessions, the browser's own HTTP client, tracing and artifacts. A refused call
+ *   fails in the check like any error.
  *
  * Chromium itself refuses a page's own way to a local file (a link, a redirect, `window.open`).
  */
@@ -26,9 +28,9 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SERVER_PACKAGE = path.resolve(HERE, "../../packages/server/package.json");
 
-/** Chromium switches that leave a page only loopback to reach. */
+/** Chromium switches that leave a page only loopback to reach; `lockdownArgs` narrows it to one port. */
 export const LOCKDOWN_ARGS = [
-  // Loopback is never proxied; everything else goes to a port nothing answers on.
+  // Everything goes to a port nothing answers on, but what the bypass list names.
   "--proxy-server=http://127.0.0.1:9",
   "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1",
   "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
@@ -36,24 +38,54 @@ export const LOCKDOWN_ARGS = [
   "--no-pings",
 ];
 
-/** Kinds of protocol object a check has no use for, and could misuse. */
-const REFUSED_TYPES = new Set([
-  "artifact",
-  "tracing",
-  "cdp-session",
-  "local-utils",
-  "browser-type",
-  "debug-controller",
-  "electron",
-  "electron-application",
-  "android",
-  "android-device",
-  "json-pipe",
-  "socks-support",
+/** The loopback names a page may reach the played module's port by. */
+const LOOPBACK = ["127.0.0.1", "localhost", "[::1]"];
+
+/** The switches for one run: the lock, with only the played module's port let through. */
+export function lockdownArgs(playUrl: string): string[] {
+  const port = portOf(new URL(playUrl));
+  // `<-loopback>` ends Chromium's own bypass of loopback: any other port goes nowhere too.
+  const bypass = ["<-loopback>", ...LOOPBACK.map((host) => `${host}:${port}`)];
+  return [...LOCKDOWN_ARGS, `--proxy-bypass-list=${bypass.join(";")}`];
+}
+
+function portOf(url: URL): string {
+  return url.port || (url.protocol === "https:" ? "443" : "80");
+}
+
+/**
+ * The kinds of protocol object a check may call (a guid's prefix): what the harness and a
+ * test's work on its pages use. Every other kind is refused — the browser's types, DevTools
+ * sessions, tracing, artifacts, streams that write files, and whatever a later Playwright adds.
+ */
+const ALLOWED_TYPES = new Set([
+  // The connection's root, and Playwright's own object.
+  "",
+  "playwright",
+  "browser",
+  "browser-context",
+  "page",
+  "frame",
+  // Element and JS handles share one prefix; the longer names are kept in case one comes.
+  "handle",
+  "element-handle",
+  "js-handle",
+  "route",
+  "request",
+  "response",
+  "worker",
+  "dialog",
+  "console-message",
+  "bindingcall",
+  "binding-call",
+  "web-socket",
+  // Only to dispose of a context's API client: its requests are refused below.
+  "request-context",
 ]);
 
 /** Methods, on any object, that reach past the page: raw DevTools, server-side HTTP and files. */
 const REFUSED_METHODS = new Set([
+  "createTempFiles",
   "newCDPSession",
   "newBrowserCDPSession",
   "newRequest",
@@ -70,14 +102,15 @@ const REFUSED_METHODS = new Set([
 /** What `browser.newContext` may not set: a proxy around the lock, or files the browser writes. */
 const REFUSED_CONTEXT_OPTIONS = ["proxy", "recordVideo", "recordHar"];
 
-/** Whether a URL is http(s) on this machine's loopback. */
-export function isLoopbackHttp(value: unknown): boolean {
+/** Whether a URL is the played module's origin: http(s), loopback, the play link's port. */
+export function isPlayOrigin(value: unknown, playUrl: string): boolean {
   if (typeof value !== "string") return false;
   try {
     const url = new URL(value);
     return (
       (url.protocol === "http:" || url.protocol === "https:") &&
-      ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)
+      LOOPBACK.includes(url.hostname) &&
+      portOf(url) === portOf(new URL(playUrl))
     );
   } catch {
     return false;
@@ -85,17 +118,16 @@ export function isLoopbackHttp(value: unknown): boolean {
 }
 
 /** Why the guard refuses one protocol call, or null when it passes it on. */
-export function vetCall(message: {
-  guid?: unknown;
-  method?: unknown;
-  params?: unknown;
-}): string | null {
+export function vetCall(
+  message: { guid?: unknown; method?: unknown; params?: unknown },
+  playUrl: string,
+): string | null {
   const type = String(message.guid ?? "")
     .split("@")[0]!
     .toLowerCase();
   const method = String(message.method ?? "");
   const params = (message.params ?? {}) as Record<string, unknown>;
-  if (REFUSED_TYPES.has(type) || REFUSED_METHODS.has(method))
+  if (!ALLOWED_TYPES.has(type) || REFUSED_METHODS.has(method))
     return `A check may not use ${type ? `${type}.` : ""}${method}.`;
   // A context's own API client makes requests from the evaluator, not the browser.
   if (type === "request-context" && method !== "dispose" && method !== "disposeAPIResponse")
@@ -108,10 +140,10 @@ export function vetCall(message: {
   if (method === "newContext")
     for (const option of REFUSED_CONTEXT_OPTIONS)
       if (params[option] !== undefined) return `A check may not set a context's ${option}.`;
-  if (method === "goto" && !isLoopbackHttp(params.url))
+  if (method === "goto" && !isPlayOrigin(params.url, playUrl))
     return `A check may open only the played module, not ${String(params.url)}.`;
-  if (method === "continue" && params.url !== undefined && !isLoopbackHttp(params.url))
-    return "A check may not send a request anywhere but loopback.";
+  if (method === "continue" && params.url !== undefined && !isPlayOrigin(params.url, playUrl))
+    return "A check may not send a request anywhere but the played module.";
   return null;
 }
 
@@ -142,11 +174,12 @@ export interface GuardedBrowser {
   close(): Promise<void>;
 }
 
-/** Starts the locked-down browser behind its guard, both on loopback. */
+/** Starts the locked-down browser behind its guard, both on loopback, for one played module. */
 export async function startGuardedBrowser(
   playwright: Playwright,
   executablePath: string,
   args: readonly string[],
+  playUrl: string,
 ): Promise<GuardedBrowser> {
   const { ws: WebSocket, wsServer: WebSocketServer } = createRequire(SERVER_PACKAGE)(
     "playwright-core/lib/utilsBundle",
@@ -169,7 +202,7 @@ export async function startGuardedBrowser(
     executablePath,
     headless: true,
     host: "127.0.0.1",
-    args: [...args, ...LOCKDOWN_ARGS],
+    args: [...args, ...lockdownArgs(playUrl)],
   });
   const upstreamUrl = browser.wsEndpoint();
   const secret = `/${randomBytes(16).toString("hex")}`;
@@ -199,7 +232,7 @@ export async function startGuardedBrowser(
       } catch {
         return client.close(1003, "Not a protocol message.");
       }
-      const reason = vetCall(message);
+      const reason = vetCall(message, playUrl);
       if (reason) {
         refused.push(reason);
         client.send(

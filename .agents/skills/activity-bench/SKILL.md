@@ -121,16 +121,20 @@ passphrase) into `<bench home>/vault/<id>.sealed`. Folder layout: the comment at
   disk; it is not a read barrier against a process of the same user. Only another OS account or
   the repository's Docker image is (decision 10, before G).
 - Checks run under Node's permission model: they cannot write, start a process or a worker, or
-  read files beyond playwright-core. Node does not restrict their network, and the browser they
-  drive runs unconfined, as this user.
-- Left open, that browser would let a trial's own tests read anything this user can — a Claude
-  login, Penguin's vaults, the other side's trial home — by opening a `file://` URL, and send it
-  to any host. Two locks prevent it (`scripts/activity-bench/browser-guard.ts`): the browser
-  starts with no route off loopback (a proxy that leads nowhere for every other host, host names
-  that resolve to nothing, no WebRTC around the proxy), and a check reaches it only through a
-  guard that refuses a navigation to anything but http(s) on loopback, a context with its own
-  proxy, files from this disk, raw DevTools, the browser's own HTTP client, tracing and artifacts.
-  A test proves each escape works without the locks and fails with them.
+  read files beyond playwright-core. The model has no network scope, so a check's own Node
+  process still reaches the network freely: it can fetch services on loopback — the person's
+  Penguin dev server, say — and send what it gets anywhere. Only a dedicated OS account or a
+  container closes that.
+- The browser a check drives runs unconfined, as this user. Left open, it would let a trial's own
+  tests read anything this user can — a Claude login, Penguin's vaults, the other side's trial
+  home — by opening a `file://` URL, and send it to any host. Two locks prevent it
+  (`scripts/activity-bench/browser-guard.ts`): the browser starts with no route anywhere but the
+  played module's own port (a proxy that leads nowhere for everything else, other loopback ports
+  included; host names that resolve to nothing; no WebRTC around the proxy), and a check reaches
+  it only through a guard that passes calls on known kinds of object only, and refuses a
+  navigation anywhere but the played module's origin, a context with its own proxy, files from or
+  to this disk, raw DevTools, the browser's own HTTP client, tracing and artifacts. A test proves
+  each escape fails with the locks.
 - Still, run the bench under a dedicated OS account that holds no credentials of its own (no
   Claude or cloud login, no SSH keys, no Penguin vaults): that is the recommended way, and the
   only real read barrier on Windows.

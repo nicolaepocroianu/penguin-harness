@@ -183,32 +183,46 @@ criterion(criteria[3], () => fs.readFileSync(${JSON.stringify(outside)}, "utf8")
     }
   }, 60_000);
 
-  it("locks the browser to the played module: no local file, no other host, no way around", async () => {
+  it("locks the browser to the played module: no local file, no other host or port, no way around", async () => {
     const checks = new HarnessCheckRunner(executable!);
     const secretFile = path.join(tempDir(), "secret.txt");
     fs.writeFileSync(secretFile, "SECRET-FILE-CONTENT");
-    // A server on this machine's own network address: reachable from here, never from the page.
+    // Two servers that let any page read them (CORS) and count every request that reaches
+    // them: one on this machine's own network address, one on another port of loopback (a
+    // service such as a Penguin dev server). Reachable from here, never from the page.
+    let reached = 0;
+    const listen = async (host: string) => {
+      const server = http.createServer((_request, response) => {
+        reached++;
+        response.setHeader("access-control-allow-origin", "*");
+        response.end("REACHED");
+      });
+      await new Promise<void>((resolve) => server.listen(0, host, resolve));
+      return server;
+    };
     const lanAddress = Object.values(os.networkInterfaces())
       .flat()
       .find((entry) => entry && entry.family === "IPv4" && !entry.internal)?.address;
-    // It lets any page read it (CORS), and counts every request that reaches it.
-    let reached = 0;
-    const lanServer = http.createServer((_request, response) => {
-      reached++;
-      response.setHeader("access-control-allow-origin", "*");
-      response.end("LAN-REACHED");
-    });
-    await new Promise<void>((resolve) => lanServer.listen(0, "0.0.0.0", resolve));
+    const lanServer = await listen("0.0.0.0");
+    const otherServer = await listen("127.0.0.1");
     const lan = `http://${lanAddress ?? "192.0.2.1"}:${(lanServer.address() as AddressInfo).port}/`;
-    if (lanAddress) expect(await (await fetch(lan)).text()).toBe("LAN-REACHED");
+    const other = `http://127.0.0.1:${(otherServer.address() as AddressInfo).port}/`;
+    const otherByName = other.replace("127.0.0.1", "localhost");
+    if (lanAddress) expect(await (await fetch(lan)).text()).toBe("REACHED");
+    expect(await (await fetch(other)).text()).toBe("REACHED");
     reached = 0;
     const page = await serveFolder(moduleFolder());
     try {
       const test = `import { criteria, criterion, expect, openActivity } from "./activity-harness.mjs";
 const FILE = ${JSON.stringify(pathToFileURL(secretFile).href)};
 const LAN = ${JSON.stringify(lan)};
+const OTHER = ${JSON.stringify(other)};
+const OTHER_BY_NAME = ${JSON.stringify(otherByName)};
 const fetched = (activity, url) =>
   activity.page.evaluate(async (target) => (await fetch(target)).text(), url);
+// No CORS needed to send something out: an opaque answer is enough.
+const sent = (activity, url) =>
+  activity.page.evaluate((target) => fetch(target, { mode: "no-cors" }).then(() => true), url);
 criterion(criteria[0], async () => {
   const activity = await openActivity();
   await activity.page.goto(FILE);
@@ -220,12 +234,10 @@ criterion(criteria[1], async () => {
 });
 criterion(criteria[2], async () => {
   const activity = await openActivity();
-  expect((await fetched(activity, LAN)).includes("LAN-REACHED"), "Reached nothing.");
+  expect((await fetched(activity, LAN)).includes("REACHED"), "Reached nothing.");
 });
 criterion(criteria[3], async () => {
-  const activity = await openActivity();
-  // No CORS needed to send something out: an opaque answer is enough.
-  await activity.page.evaluate(() => fetch("https://example.com/", { mode: "no-cors" }));
+  await sent(await openActivity(), "https://example.com/");
 });
 criterion(criteria[4], async () => {
   const activity = await openActivity();
@@ -247,19 +259,43 @@ criterion(criteria[7], async () => {
 });
 criterion(criteria[8], async () => {
   const activity = await openActivity();
+  await activity.page.goto(OTHER);
+});
+criterion(criteria[9], async () => {
+  const activity = await openActivity();
+  expect((await fetched(activity, OTHER)).includes("REACHED"), "Reached nothing.");
+});
+criterion(criteria[10], async () => {
+  await sent(await openActivity(), OTHER_BY_NAME);
+});
+criterion(criteria[11], async () => {
+  await sent(await openActivity(), "http://169.254.169.254/latest/meta-data/");
+});
+criterion(criteria[12], async () => {
+  await sent(await openActivity(), "http://[fe80::1]/");
+});
+criterion(criteria[13], async () => {
+  const activity = await openActivity();
   expect((await activity.state()).state === "intro", "The played module did not play.");
+  const own = await fetched(activity, activity.page.url());
+  expect(own.length > 0, "The played module's origin is unreachable.");
 });
 `;
       const criteria = [
         "Opens a local file.",
         "Opens another host.",
         "Fetches from another host on this network.",
-        "Fetches from the internet.",
+        "Sends to the internet.",
         "Redirects the page to a local file.",
         "Makes a context with a proxy around the lock.",
         "Sends a request from outside the browser.",
         "Opens a raw DevTools session.",
-        "Still plays the module.",
+        "Opens another port on loopback.",
+        "Fetches from another port on loopback.",
+        "Sends to another port on loopback, by name.",
+        "Sends to the cloud metadata address.",
+        "Sends to a link-local IPv6 address.",
+        "Still plays the module, from its own origin.",
       ];
       const run = await checks.run(
         { test, criteria, scenes: [], viewport: { width: 800, height: 600 } },
@@ -268,7 +304,7 @@ criterion(criteria[8], async () => {
       expect(run.ran).toBe(true);
       if (!run.ran) return;
       expect(run.results.map((result) => result.status)).toEqual([
-        ...Array(8).fill("failed"),
+        ...Array(13).fill("failed"),
         "passed",
       ]);
       const errors = run.results.map((result) => result.error ?? "");
@@ -277,14 +313,16 @@ criterion(criteria[8], async () => {
       expect(errors[5]).toContain("A check may not set a context's proxy.");
       expect(errors[6]).toContain("A check may not make requests outside the browser");
       expect(errors[7]).toContain("A check may not use");
+      expect(errors[8]).toContain(`A check may open only the played module, not ${other}`);
       for (const error of errors) expect(error).not.toContain("SECRET-FILE-CONTENT");
-      // Nothing from the browser reached the other host.
+      // Nothing from the browser reached either server.
       expect(reached).toBe(0);
     } finally {
       await page.close();
       await new Promise((resolve) => lanServer.close(resolve));
+      await new Promise((resolve) => otherServer.close(resolve));
     }
-  }, 90_000);
+  }, 120_000);
 
   it("withholds what hidden checks printed when they cannot run or cannot finish", async () => {
     const checks = new HarnessCheckRunner(executable!, { timeoutMs: 10_000 });
