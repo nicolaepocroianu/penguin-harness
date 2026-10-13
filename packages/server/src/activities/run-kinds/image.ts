@@ -15,7 +15,12 @@ import { IMAGE_STYLE } from "../media-style.js";
 import type { RunRequestOf } from "../run-request.js";
 import { atomicJson } from "../service.js";
 import { AGENTHUB_VERSION } from "../sound-models.js";
-import { bundledMediaHelper, requireCompleted, type SessionRunKind } from "./contract.js";
+import {
+  RunRefusal,
+  bundledMediaHelper,
+  requireCompleted,
+  type SessionRunKind,
+} from "./contract.js";
 
 /** What an image run writes. */
 export const IMAGE_OUTPUT = "image.png";
@@ -28,10 +33,11 @@ export const imageKind: SessionRunKind<RunRequestOf<"image">, ImageTarget, Image
   check: async (_services, request, activity) => imageTarget(activity, request.image),
   async authorize(services, _image, { projectId, agentId }) {
     if (!(await services.vaultKeys(projectId, agentId)).includes("GEMINI_API_KEY"))
-      throw new HttpError(
+      throw new RunRefusal(
         400,
         "image_credential_missing",
         "Add GEMINI_API_KEY to the Media Agent's Vault before generating an image.",
+        "providerUnavailable",
       );
   },
   record: (image) => ({ image }),

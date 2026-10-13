@@ -9,6 +9,7 @@ import type {
   ActivityRunSummary,
 } from "../src/activities/domain.js";
 import { ActivityGenerationService } from "../src/activities/generation.js";
+import type { RunRequest } from "../src/activities/run-request.js";
 import { IMAGE_OUTPUT } from "../src/activities/run-kinds/image.js";
 import { MEDIA_TEXT_OUTPUT } from "../src/activities/run-kinds/media-text.js";
 import { MODULE_OUTPUT } from "../src/activities/run-kinds/module.js";
@@ -777,6 +778,108 @@ describe("activity generation through Harness sessions", () => {
     // The player serves the draft's accepted image itself; the assembly copies none of it.
     const read = (file: string) => fs.readFile(file, "utf8");
     await verifyMediaArtifacts(workspace, await current(), read);
+  });
+
+  describe("run and accept in one call", () => {
+    const image = {
+      kind: "image",
+      image: { language: "en-US", assetKey: "cover" },
+    } as const satisfies RunRequest;
+    async function setup() {
+      const f = await fixture("image");
+      // Plans media with an image to draw; refused, since the Media Agent has no key yet.
+      expect((await f.startImage(false)).status).toBe(400);
+      const vault = (keys: string[]) =>
+        f.client.put("/api/projects/generator-activities/agents/media_agent/vault", {
+          entries: keys.map((key) => ({ key, value: "fake-test-only" })),
+        });
+      const current = async () => (await (await f.client.get(f.endpoint)).json()) as ActivityDetail;
+      const runs = async () =>
+        ((await (await f.client.get(`${f.endpoint}/runs`)).json()) as { runs: ActivityRun[] }).runs;
+      return { f, vault, current, runs };
+    }
+
+    it("skips what its kind leaves undone, starting no run", async () => {
+      const { f, runs } = await setup();
+      const before = (await runs()).length;
+      expect(
+        await f.service.runAndAccept("generator-activities", f.activity.id, image, {
+          agentId: "default_agent",
+        }),
+      ).toEqual({
+        outcome: "skipped",
+        reason: "providerUnavailable",
+        message: "Add GEMINI_API_KEY to the Media Agent's Vault before generating an image.",
+      });
+      expect(await runs()).toHaveLength(before);
+    });
+
+    it("starts the run, waits for it, and accepts what it made", async () => {
+      const { f, vault, current } = await setup();
+      expect((await vault(["GEMINI_API_KEY"])).status).toBe(200);
+      let started: ActivityRun | null = null;
+      const outcome = f.service.runAndAccept("generator-activities", f.activity.id, image, {
+        agentId: "default_agent",
+        started: (run) => (started = run),
+      });
+      await waitFor(() => started !== null && f.waiting.has(started.sessionId!));
+      await f.finish(started!);
+      const settled = await outcome;
+      expect(settled).toMatchObject({
+        outcome: "accepted",
+        run: { runId: started!.runId, status: "succeeded" },
+      });
+      const bound = (await current()).draft.mediaPlan!.manifest.assets["en-US"]![0]!;
+      expect(bound.generatedImage?.runId).toBe(started!.runId);
+      expect(settled.outcome === "accepted" && settled.draft.contentRevision).toBe(
+        (await current()).draft.contentRevision,
+      );
+    });
+
+    it("accepts nothing when the draft changed while the run worked", async () => {
+      const { f, vault, current } = await setup();
+      expect((await vault(["GEMINI_API_KEY"])).status).toBe(200);
+      let started: ActivityRun | null = null;
+      const outcome = f.service.runAndAccept("generator-activities", f.activity.id, image, {
+        agentId: "default_agent",
+        started: (run) => (started = run),
+      });
+      await waitFor(() => started !== null && f.waiting.has(started.sessionId!));
+      const edited = await f.client.patch(`${f.endpoint}/description`, {
+        description: "Teach other words",
+        expectedRevision: (await current()).draft.contentRevision,
+      });
+      expect(edited.status).toBe(200);
+      await f.finish(started!);
+      expect(await outcome).toMatchObject({
+        outcome: "failed",
+        run: { status: "conflict" },
+        error: "The draft changed during image generation.",
+      });
+      expect(
+        (await current()).draft.mediaPlan!.manifest.assets["en-US"]![0]!.generatedImage,
+      ).toBeUndefined();
+    });
+
+    it("stops waiting when its signal is aborted, and accepts nothing after", async () => {
+      const { f, vault, current } = await setup();
+      expect((await vault(["GEMINI_API_KEY"])).status).toBe(200);
+      const controller = new AbortController();
+      let started: ActivityRun | null = null;
+      const outcome = f.service.runAndAccept("generator-activities", f.activity.id, image, {
+        agentId: "default_agent",
+        started: (run) => (started = run),
+        signal: controller.signal,
+      });
+      await waitFor(() => started !== null && f.waiting.has(started.sessionId!));
+      controller.abort();
+      expect(await outcome).toEqual({ outcome: "stopped" });
+      // The run is left alone: it finishes as an ordinary run, its candidate not accepted.
+      expect((await f.finish(started!)).status).toBe("succeeded");
+      expect(
+        (await current()).draft.mediaPlan!.manifest.assets["en-US"]![0]!.generatedImage,
+      ).toBeUndefined();
+    });
   });
 
   it("retains a previewable image conflict without applying it when the draft changes", async () => {

@@ -50,7 +50,6 @@ import { critiqueForAgent } from "../scene-critique.js";
 import { atomicJson } from "../service.js";
 import {
   authoringSkill,
-  experimentOff,
   requireCompleted,
   type RunKindServices,
   type SessionRunKind,
@@ -78,7 +77,7 @@ async function compositionStage(
   activity: ActivityDetail,
   input: { language: string; assetKey: string; look?: string },
 ): Promise<CompositionStage> {
-  if (!services.videoExperiment()) throw experimentOff();
+  services.requireVideoExperiment();
   const activityId = activity.id;
   const scene = compositionScene(activity, input);
   if (input.look !== undefined && !sceneLook(input.look))

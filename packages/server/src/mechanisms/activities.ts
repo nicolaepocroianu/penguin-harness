@@ -41,7 +41,7 @@ import type {
   ModuleDocumentKind,
   ModuleDocumentOverride,
 } from "../activities/domain.js";
-import type { RunRequest } from "../activities/run-request.js";
+import type { RunAndAcceptOptions, RunOutcome, RunRequest } from "../activities/run-request.js";
 import type {
   BookWordsRefresh,
   BookWordsState,
@@ -60,6 +60,17 @@ export abstract class ActivityGeneration extends Interface<{
     /** Run on an external coding agent instead of the Penguin agent `agentId` names. */
     runtime?: { codingAgentId?: string },
   ): Promise<ActivityRun>;
+  /**
+   * Starts a run, waits for it to end, and accepts its candidate into the draft, as an author
+   * does by hand: accepted, succeeded (its kind keeps its own result), skipped (a refusal its
+   * kind leaves undone, nothing started), failed, or stopped by the caller's signal.
+   */
+  runAndAccept(
+    projectId: string,
+    activityId: string,
+    request: RunRequest,
+    options: RunAndAcceptOptions,
+  ): Promise<RunOutcome>;
   list(projectId: string, activityId: string): Promise<ActivityRunSummary[]>;
   /** One run of the activity, with its candidate; 404 `run_not_found` when there is none. */
   run(projectId: string, activityId: string, runId: string): Promise<ActivityRun>;
@@ -180,6 +191,8 @@ export abstract class ActivityGeneration extends Interface<{
   ): Promise<ActivityDraft>;
   /** Whether an admin turned the scene-video experiment on. */
   videoExperiment(): boolean;
+  /** 403 `experiment_off` unless an admin turned the scene-video experiment on. */
+  requireVideoExperiment(): void;
   /**
    * One file of a kept composition (the page, a staged image or a vendored script), for the
    * preview origin only; 404 `composition_not_found` for anything else.

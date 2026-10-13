@@ -67,12 +67,7 @@ export class ActivityCompositionService implements ActivityCompositions {
     host: string,
     shared: boolean,
   ): Promise<{ token: string; expiresAt: number }> {
-    if (!this.generation.videoExperiment())
-      throw new HttpError(
-        403,
-        "experiment_off",
-        "Scene videos are an experiment an admin has not turned on.",
-      );
+    this.generation.requireVideoExperiment();
     // Refuses a link to a run that kept no composition while the caller can still be told.
     await this.generation.compositionFile(projectId, activityId, runId, COMPOSITION_FILE);
     const grant: CompositionGrant = {

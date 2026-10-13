@@ -37,7 +37,8 @@ import {
   TEST_FILE_MAX_BYTES,
 } from "./acceptance-harness.js";
 import type { AcceptanceReport, AcceptanceStateResponse } from "./acceptance-types.js";
-import { contentRevision, type ActivityRun } from "./domain.js";
+import { contentRevision, type ActivityDetail, type ActivityRun } from "./domain.js";
+import type { RunRequestOf } from "./run-request.js";
 import { viewportOf } from "./quality-check.js";
 import type { ActivitySandbox } from "./sandbox-service.js";
 import { atomicJson } from "./service.js";
@@ -87,6 +88,11 @@ export abstract class ActivityAcceptance extends Interface<{
   state(projectId: string, activityId: string): Promise<AcceptanceStateResponse>;
   /** Whether the test browser is installed, for Run all stages to skip the step without it. */
   browserInstalled(): Promise<boolean>;
+  /**
+   * The test run the draft's acceptance criteria make now, for a caller that starts it itself;
+   * null when there are none. Refuses as `start` does.
+   */
+  testRun(projectId: string, activityId: string): Promise<RunRequestOf<"test"> | null>;
 }>() {}
 
 @Component()
@@ -130,6 +136,36 @@ export class ActivityAcceptanceService implements ActivityAcceptance {
         "draft_conflict",
         "Save or reload the draft before running the tests.",
       );
+    const request = await this.testRequest(projectId, activityId, activity);
+    if (!request) return this.skip(projectId, activityId, contentRevision(activity.draft.spec));
+    return this.generation.start(
+      projectId,
+      activityId,
+      agentId,
+      expectedRevision,
+      request,
+      runtime,
+    );
+  }
+
+  async testRun(projectId: string, activityId: string): Promise<RunRequestOf<"test"> | null> {
+    if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
+    return this.testRequest(
+      projectId,
+      activityId,
+      await this.activities.getActivity(projectId, activityId),
+    );
+  }
+
+  /**
+   * The test run the draft's acceptance criteria make now, or null when it has none. What the
+   * tests play is chosen here: the module the sandbox plays for the ref, behind its play link.
+   */
+  private async testRequest(
+    projectId: string,
+    activityId: string,
+    activity: ActivityDetail,
+  ): Promise<RunRequestOf<"test"> | null> {
     const spec = activity.draft.spec;
     if (!spec || activity.draft.status !== "valid")
       throw new HttpError(
@@ -139,7 +175,7 @@ export class ActivityAcceptanceService implements ActivityAcceptance {
       );
     const specRevision = contentRevision(spec);
     const criteria = acceptanceCriteria(spec);
-    if (!criteria.length) return this.skip(projectId, activityId, specRevision);
+    if (!criteria.length) return null;
 
     const executable = await this.browser.executablePath();
     if (!executable)
@@ -163,28 +199,21 @@ export class ActivityAcceptanceService implements ActivityAcceptance {
 
     const playUrl = await this.browser.playUrl(projectId, activityId);
     const cachedTest = await this.reusableTest(projectId, activityId, criteria, specRevision);
-    return this.generation.start(
-      projectId,
-      activityId,
-      agentId,
-      expectedRevision,
-      {
-        kind: "test",
-        test: {
-          input: {
-            playUrl,
-            viewport: viewportOf(spec),
-            criteria,
-            browserPath: executable,
-            scenes: specSceneIds(spec),
-            specRevision,
-          },
-          cachedTest,
-          playwrightVersion: version,
+    return {
+      kind: "test",
+      test: {
+        input: {
+          playUrl,
+          viewport: viewportOf(spec),
+          criteria,
+          browserPath: executable,
+          scenes: specSceneIds(spec),
+          specRevision,
         },
+        cachedTest,
+        playwrightVersion: version,
       },
-      runtime,
-    );
+    };
   }
 
   /** Nothing to test: a finished run with a skipped report, and no Session. */

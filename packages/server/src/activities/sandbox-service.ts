@@ -195,6 +195,11 @@ export abstract class ActivitySandbox extends Interface<{
   ): Promise<ModuleDocuments>;
   /** The module's own assessment for a ref, as its files have it: an author's edit is ignored. */
   ownAssessment(projectId: string, activityId: string): Promise<unknown>;
+  /**
+   * The assessment in effect for a ref, which an assessment run updates: an author's edit, else
+   * the module's own; null when there is none.
+   */
+  currentAssessment(projectId: string, activityId: string): Promise<Record<string, unknown> | null>;
   /** Every asset of the media plan with the size of the file it is bound to. */
   mediaStats(projectId: string, activityId: string): Promise<MediaStat[]>;
   payload(projectId: string, activityId: string, options: PayloadOptions): Promise<ActivityPayload>;
@@ -387,6 +392,16 @@ export class ActivitySandboxService implements ActivitySandbox {
       false,
     );
     return own?.value ?? null;
+  }
+
+  async currentAssessment(
+    projectId: string,
+    activityId: string,
+  ): Promise<Record<string, unknown> | null> {
+    const value = (await this.moduleDocuments(projectId, activityId)).assessment?.value;
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
   }
 
   async moduleDocuments(

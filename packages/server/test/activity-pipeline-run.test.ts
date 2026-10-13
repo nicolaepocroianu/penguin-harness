@@ -1,8 +1,8 @@
-import { HttpError } from "../src/http/errors.js";
 import { describe, expect, it, vi } from "vitest";
 import {
   PipelineRunner,
   ActivityPipelineService,
+  type StagesPort,
   validateSpeechLanguages,
   imageTargets,
   inScope,
@@ -13,7 +13,7 @@ import {
   translationTargets,
 } from "../src/activities/pipeline-run.js";
 import { contentRevision, type ActivityRun } from "../src/activities/domain.js";
-import type { RunRequest } from "../src/activities/run-request.js";
+import type { RunAndAcceptOptions, RunOutcome, RunRequest } from "../src/activities/run-request.js";
 import { runKindOf } from "../src/activities/run-kinds/index.js";
 import type { AssetManifest, MediaAsset } from "../src/activities/media.js";
 import { drawnOutScript, geminiScript, syncWordScripts } from "../src/activities/pronunciation.js";
@@ -22,7 +22,6 @@ import {
   ELEVENLABS_BUILTIN_VOICE_ID,
   ELEVENLABS_DEFAULT_VOICE,
 } from "../src/activities/voice-catalogue.js";
-import type { ActivityAuthoring, ActivityGeneration } from "../src/mechanisms/activities.js";
 
 const usage = [{ sceneId: "intro", sourceKey: "k", occurrence: 1, sceneOccurrenceCount: 1 }];
 
@@ -213,10 +212,6 @@ function world(
     unchecked?: ActivityRun["unchecked"];
     /** The Media Agent has no image provider key: an image run is refused. */
     noImageKey?: boolean;
-    /** How many looks each run stays running for before it settles (none when absent). */
-    looks?: number;
-    /** Records how long each wait between looks was asked to be. */
-    pauses?: number[];
     description?: string;
     romanian?: boolean;
     usesAssessment?: boolean;
@@ -269,26 +264,56 @@ function world(
   };
   const bump = () => (activity.draft.contentRevision = `r${++revision}`);
   const runs: ActivityRun[] = [];
-  const looked = new Map<string, number>();
   const started: string[] = [];
   const cancelled: string[] = [];
   const soundSetups: string[] = [];
   const asset = (language: string, key: string) =>
     activity.draft.mediaPlan!.manifest.assets[language]!.find((item) => item.key === key)!;
 
-  const generation = {
-    async start(
+  /** While held, every run stays under way until the test lets go or the sequence stops it. */
+  let holding: Promise<void> | null = null;
+  let letGo: () => void = () => {};
+  const hold = () => {
+    holding = new Promise((resolve) => (letGo = resolve));
+    return () => {
+      holding = null;
+      letGo();
+    };
+  };
+  const aborted = (signal?: AbortSignal) =>
+    new Promise<void>((resolve) => signal?.addEventListener("abort", () => resolve()));
+
+  let plans = 0;
+  // The generation service's run and accept, as the stages see it: a run starts, settles as a
+  // finished Session would, and what it made is accepted onto the draft it started from.
+  const stages = {
+    async runAndAccept(
       _p: string,
       _a: string,
-      agentId: string,
-      expected: string,
       request: RunRequest,
-      runtime?: { codingAgentId?: string },
-    ) {
-      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
+      { agentId, runtime, started: told, signal }: RunAndAcceptOptions,
+    ): Promise<RunOutcome> {
+      // The refusals the kinds leave undone rather than fail, as they raise them.
       if (request.kind === "image" && options.noImageKey)
-        throw new HttpError(400, "image_credential_missing", "Add GEMINI_API_KEY first.");
-      if (request.kind === "assessment") assessmentInputs.push(request.assessment);
+        return {
+          outcome: "skipped",
+          reason: "providerUnavailable",
+          message: "Add GEMINI_API_KEY first.",
+        };
+      if (request.kind === "assessment") {
+        if (!activity.draft.spec || activity.draft.status !== "valid")
+          return {
+            outcome: "failed",
+            error: "Save a valid specification before generating the assessment.",
+          };
+        const used = (activity.draft.spec.runtime as { usesAssessment?: unknown } | undefined)
+          ?.usesAssessment;
+        if (used !== true)
+          return { outcome: "skipped", reason: "noAssessment", message: "No assessment." };
+        if (!(options.canonical ?? true))
+          return { outcome: "skipped", reason: "notCanonical", message: "Not canonical." };
+        assessmentInputs.push(request.assessment);
+      }
       const kind = runKindOf(request);
       // An asset run keeps its target as its run does: a sound's as the run's audio.
       const target = assetTarget(request);
@@ -310,39 +335,50 @@ function world(
           `sound:${request.sound.provider}:${request.sound.language}:${request.sound.assetKey}`,
         );
       else started.push(target ? `${kind}:${target.language}:${target.assetKey}` : kind);
-      return run;
-    },
-    async list() {
-      // Each look settles whatever is running, as a finished Session would.
-      for (const run of runs.filter((item) => item.status === "running")) {
-        const seen = (looked.get(run.runId) ?? 0) + 1;
-        looked.set(run.runId, seen);
-        if (seen <= (options.looks ?? 0)) continue;
-        if (options.fail === run.kind) {
-          run.status = "failed";
-          run.error = `${run.kind} broke`;
-          // A specification pass fails on what its agent wrote, as the real checks do.
-          if (run.kind === "spec" || run.kind === "media-spec") run.repairable = true;
-          continue;
-        }
-        run.status = "succeeded";
-        if (run.kind === "module" && options.unchecked) run.unchecked = options.unchecked;
-        if (run.kind === "spec") {
-          activity.draft.spec = spec;
-          activity.draft.status = "valid";
-          bump();
-        }
-        // The media pass saves the specification again, with its media listed.
-        if (run.kind === "media-spec") {
-          activity.draft.spec = { ...spec, mediaListed: true };
-          bump();
-        }
+      told?.(run);
+      if (holding) await Promise.race([holding, aborted(signal)]);
+      if (signal?.aborted) return { outcome: "stopped", run };
+      if (options.fail === run.kind) {
+        run.status = "failed";
+        run.error = `${run.kind} broke`;
+        // A specification pass fails on what its agent wrote, as the real checks do.
+        if (run.kind === "spec" || run.kind === "media-spec") run.repairable = true;
+        return { outcome: "failed", run, error: run.error };
       }
-      return runs.map((run) => ({ ...run, hasCandidate: false }));
+      run.status = "succeeded";
+      if (run.kind === "module" && options.unchecked) run.unchecked = options.unchecked;
+      if (run.kind === "spec") {
+        activity.draft.spec = spec;
+        activity.draft.status = "valid";
+        bump();
+      }
+      // The media pass saves the specification again, with its media listed.
+      if (run.kind === "media-spec") {
+        activity.draft.spec = { ...spec, mediaListed: true };
+        bump();
+      }
+      if (run.kind === "audio") {
+        asset(run.audio!.language, run.audio!.assetKey).path = (run.audio as { provider?: string })
+          .provider
+          ? `${run.runId}.mp3`
+          : `${run.runId}.wav`;
+      } else if (run.kind === "image")
+        asset(run.image!.language, run.image!.assetKey).path = `${run.runId}.png`;
+      else if (run.kind === "assessment") accepted.push(run.runId);
+      else if (run.kind === "media-text") {
+        const text = run.mediaText!;
+        const translated = asset(text.language, text.assetKey);
+        const source = asset("en-US", text.assetKey);
+        translated.script = `translated ${source.script}`;
+        translated.translatedFrom = source.script;
+      } else return { outcome: "succeeded", run };
+      bump();
+      return { outcome: "accepted", run, draft: structuredClone(activity.draft) as never };
     },
-    async run(_p: string, _a: string, runId: string) {
-      const run = runs.find((item) => item.runId === runId);
-      if (!run) throw new Error("run_not_found");
+    async cancel(_p: string, _a: string, runId: string) {
+      cancelled.push(runId);
+      const run = runs.find((item) => item.runId === runId)!;
+      run.status = "cancelled";
       return run;
     },
     async soundSetup(projectId: string) {
@@ -371,52 +407,8 @@ function world(
     async elevenLabsDefaultVoice() {
       return ELEVENLABS_BUILTIN_VOICE_ID;
     },
-    async acceptAudio(_p: string, _a: string, runId: string, expected: string) {
-      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
-      const run = runs.find((item) => item.runId === runId)!;
-      asset(run.audio!.language, run.audio!.assetKey).path = (run.audio as { provider?: string })
-        .provider
-        ? `${runId}.mp3`
-        : `${runId}.wav`;
-      bump();
-    },
-    async acceptImage(_p: string, _a: string, runId: string, expected: string) {
-      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
-      const run = runs.find((item) => item.runId === runId)!;
-      asset(run.image!.language, run.image!.assetKey).path = `${runId}.png`;
-      bump();
-    },
-    async acceptAssessment(_p: string, _a: string, runId: string, expected: string) {
-      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
-      accepted.push(runId);
-      bump();
-    },
-    async acceptMediaText(_p: string, _a: string, runId: string, expected: string) {
-      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
-      const run = runs.find((item) => item.runId === runId)! as ActivityRun & {
-        mediaText: { language: string; assetKey: string };
-      };
-      const target = asset(run.mediaText.language, run.mediaText.assetKey);
-      const source = asset("en-US", run.mediaText.assetKey);
-      target.script = `translated ${source.script}`;
-      target.translatedFrom = source.script;
-      bump();
-    },
-    async cancel(_p: string, _a: string, runId: string) {
-      cancelled.push(runId);
-      const run = runs.find((item) => item.runId === runId)!;
-      run.status = "cancelled";
-      return run;
-    },
-  } as unknown as ActivityGeneration;
-
-  let plans = 0;
-  const activities = {
     async getActivity() {
       return structuredClone(activity);
-    },
-    isCanonicalRef() {
-      return options.canonical ?? true;
     },
     async planMedia(_p: string, _a: string, expected: string) {
       if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
@@ -457,33 +449,19 @@ function world(
         });
       bump();
     },
-  } as unknown as ActivityAuthoring;
+    async currentAssessment() {
+      return { items: ["current"] };
+    },
+    async browserInstalled() {
+      return options.browser ?? true;
+    },
+    async testRun() {
+      return { kind: "test", test: {} } as RunRequest;
+    },
+  } as unknown as StagesPort;
 
   const runner = new PipelineRunner({
-    generation,
-    activities,
-    currentAssessment: async () => ({ items: ["current"] }),
-    startTest: async (_p, _a, agentId, expected, runtime) => {
-      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
-      const run = {
-        kind: "test",
-        runId: `run_${runs.length + 1}`,
-        sessionId: `session_${runs.length + 1}`,
-        status: "running",
-        error: null,
-        agentId,
-        codingAgentId: runtime?.codingAgentId,
-      } as unknown as ActivityRun;
-      runs.push(run);
-      started.push("test");
-      return run;
-    },
-    testBrowserInstalled: async () => options.browser ?? true,
-    // Yield to the timer queue, as a real wait does, so a held run cannot starve the test.
-    pause: (ms) => {
-      options.pauses?.push(ms);
-      return new Promise((resolve) => setImmediate(resolve));
-    },
+    stages,
     now: () => "2026-09-23T12:00:00Z",
     newId: () => "pipeline_1",
   });
@@ -494,7 +472,8 @@ function world(
     started,
     cancelled,
     plans: () => plans,
-    generation,
+    stages,
+    hold,
     asset,
     accepted,
     assessmentInputs,
@@ -547,13 +526,6 @@ describe("running the stages", () => {
     expect(w.activity.draft.mediaPlan!.manifest.assets["es-MX"]![0]!.path).toBe("run_4.wav");
     expect(final.currentRunId).toBeNull();
     expect(final.finishedAt).toBe("2026-09-23T12:00:00Z");
-  });
-
-  it("looks at a run soon after it starts, then backs off to once a second", async () => {
-    const pauses: number[] = [];
-    const w = world({ looks: 6, pauses });
-    await w.runner.start("proj", "act", { selection: "spec", agentId: "agent" }).done;
-    expect(pauses).toEqual([100, 200, 400, 800, 1000, 1000]);
   });
 
   it("skips the images without an image provider key and still builds the module", async () => {
@@ -617,10 +589,10 @@ describe("running the stages", () => {
   it("runs a failed media pass once more, told why, and stops when that fails too", async () => {
     const w = world({ fail: "media-spec" });
     const requests: unknown[] = [];
-    const start = w.generation.start.bind(w.generation);
-    (w.generation as { start: typeof start }).start = (p, a, agent, expected, request, runtime) => {
+    const runAndAccept = w.stages.runAndAccept.bind(w.stages);
+    (w.stages as { runAndAccept: typeof runAndAccept }).runAndAccept = (p, a, request, options) => {
       requests.push(request);
-      return start(p, a, agent, expected, request, runtime);
+      return runAndAccept(p, a, request, options);
     };
     await w.runner.start("proj", "act", { selection: "all", agentId: "agent" }).done;
     const final = w.runner.status("act")!;
@@ -675,10 +647,7 @@ describe("running the stages", () => {
   it("refuses a second sequence while one runs, and stops the run in flight on request", async () => {
     const w = world();
     // Hold every run open until the test lets go.
-    const list = w.generation.list.bind(w.generation);
-    let release = false;
-    (w.generation as { list: typeof list }).list = async (p, a) =>
-      release ? list(p, a) : w.runs.map((run) => ({ ...run, hasCandidate: false }));
+    const release = w.hold();
     const { done } = w.runner.start("proj", "act", { selection: "all", agentId: "agent" });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(() => w.runner.start("proj", "act", { selection: "all", agentId: "agent" })).toThrow(
@@ -686,7 +655,7 @@ describe("running the stages", () => {
     );
     expect(w.runner.status("act")!.currentRunId).toBe("run_1");
     await w.runner.stop("act");
-    release = true;
+    release();
     await done;
     const final = w.runner.status("act")!;
     expect(w.cancelled).toEqual(["run_1"]);
@@ -697,14 +666,11 @@ describe("running the stages", () => {
 
   it("stops stepping when its component goes away, leaving the run in flight alone", async () => {
     const w = world();
-    const list = w.generation.list.bind(w.generation);
-    let release = false;
-    (w.generation as { list: typeof list }).list = async (p, a) =>
-      release ? list(p, a) : w.runs.map((run) => ({ ...run, hasCandidate: false }));
+    const release = w.hold();
     const { done } = w.runner.start("proj", "act", { selection: "all", agentId: "agent" });
     await new Promise((resolve) => setTimeout(resolve, 0));
     w.runner.dispose();
-    release = true;
+    release();
     await done;
     expect(w.started).toEqual(["spec"]);
     expect(w.cancelled).toEqual([]);
@@ -1103,9 +1069,13 @@ function wordWorld(
   const refreshed: string[] = [];
   const asked: string[][] = [];
   const acceptedSounds: string[] = [];
-  const generation = {
-    async start(_p: string, _a: string, agentId: string, expected: string, request: RunRequest) {
-      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
+  const stages = {
+    async runAndAccept(
+      _p: string,
+      _a: string,
+      request: RunRequest,
+      { agentId, started: told, signal }: RunAndAcceptOptions,
+    ): Promise<RunOutcome> {
       if (request.kind === "phonemes") {
         asked.push(request.phonemes.words as string[]);
         if (options.stopDuringFirstSounds && asked.length === 1) void runner.stop("act");
@@ -1119,7 +1089,19 @@ function wordWorld(
           phonemes: request.phonemes,
         } as unknown as ActivityRun;
         runs.push(run);
-        return run;
+        told?.(run);
+        // A run that finished as Stop was pressed is not accepted.
+        if (signal?.aborted) return { outcome: "stopped", run };
+        run.status = "succeeded";
+        // The proposal, accepted: each asked word sounded out letter by letter.
+        acceptedSounds.push(run.runId);
+        if (options.stopAfterFirstSounds && asked.length === 1) void runner.stop("act");
+        if (options.proposes)
+          for (const asset of group())
+            if ((request.phonemes.words as string[]).includes(asset.normalizedWord!))
+              asset.phonemes = [...asset.normalizedWord!];
+        bump();
+        return { outcome: "accepted", run, draft: structuredClone(activity.draft) as never };
       }
       if (request.kind !== "speech") throw new Error(`Unexpected ${request.kind} run.`);
       const asset = group().find((item) => item.key === request.speech.assetKey)!;
@@ -1134,11 +1116,12 @@ function wordWorld(
         audio: request.speech,
       } as unknown as ActivityRun;
       runs.push(run);
-      return run;
-    },
-    async list() {
-      for (const run of runs) if (run.status === "running") run.status = "succeeded";
-      return runs.map((run) => ({ ...run, hasCandidate: true }));
+      told?.(run);
+      if (signal?.aborted) return { outcome: "stopped", run };
+      run.status = "succeeded";
+      asset.path = `media/${run.runId}.mp3`;
+      bump();
+      return { outcome: "accepted", run, draft: structuredClone(activity.draft) as never };
     },
     async speechSetup() {
       return {
@@ -1152,29 +1135,7 @@ function wordWorld(
     async elevenLabsDefaultVoice() {
       return ELEVENLABS_BUILTIN_VOICE_ID;
     },
-    // The proposal, accepted: each asked word sounded out letter by letter.
-    async acceptPhonemes(_p: string, _a: string, runId: string, expected: string) {
-      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
-      const run = runs.find((item) => item.runId === runId)! as unknown as {
-        phonemes: { words: string[] };
-      };
-      acceptedSounds.push(runId);
-      if (options.stopAfterFirstSounds && asked.length === 1) void runner.stop("act");
-      if (options.proposes)
-        for (const asset of group())
-          if (run.phonemes.words.includes(asset.normalizedWord!))
-            asset.phonemes = [...asset.normalizedWord!];
-      bump();
-    },
     async cancel() {},
-    async acceptAudio(_p: string, _a: string, runId: string, expected: string) {
-      if (expected !== activity.draft.contentRevision) throw new Error("draft_conflict");
-      const run = runs.find((item) => item.runId === runId)!;
-      group().find((item) => item.key === run.audio!.assetKey)!.path = `media/${runId}.mp3`;
-      bump();
-    },
-  } as unknown as ActivityGeneration;
-  const activities = {
     async getActivity() {
       return structuredClone(activity);
     },
@@ -1204,11 +1165,9 @@ function wordWorld(
       bump();
       return structuredClone(activity.draft);
     },
-  } as unknown as ActivityAuthoring;
+  } as unknown as StagesPort;
   const runner = new PipelineRunner({
-    generation,
-    activities,
-    pause: () => new Promise((resolve) => setImmediate(resolve)),
+    stages,
     now: () => "2026-09-25T12:00:00Z",
     newId: () => "pipeline_words",
   });
