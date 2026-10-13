@@ -9,7 +9,7 @@
  * Nothing reaches a model: a run's task is recorded and never started, and the speech and sound
  * helpers never end.
  */
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -20,6 +20,7 @@ import type { ActivityGenerationService } from "../src/activities/generation.js"
 import type { ActivityAuthoring } from "../src/mechanisms/activities.js";
 import type { AcceptanceStage } from "../src/activities/acceptance-types.js";
 import type { RunRequest } from "../src/activities/run-request.js";
+import type { ActivityRuns } from "../src/activities/run-store.js";
 import { INSTALL_MARKER } from "../src/activities/test-browser.js";
 import { runFfmpeg } from "../src/activities/ffmpeg.js";
 import type { BookWordsRefresh } from "../src/activities/book-word-types.js";
@@ -322,6 +323,82 @@ describe("what each run kind hands its agent", () => {
       await client.post(`${b.endpoint}/assemble-module`, {
         ...agent,
         expectedRevision: await rev(),
+      }),
+      b.endpoint,
+    );
+    // A repair round, from a build as an assembly left it and the tests that played it.
+    const store = t.deps.tree.api<ActivityRuns>("ActivitiesModule", "ActivityRuns");
+    const settled = async (fields: Partial<ActivityRun>, files: Record<string, string>) => {
+      const detail = (await (await client.get(b.endpoint)).json()) as ActivityDetail;
+      const run = {
+        runId: `run_${randomUUID().replaceAll("-", "")}`,
+        activityId: b.id,
+        projectId: PROJECT,
+        draftId: detail.draft.draftId,
+        inputRevision: detail.draft.contentRevision,
+        agentId: "default_agent",
+        sessionId: null,
+        status: "running",
+        createdAt: new Date().toISOString(),
+        finishedAt: null,
+        error: null,
+        candidate: null,
+        ...fields,
+      } as ActivityRun;
+      store.open(run);
+      store.save({ ...run, status: "succeeded", finishedAt: new Date().toISOString() });
+      for (const [name, text] of Object.entries(files)) {
+        const file = path.join(store.workspace(run.runId), ...name.split("/"));
+        await fs.mkdir(path.dirname(file), { recursive: true });
+        await fs.writeFile(file, text);
+      }
+      return run.runId;
+    };
+    const built = await settled(
+      { kind: "module" },
+      {
+        "module/definition.json": '{"engine":"html"}\n',
+        "module/src/index.ts": "export const built = true;\n",
+        "module/res/layout.html": "<main></main>\n",
+        "module/configurations/media-p-1.json": '{"mediaP":{}}\n',
+        "module/dist/debug/entry.js": "window.built = true;\n",
+      },
+    );
+    const tested = await settled(
+      {
+        kind: "test",
+        test: {
+          criteria: ["Tapping the penguin plays its name."],
+          specRevision: "spec-revision",
+          harnessVersion: 2,
+          reused: false,
+          moduleRunId: built,
+        },
+      },
+      {
+        "acceptance.test.mjs": "// the tests that played the build\n",
+        "reports/test.json": JSON.stringify({
+          overallStatus: "failed",
+          results: [
+            {
+              criterion: "Tapping the penguin plays its name.",
+              testName: "tap plays the name",
+              status: "failed",
+              durationMs: 12,
+              error: "No audio started after the tap.",
+            },
+          ],
+          checkedAt: "2026-10-13T12:00:00.000Z",
+          specRevision: "spec-revision",
+          reused: false,
+        }),
+      },
+    );
+    await capture(
+      "module-repair",
+      await directStart(service, b.id, await rev(), {
+        kind: "module",
+        repair: { fromRunId: built, testRunId: tested },
       }),
       b.endpoint,
     );

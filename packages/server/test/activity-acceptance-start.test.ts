@@ -11,7 +11,14 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { requestBegin, requestEnd } from "@prismshadow/penguin-core";
-import type { ActivityRun, ActivityRunSummary } from "../src/activities/domain.js";
+import {
+  newId,
+  type ActivityDetail,
+  type ActivityRun,
+  type ActivityRunSummary,
+} from "../src/activities/domain.js";
+import type { ActivityAcceptance } from "../src/activities/acceptance-service.js";
+import type { ActivityRuns } from "../src/activities/run-store.js";
 import type { ActivityGenerationService } from "../src/activities/generation.js";
 import type { AcceptanceStateResponse } from "../src/activities/acceptance-types.js";
 import {
@@ -433,6 +440,69 @@ describe("acceptance test runs", () => {
     expect(nothing.settled.error).toBe("The session ended without acceptance-results.json.");
     expect((await report()).report).toBeNull();
   });
+  it("records the module build each test run plays, and plays the build it is named", async () => {
+    const f = await setup();
+    const api = <T>(name: string) => f.t.deps.tree.api<T>("ActivitiesModule", name);
+    const store = api<ActivityRuns>("ActivityRuns");
+    const acceptance = api<ActivityAcceptance>("ActivityAcceptance");
+    const projectId = "tests_owner-tests";
+    const activityId = f.endpoint.split("/").at(-1)!;
+    const playedRun = (playUrl: string) => {
+      const token = new URL(playUrl).pathname.split("/")[3]!;
+      return (
+        JSON.parse(
+          Buffer.from(token.slice(0, token.indexOf(".")), "base64url").toString("utf8"),
+        ) as { runId?: string }
+      ).runId;
+    };
+    // The module in the WAF checkout is no build of the activity's: none is recorded.
+    const checkout = await f.runToEnd(writesResults({ results: [] }));
+    expect(checkout.settled.test?.moduleRunId).toBeUndefined();
+
+    // A build of the activity's, as an assembly leaves it: the preview plays it, and so do the
+    // tests, which record it.
+    const draft = (await (await f.client.get(f.endpoint)).json()) as ActivityDetail;
+    const now = new Date().toISOString();
+    const build = {
+      kind: "module",
+      runId: newId("run"),
+      activityId,
+      projectId,
+      draftId: draft.draft.draftId,
+      inputRevision: draft.draft.contentRevision,
+      agentId: "default_agent",
+      sessionId: null,
+      status: "running",
+      createdAt: now,
+      finishedAt: null,
+      error: null,
+      candidate: null,
+    } as ActivityRun;
+    store.open(build);
+    store.save({ ...build, status: "succeeded", finishedAt: now });
+    await write(path.join(store.workspace(build.runId), "module", "definition.json"), {
+      id: "sightWords",
+    });
+    const playing = await f.runToEnd(writesResults({ results: [] }));
+    expect(playing.settled.test?.moduleRunId).toBe(build.runId);
+    const input = JSON.parse(
+      await fs.readFile(path.join(playing.workspace, "acceptance-input.json"), "utf8"),
+    ) as { playUrl: string };
+    expect(playedRun(input.playUrl)).toBe(build.runId);
+
+    // Named, it plays that build behind a link of its own.
+    const named = await acceptance.testRun(projectId, activityId, build.runId);
+    expect(named?.test.moduleRunId).toBe(build.runId);
+    expect(playedRun(named!.test.input.playUrl)).toBe(build.runId);
+    // Anything but a module build of the activity that succeeded is refused.
+    await expect(
+      acceptance.testRun(projectId, activityId, playing.run.runId),
+    ).rejects.toMatchObject({ code: "module_build_missing" });
+    await expect(acceptance.testRun(projectId, activityId, newId("run"))).rejects.toMatchObject({
+      code: "module_build_missing",
+    });
+  });
+
   it("gives a module run a player check over a link that plays the run's own module", async () => {
     const assemble = async (f: Awaited<ReturnType<typeof setup>>) => {
       await f.client.patch(`${f.endpoint}/description`, {

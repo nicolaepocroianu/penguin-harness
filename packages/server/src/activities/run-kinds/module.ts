@@ -6,7 +6,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { ProtectedRoot } from "@prismshadow/penguin-core";
 import { HttpError } from "../../http/errors.js";
-import { readCandidate } from "../artifact.js";
+import { readArtifactBytes, readCandidate } from "../artifact.js";
 import { validateBookSpec } from "../book.js";
 import { compileBookConfiguration, type BookMode } from "../book-configuration.js";
 import {
@@ -18,12 +18,21 @@ import {
 import {
   ACCEPTANCE_HARNESS_FILE,
   ACCEPTANCE_INPUT_FILE,
+  ACCEPTANCE_REPORT_DIR,
+  ACCEPTANCE_REPORT_FILE,
   ACCEPTANCE_RESULTS_FILE,
   ACCEPTANCE_RUNNER_FILE,
+  ACCEPTANCE_TEST_FILE,
+  TEST_FILE_MAX_BYTES,
   activityHarnessSource,
   runAcceptanceSource,
 } from "../acceptance-harness.js";
-import { acceptanceCriteria, specSceneIds } from "../acceptance-collect.js";
+import {
+  acceptanceCriteria,
+  failedChecks,
+  readAcceptanceReport,
+  specSceneIds,
+} from "../acceptance-collect.js";
 import { playwrightVersion } from "../acceptance-service.js";
 import {
   RUN_FEATURES_FILE,
@@ -38,10 +47,13 @@ import { atomicJson } from "../service.js";
 import { playwrightCoreDir } from "../test-browser.js";
 import {
   PLAYER_CHECK_DIR,
+  REPAIR_DIR,
+  REPAIR_FILE,
   collectModule,
   moduleBookClause,
   modulePackagesClause,
   modulePrompt,
+  moduleRepairClause,
   prepareModule,
   restoreApprovedManifest,
   syncAssembledStateMachine,
@@ -62,10 +74,24 @@ export function modulePackagesRoot(root: string): string {
   return path.join(root, "module-packages-cache");
 }
 
+/** What a repair round starts from and answers. */
+interface ModuleRepair {
+  fromRunId: string;
+  testRunId: string;
+  /** The checks that ran and saw the module do something wrong, as `REPAIR_FILE` lists them. */
+  failed: { criterion: string; testName: string; saw: string | null }[];
+  /** The test file those checks are in. */
+  testFile: string;
+}
+
 interface ModulePrepared {
   wafRoot: string;
   bookMode?: BookMode;
+  repair?: ModuleRepair;
 }
+
+/** What a repair starts from: the tested build's sources over the scaffold, never its output. */
+const REPAIRED_SOURCES = ["src", "res", "configurations", "definition.json"] as const;
 
 interface ModuleStaged {
   packagesLinked: boolean;
@@ -133,6 +159,101 @@ async function stagePlayerCheck(
   });
 }
 
+/**
+ * A repair round's inputs, checked: a succeeded module build of this activity, a finished test
+ * run that played it, and the checks of that run that ran and failed, with its test file.
+ */
+async function repairOf(
+  services: RunKindServices,
+  projectId: string,
+  activityId: string,
+  asked: { fromRunId: string; testRunId: string },
+): Promise<{ repair: ModuleRepair; bookMode?: string }> {
+  const run = (runId: string) => services.run(projectId, activityId, runId).catch(() => null);
+  const built = await run(asked.fromRunId);
+  if (
+    built?.kind !== "module" ||
+    built.status !== "succeeded" ||
+    !(await isPresent(path.join(services.workspace(built.runId), "module", "definition.json")))
+  )
+    throw new HttpError(
+      409,
+      "repair_build_missing",
+      "A repair starts from a module build of this activity that succeeded.",
+    );
+  const tested = await run(asked.testRunId);
+  if (tested?.kind !== "test" || tested.status !== "succeeded")
+    throw new HttpError(
+      409,
+      "repair_tests_missing",
+      "A repair answers a test run of this activity that finished.",
+    );
+  if (tested.test?.moduleRunId !== undefined && tested.test.moduleRunId !== built.runId)
+    throw new HttpError(409, "repair_tests_mismatch", "Those tests played another module build.");
+  const workspace = services.workspace(tested.runId);
+  const report = await fs
+    .readFile(path.join(workspace, ACCEPTANCE_REPORT_DIR, ACCEPTANCE_REPORT_FILE), "utf8")
+    .then((text) => readAcceptanceReport(JSON.parse(text)))
+    .catch(() => null);
+  const failed = report ? failedChecks(report) : [];
+  if (!failed.length)
+    throw new HttpError(
+      409,
+      "repair_nothing_failed",
+      "Those tests saw nothing the module does wrong.",
+    );
+  const testFile = await readArtifactBytes(
+    path.join(workspace, ACCEPTANCE_TEST_FILE),
+    TEST_FILE_MAX_BYTES,
+  )
+    .then((bytes) => bytes.toString("utf8"))
+    .catch(() => null);
+  if (!testFile) throw new HttpError(409, "repair_tests_missing", "Those tests left no test file.");
+  return {
+    repair: {
+      ...asked,
+      failed: failed.map((result) => ({
+        criterion: result.criterion,
+        testName: result.testName,
+        saw: result.error,
+      })),
+      testFile,
+    },
+    ...(built.bookMode ? { bookMode: built.bookMode } : {}),
+  };
+}
+
+/**
+ * Stages a repair round over the scaffold: the tested build's sources in place of the
+ * scaffold's, the checks it failed, and a read-only copy of their test file. Links are not
+ * copied.
+ */
+async function stageRepair(
+  services: RunKindServices,
+  workspace: string,
+  repair: ModuleRepair,
+): Promise<void> {
+  const from = path.join(services.workspace(repair.fromRunId), "module");
+  const to = path.join(workspace, "module");
+  for (const name of REPAIRED_SOURCES) {
+    const source = path.join(from, name);
+    const stat = await fs.lstat(source).catch(() => null);
+    if (!stat || stat.isSymbolicLink()) continue;
+    await fs.rm(path.join(to, name), { recursive: true, force: true });
+    await fs.cp(source, path.join(to, name), {
+      recursive: true,
+      filter: async (file) => !(await fs.lstat(file)).isSymbolicLink(),
+    });
+  }
+  const dir = path.join(workspace, REPAIR_DIR);
+  await fs.mkdir(dir, { recursive: true });
+  await atomicJson(path.join(dir, REPAIR_FILE), { failed: repair.failed });
+  await fs.writeFile(path.join(dir, ACCEPTANCE_TEST_FILE), repair.testFile, {
+    flag: "wx",
+    mode: 0o444,
+  });
+}
+
 export const moduleKind: SessionRunKind<
   RunRequestOf<"module">,
   ModulePrepared,
@@ -142,20 +263,25 @@ export const moduleKind: SessionRunKind<
   run: "module",
   runner: "session",
   needsScript: true,
-  async check(services, request, activity) {
+  async check(services, request, activity, projectId) {
     if (!hasValidSpec(activity))
       throw new HttpError(
         400,
         "module_spec_required",
         "Save a valid specification before assembling a module.",
       );
+    const repair = request.repair
+      ? await repairOf(services, projectId, activity.id, request.repair)
+      : undefined;
+    // A repair keeps the reading mode the build it repairs was assembled in.
+    const requested = request.bookMode ?? repair?.bookMode;
     let bookMode: BookMode | undefined;
     if (activity.activityType === "book") {
       try {
         validateBookSpec(validateActivitySpec(activity.draft.spec));
-        if (request.bookMode !== "readAlong" && request.bookMode !== "decodable")
+        if (requested !== "readAlong" && requested !== "decodable")
           throw new Error("Choose Read-along or Decodable before assembling a book.");
-        bookMode = request.bookMode;
+        bookMode = requested;
         if (
           !activity.draft.mediaPlan ||
           activity.draft.mediaPlan.specRevision !== contentRevision(activity.draft.spec)
@@ -166,7 +292,7 @@ export const moduleKind: SessionRunKind<
         throw new HttpError(422, "spec_invalid", (error as Error).message);
       }
     }
-    if (activity.activityType !== "book" && request.bookMode !== undefined)
+    if (activity.activityType !== "book" && requested !== undefined)
       throw new HttpError(400, "book_mode_invalid", "Reading mode only applies to books.");
     // Module code belongs to the product, and only its canonical ref may change it.
     // A non-canonical ref is configuration on top of a module someone else owns, so
@@ -179,7 +305,11 @@ export const moduleKind: SessionRunKind<
         `This activity shares its module with ref ${product?.canonicalRefNum}, which owns the module code. Assemble from that ref instead.`,
       );
     }
-    return { wafRoot: await services.wafWorkspace.requireRoot(), bookMode };
+    return {
+      wafRoot: await services.wafWorkspace.requireRoot(),
+      bookMode,
+      ...(repair ? { repair: repair.repair } : {}),
+    };
   },
   record: ({ bookMode }) => (bookMode ? { bookMode } : {}),
   input: ({ bookMode }) => (bookMode ? { bookMode } : {}),
@@ -191,6 +321,8 @@ export const moduleKind: SessionRunKind<
     await activities.prepareVideoMedia(projectId, activityId, workspace, expectedRevision);
     await activities.prepareUploadedMedia(projectId, activityId, workspace, expectedRevision);
     await prepareModule(workspace, activity, prepared.wafRoot, prepared.bookMode);
+    // Over the scaffold, so what an assembly's collect restores and checks is still there.
+    if (prepared.repair) await stageRepair(services, workspace, prepared.repair);
     // The packages the first stages started installing, linked in rather than installed again
     // by the agent.
     const linkModule = services.mediaHelper.linkModuleDependencies ?? linkModuleDependencies;
@@ -209,15 +341,20 @@ export const moduleKind: SessionRunKind<
     modulePrompt +
     (packagesLinked ? modulePackagesClause : "") +
     (prepared.bookMode ? moduleBookClause : "") +
-    featureClause(features),
+    featureClause(features) +
+    (prepared.repair ? moduleRepairClause : ""),
   // The shared checkout is the module's source of truth and belongs to whoever cloned it. An
   // assembly Session reads the framework, navbar and media out of it and must leave it exactly
   // as it found it — a refusal rather than an instruction, because an instruction is not a
   // permission system and the people approving these Sessions are not all engineers. The
   // linked packages are shared by every run, so they are refused the same way.
-  protectedRoots: ({ services, prepared }): ProtectedRoot[] => [
+  protectedRoots: ({ services, prepared, workspace }): ProtectedRoot[] => [
     { root: prepared.wafRoot, label: "the shared WAF checkout" },
     { root: modulePackagesRoot(services.root), label: "the shared module packages" },
+    // The checks a repair answers are run again as they are.
+    ...(prepared.repair
+      ? [{ root: path.join(workspace, REPAIR_DIR), label: "the checks this repair answers" }]
+      : []),
   ],
   outputs: [MODULE_OUTPUT],
   missing: `${MODULE_OUTPUT} or a required artifact`,

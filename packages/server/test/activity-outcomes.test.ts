@@ -367,7 +367,7 @@ describe("the outcome ledger", () => {
     });
   });
 
-  it("judges the build the preview plays: the one pinned on the draft, else the newest", async () => {
+  it("judges the build a test run names, else the one the preview plays: pinned, else the newest", async () => {
     const f = await fixture();
     const older = f.open("module");
     f.settle(older);
@@ -387,6 +387,94 @@ describe("the outcome ledger", () => {
     expect(await judged()).toBe(older.runId);
     await f.authoring.pinModuleRun(PROJECT, f.activity.id, null, await revision());
     expect(await judged()).toBe(newer.runId);
+    // A test run that names the build it plays judges that one, whatever the preview plays.
+    const named = f.open("test", {
+      test: {
+        criteria: ["It starts."],
+        specRevision: "s",
+        harnessVersion: 2,
+        reused: false,
+        moduleRunId: older.runId,
+      },
+    } as Partial<ActivityRun>);
+    f.settle(named, "failed");
+    expect((await f.story(named)).facts[0]!.detail.judges).toBe(older.runId);
+  });
+
+  it("counts a run of another kind amending a part as an edit by a run, not a takeover", async () => {
+    const f = await fixture();
+    const revision = async () =>
+      (await f.authoring.getActivity(PROJECT, f.activity.id)).draft.contentRevision;
+    /** A run that applies its own specification, as a specification or media pass does. */
+    const pass = async (kind: "spec" | "media-spec", spec: Record<string, unknown>) => {
+      const run = f.open(kind);
+      f.start(run);
+      await f.outcomes.attribute({ actor: "run", runId: run.runId }, async () =>
+        f.authoring.applySpec(PROJECT, f.activity.id, spec, await revision()),
+      );
+      return f.settle(run);
+    };
+    const spec = await pass("spec", activitySpec);
+    const media = await pass("media-spec", { ...activitySpec, title: "Sight words, with media" });
+    const specs = (await f.outcomes.tally({ kind: "spec" }))[0]!.metrics;
+    expect(specs).toMatchObject({ accepted: 1, "accepted.run": 1, "edits.run": 1 });
+    expect(specs.replaced).toBeUndefined();
+    expect(specs["editedBytes.run"]).toBeGreaterThan(0);
+    expect((await f.outcomes.tally({ kind: "media-spec" }))[0]!.metrics).toMatchObject({
+      accepted: 1,
+      "accepted.run": 1,
+    });
+    expect((await f.story(media)).facts.find((fact) => fact.fact === "part")?.detail).toMatchObject(
+      {
+        part: "spec",
+        change: "amend",
+        fromRun: spec.runId,
+        run: spec.runId,
+        amendedBy: media.runId,
+      },
+    );
+    // The specification is still the first pass's, amended: a deploy credits both.
+    f.events.emit({
+      projectId: PROJECT,
+      activityId: f.activity.id,
+      runId: "dep_qa",
+      target: "qa",
+      revision: await revision(),
+      moduleRunId: null,
+      deployedAt: "2026-10-13T12:00:00.000Z",
+    });
+    await f.authoring.exclusive(PROJECT, f.activity.id, async () => {});
+    for (const run of [spec, media])
+      expect((await f.story(run)).facts.at(-1)).toMatchObject({
+        fact: "deployed",
+        detail: { as: "part" },
+      });
+    // A later pass of the same kind takes the part over.
+    await pass("spec", { ...activitySpec, title: "Sight words again" });
+    const again = (await f.outcomes.tally({ kind: "spec" }))[0]!.metrics;
+    expect(again).toMatchObject({ accepted: 2, replaced: 1 });
+  });
+
+  it("credits who started a run with accepting it when no actor is named, else the run", async () => {
+    const f = await fixture();
+    const revision = async () =>
+      (await f.authoring.getActivity(PROJECT, f.activity.id)).draft.contentRevision;
+    const accept = (run: ActivityRun, text: string) =>
+      f.outcomes.attribute({ runId: run.runId }, async () =>
+        f.authoring.updateDescription(PROJECT, f.activity.id, text, await revision()),
+      );
+    const staged = await f.outcomes.attribute({ actor: "stages" }, async () =>
+      f.settle(f.open("assist", { assist: { focus: null } } as Partial<ActivityRun>)),
+    );
+    f.start(staged);
+    await accept(staged, "Teach one sight word");
+    const nobody = f.settle(f.open("assist", { assist: { focus: null } } as Partial<ActivityRun>));
+    f.start(nobody);
+    await accept(nobody, "Teach two sight words");
+    const accepted = async (run: ActivityRun) =>
+      (await f.story(run)).facts.find((fact) => fact.fact === "accepted")?.detail.actor;
+    expect(await accepted(staged)).toBe("stages");
+    expect(await accepted(nobody)).toBe("run");
   });
 
   it("marks an earlier run superseded when a later one of the same target opens", async () => {

@@ -87,6 +87,11 @@ export interface AcceptanceRunRecord {
   reused: boolean;
   /** The SHA-256 of the test file it was handed; absent when it was handed none. */
   cachedTestHash?: string;
+  /**
+   * The module build the tests played; absent when they played a module in the WAF checkout,
+   * and on older records.
+   */
+  moduleRunId?: string;
 }
 
 /** A test run's start, as the acceptance service hands it to the generation service. */
@@ -96,4 +101,6 @@ export interface AcceptanceStage {
   cachedTest: string | null;
   /** The `playwright-core` version the harness installs: the one this server drives. */
   playwrightVersion: string;
+  /** The module build the play link plays; absent for a module in the WAF checkout. */
+  moduleRunId?: string;
 }

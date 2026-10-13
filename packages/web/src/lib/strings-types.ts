@@ -921,7 +921,9 @@ export type Strings = {
         | "noCriteria"
         | "noBrowser"
         | "moduleNotChecked"
-        | "moduleCheckSkipped",
+        | "moduleCheckSkipped"
+        | "testsFailing"
+        | "testsStillFailing",
         string
       >;
       running: (step: string) => string;

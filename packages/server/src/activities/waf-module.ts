@@ -662,3 +662,17 @@ module/node_modules is already installed: every package module/package.json name
 export const moduleBookClause = `
 input.bookMode is the user's explicit reading-mode choice. The scaffolded product configuration contains the selected book policy, the book state machine, the scene catalog, and complete localized scenes. Preserve the policy, scene order, roles, derived page numbers, image alt text, and ordered audio cues. Cover/title pages show only artwork. Story visible text is primary narration; supplemental cues remain hidden. Read-along autoplays on first visit without advancing; Decodable waits the configured reading delay for manual narration and unlocks Next only after all cues complete. Keep backward navigation and rereading available after completion. Missing word timings or pronunciation assets are missing capabilities to report, not timings to invent. Empty timing arrays must not be presented as verified synchronized highlighting.
 The scaffold ships the complete native reader under module/src: src/index.ts boots the waf-state-machine with enterReader/bookFinalize actions; src/book-reader holds the model, controller, view and adapter. Use them as shipped. The entry wires the intro video, framework pause/resume, pagehide teardown (controller.dispose plus stateMachine.stop), keyboard navigation, and completion via BOOK.COMPLETED while keeping the view interactive. The adapter compiles word highlight events only from timings present in the configuration; with the currently empty timing arrays narration must play without highlighting, and synchronized highlighting must be reported as unavailable. Supply native timed-audio operations through the port with channel vocals; a missing cue must reject as failed narration, never resolve as success. Keep the reader's Interactables scene-owned so they survive the final state. Exercise the real reading scenarios in the player check: delay, pause/resume, interrupted narration, follow-up cues, quiet revisits, and post-completion navigation. Report any capability the data cannot support (word audio, timings, intro video) instead of claiming it. Include all reader source files in module-result.json.`;
+
+/**
+ * Where a repair round stages what it answers, beside `module/`: the checks the tested build
+ * failed (`REPAIR_FILE`) and a read-only copy of the test file they came from.
+ */
+export const REPAIR_DIR = "repair";
+export const REPAIR_FILE = "repair.json";
+
+/**
+ * What a module run that repairs a tested build is told beside `modulePrompt`: it starts from
+ * that build's sources, with the checks it failed.
+ */
+export const moduleRepairClause = `
+This run repairs a module build the acceptance tests played. module/src, module/res, module/configurations and module/definition.json are that build's files as they were tested. ${REPAIR_DIR}/${REPAIR_FILE} lists each check that ran and saw the module do something wrong: its criterion, the check's name and what it saw. ${REPAIR_DIR}/${ACCEPTANCE_TEST_FILE} is the test file those checks are in; read it to see what each check does, and do not change it: the same file is run again against your build. Fix the module so it behaves as the specification in input.json says, then build it and check it in the player as above. Where a check asks for something the specification does not say, leave the module as the specification has it and name that check in your final message instead.`;

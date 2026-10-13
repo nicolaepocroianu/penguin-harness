@@ -2609,6 +2609,57 @@ test("runs every stage from Stages and follows the run in its panel", async ({ p
   expect(f.errors).toEqual([]);
 });
 
+test("notes on a finished test stage that checks still fail after the repair round", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  const finished = {
+    pipelineId: "pipeline_1",
+    projectId,
+    activityId: "act_test",
+    selection: "test",
+    status: "succeeded",
+    steps: [
+      {
+        step: "test",
+        status: "succeeded",
+        detail: null,
+        note: "testsStillFailing",
+        done: 0,
+        total: 0,
+        runIds: [],
+      },
+    ],
+    currentRunId: null,
+    currentSessionId: null,
+    error: null,
+    startedAt: "2026-10-13T12:00:00Z",
+    finishedAt: "2026-10-13T12:05:00Z",
+  };
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    const p = new URL(request.url()).pathname;
+    if (p !== `${base}/act_test/pipeline` || request.method() !== "GET") return route.fallback();
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ pipeline: finished }),
+    });
+  });
+  await page.reload();
+  await openPanel(page, "Stages");
+  const panel = page.getByRole("complementary", { name: "Stages", exact: true });
+  // A stage that finished with a caveat says so under its name.
+  await expect(
+    panel.getByText(
+      "Some acceptance checks still fail after the module was rebuilt once with what they found. Open the test report to see which.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  expect(f.errors).toEqual([]);
+});
+
 test("hides reasoning in the run log and expands a long tool output", async ({ page }) => {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   const f = await fixture(page);

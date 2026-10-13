@@ -29,6 +29,7 @@ import { phonemesKind } from "../src/activities/run-kinds/phonemes.js";
 import { mediaSpecKind, specKind, SPEC_OUTPUT } from "../src/activities/run-kinds/spec.js";
 import { testKind } from "../src/activities/run-kinds/test.js";
 import { imageKind, IMAGE_OUTPUT } from "../src/activities/run-kinds/image.js";
+import { moduleKind } from "../src/activities/run-kinds/module.js";
 import { PHONEMES_FILE } from "../src/activities/phonemes-run.js";
 import { experimentOff } from "../src/activities/video-experiment.js";
 import {
@@ -402,5 +403,146 @@ describe("collecting what an agent wrote", () => {
         collecting(run("assist"), dir, { observed: { completed: false, error: null } }),
       ),
     ).toEqual({ settled: "failed", error: "The agent did not reply." });
+  });
+});
+
+describe("a module repair round", () => {
+  const owner = { projectId: "kinds-work" };
+  const BUILD = `run_${"b".repeat(32)}`;
+  const TESTS = `run_${"c".repeat(32)}`;
+  const failing = {
+    overallStatus: "failed",
+    results: [
+      {
+        criterion: "It starts.",
+        testName: "starts",
+        status: "failed",
+        durationMs: 3,
+        error: "Nothing started.",
+      },
+    ],
+    checkedAt: "2026-10-13T12:00:00.000Z",
+    specRevision: null,
+    reused: false,
+  };
+
+  /** A build and the tests that played it, as runs of the activity with their folders. */
+  async function repairing(
+    options: {
+      build?: Partial<ActivityRun>;
+      tests?: Partial<ActivityRun>;
+      report?: unknown;
+      built?: boolean;
+      canonical?: boolean;
+    } = {},
+  ) {
+    const root = await workspace();
+    const runs = new Map<string, ActivityRun>([
+      [
+        BUILD,
+        {
+          ...run("module", { runId: BUILD, status: "succeeded" }),
+          ...options.build,
+        } as ActivityRun,
+      ],
+      [
+        TESTS,
+        {
+          ...run("test", {
+            runId: TESTS,
+            status: "succeeded",
+            test: {
+              criteria: ["It starts."],
+              specRevision: "s",
+              harnessVersion: 2,
+              reused: false,
+              moduleRunId: BUILD,
+            },
+          }),
+          ...options.tests,
+        } as ActivityRun,
+      ],
+    ]);
+    const write = async (runId: string, name: string, text: string) => {
+      const file = path.join(root, runId, ...name.split("/"));
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      await fs.writeFile(file, text);
+    };
+    if (options.built !== false) await write(BUILD, "module/definition.json", "{}");
+    await write(TESTS, "acceptance.test.mjs", "// the checks\n");
+    await write(
+      TESTS,
+      `${ACCEPTANCE_REPORT_DIR}/${ACCEPTANCE_REPORT_FILE}`,
+      JSON.stringify(options.report ?? failing),
+    );
+    const kindServices = services({
+      workspace: (runId) => path.join(root, runId),
+      run: async (_projectId, _activityId, runId) => {
+        const found = runs.get(runId);
+        if (!found) throw new Error("run_not_found");
+        return found;
+      },
+      activities: {
+        isCanonicalRef: () => options.canonical ?? true,
+        productOf: () => ({ canonicalRefNum: 2 }),
+      } as unknown as RunKindServices["activities"],
+      wafWorkspace: {
+        requireRoot: async () => root,
+      } as unknown as RunKindServices["wafWorkspace"],
+    });
+    const request: RunRequest = {
+      kind: "module",
+      repair: { fromRunId: BUILD, testRunId: TESTS },
+    };
+    const valid = activity({ spec: activitySpec, status: "valid" });
+    return {
+      root,
+      may: () => canRun(moduleKind, kindServices, request, valid, owner),
+      prepared: () => moduleKind.check(kindServices, request, valid, owner.projectId),
+    };
+  }
+
+  it("starts from a build the tests played, told the checks that ran and failed", async () => {
+    const world = await repairing();
+    expect(await world.may()).toEqual({ ok: true });
+    expect((await world.prepared()).repair).toEqual({
+      fromRunId: BUILD,
+      testRunId: TESTS,
+      failed: [{ criterion: "It starts.", testName: "starts", saw: "Nothing started." }],
+      testFile: "// the checks\n",
+    });
+  });
+
+  it("refuses what is not a build, not finished tests of it, or nothing a module run can fix", async () => {
+    const refused = async (options: Parameters<typeof repairing>[0]) =>
+      ((await (await repairing(options)).may()) as { refusal: { code: string } }).refusal.code;
+    expect(await refused({ build: { kind: "spec" } })).toBe("repair_build_missing");
+    expect(await refused({ build: { status: "failed" } })).toBe("repair_build_missing");
+    expect(await refused({ built: false })).toBe("repair_build_missing");
+    expect(await refused({ tests: { status: "running" } })).toBe("repair_tests_missing");
+    expect(
+      await refused({
+        tests: {
+          test: {
+            criteria: [],
+            specRevision: "s",
+            harnessVersion: 2,
+            reused: false,
+            moduleRunId: `run_${"d".repeat(32)}`,
+          },
+        },
+      }),
+    ).toBe("repair_tests_mismatch");
+    // A check that never ran is a problem with the tests, not with the module.
+    expect(
+      await refused({
+        report: {
+          ...failing,
+          results: [{ ...failing.results[0], testName: "", error: null, code: "not_run" }],
+        },
+      }),
+    ).toBe("repair_nothing_failed");
+    // A repair is still an assembly: only the canonical ref changes the module.
+    expect(await refused({ canonical: false })).toBe("ref_not_canonical");
   });
 });

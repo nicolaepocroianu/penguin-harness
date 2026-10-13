@@ -13,6 +13,7 @@ import {
   translationTargets,
 } from "../src/activities/pipeline-run.js";
 import { contentRevision, type ActivityRun } from "../src/activities/domain.js";
+import type { AcceptanceReport } from "../src/activities/acceptance-types.js";
 import type { RunAndAcceptOptions, RunOutcome, RunRequest } from "../src/activities/run-request.js";
 import { runKindOf } from "../src/activities/run-kinds/index.js";
 import type { AssetManifest, MediaAsset } from "../src/activities/media.js";
@@ -24,6 +25,24 @@ import {
 } from "../src/activities/voice-catalogue.js";
 
 const usage = [{ sceneId: "intro", sourceKey: "k", occurrence: 1, sceneOccurrenceCount: 1 }];
+
+/** A test run's report: each check passed, failed on what it saw, or never ran. */
+function testReport(checks: ("passed" | "failed" | "notRun")[], reused = false): AcceptanceReport {
+  return {
+    overallStatus: checks.every((check) => check === "passed") ? "passed" : "failed",
+    results: checks.map((check, index) => ({
+      criterion: `criterion ${index + 1}`,
+      testName: check === "notRun" ? "" : `check ${index + 1}`,
+      status: check === "passed" ? "passed" : "failed",
+      durationMs: 1,
+      error: check === "failed" ? "saw nothing happen" : null,
+      ...(check === "notRun" ? { code: "not_run" as const } : {}),
+    })),
+    checkedAt: "2026-10-13T12:00:00Z",
+    specRevision: null,
+    reused,
+  };
+}
 
 function manifest(withRomanian = false): AssetManifest {
   return {
@@ -233,6 +252,10 @@ function world(
     }[];
     /** Add an unbound music asset with a prompt to the plan, next to the sound effects. */
     music?: boolean;
+    /** What each test run reports, in turn; every check passes when absent. */
+    reports?: AcceptanceReport[];
+    /** A module run that repairs a build fails. */
+    failRepair?: boolean;
   } = {},
 ) {
   let revision = 1;
@@ -267,6 +290,10 @@ function world(
   const started: string[] = [];
   const cancelled: string[] = [];
   const soundSetups: string[] = [];
+  /** The build each test run was asked to play, and the repairs asked for. */
+  const tested: (string | undefined)[] = [];
+  const repairs: unknown[] = [];
+  const reports = new Map<string, AcceptanceReport>();
   const asset = (language: string, key: string) =>
     activity.draft.mediaPlan!.manifest.assets[language]!.find((item) => item.key === key)!;
 
@@ -348,11 +375,19 @@ function world(
         started.push(
           `sound:${request.sound.provider}:${request.sound.language}:${request.sound.assetKey}`,
         );
-      else started.push(target ? `${kind}:${target.language}:${target.assetKey}` : kind);
+      else if (request.kind === "module" && request.repair) {
+        started.push("module-repair");
+        repairs.push(request.repair);
+      } else started.push(target ? `${kind}:${target.language}:${target.assetKey}` : kind);
+      if (request.kind === "test" && request.test.moduleRunId)
+        run.test = { moduleRunId: request.test.moduleRunId } as ActivityRun["test"];
       told?.(run);
       if (holding) await Promise.race([holding, aborted(signal)]);
       if (signal?.aborted) return { outcome: "stopped", run };
-      if (options.fail === run.kind) {
+      if (
+        options.fail === run.kind ||
+        (request.kind === "module" && request.repair && options.failRepair)
+      ) {
         run.status = "failed";
         run.error = `${run.kind} broke`;
         // A specification pass fails on what its agent wrote, as the real checks do.
@@ -361,6 +396,8 @@ function world(
       }
       run.status = "succeeded";
       if (run.kind === "module" && options.unchecked) run.unchecked = options.unchecked;
+      if (run.kind === "test")
+        reports.set(run.runId, options.reports?.[reports.size] ?? testReport(["passed"], true));
       if (run.kind === "spec") {
         activity.draft.spec = spec;
         activity.draft.status = "valid";
@@ -469,8 +506,17 @@ function world(
     async browserInstalled() {
       return options.browser ?? true;
     },
-    async testRun() {
-      return { kind: "test", test: {} } as RunRequest;
+    async testRun(_p: string, _a: string, moduleRunId?: string) {
+      tested.push(moduleRunId);
+      return { kind: "test", test: { ...(moduleRunId ? { moduleRunId } : {}) } } as RunRequest;
+    },
+    // The latest finished test run's report, as the acceptance service answers it.
+    async state() {
+      const latest = runs.filter((run) => run.kind === "test" && run.status === "succeeded").at(-1);
+      return {
+        report: latest ? (reports.get(latest.runId) ?? null) : null,
+        runId: latest?.runId ?? null,
+      };
     },
   } as unknown as StagesPort;
 
@@ -494,6 +540,8 @@ function world(
     soundSetups,
     causes,
     outside: () => outside,
+    tested,
+    repairs,
   };
 }
 
@@ -851,6 +899,87 @@ describe("running the stages", () => {
     expect(final.status).toBe("failed");
     expect(final.error).toBe("test broke");
     expect(final.steps.at(-1)!.status).toBe("failed");
+  });
+
+  describe("the test step's repair round", () => {
+    const criteria = ["Tapping the cat plays its name.", "The cat waves."];
+    const all = async (w: ReturnType<typeof world>) => {
+      await w.runner.start("proj", "act", { selection: "all", agentId: "agent" }).done;
+      return w.runner.status("act")!;
+    };
+    const runOf = (w: ReturnType<typeof world>, kind: string, nth = 0) =>
+      w.runs.filter((run) => run.kind === kind)[nth]!.runId;
+
+    it("tests the build the sequence just made, and repairs nothing when every check passes", async () => {
+      const w = world({ criteria });
+      const final = await all(w);
+      expect(w.tested).toEqual([runOf(w, "module")]);
+      expect(w.repairs).toEqual([]);
+      expect(final.steps.at(-1)).toMatchObject({ status: "succeeded", note: null });
+    });
+
+    it("rebuilds once from the tested build with what failed, then runs the same tests on it", async () => {
+      const w = world({
+        criteria,
+        reports: [testReport(["passed", "failed"]), testReport(["passed", "passed"], true)],
+      });
+      const final = await all(w);
+      expect(final.status).toBe("succeeded");
+      expect(w.started.slice(-4)).toEqual(["module", "test", "module-repair", "test"]);
+      const [first, second] = [runOf(w, "test"), runOf(w, "test", 1)];
+      expect(w.repairs).toEqual([{ fromRunId: runOf(w, "module"), testRunId: first }]);
+      // The second tests play the repaired build.
+      expect(w.tested).toEqual([runOf(w, "module"), runOf(w, "module", 1)]);
+      expect(final.steps.at(-1)).toMatchObject({
+        status: "succeeded",
+        note: null,
+        runIds: [first, runOf(w, "module", 1), second],
+      });
+    });
+
+    it("says when checks still fail after the round, or ran changed tests", async () => {
+      const still = world({
+        criteria,
+        reports: [testReport(["failed", "passed"]), testReport(["failed", "passed"], true)],
+      });
+      expect((await all(still)).steps.at(-1)).toMatchObject({
+        status: "succeeded",
+        note: "testsStillFailing",
+      });
+      // Passing tests that are not the ones handed over prove nothing.
+      const changed = world({
+        criteria,
+        reports: [testReport(["failed", "passed"]), testReport(["passed", "passed"], false)],
+      });
+      expect((await all(changed)).steps.at(-1)).toMatchObject({ note: "testsStillFailing" });
+    });
+
+    it("repairs nothing for a check that never ran, nor without a build to start from", async () => {
+      const notRun = world({ criteria, reports: [testReport(["passed", "notRun"])] });
+      expect((await all(notRun)).steps.at(-1)).toMatchObject({
+        status: "succeeded",
+        note: "testsFailing",
+      });
+      expect(notRun.repairs).toEqual([]);
+      // Tests run on their own play what the preview plays, which may be no build of the activity.
+      const alone = world({ criteria, reports: [testReport(["failed"])] });
+      await alone.runner.start("proj", "act", { selection: "spec", agentId: "agent" }).done;
+      await alone.runner.start("proj", "act", { selection: "test", agentId: "agent" }).done;
+      expect(alone.tested).toEqual([undefined]);
+      expect(alone.repairs).toEqual([]);
+      expect(alone.runner.status("act")!.steps[0]).toMatchObject({
+        status: "succeeded",
+        note: "testsFailing",
+      });
+    });
+
+    it("keeps the first findings when the round cannot finish", async () => {
+      const w = world({ criteria, failRepair: true, reports: [testReport(["failed"])] });
+      const final = await all(w);
+      expect(final.status).toBe("succeeded");
+      expect(w.started.slice(-2)).toEqual(["test", "module-repair"]);
+      expect(final.steps.at(-1)).toMatchObject({ status: "succeeded", note: "testsFailing" });
+    });
   });
 
   it("limits targets to the scope's language and asset", () => {

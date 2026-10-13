@@ -156,6 +156,7 @@ import { ActivityDeployEventHub, ActivityDeployEvents } from "./activities/deplo
 import { ActivityPhonemesService, DefaultEspeakPorts } from "./activities/phonemes.js";
 import { PhonemesAdminRoutes } from "./activities/phonemes-routes.js";
 import {
+  ActivityAcceptance,
   ActivityAcceptanceService,
   DefaultAcceptancePorts,
 } from "./activities/acceptance-service.js";
@@ -475,6 +476,7 @@ export class CodingAgentsModule {}
     ActivityGeneration,
     ActivityRuns,
     ActivityOutcomes,
+    ActivityAcceptance,
     ActivityVersions,
     ActivityModuleBuilds,
     TestBrowser,

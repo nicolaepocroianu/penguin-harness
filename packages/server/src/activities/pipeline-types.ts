@@ -58,7 +58,11 @@ export type PipelineNote =
   /** The module was built without being checked in the player: no test browser. */
   | "moduleNotChecked"
   /** The module was built, but its agent never ran the player check it was given. */
-  | "moduleCheckSkipped";
+  | "moduleCheckSkipped"
+  /** Acceptance checks fail, and the module was not rebuilt with what they found. */
+  | "testsFailing"
+  /** Acceptance checks still fail after the module was rebuilt once with what they found. */
+  | "testsStillFailing";
 
 export interface PipelineStepState {
   step: PipelineStep;

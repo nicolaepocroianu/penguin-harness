@@ -1050,6 +1050,9 @@ export const en: Strings = {
           "Built and type-checked, but not checked in the player: an admin has not installed the test browser in System settings.",
         moduleCheckSkipped:
           "Built and type-checked, but the agent did not run the player check. Run the module stage again.",
+        testsFailing: "Some acceptance checks fail. Open the test report to see which.",
+        testsStillFailing:
+          "Some acceptance checks still fail after the module was rebuilt once with what they found. Open the test report to see which.",
       },
       running: (step: string) => `${step}…`,
       finished: "All chosen stages finished.",
