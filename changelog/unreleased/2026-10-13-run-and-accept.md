@@ -3,6 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** refactor
 - **Scope:** `server`
+- **PR:** [#123](https://github.com/nicolaepocroianu/penguin-harness/pull/123)
 
 `ActivityGeneration.runAndAccept` started a run, waited for it to end, and accepted its
 candidate into the draft, answering `accepted`, `succeeded` (a kind that keeps its own result:
