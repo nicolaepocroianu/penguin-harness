@@ -55,7 +55,7 @@ pnpm bench seal <private source> --bench <id>   # people only, see below
 | invalid | meaning |
 | --- | --- |
 | `dirty_tree` | The checkout has uncommitted changes. Commit or remove them. |
-| `out_of_surface` | Head changes something besides the plugin's skills, `README.md` and `icon.svg` — its `package.json` and `plugin.json` only in their `version`. Split the change. |
+| `out_of_surface` | Head changes something besides the plugin's skills, `README.md` and `icon.svg` — its `package.json` and `plugin.json` only in their `version` — or changes a symbolic link anywhere. Split the change. |
 | `preflight` | A revision, the seed, the test browser or a recipe build is not ready; the reason says which. |
 | `budget` | The estimate or the next block would pass the cap, or the estimate was not confirmed. |
 | `infrastructure` | The machinery failed twice in a row. Fix it and run the same comparison again. |
@@ -121,9 +121,19 @@ passphrase) into `<bench home>/vault/<id>.sealed`. Folder layout: the comment at
   disk; it is not a read barrier against a process of the same user. Only another OS account or
   the repository's Docker image is (decision 10, before G).
 - Checks run under Node's permission model: they cannot write, start a process or a worker, or
-  read files beyond playwright-core. They can still reach the network, and through the
-  evaluator's browser a page could open a local `file://` URL; a trial's own tests run before any
-  hidden check is unsealed, so nothing hidden is there to find.
+  read files beyond playwright-core. Node does not restrict their network, and the browser they
+  drive runs unconfined, as this user.
+- Left open, that browser would let a trial's own tests read anything this user can — a Claude
+  login, Penguin's vaults, the other side's trial home — by opening a `file://` URL, and send it
+  to any host. Two locks prevent it (`scripts/activity-bench/browser-guard.ts`): the browser
+  starts with no route off loopback (a proxy that leads nowhere for every other host, host names
+  that resolve to nothing, no WebRTC around the proxy), and a check reaches it only through a
+  guard that refuses a navigation to anything but http(s) on loopback, a context with its own
+  proxy, files from this disk, raw DevTools, the browser's own HTTP client, tracing and artifacts.
+  A test proves each escape works without the locks and fails with them.
+- Still, run the bench under a dedicated OS account that holds no credentials of its own (no
+  Claude or cloud login, no SSH keys, no Penguin vaults): that is the recommended way, and the
+  only real read barrier on Windows.
 - Stage prompts are outside the recipe surface until each run kind's prompt text has a file of its
   own (decision 18).
 - A skill a recipe deletes stays in the trial from the seed's own install of the plugin.
