@@ -45,6 +45,8 @@ import type {
   OutcomeDimension,
   OutcomeFact,
   OutcomeQuery,
+  OutcomeRun,
+  OutcomeRunsQuery,
   OutcomeTally,
   RunRecipe,
   RunStory,
@@ -88,7 +90,17 @@ export abstract class ActivityOutcomes extends Interface<{
   tally(query: OutcomeQuery): Promise<OutcomeTally[]>;
   /** One activity's runs (or one run), oldest first, each with its recipe and its facts. */
   history(projectId: string, activityId: string, runId?: string): Promise<RunStory[]>;
+  /**
+   * The runs one tally counted (the tally's query, and its key), newest first and at most
+   * `RUNS_LISTED` of them: what an admin opens a tally on.
+   */
+  tallyRuns(query: OutcomeRunsQuery): Promise<OutcomeRun[]>;
+  /** The projects the ledger holds runs of, by id, in order. */
+  projects(): Promise<string[]>;
 }>() {}
+
+/** The most runs one tally lists. */
+export const RUNS_LISTED = 50;
 
 interface OutcomeRow {
   run_id: string;
@@ -211,6 +223,39 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
       return this.stories(projectId, activityId, runId);
     } catch (error) {
       this.log.line(`[activity-outcomes] could not read ${activityId}'s runs: ${messageOf(error)}`);
+      return [];
+    }
+  }
+
+  async tallyRuns(query: OutcomeRunsQuery): Promise<OutcomeRun[]> {
+    try {
+      const by = query.by ?? "recipe";
+      return this.counted(query)
+        .filter(({ row, recipe }) => dimensionKey(by, row, recipe) === query.key)
+        .sort((a, b) => b.row.started_at.localeCompare(a.row.started_at))
+        .slice(0, RUNS_LISTED)
+        .map(({ row }) => ({
+          runId: row.run_id,
+          projectId: row.project_id,
+          activityId: row.activity_id,
+          startedAt: row.started_at,
+          status: row.status,
+        }));
+    } catch (error) {
+      this.log.line(`[activity-outcomes] could not list ${query.kind} runs: ${messageOf(error)}`);
+      return [];
+    }
+  }
+
+  async projects(): Promise<string[]> {
+    try {
+      return (
+        this.db
+          .prepare("SELECT DISTINCT project_id FROM activity_run_outcomes ORDER BY project_id")
+          .all() as { project_id: string }[]
+      ).map((row) => row.project_id);
+    } catch (error) {
+      this.log.line(`[activity-outcomes] could not list projects: ${messageOf(error)}`);
       return [];
     }
   }
@@ -702,7 +747,8 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
 
   // ---- reads ----
 
-  private tallied(query: OutcomeQuery): OutcomeTally[] {
+  /** The runs a query counts, each with its recipe: those with an unknown recipe are left out. */
+  private counted(query: OutcomeQuery): { row: OutcomeRow; recipe: RunRecipe }[] {
     const where = ["o.kind = ?"];
     const params: string[] = [query.kind];
     if (query.projectId !== undefined) {
@@ -724,18 +770,21 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
     }
     const rows = this.db
       .prepare(
-        `SELECT o.recipe_id, o.prompt_sha256, o.status, o.started_at, o.settled_at, o.accepted_by,
-                o.metrics_json,
+        `SELECT o.run_id, o.project_id, o.activity_id, o.recipe_id, o.prompt_sha256, o.status,
+                o.started_at, o.settled_at, o.accepted_by, o.metrics_json,
                 r.recipe_json
            FROM activity_run_outcomes o
            JOIN activity_outcome_recipes r ON r.recipe_id = o.recipe_id
           WHERE ${where.join(" AND ")}`,
       )
       .all(...params) as unknown as (OutcomeRow & { recipe_json: string })[];
+    return rows.map((row) => ({ row, recipe: JSON.parse(row.recipe_json) as RunRecipe }));
+  }
+
+  private tallied(query: OutcomeQuery): OutcomeTally[] {
     const by = query.by ?? "recipe";
     const groups = new Map<string | null, OutcomeTally>();
-    for (const row of rows) {
-      const recipe = JSON.parse(row.recipe_json) as RunRecipe;
+    for (const { row, recipe } of this.counted(query)) {
       const key = dimensionKey(by, row, recipe);
       const tally = groups.get(key) ?? {
         key,

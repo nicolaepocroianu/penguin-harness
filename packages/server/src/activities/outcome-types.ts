@@ -137,6 +137,32 @@ export interface OutcomeHistoryResponse {
   runs: RunStory[];
 }
 
+/** The runs of one tally: its query, and the key it groups them under. */
+export interface OutcomeRunsQuery extends OutcomeQuery {
+  /** The tally's key; null for the runs whose recipes have no such part. */
+  key: string | null;
+}
+
+/** One run a tally counted, as a list of them shows it. */
+export interface OutcomeRun {
+  runId: string;
+  projectId: string;
+  activityId: string;
+  startedAt: string;
+  /** How it ended, or `running`. */
+  status: string;
+}
+
+/** GET /api/admin/activity-outcomes/runs */
+export interface OutcomeRunsResponse {
+  runs: OutcomeRun[];
+}
+
+/** GET /api/admin/activity-outcomes/projects */
+export interface OutcomeProjectsResponse {
+  projects: string[];
+}
+
 /** One file of a bundled skill a run may be given. */
 export interface LibraryFile {
   plugin: string;

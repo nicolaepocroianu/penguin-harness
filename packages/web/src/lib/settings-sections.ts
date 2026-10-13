@@ -35,6 +35,7 @@ export type SettingsSectionKey =
   | "testBrowser"
   | "wafWorkspace"
   | "deploy"
+  | "activityOutcomes"
   | "users";
 
 /** Rail heading a page sits under: the viewer's own preferences vs. the whole server's. */
@@ -76,6 +77,9 @@ const SECTION_RULES: ReadonlyArray<SettingsSection & { visible(viewer: SettingsV
     { key: "wafWorkspace", group: "server", visible: (v) => v.isAdmin },
     // Where activities deploy to: one Jenkins and one set of repositories for the server.
     { key: "deploy", group: "server", visible: (v) => v.isAdmin },
+    // What became of every project's activity runs: the outcome ledger reads across projects,
+    // so only an admin reads it, desktop mode included.
+    { key: "activityOutcomes", group: "server", visible: (v) => v.isAdmin },
     // Single-user under the desktop shell: the server rejects the admin user routes there.
     { key: "users", group: "server", visible: (v) => v.isAdmin && !v.desktopMode },
   ];

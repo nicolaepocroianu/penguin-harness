@@ -31,6 +31,7 @@ import { TestBrowserSection } from "./test-browser-section";
 import { DeploySection } from "./deploy-section";
 import { WafWorkspaceSection } from "./waf-workspace-section";
 import { AdminUsersSection } from "../admin/admin-users-page";
+import { ActivityOutcomesSection } from "../admin/activity-outcomes-section";
 
 /** Rail glyphs, on the shared 24x24 stroke grid (see NAV_ICONS' conventions). */
 const SECTION_ICONS: Record<SettingsSectionKey, string> = {
@@ -58,6 +59,8 @@ const SECTION_ICONS: Record<SettingsSectionKey, string> = {
   /** A rocket: where activities are deployed to. */
   deploy:
     "M5 15c-1.5 1.3-2 5-2 5s3.7-.5 5-2m-3-3l4 4m-4-4c1-4 4.5-9 12-11-2 7.5-7 11-11 12m6-7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z",
+  /** A bar chart: what became of activity runs, counted. */
+  activityOutcomes: "M4 20h16M7 16v-5M12 16V6M17 16v-8",
   /** Two people: user management. */
   users:
     "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
@@ -105,6 +108,7 @@ export function SettingsDialog({
     testBrowser: S.settings.testBrowser.title,
     wafWorkspace: S.settings.wafWorkspace.title,
     deploy: S.settings.deploy.title,
+    activityOutcomes: S.admin.activityOutcomes.title,
     users: S.admin.users,
   };
   const groupLabel: Record<SettingsGroupKey, string> = {
@@ -120,6 +124,7 @@ export function SettingsDialog({
     testBrowser: S.settings.testBrowser.about,
     wafWorkspace: S.settings.wafWorkspace.about,
     deploy: S.settings.deploy.about,
+    activityOutcomes: S.admin.activityOutcomes.about,
   };
 
   const groups: Array<PagedDialogGroup<SettingsSectionKey>> = settingsGroups(sections).map(
@@ -156,6 +161,7 @@ export function SettingsDialog({
       {current === "testBrowser" && <TestBrowserSection />}
       {current === "wafWorkspace" && <WafWorkspaceSection />}
       {current === "deploy" && <DeploySection />}
+      {current === "activityOutcomes" && <ActivityOutcomesSection />}
       {current === "users" && <AdminUsersSection />}
     </PagedDialog>
   );

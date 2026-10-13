@@ -6026,6 +6026,131 @@ test("an admin installs the test browser from System settings", async ({ page })
   expect(f.errors).toEqual([]);
 });
 
+test("an admin reads what became of activity runs in System settings", async ({ page }) => {
+  const f = await fixture(page);
+  const asked = [];
+  const recipe = {
+    runtime: "agent:custom/activity-test",
+    library: [{ plugin: "waf-authoring", version: "2026.10.01.1", skills: [] }],
+    harness: 2,
+    penguin: "0.2.13",
+  };
+  const run = {
+    runId: "run_outcome",
+    projectId,
+    activityId: "act_test",
+    startedAt: "2026-10-12T10:00:00.000Z",
+    status: "succeeded",
+  };
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const p = url.pathname;
+    const json = (value, status = 200) =>
+      route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
+    if (p === "/api/me")
+      return json({
+        user: { userId: "author", isAdmin: true, passwordIsInitial: false },
+        previewIsolated: true,
+        desktopMode: false,
+        companyMode: false,
+        sessionVia: "password",
+        uploadLimits: {
+          attachmentMaxMb: 100,
+          attachmentTotalMb: 120,
+          attachmentMaxCount: 20,
+          imageMaxMb: 20,
+          attachmentLimitMinMb: 1,
+          attachmentLimitMaxMb: 200,
+        },
+      });
+    if (p.startsWith("/api/admin/activity-outcomes/")) {
+      // Only ever read: nothing on the page writes to the ledger.
+      expect(request.method()).toBe("GET");
+      asked.push(`${p.slice("/api/admin/activity-outcomes/".length)}?${url.searchParams}`);
+    }
+    if (p === "/api/admin/activity-outcomes/projects") return json({ projects: [projectId] });
+    if (p === "/api/admin/activity-outcomes/tally") {
+      const byRuntime = url.searchParams.get("by") === "runtime";
+      return json({
+        tallies: [
+          {
+            key: byRuntime ? recipe.runtime : "0123456789abcdef0123456789abcdef",
+            recipe: byRuntime ? null : recipe,
+            runs: 4,
+            metrics: {
+              succeeded: 3,
+              failed: 1,
+              accepted: 2,
+              "edits.author": 1,
+              "deployed.qa": 1,
+              "playerCheck.untrusted": 1,
+            },
+          },
+        ],
+      });
+    }
+    if (p === "/api/admin/activity-outcomes/runs") return json({ runs: [run] });
+    if (p === "/api/admin/activity-outcomes/history")
+      return json({
+        runs: [
+          {
+            runId: run.runId,
+            activityId: run.activityId,
+            kind: "module",
+            startedAt: run.startedAt,
+            recipe,
+            facts: [
+              { fact: "opened", at: run.startedAt, detail: {} },
+              { fact: "settled", at: "2026-10-12T10:05:00.000Z", detail: { status: "succeeded" } },
+            ],
+          },
+        ],
+      });
+    return route.fallback();
+  });
+  await page.goto(`${origin}/activities`);
+  await page.locator('button[aria-haspopup="menu"]').filter({ hasText: "author" }).click();
+  await page.getByRole("button", { name: "System settings", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "System settings" });
+  await dialog.getByRole("button", { name: "Activity outcomes" }).click();
+
+  // Module runs of the last 30 days, per recipe, in every project.
+  const table = dialog.getByRole("table", { name: "Activity outcomes" });
+  const tally = table.getByTestId("outcome-tally");
+  await expect(tally).toHaveCount(1);
+  await expect(tally).toContainText("agent:custom/activity-test");
+  await expect(tally).toContainText("0123456789ab");
+  await expect(tally).toContainText("3 (75%)");
+  await expect(tally).toContainText("1 / 0");
+  expect(asked.find((query) => query.startsWith("tally?"))).toMatch(
+    /^tally\?kind=module&by=recipe&since=/,
+  );
+
+  // Per runtime, in one project.
+  await dialog.getByRole("button", { name: "Runtime", exact: true }).click();
+  await expect(dialog.getByRole("columnheader", { name: "Runtime" })).toBeVisible();
+  await dialog.getByRole("button", { name: "Project", exact: true }).click();
+  await page.getByRole("option", { name: projectId }).click();
+  await expect
+    .poll(() => asked.at(-1))
+    .toMatch(new RegExp(`^tally\\?kind=module&by=runtime&projectId=${projectId}&since=`));
+
+  // A row lists its runs; a run shows what happened to it.
+  await tally.getByRole("button", { name: "Runs of agent:custom/activity-test" }).click();
+  const runRow = dialog.getByTestId("outcome-run");
+  await expect(runRow).toContainText(projectId);
+  await expect(runRow).toContainText("Succeeded");
+  await runRow.getByRole("button", { name: "History" }).click();
+  const history = dialog.getByTestId("outcome-history");
+  await expect(history).toContainText("Opened");
+  await expect(history).toContainText("status: succeeded");
+  expect(asked.some((query) => query.startsWith("runs?") && query.includes("key=agent"))).toBe(
+    true,
+  );
+  expect(f.errors).toEqual([]);
+});
+
 test("checks quality and lists what must be fixed", async ({ page }) => {
   const f = await fixture(page);
   await create(page);

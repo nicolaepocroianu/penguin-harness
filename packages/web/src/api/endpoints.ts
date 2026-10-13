@@ -221,6 +221,12 @@ import type {
   WeChatTestResponse,
   WorkspaceFilesResponse,
   WorkspaceSearchResponse,
+  OutcomeHistoryResponse,
+  OutcomeProjectsResponse,
+  OutcomeQuery,
+  OutcomeRunsQuery,
+  OutcomeRunsResponse,
+  OutcomeTallyResponse,
 } from "@prismshadow/penguin-server/api";
 import type { MCPServerConfig } from "@prismshadow/penguin-core/interfaces";
 import { ApiError, apiFetch, apiFetchWithMeta } from "./client";
@@ -272,6 +278,38 @@ export const adminResetPassword = (userId: string, body: AdminPasswordResetReque
 
 export const adminDeleteUser = (userId: string) =>
   apiFetch<void>(`/api/admin/users/${encodeURIComponent(userId)}`, { method: "DELETE" });
+
+// Activity outcomes: the outcome ledger, read (admin only) ---------------------------------
+
+/** One run kind's query as the ledger's routes take it; a tally of several activities is not asked for here. */
+function outcomeQuery(query: OutcomeQuery) {
+  return {
+    kind: query.kind,
+    by: query.by,
+    projectId: query.projectId,
+    since: query.since,
+    until: query.until,
+  };
+}
+
+export const adminOutcomeTally = (query: OutcomeQuery) =>
+  apiFetch<OutcomeTallyResponse>("/api/admin/activity-outcomes/tally", {
+    query: outcomeQuery(query),
+  });
+
+/** The runs one tally counted; a null key (no such part) is asked as an empty one. */
+export const adminOutcomeRuns = (query: OutcomeRunsQuery) =>
+  apiFetch<OutcomeRunsResponse>("/api/admin/activity-outcomes/runs", {
+    query: { ...outcomeQuery(query), key: query.key ?? "" },
+  });
+
+export const adminOutcomeHistory = (projectId: string, activityId: string, runId?: string) =>
+  apiFetch<OutcomeHistoryResponse>("/api/admin/activity-outcomes/history", {
+    query: { projectId, activityId, runId },
+  });
+
+export const adminOutcomeProjects = () =>
+  apiFetch<OutcomeProjectsResponse>("/api/admin/activity-outcomes/projects");
 
 /** Server-global settings (admin only): currently the "use system HTTP proxy" switch. */
 export const adminGetSettings = () => apiFetch<ServerSettingsResponse>("/api/admin/settings");

@@ -62,6 +62,7 @@ describe("visibleSettingsSections", () => {
       "testBrowser",
       "wafWorkspace",
       "deploy",
+      "activityOutcomes",
       "users",
     ]);
   });
@@ -88,6 +89,7 @@ describe("visibleSettingsSections", () => {
       "testBrowser",
       "wafWorkspace",
       "deploy",
+      "activityOutcomes",
     ]);
   });
 
@@ -105,6 +107,7 @@ describe("visibleSettingsSections", () => {
       "testBrowser",
       "wafWorkspace",
       "deploy",
+      "activityOutcomes",
     ]);
   });
 });

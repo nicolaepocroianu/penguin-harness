@@ -2511,6 +2511,58 @@ export type Strings = {
     resetPasswordNote: string;
     deleteUserTitle: (u: string) => string;
     deleteUserConfirm: (u: string) => string;
+    /** The Activity outcomes page (admin): the outcome ledger, read. */
+    activityOutcomes: {
+      title: string;
+      about: string;
+      kind: string;
+      project: string;
+      allProjects: string;
+      groupBy: string;
+      byRecipe: string;
+      byRuntime: string;
+      window: string;
+      windows: Record<"7d" | "30d" | "90d" | "all", string>;
+      columns: {
+        recipe: string;
+        runtime: string;
+        runs: string;
+        succeeded: string;
+        repaired: string;
+        accepted: string;
+        edits: string;
+        reverted: string;
+        deployed: string;
+        untrusted: string;
+      };
+      /** What the less obvious columns count, disclosed beside their headings. */
+      columnInfo: { repaired: string; edits: string; untrusted: string };
+      /** A recipe's parts under its runtime: Penguin's version, its skills, its harness. */
+      recipeDetail: (penguin: string, skills: string, harness: number | null) => string;
+      noSkills: string;
+      /** A tally of runs whose recipes have no such part. */
+      noKey: string;
+      rate: (count: number, percent: number) => string;
+      empty: string;
+      loadFailed: (reason: string) => string;
+      /** The accessible name of a row's toggle, which lists its runs. */
+      showRuns: (name: string) => string;
+      runsTitle: (name: string) => string;
+      /** Under the runs list: only the newest are listed. */
+      runsLimited: (count: number) => string;
+      runsEmpty: string;
+      runColumns: { started: string; project: string; activity: string; status: string };
+      /** How a run ended, as the ledger records it. */
+      runStatus: Record<
+        "running" | "succeeded" | "failed" | "conflict" | "cancelled" | "interrupted",
+        string
+      >;
+      history: string;
+      historyTitle: (runId: string) => string;
+      historyEmpty: string;
+      /** The ledger's facts by name; one it does not know shows as its own name. */
+      facts: Record<string, string>;
+    };
   };
   project: {
     selectProject: string;
