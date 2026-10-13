@@ -104,13 +104,26 @@ export interface OutcomeTally {
   metrics: Record<string, number>;
 }
 
+/**
+ * What the ledger records happening: to a run (`opened` … `deployed`), or to an activity's draft
+ * (`pinned`, a module build pinned to play, which names no run).
+ */
+export type OutcomeFactName =
+  | "opened"
+  | "started"
+  | "settled"
+  | "checks"
+  | "judged"
+  | "superseded"
+  | "discarded"
+  | "part"
+  | "accepted"
+  | "deployed"
+  | "pinned";
+
 /** One thing that happened to a run, with when. */
 export interface OutcomeFact {
-  /**
-   * `opened`, `started`, `settled`, `checks`, `judged`, `superseded`, `discarded`, `part`,
-   * `accepted`, `deployed`.
-   */
-  fact: string;
+  fact: OutcomeFactName;
   at: string;
   /** Numbers, digests and ids only: never what an author or an agent wrote. */
   detail: Record<string, unknown>;
@@ -135,6 +148,32 @@ export interface OutcomeTallyResponse {
 /** GET /api/admin/activity-outcomes/history */
 export interface OutcomeHistoryResponse {
   runs: RunStory[];
+}
+
+/** The runs of one tally: its query, and the key it groups them under. */
+export interface OutcomeRunsQuery extends OutcomeQuery {
+  /** The tally's key; null for the runs whose recipes have no such part. */
+  key: string | null;
+}
+
+/** One run a tally counted, as a list of them shows it. */
+export interface OutcomeRun {
+  runId: string;
+  projectId: string;
+  activityId: string;
+  startedAt: string;
+  /** How it ended, or `running`. */
+  status: ActivityRun["status"];
+}
+
+/** GET /api/admin/activity-outcomes/runs */
+export interface OutcomeRunsResponse {
+  runs: OutcomeRun[];
+}
+
+/** GET /api/admin/activity-outcomes/projects */
+export interface OutcomeProjectsResponse {
+  projects: string[];
 }
 
 /** One file of a bundled skill a run may be given. */

@@ -11,6 +11,8 @@ import {
 } from "../src/activities/domain.js";
 import type {
   OutcomeHistoryResponse,
+  OutcomeProjectsResponse,
+  OutcomeRunsResponse,
   OutcomeTallyResponse,
 } from "../src/activities/outcome-types.js";
 import type { ActivityOutcomes } from "../src/activities/outcomes.js";
@@ -116,6 +118,36 @@ describe("the outcome ledger's read route", () => {
     expect(((await one.json()) as OutcomeHistoryResponse).runs).toHaveLength(1);
   });
 
+  it("lists the runs one tally counted, and the projects the ledger holds runs of", async () => {
+    const { admin, activity, run } = await fixture();
+    const listed = async (query: string) => {
+      const response = await admin.get(`${ROUTE}/runs?${query}`);
+      expect(response.status, query).toBe(200);
+      return ((await response.json()) as OutcomeRunsResponse).runs;
+    };
+    const counted = {
+      runId: run.runId,
+      projectId: PROJECT,
+      activityId: activity.id,
+      startedAt: run.createdAt,
+      status: "succeeded",
+    };
+    expect(await listed("kind=spec&by=runtime&key=agent:custom/m")).toEqual([counted]);
+    // A tally's runs under the tally's own filters.
+    expect(await listed("kind=spec&by=runtime&key=agent:custom/m&projectId=elsewhere")).toEqual([]);
+    expect(await listed("kind=spec&by=runtime&key=agent:other/m")).toEqual([]);
+    // A specification run's recipe has no harness: its tally's key is null, asked as empty.
+    expect(await listed("kind=spec&by=harness&key=")).toEqual([counted]);
+    const { tallies } = (await (
+      await admin.get(`${ROUTE}/tally?kind=spec`)
+    ).json()) as OutcomeTallyResponse;
+    expect(await listed(`kind=spec&key=${tallies[0]!.key}`)).toEqual([counted]);
+
+    const projects = await admin.get(`${ROUTE}/projects`);
+    expect(projects.status).toBe(200);
+    expect(((await projects.json()) as OutcomeProjectsResponse).projects).toEqual([PROJECT]);
+  });
+
   it("takes every kind a run records, those the server records itself included", async () => {
     const { admin } = await fixture();
     for (const kind of DETERMINISTIC_RUN_KINDS) expect(RECORDED_RUN_KINDS.has(kind)).toBe(true);
@@ -129,7 +161,12 @@ describe("the outcome ledger's read route", () => {
     expect((await member.post("/api/projects", { projectId: "outcomes_owner-work" })).status).toBe(
       201,
     );
-    for (const path of ["tally?kind=spec", "history?projectId=outcomes_owner-work&activityId=a"]) {
+    for (const path of [
+      "tally?kind=spec",
+      "history?projectId=outcomes_owner-work&activityId=a",
+      "runs?kind=spec&key=k",
+      "projects",
+    ]) {
       const response = await member.get(`${ROUTE}/${path}`);
       expect(response.status).toBe(403);
       expect(await response.json()).toMatchObject({ error: { code: "admin_required" } });
@@ -152,6 +189,9 @@ describe("the outcome ledger's read route", () => {
       "history?activityId=act_1",
       "history?projectId=p",
       "history?projectId=p&activityId=a&runId=../x",
+      "runs?kind=spec",
+      "runs?key=k",
+      "runs?kind=spec&key=k&since=yesterday",
     ])
       expect(await refused(path), path).toMatchObject({
         status: 400,

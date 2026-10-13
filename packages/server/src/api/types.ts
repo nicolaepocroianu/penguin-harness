@@ -4964,8 +4964,13 @@ export type {
 export type {
   OutcomeDimension,
   OutcomeFact,
+  OutcomeFactName,
   OutcomeHistoryResponse,
+  OutcomeProjectsResponse,
   OutcomeQuery,
+  OutcomeRun,
+  OutcomeRunsQuery,
+  OutcomeRunsResponse,
   OutcomeTally,
   OutcomeTallyResponse,
   RecipeLibrary,
