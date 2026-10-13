@@ -6,7 +6,6 @@ import { readArtifactBytes } from "../artifact.js";
 import type { ImageRun } from "../domain.js";
 import {
   GENERATED_IMAGE_MAX_BYTES,
-  imagePrompt,
   imageTarget,
   type ImageResult,
   type ImageTarget,
@@ -21,6 +20,7 @@ import {
   requireCompleted,
   type SessionRunKind,
 } from "./contract.js";
+import { IMAGE_PROMPT } from "../prompts/image.js";
 
 /** What an image run writes. */
 export const IMAGE_OUTPUT = "image.png";
@@ -52,7 +52,7 @@ export const imageKind: SessionRunKind<RunRequestOf<"image">, ImageTarget, Image
     });
     await fs.writeFile(path.join(workspace, "generate-image.mjs"), helper, { flag: "wx" });
   },
-  prompt: () => imagePrompt,
+  prompt: () => IMAGE_PROMPT,
   outputs: [IMAGE_OUTPUT],
   async collect({ services, run, workspace, observed, save }) {
     requireCompleted(observed, "Image Session did not complete.");

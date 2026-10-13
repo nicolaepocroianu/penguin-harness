@@ -7,6 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { PROMPT_SOURCES, promptShape } from "../../../scripts/activity-bench/surface.js";
 import type { CaseVault } from "../../../scripts/activity-bench/types.js";
 import { PlainVault } from "../../../scripts/activity-bench/vault.js";
 import {
@@ -14,6 +15,9 @@ import {
   MANIFEST,
   PLACEHOLDER,
   PLUGIN,
+  PROMPT_BUILDER,
+  PROMPT_MODULE,
+  PROMPT_TEXT,
   RUNNER_SECRET,
   benchFixture,
   parseTrial,
@@ -92,6 +96,53 @@ describe("before anything is spent", () => {
       }),
     ).toBeNull();
     expect(f.host.authored).toHaveLength(18);
+  });
+
+  it("takes an edit to a stage prompt's text, and nothing else there or beside it", async () => {
+    const f = benchFixture();
+    const outside = async (files: Record<string, string>) => {
+      const head = f.repo.commit(files, "a prompt");
+      const verdict = await f.bench.compare({ head, base: f.base });
+      return verdict.invalid === "out_of_surface" ? verdict.reason : null;
+    };
+    const refused = (file: string) => `head changes files outside the recipe surface: ${file}.`;
+    // Its text and its doc comment: a comparison.
+    const reworded = PROMPT_TEXT.replace(
+      "Write activity-spec.json.",
+      "Write activity-spec.json, then stop.",
+    ).replace("What a specification run is told.", "What it is told.");
+    expect(await outside({ [PROMPT_MODULE]: reworded })).toBeNull();
+    // A substitution, an import, a new statement: code, however small.
+    for (const code of [
+      PROMPT_TEXT.replace("${values.task}", "${process.env.HOME}"),
+      `import fs from "node:fs";\n${PROMPT_TEXT}`,
+      `${PROMPT_TEXT}export const LEAK = process.env;\n`,
+      PROMPT_TEXT.replace('"Write activity-spec.json."', "`Write activity-spec.json.`"),
+    ])
+      expect(await outside({ [PROMPT_MODULE]: code }), code).toBe(
+        refused(`${PROMPT_MODULE} (more than its prompt text)`),
+      );
+    // The module that builds the prompt from it is a collector's neighbour, not a prompt.
+    expect(
+      await outside({
+        [PROMPT_MODULE]: reworded,
+        [PROMPT_BUILDER]: 'export { SPEC_PROMPT as specPrompt } from "./prompts/spec.js";\n',
+      }),
+    ).toBe(refused(PROMPT_BUILDER));
+    expect(f.host.authored).toHaveLength(18);
+  });
+
+  it("names every stage prompt module the server has, and reads their shape as code", () => {
+    const prompts = path.resolve(import.meta.dirname, "../src/activities/prompts");
+    expect(PROMPT_SOURCES).toEqual(
+      fs
+        .readdirSync(prompts)
+        .sort()
+        .map((file) => `packages/server/src/activities/prompts/${file}`),
+    );
+    const real = fs.readFileSync(path.join(prompts, "assist.ts"), "utf8");
+    expect(promptShape(real.replaceAll("the author", "the person"))).toBe(promptShape(real));
+    expect(promptShape(real.replace("PROPOSAL_FILE", "PROPOSAL_PATH"))).not.toBe(promptShape(real));
   });
 
   it("refuses a link, even among the plugin's skills", async () => {

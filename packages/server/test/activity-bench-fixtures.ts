@@ -47,6 +47,16 @@ export const MANIFEST = {
 export const PLUGIN = { description: "Authoring WAF activities.", version: "2026.10.10.1" };
 /** What a scripted check run that cannot run prints: no verdict or log may repeat it. */
 export const RUNNER_SECRET = "The narration plays when the activity starts.";
+/** A stage prompt's own module in the first commit, and the module that builds from it. */
+export const PROMPT_MODULE = "packages/server/src/activities/prompts/spec.ts";
+export const PROMPT_TEXT = [
+  "/** What a specification run is told. */",
+  'export const SPEC_RULES = "Write activity-spec.json.";',
+  "export const SPEC_PROMPT = (values: { readonly task: string }) =>",
+  "  `${values.task}\\n${SPEC_RULES}`;",
+  "",
+].join("\n");
+export const PROMPT_BUILDER = "packages/server/src/activities/spec-prompts.ts";
 
 export interface Repo {
   dir: string;
@@ -90,6 +100,8 @@ export function gitRepo(): Repo {
       "plugins/waf-authoring/package.json": `${JSON.stringify(MANIFEST, null, 2)}\n`,
       "plugins/waf-authoring/plugin.json": `${JSON.stringify(PLUGIN, null, 2)}\n`,
       "packages/server/src/collect.ts": "export {};\n",
+      [PROMPT_MODULE]: PROMPT_TEXT,
+      [PROMPT_BUILDER]: 'export { SPEC_PROMPT } from "./prompts/spec.js";\n',
     },
     "base",
   );

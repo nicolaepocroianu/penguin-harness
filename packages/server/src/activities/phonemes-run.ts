@@ -10,16 +10,15 @@ import { HttpError } from "../http/errors.js";
 import { contentRevision, type ActivityDetail } from "./domain.js";
 import { BOOK_WORD_MAX, cleanPhonemes, isBookWord, normalizeWord } from "./book-words.js";
 import type { PhonemesCandidate, PhonemesTarget } from "./book-word-types.js";
+import { PHONEMES_PROMPT } from "./prompts/phonemes.js";
 
 export const PHONEMES_INPUT_FILE = "phonemes-input.json";
 export const PHONEMES_FILE = "phonemes.json";
 /** The most words one run is asked for. */
 export const PHONEMES_RUN_MAX_WORDS = 200;
 
-export const phonemesPrompt = `Propose how each word in ${PHONEMES_INPUT_FILE} is sounded out, for a decodable reading book for young learners. Work in this workspace.
-${PHONEMES_INPUT_FILE} holds {"language": "<language code>", "words": [...]}: lower-case words of that language.
-Write exactly one JSON object to ${PHONEMES_FILE} using normal Harness tools, with no markdown: {"<word>": ["<sound>", ...], ...}, one key per word you can sound out, spelled exactly as listed.
-Each sound is one IPA segment, the way the word is said in that language (American English for en-US): one segment per sound, in order, without stress marks, spaces or slashes, at most 8 characters each and at most 32 per word. Leave out a word you cannot sound out rather than guess.`;
+/** The phonemes prompt: its text is in prompts/phonemes.ts. */
+export const phonemesPrompt = PHONEMES_PROMPT({ PHONEMES_FILE, PHONEMES_INPUT_FILE });
 
 /** The words a run is asked for: normalized, known, unique, and a bounded number. */
 export function phonemesTarget(

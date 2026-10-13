@@ -8,7 +8,8 @@ description: Use when scoring a change to activity authoring (the waf-authoring 
 `pnpm bench` answers one question: does a commit (head) author activities better than the one it
 came from (base)? It takes every case of a frozen case set through the Stages on both commits,
 scores each trial with hidden checks only the evaluator holds, and returns a Verdict. A change to
-`plugins/waf-authoring` that claims to help gets its numbers here, and they go in its PR.
+`plugins/waf-authoring` or to a stage prompt's text (`packages/server/src/activities/prompts/`)
+that claims to help gets its numbers here, and they go in its PR.
 
 Terms (GLOSSARY.md): an **Activity bench** is the case set; a **Case** is one frozen request; a
 **Trial** is one case taken through its Stages once; a **Hidden check** is a check only the
@@ -55,7 +56,7 @@ pnpm bench seal <private source> --bench <id>   # people only, see below
 | invalid | meaning |
 | --- | --- |
 | `dirty_tree` | The checkout has uncommitted changes. Commit or remove them. |
-| `out_of_surface` | Head changes something besides the plugin's skills, `README.md` and `icon.svg` — its `package.json` and `plugin.json` only in their `version` — or changes a symbolic link anywhere. Split the change. |
+| `out_of_surface` | Head changes something besides the plugin's skills, `README.md` and `icon.svg` — its `package.json` and `plugin.json` only in their `version` — and the stage prompts' own modules (`packages/server/src/activities/prompts/`) only inside their string and template literals; or it changes a symbolic link anywhere. Split the change. |
 | `preflight` | A revision, the seed, the test browser or a recipe build is not ready; the reason says which. |
 | `budget` | The estimate or the next block would pass the cap, or the estimate was not confirmed. |
 | `infrastructure` | The machinery failed twice in a row. Fix it and run the same comparison again. |
@@ -138,6 +139,4 @@ passphrase) into `<bench home>/vault/<id>.sealed`. Folder layout: the comment at
 - Still, run the bench under a dedicated OS account that holds no credentials of its own (no
   Claude or cloud login, no SSH keys, no Penguin vaults): that is the recommended way, and the
   only real read barrier on Windows.
-- Stage prompts are outside the recipe surface until each run kind's prompt text has a file of its
-  own (decision 18).
 - A skill a recipe deletes stays in the trial from the seed's own install of the plugin.

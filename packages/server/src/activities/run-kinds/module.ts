@@ -52,8 +52,6 @@ import {
   REPAIR_DIR,
   REPAIR_FILE,
   collectModule,
-  moduleBookClause,
-  modulePackagesClause,
   modulePrompt,
   moduleRepairClause,
   prepareModule,
@@ -67,6 +65,7 @@ import {
   type RunKindServices,
   type SessionRunKind,
 } from "./contract.js";
+import { MODULE_BOOK_CLAUSE, MODULE_PACKAGES_CLAUSE } from "../prompts/module.js";
 
 /** What an assembly writes: the files it built, listed. */
 export const MODULE_OUTPUT = "module-result.json";
@@ -365,8 +364,8 @@ export const moduleKind: SessionRunKind<
   },
   prompt: ({ prepared }, { packagesLinked, features }) =>
     modulePrompt +
-    (packagesLinked ? modulePackagesClause : "") +
-    (prepared.bookMode ? moduleBookClause : "") +
+    (packagesLinked ? MODULE_PACKAGES_CLAUSE : "") +
+    (prepared.bookMode ? MODULE_BOOK_CLAUSE : "") +
     featureClause(features) +
     (prepared.repair ? moduleRepairClause : ""),
   // The shared checkout is the module's source of truth and belongs to whoever cloned it. An

@@ -15,6 +15,7 @@
  */
 import { HttpError } from "../http/errors.js";
 import { validateActivitySpec } from "./domain.js";
+import { ASSIST_CONTEXT } from "./prompts/assist.js";
 
 /** The workspace sections a focus can name; the studio's tree rows map onto these. */
 export const ASSIST_SECTIONS = [
@@ -100,16 +101,16 @@ export function describeFocus(focus: AssistFocus | null): string {
 /**
  * The first turn: the author's words first, as they wrote them, then the context. The
  * context comes second so the conversation reads as the author's question, not as a
- * system brief with a question at the bottom.
+ * system brief with a question at the bottom. The rule and the line saying where the author
+ * is are the brief's frame, which the studio reads back to show the conversation
+ * (conversation.ts), so they stay here; the rest is in prompts/assist.ts.
  */
 export function assistPrompt(message: string, focus: AssistFocus | null): string {
   return `${message}
 
 ---
 Context from the activity studio: the author is looking at ${describeFocus(focus)}.
-This workspace holds a copy of the activity: input.json (the whole draft, including the specification and media plan) and description.md (the activity script). Read them before answering.
-Files you write here do not change the activity. ${PROPOSAL_INSTRUCTIONS}
-Answer the author directly. Do not delegate.`;
+${ASSIST_CONTEXT({ PROPOSAL_FILE })}`;
 }
 
 /**
@@ -121,14 +122,6 @@ Answer the author directly. Do not delegate.`;
 export const PROPOSAL_FILE = "proposal.json";
 /** Where a proposal the author discarded is kept, beside the run that made it. */
 export const DISCARDED_PROPOSAL_FILE = "proposal.discarded.json";
-
-const PROPOSAL_INSTRUCTIONS = `When the author asks for a change, or agrees to one you suggested, write it to ${PROPOSAL_FILE} in this workspace, and the studio will show it to them to accept. Replace the whole file each time; it holds your current proposal, not a history. Its shape, as JSON without Markdown fences:
-{"summary":"one or two sentences on what changes and why","changes":[ ...one or more of:
-  {"target":"description","text":"the complete new activity script"},
-  {"target":"spec","spec":{ the complete new specification, in the same shape as draft.spec in input.json }},
-  {"target":"media","language":"en-US","assetKey":"an asset key from draft.mediaPlan","field":"description" or "script","text":"the new image description or spoken script"}
-]}
-Write complete values, never fragments or diffs. Change only what the author asked for. Tell the author in your reply that a proposal is ready to review.`;
 
 export type ProposalChange =
   | { target: "description"; text: string }
