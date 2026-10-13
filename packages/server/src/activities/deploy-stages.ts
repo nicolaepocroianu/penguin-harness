@@ -223,6 +223,8 @@ export interface DeployStageContext {
     source: string | null;
     /** What that module's content hashes to; null (or absent) when there is none. */
     contentHash?: string | null;
+    /** The module build `source` is, when it is one. */
+    runId?: string;
   };
   /** The activity-data and media side of a QA deploy; absent for a run that cannot reach it. */
   qa?: DeployQaContext;
@@ -449,6 +451,7 @@ const verifyModule: DeployStageDefinition = {
         : "Main already had everything authored.",
     );
     ctx.metadata.moduleContentHash = ctx.module.contentHash ?? null;
+    if (ctx.module.source && ctx.module.runId) ctx.metadata.moduleRunId = ctx.module.runId;
     for (const args of MODULE_VERIFY_COMMANDS) await program(ctx, "npm", args);
   },
 };
@@ -930,6 +933,10 @@ const awaitActivityDeploy: DeployStageDefinition = {
       ctx.metadata.exportedProductRevision ??
       ctx.earlier.export_activity_data?.exportedProductRevision;
     if (productRevision) ctx.metadata.productRevision = productRevision;
+    // The build this run verified, or with the release left out, the one verified before it.
+    const verified =
+      ctx.metadata.moduleContentHash !== undefined ? ctx.metadata : ctx.earlier.verify_module;
+    if (verified?.moduleRunId) ctx.metadata.moduleRunId = verified.moduleRunId;
     ctx.log(`On QA: ${ctx.metadata.qaActivityUrl}`);
   },
 };
@@ -949,6 +956,7 @@ const triggerProductionDeploy: DeployStageDefinition = {
       throw new DeployStageFailure({ code: "missing_input", stage: "await_activity_deploy" });
     if (qa.contentRevision) ctx.metadata.contentRevision = qa.contentRevision;
     if (qa.resolvedModuleVersion) ctx.metadata.resolvedModuleVersion = qa.resolvedModuleVersion;
+    if (qa.moduleRunId) ctx.metadata.moduleRunId = qa.moduleRunId;
     const job = ctx.settings.jobs.activityDeploy;
     const params = activityDeployParams(ctx.productCode, prod.target);
     const before = await jenkinsCall(() =>
@@ -982,6 +990,7 @@ const awaitProductionDeploy: DeployStageDefinition = {
     if (triggered.contentRevision) ctx.metadata.contentRevision = triggered.contentRevision;
     if (triggered.resolvedModuleVersion)
       ctx.metadata.resolvedModuleVersion = triggered.resolvedModuleVersion;
+    if (triggered.moduleRunId) ctx.metadata.moduleRunId = triggered.moduleRunId;
     const number = await followActivityDeploy(ctx, {
       match: activityDeployMatch(activityDeployParams(ctx.productCode, prod.target)),
       after: ctx.metadata.preProductionDeployNumber,

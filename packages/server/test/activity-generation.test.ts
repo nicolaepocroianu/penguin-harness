@@ -15,6 +15,7 @@ import { MEDIA_TEXT_OUTPUT } from "../src/activities/run-kinds/media-text.js";
 import { MODULE_OUTPUT } from "../src/activities/run-kinds/module.js";
 import { SPEC_OUTPUT } from "../src/activities/run-kinds/spec.js";
 import type { ActivityRuns } from "../src/activities/run-store.js";
+import type { ActivityOutcomes } from "../src/activities/outcomes.js";
 import { ActivityLockService } from "../src/activities/activity-lock.js";
 import type { ServerEvent } from "../src/api/types.js";
 import { wire, type ClassCtx } from "@prismshadow/penguin-core/kernel";
@@ -1877,6 +1878,7 @@ describe("activity generation through Harness sessions", () => {
       config: f.t.deps.config,
       projectWork: f.t.deps.tree.api<ProjectActivityWork>("ProjectsModule", "ProjectActivityWork"),
       runs: f.t.deps.tree.api<ActivityRuns>("ActivitiesModule", "ActivityRuns"),
+      outcomes: f.t.deps.tree.api<ActivityOutcomes>("ActivitiesModule", "ActivityOutcomes"),
       lock: wire(ActivityLockService, {}),
       activities: f.t.deps.tree.api<ActivityAuthoring>("ActivitiesModule", "ActivityAuthoring"),
       agents: f.t.deps.agentConfigService,

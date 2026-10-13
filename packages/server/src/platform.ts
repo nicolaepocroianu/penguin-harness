@@ -161,6 +161,11 @@ import {
 } from "./activities/acceptance-service.js";
 import { ActivityGenerationService } from "./activities/generation.js";
 import { ActivityRunStore, ActivityRuns } from "./activities/run-store.js";
+import {
+  ActivityOutcomeLedger,
+  ActivityOutcomes,
+  DefaultActivityOutcomePorts,
+} from "./activities/outcomes.js";
 import { ActivityLockService } from "./activities/activity-lock.js";
 import { ActivityAuthoring, ActivityGeneration } from "./mechanisms/activities.js";
 import { ProjectsRoutes } from "./http/routes/dirs.js";
@@ -422,6 +427,8 @@ export class CodingAgentsModule {}
   children: [
     ActivityRunStore,
     ActivityLockService,
+    DefaultActivityOutcomePorts,
+    ActivityOutcomeLedger,
     ActivityService,
     ActivityGenerationService,
     ActivityModuleSourceService,
@@ -467,6 +474,7 @@ export class CodingAgentsModule {}
     ActivityAuthoring,
     ActivityGeneration,
     ActivityRuns,
+    ActivityOutcomes,
     ActivityVersions,
     ActivityModuleBuilds,
     TestBrowser,

@@ -220,6 +220,7 @@ export class ActivityDeployService implements ActivityDeploys {
       runId: run.runId,
       target: stage === "await_production_deploy" ? "prod" : "qa",
       revision: metadata.contentRevision ?? null,
+      moduleRunId: metadata.moduleRunId ?? null,
       deployedAt: at,
     });
   }
@@ -550,6 +551,7 @@ export class ActivityDeployService implements ActivityDeploys {
           dir: checkout.module(folder).root,
           source,
           contentHash,
+          ...(module.runId ? { runId: module.runId } : {}),
         },
         qa: {
           activityData: { dir: checkout.repo("activityData") },

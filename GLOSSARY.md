@@ -90,6 +90,16 @@ _Avoid_: Chat, thread, conversation
 A Session created but never run, rebuilt after a restart under the same id.
 _Avoid_: Session restore, session copy
 
+**Recipe**:
+What decided how a run's agent worked: who answered and with which model, the stage's
+instructions, and the authoring skills it was given; runs with the same recipe can be compared.
+_Avoid_: Config, setup, fingerprint
+
+**Outcome**:
+What became of a run after it ended: whether its candidate was accepted or replaced, what checks
+found, how much authors changed what it wrote, and whether it reached a deploy.
+_Avoid_: Result, feedback, signal
+
 ### Modules
 
 **Module**:

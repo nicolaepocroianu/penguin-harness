@@ -470,6 +470,34 @@ describe("trigger_activity_deploy and await_activity_deploy", () => {
     });
   });
 
+  it("names the module build that went live, on QA and then on PROD", async () => {
+    const earlier = {
+      export_activity_data: { exportedRevision: "rev-41" },
+      trigger_activity_deploy: { preDeployNumber: 6 },
+      verify_module: { moduleContentHash: "h1", moduleRunId: "run_built" },
+    };
+    const live = () => fakeJenkins([{ state: "succeeded", number: 7, url: "u" }]).jenkins;
+    // The release left out, the build is the one verified before.
+    const released = await setup({ earlier });
+    released.ctx.jenkins = live();
+    await run("await_activity_deploy", released.ctx);
+    expect(released.ctx.metadata.moduleRunId).toBe("run_built");
+    // Verified in this run as the clone held it, no build went live, whatever went before.
+    const asIs = await setup({ metadata: { moduleContentHash: null }, earlier });
+    asIs.ctx.jenkins = live();
+    await run("await_activity_deploy", asIs.ctx);
+    expect(asIs.ctx.metadata).not.toHaveProperty("moduleRunId");
+    // PROD gets what QA has.
+    const prod = await setup({
+      prod: { target: { tier: "prod", environment: "DEFAULT", frameworkVersion: "4.1.0" } },
+      earlier: { await_activity_deploy: { contentRevision: "rev-41", moduleRunId: "run_built" } },
+    });
+    await run("trigger_production_deploy", prod.ctx);
+    prod.ctx.jenkins = live();
+    await run("await_production_deploy", prod.ctx);
+    expect(prod.ctx.metadata.moduleRunId).toBe("run_built");
+  });
+
   it("fails a deploy that fails or runs past its minutes, and one never started", async () => {
     const failed = await setup({ earlier: { trigger_activity_deploy: { preDeployNumber: null } } });
     failed.ctx.jenkins = fakeJenkins([{ state: "failed", result: "FAILURE", url: "u" }]).jenkins;

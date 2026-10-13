@@ -271,6 +271,18 @@ function dropDeployRuns(db: DatabaseSync): void {
 /** The "Run all stages" history migration 24 adds, gone, for a database from before it. */
 function dropPipelines(db: DatabaseSync): void {
   db.exec("DROP TABLE IF EXISTS activity_pipelines");
+  // Anything older than the stage history is older than the outcome ledger too.
+  dropOutcomes(db);
+}
+
+/** The outcome ledger migration 25 adds, gone, for a database from before it. */
+function dropOutcomes(db: DatabaseSync): void {
+  db.exec(`
+    DROP TABLE IF EXISTS activity_draft_parts;
+    DROP TABLE IF EXISTS activity_outcome_facts;
+    DROP TABLE IF EXISTS activity_run_outcomes;
+    DROP TABLE IF EXISTS activity_outcome_recipes;
+  `);
 }
 
 /** Column names of `users`, for the two cases that are about columns rather than whole shapes. */
@@ -886,6 +898,7 @@ describe("migration 18 → current: usage-reported-cost", () => {
         "activity-versions-draft-status",
         "activity-deploy-runs",
         "activity-pipelines",
+        "activity-outcomes",
       ]);
       expect(usageColumns(db)).toContain("reported_cost_usd");
       expect(db.prepare("SELECT total, reported_cost_usd FROM usage_records").all()).toEqual([
@@ -943,6 +956,7 @@ describe("migration 19 → current: activity-product-tags", () => {
         "activity-versions-draft-status",
         "activity-deploy-runs",
         "activity-pipelines",
+        "activity-outcomes",
       ]);
       expect(tables(db)).toContain("activity_product_tags");
       fresh.exec(SCHEMA_SQL);
@@ -963,6 +977,7 @@ describe("migration 19 → current: activity-product-tags", () => {
         "activity-versions-draft-status",
         "activity-deploy-runs",
         "activity-pipelines",
+        "activity-outcomes",
       ]);
     } finally {
       db.close();
@@ -1015,6 +1030,7 @@ describe("migration 20 → current: activity-versions", () => {
         "activity-versions-draft-status",
         "activity-deploy-runs",
         "activity-pipelines",
+        "activity-outcomes",
       ]);
       expect(tables(db)).toContain("activity_versions");
       fresh.exec(SCHEMA_SQL);
@@ -1033,6 +1049,7 @@ describe("migration 20 → current: activity-versions", () => {
         "activity-versions-draft-status",
         "activity-deploy-runs",
         "activity-pipelines",
+        "activity-outcomes",
       ]);
     } finally {
       db.close();
@@ -1105,6 +1122,7 @@ describe("migration 21 → current: activity-versions-draft-status", () => {
         "activity-versions-draft-status",
         "activity-deploy-runs",
         "activity-pipelines",
+        "activity-outcomes",
       ]);
       expect(db.prepare("SELECT version_id, draft_status FROM activity_versions").all()).toEqual([
         { version_id: "v", draft_status: null },
@@ -1155,6 +1173,7 @@ describe("migration 22 → current: activity-deploy-runs", () => {
       expect(migrate(db, { swapPath: true }).applied).toEqual([
         "activity-deploy-runs",
         "activity-pipelines",
+        "activity-outcomes",
       ]);
       expect(tables(db)).toContain("activity_deploy_runs");
       expect(tables(db)).toContain("activity_deploy_stages");
@@ -1222,7 +1241,10 @@ describe("migration 23 → current: activity-pipelines", () => {
     const db = open23();
     const fresh = new sqlite.DatabaseSync(":memory:");
     try {
-      expect(migrate(db, { swapPath: true }).applied).toEqual(["activity-pipelines"]);
+      expect(migrate(db, { swapPath: true }).applied).toEqual([
+        "activity-pipelines",
+        "activity-outcomes",
+      ]);
       fresh.exec(SCHEMA_SQL);
       expect(shape(db)).toBe(shape(fresh));
     } finally {
@@ -1238,6 +1260,84 @@ describe("migration 23 → current: activity-pipelines", () => {
       migrate(db);
       rollbackTo(db, 23);
       expect(shape(db)).toBe(before);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe("migration 24 → current: activity-outcomes", () => {
+  function open24(): DatabaseSync {
+    const db = new sqlite.DatabaseSync(":memory:");
+    db.exec(SCHEMA_SQL);
+    dropOutcomes(db);
+    db.exec("PRAGMA user_version = 24");
+    return db;
+  }
+  const seed = (db: DatabaseSync) =>
+    db.exec(
+      "INSERT INTO users (user_id, password_hash, is_admin, created_at) VALUES ('u', 'h', 0, 'now');" +
+        "INSERT INTO projects VALUES ('p', 'u', 'now');" +
+        "INSERT INTO activities (id, collection_id, product_code, ref_num, title, activity_type, created_at, updated_at, archived) VALUES ('a', 'c', 'p', 0, 'Title', 'standard', 'now', 'now', 0);" +
+        "INSERT INTO activity_runs (run_id, project_id, activity_id, status, created_at, kind, record_json) VALUES ('r', 'p', 'a', 'succeeded', 'now', 'spec', '{}');",
+    );
+  const ledger = (db: DatabaseSync) =>
+    db.exec(
+      "INSERT INTO activity_outcome_recipes VALUES ('rcp', '{}', 'now');" +
+        "INSERT INTO activity_run_outcomes (run_id, project_id, activity_id, kind, recipe_id, started_at, status, metrics_json) VALUES ('r', 'p', 'a', 'spec', 'rcp', 'now', 'succeeded', '{}');" +
+        "INSERT INTO activity_outcome_facts (project_id, activity_id, run_id, fact, at, detail_json) VALUES ('p', 'a', 'r', 'settled', 'now', '{}');" +
+        "INSERT INTO activity_outcome_facts (project_id, activity_id, run_id, fact, at, detail_json) VALUES ('p', 'a', NULL, 'pinned', 'now', '{}');" +
+        "INSERT INTO activity_draft_parts VALUES ('a', 'script', 'r', 'h', 1, 'now');",
+    );
+  const count = (db: DatabaseSync, table: string) =>
+    (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+
+  it("adds the ledger, swap-safe, and the result is a fresh database", () => {
+    const db = open24();
+    const fresh = new sqlite.DatabaseSync(":memory:");
+    try {
+      expect(migrate(db, { swapPath: true }).applied).toEqual(["activity-outcomes"]);
+      fresh.exec(SCHEMA_SQL);
+      expect(shape(db)).toBe(shape(fresh));
+    } finally {
+      db.close();
+      fresh.close();
+    }
+  });
+
+  it("leaves the runs it describes alone, and goes with the activity they belong to", () => {
+    const db = open24();
+    try {
+      seed(db);
+      migrate(db);
+      expect(db.prepare("SELECT run_id, status FROM activity_runs").all()).toEqual([
+        { run_id: "r", status: "succeeded" },
+      ]);
+      db.exec("PRAGMA foreign_keys = ON");
+      ledger(db);
+      db.exec("DELETE FROM activities WHERE id = 'a'");
+      for (const table of [
+        "activity_run_outcomes",
+        "activity_outcome_facts",
+        "activity_draft_parts",
+      ])
+        expect(count(db, table)).toBe(0);
+      expect(count(db, "activity_outcome_recipes")).toBe(1);
+    } finally {
+      db.close();
+    }
+  });
+
+  it("down drops only the ledger", () => {
+    const db = open24();
+    try {
+      const before = shape(db);
+      seed(db);
+      migrate(db);
+      ledger(db);
+      rollbackTo(db, 24);
+      expect(shape(db)).toBe(before);
+      expect(db.prepare("SELECT run_id FROM activity_runs").all()).toEqual([{ run_id: "r" }]);
     } finally {
       db.close();
     }

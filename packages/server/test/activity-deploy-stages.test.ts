@@ -218,6 +218,18 @@ describe("verify_module", () => {
     expect(lines).toContain("$ npm run lint");
   });
 
+  it("names the module build it verified, and none for a clone verified as it is", async () => {
+    const source = await tempDir("penguin-deploy-source-");
+    await fs.writeFile(path.join(source, "package.json"), '{"name":"built"}');
+    const built = context({ dir: await moduleClone(), source });
+    built.ctx.module.runId = "run_built";
+    await run("verify_module", built.ctx);
+    expect(built.ctx.metadata.moduleRunId).toBe("run_built");
+    const asIs = context({ dir: await moduleClone() });
+    await run("verify_module", asIs.ctx);
+    expect(asIs.ctx.metadata).not.toHaveProperty("moduleRunId");
+  });
+
   it("says so when main already had everything authored", async () => {
     const dir = await moduleClone();
     const { ctx, lines } = context({ dir, clones: fakeClones(dir, { nothingStaged: true }) });

@@ -311,6 +311,11 @@ export interface DeployRunMetadata {
    * is done for the same hash.
    */
   moduleContentHash?: string | null;
+  /**
+   * The module build verify_module checked, and the deploy's wait stages carry on to what went
+   * live; absent when there was none, and on runs recorded before builds were named.
+   */
+  moduleRunId?: string;
   /** The ref numbers the exported data carries; archived refs are left out. */
   deployedRefNums?: number[];
   /** Every file export_activity_data wrote, relative to the activity-data clone. */
@@ -507,6 +512,8 @@ export interface DeployedEvent {
   target: DeployTarget;
   /** The deploying ref's draft revision that went live; null when none was recorded. */
   revision: string | null;
+  /** The module build that went live; null or absent when none was recorded. */
+  moduleRunId?: string | null;
   deployedAt: string;
 }
 
