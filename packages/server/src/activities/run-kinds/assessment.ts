@@ -12,7 +12,13 @@ import type { AssessmentRun } from "../domain.js";
 import { validateAssessment } from "../module-overrides.js";
 import type { RunRequestOf } from "../run-request.js";
 import { atomicJson } from "../service.js";
-import { authoringSkill, hasValidSpec, requireCompleted, type SessionRunKind } from "./contract.js";
+import {
+  RunRefusal,
+  authoringSkill,
+  hasValidSpec,
+  requireCompleted,
+  type SessionRunKind,
+} from "./contract.js";
 
 /** The assessment skill a run follows, staged into its workspace under a file name of its own. */
 const ASSESSMENT_SKILL = "waf-assessment-patterns";
@@ -60,17 +66,19 @@ export const assessmentKind: SessionRunKind<
       );
     const runtime = activity.draft.spec!.runtime as { usesAssessment?: unknown } | undefined;
     if (runtime?.usesAssessment !== true)
-      throw new HttpError(
+      throw new RunRefusal(
         409,
         "assessment_unused",
         "The specification says this activity has no assessment.",
+        "noAssessment",
       );
     // Every ref of the product shares one assessment, and only the canonical ref owns it.
     if (!services.activities.isCanonicalRef(activity))
-      throw new HttpError(
+      throw new RunRefusal(
         409,
         "not_canonical",
         "The assessment is shared by every ref of this product. Generate it on the canonical ref.",
+        "notCanonical",
       );
     return request.assessment;
   },

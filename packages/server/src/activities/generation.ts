@@ -60,7 +60,11 @@ import {
 } from "./assist.js";
 import type { BrowserServerHandle, TestBrowser } from "./test-browser.js";
 import type { Settings } from "../mechanisms/settings.js";
-import { VIDEO_EXPERIMENT_SETTING, readVideoExperiment } from "./video-experiment.js";
+import {
+  VIDEO_EXPERIMENT_SETTING,
+  experimentOff,
+  readVideoExperiment,
+} from "./video-experiment.js";
 import {
   COMPOSITION_BRIDGE,
   COMPOSITION_BRIDGE_FILE,
@@ -89,10 +93,10 @@ import {
   type DeterministicRunKind,
 } from "./domain.js";
 import { normalizeMediaTags } from "./spec-normalization.js";
-import type { RunRequest } from "./run-request.js";
+import type { RunAndAcceptOptions, RunOutcome, RunRequest } from "./run-request.js";
 import { RUN_KINDS } from "./run-kinds/index.js";
 import {
-  experimentOff,
+  RunRefusal,
   scriptRequired,
   type Acceptance,
   type AnyRunKind,
@@ -114,6 +118,13 @@ const VOICE_LIBRARY_TTL_MS = 10 * 60 * 1000;
 
 /** How far a cut may end past its recording, for rounding. */
 const CUT_SLACK_MS = 50;
+
+/** How often a run waited on is looked at besides being told when it ends. */
+const SETTLE_CHECK_MS = 5000;
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 /** The confinement every activity run's own agent works under: its workspace, and only that. */
 const RUN_SANDBOX_MODE: SessionSandboxMode = "workspace-write";
@@ -149,6 +160,8 @@ export class ActivityGenerationService implements ActivityGeneration {
   @Use() private readonly runs!: ActivityRuns;
   @Use() private readonly lock!: ActivityLock;
   private readonly observers = new Map<string, Observer>();
+  /** What is waiting for a run to end, by run id: each looks at the run again when it does. */
+  private readonly settling = new Map<string, Set<() => void>>();
   /** The test browser started for a confined run's checks, by run id; stopped when it ends. */
   private readonly browserServers = new Map<string, BrowserServerHandle>();
   private readonly operations = new Set<Promise<unknown>>();
@@ -248,7 +261,7 @@ export class ActivityGenerationService implements ActivityGeneration {
       workspace: (runId) => this.runs.workspace(runId),
       list: (projectId, activityId) => this.list(projectId, activityId),
       run: (projectId, activityId, runId) => this.getRun(projectId, activityId, runId),
-      videoExperiment: () => this.videoExperiment(),
+      requireVideoExperiment: () => this.requireVideoExperiment(),
       videoTimeline: (projectId, activityId, language, assetKey) =>
         this.videoTimeline(projectId, activityId, language, assetKey),
       vaultKeys: async (projectId, agentId) =>
@@ -263,6 +276,8 @@ export class ActivityGenerationService implements ActivityGeneration {
     run.error = error;
     run.finishedAt = new Date().toISOString();
     this.runs.save(run);
+    if (status !== "running")
+      for (const check of [...(this.settling.get(run.runId) ?? [])]) check();
     this.observers.get(run.runId)?.unsubscribe();
     this.observers.delete(run.runId);
     const server = status === "running" ? undefined : this.browserServers.get(run.runId);
@@ -470,7 +485,7 @@ export class ActivityGenerationService implements ActivityGeneration {
           if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
           // Scene videos are refused while the experiment is off, before anything about the
           // draft is checked, so an author always learns first that the experiment is off.
-          if (kind.experimental && !this.videoExperiment()) throw experimentOff();
+          if (kind.experimental) this.requireVideoExperiment();
           const activity = await this.activities.getActivity(projectId, activityId);
           if (activity.draft.contentRevision !== expectedRevision)
             throw new HttpError(
@@ -946,7 +961,7 @@ export class ActivityGenerationService implements ActivityGeneration {
       this.projectWork.run(projectId, () =>
         this.lock.run(activityId, async () => {
           if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
-          if (kind.experimental && !this.videoExperiment()) throw experimentOff();
+          if (kind.experimental) this.requireVideoExperiment();
           const run = await this.getRun(projectId, activityId, runId);
           if (
             run.kind !== kind.run ||
@@ -965,6 +980,107 @@ export class ActivityGenerationService implements ActivityGeneration {
         }),
       ),
     );
+  }
+
+  /**
+   * Starts a run, waits for it to end, and accepts what it made: the whole of what an author
+   * does by hand, as one call. A refusal its kind marks as a skip starts nothing; the draft must
+   * still be the one the run started from when its candidate is accepted.
+   */
+  async runAndAccept(
+    projectId: string,
+    activityId: string,
+    request: RunRequest,
+    options: RunAndAcceptOptions,
+  ): Promise<RunOutcome> {
+    const kind: AnyRunKind = RUN_KINDS[request.kind];
+    let run: ActivityRun;
+    try {
+      const activity = await this.activities.getActivity(projectId, activityId);
+      run = await this.start(
+        projectId,
+        activityId,
+        options.agentId,
+        activity.draft.contentRevision,
+        request,
+        options.runtime,
+      );
+    } catch (error) {
+      if (error instanceof RunRefusal)
+        return { outcome: "skipped", reason: error.skip, message: error.message };
+      return { outcome: "failed", error: messageOf(error) };
+    }
+    options.started?.(run);
+    let settled: ActivityRun | null;
+    try {
+      settled = await this.settled(run, options.signal);
+    } catch (error) {
+      return { outcome: "failed", run, error: messageOf(error) };
+    }
+    // A run that ended as the caller stopped is not accepted: nothing after a stop runs.
+    if (!settled || options.signal?.aborted)
+      return { outcome: "stopped", ...(settled ? { run: settled } : {}) };
+    if (settled.status !== "succeeded")
+      return {
+        outcome: "failed",
+        run: settled,
+        error: settled.error ?? `The ${settled.kind} run ended as ${settled.status}.`,
+      };
+    if (!kind.accept) return { outcome: "succeeded", run: settled };
+    try {
+      // Accepted on the draft as it is now, which accepting refuses unless it is still the one
+      // the run started from.
+      const current = await this.activities.getActivity(projectId, activityId);
+      const draft = await this.accept(
+        kind,
+        projectId,
+        activityId,
+        run.runId,
+        current.draft.contentRevision,
+      );
+      return { outcome: "accepted", run: settled, draft };
+    } catch (error) {
+      return { outcome: "failed", run: settled, error: messageOf(error) };
+    }
+  }
+
+  /**
+   * The run once it has ended, read again; null when the signal is aborted first. Told by
+   * `finish` the moment it ends, and looked at now and then besides, since a run whose
+   * project is deleted never ends.
+   */
+  private settled(run: ActivityRun, signal?: AbortSignal): Promise<ActivityRun | null> {
+    return new Promise((resolve, reject) => {
+      if (signal?.aborted) return resolve(null);
+      const waiting = this.settling.get(run.runId) ?? new Set<() => void>();
+      this.settling.set(run.runId, waiting);
+      const done = () => {
+        clearInterval(timer);
+        signal?.removeEventListener("abort", aborted);
+        waiting.delete(check);
+        if (!waiting.size && this.settling.get(run.runId) === waiting)
+          this.settling.delete(run.runId);
+      };
+      const aborted = () => {
+        done();
+        resolve(null);
+      };
+      const check = () => {
+        const current = this.runs.get(run.projectId, run.activityId, run.runId);
+        if (!current) {
+          done();
+          reject(new Error(`Run ${run.runId} is no longer in the history.`));
+        } else if (current.status !== "running") {
+          done();
+          resolve(current);
+        }
+      };
+      const timer = setInterval(check, SETTLE_CHECK_MS);
+      timer.unref();
+      waiting.add(check);
+      signal?.addEventListener("abort", aborted, { once: true });
+      check();
+    });
   }
 
   acceptImage(projectId: string, activityId: string, runId: string, expectedRevision: string) {
@@ -1050,7 +1166,7 @@ export class ActivityGenerationService implements ActivityGeneration {
     language: string,
     assetKey: string,
   ): Promise<VideoTimelineView> {
-    if (!this.videoExperiment()) throw experimentOff();
+    this.requireVideoExperiment();
     const activity = await this.activities.getActivity(projectId, activityId);
     const assets = activity.draft.mediaPlan?.manifest.assets[language] ?? [];
     const asset = assets.find(
@@ -1101,6 +1217,10 @@ export class ActivityGenerationService implements ActivityGeneration {
   /** Whether an admin turned the scene-video experiment on. */
   videoExperiment(): boolean {
     return readVideoExperiment(this.settings.get(VIDEO_EXPERIMENT_SETTING));
+  }
+
+  requireVideoExperiment(): void {
+    if (!this.videoExperiment()) throw experimentOff();
   }
 
   /**

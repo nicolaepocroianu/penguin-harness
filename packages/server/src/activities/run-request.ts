@@ -1,5 +1,7 @@
+import type { Opaque } from "@prismshadow/penguin-core/kernel";
 import type { AssistFocus } from "./assist.js";
 import type { AcceptanceStage } from "./acceptance-types.js";
+import type { ActivityDraft, ActivityRun } from "./domain.js";
 
 /** One asset of the media plan, in one language. */
 export interface RunAssetRequest {
@@ -58,3 +60,39 @@ export type RunRequestKind = RunRequest["kind"];
 
 /** The request of one kind. */
 export type RunRequestOf<Kind extends RunRequestKind> = Extract<RunRequest, { kind: Kind }>;
+
+/**
+ * Why a run was not started, when its kind says the work can be left undone rather than fail:
+ * the provider cannot be used now, the specification has no assessment, or this ref does not
+ * own the product's assessment.
+ */
+export type RunSkip = "providerUnavailable" | "noAssessment" | "notCanonical";
+
+/**
+ * How `runAndAccept` ended:
+ * - `accepted`: the run succeeded and its candidate is now part of the draft;
+ * - `succeeded`: the run succeeded and its kind keeps its own result (a specification it saved,
+ *   a module it built, tests it reported), so there is nothing to accept;
+ * - `skipped`: no run was started, for the reason its kind gives;
+ * - `failed`: the run was refused, ended without success, or its candidate could not be
+ *   accepted; `run` is absent when none was started;
+ * - `stopped`: the caller's signal was aborted; nothing was accepted, and the run is left as it is.
+ */
+export type RunOutcome =
+  | { outcome: "accepted"; run: ActivityRun; draft: ActivityDraft }
+  | { outcome: "succeeded"; run: ActivityRun }
+  | { outcome: "skipped"; reason: RunSkip; message: string }
+  | { outcome: "failed"; run?: ActivityRun; error: string }
+  | { outcome: "stopped"; run?: ActivityRun };
+
+/** Who a run and accept runs as, and what its caller is told along the way. */
+export interface RunAndAcceptOptions {
+  /** The Penguin agent the run belongs to (media runs belong to the Media Agent whatever it is). */
+  agentId: string;
+  /** Run on an external coding agent instead of `agentId`'s own model. */
+  runtime?: { codingAgentId?: string };
+  /** Told the run as soon as it has started, before it settles. */
+  started?: (run: ActivityRun) => void;
+  /** Aborted: stop waiting, accept nothing, and leave the run as it is. */
+  signal?: Opaque<"AbortSignal", AbortSignal>;
+}

@@ -30,6 +30,7 @@ import { mediaSpecKind, specKind, SPEC_OUTPUT } from "../src/activities/run-kind
 import { testKind } from "../src/activities/run-kinds/test.js";
 import { imageKind, IMAGE_OUTPUT } from "../src/activities/run-kinds/image.js";
 import { PHONEMES_FILE } from "../src/activities/phonemes-run.js";
+import { experimentOff } from "../src/activities/video-experiment.js";
 import {
   ACCEPTANCE_REPORT_DIR,
   ACCEPTANCE_REPORT_FILE,
@@ -70,7 +71,13 @@ function activity(draft: Partial<ActivityDetail["draft"]> = {}): ActivityDetail 
 /** Only what a test's kind reaches for; anything else fails loudly. */
 function services(overrides: Partial<RunKindServices> = {}): RunKindServices {
   return new Proxy(
-    { videoExperiment: () => false, ...overrides },
+    {
+      // The experiment is off here.
+      requireVideoExperiment: () => {
+        throw experimentOff();
+      },
+      ...overrides,
+    },
     {
       get(target, key) {
         if (key in target) return target[key as keyof typeof target];
@@ -199,7 +206,12 @@ describe("whether a run may start", () => {
     expect(await canRun(imageKind, vault, image, planned, owner)).toEqual({ ok: true });
     expect(
       await canRun(imageKind, vault, image, planned, { ...owner, agentId: "media_agent" }),
-    ).toMatchObject({ ok: false, refusal: { code: "image_credential_missing" } });
+    ).toMatchObject({
+      ok: false,
+      refusal: { code: "image_credential_missing" },
+      // Left undone rather than failed where the work is done in stages.
+      skip: "providerUnavailable",
+    });
     expect(
       await canRun(
         imageKind,

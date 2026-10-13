@@ -108,17 +108,6 @@ export class ActivityRoutes {
   @Use() private readonly config!: Config;
   @Bind("activities") routes!: Hono<AppEnv>;
 
-  /** The assessment in effect for a ref (an author's edit, else the module's own), or null. */
-  private async currentAssessment(
-    projectId: string,
-    activityId: string,
-  ): Promise<Record<string, unknown> | null> {
-    const value = (await this.sandbox.moduleDocuments(projectId, activityId)).assessment?.value;
-    return value && typeof value === "object" && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : null;
-  }
-
   setup() {
     const app = new HonoApp<AppEnv>();
     app.use("*", async (c, next) => {
@@ -299,12 +288,7 @@ export class ActivityRoutes {
     );
     app.put("/:activityId/video-timeline", async (c) => {
       const body = await readJson(c);
-      if (!this.generation.videoExperiment())
-        throw new HttpError(
-          403,
-          "experiment_off",
-          "Scene videos are an experiment an admin has not turned on.",
-        );
+      this.generation.requireVideoExperiment();
       return c.json(
         await this.activities.saveVideoTimeline(
           requireValidId(c, "projectId"),
@@ -643,7 +627,7 @@ export class ActivityRoutes {
           expectedRevision,
           {
             kind: "assessment",
-            assessment: { current: await this.currentAssessment(projectId, activityId) },
+            assessment: { current: await this.sandbox.currentAssessment(projectId, activityId) },
           },
           runner.runtime,
         ),
@@ -1406,7 +1390,7 @@ export class ActivityRoutes {
           activityId,
           // A module that cannot be read leaves the author's edit, which the service reads.
           await Promise.all([
-            this.currentAssessment(projectId, activityId),
+            this.sandbox.currentAssessment(projectId, activityId),
             this.sandbox.ownAssessment(projectId, activityId),
           ]).then(
             ([current, own]) => ({ current, own }),

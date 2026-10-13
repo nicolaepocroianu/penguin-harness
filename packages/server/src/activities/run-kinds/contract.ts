@@ -18,7 +18,7 @@ import type {
   ActivityRunFields,
   ActivityRunSummary,
 } from "../domain.js";
-import type { RunRequest } from "../run-request.js";
+import type { RunRequest, RunSkip } from "../run-request.js";
 import type { LocalAudio, LocalAudioRequest } from "../local-audio.js";
 import type { MediaHelperPorts, MediaHelperScript } from "../media-helper-runner.js";
 import type { SoundModelPorts } from "../sound-models.js";
@@ -42,8 +42,8 @@ export interface RunKindServices {
   list(projectId: string, activityId: string): Promise<ActivityRunSummary[]>;
   /** One run of the activity, with its candidate; 404 `run_not_found` when there is none. */
   run(projectId: string, activityId: string, runId: string): Promise<ActivityRun>;
-  /** Whether an admin turned the scene-video experiment on. */
-  videoExperiment(): boolean;
+  /** 403 `experiment_off` unless an admin turned the scene-video experiment on. */
+  requireVideoExperiment(): void;
   videoTimeline(
     projectId: string,
     activityId: string,
@@ -215,9 +215,9 @@ export async function canRun(
   request: RunRequest,
   activity: ActivityDetail,
   owner: { projectId: string; agentId?: string },
-): Promise<{ ok: true } | { ok: false; refusal: HttpError }> {
+): Promise<{ ok: true } | { ok: false; refusal: HttpError; skip?: RunSkip }> {
   try {
-    if (kind.experimental && !services.videoExperiment()) throw experimentOff();
+    if (kind.experimental) services.requireVideoExperiment();
     if (kind.needsScript && !activity.draft.description.trim()) throw scriptRequired();
     const prepared: unknown = await kind.check(services, request, activity, owner.projectId);
     if (owner.agentId !== undefined)
@@ -227,18 +227,25 @@ export async function canRun(
       });
     return { ok: true };
   } catch (error) {
+    if (error instanceof RunRefusal) return { ok: false, refusal: error, skip: error.skip };
     if (error instanceof HttpError) return { ok: false, refusal: error };
     throw error;
   }
 }
 
-/** 403 while an admin has not turned the scene-video experiment on. */
-export function experimentOff(): HttpError {
-  return new HttpError(
-    403,
-    "experiment_off",
-    "Scene videos are an experiment an admin has not turned on.",
-  );
+/**
+ * A refusal its kind says leaves the work undone rather than failed: answered as any refusal
+ * is, and told apart by `skip` where the work is done in stages.
+ */
+export class RunRefusal extends HttpError {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    readonly skip: RunSkip,
+  ) {
+    super(status, code, message);
+  }
 }
 
 export function scriptRequired(): HttpError {

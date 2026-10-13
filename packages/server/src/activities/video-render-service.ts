@@ -199,12 +199,7 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
   ): Promise<ActivityRun> {
     if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
     // Refused first, whatever else is wrong, so an author always learns the experiment is off.
-    if (!this.generation.videoExperiment())
-      throw new HttpError(
-        403,
-        "experiment_off",
-        "Scene videos are an experiment an admin has not turned on.",
-      );
+    this.generation.requireVideoExperiment();
     const activity = await this.activities.getActivity(projectId, activityId);
     if (activity.draft.contentRevision !== input.expectedRevision)
       throw new HttpError(
@@ -326,12 +321,7 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
     input: { language: string; assetKey: string; expectedRevision: string },
   ): Promise<ActivityRun> {
     if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
-    if (!this.generation.videoExperiment())
-      throw new HttpError(
-        403,
-        "experiment_off",
-        "Scene videos are an experiment an admin has not turned on.",
-      );
+    this.generation.requireVideoExperiment();
     const activity = await this.activities.getActivity(projectId, activityId);
     if (activity.draft.contentRevision !== input.expectedRevision)
       throw new HttpError(
