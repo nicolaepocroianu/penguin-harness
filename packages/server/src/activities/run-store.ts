@@ -56,7 +56,7 @@ type RunRow = { kind: ActivityRun["kind"]; record_json: string };
 
 function summaryOf(row: RunRow): ActivityRunSummary {
   const metadata = JSON.parse(row.record_json) as ActivityRunSummary;
-  return { ...metadata, kind: row.kind } as ActivityRunSummary;
+  return { ...metadata, kind: row.kind };
 }
 
 @Component()
@@ -115,7 +115,7 @@ export class ActivityRunStore implements ActivityRuns {
       .prepare("SELECT candidate FROM activity_run_candidates WHERE run_id = ?")
       .get(runId) as { candidate: string } | undefined;
     const { hasCandidate: _, ...metadata } = summaryOf(row);
-    return { ...metadata, candidate: payload?.candidate ?? null };
+    return { ...metadata, candidate: payload?.candidate ?? null } as ActivityRun;
   }
 
   summaries(
@@ -147,7 +147,7 @@ export class ActivityRunStore implements ActivityRuns {
       this.db
         .prepare("SELECT kind, record_json FROM activity_runs WHERE status = 'running'")
         .all() as RunRow[]
-    ).map((row) => ({ ...summaryOf(row), candidate: null }));
+    ).map((row) => ({ ...summaryOf(row), candidate: null }) as ActivityRun);
   }
 
   hasActive(activityId: string): boolean {
