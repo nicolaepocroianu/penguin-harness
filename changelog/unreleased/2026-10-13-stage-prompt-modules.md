@@ -3,7 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** refactor
 - **Scope:** `server`, `tooling`
-- **PR:** pending
+- **PR:** [#131](https://github.com/nicolaepocroianu/penguin-harness/pull/131)
 
 Every activity run kind's prompt text moved into a prompt-only module under
 `packages/server/src/activities/prompts/` — one per stage that has a prompt: assessment, assist,
