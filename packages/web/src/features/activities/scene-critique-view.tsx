@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import type { ActivityRunSummary, SceneCritique } from "@prismshadow/penguin-server/api";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
+import { HelpFold } from "../../components/ui/help-fold";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
@@ -128,14 +129,12 @@ export function SceneCritiqueView({
           </Button>
         )}
         {onImprove && (
-          <>
-            <Button size="sm" disabled={!canCritique || running || good} onClick={onImprove}>
-              {words.improve}
-            </Button>
-            <InfoPopover label={words.improve}>{words.improveInfo}</InfoPopover>
-          </>
+          <Button size="sm" disabled={!canCritique || running || good} onClick={onImprove}>
+            {words.improve}
+          </Button>
         )}
       </div>
+      {onImprove && <HelpFold label={words.improve}>{words.improveInfo}</HelpFold>}
     </section>
   );
 }

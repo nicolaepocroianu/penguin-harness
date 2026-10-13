@@ -9,11 +9,13 @@ Included plugins, by category (`PLUGIN_CATEGORIES` in `packages/core/src/plugins
 | Category | Plugins |
 | --- | --- |
 | Office Productivity | `data-analysis`, `use-firecrawl`, `use-bento-slides`, `humanizer`, `goal`, `continual-learning` |
-| Software Development | `software-development`, `use-claude-code`, `use-codex` |
+| Software Development | `software-development`, `use-claude-code`, `use-codex`, `waf-authoring` |
 | AI App Development | `agent-development`, `model-development`, `skill-porting`, `agent-tuning` |
 | Agent Company | `agent-company` |
 
-`humanizer`, `use-claude-code`, `continual-learning` and `agent-company` carry `preinstall: false`, so `default_agent` does not get them at initialization — they are installed from the library on demand (`agent-company` by the organization itself, when it creates the CEO and hires employees, or by hand onto any Agent that should be able to create one). `goal` is the stop hook behind goal mode: its `start.mjs` writes the Session's `GOAL.json` and composes round 1, its `stop.mjs` reads the Trace after every Task and injects the next round or ends the goal. `continual-learning` hands a long task's condensed excerpt to a background subagent that folds the findings into the agent's skills.
+`humanizer`, `use-claude-code`, `use-codex`, `continual-learning`, `agent-company` and `waf-authoring` carry `preinstall: false`, so `default_agent` does not get them at initialization — they are installed from the library on demand (`agent-company` by the organization itself, when it creates the CEO and hires employees, or by hand onto any Agent that should be able to create one). `goal` is the stop hook behind goal mode: its `start.mjs` writes the Session's `GOAL.json` and composes round 1, its `stop.mjs` reads the Trace after every Task and injects the next round or ends the goal. `continual-learning` hands a long task's condensed excerpt to a background subagent that folds the findings into the agent's skills.
+
+`waf-authoring` holds Loom's WAF activity contracts, which activity runs copy into their workspace; the built-in Activity Agent is created with it.
 
 `agent-tuning` powers the self-improvement loop: create the Target Agent, design a Benchmark, evaluate it, optimize it to version N+1 with a snapshot before every round.
 

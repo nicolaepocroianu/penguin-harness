@@ -80,8 +80,8 @@ describe("skills api", () => {
     ]);
     for (const group of body.groups) {
       expect(group.title.length).toBeGreaterThan(0);
-      // The Chinese category title is passed through from the plugins package (the UI picks a language).
-      expect(group.titleZh).toBeTruthy();
+      // The library is authored in English only: no category carries a Chinese title.
+      expect(group.titleZh).toBeUndefined();
       // Members are name-sorted within their category.
       expect(group.plugins.map((p) => p.name)).toEqual(
         [...group.plugins.map((p) => p.name)].sort(),
@@ -97,7 +97,7 @@ describe("skills api", () => {
         // every returned skill; a skill's icon is its plugin's, sent once on the plugin item;
         // bodies never are.
         expect(skill.shortDescription, skill.name).toBeTruthy();
-        expect(skill.shortDescriptionZh, skill.name).toBeTruthy();
+        expect(skill.shortDescriptionZh, skill.name).toBeUndefined();
         expect(skill.icon, skill.name).toBeUndefined();
         expect(skill.version).toBe(plugin.version);
         expect("content" in skill).toBe(false);
@@ -105,7 +105,7 @@ describe("skills api", () => {
     }
     const goal = plugins.find((p) => p.name === "goal")!;
     expect(goal).toMatchObject({ hooks: ["user_prompt", "stop"], skills: [] });
-    expect(goal.descriptionZh).toBeTruthy();
+    expect(goal.descriptionZh).toBeUndefined();
     expect("files" in goal).toBe(false);
     expect(plugins.find((p) => p.name === "continual-learning")).toMatchObject({
       hooks: ["stop"],
@@ -257,12 +257,12 @@ describe("skills api", () => {
     // use-claude-code and humanizer ship in the library marked `preinstall: false`: their skills are not present here.
     expect(body.skills.map((s) => s.name)).not.toContain("remote-claude-code");
     expect(body.skills.map((s) => s.name)).not.toContain("humanizer");
-    // The installed list likewise passes through the Chinese and short descriptions
-    // (listInstalledSkills parses these from the on-disk frontmatter) and the icon each
-    // install wrote beside SKILL.md — its plugin's.
+    // The installed list likewise passes through the short description (listInstalledSkills
+    // parses it from the on-disk frontmatter; the library ships no Chinese one) and the icon
+    // each install wrote beside SKILL.md — its plugin's.
     for (const skill of body.skills) {
       expect(skill.shortDescription, skill.name).toBeTruthy();
-      expect(skill.shortDescriptionZh, skill.name).toBeTruthy();
+      expect(skill.shortDescriptionZh, skill.name).toBeUndefined();
       expect(skill.icon, skill.name).toBe(librarySkill(skill.name)!.plugin.icon);
     }
 

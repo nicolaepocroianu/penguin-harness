@@ -37,7 +37,9 @@ describe("admin server settings", () => {
   let admin: ReturnType<typeof apiClient>;
 
   beforeEach(async () => {
-    t = await createTestApp();
+    // No WAF checkout: the harness would record it as a server_settings row, and these tests
+    // read that table from empty.
+    t = await createTestApp({ wafCheckout: false });
     admin = apiClient(t.app, (await loginAdmin(t.app)).cookie);
   });
   afterEach(async () => {

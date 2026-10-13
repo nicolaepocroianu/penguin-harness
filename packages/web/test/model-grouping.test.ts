@@ -104,6 +104,7 @@ describe("groupModelRows", () => {
       "anthropic",
       "siliconflow",
       "zhipu",
+      "zhipu-coding-plan",
       "moonshot",
       "minimax",
       "qwen-pay-as-you-go",
