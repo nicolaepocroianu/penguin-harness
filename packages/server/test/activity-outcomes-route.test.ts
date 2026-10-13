@@ -3,12 +3,18 @@
  * with the ledger's own tallies and histories.
  */
 import { afterEach, describe, expect, it } from "vitest";
-import { newId, type ActivityDetail, type ActivityRun } from "../src/activities/domain.js";
+import {
+  DETERMINISTIC_RUN_KINDS,
+  newId,
+  type ActivityDetail,
+  type ActivityRun,
+} from "../src/activities/domain.js";
 import type {
   OutcomeHistoryResponse,
   OutcomeTallyResponse,
 } from "../src/activities/outcome-types.js";
 import type { ActivityOutcomes } from "../src/activities/outcomes.js";
+import { RECORDED_RUN_KINDS } from "../src/activities/run-kinds/index.js";
 import type { ActivityRuns } from "../src/activities/run-store.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser } from "./helpers.js";
 
@@ -108,6 +114,13 @@ describe("the outcome ledger's read route", () => {
       `${ROUTE}/history?projectId=${PROJECT}&activityId=${activity.id}&runId=${run.runId}`,
     );
     expect(((await one.json()) as OutcomeHistoryResponse).runs).toHaveLength(1);
+  });
+
+  it("takes every kind a run records, those the server records itself included", async () => {
+    const { admin } = await fixture();
+    for (const kind of DETERMINISTIC_RUN_KINDS) expect(RECORDED_RUN_KINDS.has(kind)).toBe(true);
+    for (const kind of RECORDED_RUN_KINDS)
+      expect((await admin.get(`${ROUTE}/tally?kind=${kind}`)).status, kind).toBe(200);
   });
 
   it("is for admins only, even the project's own owner", async () => {

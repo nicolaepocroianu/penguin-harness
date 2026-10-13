@@ -1,0 +1,15 @@
+{
+  "title": "PLACEHOLDER: Tap the star",
+  "placeholder": true,
+  "split": "dev",
+  "weight": 1,
+  "request": { "productCode": "BENCHPH", "refNum": 1 },
+  "hidden": {
+    "criteria": [
+      "The activity starts and offers something to tap.",
+      "Tapping the star moves the activity on.",
+      "The activity reaches its end after the star is tapped.",
+      "The narration plays when the activity starts."
+    ]
+  }
+}

@@ -13,7 +13,7 @@
     "lint": "oxlint",
     "gen:ifaces": "node scripts/gen-ifaces.mjs --project packages/server/tsconfig.json --out packages/server/src/ifaces.json",
     "ifaces:page": "pnpm gen:ifaces && node scripts/iface-page.mjs --in packages/server/src/ifaces.json --out dist-ifaces",
-    "typecheck": "pnpm gen:ifaces && pnpm -r typecheck",
+    "typecheck": "pnpm gen:ifaces && pnpm -r typecheck && tsc --noEmit -p scripts/activity-bench/tsconfig.json",
     "test": "pnpm -r test",
     "test:e2e": "pnpm --filter @prismshadow/penguin-core test:e2e",
     "build": "pnpm -r build && pnpm link:cli",
@@ -25,6 +25,7 @@
     "dev:docs": "node scripts/dev-prebuild.mjs --install-only && pnpm --filter @prismshadow/penguin-docs dev",
     "dev:landing": "node scripts/dev-prebuild.mjs --install-only && pnpm --filter @prismshadow/penguin-landing dev",
     "build:site": "node scripts/build-site.mjs",
+    "bench": "tsx scripts/activity-bench/cli.ts",
     "desktop": "pnpm -r build && node scripts/run-with-env.mjs PENGUIN_HOME=~/.penguin/dev-data -- pnpm --dir packages/desktop start"
   },
   "devDependencies": {

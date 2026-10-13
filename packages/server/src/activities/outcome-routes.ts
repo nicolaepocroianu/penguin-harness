@@ -21,15 +21,7 @@ import type {
   OutcomeTallyResponse,
 } from "./outcome-types.js";
 import type { ActivityOutcomes } from "./outcomes.js";
-import { RUN_KINDS } from "./run-kinds/index.js";
-
-/** Every kind a run records: those a start makes, and those the server records itself. */
-const KINDS: ReadonlySet<string> = new Set<ActivityRunKind>([
-  ...Object.values(RUN_KINDS).map((kind) => kind.run),
-  "quality",
-  "test",
-  "video",
-]);
+import { RECORDED_RUN_KINDS } from "./run-kinds/index.js";
 
 const DIMENSIONS: readonly OutcomeDimension[] = [
   "recipe",
@@ -87,8 +79,8 @@ export class ActivityOutcomeRoutes {
     });
     app.get("/tally", async (c) => {
       const kind = c.req.query("kind");
-      if (!kind || !KINDS.has(kind))
-        throw badRequest(`kind must be one of ${[...KINDS].sort().join(", ")}.`);
+      if (!kind || !RECORDED_RUN_KINDS.has(kind as ActivityRunKind))
+        throw badRequest(`kind must be one of ${[...RECORDED_RUN_KINDS].sort().join(", ")}.`);
       const by = c.req.query("by");
       if (by !== undefined && !DIMENSIONS.includes(by as OutcomeDimension))
         throw badRequest(`by must be one of ${DIMENSIONS.join(", ")}.`);

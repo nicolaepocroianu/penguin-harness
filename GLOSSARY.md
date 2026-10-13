@@ -137,3 +137,23 @@ _Avoid_: WAF repo, environment
 The files of the WAF workspace on disk, laid out as a WAF checkout is: the framework, the modules and
 the media.
 _Avoid_: WAF folder, clone
+
+### Improvement
+
+**Activity bench**:
+The benchmark of activity authoring: a frozen set of cases a recipe authors through the stages,
+scored with hidden checks.
+_Avoid_: Eval set, test suite
+
+**Case**:
+One frozen request in the activity bench: a script and whatever an author would hand over with it.
+_Avoid_: Sample, fixture, test case
+
+**Trial**:
+One case taken through its stages once, for one score; a trial holds many runs.
+_Avoid_: Run, attempt, sample
+
+**Hidden check**:
+A check of a case's activity that only the evaluator holds and runs; no agent being scored or
+changing the recipe can read or change it.
+_Avoid_: Private test, holdout test
