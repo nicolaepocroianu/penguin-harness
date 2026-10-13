@@ -18,6 +18,7 @@ import {
   benchFixture,
   parseTrial,
   removeTemps,
+  tempDir,
 } from "./activity-bench-fixtures.js";
 
 afterEach(removeTemps);
@@ -91,6 +92,25 @@ describe("before anything is spent", () => {
       }),
     ).toBeNull();
     expect(f.host.authored).toHaveLength(18);
+  });
+
+  it("refuses a link, even among the plugin's skills", async () => {
+    const f = benchFixture();
+    // A link a recipe build would follow out of the surface, to the person's Claude login.
+    const target = path.join(tempDir(), "target");
+    fs.writeFileSync(target, "../../../../../.claude/.credentials.json");
+    const blob = f.repo.git("hash-object", "-w", target);
+    const link = "plugins/waf-authoring/skills/authoring/notes.md";
+    f.repo.git("config", "core.symlinks", "false");
+    f.repo.git("update-index", "--add", "--cacheinfo", `120000,${blob},${link}`);
+    f.repo.git("commit", "-q", "-m", "a link");
+    f.repo.git("checkout", "--", link);
+    const verdict = await f.bench.compare({ head: f.repo.git("rev-parse", "HEAD"), base: f.base });
+    expect(verdict).toMatchObject({
+      invalid: "out_of_surface",
+      reason: `head changes files outside the recipe surface: ${link} (a link).`,
+    });
+    expect(f.host.authored).toEqual([]);
   });
 
   it("refuses a revision that names no commit, and a host that is not ready", async () => {

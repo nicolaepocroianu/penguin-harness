@@ -6,10 +6,10 @@
  *
  * The check runs in a child Node process under Node's permission model: it may read only its
  * own entry file and playwright-core, and may not write, start a process or a worker, or load
- * an addon — a trial's own tests are its agent's code. The browser is started here, as a
- * Playwright server on loopback, and the child connects to it. The files are served from
- * memory by module hooks (check-child.mjs): no check's text, and no hidden criterion, reaches
- * the disk.
+ * an addon — a trial's own tests are its agent's code. The browser is started here, locked to
+ * loopback, and the child reaches it only through a guard that refuses local files and every
+ * other way out (browser-guard.ts). The files are served from memory by module hooks
+ * (check-child.mjs): no check's text, and no hidden criterion, reaches the disk.
  */
 import { execFile } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -29,6 +29,7 @@ import {
   runAcceptanceSource,
 } from "../../packages/server/src/activities/acceptance-harness.js";
 import { PLAYER_BROWSER_ARGS } from "../../packages/server/src/activities/browser-session.js";
+import { startGuardedBrowser } from "./browser-guard.js";
 import { killTree, plainEnv, spawnTree } from "./process-tree.js";
 import type { CheckRun, CheckRunner, HiddenChecks } from "./types.js";
 
@@ -137,6 +138,7 @@ export class HarnessCheckRunner implements CheckRunner {
       activityHarnessSource,
       runAcceptanceSource,
       fs.readFileSync(CHILD, "utf8"),
+      fs.readFileSync(path.join(HERE, "browser-guard.ts"), "utf8"),
     ])
       hash.update(source).update("\0");
     this.fingerprint = hash.digest("hex").slice(0, 16);
@@ -147,14 +149,14 @@ export class HarnessCheckRunner implements CheckRunner {
     playUrl: string,
     { hidden = false }: { hidden?: boolean } = {},
   ): Promise<CheckRun> {
-    let browser: { wsEndpoint(): string; close(): Promise<void> };
+    let browser: Awaited<ReturnType<typeof startGuardedBrowser>>;
     try {
-      browser = await this.playwright.chromium.launchServer({
-        executablePath: this.browserPath,
-        headless: true,
-        host: "127.0.0.1",
-        args: PLAYER_BROWSER_ARGS,
-      });
+      browser = await startGuardedBrowser(
+        this.playwright,
+        this.browserPath,
+        PLAYER_BROWSER_ARGS,
+        playUrl,
+      );
     } catch (error) {
       return {
         ran: false,
@@ -162,9 +164,9 @@ export class HarnessCheckRunner implements CheckRunner {
       };
     }
     try {
-      return await this.runConfined(checks, playUrl, browser.wsEndpoint(), hidden);
+      return await this.runConfined(checks, playUrl, browser.endpoint, hidden);
     } finally {
-      await browser.close().catch(() => {});
+      await browser.close();
     }
   }
 

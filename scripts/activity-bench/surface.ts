@@ -31,6 +31,9 @@ export const VERSIONED_MANIFESTS: readonly string[] = [
  */
 export const PROMPT_SOURCES: readonly string[] = [];
 
+/** Git's modes for a symbolic link and a submodule. */
+const LINK_MODES = ["120000", "160000"];
+
 export function inSurface(file: string): boolean {
   return (
     RECIPE_SURFACE.some((entry) =>
@@ -78,12 +81,22 @@ export async function isDirty(repo: string): Promise<boolean> {
 
 /** The files head changes from base that are outside the recipe surface. */
 export async function outsideSurface(repo: string, base: string, head: string): Promise<string[]> {
-  const changed = (await git(repo, ["diff", "--name-only", "--no-renames", base, head]))
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+  // Each changed file: `:<mode before> <mode after> <blob> <blob> <status>`, then its path.
+  const parts = (
+    await git(repo, ["diff", "--raw", "-z", "--no-renames", "--no-abbrev", base, head])
+  ).split("\0");
+  const changed: { mode: string; file: string }[] = [];
+  for (let i = 0; i + 1 < parts.length; i += 2) {
+    const header = /^:\d{6} (\d{6}) /.exec(parts[i]!);
+    if (header) changed.push({ mode: header[1]!, file: parts[i + 1]! });
+  }
   const outside: string[] = [];
-  for (const file of changed) {
+  for (const { mode, file } of changed) {
+    // A link (or a submodule) points past the surface, wherever it sits.
+    if (LINK_MODES.includes(mode)) {
+      outside.push(`${file} (a link)`);
+      continue;
+    }
     if (inSurface(file)) continue;
     if (VERSIONED_MANIFESTS.includes(file)) {
       const [before, after] = await Promise.all([
