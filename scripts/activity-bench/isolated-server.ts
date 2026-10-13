@@ -4,25 +4,26 @@
  * routes an author's App uses. The server under test is unchanged.
  *
  * The bench home (never ~/.penguin, never a running server's data root):
- *   seed/            a Penguin home a person prepares once: the Project, its default model, the
- *                    test browser, and for the non-regression check a Claude Code definition
+ *   seed/            a Penguin home `pnpm bench seed` prepares: the Project, its default model,
+ *                    the WAF workspace, the test browser, and for the non-regression check a
+ *                    Claude Code definition
  *   claude-config/   CLAUDE_CONFIG_DIR for Claude Code trials: a Claude login a person made
  *                    there, and nothing of their own ~/.claude (decision 19)
  *   recipes/<sha>/   a worktree of each commit compared, built once
  *   trials/...       one folder per trial: its home, and its server's log
  *
  * Every server is started with the system plumbing of this process's environment only, a
- * random port, and a desktop token that is its only credential; it is stopped with every
- * process it started before a trial's result is returned.
+ * random port, and a desktop token that is its only credential (server-boot.ts); it is stopped
+ * with every process it started before a trial's result is returned.
  */
-import type { ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findChromium } from "./checks.js";
-import { killTree, plainEnv, spawnTree } from "./process-tree.js";
+import { plainEnv, spawnTree } from "./process-tree.js";
+import { bootServer, message, sleep, type Server } from "./server-boot.js";
 import { git } from "./surface.js";
 import {
   InfrastructureError,
@@ -38,7 +39,6 @@ const YAML = createRequire(path.resolve(HERE, "../../packages/server/package.jso
   parse(text: string): unknown;
 };
 
-const BOOT_TIMEOUT_MS = 180_000;
 const POLL_MS = 5_000;
 const DEFAULT_TRIAL_TIMEOUT_MS = 75 * 60_000;
 const CLAUDE = "claude";
@@ -69,18 +69,145 @@ export interface IsolatedServerOptions {
   log?: (line: string) => void;
 }
 
-interface Server {
-  origin: string;
-  call<T>(method: string, route: string, body?: unknown): Promise<T>;
-  /** The redirect a route answers with, or null when it answers otherwise. */
-  location(route: string): Promise<string | null>;
-  stop(): Promise<void>;
-}
-
 /** What a trial leaves beside its home for scoring. */
 interface TrialNote {
   activityId: string;
   testRunId: string | null;
+}
+
+/** Whether trials can run on a seed, asked of a server on it: a refusal says why. */
+export type SeedCheck = { refused: string } | { claude: true | string };
+
+/**
+ * What a seed must have, asked of a server running on a copy of it: the agent in the Project,
+ * a WAF workspace Penguin prepared in the seed, and whether Claude Code can run from the
+ * bench's own folder.
+ */
+export async function checkSeedServer(
+  server: Server,
+  layout: BenchLayout,
+  project: string,
+  agentId: string,
+): Promise<SeedCheck> {
+  const { agents } = await server.call<{ agents: { agentId: string }[] }>(
+    "GET",
+    `/api/projects/${project}/agents`,
+  );
+  if (!agents.some((agent) => agent.agentId === agentId))
+    return { refused: `The seed's Project ${project} has no agent ${agentId}.` };
+  const problem = await workspace(server);
+  if (problem) return { refused: problem };
+  return { claude: await useClaude(server, layout) };
+}
+
+export interface SeedPreflightOptions {
+  /** The checkout the throwaway server runs from. */
+  worktree: string;
+  layout: BenchLayout;
+  project: string;
+  agentId: string;
+}
+
+/** What a seed must have on disk, before any server is started: why it does not, or null. */
+export async function checkSeedFiles(layout: BenchLayout, project: string): Promise<string | null> {
+  if (!fs.existsSync(path.join(layout.seed, project)))
+    return `The seed home ${layout.seed} has no Project ${project}.`;
+  if (!(await findChromium(path.join(layout.seed, "browsers"))))
+    return `The seed home ${layout.seed} has no test browser installed.`;
+  return null;
+}
+
+/**
+ * The bench's preflight of a seed: its Project and test browser are there, and one start on a
+ * throwaway copy says the rest (checkSeedServer). The seed itself is never started or changed.
+ */
+export async function seedPreflight(options: SeedPreflightOptions): Promise<SeedCheck> {
+  const { layout, project, agentId } = options;
+  const missing = await checkSeedFiles(layout, project);
+  if (missing) return { refused: missing };
+  const dir = path.join(layout.trials, `preflight-${randomBytes(4).toString("hex")}`);
+  let server: Server | null = null;
+  try {
+    copySeed(layout, dir);
+    server = await bootTrial(options.worktree, layout, dir);
+    return await checkSeedServer(server, layout, project, agentId);
+  } catch (error) {
+    return { refused: `The seed home did not start: ${message(error)}` };
+  } finally {
+    await server?.stop();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/** Starts a server from `worktree` on `<dir>/home`, a copy of the seed, as a trial runs one. */
+function bootTrial(worktree: string, layout: BenchLayout, dir: string): Promise<Server> {
+  return bootServer({
+    worktree,
+    home: path.join(dir, "home"),
+    dir,
+    claudeConfig: layout.claudeConfig,
+    env: {
+      // The seed's workspace is prepared once, by `pnpm bench seed`: a trial home never clones.
+      PENGUIN_WAF_AUTO_PREPARE: "0",
+      PENGUIN_BUNDLED_BROWSERS: path.join(layout.seed, "browsers"),
+    },
+  });
+}
+
+/**
+ * A fresh home for one trial: the seed, all but its test browser, which every trial uses
+ * where the seed keeps it (PENGUIN_BUNDLED_BROWSERS) rather than a copy of its own.
+ */
+function copySeed(layout: BenchLayout, dir: string): void {
+  const browsers = path.join(layout.seed, "browsers");
+  fs.cpSync(layout.seed, path.join(dir, "home"), {
+    recursive: true,
+    verbatimSymlinks: true,
+    filter: (source) => path.resolve(source) !== browsers,
+  });
+}
+
+/**
+ * Why the trial home's WAF workspace cannot be used, or null. It must be the seed's own,
+ * prepared there: a checkout outside the home would be shared by every trial, and a trial
+ * never clones one itself.
+ */
+async function workspace(server: Server): Promise<string | null> {
+  const { status } = await server.call<{
+    status: { managed: boolean; ready: boolean; lastError: string | null };
+  }>("GET", "/api/admin/waf-workspace");
+  if (!status.managed)
+    return "The seed names a WAF checkout outside it, which every trial would share: let Penguin prepare one in the seed instead.";
+  if (!status.ready)
+    return `The seed's WAF workspace is not prepared${status.lastError ? `: ${status.lastError}` : "."}`;
+  return null;
+}
+
+/**
+ * Points the trial home's Claude Code at the bench's own folder and asks the server whether it
+ * can run from there. The bench never reads or copies a login; the server's own sign-in check
+ * does, and only in the bench's folder (or an API key a person gave the seed's definition).
+ */
+async function useClaude(server: Server, layout: BenchLayout): Promise<true | string> {
+  const { agents } = await server.call<{
+    agents: { id: string; env?: { key: string }[] }[];
+  }>("GET", "/api/coding-agents/agents");
+  const definition = agents.find((agent) => agent.id === CLAUDE);
+  if (!definition) return "The seed home has no Claude Code coding agent.";
+  const kept = (definition.env ?? [])
+    .filter((entry) => entry.key !== "CLAUDE_CONFIG_DIR")
+    .map((entry) => ({ key: entry.key }));
+  await server.call("PUT", `/api/coding-agents/agents/${CLAUDE}/env`, {
+    entries: [...kept, { key: "CLAUDE_CONFIG_DIR", value: layout.claudeConfig }],
+  });
+  const { candidates } = await server.call<{
+    candidates: { recipeId: string; detected: boolean; authStatus?: string }[];
+  }>("GET", "/api/coding-agents/discover");
+  const claude = candidates.find((candidate) => candidate.recipeId === CLAUDE);
+  if (!claude?.detected) return "Claude Code is not installed on this machine.";
+  if (claude.authStatus !== "ok")
+    return `No Claude login in ${layout.claudeConfig}: sign in there once, or give the seed's Claude Code definition an ANTHROPIC_API_KEY.`;
+  return true;
 }
 
 export class IsolatedServer implements AuthoringHost {
@@ -92,13 +219,11 @@ export class IsolatedServer implements AuthoringHost {
     this.log = options.log ?? (() => {});
   }
 
-  async preflight(shas: string[]): Promise<{ refused: string } | { claude: true | string }> {
-    const { seed } = this.layout;
+  async preflight(shas: string[]): Promise<SeedCheck> {
     const { project, agentId } = this.options;
-    if (!fs.existsSync(path.join(seed, project)))
-      return { refused: `The seed home ${seed} has no Project ${project}.` };
-    if (!(await findChromium(path.join(seed, "browsers"))))
-      return { refused: `The seed home ${seed} has no test browser installed.` };
+    // What the seed lacks on disk is said before any recipe is built.
+    const missing = await checkSeedFiles(this.layout, project);
+    if (missing) return { refused: missing };
     for (const sha of new Set(shas)) {
       try {
         await this.recipe(sha);
@@ -106,42 +231,26 @@ export class IsolatedServer implements AuthoringHost {
         return { refused: `Commit ${sha.slice(0, 12)} could not be prepared: ${message(error)}` };
       }
     }
-    // One start on a throwaway copy: the seed serves, has the agent, and says whether Claude
-    // Code can run from the bench's own folder.
-    const dir = path.join(this.layout.trials, `preflight-${randomBytes(4).toString("hex")}`);
-    let server: Server | null = null;
-    try {
-      this.copySeed(dir);
-      server = await this.boot(shas[0]!, dir);
-      const { agents } = await server.call<{ agents: { agentId: string }[] }>(
-        "GET",
-        `/api/projects/${project}/agents`,
-      );
-      if (!agents.some((agent) => agent.agentId === agentId))
-        return { refused: `The seed's Project ${project} has no agent ${agentId}.` };
-      const workspace = await this.workspace(server);
-      if (workspace) return { refused: workspace };
-      return { claude: await this.useClaude(server) };
-    } catch (error) {
-      return { refused: `The seed home did not start: ${message(error)}` };
-    } finally {
-      await server?.stop();
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
+    return seedPreflight({
+      worktree: await this.recipe(shas[0]!),
+      layout: this.layout,
+      project,
+      agentId,
+    });
   }
 
   async author(trial: TrialPlan): Promise<AuthoredTrial> {
     const dir = this.folder(trial);
     fs.rmSync(dir, { recursive: true, force: true });
-    this.copySeed(dir);
+    copySeed(this.layout, dir);
     const started = Date.now();
     const server = await this.boot(trial.sha, dir);
     try {
       const { project, agentId } = this.options;
-      const workspace = await this.workspace(server);
-      if (workspace) throw new InfrastructureError(workspace);
+      const problem = await workspace(server);
+      if (problem) throw new InfrastructureError(problem);
       if (trial.runtime === "coding:claude") {
-        const ready = await this.useClaude(server);
+        const ready = await useClaude(server, this.layout);
         if (ready !== true) throw new InfrastructureError(ready);
       }
       const costBefore = await this.cost(server);
@@ -259,19 +368,6 @@ export class IsolatedServer implements AuthoringHost {
     fs.rmSync(this.folder(trial), { recursive: true, force: true });
   }
 
-  /**
-   * A fresh home for one trial: the seed, all but its test browser, which every trial uses
-   * where the seed keeps it (PENGUIN_BUNDLED_BROWSERS) rather than a copy of its own.
-   */
-  private copySeed(dir: string): void {
-    const browsers = path.join(this.layout.seed, "browsers");
-    fs.cpSync(this.layout.seed, path.join(dir, "home"), {
-      recursive: true,
-      verbatimSymlinks: true,
-      filter: (source) => path.resolve(source) !== browsers,
-    });
-  }
-
   /** The tests a trial's test run wrote, as its run folder holds them; null when there are none. */
   private ownTests(dir: string, runId: string): HiddenChecks | null {
     const run = path.join(dir, "home", "activity-runs", runId);
@@ -321,90 +417,7 @@ export class IsolatedServer implements AuthoringHost {
 
   /** Starts a server from the commit's worktree on `<dir>/home`, signed in as its admin. */
   private async boot(sha: string, dir: string): Promise<Server> {
-    const worktree = await this.recipe(sha);
-    const home = path.join(dir, "home");
-    const portFile = path.join(dir, "server.port");
-    fs.rmSync(portFile, { force: true });
-    const token = randomBytes(24).toString("hex");
-    const log = fs.openSync(path.join(dir, "server.log"), "a");
-    const child = spawnTree(
-      process.execPath,
-      [path.join(worktree, "node_modules", "tsx", "dist", "cli.mjs"), path.join("src", "index.ts")],
-      {
-        cwd: path.join(worktree, "packages", "server"),
-        env: plainEnv({
-          PENGUIN_HOME: home,
-          HOST: "127.0.0.1",
-          PORT: "0",
-          PENGUIN_PORT_FILE: portFile,
-          PENGUIN_DESKTOP_TOKEN: token,
-          // The seed's workspace is prepared once, by a person: a trial home never clones.
-          PENGUIN_WAF_AUTO_PREPARE: "0",
-          PENGUIN_BUNDLED_BROWSERS: path.join(this.layout.seed, "browsers"),
-          CLAUDE_CONFIG_DIR: this.layout.claudeConfig,
-        }),
-        stdio: ["ignore", log, log],
-      },
-    );
-    fs.closeSync(log);
-    let origin = "";
-    const stop = async () => {
-      if (origin) {
-        await fetch(`${origin}/api/desktop/shutdown`, {
-          method: "POST",
-          headers: { authorization: `Bearer ${token}` },
-        }).catch(() => {});
-        await Promise.race([
-          new Promise((resolve) => child.once("exit", resolve)),
-          new Promise((resolve) => setTimeout(resolve, 10_000)),
-        ]);
-      }
-      await killTree(child);
-    };
-    try {
-      const port = await this.waitForPort(child, portFile);
-      // Bound to 127.0.0.1, a server answers its API on localhost and plays previews on
-      // 127.0.0.1 (app.ts, the canonical-host guard): the play link comes back absolute.
-      origin = `http://localhost:${port}`;
-      const claimed = await fetch(`${origin}/api/auth/claim?token=${token}`, {
-        redirect: "manual",
-      });
-      const cookie = /penguin_session=[^;]+/.exec(claimed.headers.get("set-cookie") ?? "")?.[0];
-      if (!cookie) throw new InfrastructureError("The bench server did not sign the bench in.");
-      return {
-        origin,
-        call: (method, route, body) => call(origin, cookie, method, route, body),
-        location: async (route) => {
-          const response = await fetch(`${origin}${route}`, {
-            headers: { cookie },
-            redirect: "manual",
-          });
-          return response.status >= 300 && response.status < 400
-            ? response.headers.get("location")
-            : null;
-        },
-        stop,
-      };
-    } catch (error) {
-      await stop();
-      const tail = readTail(path.join(dir, "server.log"));
-      throw new InfrastructureError(`${message(error)}${tail ? `\n${tail}` : ""}`);
-    }
-  }
-
-  private async waitForPort(child: ChildProcess, portFile: string): Promise<number> {
-    const deadline = Date.now() + BOOT_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-      if (child.exitCode !== null) throw new Error(`The bench server exited (${child.exitCode}).`);
-      try {
-        const port = Number(fs.readFileSync(portFile, "utf8").trim());
-        if (Number.isInteger(port) && port > 0) return port;
-      } catch {
-        // Not written yet.
-      }
-      await sleep(250);
-    }
-    throw new Error("The bench server did not start in time.");
+    return bootTrial(await this.recipe(sha), this.layout, dir);
   }
 
   /** Waits until the sequence ends; stops it and answers null when the trial runs out of time. */
@@ -424,49 +437,6 @@ export class IsolatedServer implements AuthoringHost {
       }
       await sleep(POLL_MS);
     }
-  }
-
-  /**
-   * Points the trial home's Claude Code at the bench's own folder and asks the server whether it
-   * can run from there. The bench never reads or copies a login; the server's own sign-in check
-   * does, and only in the bench's folder (or an API key a person gave the seed's definition).
-   */
-  private async useClaude(server: Server): Promise<true | string> {
-    const { agents } = await server.call<{
-      agents: { id: string; env?: { key: string }[] }[];
-    }>("GET", "/api/coding-agents/agents");
-    const definition = agents.find((agent) => agent.id === CLAUDE);
-    if (!definition) return "The seed home has no Claude Code coding agent.";
-    const kept = (definition.env ?? [])
-      .filter((entry) => entry.key !== "CLAUDE_CONFIG_DIR")
-      .map((entry) => ({ key: entry.key }));
-    await server.call("PUT", `/api/coding-agents/agents/${CLAUDE}/env`, {
-      entries: [...kept, { key: "CLAUDE_CONFIG_DIR", value: this.layout.claudeConfig }],
-    });
-    const { candidates } = await server.call<{
-      candidates: { recipeId: string; detected: boolean; authStatus?: string }[];
-    }>("GET", "/api/coding-agents/discover");
-    const claude = candidates.find((candidate) => candidate.recipeId === CLAUDE);
-    if (!claude?.detected) return "Claude Code is not installed on this machine.";
-    if (claude.authStatus !== "ok")
-      return `No Claude login in ${this.layout.claudeConfig}: sign in there once, or give the seed's Claude Code definition an ANTHROPIC_API_KEY.`;
-    return true;
-  }
-
-  /**
-   * Why the trial home's WAF workspace cannot be used, or null. It must be the seed's own,
-   * prepared there: a checkout outside the home would be shared by every trial, and a trial
-   * never clones one itself.
-   */
-  private async workspace(server: Server): Promise<string | null> {
-    const { status } = await server.call<{
-      status: { managed: boolean; ready: boolean; lastError: string | null };
-    }>("GET", "/api/admin/waf-workspace");
-    if (!status.managed)
-      return "The seed names a WAF checkout outside it, which every trial would share: let Penguin prepare one in the seed instead.";
-    if (!status.ready)
-      return `The seed's WAF workspace is not prepared${status.lastError ? `: ${status.lastError}` : "."}`;
-    return null;
   }
 
   private async cost(server: Server): Promise<number | null> {
@@ -506,48 +476,3 @@ export class IsolatedServer implements AuthoringHost {
     return path.join(this.layout.trials, ...trial.id.split("/"));
   }
 }
-
-async function call<T>(
-  origin: string,
-  cookie: string,
-  method: string,
-  route: string,
-  body?: unknown,
-): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(`${origin}${route}`, {
-      method,
-      headers: {
-        cookie,
-        origin,
-        ...(body !== undefined ? { "content-type": "application/json" } : {}),
-      },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
-  } catch (error) {
-    throw new InfrastructureError(
-      `${method} ${route} did not reach the bench server: ${message(error)}`,
-    );
-  }
-  const text = await response.text();
-  if (!response.ok)
-    throw new InfrastructureError(
-      `${method} ${route} answered ${response.status}: ${text.slice(0, 500)}`,
-    );
-  return (text ? JSON.parse(text) : null) as T;
-}
-
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function readTail(file: string): string {
-  try {
-    return fs.readFileSync(file, "utf8").slice(-2000).trim();
-  } catch {
-    return "";
-  }
-}
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

@@ -2,6 +2,8 @@
  * pnpm bench [head] [base] [--trials 3] [--max-cost <usd>] [--json] [--no-claude] [--yes]
  *            [--plain <placeholder cases>] [--home <bench home>]
  * pnpm bench seal <private source> --bench <id> [--out <sealed file>] [--home <bench home>]
+ * pnpm bench seed [--project-name Bench] [--model <provider/modelId>] [--main-ref origin/main]
+ *                 [--trial-estimate <usd>] [--home <bench home>]
  *
  * head is HEAD and base its merge base with origin/main unless named. Exit 0 better, 1
  * inconclusive or worse, 2 invalid, 64 usage. How to set a bench home up, and what each answer
@@ -10,7 +12,6 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import readline from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import {
@@ -20,12 +21,17 @@ import {
   createActivityBench,
 } from "./bench.js";
 import { HarnessCheckRunner, findChromium } from "./checks.js";
-import { IsolatedServer, benchLayout } from "./isolated-server.js";
+import { IsolatedServer, benchLayout, seedPreflight } from "./isolated-server.js";
+import { NoTerminal, ttyPrompter } from "./prompt.js";
 import { proveAndSeal } from "./seal.js";
+import { SeedRefusal, projectIdOf, readBenchConfig, seedBench } from "./seed.js";
+import { bootServer } from "./server-boot.js";
 import type { CaseVault, Verdict } from "./types.js";
 import { PlainVault, SealedVault } from "./vault.js";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const DEFAULT_TRIAL_ESTIMATE_USD = 3;
+const DEFAULT_MAIN_REF = "origin/main";
 
 class UsageError extends Error {}
 
@@ -74,52 +80,6 @@ function readConfig(home: string): BenchConfig {
   if (typeof config.project !== "string" || !config.project)
     throw new UsageError(`${file} must name the seed's project.`);
   return config;
-}
-
-/** Reads a line at the terminal without echoing it. */
-async function askHidden(prompt: string): Promise<string> {
-  const stdin = process.stdin;
-  if (!stdin.isTTY)
-    throw new UsageError("The passphrase is typed at a terminal: run the bench in one.");
-  process.stderr.write(prompt);
-  stdin.setRawMode(true);
-  stdin.setEncoding("utf8");
-  stdin.resume();
-  return new Promise((resolve, reject) => {
-    let value = "";
-    const done = () => {
-      stdin.off("data", onData);
-      stdin.setRawMode(false);
-      stdin.pause();
-      process.stderr.write("\n");
-    };
-    const onData = (chunk: string) => {
-      for (const char of chunk) {
-        if (char === "\r" || char === "\n") {
-          done();
-          resolve(value);
-          return;
-        }
-        if (char === "\u0003") {
-          done();
-          reject(new UsageError("Cancelled."));
-          return;
-        }
-        value = char === "\u007f" || char === "\b" ? value.slice(0, -1) : value + char;
-      }
-    };
-    stdin.on("data", onData);
-  });
-}
-
-async function askYes(question: string): Promise<boolean> {
-  if (!process.stdin.isTTY) return false;
-  const prompt = readline.createInterface({ input: process.stdin, output: process.stderr });
-  try {
-    return /^y(es)?$/i.test((await prompt.question(question)).trim());
-  } finally {
-    prompt.close();
-  }
 }
 
 function number(
@@ -198,6 +158,7 @@ async function compare(
   if (positionals.length > 2) throw new UsageError("Name at most a head and a base.");
   const home = benchHome(values.home as string | undefined);
   const config = readConfig(home);
+  const prompt = ttyPrompter();
   let vault: CaseVault;
   if (typeof values.plain === "string") {
     const plain = new PlainVault(path.resolve(values.plain));
@@ -211,7 +172,7 @@ async function compare(
       throw new UsageError(`${path.join(home, "bench.json")} must name the sealed vault.`);
     vault = new SealedVault(
       path.resolve(home, config.vault),
-      await askHidden("Bench passphrase: "),
+      await prompt.hidden("Bench passphrase: "),
     );
   }
   const log = (line: string) => process.stderr.write(`${line}\n`);
@@ -225,7 +186,7 @@ async function compare(
     vault,
     checks: new HarnessCheckRunner(await evaluatorBrowser(home)),
     record: vault.sealed,
-    trialEstimateUsd: config.trialEstimateUsd ?? 3,
+    trialEstimateUsd: config.trialEstimateUsd ?? DEFAULT_TRIAL_ESTIMATE_USD,
     ...(config.mainRef ? { mainRef: config.mainRef } : {}),
     claude: values["no-claude"] !== true,
     log,
@@ -233,7 +194,7 @@ async function compare(
       ? {}
       : {
           confirm: (estimate: number) =>
-            askYes(`Spend up to $${estimate} on this comparison? [y/N] `),
+            prompt.confirm(`Spend up to $${estimate} on this comparison? [y/N] `),
         }),
   });
   const verdict = await bench.compare({
@@ -266,8 +227,10 @@ async function seal(
   );
   for (const root of [REPO, path.join(os.homedir(), ".penguin")])
     if (within(root, out)) throw new UsageError(`Seal outside ${root}: an optimiser works there.`);
-  const passphrase = await askHidden("Passphrase for the sealed bench: ");
-  if ((await askHidden("Again: ")) !== passphrase) throw new UsageError("The passphrases differ.");
+  const prompt = ttyPrompter();
+  const passphrase = await prompt.hidden("Passphrase for the sealed bench: ");
+  if ((await prompt.hidden("Again: ")) !== passphrase)
+    throw new UsageError("The passphrases differ.");
   await proveAndSeal(
     plain,
     new HarnessCheckRunner(await evaluatorBrowser(home)),
@@ -276,6 +239,71 @@ async function seal(
     (line) => process.stderr.write(`${line}\n`),
   );
   return 0;
+}
+
+/**
+ * Prepares the seed home (seed.ts). The API key is typed at the terminal, hidden, and sent to
+ * the throwaway server on the seed only; without a terminal there is no way to type it, so the
+ * command stops before anything is started.
+ */
+async function seed(
+  positionals: string[],
+  values: Record<string, string | boolean | undefined>,
+): Promise<number> {
+  if (positionals.length) throw new UsageError("pnpm bench seed takes no positional argument.");
+  const home = benchHome(values.home as string | undefined);
+  if (!process.stdin.isTTY)
+    throw new UsageError(
+      "pnpm bench seed is run at a terminal: the default model's API key is typed there, hidden.",
+    );
+  const layout = benchLayout(home);
+  const project = typeof values["project-name"] === "string" ? values["project-name"] : "Bench";
+  // Whatever bench.json already says is kept and filled in; it need not be complete yet.
+  const config = readBenchConfig(home) as Partial<BenchConfig>;
+  const agentId = typeof config.agent === "string" && config.agent ? config.agent : DEFAULT_AGENT;
+  const log = (line: string) => process.stderr.write(`${line}\n`);
+  const report = await seedBench(
+    {
+      home,
+      projectName: project,
+      agentId,
+      ...(typeof values.model === "string" ? { model: values.model } : {}),
+      mainRef:
+        typeof values["main-ref"] === "string"
+          ? values["main-ref"]
+          : typeof config.mainRef === "string" && config.mainRef
+            ? config.mainRef
+            : DEFAULT_MAIN_REF,
+      trialEstimateUsd: number(
+        values["trial-estimate"] as string | undefined,
+        "trial-estimate",
+        typeof config.trialEstimateUsd === "number" && config.trialEstimateUsd > 0
+          ? config.trialEstimateUsd
+          : DEFAULT_TRIAL_ESTIMATE_USD,
+      ),
+    },
+    {
+      server: () =>
+        bootServer({
+          worktree: REPO,
+          home: layout.seed,
+          dir: path.join(home, "seed-server"),
+          claudeConfig: layout.claudeConfig,
+          // The seed is prepared by asking, step by step, not by the server on its own.
+          env: { PENGUIN_WAF_AUTO_PREPARE: "0" },
+        }),
+      prompt: ttyPrompter(),
+      preflight: () =>
+        seedPreflight({ worktree: REPO, layout, project: projectIdOf(project), agentId }),
+      log,
+    },
+  );
+  process.stdout.write(
+    report.ready
+      ? `Seed ready at ${layout.seed}: Project ${report.projectId}, default model ${report.model}.\n`
+      : `Seed not ready: ${report.missing.join("; ")}\n`,
+  );
+  return report.ready ? 0 : 1;
 }
 
 async function main(argv: string[]): Promise<number> {
@@ -293,9 +321,14 @@ async function main(argv: string[]): Promise<number> {
       home: { type: "string" },
       bench: { type: "string" },
       out: { type: "string" },
+      "project-name": { type: "string" },
+      model: { type: "string" },
+      "main-ref": { type: "string" },
+      "trial-estimate": { type: "string" },
     },
   });
   if (positionals[0] === "seal") return seal(positionals.slice(1), values);
+  if (positionals[0] === "seed") return seed(positionals.slice(1), values);
   if (positionals[0] === "serve") throw new UsageError("pnpm bench serve comes with phase 3.");
   return compare(positionals, values);
 }
@@ -305,8 +338,10 @@ main(process.argv.slice(2)).then(
   (error: unknown) => {
     const usage =
       error instanceof UsageError ||
+      error instanceof NoTerminal ||
       (error as { code?: string })?.code?.startsWith("ERR_PARSE_ARGS");
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    process.exit(usage ? 64 : 2);
+    // A seed that stopped at a step it could not do is not ready (1), not misuse (64).
+    process.exit(usage ? 64 : error instanceof SeedRefusal ? 1 : 2);
   },
 );
