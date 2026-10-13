@@ -5,11 +5,24 @@
  * there can change what an agent is told and nothing about how a run is collected or checked:
  * the activity bench takes such an edit as part of a recipe, and the Reflector may write it
  * (decision 15). What a prompt says is pinned by activity-run-kinds-golden.test.ts.
+ *
+ * What the built prompts say about checks is held here, outside the recipe surface: a prompt
+ * edit that drops a word of it fails this test, whatever the bench says of it.
  */
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import {
+  ACCEPTANCE_HARNESS_FILE,
+  ACCEPTANCE_INPUT_FILE,
+  ACCEPTANCE_RESULTS_FILE,
+  ACCEPTANCE_RUNNER_FILE,
+  ACCEPTANCE_TEST_FILE,
+  acceptancePrompt,
+  acceptanceReusePrompt,
+} from "../src/activities/acceptance-harness.js";
+import { REPAIR_DIR, modulePrompt, moduleRepairClause } from "../src/activities/waf-module.js";
 
 const PROMPTS = path.join(import.meta.dirname, "..", "src", "activities", "prompts");
 
@@ -134,5 +147,35 @@ describe("the stage prompts' own modules", () => {
     ] as const) {
       expect(problems("probe.ts", text).join("\n"), text).toContain(problem);
     }
+  });
+});
+
+describe("what the built prompts keep saying about checks", () => {
+  const doNotEdit = `Do not edit ${ACCEPTANCE_INPUT_FILE}, ${ACCEPTANCE_HARNESS_FILE}, ${ACCEPTANCE_RUNNER_FILE}, package.json or the activity files.`;
+
+  it("a test run may not weaken a check, write its results, or edit what the checks rest on", () => {
+    expect(acceptancePrompt).toContain(
+      `A failing criterion is a result to report, not a test to change: never weaken a check to make it pass, and never write ${ACCEPTANCE_RESULTS_FILE} yourself.`,
+    );
+    expect(acceptancePrompt).toContain(doNotEdit);
+    expect(acceptanceReusePrompt).toContain(
+      `${ACCEPTANCE_TEST_FILE} was written by an earlier run for these same acceptance criteria and this same specification. Do not rewrite it.`,
+    );
+    expect(acceptanceReusePrompt).toContain(
+      `A failing criterion is a result to report, not a test to change. Never write ${ACCEPTANCE_RESULTS_FILE} yourself.`,
+    );
+    expect(acceptanceReusePrompt).toContain(doNotEdit);
+  });
+
+  it("a module run may not weaken or edit its player check, nor a repair the tests it answers", () => {
+    expect(modulePrompt).toContain(
+      "Fix the module until the checks pass, rebuilding after each change; never weaken a check to make it pass.",
+    );
+    expect(modulePrompt).toContain(
+      `the harness ${ACCEPTANCE_HARNESS_FILE}, the runner ${ACCEPTANCE_RUNNER_FILE} and a package.json pinning playwright-core. Do not edit them.`,
+    );
+    expect(moduleRepairClause).toContain(
+      `${REPAIR_DIR}/${ACCEPTANCE_TEST_FILE} is the test file those checks are in; read it to see what each check does, and do not change it: the same file is run again against your build.`,
+    );
   });
 });
