@@ -3,7 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** feature
 - **Scope:** `server`, `web`
-- **PR:** [#PR](https://github.com/nicolaepocroianu/penguin-harness/pull/PR)
+- **PR:** [#127](https://github.com/nicolaepocroianu/penguin-harness/pull/127)
 
 As a test run ended, the server compared the harness, the runner and the input it had staged for
 the run's checks with what the run left, by their SHA-256, and marked the report of a run that
