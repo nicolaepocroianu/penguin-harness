@@ -3,7 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** fix
 - **Scope:** `web`
-- **PR:** [#PR](https://github.com/nicolaepocroianu/penguin-harness/pull/PR)
+- **PR:** [#138](https://github.com/nicolaepocroianu/penguin-harness/pull/138)
 
 The explanation of a scene critique's **Improve until it scores 4** button moved from a circled
 "?" beside the button into a **More info** fold under the button row, because a "?" may only

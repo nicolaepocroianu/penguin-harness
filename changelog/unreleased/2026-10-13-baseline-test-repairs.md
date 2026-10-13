@@ -3,7 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** process
 - **Scope:** `core`, `server`, `plugins`
-- **PR:** [#PR](https://github.com/nicolaepocroianu/penguin-harness/pull/PR)
+- **PR:** [#138](https://github.com/nicolaepocroianu/penguin-harness/pull/138)
 
 Six tests that had failed on `main` passed again, each brought back in line with a change that
 had already shipped: the `waf-authoring` plugin, the English-only plugin library, and the WAF
