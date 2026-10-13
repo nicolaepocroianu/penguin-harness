@@ -740,6 +740,11 @@ export class PipelineRunner {
   ): Promise<void> {
     const { projectId, activityId } = state;
     const found = await this.findings(projectId, activityId, tested.runId);
+    // What a report nothing vouches for found is no ground to rebuild on.
+    if (found.untrusted) {
+      step.note = "testsUntrusted";
+      return;
+    }
     if (!found.failing) return;
     const build = tested.test?.moduleRunId;
     if (!found.ran || !build) {
@@ -774,26 +779,29 @@ export class PipelineRunner {
     // the repair was handed, which a repair run could rewrite in the first tests' folder.
     const handed = repairedRun.repair?.testSha256;
     const same = handed !== undefined && retested.test?.cachedTestHash === handed;
-    step.note = again.failing || !again.reused || !same ? "testsStillFailing" : null;
+    if (again.untrusted) step.note = "testsUntrusted";
+    else if (again.failing || !again.reused || !same) step.note = "testsStillFailing";
+    else step.note = null;
   }
 
   /**
    * What a finished test run's report found: whether any check failed, whether any that ran
-   * did, and whether the run ran the tests it was handed unchanged. A report the run may have
-   * changed what it rests on proves nothing: it counts as failing, with nothing to repair.
+   * did, whether the run ran the tests it was handed unchanged, and whether it changed the files
+   * its checks rest on, which leaves nothing it found to go by.
    */
   private async findings(
     projectId: string,
     activityId: string,
     runId: string,
-  ): Promise<{ failing: boolean; ran: boolean; reused: boolean }> {
+  ): Promise<{ failing: boolean; ran: boolean; reused: boolean; untrusted: boolean }> {
     const { report, runId: latest } = await this.deps.stages.state(projectId, activityId);
-    if (!report || latest !== runId) return { failing: false, ran: false, reused: false };
-    if (report.untrusted) return { failing: true, ran: false, reused: false };
+    if (!report || latest !== runId)
+      return { failing: false, ran: false, reused: false, untrusted: false };
     return {
       failing: report.overallStatus === "failed",
       ran: failedChecks(report).length > 0,
       reused: report.reused,
+      untrusted: report.untrusted === true,
     };
   }
 

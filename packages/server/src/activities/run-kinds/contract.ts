@@ -156,7 +156,10 @@ interface RunKindBase<Request extends RunRequest, Prepared, Run extends Activity
     prepared: Prepared,
     owner: { projectId: string; agentId: string },
   ): Promise<void>;
-  /** What the run records about itself besides what every run does. */
+  /**
+   * What the run records about itself besides what every run does, as it opens. What only
+   * staging learns, `stage` may add to `run`.
+   */
   record(prepared: Prepared): Partial<ActivityRunFields>;
   /** What `input.json` carries besides the activity. */
   input?(prepared: Prepared): Record<string, unknown>;
@@ -171,6 +174,11 @@ export interface SessionRunKind<
   Staged = void,
 > extends RunKindBase<Request, Prepared, Run> {
   readonly runner: "session";
+  /**
+   * Stages the run's workspace. It may record on `run` what it staged (a digest, say): the
+   * engine saves the record before the run's Session starts, so the agent never works on a run
+   * whose record lacks it.
+   */
   stage(input: StageInput<Prepared, Run>): Promise<Staged>;
   prompt(input: StageInput<Prepared, Run>, staged: Staged): string;
   /** Roots the Session may read and never change. */

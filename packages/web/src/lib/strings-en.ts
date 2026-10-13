@@ -1055,6 +1055,8 @@ export const en: Strings = {
         testsFailing: "Some acceptance checks fail. Open the test report to see which.",
         testsStillFailing:
           "Some acceptance checks still fail after the module was rebuilt once with what they found. Open the test report to see which.",
+        testsUntrusted:
+          "The acceptance checks' files changed while they ran, so their results cannot be trusted. Run the tests again.",
       },
       running: (step: string) => `${step}…`,
       finished: "All chosen stages finished.",

@@ -640,6 +640,8 @@ export class ActivityGenerationService implements ActivityGeneration {
               ...(confined ? { sandboxMode: RUN_SANDBOX_MODE } : {}),
             });
             run.sessionId = session.sessionId;
+            // Saved before the task starts, on purpose: what the kind recorded on the run as it
+            // staged it is kept before the agent can touch what was staged.
             this.runs.save(run);
             // The model as the Session was created with it: a Project default is resolved there.
             this.outcomes.witness({

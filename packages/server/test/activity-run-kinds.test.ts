@@ -427,6 +427,7 @@ describe("collecting what an agent wrote", () => {
       expect(Object.keys(current.test?.staged ?? {}).sort()).toEqual([
         ACCEPTANCE_INPUT_FILE,
         ACCEPTANCE_HARNESS_FILE,
+        "package.json",
         ACCEPTANCE_RUNNER_FILE,
       ]);
       if (change) await fs.appendFile(path.join(dir, change), "\n// changed by the run\n");
@@ -440,7 +441,12 @@ describe("collecting what an agent wrote", () => {
       ) as { untrusted?: true };
     };
     expect((await stagedRun()).untrusted).toBeUndefined();
-    for (const name of [ACCEPTANCE_HARNESS_FILE, ACCEPTANCE_RUNNER_FILE, ACCEPTANCE_INPUT_FILE])
+    for (const name of [
+      ACCEPTANCE_HARNESS_FILE,
+      ACCEPTANCE_RUNNER_FILE,
+      ACCEPTANCE_INPUT_FILE,
+      "package.json",
+    ])
       expect((await stagedRun(name)).untrusted, name).toBe(true);
   });
 

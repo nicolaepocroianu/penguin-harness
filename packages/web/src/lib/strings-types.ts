@@ -925,7 +925,8 @@ export type Strings = {
         | "moduleNotChecked"
         | "moduleCheckSkipped"
         | "testsFailing"
-        | "testsStillFailing",
+        | "testsStillFailing"
+        | "testsUntrusted",
         string
       >;
       running: (step: string) => string;

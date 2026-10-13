@@ -993,19 +993,22 @@ describe("running the stages", () => {
       });
     });
 
-    it("repairs nothing from a report nothing vouches for, and trusts no such second report", async () => {
+    it("says when a report cannot be trusted, and repairs nothing from it", async () => {
       const untrusted = (report: AcceptanceReport): AcceptanceReport => ({
         ...report,
         untrusted: true,
       });
       const first = world({ criteria, reports: [untrusted(testReport(["passed"]))] });
-      expect((await all(first)).steps.at(-1)).toMatchObject({ note: "testsFailing" });
+      expect((await all(first)).steps.at(-1)).toMatchObject({
+        status: "succeeded",
+        note: "testsUntrusted",
+      });
       expect(first.repairs).toEqual([]);
       const second = world({
         criteria,
         reports: [testReport(["failed"]), untrusted(testReport(["passed"], true))],
       });
-      expect((await all(second)).steps.at(-1)).toMatchObject({ note: "testsStillFailing" });
+      expect((await all(second)).steps.at(-1)).toMatchObject({ note: "testsUntrusted" });
     });
 
     it("keeps the first findings when the round cannot finish", async () => {

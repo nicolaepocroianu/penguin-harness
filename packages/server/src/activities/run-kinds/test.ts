@@ -33,8 +33,17 @@ import type { RunRequestOf } from "../run-request.js";
 import { atomicJson } from "../service.js";
 import { hasValidSpec, requireCompleted, type SessionRunKind } from "./contract.js";
 
-/** The files the server stages for a test run's checks, which the run must leave as they are. */
-const STAGED_FILES = [ACCEPTANCE_HARNESS_FILE, ACCEPTANCE_RUNNER_FILE, ACCEPTANCE_INPUT_FILE];
+/**
+ * The files the server stages for a test run's checks, which the run must leave as they are: the
+ * harness, the runner, the input, and the package.json pinning playwright-core (what npm installs
+ * from it is the run's own, and not compared).
+ */
+const STAGED_FILES = [
+  ACCEPTANCE_HARNESS_FILE,
+  ACCEPTANCE_RUNNER_FILE,
+  ACCEPTANCE_INPUT_FILE,
+  "package.json",
+];
 
 /** The SHA-256 of each staged file as it is in the workspace now; a missing file has none. */
 async function stagedDigests(workspace: string): Promise<Record<string, string | null>> {
