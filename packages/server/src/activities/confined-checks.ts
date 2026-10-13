@@ -9,16 +9,28 @@
  *
  * - in a child Node process under Node's permission model: it may read only `playwright-core`,
  *   and may not write, start a process or a worker, or load an addon or WASI. The child checks
- *   it is so confined before it runs anything. It gets no environment beyond the system's
- *   plumbing, so none of this server's secrets.
+ *   it is so confined before it runs anything. It is given only what Node itself needs (the
+ *   PATH, the temporary folder, Windows' system folder), so none of this server's secrets; on
+ *   Windows, process spawning adds a fixed few of its own (the user's name and profile folder
+ *   among them), which name folders the child may not read.
  * - with its files served from memory by module hooks: the runner, the harness, the test file
  *   and the input never touch the disk, and the results come back over IPC.
  * - in the test browser locked down behind a guard (browser-guard.ts): a page reaches only the
  *   play link's own host and port, and a check may open nothing else, nor a local file.
  *
- * Node's permission model does not limit the network: the child could reach a host itself. It
- * holds nothing to send but the test file, the criteria and the signed play link, which plays
- * this one activity.
+ * What none of this stops:
+ *
+ * - The network. Node's permission model does not limit it: the child can reach any host, this
+ *   server's own loopback API among them, though with no session or token of its own, only as
+ *   anyone unauthenticated could. It holds nothing to send but the test file, the criteria and
+ *   the signed play link, which plays this one activity.
+ * - The page's own origin. The page is same-origin with the play link, so it can reach every
+ *   route this server answers on that host and port without authentication, as any visitor
+ *   could.
+ * - The test file's own results. The test file runs in the same process as the runner and can
+ *   send results over the IPC channel itself, or change what the runner sends: what is protected
+ *   is the harness, the runner and the input (no agent can change them), not the agent's own test
+ *   file, which is run as an earlier run left it, by its digest.
  */
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -160,10 +172,13 @@ export const writeFileSync = shim.writeFileSync;
 `;
 }
 
-/** The environment the child gets: the system's plumbing only, never this server's secrets. */
+/**
+ * The environment the child is given: what Node itself needs, the PATH, the temporary folder and
+ * Windows' system folder; never this server's secrets. Windows' process spawning adds a few of
+ * its own whatever it is given (see above).
+ */
 function plainEnv(): Record<string, string> {
-  const keep =
-    /^(PATH|PATHEXT|SYSTEMROOT|SYSTEMDRIVE|WINDIR|COMSPEC|TEMP|TMP|HOME|USERPROFILE|LOCALAPPDATA|APPDATA|PROGRAMDATA|LANG|LC_ALL)$/i;
+  const keep = /^(PATH|TEMP|TMP|TMPDIR|SYSTEMROOT|WINDIR)$/i;
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env))
     if (value !== undefined && keep.test(key)) env[key] = value;
@@ -173,16 +188,17 @@ function plainEnv(): Record<string, string> {
 const clip = (text: string) => (text.length > REASON_MAX ? `${text.slice(0, REASON_MAX)}…` : text);
 
 /**
- * Why checks that ended on their own wrote no results: the runner says so in a line of its own;
- * else the child's own failure does; else only the exit code is known.
+ * Why checks that ended on their own wrote no results: the child's own failure, sent over IPC,
+ * first; else the line the runner prints when the tests could not run, which a check could also
+ * print; else only the exit code is known.
  */
 function whyNotRun(stderr: string, failure: string | null, code: number | null): string {
+  if (failure !== null) return `The acceptance tests could not run: ${failure}`;
   const said = stderr
     .split(/\r?\n/)
     .reverse()
     .find((line) => line.startsWith("The acceptance tests could not run"));
   if (said) return said;
-  if (failure !== null) return `The acceptance tests could not run: ${failure}`;
   return `The acceptance tests stopped before writing ${ACCEPTANCE_RESULTS_FILE} (exit code ${code}).`;
 }
 
