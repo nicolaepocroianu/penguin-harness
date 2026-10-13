@@ -40,6 +40,7 @@ import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import type { ActivitySandbox } from "./sandbox-service.js";
 import type { ActivityAcceptance } from "./acceptance-service.js";
+import type { ActivityOutcomes } from "./outcomes.js";
 import { acceptanceCriteria } from "./acceptance-collect.js";
 import {
   DEFAULT_SPEECH_PROVIDER,
@@ -322,7 +323,8 @@ export type StagesPort = Pick<
     "runAndAccept" | "cancel" | "elevenLabsDefaultVoice" | "soundSetup" | "speechSetup"
   > &
   Pick<ActivitySandbox, "currentAssessment"> &
-  Pick<ActivityAcceptance, "browserInstalled" | "testRun">;
+  Pick<ActivityAcceptance, "browserInstalled" | "testRun"> &
+  Pick<ActivityOutcomes, "attribute">;
 
 export interface PipelineDeps {
   stages: StagesPort;
@@ -425,7 +427,11 @@ export class PipelineRunner {
     this.stopping.delete(activityId);
     this.signals.set(activityId, new AbortController());
     this.save(state);
-    return { state: structuredClone(state), done: this.drive(state, input) };
+    const planned = structuredClone(state);
+    // What the steps start, accept and change is the Stages' doing, not the request's that
+    // started them.
+    const done = this.deps.stages.attribute({ actor: "stages" }, () => this.drive(state, input));
+    return { state: planned, done };
   }
 
   /** Ask the running sequence to stop: the run in flight is cancelled, and nothing after it runs. */
@@ -887,6 +893,7 @@ export class ActivityPipelineService implements ActivityPipelines {
   @Use() private readonly activities!: ActivityAuthoring;
   @Use() private readonly sandbox!: ActivitySandbox;
   @Use() private readonly acceptance!: ActivityAcceptance;
+  @Use() private readonly outcomes!: ActivityOutcomes;
   @Use() private readonly db!: Db;
   private runner: PipelineRunner | null = null;
 
@@ -900,7 +907,7 @@ export class ActivityPipelineService implements ActivityPipelines {
         if (step.status === "running" || step.status === "pending") step.status = "cancelled";
       this.write(state);
     }
-    const { activities, generation, sandbox, acceptance } = this;
+    const { activities, generation, sandbox, acceptance, outcomes } = this;
     const runner = new PipelineRunner({
       persist: (state) => this.write(state),
       stages: {
@@ -928,6 +935,7 @@ export class ActivityPipelineService implements ActivityPipelines {
           sandbox.currentAssessment(projectId, activityId),
         browserInstalled: () => acceptance.browserInstalled(),
         testRun: (projectId, activityId) => acceptance.testRun(projectId, activityId),
+        attribute: (cause, operation) => outcomes.attribute(cause, operation),
       },
     });
     this.runner = runner;

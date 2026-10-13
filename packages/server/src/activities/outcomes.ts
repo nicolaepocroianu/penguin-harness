@@ -13,8 +13,11 @@
  * - what a run's checks found, read from its record and its folder once, as it ends (a later
  *   change to the folder changes nothing), and which module build a test or quality run judged;
  * - a later run of the same target superseding an earlier one;
- * - how each part of a draft changed (an edit or a return to an earlier version, by digest and
- *   size, never by text) and which run's work it changed;
+ * - how each part of a draft changed (an accepted candidate, an edit or a return to an earlier
+ *   version, by digest and size, never by text), which run's work it changed, and who changed it:
+ *   the ambient cause an author's route, the Stages or a run applying its own result runs its
+ *   work under (`attribute`). A change no cause owns counts as unattributed, never as an
+ *   author's edit;
  * - which runs reached a deploy: the module build it shipped, and every run whose parts the
  *   deployed draft holds.
  *
@@ -22,6 +25,7 @@
  * tallies leave it out. Nothing the ledger does throws into its callers; a moment it cannot record
  * is logged and dropped.
  */
+import { AsyncLocalStorage } from "node:async_hooks";
 import fs from "node:fs";
 import path from "node:path";
 import { buildInfo } from "@prismshadow/penguin-core";
@@ -37,6 +41,7 @@ import { changedBytes, draftParts } from "./outcome-parts.js";
 import { bundledLibrary, recipeId, recipeOf, runtimeOf, sha256 } from "./outcome-recipe.js";
 import type {
   LibraryFile,
+  OutcomeCause,
   OutcomeDimension,
   OutcomeFact,
   OutcomeQuery,
@@ -48,6 +53,7 @@ import type {
 import type { ActivityRuns } from "./run-store.js";
 
 export type {
+  OutcomeCause,
   OutcomeQuery,
   OutcomeTally,
   RunRecipe,
@@ -70,6 +76,12 @@ export abstract class ActivityOutcomes extends Interface<{
   /** How a run or the draft stands now. Synchronous; never throws; keeps only what changed. */
   witness(moment: Witnessed): void;
   /**
+   * Runs `operation`; the draft changes witnessed inside it, and the runs opened inside it, belong
+   * to `cause`. Causes nest, the inner one winning field by field: an accept inside an
+   * author's request names its run and keeps the author.
+   */
+  attribute<T>(cause: OutcomeCause, operation: () => Promise<T>): Promise<T>;
+  /**
    * Counts for one run kind, per recipe or per part of one; runs whose recipe is unknown are left
    * out. Largest first.
    */
@@ -89,6 +101,7 @@ interface OutcomeRow {
   started_at: string;
   settled_at: string | null;
   status: string;
+  accepted_by: string | null;
   metrics_json: string;
 }
 
@@ -101,7 +114,9 @@ interface PartRow {
 /** What a part fact records: digests, sizes and run ids. */
 interface PartChange {
   part: string;
-  change: "edit" | "revert";
+  change: "accept" | "edit" | "revert";
+  /** Who made the change: the cause's actor, or `unattributed` with none. */
+  actor: string;
   from: string | null;
   to: string | null;
   size: number;
@@ -157,6 +172,8 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
   @Use() private readonly deployEvents!: ActivityDeployEvents;
   @Use() private readonly ports!: ActivityOutcomePorts;
   @Use() private readonly log!: Log;
+  /** The cause the work running now belongs to, as `attribute` set it. */
+  private readonly causes = new AsyncLocalStorage<OutcomeCause>();
 
   setup({ effect }: ClassCtx) {
     const listener = (event: DeployedEvent) =>
@@ -169,6 +186,13 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
     if ("draft" in moment)
       this.record(`the draft of ${moment.draft.activityId}`, () => this.draftChanged(moment.draft));
     else this.record(`run ${moment.run.runId}`, () => this.runMoment(moment));
+  }
+
+  attribute<T>(cause: OutcomeCause, operation: () => Promise<T>): Promise<T> {
+    const inner = Object.fromEntries(
+      Object.entries(cause).filter(([, value]) => value !== undefined),
+    ) as OutcomeCause;
+    return this.causes.run({ ...this.causes.getStore(), ...inner }, operation);
   }
 
   async tally(query: OutcomeQuery): Promise<OutcomeTally[]> {
@@ -321,9 +345,14 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
     this.insertRow(run, run.agentId === "" ? this.keepRecipe(run, "server") : null);
     const target = targetOf(run);
     const judges = JUDGES[run.kind] ? this.judgedBuild(run) : null;
+    // Who started it: an author's request or the Stages. A run the Stages start may apply its
+    // own result later, under its own cause; this is what ties that back to them.
+    const by = this.causes.getStore()?.actor;
+    if (by) this.saveMetrics(run.runId, { [`startedBy.${by}`]: 1 });
     this.fact(run, "opened", run.createdAt, {
       ...(target !== null ? { target } : {}),
       ...(judges ? { judges } : {}),
+      ...(by ? { by } : {}),
     });
     // A conversation is never done again; every other kind's later run replaces what it made.
     if (run.kind === "assist") return;
@@ -439,6 +468,12 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
     after: ActivityDraft;
   }): void {
     const { projectId, activityId, before, after } = change;
+    const cause = this.causes.getStore();
+    // No cause names who made it: it counts as unattributed, never as an author's edit.
+    const actor = cause?.actor ?? "unattributed";
+    // A change under a run's cause accepts that run's candidate, when it is a run of this activity.
+    const accepting =
+      cause?.runId && this.runs.get(projectId, activityId, cause.runId) ? cause.runId : null;
     const parts = this.partsBefore(activityId, before);
     const was = draftParts(before);
     const now = draftParts(after);
@@ -449,27 +484,41 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
       const to = next ? sha256(next) : null;
       if (from === to) continue;
       const fromRun = parts.get(part)?.run_id ?? null;
-      const earlier = to ? this.earlierProvenance(activityId, part, to) : undefined;
+      // An edit keeps the part the run's it was; a return to an earlier version gives it back to
+      // the run it came from then.
+      let kind: PartChange["change"] = "edit";
+      let run = fromRun;
+      if (accepting) {
+        kind = "accept";
+        run = accepting;
+      } else if (to) {
+        const earlier = this.earlierProvenance(activityId, part, to);
+        if (earlier !== undefined) {
+          kind = "revert";
+          run = earlier;
+        }
+      }
       const changed: PartChange = {
         part,
-        change: earlier === undefined ? "edit" : "revert",
+        change: kind,
+        actor,
         from,
         to,
         size: next?.length ?? 0,
         bytes: changedBytes(old ?? Buffer.alloc(0), next ?? Buffer.alloc(0)),
         revision: after.contentRevision,
         fromRun,
-        run: earlier === undefined ? fromRun : earlier,
+        run,
       };
-      this.fact({ projectId, activityId, runId: fromRun }, "part", after.updatedAt, {
+      this.fact({ projectId, activityId, runId: accepting ?? fromRun }, "part", after.updatedAt, {
         ...changed,
       });
-      if (fromRun && this.row(fromRun)) {
-        if (changed.change === "edit") {
-          // No cause names who made it: it counts as unattributed, never as an author's edit.
-          this.count(fromRun, "edits.unattributed");
-          this.count(fromRun, "editedBytes.unattributed", changed.bytes);
-        } else if (changed.run !== fromRun) this.count(fromRun, "reverted");
+      if (fromRun && fromRun !== changed.run && this.row(fromRun))
+        // Its work was replaced by another run's, or taken back to what was there before it.
+        this.count(fromRun, changed.change === "accept" ? "replaced" : "reverted");
+      if (changed.change === "edit" && fromRun && this.row(fromRun)) {
+        this.count(fromRun, `edits.${actor}`);
+        this.count(fromRun, `editedBytes.${actor}`, changed.bytes);
       }
       if (to === null)
         this.db
@@ -477,11 +526,27 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
           .run(activityId, part);
       else this.putPart(activityId, part, changed.run, to, changed.size, after.updatedAt);
     }
+    if (accepting) this.accepted(accepting, { projectId, activityId }, actor, after.updatedAt);
     const pin = (draft: ActivityDraft) => draft.pinnedModuleRunId ?? null;
     if (pin(before) !== pin(after))
       this.fact({ projectId, activityId, runId: null }, "pinned", after.updatedAt, {
         runId: pin(after),
       });
+  }
+
+  /** A run's candidate became part of the draft: who accepted it, and when, kept the first time. */
+  private accepted(
+    runId: string,
+    activity: { projectId: string; activityId: string },
+    actor: string,
+    at: string,
+  ): void {
+    const row = this.row(runId);
+    if (!row || row.accepted_by !== null) return;
+    this.db
+      .prepare("UPDATE activity_run_outcomes SET accepted_by = ?, accepted_at = ? WHERE run_id = ?")
+      .run(actor, at, runId);
+    this.fact({ ...activity, runId }, "accepted", at, { actor });
   }
 
   private putPart(
@@ -628,7 +693,8 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
     }
     const rows = this.db
       .prepare(
-        `SELECT o.recipe_id, o.prompt_sha256, o.status, o.started_at, o.settled_at, o.metrics_json,
+        `SELECT o.recipe_id, o.prompt_sha256, o.status, o.started_at, o.settled_at, o.accepted_by,
+                o.metrics_json,
                 r.recipe_json
            FROM activity_run_outcomes o
            JOIN activity_outcome_recipes r ON r.recipe_id = o.recipe_id
@@ -651,6 +717,10 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
         tally.metrics[name] = (tally.metrics[name] ?? 0) + value;
       };
       add(row.status, 1);
+      if (row.accepted_by !== null) {
+        add("accepted", 1);
+        add(`accepted.${row.accepted_by}`, 1);
+      }
       const took = seconds(row.started_at, row.settled_at);
       if (took !== null) add("seconds", took);
       for (const [name, value] of Object.entries(JSON.parse(row.metrics_json) as Metrics))

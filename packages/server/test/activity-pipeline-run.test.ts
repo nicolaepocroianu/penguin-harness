@@ -284,15 +284,29 @@ function world(
     new Promise<void>((resolve) => signal?.addEventListener("abort", () => resolve()));
 
   let plans = 0;
+  /** The causes the sequence ran under, and how many runs it started outside them. */
+  const causes: unknown[] = [];
+  let attributed = 0;
+  let outside = 0;
   // The generation service's run and accept, as the stages see it: a run starts, settles as a
   // finished Session would, and what it made is accepted onto the draft it started from.
   const stages = {
+    async attribute(cause: unknown, operation: () => Promise<unknown>) {
+      causes.push(cause);
+      attributed++;
+      try {
+        return await operation();
+      } finally {
+        attributed--;
+      }
+    },
     async runAndAccept(
       _p: string,
       _a: string,
       request: RunRequest,
       { agentId, runtime, started: told, signal }: RunAndAcceptOptions,
     ): Promise<RunOutcome> {
+      if (!attributed) outside++;
       // The refusals the kinds leave undone rather than fail, as they raise them.
       if (request.kind === "image" && options.noImageKey)
         return {
@@ -478,6 +492,8 @@ function world(
     accepted,
     assessmentInputs,
     soundSetups,
+    causes,
+    outside: () => outside,
   };
 }
 
@@ -526,6 +542,9 @@ describe("running the stages", () => {
     expect(w.activity.draft.mediaPlan!.manifest.assets["es-MX"]![0]!.path).toBe("run_4.wav");
     expect(final.currentRunId).toBeNull();
     expect(final.finishedAt).toBe("2026-09-23T12:00:00Z");
+    // Every run was the Stages', whoever asked for them.
+    expect(w.causes).toEqual([{ actor: "stages" }]);
+    expect(w.outside()).toBe(0);
   });
 
   it("skips the images without an image provider key and still builds the module", async () => {
@@ -1070,6 +1089,7 @@ function wordWorld(
   const asked: string[][] = [];
   const acceptedSounds: string[] = [];
   const stages = {
+    attribute: (_cause: unknown, operation: () => Promise<unknown>) => operation(),
     async runAndAccept(
       _p: string,
       _a: string,

@@ -32,6 +32,15 @@ export type Witnessed =
       };
     };
 
+/**
+ * Who makes the draft changes witnessed inside an operation: an author, the Stages, or a run
+ * applying its own result; and, when the change accepts a run's candidate, which run.
+ */
+export interface OutcomeCause {
+  actor?: "author" | "stages" | "run";
+  runId?: string;
+}
+
 /** One skill a run was given, as it was staged. */
 export interface RecipeSkill {
   name: string;
@@ -97,7 +106,10 @@ export interface OutcomeTally {
 
 /** One thing that happened to a run, with when. */
 export interface OutcomeFact {
-  /** `opened`, `started`, `settled`, `checks`, `superseded`, `discarded`, `part`, `deployed`. */
+  /**
+   * `opened`, `started`, `settled`, `checks`, `judged`, `superseded`, `discarded`, `part`,
+   * `accepted`, `deployed`.
+   */
   fact: string;
   at: string;
   /** Numbers, digests and ids only: never what an author or an agent wrote. */
