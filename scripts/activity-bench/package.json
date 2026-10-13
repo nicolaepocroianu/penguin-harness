@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "description": "The activity bench (pnpm bench): ES modules run with tsx from the repository root.",
+  "type": "module"
+}

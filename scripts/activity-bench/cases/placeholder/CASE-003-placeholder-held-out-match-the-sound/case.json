@@ -1,0 +1,15 @@
+{
+  "title": "PLACEHOLDER: Match the sound",
+  "placeholder": true,
+  "split": "heldOut",
+  "weight": 1,
+  "request": { "productCode": "BENCHPH", "refNum": 3 },
+  "hidden": {
+    "criteria": [
+      "The activity starts and plays an animal sound.",
+      "The activity offers animals to choose from.",
+      "Choosing the dog moves the activity on.",
+      "The activity reaches its end after the right animal."
+    ]
+  }
+}

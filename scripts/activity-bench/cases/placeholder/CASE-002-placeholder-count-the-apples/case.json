@@ -1,0 +1,15 @@
+{
+  "title": "PLACEHOLDER: Count the apples",
+  "placeholder": true,
+  "split": "dev",
+  "weight": 1,
+  "request": { "productCode": "BENCHPH", "refNum": 2 },
+  "hidden": {
+    "criteria": [
+      "The activity starts and offers the numbers to choose from.",
+      "Choosing a wrong number keeps the activity on the question.",
+      "Choosing three moves the activity on.",
+      "The activity reaches its end after the right answer."
+    ]
+  }
+}

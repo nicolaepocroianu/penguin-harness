@@ -3,5 +3,8 @@
   "compilerOptions": {
     "rootDir": "."
   },
-  "include": ["src", "test"]
+  "include": ["src", "test"],
+  // They import scripts/activity-bench, outside rootDir: scripts/activity-bench/tsconfig.json
+  // checks them.
+  "exclude": ["test/activity-bench-*.ts"]
 }

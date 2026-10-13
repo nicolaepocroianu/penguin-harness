@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "../.."
+  },
+  // The bench, and the server tests that import it: packages/server's tsconfig stops at its
+  // own folder (rootDir), so it leaves those tests to this one.
+  "include": ["*.ts", "../../packages/server/test/activity-bench-*.ts"]
+}

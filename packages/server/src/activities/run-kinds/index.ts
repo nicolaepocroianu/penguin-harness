@@ -1,5 +1,5 @@
 /** Every kind of run a start may make, by the kind of request that asks for it. */
-import type { ActivityRunKind } from "../domain.js";
+import { DETERMINISTIC_RUN_KINDS, type ActivityRunKind } from "../domain.js";
 import type { RunRequestKind } from "../run-request.js";
 import { assessmentKind } from "./assessment.js";
 import { assistKind } from "./assist.js";
@@ -36,3 +36,9 @@ export const RUN_KINDS: { readonly [Kind in RunRequestKind]: AnyRunKind } = {
 export function runKindOf(request: { kind: RunRequestKind }): ActivityRunKind {
   return RUN_KINDS[request.kind].run;
 }
+
+/** Every kind a run records: those a start makes, and those the server records itself. */
+export const RECORDED_RUN_KINDS: ReadonlySet<ActivityRunKind> = new Set<ActivityRunKind>([
+  ...Object.values(RUN_KINDS).map((kind) => kind.run),
+  ...DETERMINISTIC_RUN_KINDS,
+]);

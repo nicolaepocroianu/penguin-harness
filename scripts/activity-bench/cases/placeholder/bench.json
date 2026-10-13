@@ -1,0 +1,5 @@
+{
+  "bench": "placeholder",
+  "canary": "PLACEHOLDER-BENCH-CANARY-3f9a7c215e8b4d06",
+  "note": "PLACEHOLDER cases: stand-ins to build and test the bench with. The frozen cases and their hidden checks come from the Waterford curriculum and QA reviewer, sealed in a private store (decision 9). Never score a recipe with these."
+}
