@@ -159,6 +159,7 @@ describe("the module a purpose uses", () => {
     expect(await source.resolve(PROJECT, activity, "deploy")).toEqual({
       source: { kind: "run", root: runModule("run_new") },
       documentRoots: [runModule("run_new"), checkout],
+      runId: "run_new",
     });
     const unpackaged = await setup({ builds: ["run_new"] });
     expect(await unpackaged.source.resolve(PROJECT, unpackaged.activity, "deploy")).toEqual({

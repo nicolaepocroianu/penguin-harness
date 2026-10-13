@@ -17,6 +17,7 @@ import type { Config, Db } from "../hmr/capabilities.js";
 import type { ActivityAuthoring } from "../mechanisms/activities.js";
 import { ActivityLocks, type ActivityLock } from "./activity-lock.js";
 import type { ActivityRuns } from "./run-store.js";
+import type { ActivityOutcomes } from "./outcomes.js";
 import type { ProjectActivityWork } from "../mechanisms/projects.js";
 import { HttpError } from "../http/errors.js";
 import {
@@ -174,6 +175,7 @@ export class ActivityService implements ActivityAuthoring {
   @Use() private readonly audioEncode!: AudioEncodePorts;
   @Use() private readonly lock!: ActivityLock;
   @Use() private readonly runs!: ActivityRuns;
+  @Use() private readonly outcomes!: ActivityOutcomes;
   /** Locks of keys other than one activity (a collection's numbering, a claimed module). */
   private readonly locks = new ActivityLocks();
 
@@ -1846,6 +1848,8 @@ export class ActivityService implements ActivityAuthoring {
           "draft_conflict",
           "Draft changed. Reload it before applying your edit.",
         );
+      // Taken before the edit, which may change the draft it is given in place.
+      const before = structuredClone(current.draft);
       const draft = await edit(current.draft, current);
       draft.contentRevision = draftRevision(draft);
       draft.updatedAt = new Date().toISOString();
@@ -1859,6 +1863,7 @@ export class ActivityService implements ActivityAuthoring {
       this.db
         .prepare("UPDATE activities SET title = ?, updated_at = ? WHERE id = ?")
         .run(title, draft.updatedAt, activityId);
+      this.outcomes.witness({ draft: { projectId, activityId, before, after: draft } });
       if (title !== current.title && this.isCanonicalRef(current) && current.productId)
         await this.syncProductFiles(current.productId);
       return draft;

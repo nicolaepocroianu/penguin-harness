@@ -21,6 +21,7 @@ import { HttpError } from "../http/errors.js";
 import { atomicJson } from "./service.js";
 import type { ActivityLock } from "./activity-lock.js";
 import type { ActivityRuns } from "./run-store.js";
+import type { ActivityOutcomes } from "./outcomes.js";
 import type { AudioResult } from "./audio.js";
 import { SoundModelPorts } from "./sound-models.js";
 import { LocalAudio, type LocalAudioRequest } from "./local-audio.js";
@@ -159,6 +160,7 @@ export class ActivityGenerationService implements ActivityGeneration {
   @Use(SandboxModule) private readonly sandbox!: Sandbox;
   @Use() private readonly runs!: ActivityRuns;
   @Use() private readonly lock!: ActivityLock;
+  @Use() private readonly outcomes!: ActivityOutcomes;
   private readonly observers = new Map<string, Observer>();
   /** What is waiting for a run to end, by run id: each looks at the run again when it does. */
   private readonly settling = new Map<string, Set<() => void>>();
@@ -276,6 +278,7 @@ export class ActivityGenerationService implements ActivityGeneration {
     run.error = error;
     run.finishedAt = new Date().toISOString();
     this.runs.save(run);
+    if (status !== "running") this.outcomes.witness({ run });
     if (status !== "running")
       for (const check of [...(this.settling.get(run.runId) ?? [])]) check();
     this.observers.get(run.runId)?.unsubscribe();
@@ -359,6 +362,7 @@ export class ActivityGenerationService implements ActivityGeneration {
       .catch((error: NodeJS.ErrnoException) => {
         if (error.code !== "ENOENT") throw error;
       });
+    this.outcomes.witness({ run });
   }
 
   /**
@@ -553,6 +557,7 @@ export class ActivityGenerationService implements ActivityGeneration {
               );
           }
           this.runs.open(run);
+          this.outcomes.witness({ run });
           try {
             const workspace = this.workspace(run);
             await fs.mkdir(workspace, { recursive: true });
@@ -562,6 +567,7 @@ export class ActivityGenerationService implements ActivityGeneration {
                 throw new HttpError(503, "activity_stopping", "Server is stopping.");
               const controller = new AbortController();
               this.localRuns.set(run.runId, controller);
+              this.outcomes.witness({ run, server: `local:${local.provider}/${local.model}` });
               void this.track(this.generateLocal(run, local, controller)).catch(
                 (error: unknown) => {
                   this.log.line(`[activities] Local audio settlement failed: ${String(error)}`);
@@ -604,11 +610,13 @@ export class ActivityGenerationService implements ActivityGeneration {
                 throw new HttpError(503, "activity_stopping", "Server is stopping.");
               const controller = new AbortController();
               this.localRuns.set(run.runId, controller);
-              void this.track(
-                this.generateAudio(run as AudioRun, kind, kind.helper(prepared), controller),
-              ).catch((error: unknown) => {
-                this.log.line(`[activities] Audio settlement failed: ${String(error)}`);
-              });
+              const helper = kind.helper(prepared);
+              this.outcomes.witness({ run, server: `helper:${helper.script}` });
+              void this.track(this.generateAudio(run as AudioRun, kind, helper, controller)).catch(
+                (error: unknown) => {
+                  this.log.line(`[activities] Audio settlement failed: ${String(error)}`);
+                },
+              );
               return run;
             }
             if (this.stopped) {
@@ -633,6 +641,12 @@ export class ActivityGenerationService implements ActivityGeneration {
             });
             run.sessionId = session.sessionId;
             this.runs.save(run);
+            // The model as the Session was created with it: a Project default is resolved there.
+            this.outcomes.witness({
+              run,
+              prompt,
+              session: { provider: session.provider, modelId: session.modelId },
+            });
             if (this.stopped) {
               this.finish(run, "interrupted", "Server stopped before generation started.");
               return run;
@@ -855,6 +869,7 @@ export class ActivityGenerationService implements ActivityGeneration {
           candidate: null,
         } as ActivityRun;
         this.runs.open(run);
+        this.outcomes.witness({ run });
         await fs.mkdir(this.workspace(run), { recursive: true });
         return run;
       }),

@@ -43,6 +43,8 @@ export interface ResolvedModule {
   source: ModuleSource | null;
   /** Where its documents are read from, first match winning. */
   documentRoots: string[];
+  /** The module build a deploy's source is. */
+  runId?: string;
 }
 
 /** A module document in effect, and where it came from. */
@@ -135,22 +137,28 @@ export class ActivityModuleSourceService implements ActivityModuleSource {
       return { source, documentRoots: source ? [source.root] : [] };
     }
     // A deploy's documents fall back on the checkout's module folder, built or not.
-    const source = await this.deploySource(projectId, activity);
+    const built = await this.deploySource(projectId, activity);
+    const source = built?.source ?? null;
     const documentRoots = source ? [source.root] : [];
     const product = this.activities.productOf(activity);
     const wafRoot = product ? await this.wafWorkspace.root() : null;
     const checkout =
       product && wafRoot ? new WafLayout(wafRoot).moduleDir(product.moduleFolder) : null;
     if (checkout) documentRoots.push(checkout);
-    return { source, documentRoots };
+    return { source, documentRoots, ...(built ? { runId: built.runId } : {}) };
   }
 
   /** The newest build, when it holds a module to release. */
-  private async deploySource(projectId: string, activity: ModuleRef): Promise<ModuleSource | null> {
+  private async deploySource(
+    projectId: string,
+    activity: ModuleRef,
+  ): Promise<{ source: ModuleSource; runId: string } | null> {
     const build = await this.build(projectId, activity, "deploy").catch(() => null);
     if (!build) return null;
     const root = this.runRoot(build.runId);
-    return (await isFile(path.join(root, "package.json"))) ? { kind: "run", root } : null;
+    return (await isFile(path.join(root, "package.json")))
+      ? { source: { kind: "run", root }, runId: build.runId }
+      : null;
   }
 
   private async previewSource(

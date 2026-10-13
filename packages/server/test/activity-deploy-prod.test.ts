@@ -355,6 +355,8 @@ describe("activity deploy to PROD", () => {
     expect(qaRevision).toBeTruthy();
     expect(events[0]).toMatchObject({
       revision: qaRevision,
+      // The module went out as its clone held it: no build of the activity's went live.
+      moduleRunId: null,
       deployedAt: "2026-09-28T09:00:00.000Z",
     });
 

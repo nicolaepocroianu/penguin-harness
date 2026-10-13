@@ -420,4 +420,52 @@ CREATE TABLE IF NOT EXISTS activity_run_candidates (
 run_id TEXT PRIMARY KEY REFERENCES activity_runs(run_id) ON DELETE CASCADE,
 candidate TEXT NOT NULL
 );
+-- The outcome ledger (activities/outcomes.ts): every recipe a run was made with, once.
+CREATE TABLE IF NOT EXISTS activity_outcome_recipes (
+recipe_id TEXT PRIMARY KEY,
+recipe_json TEXT NOT NULL,
+first_seen_at TEXT NOT NULL
+);
+-- One row per run the ledger saw: its recipe (NULL when unknown), how it ended, and the numbers
+-- found and counted after it ended (metrics_json).
+CREATE TABLE IF NOT EXISTS activity_run_outcomes (
+run_id TEXT PRIMARY KEY REFERENCES activity_runs(run_id) ON DELETE CASCADE,
+project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+activity_id TEXT NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+kind TEXT NOT NULL,
+target TEXT,
+recipe_id TEXT REFERENCES activity_outcome_recipes(recipe_id),
+prompt_sha256 TEXT,
+build TEXT,
+started_at TEXT NOT NULL,
+settled_at TEXT,
+status TEXT NOT NULL,
+accepted_by TEXT,
+accepted_at TEXT,
+metrics_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_activity_run_outcomes_kind ON activity_run_outcomes(kind, started_at);
+CREATE INDEX IF NOT EXISTS idx_activity_run_outcomes_target ON activity_run_outcomes(activity_id, kind, target);
+-- What happened to runs and drafts, in order: ids, digests and numbers only, never text.
+CREATE TABLE IF NOT EXISTS activity_outcome_facts (
+seq INTEGER PRIMARY KEY,
+project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+activity_id TEXT NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+run_id TEXT REFERENCES activity_runs(run_id) ON DELETE CASCADE,
+fact TEXT NOT NULL,
+at TEXT NOT NULL,
+detail_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_activity_outcome_facts_run ON activity_outcome_facts(run_id, seq);
+CREATE INDEX IF NOT EXISTS idx_activity_outcome_facts_activity ON activity_outcome_facts(activity_id, fact, seq);
+-- Each part of a draft as last seen: its digest, its size, and the run it came from.
+CREATE TABLE IF NOT EXISTS activity_draft_parts (
+activity_id TEXT NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+part TEXT NOT NULL,
+run_id TEXT REFERENCES activity_runs(run_id) ON DELETE SET NULL,
+sha256 TEXT NOT NULL,
+size INTEGER NOT NULL,
+at TEXT NOT NULL,
+PRIMARY KEY (activity_id, part)
+);
 `;
