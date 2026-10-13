@@ -11,7 +11,10 @@ import type { CaseVault } from "../../../scripts/activity-bench/types.js";
 import { PlainVault } from "../../../scripts/activity-bench/vault.js";
 import {
   CANARY,
+  MANIFEST,
   PLACEHOLDER,
+  PLUGIN,
+  RUNNER_SECRET,
   benchFixture,
   parseTrial,
   removeTemps,
@@ -46,6 +49,48 @@ describe("before anything is spent", () => {
     expect(f.host.authored).toEqual([]);
     // A change to the surface alone is a comparison.
     expect((await f.bench.compare({ head: f.head, base: f.base })).decision).not.toBe("invalid");
+  });
+
+  it("lets a candidate change the plugin's manifests in their version only", async () => {
+    const f = benchFixture();
+    const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
+    const outside = async (files: Record<string, string>) => {
+      const head = f.repo.commit(files, "a candidate");
+      const verdict = await f.bench.compare({ head, base: f.base });
+      return verdict.invalid === "out_of_surface" ? verdict.reason : null;
+    };
+    // An install script would run when the recipe is built.
+    expect(
+      await outside({
+        "plugins/waf-authoring/package.json": json({
+          ...MANIFEST,
+          scripts: { postinstall: "node steal.js" },
+        }),
+      }),
+    ).toBe("head changes files outside the recipe surface: plugins/waf-authoring/package.json.");
+    expect(
+      await outside({
+        "plugins/waf-authoring/package.json": json(MANIFEST),
+        "plugins/waf-authoring/plugin.json": json({ ...PLUGIN, description: "Better." }),
+      }),
+    ).toBe("head changes files outside the recipe surface: plugins/waf-authoring/plugin.json.");
+    // A file beside the skills that the surface does not name.
+    expect(
+      await outside({
+        "plugins/waf-authoring/plugin.json": json(PLUGIN),
+        "plugins/waf-authoring/hooks.json": "{}\n",
+      }),
+    ).toBe("head changes files outside the recipe surface: plugins/waf-authoring/hooks.json.");
+    // A skill change with both versions raised is a comparison.
+    f.repo.git("rm", "-q", "plugins/waf-authoring/hooks.json");
+    expect(
+      await outside({
+        "plugins/waf-authoring/skills/authoring/SKILL.md": "raised\n",
+        "plugins/waf-authoring/package.json": json({ ...MANIFEST, version: "0.2.15" }),
+        "plugins/waf-authoring/plugin.json": json({ ...PLUGIN, version: "2026.10.13.1" }),
+      }),
+    ).toBeNull();
+    expect(f.host.authored).toHaveLength(18);
   });
 
   it("refuses a revision that names no commit, and a host that is not ready", async () => {
@@ -193,10 +238,43 @@ describe("once trials run", () => {
         return 2;
       },
     });
-    expect(await f.bench.compare({ head: f.head, base: f.base })).toMatchObject({
-      invalid: "infrastructure",
-    });
+    const verdict = await f.bench.compare({ head: f.head, base: f.base });
+    expect(verdict).toMatchObject({ invalid: "infrastructure" });
     expect(failures).toBe(2);
+    // What a hidden run printed is never repeated: not in the verdict, not in the log.
+    expect(verdict.reason).toMatch(/^The hidden checks of .+ could not run\.$/);
+    expect(JSON.stringify(verdict)).not.toContain(RUNNER_SECRET);
+    expect(f.log.join("\n")).not.toContain(RUNNER_SECRET);
+    expect(f.log.join("\n")).toContain("could not run.");
+  });
+
+  it("removes a held-out home whatever stops the evaluation, a crash included", async () => {
+    const heldOut = "CASE-003-placeholder-held-out-match-the-sound";
+    const f = benchFixture();
+    const host = f.host;
+    let crashed: string | null = null;
+    const crashing = f.again({
+      host: {
+        preflight: () => host.preflight(),
+        author: async (trial) => {
+          // The held-out block's second trial dies with something no retry is for.
+          if (trial.caseId === heldOut && trial.side === "head") {
+            crashed = trial.id;
+            throw new TypeError("The host broke.");
+          }
+          return host.author(trial);
+        },
+        traces: (trial) => host.traces(trial),
+        play: (trial) => host.play(trial),
+        discard: (trial) => host.discard(trial),
+      },
+    });
+    await expect(crashing.compare({ head: f.head, base: f.base })).rejects.toThrow(
+      "The host broke.",
+    );
+    const begun = f.host.authored.filter((id) => parseTrial(id).caseId === heldOut);
+    expect(begun).toHaveLength(1);
+    expect([...f.host.discarded].sort()).toEqual([begun[0], crashed].sort());
   });
 
   it("removes a held-out home it could not score, and runs that trial again on resume", async () => {

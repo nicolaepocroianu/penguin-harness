@@ -217,7 +217,11 @@ export type CheckRun =
 
 /** Runs a check file with the evaluator's frozen harness, in the evaluator's own browser. */
 export interface CheckRunner {
-  /** Identifies the harness and runner it uses: a change means a new Benchmark. */
+  /** Identifies the harness, runner and browser it uses: a change means a new Benchmark. */
   readonly fingerprint: string;
-  run(checks: HiddenChecks, playUrl: string): Promise<CheckRun>;
+  /**
+   * `hidden`: the checks are a case's hidden ones, so when they cannot run, the reason says
+   * only how they stopped — never what they printed.
+   */
+  run(checks: HiddenChecks, playUrl: string, options?: { hidden?: boolean }): Promise<CheckRun>;
 }

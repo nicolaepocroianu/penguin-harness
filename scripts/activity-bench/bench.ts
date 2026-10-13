@@ -473,16 +473,20 @@ export function createActivityBench(options: BenchOptions): ActivityBench {
         }
       }
     } catch (error) {
-      if (!(error instanceof Stop)) throw error;
-      // A held-out script never outlives its trial unscored: the home goes, and a resumed
-      // evaluation runs the trial again.
-      for (const trial of begun.values())
-        if (trial.split === "heldOut" && current.authored[trial.id]) {
+      // Whatever stopped it, a held-out script never outlives its trial unscored: the home
+      // goes — however far its authoring got — and a resumed evaluation runs the trial again.
+      for (const trial of begun.values()) {
+        if (trial.split !== "heldOut" || current.scored[trial.id]) continue;
+        try {
           await host.discard(trial);
           delete current.authored[trial.id];
+        } catch {
+          // Kept on the record, so the next run still knows the home is there.
         }
+      }
       save();
-      return fail(error.invalid, error.message, current);
+      if (error instanceof Stop) return fail(error.invalid, error.message, current);
+      throw error;
     }
 
     const verdict = summarise(current, set, headSha, baseSha);
@@ -529,11 +533,10 @@ export function createActivityBench(options: BenchOptions): ActivityBench {
       // Before anything is unsealed: the trial's own tests are its agent's code.
       const own = session?.ownTests ? await checks.run(session.ownTests, session.playUrl) : null;
       const hidden = await vault.hidden(trial.caseId);
-      const found = session ? await checks.run(hidden, session.playUrl) : null;
+      const found = session ? await checks.run(hidden, session.playUrl, { hidden: true }) : null;
+      // Not even the runner's own account of why: nothing of a hidden run is logged or kept.
       if (found && !found.ran)
-        throw new InfrastructureError(
-          `The hidden checks of ${trial.id} could not run: ${found.reason}`,
-        );
+        throw new InfrastructureError(`The hidden checks of ${trial.id} could not run.`);
       const passed = found ? passedCriteria(hidden.criteria, found) : new Set<string>();
       const total = hidden.criteria.length;
       let gap: number | null = session?.ownTests ? null : 0;

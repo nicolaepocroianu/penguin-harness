@@ -59,7 +59,10 @@ export async function serveFolder(
   };
 }
 
-/** Why a case's hidden checks are not proven, or null when they are. */
+/**
+ * Why a case's hidden checks are not proven, or null when they are. The checks run with what
+ * they print kept: the person sealing them wrote them, and needs it to fix one.
+ */
 export async function proveCase(
   source: PlainVault,
   caseId: string,

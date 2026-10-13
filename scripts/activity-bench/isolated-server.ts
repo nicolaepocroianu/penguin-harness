@@ -300,6 +300,10 @@ export class IsolatedServer implements AuthoringHost {
       await git(this.options.repo, ["worktree", "add", "--detach", dir, sha]);
     }
     this.log(`Installing and building ${sha.slice(0, 12)}.`);
+    // The install runs install scripts: dependencies the Stages use need theirs (ffmpeg-static,
+    // sharp, node-pty, onnxruntime-node), so `--ignore-scripts` would break the build. A
+    // candidate cannot add one: outside the plugin's skills every file, the plugin's manifests
+    // but for their version, is the same on both sides (surface.ts).
     await new Promise<void>((resolve, reject) => {
       const child = spawnTree(process.execPath, [path.join("scripts", "dev-prebuild.mjs")], {
         cwd: dir,

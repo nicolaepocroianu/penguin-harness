@@ -5,9 +5,24 @@
  */
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 
-/** What a recipe is made of: the authoring plugin. */
-export const RECIPE_SURFACE: readonly string[] = ["plugins/waf-authoring/"];
+/** What a recipe is made of: the authoring plugin's skills, its readme and its icon. */
+export const RECIPE_SURFACE: readonly string[] = [
+  "plugins/waf-authoring/skills/",
+  "plugins/waf-authoring/README.md",
+  "plugins/waf-authoring/icon.svg",
+];
+
+/**
+ * The plugin's manifests, which a candidate may change in their `version` only: a script, a
+ * dependency or a description there is out of surface. (A workspace package's install scripts
+ * run when a recipe is built, so this is also what keeps a candidate from adding one.)
+ */
+export const VERSIONED_MANIFESTS: readonly string[] = [
+  "plugins/waf-authoring/package.json",
+  "plugins/waf-authoring/plugin.json",
+];
 
 /**
  * The stage prompt sources the surface also takes, once each run kind's prompt text lives in a
@@ -17,7 +32,11 @@ export const RECIPE_SURFACE: readonly string[] = ["plugins/waf-authoring/"];
 export const PROMPT_SOURCES: readonly string[] = [];
 
 export function inSurface(file: string): boolean {
-  return RECIPE_SURFACE.some((prefix) => file.startsWith(prefix)) || PROMPT_SOURCES.includes(file);
+  return (
+    RECIPE_SURFACE.some((entry) =>
+      entry.endsWith("/") ? file.startsWith(entry) : file === entry,
+    ) || PROMPT_SOURCES.includes(file)
+  );
 }
 
 export function git(repo: string, args: string[]): Promise<string> {
@@ -63,7 +82,36 @@ export async function outsideSurface(repo: string, base: string, head: string): 
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
-  return changed.filter((file) => !inSurface(file));
+  const outside: string[] = [];
+  for (const file of changed) {
+    if (inSurface(file)) continue;
+    if (VERSIONED_MANIFESTS.includes(file)) {
+      const [before, after] = await Promise.all([
+        manifestWithoutVersion(repo, base, file),
+        manifestWithoutVersion(repo, head, file),
+      ]);
+      if (before !== null && after !== null && isDeepStrictEqual(before, after)) continue;
+    }
+    outside.push(file);
+  }
+  return outside;
+}
+
+/** A JSON manifest at a commit with its `version` left out; null when it is not there or not JSON. */
+async function manifestWithoutVersion(
+  repo: string,
+  sha: string,
+  file: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const json: unknown = JSON.parse(await git(repo, ["show", `${sha}:${file}`]));
+    if (!json || typeof json !== "object" || Array.isArray(json)) return null;
+    const rest = { ...(json as Record<string, unknown>) };
+    delete rest.version;
+    return rest;
+  } catch {
+    return null;
+  }
 }
 
 /**

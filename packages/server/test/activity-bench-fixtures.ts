@@ -38,6 +38,16 @@ export function removeTemps(): void {
   for (const dir of temps.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
 }
 
+/** The plugin's manifests in the first commit. */
+export const MANIFEST = {
+  name: "@penguinharness/waf-authoring",
+  version: "0.2.14",
+  files: ["skills"],
+};
+export const PLUGIN = { description: "Authoring WAF activities.", version: "2026.10.10.1" };
+/** What a scripted check run that cannot run prints: no verdict or log may repeat it. */
+export const RUNNER_SECRET = "The narration plays when the activity starts.";
+
 export interface Repo {
   dir: string;
   git(...args: string[]): string;
@@ -77,6 +87,8 @@ export function gitRepo(): Repo {
   commit(
     {
       "plugins/waf-authoring/skills/authoring/SKILL.md": "base\n",
+      "plugins/waf-authoring/package.json": `${JSON.stringify(MANIFEST, null, 2)}\n`,
+      "plugins/waf-authoring/plugin.json": `${JSON.stringify(PLUGIN, null, 2)}\n`,
       "packages/server/src/collect.ts": "export {};\n",
     },
     "base",
@@ -113,7 +125,7 @@ export function scriptedChecks(
       const own = checks.test === OWN_TEST;
       calls.push(`${own ? "own" : "hidden"}:${id}`);
       const count = passed(parseTrial(id), own);
-      if (count === null) return { ran: false as const, reason: "Scripted: could not run." };
+      if (count === null) return { ran: false as const, reason: `It printed: ${RUNNER_SECRET}` };
       return {
         ran: true as const,
         results: checks.criteria.map((criterion, i) => ({

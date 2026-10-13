@@ -135,6 +135,82 @@ describe.skipIf(!executable)("the evaluator's check runner, in a real browser", 
     }
   }, 60_000);
 
+  it("confines a check: no writing, no process or worker, no reading beyond playwright-core", async () => {
+    const checks = new HarnessCheckRunner(executable!);
+    const target = path.join(tempDir(), "written.txt");
+    const outside = path.join(PLACEHOLDER, "bench.json");
+    const page = await serveFolder(moduleFolder());
+    try {
+      // A trial's own tests are its agent's code: each of these tries to get out.
+      const test = `import fs from "node:fs";
+import { criteria, criterion } from "./activity-harness.mjs";
+criterion(criteria[0], () => fs.writeFileSync(${JSON.stringify(target)}, "x"));
+criterion(criteria[1], () =>
+  process.getBuiltinModule("node:child_process").execFileSync(process.execPath, ["-e", "1"]),
+);
+criterion(criteria[2], async () => {
+  const { Worker } = await import("node:worker_threads");
+  new Worker("1", { eval: true });
+});
+criterion(criteria[3], () => fs.readFileSync(${JSON.stringify(outside)}, "utf8"));
+`;
+      const criteria = [
+        "Writes a file.",
+        "Starts a process.",
+        "Starts a worker.",
+        "Reads outside.",
+      ];
+      const run = await checks.run(
+        { test, criteria, scenes: [], viewport: { width: 800, height: 600 } },
+        page.url,
+      );
+      expect(run.ran).toBe(true);
+      if (!run.ran) return;
+      expect(run.results.map((result) => result.status)).toEqual([
+        "failed",
+        "failed",
+        "failed",
+        "failed",
+      ]);
+      for (const result of run.results)
+        expect(result.error).toMatch(/^Access to this API has been restricted/);
+      expect(fs.existsSync(target)).toBe(false);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  it("withholds what hidden checks printed when they cannot run or cannot finish", async () => {
+    const checks = new HarnessCheckRunner(executable!, { timeoutMs: 10_000 });
+    const secret = "A criterion only the evaluator may read.";
+    const shape = { criteria: [secret], scenes: [], viewport: { width: 800, height: 600 } };
+    const failing = `import { criteria } from "./activity-harness.mjs";
+console.log(criteria[0]);
+throw new Error(criteria[0]);
+`;
+    const hanging = `import { criteria } from "./activity-harness.mjs";
+console.log(criteria[0]);
+console.error(criteria[0]);
+await new Promise((resolve) => setTimeout(resolve, 60_000));
+`;
+    const page = await serveFolder(moduleFolder());
+    try {
+      expect(await checks.run({ ...shape, test: failing }, page.url, { hidden: true })).toEqual({
+        ran: false,
+        reason: "The hidden checks could not run (exit 1); what they printed is withheld.",
+      });
+      expect(await checks.run({ ...shape, test: hanging }, page.url, { hidden: true })).toEqual({
+        ran: false,
+        reason: "The hidden checks took too long; what they printed is withheld.",
+      });
+      // A trial's own tests are not withheld: what they printed says why they did not run.
+      const own = await checks.run({ ...shape, test: failing }, page.url);
+      expect(!own.ran && own.reason).toContain(secret);
+    } finally {
+      await page.close();
+    }
+  }, 90_000);
+
   it("proves a case before it is sealed: every check fails on nothing and passes on its gold module", async () => {
     const checks = new HarnessCheckRunner(executable!);
     const dir = tempDir();
