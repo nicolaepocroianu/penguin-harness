@@ -3,7 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** process
 - **Scope:** `server`
-- **PR:** [#PR](https://github.com/nicolaepocroianu/penguin-harness/pull/PR)
+- **PR:** [#124](https://github.com/nicolaepocroianu/penguin-harness/pull/124)
 
 The [outcome ledger](2026-10-13-activity-outcome-ledger.md) added migration 25
 (`activity-outcomes`): the tables `activity_outcome_recipes`, `activity_run_outcomes`,

@@ -3,7 +3,7 @@
 - **Date:** 2026-10-13
 - **Type:** feature
 - **Scope:** `server`
-- **PR:** [#PR](https://github.com/nicolaepocroianu/penguin-harness/pull/PR)
+- **PR:** [#124](https://github.com/nicolaepocroianu/penguin-harness/pull/124)
 
 A kernel module of the activities, `ActivityOutcomes`, recorded each activity run's recipe and
 what became of the run after it ended, in four new tables (migration 25, `activity-outcomes`).
