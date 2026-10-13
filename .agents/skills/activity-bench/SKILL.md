@@ -82,10 +82,25 @@ a running server's data root, or this repository; the bench refuses those.
   <project>/benchmarks/activity-bench-r<N>/   the scoreboard, agent-tuning's format
 ```
 
-Preparing the seed (once, by a person): start Penguin with `PENGUIN_HOME=<bench home>/seed`,
-create the project as the built-in admin, give it a default model, let Penguin prepare its WAF
-workspace there (not an existing checkout: every trial copies the seed, and a shared checkout
-would mix them), and install the test browser. Each trial copies the seed except its browser.
+Preparing the seed (once, by the person — it asks for an API key):
+
+```bash
+pnpm bench seed                                 # Project "Bench", model picked at the prompt
+pnpm bench seed --project-name Bench --model <provider/modelId> --home <bench home>
+```
+
+It starts a throwaway server on `<bench home>/seed` (a desktop token its only credential, a
+random loopback port) and, skipping each step already done: creates the Project as the built-in
+admin with the Activity Agent in it; lists the models the Project offers, takes the one named or
+picked, and asks for its API key **at the terminal, typed hidden** — the key goes to that
+loopback server's model table and nowhere else, never to a log, `bench.json`, argv or the
+environment; has Penguin prepare its own WAF workspace in the seed (never an existing checkout:
+every trial copies the seed, and a shared checkout would mix them — a `WAF_ROOT_DIR` or an
+`externalRoot` is refused) and says plainly when git cannot reach a repository; installs the test
+browser; writes `bench.json` (keeping its `vault`); stops the server; then runs the bench's own
+preflight and prints ready or what is missing. It needs a terminal and exits 64 without one.
+Run it again after fixing what it named. Never type a key for it on someone's behalf, and never
+put one on its command line. Each trial copies the seed except its browser.
 
 Claude Code trials run with `CLAUDE_CONFIG_DIR=<bench home>/claude-config` (decision 19), so they
 never read the person's `~/.claude` — its CLAUDE.md, hooks, plugins or memory. The person signs
