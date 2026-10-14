@@ -174,6 +174,9 @@ describe("what each run kind hands its agent", () => {
     normalize = (text) => {
       let out = text;
       for (const value of roots) out = out.split(value).join("<root>");
+      // A path under the root is spelled with the platform's separator (JSON-escaped on
+      // Windows); compared in one spelling so the values hold on every platform.
+      out = out.replace(/<root>[^\s"'`]*/g, (found) => found.replace(/\\\\|\\/g, "/"));
       return out
         .replace(/\b([a-z]+)_[0-9a-f]{32}\b/g, "$1_<id>")
         .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z/g, "<time>")

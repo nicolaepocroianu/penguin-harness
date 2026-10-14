@@ -88,7 +88,7 @@
       "module/tsconfig.build.json": "60fccbc15c40882c",
       "module/tsconfig.json": "d14cb773e0f933f3",
       "module/webpack.config.cjs": "d8941a03ebe84307",
-      "player-check/acceptance-input.json": "e941fe9cceff7a62",
+      "player-check/acceptance-input.json": "53e957e86bab89fd",
       "player-check/activity-harness.mjs": "fc98aec53828509a",
       "player-check/package.json": "069bb25e247c041b",
       "player-check/run-acceptance.mjs": "6d4e90fe7e46d344",
@@ -108,7 +108,7 @@
       "skills/xstate-v5/references/observables-and-inspection.md": "ee8153b087254618",
       "skills/xstate-v5/references/v4-to-v5-quick-ref.md": "0af7402d3f014eb4",
       "skills/xstate-v5/SKILL.md": "2e173e312f25c6c1",
-      "waf-context.json": "d33056a918d056ea"
+      "waf-context.json": "23a9fce717569d64"
     }
   },
   "module-repair": {
@@ -130,7 +130,7 @@
       "module/tsconfig.build.json": "60fccbc15c40882c",
       "module/tsconfig.json": "d14cb773e0f933f3",
       "module/webpack.config.cjs": "d8941a03ebe84307",
-      "player-check/acceptance-input.json": "e941fe9cceff7a62",
+      "player-check/acceptance-input.json": "53e957e86bab89fd",
       "player-check/activity-harness.mjs": "fc98aec53828509a",
       "player-check/package.json": "069bb25e247c041b",
       "player-check/run-acceptance.mjs": "6d4e90fe7e46d344",
@@ -152,7 +152,7 @@
       "skills/xstate-v5/references/observables-and-inspection.md": "ee8153b087254618",
       "skills/xstate-v5/references/v4-to-v5-quick-ref.md": "0af7402d3f014eb4",
       "skills/xstate-v5/SKILL.md": "2e173e312f25c6c1",
-      "waf-context.json": "d33056a918d056ea"
+      "waf-context.json": "23a9fce717569d64"
     }
   },
   "image": {
@@ -282,7 +282,7 @@
       "module/tsconfig.build.json": "60fccbc15c40882c",
       "module/tsconfig.json": "d14cb773e0f933f3",
       "module/webpack.config.cjs": "d8941a03ebe84307",
-      "player-check/acceptance-input.json": "f6dc6a1fa9c2f457",
+      "player-check/acceptance-input.json": "bd5275dcb994c8b3",
       "player-check/activity-harness.mjs": "fc98aec53828509a",
       "player-check/package.json": "069bb25e247c041b",
       "player-check/run-acceptance.mjs": "6d4e90fe7e46d344",
@@ -302,7 +302,7 @@
       "skills/xstate-v5/references/observables-and-inspection.md": "ee8153b087254618",
       "skills/xstate-v5/references/v4-to-v5-quick-ref.md": "0af7402d3f014eb4",
       "skills/xstate-v5/SKILL.md": "2e173e312f25c6c1",
-      "waf-context.json": "d33056a918d056ea"
+      "waf-context.json": "23a9fce717569d64"
     }
   },
   "composition": {
