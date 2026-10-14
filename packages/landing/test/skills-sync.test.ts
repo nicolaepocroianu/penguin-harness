@@ -9,7 +9,7 @@
  * plugin manifests' call, pinned in packages/plugins' own tests, and a reordering inside a card
  * is not a regression worth a red suite.
  */
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Strings } from "../src/lib/strings";
@@ -17,18 +17,38 @@ import { en } from "../src/lib/strings-en";
 
 const pluginsRoot = join(__dirname, "..", "..", "..", "plugins");
 
-/** Every skill directory under every plugin's skills/ (a plugin may ship none). */
-const librarySkills = readdirSync(pluginsRoot, { withFileTypes: true })
-  .filter((plugin) => plugin.isDirectory() && existsSync(join(pluginsRoot, plugin.name, "skills")))
-  .flatMap((plugin) =>
-    readdirSync(join(pluginsRoot, plugin.name, "skills"), { withFileTypes: true })
-      .filter(
-        (entry) =>
-          entry.isDirectory() &&
-          existsSync(join(pluginsRoot, plugin.name, "skills", entry.name, "SKILL.md")),
-      )
-      .map((entry) => entry.name),
-  )
+/** The skill directories under one plugin's skills/ (a plugin may ship none). */
+const skillsOf = (plugin: string): string[] =>
+  readdirSync(join(pluginsRoot, plugin, "skills"), { withFileTypes: true })
+    .filter(
+      (entry) =>
+        entry.isDirectory() &&
+        existsSync(join(pluginsRoot, plugin, "skills", entry.name, "SKILL.md")),
+    )
+    .map((entry) => entry.name);
+
+const pluginDirs = readdirSync(pluginsRoot, { withFileTypes: true }).filter(
+  (plugin) => plugin.isDirectory() && existsSync(join(pluginsRoot, plugin.name, "skills")),
+);
+
+/** Every skill the library ships. */
+const librarySkills = pluginDirs.flatMap((plugin) => skillsOf(plugin.name)).sort();
+
+/**
+ * The skills the public site must show: those of every plugin offered to everyone. A plugin
+ * whose plugin.json says `preinstall: false` is installed on demand (WAF authoring, Codex
+ * delegation and the like): its skills stay in the library and the docs, and the site may
+ * name them but need not advertise them.
+ */
+const advertisedSkills = pluginDirs
+  .filter((plugin) => {
+    const manifest = join(pluginsRoot, plugin.name, "plugin.json");
+    if (!existsSync(manifest)) return true;
+    return (
+      (JSON.parse(readFileSync(manifest, "utf8")) as { preinstall?: boolean }).preinstall !== false
+    );
+  })
+  .flatMap((plugin) => skillsOf(plugin.name))
   .sort();
 
 /** Every Skill name a dictionary's Skills section renders, flattened across its cards. */
@@ -48,8 +68,8 @@ describe("landing ↔ skill library sync", () => {
     it(`${file}'s Skills section lists exactly the library`, () => {
       const listed = listedSkills(dict);
       expect(
-        librarySkills.filter((name) => !listed.includes(name)),
-        `Skills that ship but are missing from ${file}`,
+        advertisedSkills.filter((name) => !listed.includes(name)),
+        `Skills offered to everyone but missing from ${file}`,
       ).toEqual([]);
       expect(
         listed.filter((name) => !librarySkills.includes(name)).sort(),
