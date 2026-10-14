@@ -1,6 +1,6 @@
 ---
 name: penguin-harness-dev
-description: Use when developing PenguinHarness itself — changing packages/{core,server,web,cli,desktop,landing,docs,skills}, the built-in model catalog, the installers or the release workflow; writing or auditing changelog entries; writing a blog post or capturing release screenshots; running the test suite here or, when asked, on another machine; reading a prompt-cache regression out of the core suites; deciding what to do about data already on disk; or auditing prose that reads like a leaked authoring session. Covers the two-repo symlink layout, the CI-parity verification chain, the record-and-ship contract, where blog media is hosted, and the seams that are intentional.
+description: Use when developing PenguinHarness itself — changing packages/{core,server,web,cli,desktop,landing,docs,skills}, the built-in model catalog, the installers or the release workflow; writing or auditing changelog entries; writing a blog post or capturing release screenshots; running the test suite here or, when asked, on another machine; reading a prompt-cache regression out of the core suites; deciding what to do about data already on disk; or auditing prose that reads like a leaked authoring session. Covers this fork's relationship to upstream (none: nothing is contributed), the two-repo symlink layout, the CI-parity verification chain, the record-and-ship contract, where blog media is hosted, and the seams that are intentional.
 ---
 
 # Developing PenguinHarness
@@ -23,6 +23,23 @@ them when the task reaches them:
 | `reference/authoring.md` | Writing a blog post, auditing prose, or proposing a simplification |
 | `reference/release.md` | Preparing a release: the branch order, what changes, the announcement, the blog post and its screenshots |
 
+## This repository is Waterford's fork
+
+`nicolaepocroianu/penguin-harness` is Waterford's own Penguin Harness. It was forked from
+`Prism-Shadow/penguin-harness`, and that is the whole relationship: nothing here is contributed
+upstream. Activity authoring (the studio, the Stages, WAF modules, the Loom port), the activity
+bench and every fix made here live only in this repository.
+
+- Never open a PR, issue or comment on Prism-Shadow, and never sort or prepare work for it —
+  even a fix upstream could use stays here.
+- Name the fork on every PR: `gh pr create --repo nicolaepocroianu/penguin-harness --base main`.
+  A bare `gh pr create` can pick the parent repository and publish a PR in another organisation.
+- Publishing (the site, Docker images, npm packages, GitHub Releases, OSS mirrors) runs only in
+  `Prism-Shadow/penguin-harness`; the workflows skip it on this fork, and desktop installers build
+  unsigned here. Do not "fix" that by adding secrets or removing the guards.
+- CI runs on every PR and push here, on ubuntu, macOS and Windows. Merge only when all three are
+  green: a change checked on one platform has missed real bugs on the other two.
+
 ## Repo shape — read before your first edit
 
 Two repositories sit side by side: the implementation repo (`penguin-harness`) and the design repo
@@ -40,7 +57,8 @@ with no design repo beside it — the normal state for a remote or throwaway env
 nothing to link to, so it carries no `AGENTS.md` at all and these skills are its whole contract.
 
 Both repos take changes through branch + PR against `main`, squash-merged. Do not push to `main`,
-and `gh pr create --base main` — not `dev`, whatever a sibling repo does.
+and `gh pr create --repo nicolaepocroianu/penguin-harness --base main` — not `dev`, whatever a
+sibling repo does.
 
 Branches are `feat/<topic>`, `fix/<topic>`, `docs/<topic>` in both repos. Some older branches here
 read `docs-<topic>` instead: a remote branch literally named `docs` once held that ref namespace and
