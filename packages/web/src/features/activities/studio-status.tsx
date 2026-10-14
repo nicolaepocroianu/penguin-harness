@@ -215,6 +215,20 @@ export function progressSteps(facts: ProgressFacts): ProgressStep[] {
   ];
 }
 
+/**
+ * How a step that is not highlighted shows its state's words. A done step is said by its filled
+ * dot alone, so the bar marks what needs something; on a phone a step not started drops its
+ * words too and keeps its hollow dot. A failed step and a running one, whose green dot would
+ * otherwise read as done, always keep them. A screen reader hears every step's words, and the
+ * step's title shows them on hover.
+ */
+function stateWords(tone: Tone): string {
+  const ink = tone === "muted" ? "text-gray-500 dark:text-gray-400" : toneInk[tone];
+  if (tone === "danger" || tone === "busy") return ink;
+  if (tone === "success") return "sr-only";
+  return `sr-only sm:not-sr-only ${ink}`;
+}
+
 /** The first step with something left to do: the one the header highlights and offers. */
 export function nextStep(steps: readonly ProgressStep[]): ProgressStep | null {
   return steps.find((step) => step.todo !== null) ?? null;
@@ -270,22 +284,14 @@ export function ProgressSteps({
           const surface = current
             ? `relative z-10 ${toneStrip[step.tone === "danger" ? "danger" : "attention"]}`
             : "border-gray-200 text-gray-700 hover:bg-gray-100 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-900";
-          let stateClass = "";
-          if (!current) {
-            const ink =
-              step.tone === "muted" ? "text-gray-500 dark:text-gray-400" : toneInk[step.tone];
-            // A failed step, and a running one whose green dot would otherwise read as done.
-            stateClass =
-              step.tone === "danger" || step.tone === "busy"
-                ? ink
-                : `sr-only sm:not-sr-only ${ink}`;
-          }
+          const stateClass = current ? "" : stateWords(step.tone);
           return (
             <li key={step.section} className="flex items-center">
               <button
                 type="button"
                 disabled={!canOpen(step.section)}
                 aria-current={current ? "step" : undefined}
+                title={step.state}
                 onClick={() => onOpen(step.section)}
                 className={`inline-flex items-center gap-1.5 border px-2 py-0.5 text-xs whitespace-nowrap disabled:cursor-default disabled:hover:bg-transparent ${edge} ${surface}`}
               >
@@ -298,9 +304,6 @@ export function ProgressSteps({
                   }`}
                 />
                 <span className={current ? "font-semibold" : ""}>{step.label}</span>
-                {/* On a phone a settled step drops its words to keep the bar to two rows: a
-                    filled dot is done, a hollow one not started. The highlighted step, a
-                    failed one and a running one keep them; a screen reader hears every step's. */}
                 <span className={stateClass}>{step.state}</span>
               </button>
             </li>

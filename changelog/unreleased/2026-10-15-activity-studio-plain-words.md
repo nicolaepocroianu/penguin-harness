@@ -38,6 +38,9 @@ something.
   script" is said once above the scenes. A deploy stage that has not run shows a hollow mark
   instead of "Not run"; the words stay for screen readers. An assessment choice's Remove button
   shows on hover or keyboard focus, and always on a phone.
+- **Header.** A done step in the header (Script saved, Specification validated, Module built)
+  is said by its filled dot. Its words stay for screen readers and show on hover. This keeps
+  the longer Specification label and the placeholder count on one row at 1440 px.
 - **Loading.** While an activity loads, the studio draws a skeleton shaped like the section being
   opened: an editor's lines, a list's rows, the storyboard's cards or Deploy's stages. It replaces
   the "Loading…" line that sat in the window's corner.
