@@ -3,6 +3,7 @@
 - **Date:** 2026-10-15
 - **Type:** process
 - **Scope:** `ci`, `server`, `web`
+- **PR:** [#143](https://github.com/nicolaepocroianu/penguin-harness/pull/143)
 
 No CI job installed Playwright's Chromium, so the server suites that drive a real browser
 skipped on ubuntu, macOS and Windows and the jobs still passed: the confined checks the server
