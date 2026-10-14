@@ -462,7 +462,7 @@ penguin run --message "Analyze data.csv and summarize quarterly sales"`,
       },
       {
         title: "Software Development",
-        skills: ["web-design", "software-engineering", "remote-claude-code", "codex"],
+        skills: ["web-design", "software-engineering", "remote-claude-code"],
       },
       {
         title: "AI App Development",

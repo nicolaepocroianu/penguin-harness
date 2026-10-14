@@ -217,6 +217,25 @@ describe("checkTree", () => {
     ]);
   });
 
+  it("checking the same tree again parses nothing new, so a long-lived process stays flat", () => {
+    // arktype registers every parse in a process-wide table it never releases; a check that
+    // parsed per comparison grew it on every boot until booting took minutes.
+    const registered = () =>
+      Object.keys(
+        (globalThis as { $ark?: { nodesByRegisteredId: object } }).$ark!.nodesByRegisteredId,
+      ).length;
+    const loose = manifest({
+      name: "scheduler",
+      requires: { runner: { iface: "ScheduleTaskRunner" } },
+    });
+    expect(checkTree(tree(http, sessions, loose), table).problems).toEqual([]);
+    const before = registered();
+    for (let i = 0; i < 3; i += 1) {
+      expect(checkTree(tree(http, sessions, loose), table).problems).toEqual([]);
+    }
+    expect(registered()).toBe(before);
+  });
+
   it("resolves an unnamed `from` when exactly one visible provider satisfies", () => {
     const loose = manifest({
       name: "scheduler",

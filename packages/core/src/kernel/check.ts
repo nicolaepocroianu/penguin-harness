@@ -26,6 +26,23 @@ import { satisfies, tableOf } from "./sig.js";
 import type { Manifest } from "./manifest.js";
 import { ifaceKey, splitSlotKey } from "./manifest.js";
 
+/**
+ * Slot schemas by their inlined definition. arktype registers every parse in a process-wide
+ * table it never releases, so parsing the same slots again on every boot (and on every hot
+ * push) would grow that table for the life of the process.
+ */
+const slotSchemas = new Map<string, (v: unknown) => unknown>();
+
+function slotSchema(def: Json): (v: unknown) => unknown {
+  const key = JSON.stringify(def);
+  let schema = slotSchemas.get(key);
+  if (schema === undefined) {
+    schema = type.raw(def).onUndeclaredKey("reject");
+    slotSchemas.set(key, schema);
+  }
+  return schema;
+}
+
 /** A manifest and its children, as the tree is declared. */
 export interface ManifestNode {
   manifest: Manifest;
@@ -211,7 +228,7 @@ export function checkTree(
       }
       let schema: ((v: unknown) => unknown) | null = null;
       try {
-        schema = type.raw(inlineRefs(slot.data, tableOf(table).types)).onUndeclaredKey("reject");
+        schema = slotSchema(inlineRefs(slot.data, tableOf(table).types));
       } catch (err) {
         problems.push({
           path: m.path,

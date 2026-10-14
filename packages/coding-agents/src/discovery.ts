@@ -375,7 +375,11 @@ const AGENT_RECIPES: AgentRecipe[] = [
  * npm's AppData shim dir; the POSIX absolutes are skipped on Windows where they do not
  * exist.
  */
-async function installDirCandidates(home: string, env: NodeJS.ProcessEnv): Promise<string[]> {
+async function installDirCandidates(
+  home: string,
+  env: NodeJS.ProcessEnv,
+  systemDirs: readonly string[],
+): Promise<string[]> {
   const dirs = [
     ".local/bin",
     ".volta/bin",
@@ -391,7 +395,7 @@ async function installDirCandidates(home: string, env: NodeJS.ProcessEnv): Promi
     dirs.push(path.join(home, "AppData", "Roaming", "npm"));
     dirs.push(path.join(home, "AppData", "Local", "pnpm"));
   } else {
-    dirs.push("/usr/local/bin", "/opt/homebrew/bin");
+    dirs.push(...systemDirs);
     if (process.platform === "darwin") dirs.push(path.join(home, "Library", "pnpm"));
     else dirs.push(path.join(home, ".local/share/pnpm"));
   }
@@ -459,12 +463,18 @@ export async function discoverAgents(
     home?: string;
     probe?: boolean;
     agentEnv?: (recipeId: string) => NodeJS.ProcessEnv;
+    /** The machine-wide bin dirs searched off Windows; a test machine's own are not the fixture's. */
+    systemDirs?: readonly string[];
   } = {},
 ): Promise<AgentDiscoveryCandidate[]> {
   const env = options.env ?? process.env;
   const home = options.home ?? os.homedir();
   const agentEnv = options.agentEnv ?? (() => sandboxedAgentEnv({}, env));
-  const extraDirs = await installDirCandidates(home, env);
+  const extraDirs = await installDirCandidates(
+    home,
+    env,
+    options.systemDirs ?? ["/usr/local/bin", "/opt/homebrew/bin"],
+  );
   // Absolute path when found on the machine, undefined when not (resolveCommandPath
   // hands unresolved bare names back unchanged).
   // One read per dir for the whole pass, shared by every recipe's lookups.

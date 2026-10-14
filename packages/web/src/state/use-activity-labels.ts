@@ -16,11 +16,15 @@ export function useActivityLabels(
   projectId: string | null,
   activityIds: readonly string[],
 ): ReadonlyMap<string, ActivityLabel> {
-  const [names, setNames] = useState<{ projectId: string | null; map: ReadonlyMap<string, ActivityLabel> }>(
-    { projectId: null, map: NO_LABELS },
-  );
+  const [names, setNames] = useState<{
+    projectId: string | null;
+    map: ReadonlyMap<string, ActivityLabel>;
+  }>({ projectId: null, map: NO_LABELS });
   /** The unnamed ids a read was already spent on, so an id the list never names asks once. */
-  const asked = useRef<{ projectId: string | null; ids: Set<string> }>({ projectId: null, ids: new Set() });
+  const asked = useRef<{ projectId: string | null; ids: Set<string> }>({
+    projectId: null,
+    ids: new Set(),
+  });
   const current = names.projectId === projectId ? names.map : NO_LABELS;
   if (asked.current.projectId !== projectId) asked.current = { projectId, ids: new Set() };
   const unnamed = activityIds.filter((id) => !current.has(id) && !asked.current.ids.has(id));

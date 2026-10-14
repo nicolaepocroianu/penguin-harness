@@ -90,7 +90,6 @@ import { RevealService } from "./services/reveal-path.js";
 import { ProjectAccess } from "./services/project-access.js";
 import { ProjectService, ProjectRuns } from "./services/project-service.js";
 import { ProjectActivityWorkService } from "./services/project-activity-work.js";
-import { ProjectActivityWork } from "./mechanisms/projects.js";
 import { AuthService, InitialProjectProvisioner } from "./auth/service.js";
 import { AdminService } from "./services/admin-service.js";
 import { Scheduler, ScheduleSessionCreator, ScheduleTaskRunner } from "./runtime/scheduler.js";
@@ -197,6 +196,7 @@ import {
   AgentIndex,
   Members,
   ModelOAuth,
+  ProjectActivityWork,
   ProjectConfigStore,
   ProjectLifecycle,
   Projects,

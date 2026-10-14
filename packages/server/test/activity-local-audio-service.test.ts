@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -87,9 +88,12 @@ describe("local audio readiness", () => {
   it("uses a complete fallback after an incomplete data-directory installation", async () => {
     const broken = await installation(["kokoro-js"]);
     const healthy = await installation(dependencies);
+    // Module resolution answers with the realpath (macOS's temp folder is a symlink into
+    // /private), so the expected path is resolved the same way.
     expect(localAudioModuleUrl("kokoro", [broken.anchor, healthy.anchor])).toBe(
-      pathToFileURL(path.join(path.dirname(healthy.anchor), "node_modules/kokoro-js/index.js"))
-        .href,
+      pathToFileURL(
+        path.join(realpathSync(path.dirname(healthy.anchor)), "node_modules/kokoro-js/index.js"),
+      ).href,
     );
   });
   it.each(["musicgen", "audiogen", "audioldm"] as const)(

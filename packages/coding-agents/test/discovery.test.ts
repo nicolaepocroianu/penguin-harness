@@ -13,6 +13,10 @@ import { resolveCommandPath, type DirListings } from "../src/resolve.js";
 
 const WIN = process.platform === "win32";
 
+/** Discovery over the fixture alone: the machine's own /usr/local/bin and Homebrew stay out. */
+const discover = (options: Parameters<typeof discoverAgents>[0]) =>
+  discoverAgents({ systemDirs: [], ...options });
+
 describe("agent discovery", () => {
   let root: string;
   let bin: string;
@@ -40,7 +44,7 @@ describe("agent discovery", () => {
 
   it("offers gemini with its native ACP flag when the CLI is on PATH", async () => {
     await install(bin, "gemini");
-    const candidates = await discoverAgents({ env: env(), home });
+    const candidates = await discover({ env: env(), home });
     const gemini = candidates.find((c) => c.recipeId === "gemini");
     expect(gemini).toMatchObject({
       detected: true,
@@ -58,7 +62,7 @@ describe("agent discovery", () => {
     ["cline", "cline", ["--acp"]],
   ])("launches %s through its own ACP mode, with no adapter to install", async (id, cli, args) => {
     await install(bin, cli);
-    const candidates = await discoverAgents({ env: env(), home });
+    const candidates = await discover({ env: env(), home });
     expect(candidates.find((c) => c.recipeId === id)).toMatchObject({
       detected: true,
       setupHint: null,
@@ -68,7 +72,7 @@ describe("agent discovery", () => {
 
   it("finds OpenCode in the directory its own installer uses, off PATH", async () => {
     await install(path.join(home, ".opencode", "bin"), "opencode");
-    const candidates = await discoverAgents({ env: env(), home });
+    const candidates = await discover({ env: env(), home });
     const opencode = candidates.find((c) => c.recipeId === "opencode");
     expect(opencode?.detected).toBe(true);
     expect(opencode?.launch?.command.toLowerCase()).toBe(
@@ -79,7 +83,7 @@ describe("agent discovery", () => {
   it("falls back to npx for an installed agent whose adapter is missing", async () => {
     await install(bin, "claude");
     await install(bin, "npx");
-    const candidates = await discoverAgents({ env: env(), home });
+    const candidates = await discover({ env: env(), home });
     const claude = candidates.find((c) => c.recipeId === "claude");
     expect(claude?.detected).toBe(true);
     expect(claude?.launch?.command.toLowerCase()).toBe(
@@ -90,14 +94,14 @@ describe("agent discovery", () => {
 
   it("reports a setup hint when the agent is installed but no entrypoint is", async () => {
     await install(bin, "claude");
-    const candidates = await discoverAgents({ env: env(), home });
+    const candidates = await discover({ env: env(), home });
     const claude = candidates.find((c) => c.recipeId === "claude");
     expect(claude?.launch).toBeNull();
     expect(claude?.setupHint).toContain("npm install -g @agentclientprotocol/claude-agent-acp");
   });
 
   it("marks agents absent from the machine as undetected", async () => {
-    const candidates = await discoverAgents({ env: env(), home });
+    const candidates = await discover({ env: env(), home });
     const codex = candidates.find((c) => c.recipeId === "codex");
     expect(codex).toMatchObject({ detected: false, launch: null });
     expect(codex?.setupHint).toBe("Not found on the server machine.");
@@ -107,7 +111,7 @@ describe("agent discovery", () => {
   // Consumers (the Add-agent dialog) must gate "usable" on `detected`, not `launch`.
   it("still resolves an npx-run adapter when the agent itself is absent", async () => {
     await install(bin, "npx");
-    const candidates = await discoverAgents({ env: env(), home });
+    const candidates = await discover({ env: env(), home });
     const claude = candidates.find((c) => c.recipeId === "claude");
     expect(claude?.detected).toBe(false);
     expect(claude?.launch?.args).toEqual(["-y", "@agentclientprotocol/claude-agent-acp"]);
@@ -117,7 +121,7 @@ describe("agent discovery", () => {
     await install(path.join(home, ".volta", "bin"), "gemini");
     await install(path.join(home, ".bun", "bin"), "npx");
     await install(path.join(home, ".bun", "bin"), "codex-acp");
-    const candidates = await discoverAgents({ env: { PATH: "" }, home });
+    const candidates = await discover({ env: { PATH: "" }, home });
     const gemini = candidates.find((c) => c.recipeId === "gemini");
     const codex = candidates.find((c) => c.recipeId === "codex");
     expect(gemini?.detected).toBe(true);
@@ -131,7 +135,7 @@ describe("agent discovery", () => {
   // npm-shim CLIs, and unlike the per-shell multishell dirs it survives the shell.
   it("finds CLIs under fnm's versioned Node roots", async () => {
     await install(path.join(home, "fnm", "node-versions", "v22.11.0", "installation"), "npx");
-    const candidates = await discoverAgents({
+    const candidates = await discover({
       env: { PATH: "", FNM_DIR: path.join(home, "fnm") },
       home,
     });
@@ -151,7 +155,7 @@ describe("agent discovery", () => {
     }
     // `agentEnv` is what the agent is spawned with; the server's own env never counts.
     const statusOf = async (id: string, agentEnv: NodeJS.ProcessEnv = {}) =>
-      (await discoverAgents({ env: env(), home, agentEnv: () => agentEnv })).find(
+      (await discover({ env: env(), home, agentEnv: () => agentEnv })).find(
         (c) => c.recipeId === id,
       )?.authStatus;
 
@@ -173,7 +177,7 @@ describe("agent discovery", () => {
     // reaches them and must not read as signed in.
     it("ignores a key the server holds but the agent never gets", async () => {
       await install(bin, "gemini");
-      const found = await discoverAgents({ env: { ...env(), GEMINI_API_KEY: "k" }, home });
+      const found = await discover({ env: { ...env(), GEMINI_API_KEY: "k" }, home });
       expect(found.find((c) => c.recipeId === "gemini")?.authStatus).toBe("missing");
     });
 
@@ -186,7 +190,7 @@ describe("agent discovery", () => {
 
     it("marks a stored answer as stored, not the CLI's own", async () => {
       await install(bin, "gemini");
-      const found = await discoverAgents({ env: env(), home });
+      const found = await discover({ env: env(), home });
       expect(found.find((c) => c.recipeId === "gemini")?.authSource).toBe("stored");
     });
 
@@ -219,7 +223,7 @@ describe("agent discovery", () => {
     it("says when the stored sign-in last changed", async () => {
       await install(bin, "gemini");
       const changedAt = async () =>
-        (await discoverAgents({ env: env(), home, agentEnv: () => ({}) })).find(
+        (await discover({ env: env(), home, agentEnv: () => ({}) })).find(
           (c) => c.recipeId === "gemini",
         )?.signInChangedAt;
       expect(await changedAt()).toBeUndefined();

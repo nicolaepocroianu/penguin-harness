@@ -3,7 +3,8 @@
 # tree — landing dist with the docs dist copied under docs/).
 # - Pull requests touching either package only BUILD (validation) — no Pages
 #   configuration and no deploy, so PRs never fail on Pages availability.
-# - Pushes to main (and manual dispatch) build + deploy. The site is served from the
+# - Pushes to main (and manual dispatch) build + deploy, in the upstream repository only; a
+#   fork's runs build and stop there. The site is served from the
 #   custom apex domain https://penguin.ooo/ (Settings -> Pages -> Custom domain), so
 #   BASE_PATH is "/" — assets resolve from the domain root, not a /<repo>/ subpath.
 # First-time setup: repository Settings -> Pages -> Source = "GitHub Actions".
@@ -60,14 +61,15 @@ jobs:
           BASE_PATH: /
         run: pnpm build:site
 
-      # Only the deploying runs need the Pages artifact (PRs stop at the build check).
-      - if: github.event_name != 'pull_request'
+      # Only the deploying runs need the Pages artifact (PRs stop at the build check), and only
+      # the upstream repository deploys: a fork builds to validate and publishes nothing.
+      - if: github.event_name != 'pull_request' && github.repository == 'Prism-Shadow/penguin-harness'
         uses: actions/upload-pages-artifact@v3
         with:
           path: packages/landing/dist
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.repository == 'Prism-Shadow/penguin-harness'
     needs: build
     runs-on: ubuntu-latest
     environment:

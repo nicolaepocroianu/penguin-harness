@@ -26,6 +26,7 @@ import {
   workspacesDir,
 } from "@prismshadow/penguin-core";
 import {
+  AcpAgentError,
   CodingAgentManager,
   discoverAgents as discoverKnownAgents,
   parseDefinition,
@@ -56,7 +57,6 @@ import type {
 import { Channels, Config, type ChannelApi } from "../hmr/capabilities.js";
 import { Settings } from "../mechanisms/settings.js";
 import { CodingAgents } from "../mechanisms/coding-agents.js";
-import { AcpAgentError } from "@prismshadow/penguin-coding-agents";
 import { maskApiKey } from "../services/project-config-service.js";
 import { renderTranscriptMarkdown, transcriptFilename } from "./transcript.js";
 import type { RuntimeSession } from "../runtime/session-manager.js";

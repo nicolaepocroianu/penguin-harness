@@ -16,7 +16,9 @@ const s = (sessionId: string, status: string, activityId?: string) =>
 
 describe("activity sessions", () => {
   it("drops activity-run sessions from the global list", () => {
-    expect(withoutActivityRuns([s("a", "idle"), s("b", "idle", "act")]).map((x) => x.sessionId)).toEqual(["a"]);
+    expect(
+      withoutActivityRuns([s("a", "idle"), s("b", "idle", "act")]).map((x) => x.sessionId),
+    ).toEqual(["a"]);
   });
   it("opens an activity run at its activity, anything else in chat", () => {
     expect(sessionHref({ sessionId: "b", activityId: "act 1" })).toBe("/activities/act%201");
@@ -28,7 +30,9 @@ describe("activity sessions", () => {
     expect(startedUnlistedRuns(new Map(), new Map([["a", "running"]]), listed)).toBe(false);
     expect(startedUnlistedRuns(new Map(), new Map([["x", "running"]]), listed)).toBe(true);
     // Only the start: a repeat of the same live status is not a new run.
-    expect(startedUnlistedRuns(new Map([["x", "running"]]), new Map([["x", "running"]]), listed)).toBe(false);
+    expect(
+      startedUnlistedRuns(new Map([["x", "running"]]), new Map([["x", "running"]]), listed),
+    ).toBe(false);
     expect(startedUnlistedRuns(new Map(), new Map([["x", "idle"]]), listed)).toBe(false);
   });
   it("reloads the list only on a genuine return from an activity", () => {
@@ -51,8 +55,19 @@ describe("activity sessions", () => {
   });
 
   it("groups loaded activity runs under their activity, most recent first", () => {
-    const run = (sessionId: string, activityId: string | undefined, lastActiveAt: string, extra = {}) =>
-      ({ sessionId, lastActiveAt, archived: false, ...(activityId ? { activityId } : {}), ...extra }) as unknown as SessionInfo;
+    const run = (
+      sessionId: string,
+      activityId: string | undefined,
+      lastActiveAt: string,
+      extra = {},
+    ) =>
+      ({
+        sessionId,
+        lastActiveAt,
+        archived: false,
+        ...(activityId ? { activityId } : {}),
+        ...extra,
+      }) as unknown as SessionInfo;
     const groups = groupActivityRuns(
       [
         run("chat", undefined, "2026-09-29T10:00:00Z"),
@@ -90,7 +105,13 @@ describe("activity sessions", () => {
       products.map((p) => [p.productCode, p.activities.map((g) => [g.activityId, g.name])]),
     ).toEqual([
       ["XYZ", [["act-b", "Rhymes"]]],
-      ["ABC", [["act-c", "Sounds"], ["act-a", "Letter hunt"]]],
+      [
+        "ABC",
+        [
+          ["act-c", "Sounds"],
+          ["act-a", "Letter hunt"],
+        ],
+      ],
       [null, [["act-x", null]]],
     ]);
   });
@@ -102,11 +123,18 @@ describe("activity sessions", () => {
       {
         productCode: "ABC",
         activities: [
-          { activityId: "a", name: "Letter hunt", sessions: [run("a1", "Generate spec"), run("a2", "Build module")] },
+          {
+            activityId: "a",
+            name: "Letter hunt",
+            sessions: [run("a1", "Generate spec"), run("a2", "Build module")],
+          },
           { activityId: "b", name: "Rhymes", sessions: [run("b1", "Generate spec")] },
         ],
       },
-      { productCode: null, activities: [{ activityId: "x", name: null, sessions: [run("x1", "Build module")] }] },
+      {
+        productCode: null,
+        activities: [{ activityId: "x", name: null, sessions: [run("x1", "Build module")] }],
+      },
     ];
     const ids = (query: string) =>
       searchActivityRuns(products, query).flatMap((p) =>

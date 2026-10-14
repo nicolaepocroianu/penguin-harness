@@ -47,12 +47,28 @@ function arrayElem(s: string): string | null {
   return splitUnion(inner) === null ? inner : null;
 }
 
+/**
+ * Leaf answers by `a <: b`. A leaf comparison is a pure function of its two expressions, and
+ * asking arktype costs more than the answer: every parse registers its nodes in a
+ * process-wide table that is never released. One module-tree check compares tens of
+ * thousands of leaves, so parsing per comparison grew that table by tens of thousands of
+ * entries on every boot, until registering into it took minutes. The expressions come from
+ * the interface tables, so the set of pairs is bounded.
+ */
+const leafAnswers = new Map<string, boolean>();
+
 function leafExtends(a: string, b: string): boolean {
-  try {
-    return type.raw(a).extends(type.raw(b));
-  } catch {
-    return a === b;
+  const key = `${a}<:${b}`;
+  let answer = leafAnswers.get(key);
+  if (answer === undefined) {
+    try {
+      answer = type.raw(a).extends(type.raw(b));
+    } catch {
+      answer = a === b;
+    }
+    leafAnswers.set(key, answer);
   }
+  return answer;
 }
 
 /**
