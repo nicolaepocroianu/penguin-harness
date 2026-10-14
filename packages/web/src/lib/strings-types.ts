@@ -585,6 +585,8 @@ export type Strings = {
         dirty: string;
         ahead: (n: number) => string;
         remoteMismatch: string;
+        /** Work a deploy set aside in git's stash and could not put back. */
+        stashLeft: string;
         unknown: string;
         /** What git could not say about a present clone. */
         notKnown: { status: string; upstream: string; branch: string; sparse: string };
@@ -609,6 +611,7 @@ export type Strings = {
         media_path_missing: (path: string) => string;
         clone_dirty: (repo: string) => string;
         clone_ahead: (repo: string, n: number) => string;
+        clone_stash_left: (repo: string) => string;
         clone_remote_mismatch: (repo: string) => string;
         branch_missing: (repo: string, branch: string, where: "local" | "remote") => string;
         not_canonical: string;

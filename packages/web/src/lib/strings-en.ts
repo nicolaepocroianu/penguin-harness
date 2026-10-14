@@ -644,6 +644,7 @@ export const en: Strings = {
         dirty: "Has uncommitted changes",
         ahead: (n) => `${n} ${n === 1 ? "commit is" : "commits are"} not pushed`,
         remoteMismatch: "Points at a different remote",
+        stashLeft: "Has work a deploy left in git's stash",
         unknown: "On disk; git could not read it",
         notKnown: {
           status: "git could not say whether it is clean",
@@ -684,6 +685,8 @@ export const en: Strings = {
         clone_dirty: (repo) => `The ${repo} clone has uncommitted changes.`,
         clone_ahead: (repo, n) =>
           `The ${repo} clone has ${n} ${n === 1 ? "commit" : "commits"} its remote does not.`,
+        clone_stash_left: (repo) =>
+          `The ${repo} clone has work a deploy set aside in git's stash and could not put back, so a deploy would leave it out. Put it back or drop it by hand; git stash list names it "penguin-harness deploy".`,
         clone_remote_mismatch: (repo) =>
           `The ${repo} clone points at a different remote than the settings name.`,
         branch_missing: (repo, branch, where) =>

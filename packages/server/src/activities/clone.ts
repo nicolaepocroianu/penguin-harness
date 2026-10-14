@@ -21,6 +21,12 @@ const REMOTE_ASK_TIMEOUT_MS = 30_000;
 /** Characters of paths one command may name, well under Windows' 32,767-character command line. */
 const PATHS_BATCH_CHARS = 8_000;
 
+/** How the message of a stash a deploy made begins, as earlier versions wrote it too. */
+const SET_ASIDE = "penguin-harness deploy";
+
+/** A stash a deploy made, as `git stash list --format=%gs` lists it: "On <branch>: <message>". */
+const SET_ASIDE_ENTRY = new RegExp(`^On [^:]*: ${SET_ASIDE}(?::|$)`);
+
 /** What git says when the repository it was asked about does not exist. */
 export function repositoryMissing(stderr: string): boolean {
   return /repository not found|does not appear to be a git repository|not found/i.test(stderr);
@@ -93,7 +99,9 @@ export interface CloneIdentity {
  *
  * - `carry`: the work in its working tree is set aside, the branch is checked out (made from
  *   origin's, or where the clone is when origin has none) and fast-forwarded to origin's, and
- *   the work is put back. A clone with no commit yet keeps its work in place, on the branch as
+ *   the work is put back. When that fails, the clone goes back to the branch it was on with its
+ *   work as it was. Work that conflicts with origin's stays set aside in git's stash, which
+ *   `stashedWork` counts. A clone with no commit yet keeps its work in place, on the branch as
  *   origin has it, origin's files checked out beside it.
  * - `discard`: the branch is made as origin has it (else from origin's `from`, else the
  *   clone's own `from`), and whatever else is in the working tree is thrown away.
@@ -138,6 +146,8 @@ export interface Clone {
   fetchTags(): Promise<string[]>;
   /** Puts the clone on `branch` as origin has it (see `CloneBranchMode`). */
   onBranchFromOrigin(branch: string, mode: CloneBranchMode): Promise<{ workInPlace: boolean }>;
+  /** How many times a deploy set work aside in git's stash and could not put it back. */
+  stashedWork(): Promise<number>;
   /** Makes `branch` at `start` and checks it out, carrying the working tree. */
   branchFrom(branch: string, start: string): Promise<void>;
   /** Stages everything, or only `paths` (in batches); `sparse` reaches folders not checked out. */
@@ -233,6 +243,8 @@ interface RunOptions {
   quiet?: boolean;
   /** Reaches the remote. */
   network?: boolean;
+  /** Runs, and runs to its end, even once the signal has aborted: putting work back. */
+  unstoppable?: boolean;
   timeoutMs?: number;
 }
 
@@ -248,8 +260,9 @@ class GitClone implements Clone {
   }
 
   private async run(args: string[], options: RunOptions = {}): Promise<DeployGitResult> {
-    this.checkStopped();
-    const { log, signal } = this.options;
+    if (!options.unstoppable) this.checkStopped();
+    const { log } = this.options;
+    const signal = options.unstoppable ? undefined : this.options.signal;
     log?.(`$ git ${args.join(" ")}`);
     const timeoutMs =
       options.timeoutMs ??
@@ -262,7 +275,7 @@ class GitClone implements Clone {
     if (log && !options.quiet)
       for (const line of `${result.stdout}\n${result.stderr}`.split(/\r?\n/))
         if (line.trim() !== "") log(line);
-    this.checkStopped();
+    if (!options.unstoppable) this.checkStopped();
     if (result.error === "stopped") throw new CloneStopped();
     if (result.code !== 0 && !options.allowFailure) throw new CloneError(args, result);
     return result;
@@ -415,35 +428,75 @@ class GitClone implements Clone {
   private async carry(branch: string): Promise<{ workInPlace: boolean }> {
     const status = await this.run(["status", "--porcelain"], { quiet: true });
     const work = status.stdout.trim() !== "";
-    const stash = ["stash", "push", "--include-untracked", "-m", "penguin-harness deploy"];
-    const stashed = work && (await this.run(stash, { allowFailure: true })).code === 0;
-    if (work && !stashed) {
-      // git cannot stash in a repository with no commit yet, whose work then stays where it
-      // is. A stash that failed for any other reason (a conflict, say) fails with git's words.
-      if (await this.has("HEAD")) await this.run(stash);
+    // Where the work goes back to should the branch not come up to origin's.
+    const from = work ? await this.head() : "";
+    const message = `${SET_ASIDE}: work set aside to bring ${branch} up to origin`;
+    const stash = ["stash", "push", "--include-untracked", "-m", message];
+    let stashed = work && (await this.run(stash, { allowFailure: true })).code === 0;
+    // git cannot stash in a repository with no commit yet, whose work then stays where it
+    // is. A stash that failed for any other reason (a conflict, say) fails with git's words.
+    if (work && !stashed && (await this.has("HEAD"))) {
+      await this.run(stash);
+      stashed = true;
     }
-    const local = await this.has(`refs/heads/${branch}`);
-    const remote = await this.has(`refs/remotes/origin/${branch}`);
-    if (work && !stashed) {
-      // The branch starts as origin has it, the work left as changes to it; with no such
-      // branch on origin either, it is born when the work is committed.
-      await this.run(["symbolic-ref", "HEAD", `refs/heads/${branch}`]);
-      if (remote) {
-        await this.run(["reset", "--mixed", `origin/${branch}`]);
-        // Origin's files the clone never had would read as deleted and be committed away:
-        // they are checked out, and only the clone's own work is a change.
-        const deleted = await this.run(["ls-files", "--deleted", "-z"], { quiet: true });
-        await this.withPaths(["checkout"], deleted.stdout.split("\0").filter(Boolean));
-      }
-      return { workInPlace: true };
+    if (work && !stashed) return this.keepInPlace(branch);
+    try {
+      const local = await this.has(`refs/heads/${branch}`);
+      const remote = await this.has(`refs/remotes/origin/${branch}`);
+      if (local) await this.run(["checkout", branch]);
+      else if (remote) await this.run(["checkout", "-b", branch, `origin/${branch}`]);
+      else await this.run(["checkout", "-B", branch]);
+      if (remote) await this.fastForward(branch);
+    } catch (error) {
+      if (stashed) await this.putBack(from);
+      throw error;
     }
-    if (local) await this.run(["checkout", branch]);
-    else if (remote) await this.run(["checkout", "-b", branch, `origin/${branch}`]);
-    else await this.run(["checkout", "-B", branch]);
-    if (remote) await this.fastForward(branch);
-    // A conflict here keeps the work in the stash, and git's output says so.
-    if (stashed) await this.run(["stash", "pop"]);
+    // Work that conflicts with origin's stays in the stash, and git's output says so.
+    if (stashed) await this.run(["stash", "pop"], { unstoppable: true });
     return { workInPlace: false };
+  }
+
+  /**
+   * A repository with no commit yet keeps its work where it is: the branch starts as origin
+   * has it, the work left as changes to it; with no such branch on origin either, it is born
+   * when the work is committed.
+   */
+  private async keepInPlace(branch: string): Promise<{ workInPlace: boolean }> {
+    const remote = await this.has(`refs/remotes/origin/${branch}`);
+    await this.run(["symbolic-ref", "HEAD", `refs/heads/${branch}`]);
+    if (remote) {
+      await this.run(["reset", "--mixed", `origin/${branch}`]);
+      // Origin's files the clone never had would read as deleted and be committed away:
+      // they are checked out, and only the clone's own work is a change.
+      const deleted = await this.run(["ls-files", "--deleted", "-z"], { quiet: true });
+      await this.withPaths(["checkout"], deleted.stdout.split("\0").filter(Boolean));
+    }
+    return { workInPlace: true };
+  }
+
+  /** The checked-out branch, or the commit a detached HEAD is at. */
+  private async head(): Promise<string> {
+    const args = ["symbolic-ref", "--quiet", "--short", "HEAD"];
+    const branch = await this.run(args, { allowFailure: true, quiet: true });
+    if (branch.code === 0) return branch.stdout.trim();
+    return (await this.run(["rev-parse", "HEAD"], { quiet: true })).stdout.trim();
+  }
+
+  /**
+   * Puts the work `carry` set aside back where it was taken from, after a failure: on `from`,
+   * what was staged staged again. It runs even once the signal has aborted, so a stopped deploy
+   * never leaves the work behind; what git cannot put back stays in the stash, and its output
+   * says why.
+   */
+  private async putBack(from: string) {
+    const always = { allowFailure: true, unstoppable: true };
+    if ((await this.run(["checkout", from], always)).code !== 0) return;
+    await this.run(["stash", "pop", "--index"], always);
+  }
+
+  async stashedWork(): Promise<number> {
+    const listed = await this.run(["stash", "list", "--format=%gs"], { quiet: true });
+    return listed.stdout.split(/\r?\n/).filter((line) => SET_ASIDE_ENTRY.test(line)).length;
   }
 
   async branchFrom(branch: string, start: string): Promise<void> {
