@@ -3,6 +3,7 @@
 - **Date:** 2026-10-15
 - **Type:** fix
 - **Scope:** `server`, `web`
+- **PR:** [#144](https://github.com/nicolaepocroianu/penguin-harness/pull/144)
 
 Verifying the module and verifying media set the work in the module and media clones aside in
 git's stash, brought main up to origin's, and put the work back. When origin's main had
