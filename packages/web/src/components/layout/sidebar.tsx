@@ -1610,7 +1610,7 @@ export function Sidebar({
           }}
         >
           {products.map((product) => (
-            <div key={product.productCode ?? " unknown"} className="mt-1.5">
+            <div key={product.productCode ?? "\u0000unknown"} className="mt-1.5">
               <p className="truncate px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
                 {product.productCode ?? S.chat.unknownProduct}
               </p>

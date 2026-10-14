@@ -6,7 +6,13 @@ import {
   writeCollapsed,
 } from "../src/features/activities/activity-groups";
 
-function item(id: string, productCode: string, refNum: number, updatedAt: string, extra: Partial<ActivityRecord> = {}): ActivityRecord {
+function item(
+  id: string,
+  productCode: string,
+  refNum: number,
+  updatedAt: string,
+  extra: Partial<ActivityRecord> = {},
+): ActivityRecord {
   return {
     id,
     productCode,
@@ -45,7 +51,11 @@ describe("groupByProduct", () => {
     const groups = groupByProduct(items, summaries, all);
     expect(groups.map((group) => group.productCode)).toEqual(["ants", "book"]);
     expect(groups[0]!.items.map((entry) => entry.id)).toEqual(["a3", "a5"]);
-    expect(groups[0]!).toMatchObject({ canonicalId: "a3", attention: 1, latest: "2026-09-27T00:00:00Z" });
+    expect(groups[0]!).toMatchObject({
+      canonicalId: "a3",
+      attention: 1,
+      latest: "2026-09-27T00:00:00Z",
+    });
     expect(groups[1]!.activityType).toBe("book");
   });
 
@@ -56,7 +66,10 @@ describe("groupByProduct", () => {
     expect(searched[0]!.items.map((entry) => entry.id)).toEqual(["a5"]);
     expect(searched[0]!.canonicalId).toBe("a3");
     const tagged = groupByProduct(
-      [item("a3", "ants", 3, "2026-09-20T00:00:00Z"), item("a5", "ants", 5, "2026-09-27T00:00:00Z", { tags: ["Reading"] })],
+      [
+        item("a3", "ants", 3, "2026-09-20T00:00:00Z"),
+        item("a5", "ants", 5, "2026-09-27T00:00:00Z", { tags: ["Reading"] }),
+      ],
       summaries,
       { ...all, tag: "Reading" },
     );
@@ -79,14 +92,22 @@ describe("groupByProduct", () => {
     const groups = groupByProduct(items, summaries, { ...all, search: "5" });
     expect(groups).toHaveLength(1);
     expect(groups[0]!.items.map((entry) => entry.id)).toEqual(["a5"]);
-    expect(groupByProduct(items, summaries, { ...all, tag: "reading" }).map((g) => g.productCode)).toEqual(["book"]);
+    expect(
+      groupByProduct(items, summaries, { ...all, tag: "reading" }).map((g) => g.productCode),
+    ).toEqual(["book"]);
   });
 
   it("keeps two collections' refs of one product code apart", () => {
     const first = item("c1r1", "ants", 1, "2026-09-01T00:00:00Z", { collectionId: "c1" });
     const second = item("c2r1", "ants", 1, "2026-09-02T00:00:00Z", { collectionId: "c2" });
-    const groups = groupByProduct([first, second], { c2r1: { canonical: true } as ActivitySummary }, all);
-    expect(groups.map((group) => [group.key, group.items.map((entry) => entry.id), group.canonicalId])).toEqual([
+    const groups = groupByProduct(
+      [first, second],
+      { c2r1: { canonical: true } as ActivitySummary },
+      all,
+    );
+    expect(
+      groups.map((group) => [group.key, group.items.map((entry) => entry.id), group.canonicalId]),
+    ).toEqual([
       ["c2:ants", ["c2r1"], "c2r1"],
       ["c1:ants", ["c1r1"], null],
     ]);
@@ -94,7 +115,9 @@ describe("groupByProduct", () => {
   it("marks a legacy canonical ref as no template", () => {
     const legacy = item("l1", "legacy", 1, "2026-09-01T00:00:00Z", { productId: null });
     const [group] = groupByProduct([legacy], { l1: { canonical: true } as ActivitySummary }, all);
-    expect(group).toEqual(expect.objectContaining({ canonicalId: "l1", canonicalHasProduct: false }));
+    expect(group).toEqual(
+      expect.objectContaining({ canonicalId: "l1", canonicalHasProduct: false }),
+    );
   });
   it("keeps an activity without a product or summary", () => {
     const orphan = item("o1", "legacy", 1, "2026-09-01T00:00:00Z", { productId: null });

@@ -66,7 +66,8 @@ export function groupByProduct(
   return groups.sort((left, right) =>
     options.sort === "code"
       ? left.productCode.localeCompare(right.productCode)
-      : right.latest.localeCompare(left.latest) || left.productCode.localeCompare(right.productCode),
+      : right.latest.localeCompare(left.latest) ||
+        left.productCode.localeCompare(right.productCode),
   );
 }
 
@@ -85,10 +86,7 @@ function readStore(storage: Pick<Storage, "getItem">): CollapsedStore {
     : {};
 }
 
-export function readCollapsed(
-  projectId: string,
-  storage?: Pick<Storage, "getItem">,
-): Set<string> {
+export function readCollapsed(projectId: string, storage?: Pick<Storage, "getItem">): Set<string> {
   try {
     const codes = readStore(storage ?? localStorage)[projectId];
     return new Set(Array.isArray(codes) ? codes.filter((code) => typeof code === "string") : []);

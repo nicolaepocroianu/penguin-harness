@@ -39,9 +39,9 @@ describe("renameOver", () => {
   it("gives up on a lock nothing releases with the original error", async () => {
     const { from, to } = await files();
     vi.spyOn(fs, "rename").mockRejectedValue(errno("EPERM"));
-    await expect(renameOver(from, to, { platform: "win32", timeoutMs: 60 })).rejects.toMatchObject(
-      { code: "EPERM" },
-    );
+    await expect(renameOver(from, to, { platform: "win32", timeoutMs: 60 })).rejects.toMatchObject({
+      code: "EPERM",
+    });
   });
 
   it("does not retry off Windows, where EACCES is a real permission error", async () => {

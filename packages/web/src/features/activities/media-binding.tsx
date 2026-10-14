@@ -7,11 +7,10 @@
  */
 import { useState } from "react";
 import type { AssetManifest, UploadedMedia } from "@prismshadow/penguin-server/api";
-import { Button } from "../../components/ui/button";
+import { Button, labelButtonClass } from "../../components/ui/button";
 import { HiddenFileInput } from "../../components/ui/hidden-file-input";
 import { Input } from "../../components/ui/input";
 import { Select } from "../../components/ui/select";
-import { labelButtonClass } from "../../components/ui/button";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { UPLOAD_ACCEPT, isUploadPath, uploadKindFor } from "./media-library";

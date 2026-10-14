@@ -13,10 +13,15 @@
  * Project's default reference, 400 if there is none); the new Session is
  * added to session-manager's active table (state idle).
  */
-import type { ProtectedRoot, SessionSandboxMode } from "@prismshadow/penguin-core";
+import type {
+  ControlEnvContext,
+  ProtectedRoot,
+  ProxyEnvPolicy,
+  SessionSandboxMode,
+  SpawnConfiner,
+} from "@prismshadow/penguin-core";
 import fs from "node:fs/promises";
 import { agentsDir, createAgent, isSessionMeta } from "@prismshadow/penguin-core";
-import type { ControlEnvContext, ProxyEnvPolicy, SpawnConfiner } from "@prismshadow/penguin-core";
 import type {
   ApprovalMode,
   MessagingChannel,
