@@ -1498,6 +1498,8 @@ describe("opening a database older than the newest columns", () => {
     const file = path.join(dir, "web.db");
     const db = new sqlite.DatabaseSync(file);
     try {
+      // A fixture needs no durability: skipping the flush per statement is most of its cost.
+      db.exec("PRAGMA synchronous = OFF;");
       db.exec(SCHEMA_SQL);
       migrate(db);
       rollbackTo(db, version);
@@ -1546,11 +1548,14 @@ describe("opening a database older than the newest columns", () => {
   });
 
   // One real database file per migration, opened through the whole chain: it grows with every
-  // migration and outgrows the shared per-test limit on a busy Windows machine.
-  it("opens every version a migration has ever left behind", { timeout: 180_000 }, () => {
+  // migration and outgrows the shared per-test limit on a busy Windows machine. SQLite here is
+  // synchronous, so the loop hands the event loop back between versions: minutes of work in one
+  // stretch starve the test runner's own messages until they time out.
+  it("opens every version a migration has ever left behind", { timeout: 180_000 }, async () => {
     // The guard generalises: one index added to SCHEMA_SQL over a migration-added column
     // breaks exactly one of these, and only at the version before that migration.
     for (const version of MIGRATIONS.map((m) => m.version - 1)) {
+      await new Promise((resolve) => setImmediate(resolve));
       const file = databaseAt(version);
       let db;
       try {
