@@ -4,7 +4,7 @@
  * server's harness and runner served from memory to a child Node under the permission model, the
  * browser locked to the play link behind its guard. What a check may not do — read or write this
  * disk, start a process, see the server's environment, open a local file or another port — fails
- * that check. Skipped where Playwright's Chromium is not installed.
+ * that check. Skipped where Playwright's Chromium is not installed, unless the run requires it.
  */
 import { spawn } from "node:child_process";
 import fs from "node:fs";
@@ -12,7 +12,6 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { chromium } from "playwright-core";
 import { afterEach, describe, expect, it } from "vitest";
 import { isPlayOrigin, lockdownArgs, vetCall } from "../src/activities/browser-guard.js";
 import {
@@ -21,6 +20,7 @@ import {
   type ChecksOutcome,
 } from "../src/activities/confined-checks.js";
 import { playwrightCoreDir } from "../src/activities/test-browser.js";
+import { installedChromium } from "./installed-chromium.js";
 
 /** A module page that plays one case: a star to tap, then the end. */
 const PAGE = `<!doctype html>
@@ -62,14 +62,7 @@ const PAGE = `<!doctype html>
 </body></html>
 `;
 
-const executable = (() => {
-  try {
-    const file = chromium.executablePath();
-    return file && fs.existsSync(file) ? file : null;
-  } catch {
-    return null;
-  }
-})();
+const executable = installedChromium();
 const coreDir = playwrightCoreDir();
 
 const closers: (() => Promise<void>)[] = [];

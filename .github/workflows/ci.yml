@@ -13,7 +13,7 @@
 name: CI
 
 # Triggers are deliberately narrow: a push to main, and a pull request whose base is main.
-# The runner pool is shared and one run is 21 jobs, so a pull request against any other
+# The runner pool is shared and one run is 22 jobs, so a pull request against any other
 # branch — a stacked PR, an integration branch — gets no CI until it is retargeted at main
 # (or someone dispatches this workflow by hand). That is the trade: fewer runs over a
 # pull request's life, not a gate on every branch.
@@ -168,6 +168,7 @@ jobs:
           - shard: server
             build: "@prismshadow/penguin-server...,@prismshadow/penguin-plugin-sandbox-dsh"
             tests: pnpm --filter @prismshadow/penguin-server test
+            browser: true
           - shard: web-cli
             build: "@prismshadow/penguin-core...,@prismshadow/penguin-web..."
             tests: pnpm --filter @prismshadow/penguin-web --filter @prismshadow/penguin-cli test
@@ -181,6 +182,13 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           build: ${{ matrix.build }}
+      # The server's real-browser suites (its confined checks, the bench's sealing, the
+      # keyboard probe) skip without Chromium; the action installs it and makes a skip fail.
+      - uses: ./.github/actions/chromium
+        if: matrix.browser
+        with:
+          package: "@prismshadow/penguin-server"
+          cli: playwright-core
       - name: Unit tests (vitest)
         run: ${{ matrix.tests }}
 
@@ -206,6 +214,38 @@ jobs:
             exit 0
           fi
           pnpm test:e2e
+
+  # The web app's Playwright suite, its `activities` project only. Those specs answer every
+  # request from fixtures inside the browser and load the built app from disk, so they need
+  # the web build and Chromium but no server, mock LLM or port. ubuntu alone: what they drive
+  # is the browser bundle, which is the same on every OS. The `shared-server` project is not
+  # run here: most of its specs still select labels from before the app went English-only.
+  e2e-web:
+    name: e2e-web (activities)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+        with:
+          # Not `web...`: the web takes only types from the server, so the server's build
+          # (the slowest here) would buy this job nothing.
+          build: "@prismshadow/penguin-core...,@prismshadow/penguin-web"
+      - uses: ./.github/actions/chromium
+        with:
+          package: "@prismshadow/penguin-web"
+          cli: playwright
+      - name: Web e2e (Playwright, activities)
+        working-directory: packages/web
+        run: pnpm exec playwright test -c e2e/playwright.config.mjs --project activities
+      # What a failing spec left behind: its error context and the page at the failure.
+      - name: Upload Playwright results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-web-results
+          path: packages/web/test-results
+          if-no-files-found: ignore
 
   # macOS (arm64). This is the only place the terminal's pty suites run on darwin —
   # node-pty compiles against the runner's toolchain and its darwin-only spawn-helper
@@ -233,6 +273,7 @@ jobs:
             build: "@prismshadow/penguin-server...,@prismshadow/penguin-plugin-sandbox-dsh"
             tests: pnpm --filter @prismshadow/penguin-server test
             smoke: false
+            browser: true
           - shard: rest
             build: "@prismshadow/penguin-desktop...,@prismshadow/penguin-cli..."
             tests: >-
@@ -243,6 +284,12 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           build: ${{ matrix.build }}
+      # The server's real-browser suites, as on ubuntu.
+      - uses: ./.github/actions/chromium
+        if: matrix.browser
+        with:
+          package: "@prismshadow/penguin-server"
+          cli: playwright-core
       - name: Unit tests (vitest)
         run: ${{ matrix.tests }}
       - name: Terminal smoke (node-pty under Electron's Node)
@@ -277,12 +324,15 @@ jobs:
           - shard: server-1
             build: "@prismshadow/penguin-server...,@prismshadow/penguin-plugin-sandbox-dsh"
             tests: pnpm --filter @prismshadow/penguin-server exec vitest run --shard=1/3
+            browser: true
           - shard: server-2
             build: "@prismshadow/penguin-server...,@prismshadow/penguin-plugin-sandbox-dsh"
             tests: pnpm --filter @prismshadow/penguin-server exec vitest run --shard=2/3
+            browser: true
           - shard: server-3
             build: "@prismshadow/penguin-server...,@prismshadow/penguin-plugin-sandbox-dsh"
             tests: pnpm --filter @prismshadow/penguin-server exec vitest run --shard=3/3
+            browser: true
           - shard: rest
             build: "@prismshadow/penguin-desktop...,@prismshadow/penguin-cli..."
             tests: >-
@@ -301,6 +351,14 @@ jobs:
       - name: Generate the interface table
         if: startsWith(matrix.shard, 'server')
         run: pnpm --filter @prismshadow/penguin-server gen:ifaces
+
+      # The server's real-browser suites, as on ubuntu. Every server shard installs it:
+      # vitest decides which shard runs which file.
+      - uses: ./.github/actions/chromium
+        if: matrix.browser
+        with:
+          package: "@prismshadow/penguin-server"
+          cli: playwright-core
 
       # One retry, and only here. Per-test flakes are already absorbed inside vitest
       # (`retry` in core's and the server's configs, Windows only); what this covers is the
@@ -426,6 +484,7 @@ jobs:
         typecheck,
         test,
         installer-e2e,
+        e2e-web,
         test-macos,
         test-windows,
         installer-windows,

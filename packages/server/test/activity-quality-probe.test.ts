@@ -1,20 +1,13 @@
 /**
  * The keyboard probe's text, run for real: a page set from a string in a local Chromium, with
- * no network. Skipped where Playwright's Chromium is not installed.
+ * no network. Skipped where Playwright's Chromium is not installed, unless the run requires it.
  */
-import fs from "node:fs";
 import { chromium, type Browser } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PAGE_PROBE, readProbe } from "../src/activities/quality-accessibility.js";
+import { installedChromium } from "./installed-chromium.js";
 
-const executable = (() => {
-  try {
-    const file = chromium.executablePath();
-    return file && fs.existsSync(file) ? file : null;
-  } catch {
-    return null;
-  }
-})();
+const executable = installedChromium();
 
 describe.skipIf(!executable)("keyboard probe text, in a real browser", () => {
   let browser: Browser;
