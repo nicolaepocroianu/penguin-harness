@@ -3,6 +3,7 @@
 - **Date:** 2026-10-14
 - **Type:** process
 - **Scope:** `ci`
+- **PR:** [#140](https://github.com/nicolaepocroianu/penguin-harness/pull/140)
 
 A push to `main` on the `nicolaepocroianu/penguin-harness` fork failed the `Docker` workflow at the Docker Hub login, because the fork has none of the secrets that publish to `hiyouga/penguinharness`. Every publishing or secret-dependent step now carries the guard `github.repository == 'Prism-Shadow/penguin-harness'`, the one the site deploy in `pages.yml` already used. A fork still builds and validates; it publishes nothing and looks for no credentials.
 
