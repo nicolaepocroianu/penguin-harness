@@ -3,7 +3,7 @@
 - **Date:** 2026-10-14
 - **Type:** fix
 - **Scope:** `core`, `server`
-- **PR:** [#PR](https://github.com/nicolaepocroianu/penguin-harness/pull/PR)
+- **PR:** [#139](https://github.com/nicolaepocroianu/penguin-harness/pull/139)
 
 Every platform boot checks the module tree against the interface table, and that check
 parsed each leaf type it compared through arktype, which registers every parse in a
