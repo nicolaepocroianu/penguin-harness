@@ -10,7 +10,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   CloneDiverged,
   CloneError,
@@ -22,6 +22,18 @@ import {
 const clones = gitClones();
 const WHO = { name: "Deploy Bot", email: "deploy@example.org" };
 const dirs: string[] = [];
+
+// Newer git starts background maintenance after a commit, which can still be writing packs
+// into a test's repository while the test removes it (ENOTEMPTY on the CI runners). Every
+// git here, the test's and the clones', reads this environment.
+beforeAll(() => {
+  vi.stubEnv("GIT_CONFIG_COUNT", "1");
+  vi.stubEnv("GIT_CONFIG_KEY_0", "maintenance.auto");
+  vi.stubEnv("GIT_CONFIG_VALUE_0", "false");
+});
+afterAll(() => {
+  vi.unstubAllEnvs();
+});
 
 afterEach(async () => {
   for (const dir of dirs.splice(0)) await fs.rm(dir, { recursive: true, force: true });
