@@ -9,7 +9,7 @@ A push to `main` on the `nicolaepocroianu/penguin-harness` fork failed the `Dock
 
 ## Details
 
-- `docker.yml`: the Docker Hub login is skipped and the build's `push` is forced off outside upstream, so the multi-platform build still runs. The PR-time `smoke` job is unchanged.
+- `docker.yml`: the `publish` job is skipped outside upstream, so a fork neither logs in to Docker Hub nor builds the multi-platform image. The PR-time `smoke` job is unchanged and still validates the image everywhere.
 - `release.yml`: the `Publish GitHub Release` step, and the `mirror-oss`, `publish-npm` and `docker` jobs, run in upstream only. The `check-release`, `desktop` and `release` build steps run everywhere.
 - `desktop-build.yml`: macOS and Windows signing is required only in upstream, whether the caller is `release.yml`, a dispatch or a push to a `release/**` branch. A fork builds unsigned installers instead of failing on the missing signing secrets.
 - `oss-staging.yml`: the manual OIDC staging check is skipped outside upstream.
