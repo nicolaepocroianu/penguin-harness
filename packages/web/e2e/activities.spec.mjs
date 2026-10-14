@@ -4753,7 +4753,7 @@ test("filters narration by instruction type, as main instructions or scaffolding
   await page.getByRole("button", { name: "Validate and save media", exact: true }).click();
 
   await openSection(page, "Audio");
-  const row = (key) => page.getByRole("button", { name: new RegExp(`(^|\\s)${key} · `) });
+  const row = (key) => audioRow(page, key);
   const types = page.getByRole("group", { name: "Show by instruction type", exact: true });
   const states = page.getByRole("group", { name: "Show", exact: true });
   await expect(types.getByRole("button", { name: "All 4", exact: true })).toBeVisible();
