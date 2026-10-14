@@ -6,6 +6,7 @@
  * registered with `onDisk`) also gets a `.git` folder on disk, so code that looks at the disk
  * sees it. Every call is recorded in domain terms: `{ dir, op, args }`.
  */
+import { existsSync, realpathSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
@@ -61,7 +62,23 @@ export interface FakeCall {
   args: unknown[];
 }
 
-const key = (dir: string) => path.resolve(dir);
+/**
+ * One spelling per folder, the one the server reaches it by. The server finds the checkout
+ * through `realpath`, and on the Windows CI runner the temp root a test builds it under is
+ * spelled in 8.3 form (`RUNNER~1`), so a key from `path.resolve` alone missed every clone.
+ * A folder not made yet keeps its name below its nearest existing ancestor.
+ */
+function key(dir: string): string {
+  let existing = path.resolve(dir);
+  const below: string[] = [];
+  while (!existsSync(existing)) {
+    const parent = path.dirname(existing);
+    if (parent === existing) return path.resolve(dir);
+    below.unshift(path.basename(existing));
+    existing = parent;
+  }
+  return path.join(realpathSync.native(existing), ...below);
+}
 
 export class FakeClones implements Clones {
   readonly calls: FakeCall[] = [];

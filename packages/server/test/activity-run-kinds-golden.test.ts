@@ -10,7 +10,7 @@
  * helpers never end.
  */
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -164,7 +164,13 @@ describe("what each run kind hands its agent", () => {
       },
     });
     const root = t.root;
-    const roots = [root, root.replaceAll("\\", "/"), JSON.stringify(root).slice(1, -1)];
+    // The root as the test made it and as the server resolves it: on the Windows CI runner
+    // the temp folder is spelled in 8.3 form, and what the server writes is the realpath.
+    const roots = [root, realpathSync.native(root)].flatMap((spelling) => [
+      spelling,
+      spelling.replaceAll("\\", "/"),
+      JSON.stringify(spelling).slice(1, -1),
+    ]);
     normalize = (text) => {
       let out = text;
       for (const value of roots) out = out.split(value).join("<root>");

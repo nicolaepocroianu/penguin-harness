@@ -169,7 +169,9 @@ describe("the bench home's admin route", () => {
     const chosen = await admin.put(ROUTE, { home });
     expect(chosen.status, await chosen.clone().text()).toBe(200);
     const view = (await chosen.json()) as ActivityBenchResponse;
-    expect(view.home).toBe(fs.realpathSync(home));
+    // The server's realpath, which spells out an 8.3 temp folder (the Windows CI runner's)
+    // where the JavaScript one keeps it.
+    expect(view.home).toBe(fs.realpathSync.native(home));
     expect(view.problem).toBeNull();
     expect(view.boards.map((board) => board.id)).toEqual([
       "activity-bench-r2",
