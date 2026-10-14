@@ -70,6 +70,8 @@ function sha(bytes: Buffer | string): string {
 describe("what each run kind hands its agent", () => {
   let t: TestApp;
   let normalize: (text: string) => string;
+  /** Values the machine decides rather than the code, each with the placeholder it reads as. */
+  const machineValues = new Map<string, string>();
   /** Installed before each test: the suite restores every spy after one. */
   let stubSessions: () => void = () => {};
   const prompts = new Map<string, string>();
@@ -166,14 +168,18 @@ describe("what each run kind hands its agent", () => {
     const root = t.root;
     // The root as the test made it and as the server resolves it: on the Windows CI runner
     // the temp folder is spelled in 8.3 form, and what the server writes is the realpath.
-    const roots = [root, realpathSync.native(root)].flatMap((spelling) => [
-      spelling,
-      spelling.replaceAll("\\", "/"),
-      JSON.stringify(spelling).slice(1, -1),
-    ]);
+    // Longest first: on macOS one spelling (/var/…) is the tail of the other (/private/var/…).
+    const roots = [root, realpathSync.native(root)]
+      .flatMap((spelling) => [
+        spelling,
+        spelling.replaceAll("\\", "/"),
+        JSON.stringify(spelling).slice(1, -1),
+      ])
+      .sort((a, b) => b.length - a.length);
     normalize = (text) => {
       let out = text;
       for (const value of roots) out = out.split(value).join("<root>");
+      for (const [value, placeholder] of machineValues) out = out.split(value).join(placeholder);
       // A path under the root is spelled with the platform's separator (JSON-escaped on
       // Windows); compared in one spelling so the values hold on every platform.
       out = out.replace(/<root>[^\s"'`]*/g, (found) => found.replace(/\\\\|\\/g, "/"));
@@ -596,6 +602,13 @@ describe("what each run kind hands its agent", () => {
         clip,
       ]),
       { purpose: "to make a test clip", timeoutMs: 60_000 },
+    );
+    // The clip's bytes are the local ffmpeg build's, so its digest differs by platform.
+    machineValues.set(
+      createHash("sha256")
+        .update(await fs.readFile(clip))
+        .digest("hex"),
+      "<clip-sha256>",
     );
     const authoring = t.deps.tree.api<ActivityAuthoring>("ActivitiesModule", "ActivityAuthoring");
     const result = await authoring.storeVideo(
