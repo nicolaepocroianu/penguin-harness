@@ -3,7 +3,7 @@
 - **Date:** 2026-10-15
 - **Type:** feature
 - **Scope:** `web`, `server`
-- **PR:** pending
+- **PR:** [#142](https://github.com/nicolaepocroianu/penguin-harness/pull/142)
 
 Phase 1 of the Activity Studio audit. The rail, the section titles and the page headings now use
 one word per thing, the glossary's, in sentence case. Rows lead with the words an author wrote
