@@ -264,9 +264,13 @@ describe("the review fixes", () => {
   });
 
   it("marks a key the plan does not hold as needing a file, and nothing before a plan", () => {
-    const bindings = new Map([["cat", true]]);
-    expect(mediaBound(bindings, "cat")).toBe(true);
-    expect(mediaBound(bindings, "dog")).toBe(false);
+    const bindings = new Map([
+      ["cat", "file" as const],
+      ["dog", "placeholder" as const],
+    ]);
+    expect(mediaBound(bindings, "cat")).toBe("file");
+    expect(mediaBound(bindings, "dog")).toBe("placeholder");
+    expect(mediaBound(bindings, "bird")).toBe("none");
     expect(mediaBound(null, "cat")).toBeUndefined();
   });
 });

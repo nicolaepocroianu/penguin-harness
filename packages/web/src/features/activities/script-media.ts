@@ -11,6 +11,7 @@
  */
 import type { AssetManifest } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
+import { NO_PLACEHOLDERS, bindingOf, type PlaceholderPaths } from "./placeholder-media";
 import type { SceneAssetTree } from "./scene-assets";
 import { mediaElementSpans, type MediaElement, type ScriptScene } from "./script-model";
 import { scriptSceneFor } from "./studio-tree";
@@ -21,6 +22,8 @@ export interface ScriptClip {
   key: string;
   /** A file is bound to it, by a generation run or by an author. */
   bound: boolean;
+  /** What is bound is the placeholder, which still waits for a real file. */
+  placeholder?: boolean;
   /** The bound clip's length, when the plan knows it. */
   durationMs?: number;
 }
@@ -39,8 +42,11 @@ export interface ScriptMedia {
   clipFor(element: MediaElement, text: string): ScriptClip | null;
   /** A scene's media, by its number in the script; null for a scene the plan does not name. */
   scene(number: number): SceneMedia | null;
-  /** Every clip the plan holds for the language shown, and how many have files. */
-  totals: { bound: number; total: number };
+  /**
+   * Every clip the plan holds for the language shown, how many are bound, and how many of
+   * those are bound only to a placeholder.
+   */
+  totals: { bound: number; total: number; placeholders: number };
 }
 
 /** Words only: lower case, letters and digits, single spaces. */
@@ -65,6 +71,7 @@ export function buildScriptMedia(
   assets: readonly MediaAsset[],
   tree: SceneAssetTree,
   scenes: readonly ScriptScene[],
+  placeholders: PlaceholderPaths = NO_PLACEHOLDERS,
 ): ScriptMedia {
   const byText = new Map<string, ScriptClip>();
   for (const asset of assets) {
@@ -74,11 +81,13 @@ export function buildScriptMedia(
     const clip: ScriptClip = {
       key: asset.key,
       bound: !!asset.path,
+      ...(bindingOf(placeholders, asset.path) === "placeholder" ? { placeholder: true } : {}),
       ...(asset.durationMs !== undefined ? { durationMs: asset.durationMs } : {}),
     };
-    // Two clips with the same words: a bound one says more about the line than an empty one.
+    // Two clips with the same words: a bound one says more about the line than an empty one,
+    // and a real file more than a placeholder.
     const known = byText.get(id);
-    if (!known || (!known.bound && clip.bound)) byText.set(id, clip);
+    if (!known || rank(clip) > rank(known)) byText.set(id, clip);
   }
 
   const byScene = new Map<number, SceneMedia>();
@@ -96,14 +105,23 @@ export function buildScriptMedia(
     byScene.set(named.number, media);
   }
 
+  const counted = assets.filter((asset) => !asset.role);
   return {
     clipFor: (element, text) => byText.get(`${element}:${normalizeWords(text)}`) ?? null,
     scene: (number) => byScene.get(number) ?? null,
     totals: {
-      total: assets.filter((asset) => !asset.role).length,
-      bound: assets.filter((asset) => !asset.role && !!asset.path).length,
+      total: counted.length,
+      bound: counted.filter((asset) => !!asset.path).length,
+      placeholders: counted.filter((asset) => bindingOf(placeholders, asset.path) === "placeholder")
+        .length,
     },
   };
+}
+
+/** How much a clip says about its line: nothing bound, a placeholder, then a real file. */
+function rank(clip: ScriptClip): number {
+  if (!clip.bound) return 0;
+  return clip.placeholder ? 1 : 2;
 }
 
 /** Roughly how long the narration takes to say, at a young listener's pace. */

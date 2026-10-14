@@ -8,6 +8,9 @@ export type Strings = {
     mediaLanguage: string;
     noMediaAssets: string;
     boundMedia: string;
+    /** An asset bound to the placeholder the server names: bound, but not finished media. */
+    placeholderMedia: string;
+    placeholderMediaHint: string;
     downloadCurrent: string;
     unboundMedia: string;
     usedInScenes: string;
@@ -40,6 +43,8 @@ export type Strings = {
       fold: (name: string) => string;
       unfold: (name: string) => string;
       needsMedia: string;
+      /** An asset, or a scene holding one, bound only to the placeholder. */
+      placeholder: string;
       /** A section row's state beside its name. */
       trail: { unsaved: string; valid: string; invalid: string };
       /** What a disabled section waits for: short beside the name, and in full on hover. */
@@ -958,14 +963,14 @@ export type Strings = {
       /** The agent and the stages a running sequence uses, in one line. */
       runningWith: (agent: string, stages: string) => string;
     };
-    /** Activity Spec's labels in the JSON editor. */
+    /** The specification's labels in the JSON editor. */
     specEditor: {
-      title: (subject: string) => string;
+      title: string;
       editor: string;
       savedSide: string;
       save: string;
     };
-    /** The Activity Spec read as scenes beside its JSON. */
+    /** The specification read as scenes beside its JSON. */
     specScenes: {
       view: string;
       scenes: string;
@@ -1003,6 +1008,7 @@ export type Strings = {
       media: string;
       kinds: Record<"image" | "video" | "animation" | "sound", string>;
       bound: string;
+      placeholder: string;
       needsFile: string;
       scene: (n: number, title: string) => string;
     };
@@ -1049,6 +1055,7 @@ export type Strings = {
       proposed: string;
       marks: Record<"audio" | "video" | "image" | "animation", string>;
       clipBound: string;
+      clipPlaceholder: string;
       clipUnbound: string;
       openClip: (key: string) => string;
       seconds: (value: string) => string;
@@ -1236,8 +1243,8 @@ export type Strings = {
     assessmentRun: string;
     /** Loom's Configuration Data and Assessment Data: the module's own documents, editable in place. */
     moduleDocuments: {
-      /** Loom's panel titles and save labels, by document. */
-      title: Record<"configuration" | "assessment" | "definition", (subject: string) => string>;
+      /** The panel titles and save labels, by document. */
+      title: Record<"configuration" | "assessment" | "definition", string>;
       saveLabel: Record<"configuration" | "assessment" | "definition", string>;
       savedSide: string;
       loading: string;
@@ -1352,6 +1359,8 @@ export type Strings = {
     bulkSpeechTitle: string;
     bulkSpeechHelp: string;
     bulkSpeechTally: (ready: number, total: number) => string;
+    /** Said once in the section's summary, so no row has to say it. */
+    bulkSpeechAllReady: (total: number) => string;
     bulkSpeechPending: (count: number) => string;
     bulkSpeechBlocked: (count: number) => string;
     bulkSpeechNone: string;
@@ -1590,6 +1599,7 @@ export type Strings = {
       bulkTitle: string;
       bulkHelp: string;
       bulkTally: (ready: number, total: number) => string;
+      bulkAllReady: (total: number) => string;
       bulk: (count: number) => string;
       bulkConfirm: (count: number, provider: string, language: string) => string;
       bulkUnavailable: (provider: string) => string;
@@ -1803,7 +1813,7 @@ export type Strings = {
       uploaded: string;
       count: (shown: number, total: number) => string;
       columns: Record<"asset" | "type" | "binding" | "scenes" | "file" | "size" | "usedBy", string>;
-      sources: Record<"generated" | "upload" | "checkout", string>;
+      sources: Record<"generated" | "upload" | "checkout" | "placeholder", string>;
       unbound: string;
       unused: string;
       noPlan: string;
@@ -2004,6 +2014,9 @@ export type Strings = {
       saved: string;
       unsaved: string;
       clips: (bound: number, total: number) => string;
+      /** How many clips are bound only to a placeholder, said beside the count of real files. */
+      placeholders: (count: number) => string;
+      ready: (count: number) => string;
       /** The Media step once every clip has a file, while kept scene videos failed their check. */
       videosToCheck: (count: number) => string;
       noPlan: string;

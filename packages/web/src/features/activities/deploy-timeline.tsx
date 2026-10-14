@@ -6,6 +6,14 @@ import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneSurface } from "../../lib/tone";
 import type { DeployPhase, StageRow } from "./deploy-model";
 
+/** A hollow mark: the stage has not run, which is said by shape rather than in words. */
+export const NOT_RUN_MARK = `border border-current ${toneInk.muted}`;
+
+/** Whether a stage has simply not run yet: nothing failed, nothing blocks it. */
+export function notRunYet(row: Pick<StageRow, "status" | "tone">): boolean {
+  return row.status === "pending" && row.tone === "muted";
+}
+
 /**
  * The QA pipeline in its three phases, side by side where there is room and stacked where
  * there is not: each phase with its progress, and its stages with their state in words. Under
@@ -99,6 +107,9 @@ function StageItem({
   const marked = row.tone !== "muted" && row.status !== "done";
   // Why the stage the pipeline stopped at cannot run is worth reading without asking for it.
   const showBlocker = advanced || (marked && row.status === "pending" && row.blocker !== null);
+  // A stage that has not run and waits on nothing is the normal case before a deploy: its
+  // hollow mark says so, and its words are for whoever cannot see the mark.
+  const quiet = notRunYet(row);
   return (
     <li
       aria-label={row.label}
@@ -118,7 +129,9 @@ function StageItem({
               d="M12 3a9 9 0 1 1-9 9"
             />
           ) : (
-            <span className={`m-1 size-1.5 rounded-full ${toneDot[row.tone]}`} />
+            <span
+              className={`m-1 size-1.5 rounded-full ${quiet ? NOT_RUN_MARK : toneDot[row.tone]}`}
+            />
           )}
         </span>
         <span className="min-w-0 flex-1 text-sm">{row.label}</span>
@@ -127,7 +140,9 @@ function StageItem({
             {row.detail}
           </span>
         )}
-        <span className={`shrink-0 text-xs ${toneInk[row.tone]}`}>{row.statusText}</span>
+        <span className={quiet ? "sr-only" : `shrink-0 text-xs ${toneInk[row.tone]}`}>
+          {row.statusText}
+        </span>
       </div>
       {row.error && <p className={`mt-1 break-words text-xs ${toneInk.danger}`}>{row.error}</p>}
       {showBlocker && (

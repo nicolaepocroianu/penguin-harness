@@ -85,7 +85,23 @@ describe("tying script lines to clips", () => {
   });
 
   it("counts every clip and how many have files", () => {
-    expect(media.totals).toEqual({ bound: 2, total: 3 });
+    expect(media.totals).toEqual({ bound: 2, total: 3, placeholders: 0 });
+  });
+
+  it("says which clips are only the server's placeholder, and counts them apart", () => {
+    const placeholders = new Set(["media/island.mp4"]);
+    const marked = buildScriptMedia(
+      assets,
+      buildSceneTree(spec, assets, placeholders),
+      sceneRanges(script),
+      placeholders,
+    );
+    expect(marked.clipFor("video", "A colorful island with a treasure map.")).toEqual({
+      key: "s1_island",
+      bound: true,
+      placeholder: true,
+    });
+    expect(marked.totals).toEqual({ bound: 2, total: 3, placeholders: 1 });
   });
 
   it("reads the words between an element's tags", () => {
@@ -120,7 +136,7 @@ describe("the header's progress steps", () => {
   it("says where each step stands, in a tone by meaning", () => {
     expect(progressSteps(facts).map(({ label, state, tone }) => [label, state, tone])).toEqual([
       ["Script", "saved", "success"],
-      ["Spec", "Validated", "success"],
+      ["Specification", "Validated", "success"],
       ["Media", "21/27", "attention"],
       ["Module", "not built", "muted"],
       ["QA", "not checked", "muted"],

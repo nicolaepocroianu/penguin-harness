@@ -146,6 +146,23 @@ describe("studio tree", () => {
     expect(find(tree, "scene:scene-1")!.mark).toBeNull();
   });
 
+  it("marks media bound only to the server's placeholder, below media with no file", () => {
+    const marked = buildStudioTree(full, buildSceneTree(spec, assets, new Set(["media/v.mp4"])));
+    expect(find(marked, "asset:scene-4:backdrop")!.mark).toBe("placeholder");
+    expect(find(marked, "asset:scene-4:rocks")!.mark).toBeNull();
+    // The scene holds both; the missing file is the louder of the two.
+    expect(find(marked, "scene:scene-4")!.mark).toBe("unbound");
+    const onlyPlaceholder = buildStudioTree(
+      full,
+      buildSceneTree(
+        spec,
+        assets.filter((entry) => entry.key !== "find_P"),
+        new Set(["media/v.mp4"]),
+      ),
+    );
+    expect(find(onlyPlaceholder, "scene:scene-4")!.mark).toBe("placeholder");
+  });
+
   it("makes an asset row current only while the scenes section shows that asset", () => {
     const row = find(tree, "asset:scene-4:find_P")!;
     const selection = { sceneId: "scene-4", key: "find_P" };

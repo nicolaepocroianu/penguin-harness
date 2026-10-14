@@ -80,8 +80,11 @@ export interface ProgressFacts {
   status: ActivityDetail["draft"]["status"];
   scriptDirty: boolean;
   specDirty: boolean;
-  /** Clips with files, of all the plan holds; null before there is a plan. */
-  media: { bound: number; total: number } | null;
+  /**
+   * Clips with files, of all the plan holds, and how many of the bound ones are only the
+   * placeholder; null before there is a plan.
+   */
+  media: { bound: number; total: number; placeholders?: number } | null;
   /** Kept scene videos whose final check found something to fix. */
   videosToCheck?: number;
   hasModule: boolean;
@@ -105,8 +108,10 @@ export interface ProgressStep {
 const section = (section: WorkspaceSection): NextTarget => ({ kind: "section", section });
 
 /**
- * The Media step: how many clips have files; once all do, whether a kept scene video failed its
- * final check and wants a look.
+ * The Media step: how many clips have real files, with placeholders counted apart since a blank
+ * clip is not finished media; once every clip is bound, whether a kept scene video failed its
+ * final check and wants a look. Placeholders mark the step without making it the next one: an
+ * activity goes to QA with them often, so they are said, not demanded.
  */
 function mediaStep(media: ProgressFacts["media"], videosToCheck: number): ProgressStep {
   const words = S.activities.progress;
@@ -119,10 +124,14 @@ function mediaStep(media: ProgressFacts["media"], videosToCheck: number): Progre
       tone: "muted",
       todo: { action: act.planMedia, go: section("scenes") },
     };
+  const placeholders = media.placeholders ?? 0;
+  const ready = media.bound - placeholders;
+  const withPlaceholders = (state: string) =>
+    placeholders > 0 ? `${state} · ${words.placeholders(placeholders)}` : state;
   if (media.bound < media.total)
     return {
       ...base,
-      state: words.clips(media.bound, media.total),
+      state: withPlaceholders(words.clips(ready, media.total)),
       tone: "attention",
       todo: { action: act.finishMedia, go: section("scenes") },
     };
@@ -132,6 +141,13 @@ function mediaStep(media: ProgressFacts["media"], videosToCheck: number): Progre
       state: words.videosToCheck(videosToCheck),
       tone: "attention",
       todo: { action: act.checkVideos, go: section("scenes") },
+    };
+  if (placeholders > 0)
+    return {
+      ...base,
+      state: withPlaceholders(words.ready(ready)),
+      tone: "attention",
+      todo: null,
     };
   return {
     ...base,

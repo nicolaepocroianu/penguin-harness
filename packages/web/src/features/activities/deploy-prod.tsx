@@ -18,6 +18,7 @@ import { S } from "../../lib/strings";
 import { toneDot, toneInk } from "../../lib/tone";
 import { prodBar, prodConfirmed, prodRefusalText, prodStatus, refusalText } from "./deploy-model";
 import { DeployStatePill } from "./deploy-state-pill";
+import { NOT_RUN_MARK, notRunYet } from "./deploy-timeline";
 import type { Announcement } from "./run-toasts";
 import {
   TABLE,
@@ -196,9 +197,9 @@ export function DeployProd({
                   <span className="flex items-center gap-2">
                     <span
                       aria-hidden
-                      className={`size-1.5 shrink-0 rounded-full ${toneDot[row.tone]}`}
+                      className={`size-1.5 shrink-0 rounded-full ${notRunYet(row) ? NOT_RUN_MARK : toneDot[row.tone]}`}
                     />
-                    {row.statusText}
+                    <span className={notRunYet(row) ? "sr-only" : ""}>{row.statusText}</span>
                   </span>
                   {row.error && <p className={`mt-1 ${toneInk.danger}`}>{row.error}</p>}
                 </td>

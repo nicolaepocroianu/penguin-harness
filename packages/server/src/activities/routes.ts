@@ -22,6 +22,7 @@ import { audioMimeType } from "./sound.js";
 import { UPLOAD_MAX_BYTES } from "./upload.js";
 import type { ClaimModuleProductResponse, ModuleProductsResponse } from "./module-product-types.js";
 import { BUNDLE_FILE_NAME, BUNDLE_MAX_ITEMS } from "./media-bundle.js";
+import { placeholderPaths } from "./media.js";
 import type { BundleItem } from "./media-library-types.js";
 import { ActivityPipelines, parseSelection } from "./pipeline-run.js";
 import type { ActivityOutcomes } from "./outcomes.js";
@@ -748,6 +749,15 @@ export class ActivityRoutes {
           body.force === true,
         ),
       );
+    });
+    // Where this ref's videos and animations point until real files replace them, so the
+    // studio can tell a placeholder from finished media without guessing from a file name.
+    app.get("/:activityId/media-placeholders", async (c) => {
+      const activity = await this.activities.getActivity(
+        requireValidId(c, "projectId"),
+        pathParam(c, "activityId"),
+      );
+      return c.json({ paths: placeholderPaths(activity) });
     });
     app.get("/:activityId/media-stats", async (c) =>
       c.json({

@@ -13,6 +13,7 @@
  * The fixes rewrite the parsed document and print it the way the editor prints a loaded
  * one, so a fix made here reads as the one changed line in Diff rather than a reformat.
  */
+import type { Binding } from "./placeholder-media";
 import { mediaElementSpans, type ScriptScene } from "./script-model";
 import { elementText, normalizeWords } from "./script-media";
 import { scriptSceneFor } from "./studio-tree";
@@ -198,14 +199,14 @@ export function scriptSceneByNumber(
 }
 
 /**
- * Whether a media key has a file: undefined before there is a plan, and false for a key
- * the plan does not hold, since a clip the plan never registered has no file either.
+ * What a media key is bound to: undefined before there is a plan, and nothing for a key the
+ * plan does not hold, since a clip the plan never registered has no file either.
  */
 export function mediaBound(
-  bindings: ReadonlyMap<string, boolean> | null,
+  bindings: ReadonlyMap<string, Binding> | null,
   key: string,
-): boolean | undefined {
-  return bindings ? (bindings.get(key) ?? false) : undefined;
+): Binding | undefined {
+  return bindings ? (bindings.get(key) ?? "none") : undefined;
 }
 
 export function checkNarration(

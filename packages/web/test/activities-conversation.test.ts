@@ -81,7 +81,7 @@ describe("conversation panel", () => {
       "cat in intro",
     );
     expect(focusLabel({ section: "scenes", assetKey: "lost" })).toBe("lost");
-    expect(focusLabel({ section: "specification" })).toBe("Activity Spec");
+    expect(focusLabel({ section: "specification" })).toBe("Specification");
   });
 
   it("repeats where the author is only after they have moved", () => {
@@ -89,7 +89,7 @@ describe("conversation panel", () => {
     expect(sameFocus(cat, { ...cat })).toBe(true);
     expect(followUpText("Shorter?", cat, { ...cat })).toBe("Shorter?");
     expect(followUpText("And this?", { section: "description" }, cat)).toBe(
-      "And this?\n\n(I am now looking at Activity Script.)",
+      "And this?\n\n(I am now looking at Script.)",
     );
     // A resumed conversation has no remembered focus, so the first follow-up says it.
     expect(followUpText("Hi", cat, null)).toContain("cat in intro");
@@ -122,8 +122,8 @@ describe("the studio brief", () => {
 
   it("reads the moved-to line off a follow-up, as the panel wrote it", () => {
     const sent = followUpText("And this?", { section: "specification" }, null);
-    expect(splitMovedTo(sent)).toEqual({ body: "And this?", viewing: "Activity Spec" });
-    expect(splitStudioContext(sent)).toEqual({ body: "And this?", viewing: "Activity Spec" });
+    expect(splitMovedTo(sent)).toEqual({ body: "And this?", viewing: "Specification" });
+    expect(splitStudioContext(sent)).toEqual({ body: "And this?", viewing: "Specification" });
     expect(splitMovedTo("And this?")).toBeNull();
     // A line the author typed in the middle of a message is theirs.
     expect(splitMovedTo("(I am now looking at X.)\n\nMore")).toBeNull();

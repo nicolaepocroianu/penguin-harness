@@ -1,10 +1,12 @@
 /**
- * The Activity Spec read as scenes: the runtime facts as chips, the description, the
+ * The specification read as scenes: the runtime facts as chips, the description, the
  * acceptance criteria, and one card per scene with its narration checked against the
- * Activity Script and its media with whether a file is bound yet. It shows the editor's
- * text, unsaved edits included, and its two fixes (removing a setting written into the
- * description, taking the script's wording for a narration line) are ordinary edits of
- * that text: Diff shows them and Save Spec saves them. Everything else is edited in JSON.
+ * script and its media with what each is bound to. A scene that matches the script is
+ * said once, in the list's summary, so only a scene that differs carries a mark. It shows
+ * the editor's text, unsaved edits included, and its two fixes (removing a setting written
+ * into the description, taking the script's wording for a narration line) are ordinary
+ * edits of that text: Diff shows them and Save specification saves them. Everything else
+ * is edited in JSON.
  */
 import { useMemo, useState } from "react";
 import { Button } from "../../components/ui/button";
@@ -13,6 +15,7 @@ import { InfoPopover } from "../../components/ui/info-popover";
 import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneStrip, type Tone } from "../../lib/tone";
+import type { Binding } from "./placeholder-media";
 import { sceneRanges } from "./script-model";
 import {
   checkNarration,
@@ -65,12 +68,23 @@ function StateMark({ tone, text }: { tone: Tone; text: string }) {
   );
 }
 
-function sceneState(check: SceneCheck): { tone: Tone; text: string } {
+function sceneState(check: SceneCheck): { tone: Tone; text: string; quiet: boolean } {
   const words = S.activities.specScenes;
-  if (!check.known) return { tone: "muted", text: words.notInScript };
-  if (sceneAgrees(check)) return { tone: "success", text: words.matches };
-  return { tone: "attention", text: words.differs(check.differing + check.extraInScript) };
+  if (!check.known) return { tone: "muted", text: words.notInScript, quiet: false };
+  // The summary already says the scenes match; a reader still hears it per scene.
+  if (sceneAgrees(check)) return { tone: "success", text: words.matches, quiet: true };
+  return {
+    tone: "attention",
+    text: words.differs(check.differing + check.extraInScript),
+    quiet: false,
+  };
 }
+
+const BINDING_MARK: Record<Binding, { tone: Tone; text: () => string }> = {
+  file: { tone: "success", text: () => S.activities.specScenes.bound },
+  placeholder: { tone: "attention", text: () => S.activities.specScenes.placeholder },
+  none: { tone: "attention", text: () => S.activities.specScenes.needsFile },
+};
 
 function sceneCounts(scene: SpecSceneReading): string {
   const words = S.activities.specScenes;
@@ -103,7 +117,7 @@ function SceneCard({
   scene: SpecSceneReading;
   check: SceneCheck;
   open: boolean;
-  bindings: ReadonlyMap<string, boolean> | null;
+  bindings: ReadonlyMap<string, Binding> | null;
   editable: boolean;
   onToggle: () => void;
   onUseScript: (key: string, script: string) => void;
@@ -133,7 +147,11 @@ function SceneCard({
             {sceneCounts(scene)}
           </span>
         </button>
-        <StateMark tone={state.tone} text={state.text} />
+        {state.quiet ? (
+          <span className="sr-only">{state.text}</span>
+        ) : (
+          <StateMark tone={state.tone} text={state.text} />
+        )}
       </div>
       <div
         id={body}
@@ -204,10 +222,7 @@ function SceneCard({
                   )}
                 </span>
                 {bound !== undefined && (
-                  <StateMark
-                    tone={bound ? "success" : "attention"}
-                    text={bound ? words.bound : words.needsFile}
-                  />
+                  <StateMark tone={BINDING_MARK[bound].tone} text={BINDING_MARK[bound].text()} />
                 )}
               </div>
             );
@@ -228,10 +243,10 @@ export function SpecScenesView({
 }: {
   /** The editor's text, as it stands. */
   text: string;
-  /** The Activity Script as it stands, whose scenes the narration is checked against. */
+  /** The script as it stands, whose scenes the narration is checked against. */
   script: string;
-  /** Whether each media key has a file, by key; null before there is a media plan. */
-  bindings: ReadonlyMap<string, boolean> | null;
+  /** What each media key is bound to, by key; null before there is a media plan. */
+  bindings: ReadonlyMap<string, Binding> | null;
   editable: boolean;
   onChange: (text: string) => void;
   onOpenJson: () => void;
@@ -340,11 +355,14 @@ export function SpecScenesView({
             </InfoPopover>
           </h3>
           <span className="flex-1" />
-          {known.length > 0 && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {words.summary(matching, known.length - matching)}
-            </span>
-          )}
+          {known.length > 0 &&
+            (matching === known.length ? (
+              <StateMark tone="success" text={words.summary(matching, 0)} />
+            ) : (
+              <span className={`text-xs ${toneInk.attention}`}>
+                {words.summary(matching, known.length - matching)}
+              </span>
+            ))}
         </div>
         {reading.scenes.length === 0 && (
           <p className="text-xs text-gray-500 dark:text-gray-400">{words.noScenes}</p>

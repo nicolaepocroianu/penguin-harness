@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ActivityDetail } from "../src/activities/domain.js";
-import { planMedia } from "../src/activities/media.js";
+import { planMedia, placeholderPaths } from "../src/activities/media.js";
 import { seedMediaPlaceholders } from "../src/activities/media-placeholder.js";
 import { activitySpec } from "./activity-fixtures.js";
 
@@ -64,6 +64,15 @@ describe("media placeholders", () => {
       "outro-video": VIDEO,
       "frog-jump": ANIMATION,
     });
+  });
+
+  it("names every placeholder path a ref's plan can bind, in each language", () => {
+    const paths = placeholderPaths(videoActivity());
+    // Exactly the paths a plan binds, so the studio's Placeholder mark and the seeding agree.
+    for (const asset of planMedia(videoActivity()).manifest.assets["en-US"]!)
+      if (asset.path) expect(paths).toContain(asset.path);
+    expect(paths).toContain("media/loom/sight/sight-1/videos/spanish/empty.mp4");
+    expect(paths).not.toContain("media/loom/sight/sight-1/uploads/intro.mp4");
   });
 
   it("keeps a video's real binding on a re-plan", () => {

@@ -154,7 +154,7 @@ export function JsonEditor({
   onChange,
   onSave,
 }: {
-  /** The panel's title, as Loom names it: "Activity Spec - title - pc [ref]". */
+  /** The section's name; the header already names the activity and its ref. */
   title: string;
   /** The editor's accessible name. */
   editorLabel: string;

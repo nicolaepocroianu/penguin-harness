@@ -23,7 +23,7 @@ describe("compareTabs", () => {
   it("names each changed part, reading a missing side as empty", () => {
     expect(compareTabs(diff)).toEqual([
       { key: "description", label: "Script", before: "Old script", after: "New script" },
-      { key: "features", label: "Implementation features", before: "", after: '[\n  "a"\n]' },
+      { key: "features", label: "Features", before: "", after: '[\n  "a"\n]' },
     ]);
   });
 });

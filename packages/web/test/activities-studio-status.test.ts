@@ -30,10 +30,13 @@ describe("the header's next step", () => {
     expect(next({ status: "draft" })).toMatchObject({
       state: "draft, not validated",
       tone: "attention",
-      todo: { action: "validate the spec", go: { kind: "section", section: "specification" } },
+      todo: {
+        action: "validate the specification",
+        go: { kind: "section", section: "specification" },
+      },
     });
-    expect(next({ status: "invalid" })?.todo?.action).toBe("fix the spec");
-    expect(next({ specDirty: true })?.todo?.action).toBe("save the spec");
+    expect(next({ status: "invalid" })?.todo?.action).toBe("fix the specification");
+    expect(next({ specDirty: true })?.todo?.action).toBe("save the specification");
     expect(next({ media: null })?.todo?.action).toBe("plan the media");
     expect(next({ media: { bound: 1, total: 3 } })?.todo?.action).toBe("finish the media");
     // The module is built by running the stages, which the Stages panel follows.
@@ -110,5 +113,25 @@ describe("the Media step and the scene videos' checks", () => {
       tone: "success",
       todo: null,
     });
+  });
+
+  it("counts a placeholder apart from a real file, and says it without demanding it", () => {
+    const media = (patch: Partial<ProgressFacts>) =>
+      progressSteps({ ...facts, ...patch }).find((step) => step.section === "scenes")!;
+    // Bound, but only to the placeholder: never the green of finished media.
+    expect(media({ media: { bound: 38, total: 38, placeholders: 8 } })).toMatchObject({
+      state: "30 ready · 8 placeholders",
+      tone: "attention",
+      todo: null,
+    });
+    // Missing files still come first, and the count leaves the placeholders out.
+    expect(media({ media: { bound: 36, total: 38, placeholders: 8 } })).toMatchObject({
+      state: "28/38 · 8 placeholders",
+      todo: { action: "finish the media" },
+    });
+    // Not the next step: an activity often goes to QA with placeholders.
+    expect(
+      nextStep(progressSteps({ ...facts, media: { bound: 3, total: 3, placeholders: 1 } })),
+    ).toBeNull();
   });
 });

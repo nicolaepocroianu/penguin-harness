@@ -55,7 +55,6 @@ export interface AssessmentGenerationProps {
 
 export function ModuleDocumentView({
   kind,
-  subject,
   revision,
   editable,
   onSaved,
@@ -63,8 +62,6 @@ export function ModuleDocumentView({
   onOpenSection,
 }: {
   kind: ModuleDocumentKind;
-  /** Which activity and ref this is, for the title, as Loom names its panels. */
-  subject: string;
   /** The draft revision: a save sends it, and a new one can mean a new assembly, so read again. */
   revision: string;
   /** Whether this viewer may change the activity at all (a project owner, with it open). */
@@ -261,7 +258,7 @@ export function ModuleDocumentView({
   );
   const jsonEditor = (
     <JsonEditor
-      title={words.title[kind](subject)}
+      title={words.title[kind]}
       editorLabel={words.field}
       savedLabel={words.savedSide}
       saveLabel={words.saveLabel[kind]}
@@ -316,7 +313,7 @@ export function ModuleDocumentView({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className={EDITOR_HEADER}>
         <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-          {words.title[kind](subject)}
+          {words.title[kind]}
           <InfoPopover label={title}>{about}</InfoPopover>
         </h2>
         {viewToggle}

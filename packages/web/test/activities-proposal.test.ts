@@ -71,7 +71,7 @@ describe("proposals", () => {
   });
 
   it("names and keys changes", () => {
-    expect(changeLabel({ target: "description", text: "" })).toBe("Activity Script");
+    expect(changeLabel({ target: "description", text: "" })).toBe("Script");
     expect(changeLabel(media("hello", "script", ""))).toBe("hello script (en-US)");
     expect(changeKey(media("hello", "script", ""))).toBe("media:en-US:hello");
   });

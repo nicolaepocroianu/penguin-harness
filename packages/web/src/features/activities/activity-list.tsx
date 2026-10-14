@@ -7,10 +7,12 @@ import { Link } from "react-router";
 import type { ActivityRecord, ActivitySummary } from "@prismshadow/penguin-server/api";
 import { Button } from "../../components/ui/button";
 import { Chevron } from "../../components/ui/chevron";
+import { GlyphIcon } from "../../components/ui/glyph-icon";
 import { ChipGroup } from "../../components/ui/chip-group";
 import { EmptyState } from "../../components/ui/empty-state";
 import { Input } from "../../components/ui/input";
 import { SkeletonList } from "../../components/ui/skeleton";
+import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneStrip } from "../../lib/tone";
 import { useLocale } from "../../state/locale";
@@ -268,6 +270,9 @@ function ProductGroup({
   );
 }
 
+/** A five-pointed star: the product's canonical ref, the one its module and shared documents live on. */
+const CANONICAL_ICON = "M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z";
+
 /** One activity ref as a card linking to it: its title, ref line and milestone progress. */
 function ActivityCard({ item, summary }: { item: ActivityRecord; summary?: ActivitySummary }) {
   const home = S.activities.home;
@@ -280,8 +285,13 @@ function ActivityCard({ item, summary }: { item: ActivityRecord; summary?: Activ
       <span className="flex min-w-0 items-center gap-1.5">
         <span className="truncate text-sm font-medium">{item.displayName ?? item.title}</span>
         {summary?.canonical && (
-          <span className="text-gray-400" aria-label={home.canonical} title={home.canonical}>
-            ★
+          <span
+            role="img"
+            className="text-gray-400"
+            aria-label={home.canonical}
+            title={home.canonical}
+          >
+            <GlyphIcon d={CANONICAL_ICON} size={ICON_SIZE.inlineGlyph} filled />
           </span>
         )}
       </span>

@@ -95,10 +95,14 @@ class TagMark extends WidgetType {
   }
 }
 
-/** A clip's length when it has a file and the plan knows it, else whether it has one. */
-function clipLabel({ bound, durationMs }: ScriptClip): string {
+/**
+ * A clip's length when it has a real file and the plan knows it, else whether it has one. A
+ * placeholder says so rather than its length: the blank clip's length says nothing.
+ */
+function clipLabel({ bound, placeholder, durationMs }: ScriptClip): string {
   const words = S.activities.studioScript;
   if (!bound) return words.clipUnbound;
+  if (placeholder) return words.clipPlaceholder;
   return durationMs !== undefined ? formatClipLength(durationMs) : words.clipBound;
 }
 
@@ -114,6 +118,7 @@ class ClipChip extends WidgetType {
     return (
       other.clip.key === this.clip.key &&
       other.clip.bound === this.clip.bound &&
+      other.clip.placeholder === this.clip.placeholder &&
       other.clip.durationMs === this.clip.durationMs &&
       other.open === this.open
     );
@@ -121,8 +126,9 @@ class ClipChip extends WidgetType {
   toDOM() {
     const words = S.activities.studioScript;
     const chip = document.createElement(this.open ? "button" : "span");
-    const { bound, key } = this.clip;
-    chip.className = `cm-clip ${bound ? "cm-clip-bound" : `cm-clip-unbound ${toneInk.attention}`}`;
+    const { bound, placeholder, key } = this.clip;
+    // A placeholder still needs a real file, so it reads as the unbound clip does.
+    chip.className = `cm-clip ${bound && !placeholder ? "cm-clip-bound" : `cm-clip-unbound ${toneInk.attention}`}`;
     chip.textContent = clipLabel(this.clip);
     chip.title = words.openClip(key);
     if (this.open && chip instanceof HTMLButtonElement) {

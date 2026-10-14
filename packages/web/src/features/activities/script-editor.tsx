@@ -724,7 +724,13 @@ export function ScriptEditor({
         {figures.narrationSeconds > 0 && <span>{narrationText(figures.narrationSeconds)}</span>}
         {media && media.totals.total > 0 && (
           <span className="ml-auto">
-            {words.status.clips(media.totals.bound, media.totals.total)}
+            {/* A placeholder is bound but is not a file anyone made, so it is counted apart. */}
+            {words.status.clips(media.totals.bound - media.totals.placeholders, media.totals.total)}
+            {media.totals.placeholders > 0 && (
+              <span className={toneInk.attention}>
+                {` · ${S.activities.progress.placeholders(media.totals.placeholders)}`}
+              </span>
+            )}
           </span>
         )}
       </div>
