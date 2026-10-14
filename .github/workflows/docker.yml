@@ -1,5 +1,9 @@
 # Docker: build the official image from this repository's source and publish it to Docker Hub.
 #
+# Publishing is for the upstream repository only (Prism-Shadow/penguin-harness): the Docker Hub
+# credentials and the hiyouga/penguinharness repository belong to it. In a fork the `publish`
+# job still builds the image (both platforms) but skips the registry login and never pushes.
+#
 # Four entry points, two jobs:
 # - pull_request touching the image's own files: `smoke` builds for amd64 and actually runs the
 #   container — readiness, sign-in, the healthcheck, the unprivileged user, a graceful stop and a
@@ -240,8 +244,10 @@ jobs:
 
       # Docker Hub is the default registry, so the login needs no `registry:`. The two secrets,
       # DOCKERHUB_USERNAME and DOCKERHUB_TOKEN — a Docker Hub access token with read/write scope
-      # on that repository — belong to the `docker` environment declared on this job.
-      - uses: docker/login-action@v3
+      # on that repository — belong to the `docker` environment declared on this job. Upstream only:
+      # a fork has neither secret, so the login would fail the run before anything was built.
+      - if: github.repository == 'Prism-Shadow/penguin-harness'
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -261,7 +267,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name == 'push' || inputs.push }}
+          push: ${{ github.repository == 'Prism-Shadow/penguin-harness' && (github.event_name == 'push' || inputs.push) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |

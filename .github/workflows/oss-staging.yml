@@ -1,3 +1,6 @@
+# Manual check that GitHub OIDC can reach the OSS staging bucket. The oss-staging environment and
+# the Alibaba Cloud trust belong to the upstream repository (Prism-Shadow/penguin-harness), so the
+# job is skipped everywhere else instead of failing on variables a fork does not have.
 name: Test Alibaba Cloud OSS publishing
 
 on:
@@ -6,6 +9,7 @@ on:
 jobs:
   staging:
     name: Verify GitHub OIDC staging access
+    if: github.repository == 'Prism-Shadow/penguin-harness'
     runs-on: ubuntu-latest
     permissions:
       contents: read
