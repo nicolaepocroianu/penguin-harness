@@ -42,6 +42,9 @@
 #   linux/arm64) from the tag's own source, independently of npm. The build/publish steps live in
 #   docker.yml, which the same PR-time smoke job exercises and which also publishes `latest` from
 #   every push to main; this workflow only decides when the release tags are published.
+# Publishing happens in the upstream repository only (Prism-Shadow/penguin-harness): on a fork the
+# GitHub Release upload, mirror-oss, publish-npm and docker are skipped and the desktop matrix builds
+# unsigned, so a tag pushed to a fork builds and validates the artifacts and publishes nothing.
 name: Release
 
 on:
@@ -396,7 +399,9 @@ jobs:
       # On tag-push use the ref name; on manual dispatch use the input tag.
       # An empty body_path is falsy for the action and simply ignored (it never tries to read it), so the
       # fallback branch cleanly leaves generate_release_notes to compose the body on its own.
+      # Upstream only: a fork's tag build ends with the artifacts built and validated above.
       - name: Publish GitHub Release
+        if: github.repository == 'Prism-Shadow/penguin-harness'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -424,7 +429,8 @@ jobs:
     name: Mirror GitHub Release to Alibaba Cloud OSS
     needs: [check-release, release]
     if: >-
-      ${{ always() && needs.check-release.result == 'success' &&
+      ${{ always() && github.repository == 'Prism-Shadow/penguin-harness' &&
+          needs.check-release.result == 'success' &&
           (needs.release.result == 'success' || needs.release.result == 'skipped') }}
     runs-on: ubuntu-latest
     concurrency:
@@ -514,6 +520,7 @@ jobs:
 
   publish-npm:
     name: Publish npm packages
+    if: github.repository == 'Prism-Shadow/penguin-harness'
     runs-on: ubuntu-latest
     # OIDC trusted publishing (same as AgentHub's publish.yml): no token; npmjs establishes trust via
     # environment `npm` + this workflow. A publish failure doesn't affect the release job (independent, parallel).
@@ -676,7 +683,8 @@ jobs:
     name: Publish the official Docker image
     needs: [check-release, release]
     if: >-
-      ${{ always() && needs.check-release.result == 'success' &&
+      ${{ always() && github.repository == 'Prism-Shadow/penguin-harness' &&
+          needs.check-release.result == 'success' &&
           (needs.release.result == 'success' || needs.release.result == 'skipped') }}
     permissions:
       contents: read

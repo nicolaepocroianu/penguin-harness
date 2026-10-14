@@ -1,5 +1,10 @@
 # Docker: build the official image from this repository's source and publish it to Docker Hub.
 #
+# Publishing is for the upstream repository only (Prism-Shadow/penguin-harness): the Docker Hub
+# credentials and the hiyouga/penguinharness repository belong to it. In a fork the `publish`
+# job is skipped as a whole (a two-platform build under QEMU would burn minutes for nothing); the
+# PR-time `smoke` job is what validates the image there.
+#
 # Four entry points, two jobs:
 # - pull_request touching the image's own files: `smoke` builds for amd64 and actually runs the
 #   container — readiness, sign-in, the healthcheck, the unprivileged user, a graceful stop and a
@@ -183,7 +188,7 @@ jobs:
 
   publish:
     name: Build and push
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.repository == 'Prism-Shadow/penguin-harness'
     runs-on: ubuntu-latest
     permissions:
       contents: read
