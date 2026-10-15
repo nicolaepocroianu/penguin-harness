@@ -3,6 +3,7 @@
 - **Date:** 2026-10-15
 - **Type:** feature
 - **Scope:** `server`, `web`
+- **PR:** [#147](https://github.com/nicolaepocroianu/penguin-harness/pull/147)
 
 Every kind of activity run whose agent works in a Session was given a time limit, counted from
 the moment the run opened. A run still working past it failed with the limit named ("The module
