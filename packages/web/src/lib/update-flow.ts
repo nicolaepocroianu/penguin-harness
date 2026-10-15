@@ -11,6 +11,10 @@
  * / install. `none` is a browser signed into a desktop-mode server, which can act on
  * neither and gets no update surface at all (the same gate as before this modal).
  *
+ * A build whose repository publishes no releases (core's RELEASE_IDENTITY) is told so by
+ * both backends — the server's check answers `disabled`, the shell `unsupported` with
+ * reason `fork` — and links to no Releases page: every one out there is another repository's.
+ *
  * The flow itself is what both surfaces agree on: nothing is fetched until the user
  * confirms, a running download can be sent to the background and keeps reporting through
  * the row, and a downloaded (or installed) release waits for an explicit restart. Pure
@@ -24,6 +28,8 @@ import type {
   UpdateJobStatus,
   VersionResponse,
 } from "@prismshadow/penguin-server/api";
+import { RELEASE_IDENTITY } from "@prismshadow/penguin-core/release-identity";
+import type { ReleaseIdentity } from "@prismshadow/penguin-core/release-identity";
 import type { AccountMenuSession } from "./account-menu";
 import { offersClientUpdate } from "./desktop-update";
 import { updateCheckOutcome } from "./use-version-info";
@@ -38,6 +44,8 @@ export function updateModeFor(session: AccountMenuSession): UpdateMode {
 
 /** Why this install cannot update itself, as the backend reported it. */
 export type UpdateUnsupported =
+  /** This build's repository publishes no releases. */
+  | { code: "fork" }
   | { code: "dev" }
   | { code: "linux-not-appimage" }
   | { code: "not_launched_via_cli" }
@@ -48,7 +56,7 @@ export type UpdateFlow =
   /** No check has answered yet. */
   | { kind: "unknown" }
   | { kind: "checking" }
-  /** Checks are turned off (PENGUIN_UPDATE_CHECK=off); the Releases page is the only way to look. */
+  /** Checks are turned off: PENGUIN_UPDATE_CHECK=off (the Releases page is the only way to look), or this build's repository publishes no releases. */
   | { kind: "disabled" }
   | { kind: "up-to-date"; version: string | null }
   /** A newer release is offered; nothing has been fetched. `canInstall` is false for a non-admin on a server. */
@@ -79,9 +87,18 @@ export interface FlowLocal {
 
 export const NO_LOCAL: FlowLocal = { checking: false, downloadRequested: false, restart: "none" };
 
+/** This build's repository's Releases page; null when it publishes none, so there is nothing to link to. */
+export function releasesPageUrl(identity: ReleaseIdentity = RELEASE_IDENTITY): string | null {
+  return identity.publishesReleases ? `https://github.com/${identity.repository}/releases` : null;
+}
+
 /** The Releases page of one version — the client mode's release-notes link (the shell names a version, never a URL). */
-export function releaseUrlFor(version: string): string {
-  return `https://github.com/Prism-Shadow/penguin-harness/releases/tag/v${version}`;
+export function releaseUrlFor(
+  version: string,
+  identity: ReleaseIdentity = RELEASE_IDENTITY,
+): string | null {
+  const page = releasesPageUrl(identity);
+  return page === null ? null : `${page}/tag/v${version}`;
 }
 
 export interface ReleaseInputs {
@@ -121,8 +138,8 @@ export function releaseFlow(i: ReleaseInputs, local: FlowLocal): UpdateFlow {
       return {
         kind: "unsupported",
         reason:
-          result.reason === "not_launched_via_cli"
-            ? { code: "not_launched_via_cli" }
+          result.reason !== undefined
+            ? { code: result.reason }
             : { code: "cli_refused", detail: result.output },
       };
     }
@@ -163,7 +180,9 @@ export function clientFlow(status: DesktopUpdateStatus | null, local: FlowLocal)
       return {
         kind: "unsupported",
         reason:
-          status.reason === "linux-not-appimage" ? { code: "linux-not-appimage" } : { code: "dev" },
+          status.reason === "fork" || status.reason === "linux-not-appimage"
+            ? { code: status.reason }
+            : { code: "dev" },
       };
     case "checking":
       return { kind: "checking" };

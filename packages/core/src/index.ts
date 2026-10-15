@@ -102,6 +102,9 @@ export function buildInfo(): BuildInfo {
 }
 // Version-string helpers (shared by the CLI's `penguin update` and the server's update check).
 export { compareVersions, normalizeVersion } from "./internal/version.js";
+// Where this build's releases come from, read by every updater (the web bundles it via its own subpath).
+export { RELEASE_IDENTITY } from "./release-identity.js";
+export type { ReleaseIdentity } from "./release-identity.js";
 export {
   projectChatGPTCredentials,
   withProjectCredentialLock,

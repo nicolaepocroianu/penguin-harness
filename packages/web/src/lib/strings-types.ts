@@ -2430,6 +2430,7 @@ export type Strings = {
     unsupportedNonAppImage: string;
     unsupportedNotViaCli: string;
     unsupportedCli: string;
+    noReleases: (repository: string) => string;
     foundNew: (v: string) => string;
     foundNewUnnamed: string;
     readyToast: (v: string | null) => string;

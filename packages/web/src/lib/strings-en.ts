@@ -2889,6 +2889,9 @@ export const en: Strings = {
     unsupportedNotViaCli:
       "This service was not started through penguin web or penguin server, so it cannot be updated from here",
     unsupportedCli: "This install cannot be updated from the web UI",
+    /** This build's repository publishes no releases: said in place of any Releases link. */
+    noReleases: (repository: string) =>
+      `This build comes from ${repository}, which publishes no releases, so it does not update itself`,
     // —— toasts: outcomes that land while the modal is closed ——
     foundNew: (v: string) => `New version v${v} found — open the update entry to download it`,
     foundNewUnnamed: "New version found — open the update entry to download it",

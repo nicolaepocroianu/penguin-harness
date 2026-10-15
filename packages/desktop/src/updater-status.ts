@@ -35,7 +35,7 @@ import type {
 
 /** electron-updater's events, reduced to what the status needs. */
 export type UpdaterEvent =
-  | { kind: "unsupported"; reason: "dev" | "linux-not-appimage" }
+  | { kind: "unsupported"; reason: NonNullable<DesktopUpdateStatus["reason"]> }
   | { kind: "checking" }
   | { kind: "not-available" }
   | { kind: "available"; version: string }

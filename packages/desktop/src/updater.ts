@@ -21,15 +21,21 @@
  * unsigned dry-run artifacts can still find updates, but platform trust and release
  * gates only apply to signed release builds. Linux AppImage continues without
  * code-signing for now.
+ *
+ * A build whose repository publishes no releases (core's RELEASE_IDENTITY) stands down
+ * before any feed is set: the feeds below are another repository's, whose installer would
+ * replace this install in place.
  */
 import { app, dialog, net, shell } from "electron";
 import type { BrowserWindow } from "electron";
 import electronUpdater from "electron-updater";
+import { RELEASE_IDENTITY } from "@prismshadow/penguin-core/release-identity";
 import type {
   DesktopUpdateStatus,
   DesktopUpdaterCommandMessage,
 } from "@prismshadow/penguin-server/api";
 import { feedUrlOverride, updateSourceConfig, updateSupport } from "./update-support.js";
+import type { UpdateSupport } from "./update-support.js";
 import {
   feedLabel,
   ossFeedUrl,
@@ -56,6 +62,16 @@ const GITHUB_FEED = {
 
 function log(line: string): void {
   process.stdout.write(`[updater] ${line}\n`);
+}
+
+/** Whether this running form updates itself (see update-support.ts for the rules). */
+function currentSupport(): UpdateSupport {
+  return updateSupport({
+    isPackaged: app.isPackaged,
+    platform: process.platform,
+    env: process.env,
+    publishesReleases: RELEASE_IDENTITY.publishesReleases,
+  });
 }
 
 let manualCheckInFlight = false;
@@ -239,11 +255,7 @@ export function handleUpdaterCommand(action: DesktopUpdaterCommandMessage["actio
     return;
   }
   if (action === "check") {
-    const support = updateSupport({
-      isPackaged: app.isPackaged,
-      platform: process.platform,
-      env: process.env,
-    });
+    const support = currentSupport();
     if (!support.supported) {
       emitStatus({ kind: "unsupported", reason: support.reason });
       return;
@@ -276,8 +288,7 @@ export function handleUpdaterCommand(action: DesktopUpdaterCommandMessage["actio
 
 /** Whether the "Check for Updates…" menu item should be enabled at all. */
 export function updatesAvailableInThisForm(): boolean {
-  return updateSupport({ isPackaged: app.isPackaged, platform: process.platform, env: process.env })
-    .supported;
+  return currentSupport().supported;
 }
 
 /**
@@ -285,11 +296,7 @@ export function updatesAvailableInThisForm(): boolean {
  * unsupported one (dev run, deb install) only logs why it is standing down.
  */
 export function initUpdater(getWindow: () => BrowserWindow | null): void {
-  const support = updateSupport({
-    isPackaged: app.isPackaged,
-    platform: process.platform,
-    env: process.env,
-  });
+  const support = currentSupport();
   if (!support.supported) {
     log(`disabled (${support.reason})`);
     emitStatus({ kind: "unsupported", reason: support.reason });
@@ -493,21 +500,29 @@ async function downloadUpdateWithFallback(): Promise<void> {
   }
 }
 
+/** The menu dialog's explanation of why this form does not update itself. */
+function unsupportedDetail(reason: Extract<UpdateSupport, { supported: false }>["reason"]): string {
+  switch (reason) {
+    case "fork":
+      return `This build comes from ${RELEASE_IDENTITY.repository}, which publishes no releases, so it does not update itself.`;
+    case "dev":
+      return "This build does not update itself.";
+    case "linux-not-appimage":
+      // Covers every Linux form that is not an AppImage — a deb install, but also an
+      // unpacked tree — so the wording names the rule rather than assuming dpkg.
+      return "Only the AppImage build updates itself on Linux. Update a package install with your package manager, or download the latest release manually.";
+  }
+}
+
 /** Menu action: same check, but every outcome is reported. */
 export async function checkForUpdatesManually(): Promise<void> {
-  if (!updatesAvailableInThisForm()) {
-    const support = updateSupport({
-      isPackaged: app.isPackaged,
-      platform: process.platform,
-      env: process.env,
+  const support = currentSupport();
+  if (!support.supported) {
+    await dialog.showMessageBox({
+      type: "info",
+      message: "Updates are unavailable.",
+      detail: unsupportedDetail(support.reason),
     });
-    // `linux-not-appimage` covers every Linux form that is not an AppImage — a deb install,
-    // but also an unpacked tree — so the wording names the rule rather than assuming dpkg.
-    const detail =
-      support.supported || support.reason === "dev"
-        ? "This build does not update itself."
-        : "Only the AppImage build updates itself on Linux. Update a package install with your package manager, or download the latest release manually.";
-    await dialog.showMessageBox({ type: "info", message: "Updates are unavailable.", detail });
     return;
   }
   if (downloadedVersion !== null) {

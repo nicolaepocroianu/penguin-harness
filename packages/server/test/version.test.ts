@@ -1,15 +1,17 @@
 /**
  * Version routes and update-check service tests: response shapes, the fail-soft
  * contract of /api/version/update-check (always 200, error field instead of 5xx),
- * cache TTLs with an injected clock, the PENGUIN_UPDATE_CHECK=off opt-out, and the
- * admin gate of POST /api/version/update. Nothing here touches the network or spawns
- * a process: fetch is stubbed, and the update run is exercised only through its pure
- * classifier and the "not launched via the CLI" early exit.
+ * cache TTLs with an injected clock, the PENGUIN_UPDATE_CHECK=off opt-out, the stand-down
+ * of a build whose repository publishes no releases, and the admin gate of
+ * POST /api/version/update. Nothing here touches the network or spawns a process: fetch is
+ * stubbed, and the update run is exercised only through its pure classifier and its
+ * early refusals.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { VERSION } from "@prismshadow/penguin-core";
+import { RELEASE_IDENTITY, VERSION } from "@prismshadow/penguin-core";
+import type { ReleaseIdentity } from "@prismshadow/penguin-core";
 import { versionReport } from "../src/version-report.js";
 import type {
   RestartResponse,
@@ -28,14 +30,21 @@ import { apiClient, createTestApp, loginAdmin, provisionUser } from "./helpers.j
 import type { TestApp } from "./helpers.js";
 import { wire } from "@prismshadow/penguin-core/kernel";
 
-/** Counting fetch stub; the handler decides the outcome per call. */
+/** A repository that publishes releases: the lookup paths below need one to run at all. */
+const PUBLISHING: ReleaseIdentity = {
+  repository: "example/penguin-harness",
+  publishesReleases: true,
+};
+
+/** Counting fetch stub; the handler decides the outcome per call, and every URL is kept. */
 function makeFetch(handler: () => Response | Promise<Response>): {
   impl: typeof fetch;
-  state: { calls: number };
+  state: { calls: number; urls: string[] };
 } {
-  const state = { calls: 0 };
-  const impl: typeof fetch = async () => {
+  const state = { calls: 0, urls: [] as string[] };
+  const impl: typeof fetch = async (input) => {
     state.calls += 1;
+    state.urls.push(String(input));
     return handler();
   };
   return { impl, state };
@@ -123,6 +132,7 @@ describe("GET /api/version/update-check", () => {
       updateCheck: wire(UpdateCheckService, {
         http: { fetch: impl },
         env: {},
+        identity: PUBLISHING,
         clock: { now: () => new Date() },
       }),
     });
@@ -141,6 +151,31 @@ describe("GET /api/version/update-check", () => {
     expect(body.disabled).toBeUndefined();
   });
 
+  it("this build's repository publishes no releases: disabled, with no network call even forced", async () => {
+    const { impl, state } = makeFetch(() => releaseResponse("v99.0.0"));
+    t = await createTestApp({
+      updateCheck: wire(UpdateCheckService, {
+        http: { fetch: impl },
+        env: {},
+        clock: { now: () => new Date() },
+      }),
+    });
+    const admin = await loginAdmin(t.app);
+    const client = apiClient(t.app, admin.cookie);
+    expect(RELEASE_IDENTITY.publishesReleases).toBe(false);
+    for (const route of ["/api/version/update-check", "/api/version/update-check?force=1"]) {
+      const res = await client.get(route);
+      expect(res.status).toBe(200);
+      expect((await res.json()) as UpdateCheckResponse).toMatchObject({
+        disabled: true,
+        latestVersion: null,
+        updateAvailable: false,
+        releaseUrl: null,
+      });
+    }
+    expect(state.calls).toBe(0);
+  });
+
   it("fail-soft: an unreachable endpoint is HTTP 200 with error=network, not a 5xx", async () => {
     const { impl } = makeFetch(() => {
       throw new Error("getaddrinfo ENOTFOUND api.github.com");
@@ -149,6 +184,7 @@ describe("GET /api/version/update-check", () => {
       updateCheck: wire(UpdateCheckService, {
         http: { fetch: impl },
         env: {},
+        identity: PUBLISHING,
         clock: { now: () => new Date() },
       }),
     });
@@ -168,6 +204,7 @@ describe("GET /api/version/update-check", () => {
       updateCheck: wire(UpdateCheckService, {
         http: { fetch: impl },
         env: {},
+        identity: PUBLISHING,
         clock: { now: () => new Date() },
       }),
     });
@@ -198,6 +235,7 @@ describe("UpdateCheckService", () => {
       const service = wire(UpdateCheckService, {
         http: { fetch: makeFetch(make).impl },
         env: {},
+        identity: PUBLISHING,
         clock: { now: () => new Date() },
       });
       const result = await service.check();
@@ -207,11 +245,39 @@ describe("UpdateCheckService", () => {
     }
   });
 
+  it("asks for the newest release of the identity's own repository", async () => {
+    const { impl, state } = makeFetch(() => releaseResponse("v99.0.0"));
+    const service = wire(UpdateCheckService, {
+      http: { fetch: impl },
+      env: {},
+      identity: PUBLISHING,
+      clock: { now: () => new Date() },
+    });
+    await service.check();
+    expect(state.urls).toEqual([
+      "https://api.github.com/repos/example/penguin-harness/releases/latest",
+    ]);
+  });
+
+  it("a repository that publishes no releases never dials out, forced or not", async () => {
+    const { impl, state } = makeFetch(() => releaseResponse("v99.0.0"));
+    const service = wire(UpdateCheckService, {
+      http: { fetch: impl },
+      env: {},
+      identity: { repository: "example/fork", publishesReleases: false },
+      clock: { now: () => new Date() },
+    });
+    expect(await service.check()).toMatchObject({ disabled: true, updateAvailable: false });
+    expect(await service.check(true)).toMatchObject({ disabled: true, updateAvailable: false });
+    expect(state.calls).toBe(0);
+  });
+
   it("updateAvailable is false when the latest release is not newer", async () => {
     const { impl } = makeFetch(() => releaseResponse(`v${VERSION}`));
     const service = wire(UpdateCheckService, {
       http: { fetch: impl },
       env: {},
+      identity: PUBLISHING,
       clock: { now: () => new Date() },
     });
     const result = await service.check();
@@ -225,6 +291,7 @@ describe("UpdateCheckService", () => {
     const service = wire(UpdateCheckService, {
       http: { fetch: impl },
       env: { PENGUIN_UPDATE_CHECK: "off" },
+      identity: PUBLISHING,
       clock: { now: () => new Date() },
     });
     const result = await service.check();
@@ -244,6 +311,7 @@ describe("UpdateCheckService", () => {
     const service = wire(UpdateCheckService, {
       http: { fetch: impl },
       env: {},
+      identity: PUBLISHING,
       clock: { now: () => new Date(nowMs) },
     });
 
@@ -282,6 +350,7 @@ describe("UpdateCheckService", () => {
     const service = wire(UpdateCheckService, {
       http: { fetch: impl },
       env: {},
+      identity: PUBLISHING,
       clock: { now: () => new Date() },
     });
 
@@ -305,6 +374,7 @@ describe("UpdateCheckService", () => {
     const service = wire(UpdateCheckService, {
       http: { fetch: impl },
       env: { PENGUIN_UPDATE_CHECK: "off" },
+      identity: PUBLISHING,
       clock: { now: () => new Date() },
     });
     const result = await service.check(true);
@@ -333,7 +403,9 @@ describe("POST /api/version/update", () => {
     expect(res.status).toBe(403);
   });
 
-  it("reports unsupported when the server was not launched via the CLI", async () => {
+  it("refuses before running anything: this build's repository publishes no releases", async () => {
+    // Even with a CLI to run: the refusal comes first, so nothing is spawned.
+    process.env.PENGUIN_CLI_ENTRY = path.join(t.root, "no-such-cli.js");
     const admin = await loginAdmin(t.app);
     const res = await apiClient(t.app, admin.cookie).post("/api/version/update", {});
     expect(res.status).toBe(200);
@@ -341,7 +413,7 @@ describe("POST /api/version/update", () => {
     expect(body.state).toBe("done");
     expect(body.result).toEqual({
       status: "unsupported",
-      reason: "not_launched_via_cli",
+      reason: "fork",
       output: "",
       needsRestart: false,
     } satisfies UpdateRunResponse);

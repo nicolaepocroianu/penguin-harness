@@ -649,6 +649,11 @@ export interface Messages {
     cancelled(): string;
     done(version: string): string;
     failed(): string;
+    /**
+     * This build's repository publishes no releases: refuse before any lookup, because every
+     * release the lookup could find belongs to another repository.
+     */
+    noReleases(repository: string): string;
     /** Running from a source checkout: refuse, because overwriting a working tree destroys work. */
     sourceCheckout(): string;
     /** Bundled into the desktop app: refuse, because the app updates itself. */
@@ -1433,6 +1438,8 @@ const en: Messages = {
     done: (version) =>
       `PenguinHarness ${version} installed. Run \`penguin --version\` in a new shell to confirm.`,
     failed: () => "Upgrade failed; the previous install was left in place where possible.",
+    noReleases: (repository) =>
+      `This penguin is built from ${repository}, which publishes no releases, so there is nothing to update to. Rebuild or redeploy it from that repository instead.`,
     sourceCheckout: () =>
       "This penguin runs from a source checkout, so there is nothing to download — update it with `git pull` and rebuild (`pnpm install && pnpm -r build`).",
     desktopApp: () =>

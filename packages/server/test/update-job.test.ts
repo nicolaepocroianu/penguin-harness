@@ -12,6 +12,9 @@ import {
 } from "../src/services/update-job.js";
 import type { UpdateRunExit, UpdateRunner } from "../src/services/update-job.js";
 
+/** A repository that publishes releases: a run needs one to start at all. */
+const PUBLISHING = { repository: "example/penguin-harness", publishesReleases: true };
+
 describe("advanceUpdateProgress", () => {
   it("stays resolving, with no percentage, until the installer announces the download", () => {
     const p = advanceUpdateProgress(INITIAL_PROGRESS, "Upgrade 0.2.9 -> 0.3.0\nSelected GitHub.\n");
@@ -98,7 +101,7 @@ function scriptedRunner(): {
 describe("UpdateJobService", () => {
   it("starts idle, runs the CLI entry with progress, and ends updated with needsRestart", async () => {
     const script = scriptedRunner();
-    const job = wire(UpdateJobService, { runner: script.runner });
+    const job = wire(UpdateJobService, { runner: script.runner, identity: PUBLISHING });
     expect(job.status()).toEqual({ state: "idle", targetVersion: null, output: "" });
 
     const started = job.start("/opt/penguin/cli.js", "0.3.0");
@@ -129,14 +132,14 @@ describe("UpdateJobService", () => {
 
   it("classifies a refusal, a failure, a timeout and a spawn error", async () => {
     const refused = scriptedRunner();
-    const a = wire(UpdateJobService, { runner: refused.runner });
+    const a = wire(UpdateJobService, { runner: refused.runner, identity: PUBLISHING });
     a.start("/e", null);
     refused.emit("This penguin runs from a source checkout, so there is nothing to download.");
     await refused.finish({ exitCode: 0, timedOut: false });
     expect(a.status().result).toMatchObject({ status: "unsupported", needsRestart: false });
 
     const failed = scriptedRunner();
-    const b = wire(UpdateJobService, { runner: failed.runner });
+    const b = wire(UpdateJobService, { runner: failed.runner, identity: PUBLISHING });
     b.start("/e", "0.3.0");
     await failed.finish({ exitCode: 1, timedOut: false });
     expect(b.status().result).toMatchObject({ status: "failed" });
@@ -144,14 +147,14 @@ describe("UpdateJobService", () => {
     expect(b.start("/e", "0.3.0").state).toBe("running");
 
     const timedOut = scriptedRunner();
-    const c = wire(UpdateJobService, { runner: timedOut.runner });
+    const c = wire(UpdateJobService, { runner: timedOut.runner, identity: PUBLISHING });
     c.start("/e", null);
     await timedOut.finish({ exitCode: -1, timedOut: true });
     expect(c.status().result?.status).toBe("failed");
     expect(c.status().output).toContain("killed after 10 minutes");
 
     const broken = scriptedRunner();
-    const d = wire(UpdateJobService, { runner: broken.runner });
+    const d = wire(UpdateJobService, { runner: broken.runner, identity: PUBLISHING });
     d.start("/e", null);
     await broken.finish({ exitCode: -1, timedOut: false, spawnError: "ENOENT" });
     expect(d.status().result?.status).toBe("failed");
@@ -160,7 +163,7 @@ describe("UpdateJobService", () => {
 
   it("ends at once as unsupported when there is no CLI to run", () => {
     const script = scriptedRunner();
-    const job = wire(UpdateJobService, { runner: script.runner });
+    const job = wire(UpdateJobService, { runner: script.runner, identity: PUBLISHING });
     expect(job.start(null, "0.3.0")).toMatchObject({
       state: "done",
       result: { status: "unsupported", reason: "not_launched_via_cli", needsRestart: false },
@@ -168,9 +171,30 @@ describe("UpdateJobService", () => {
     expect(script.entries).toEqual([]);
   });
 
+  it("refuses at once, before any run, when the repository publishes no releases", () => {
+    const script = scriptedRunner();
+    const job = wire(UpdateJobService, {
+      runner: script.runner,
+      identity: { repository: "example/fork", publishesReleases: false },
+    });
+    expect(job.start("/opt/penguin/cli.js", "0.3.0")).toMatchObject({
+      state: "done",
+      targetVersion: "0.3.0",
+      result: { status: "unsupported", reason: "fork", needsRestart: false },
+    });
+    expect(script.entries).toEqual([]);
+  });
+
   it("classifyUpdateRun keeps its three verdicts", () => {
     expect(classifyUpdateRun(1, "x").status).toBe("failed");
     expect(classifyUpdateRun(0, "does not run on Windows").status).toBe("unsupported");
+    // Literal CLI copy (packages/cli/src/i18n.ts update.noReleases): a refusal, not an update.
+    const noReleases =
+      "This penguin is built from example/fork, which publishes no releases, so there is nothing to update to. Rebuild or redeploy it from that repository instead.";
+    expect(classifyUpdateRun(0, noReleases)).toMatchObject({
+      status: "unsupported",
+      needsRestart: false,
+    });
     expect(classifyUpdateRun(0, "installed").needsRestart).toBe(true);
   });
 });

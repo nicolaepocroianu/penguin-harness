@@ -2,19 +2,26 @@
  * Whether this running form can update itself (pure; no Electron import, so it unit-tests
  * directly).
  *
+ * A build whose repository publishes no releases (core's RELEASE_IDENTITY) has nothing to
+ * update to, whatever its form: every feed electron-updater could reach belongs to another
+ * repository, whose build would replace this install in place. That outranks the rest.
+ *
  * electron-updater can only replace the forms it installed: the NSIS installer on
  * Windows, the app bundle on macOS, and an AppImage on Linux. A `.deb` belongs to the
  * system package manager — silently "updating" around dpkg would leave the two disagreeing
  * about what is installed — and a dev run has no installed artifact at all.
  */
 export type UpdateSupport =
-  { supported: true } | { supported: false; reason: "dev" | "linux-not-appimage" };
+  { supported: true } | { supported: false; reason: "fork" | "dev" | "linux-not-appimage" };
 
 export function updateSupport(opts: {
   isPackaged: boolean;
   platform: NodeJS.Platform;
   env: NodeJS.ProcessEnv;
+  /** RELEASE_IDENTITY.publishesReleases. */
+  publishesReleases: boolean;
 }): UpdateSupport {
+  if (!opts.publishesReleases) return { supported: false, reason: "fork" };
   if (!opts.isPackaged) return { supported: false, reason: "dev" };
   // The AppImage runtime exports APPIMAGE with the path of the running image; a deb
   // install (or an extracted tree) has no such variable, and that is exactly the
