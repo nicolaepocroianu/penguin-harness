@@ -13,6 +13,7 @@ import type {
   AcceptanceReport,
   AcceptanceResult,
   AcceptanceResultStatus,
+  PlayerCheckReport,
 } from "./acceptance-types.js";
 
 /** The most bytes `acceptance-results.json` may have. */
@@ -168,6 +169,30 @@ export function acceptanceReport(
     checkedAt: meta.checkedAt,
     specRevision: meta.specRevision,
     reused: meta.reused,
+  };
+}
+
+/**
+ * A module build's player check from what its checks reported, in their order: the scenarios
+ * the agent exercised, which name a criterion only where they cover one, so none is added for a
+ * criterion no scenario covers.
+ */
+export function playerCheckReport(
+  reported: readonly ReportedResult[],
+  meta: { checkedAt: string; untrusted: boolean },
+): PlayerCheckReport {
+  const results = reported.map((entry): AcceptanceResult => ({
+    criterion: entry.criterion,
+    testName: entry.testName,
+    status: entry.status,
+    durationMs: entry.durationMs,
+    error: entry.status === "passed" ? null : entry.error,
+  }));
+  return {
+    overallStatus: overallStatus(results),
+    results,
+    checkedAt: meta.checkedAt,
+    ...(meta.untrusted ? { untrusted: true as const } : {}),
   };
 }
 

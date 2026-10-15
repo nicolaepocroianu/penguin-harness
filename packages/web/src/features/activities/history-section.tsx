@@ -1,7 +1,10 @@
 /**
  * The activity's History: its saved versions, its module builds, then every run, newest first, with
- * how it went, its Session, a way to cancel one still running, and the candidate a
- * specification run left.
+ * how it went, its Session (its transcript shown in place, or opened as its own page), a way to
+ * cancel one still running, and the candidate a specification run left.
+ *
+ * A run the header's running chip follows, when no tool follows it, opens here with its
+ * transcript shown and scrolled into view.
  */
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
@@ -16,6 +19,7 @@ import { S } from "../../lib/strings";
 import { toneInk, toneSurface, type Tone } from "../../lib/tone";
 import { runKindLabel, type Announcement } from "./run-toasts";
 import { ModuleBuildsView } from "./module-builds-view";
+import { RunTranscript } from "./run-transcript";
 import { VersionsView } from "./versions-view";
 import { useActivityClient } from "./activity-client";
 
@@ -40,6 +44,7 @@ export function GenerationHistory({
   onRestored,
   onDraft,
   pinnedModuleRunId,
+  focusRun = null,
 }: {
   runs: readonly ActivityRunSummary[];
   /** The draft's revision, which says when a module was built from an older one. */
@@ -59,7 +64,21 @@ export function GenerationHistory({
   onDraft?: (draft: ActivityDraft) => void;
   /** The build the draft pins, which keeps Module builds shown so it can be unpinned. */
   pinnedModuleRunId?: string;
+  /**
+   * A run to show with its transcript open, as when the header's running chip follows it here;
+   * `at` tells a second request for the same run from the first.
+   */
+  focusRun?: { runId: string; at: number } | null;
 }) {
+  const words = S.activities.runTranscript;
+  // The run whose transcript is shown in place; one at a time.
+  const [open, setOpen] = useState<string | null>(null);
+  const cards = useRef(new Map<string, HTMLElement>());
+  useEffect(() => {
+    if (!focusRun) return;
+    setOpen(focusRun.runId);
+    cards.current.get(focusRun.runId)?.scrollIntoView({ block: "nearest" });
+  }, [focusRun]);
   const builds = runs
     .filter((run) => run.kind === "module" && run.status === "succeeded")
     .map((run) => run.runId)
@@ -86,63 +105,96 @@ export function GenerationHistory({
       <section className="space-y-3">
         <h4 className="text-sm font-semibold">{S.activities.runs}</h4>
         {runs.length === 0 && <p className="text-xs text-gray-500">{S.activities.noRuns}</p>}
-        {runs.map((run) => (
-          <article
-            key={run.runId}
-            className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-800"
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs">{runKindLabel(run)}</span>
-              <span className={`rounded px-2 py-0.5 text-xs ${toneSurface[runTone[run.status]]}`}>
-                {run.kind === "module" && run.status === "succeeded"
-                  ? S.activities.moduleReady
-                  : run.kind === "audio" || run.kind === "image" || run.kind === "media-text"
-                    ? S.activities.speechStatus[run.status]
-                    : S.activities.status[run.status]}
-              </span>
-              <time className="text-xs text-gray-500" dateTime={run.createdAt}>
-                {new Date(run.createdAt).toLocaleString()}
-              </time>
-            </div>
-            {run.error && <p className="break-words text-xs">{run.error}</p>}
-            {run.status === "running" && (
-              <p className="text-xs text-gray-500">{S.activities.runningHelp}</p>
-            )}
-            <div className="flex flex-wrap items-center gap-3">
-              {run.kind === "module" && run.status === "succeeded" && run.sessionId && (
-                <a
-                  className="text-xs underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  href={`/api/sessions/${encodeURIComponent(run.sessionId)}/files/preview-redirect?path=preview%2Findex.html`}
+        {runs.map((run) => {
+          const expanded = open === run.runId && !!run.sessionId;
+          const time = new Date(run.createdAt).toLocaleString();
+          const transcriptId = `run-transcript-${run.runId}`;
+          return (
+            <article
+              key={run.runId}
+              ref={(element) => {
+                if (element) cards.current.set(run.runId, element);
+                else cards.current.delete(run.runId);
+              }}
+              className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-800"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs">{runKindLabel(run)}</span>
+                <span className={`rounded px-2 py-0.5 text-xs ${toneSurface[runTone[run.status]]}`}>
+                  {run.kind === "module" && run.status === "succeeded"
+                    ? S.activities.moduleReady
+                    : run.kind === "audio" || run.kind === "image" || run.kind === "media-text"
+                      ? S.activities.speechStatus[run.status]
+                      : S.activities.status[run.status]}
+                </span>
+                <time className="text-xs text-gray-500" dateTime={run.createdAt}>
+                  {time}
+                </time>
+              </div>
+              {run.error && <p className="break-words text-xs">{run.error}</p>}
+              {run.status === "running" && (
+                <p className="text-xs text-gray-500">{S.activities.runningHelp}</p>
+              )}
+              <div className="flex flex-wrap items-center gap-3">
+                {run.kind === "module" && run.status === "succeeded" && run.sessionId && (
+                  <a
+                    className="text-xs underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    href={`/api/sessions/${encodeURIComponent(run.sessionId)}/files/preview-redirect?path=preview%2Findex.html`}
+                  >
+                    {S.activities.previewModule}
+                  </a>
+                )}
+                {run.sessionId && (
+                  <button
+                    type="button"
+                    aria-expanded={expanded}
+                    aria-controls={transcriptId}
+                    aria-label={words.toggle(
+                      expanded ? words.hide : words.show,
+                      runKindLabel(run),
+                      time,
+                    )}
+                    onClick={() => setOpen((current) => (current === run.runId ? null : run.runId))}
+                    className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-300"
+                  >
+                    {expanded ? words.hide : words.show}
+                  </button>
+                )}
+                {run.sessionId && (
+                  <Link
+                    className="text-xs underline"
+                    to={`/chat/${encodeURIComponent(run.sessionId)}`}
+                  >
+                    {S.activities.openSession}
+                  </Link>
+                )}
+                {editable && run.status === "running" && (
+                  <Button size="sm" disabled={busy} onClick={() => onCancel(run.runId)}>
+                    {S.activities.cancel}
+                  </Button>
+                )}
+              </div>
+              {expanded && (
+                <div
+                  id={transcriptId}
+                  className="overflow-hidden rounded-md border border-gray-200 dark:border-gray-800"
                 >
-                  {S.activities.previewModule}
-                </a>
+                  <RunTranscript sessionId={run.sessionId!} running={run.status === "running"} />
+                </div>
               )}
-              {run.sessionId && (
-                <Link
-                  className="text-xs underline"
-                  to={`/chat/${encodeURIComponent(run.sessionId)}`}
-                >
-                  {S.activities.openSession}
-                </Link>
+              {run.hasCandidate && (
+                <CandidateReview
+                  runId={run.runId}
+                  editable={editable && run.kind === "spec"}
+                  busy={busy}
+                  onUse={onUseCandidate}
+                />
               )}
-              {editable && run.status === "running" && (
-                <Button size="sm" disabled={busy} onClick={() => onCancel(run.runId)}>
-                  {S.activities.cancel}
-                </Button>
-              )}
-            </div>
-            {run.hasCandidate && (
-              <CandidateReview
-                runId={run.runId}
-                editable={editable && run.kind === "spec"}
-                busy={busy}
-                onUse={onUseCandidate}
-              />
-            )}
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </section>
     </div>
   );

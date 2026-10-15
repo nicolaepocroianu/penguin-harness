@@ -10,9 +10,9 @@
 import { clampMapWidth } from "./map-split";
 import {
   SIDE_PANEL_DEFAULT_WIDTH,
-  STUDIO_PANELS,
   clampRailWidth,
   clampSidePanelWidth,
+  panelFromStored,
   sectionFromParam,
   type StudioPanel,
   type WorkspaceSection,
@@ -124,7 +124,8 @@ export function sanitize(value: unknown): LayoutState | null {
     typeof raw[key] === "number" && Number.isFinite(raw[key]) ? (raw[key] as number) : fallback;
   const flag = (key: string, fallback: boolean) =>
     typeof raw[key] === "boolean" ? (raw[key] as boolean) : fallback;
-  const panel = STUDIO_PANELS.find((key) => key === raw.sidePanel) ?? null;
+  // A tool an earlier studio saved reads as today's (Tests and Quality as Checks).
+  const panel = panelFromStored(raw.sidePanel);
   return {
     railWidth: clampRailWidth(number("railWidth", DEFAULT_STATE.railWidth)),
     railCollapsed: flag("railCollapsed", DEFAULT_STATE.railCollapsed),
@@ -313,7 +314,7 @@ export function applyOrder(state: Partial<LayoutState>): LayoutWrite[] {
   if (state.sidePanel !== undefined)
     writes.push({
       kind: "sidePanel",
-      value: STUDIO_PANELS.find((key) => key === state.sidePanel) ?? null,
+      value: panelFromStored(state.sidePanel),
     });
   if (typeof state.sidePanelWidth === "number")
     writes.push({ kind: "sidePanelWidth", value: clampSidePanelWidth(state.sidePanelWidth) });

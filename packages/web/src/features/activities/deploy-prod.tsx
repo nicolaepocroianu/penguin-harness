@@ -1,12 +1,16 @@
 /**
- * The PROD card, beside the QA one: where PROD stands (a short state, the last deploy, why it
- * cannot start now, its two stages), and Deploy to PROD for an admin who owns the project. The button opens a
- * dialog whose confirm stays disabled until the product code is typed; the server checks the
- * code, the admin and that QA has the activity as it is now again. The run's log is the one the
- * section already follows.
+ * The PROD lane, beside the QA one: where PROD stands (a short state, the last deploy, why it
+ * cannot start now, its two stages), and Deploy to PROD for an admin who owns the project. The
+ * button opens a dialog whose confirm stays disabled until the product code is typed; the server
+ * checks the code, the admin and that QA has the activity as it is now again. The run's log is
+ * the one under both lanes.
  */
 import { useEffect, useRef, useState } from "react";
-import type { DeployProductionState, DeployRun } from "@prismshadow/penguin-server/api";
+import type {
+  DeployProblem,
+  DeployProductionState,
+  DeployRun,
+} from "@prismshadow/penguin-server/api";
 import { ApiError } from "../../api/client";
 import { Button } from "../../components/ui/button";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
@@ -15,19 +19,11 @@ import { Input } from "../../components/ui/input";
 import { apiErrorText } from "../../lib/api-error";
 import { formatDateTime } from "../../lib/format";
 import { S } from "../../lib/strings";
-import { toneDot, toneInk } from "../../lib/tone";
+import { toneInk } from "../../lib/tone";
 import { prodBar, prodConfirmed, prodRefusalText, prodStatus, refusalText } from "./deploy-model";
 import { DeployStatePill } from "./deploy-state-pill";
-import { NOT_RUN_MARK, notRunYet } from "./deploy-timeline";
+import { StageList } from "./deploy-timeline";
 import type { Announcement } from "./run-toasts";
-import {
-  TABLE,
-  TABLE_HEAD_ROW,
-  TABLE_WRAP,
-  TBODY,
-  TD,
-  TH,
-} from "../../components/ui/table-classes";
 import { useActivityClient } from "./activity-client";
 
 export function DeployProd({
@@ -35,6 +31,7 @@ export function DeployProd({
   isAdmin,
   production,
   run,
+  problems,
   productCode,
   activityDataBranch,
   onRun,
@@ -48,6 +45,8 @@ export function DeployProd({
   production: DeployProductionState;
   /** The activity's latest run, QA's or PROD's. */
   run: DeployRun | null;
+  /** What the readiness strip above lists, which the lane points to rather than repeats. */
+  problems: readonly DeployProblem[];
   productCode: string;
   /** The activity-data branch QA deployed, which PROD deploys too. */
   activityDataBranch: string;
@@ -70,7 +69,7 @@ export function DeployProd({
     [],
   );
 
-  const bar = prodBar(production, run, formatDateTime);
+  const bar = prodBar(production, run, formatDateTime, problems);
   const state = prodStatus(production, run);
   const running = run?.status === "running";
   const prodRunning = running && run?.target === "prod";
@@ -109,10 +108,10 @@ export function DeployProd({
 
   return (
     <section
-      className="min-w-0 space-y-2 rounded-xl border border-gray-200 p-4 dark:border-gray-800"
+      className="min-w-0 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800"
       aria-labelledby="activity-deploy-prod-title"
     >
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-800">
         <h4
           id="activity-deploy-prod-title"
           className="flex items-center gap-2 text-sm font-semibold"
@@ -145,68 +144,47 @@ export function DeployProd({
             </p>
           ))}
       </div>
-      {bar.line && (
-        <p
-          role="status"
-          className={`text-sm font-medium ${toneInk[bar.line.tone]}`}
-          data-testid="deploy-prod-status"
-        >
-          {bar.line.text}
-        </p>
-      )}
-      <p className="flex flex-wrap items-center gap-x-3 text-sm" data-testid="deploy-prod-last">
-        <span>{bar.last}</span>
-        {bar.lastUrl && (
-          <a
-            href={bar.lastUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="underline underline-offset-2"
+      <div className="space-y-3 px-4 py-3">
+        {!running && (
+          <p
+            id="deploy-prod-blocker"
+            className={`text-xs ${bar.blocker ? "text-gray-600 dark:text-gray-300" : toneInk.success}`}
+            data-testid="deploy-prod-blocker"
           >
-            {words.prod.openDeploy}
-          </a>
+            {bar.blocker ?? words.prod.ready}
+          </p>
         )}
-      </p>
-      {!running && (
+        {bar.line && (
+          <p
+            role="status"
+            className={`text-sm font-medium ${toneInk[bar.line.tone]}`}
+            data-testid="deploy-prod-status"
+          >
+            {bar.line.text}
+          </p>
+        )}
+        {error && (
+          <p role="alert" className={`text-xs ${toneInk.danger}`}>
+            {error}
+          </p>
+        )}
+        <StageList rows={bar.rows} label={words.prod.stagesLabel} />
         <p
-          id="deploy-prod-blocker"
-          className={`text-xs ${bar.blocker ? "text-gray-500 dark:text-gray-400" : toneInk.success}`}
-          data-testid="deploy-prod-blocker"
+          className="flex flex-wrap items-center gap-x-3 rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-gray-900 dark:text-gray-300"
+          data-testid="deploy-prod-last"
         >
-          {bar.blocker ?? words.prod.ready}
+          <span>{bar.last}</span>
+          {bar.lastUrl && (
+            <a
+              href={bar.lastUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-2"
+            >
+              {words.prod.openDeploy}
+            </a>
+          )}
         </p>
-      )}
-      {error && (
-        <p role="alert" className={`text-xs ${toneInk.danger}`}>
-          {error}
-        </p>
-      )}
-      <div className={TABLE_WRAP}>
-        <table className={TABLE} aria-label={words.prod.stagesLabel}>
-          <thead>
-            <tr className={TABLE_HEAD_ROW}>
-              <th className={TH}>{words.stageColumns.stage}</th>
-              <th className={TH}>{words.stageColumns.state}</th>
-            </tr>
-          </thead>
-          <tbody className={TBODY}>
-            {bar.rows.map((row) => (
-              <tr key={row.stage}>
-                <td className={`${TD} whitespace-nowrap font-medium`}>{row.label}</td>
-                <td className={`${TD} text-xs`}>
-                  <span className="flex items-center gap-2">
-                    <span
-                      aria-hidden
-                      className={`size-1.5 shrink-0 rounded-full ${notRunYet(row) ? NOT_RUN_MARK : toneDot[row.tone]}`}
-                    />
-                    <span className={notRunYet(row) ? "sr-only" : ""}>{row.statusText}</span>
-                  </span>
-                  {row.error && <p className={`mt-1 ${toneInk.danger}`}>{row.error}</p>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
       <ConfirmModal
         open={open}

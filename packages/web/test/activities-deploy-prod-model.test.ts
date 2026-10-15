@@ -14,6 +14,8 @@ import {
   PROD_STAGES,
   blockerText,
   isProdRun,
+  markBlocked,
+  pointToReadiness,
   prodBar,
   prodConfirmed,
   prodRefusalText,
@@ -21,6 +23,7 @@ import {
   runLine,
   stageErrorText,
   stageName,
+  stageRows,
 } from "../src/features/activities/deploy-model";
 
 const state = (
@@ -160,5 +163,48 @@ describe("the PROD deploy's words", () => {
     expect(prodRefusalText("confirmation_mismatch")).toMatch(/did not match/);
     expect(prodRefusalText("prod_requires_admin")).toMatch(/admin/);
     expect(prodRefusalText("deploy_blocked")).toBeNull();
+  });
+});
+
+describe("a readiness problem, said once", () => {
+  const noMain = {
+    code: "branch_missing",
+    repo: "module",
+    branch: "main",
+    where: "local",
+  } as const;
+  const blocked = (stage: DeployStage): DeployStageState => ({
+    ...state(stage),
+    blocker: { code: "not_ready", problem: noMain },
+  });
+
+  it("points a stage the strip explains there, rather than saying the problem again", () => {
+    const stages = [blocked("verify_module"), blocked("prepare_deploy")];
+    const rows = pointToReadiness(markBlocked(stageRows(null, stages)), stages, [noMain]);
+    expect(rows.map((row) => [row.statusText, row.blocker])).toEqual([
+      ["Blocked", "Waits for what is missing above."],
+      ["Not run", "Waits for what is missing above."],
+    ]);
+    // A problem the strip does not list keeps its own words.
+    const own = pointToReadiness(stageRows(null, stages), stages, []);
+    expect(own[0]!.blocker).toBe(blockerText({ code: "not_ready", problem: noMain }));
+  });
+
+  it("has PROD point there too, but name a gate of its own", () => {
+    const readiness = prodBar(
+      production({ blocker: { code: "not_ready", problem: noMain } }),
+      null,
+      when,
+      [noMain],
+    );
+    expect(readiness.blocker).toBe("Waits for what is missing above.");
+    // A PROD setting the readiness checks do not cover is PROD's own to say.
+    const setting = prodBar(
+      production({ blocker: { code: "settings_missing", field: "prod.tier" } }),
+      null,
+      when,
+      [noMain],
+    );
+    expect(setting.blocker).toBe(blockerText({ code: "settings_missing", field: "prod.tier" }));
   });
 });

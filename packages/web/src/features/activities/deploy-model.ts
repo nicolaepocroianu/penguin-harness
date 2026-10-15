@@ -97,7 +97,7 @@ function cloneRow(context: DeployContext, repo: DeployRepo, clone: CloneState): 
     if (problem.code === "clone_unknown") states.push(words.clone.notKnown[problem.what]);
     if (problem.code === "remote_unreachable") states.push(words.clone.remoteUnreachable);
     if (problem.code === "branch_missing")
-      states.push(words.problems.branch_missing(repoName(repo), problem.branch, problem.where));
+      states.push(words.clone.branchMissing(problem.branch, problem.where));
   }
   if (repo === "media") {
     const sparse = has(context, "media_path_missing");
@@ -512,6 +512,48 @@ export function deployPhases(rows: readonly StageRow[]): DeployPhase[] {
   });
 }
 
+/** The problem behind a stage's blocker, when the blocker is a readiness problem; else null. */
+export function blockerProblem(blocker: DeployBlocker | null): DeployProblem | null {
+  switch (blocker?.code) {
+    case "settings_missing":
+      return { code: "settings_missing", field: blocker.field };
+    case "clone_missing":
+      return { code: "clone_missing", repo: blocker.repo };
+    case "clone_dirty":
+      return { code: "clone_dirty", repo: blocker.repo };
+    case "not_ready":
+      return blocker.problem;
+    default:
+      return null;
+  }
+}
+
+/** Whether a blocker is one of the problems the readiness strip lists. */
+function listedAbove(blocker: DeployBlocker | null, problems: readonly DeployProblem[]): boolean {
+  const problem = blockerProblem(blocker);
+  if (!problem) return false;
+  const key = JSON.stringify(problem);
+  return problems.some((entry) => JSON.stringify(entry) === key);
+}
+
+/**
+ * The stage rows, with a blocker the readiness strip already states pointing there instead, so
+ * a problem is said once, next to its fix. `stages` holds each stage's blocker as the server
+ * sent it, and `problems` what the strip lists.
+ */
+export function pointToReadiness(
+  rows: readonly StageRow[],
+  stages: readonly DeployStageState[],
+  problems: readonly DeployProblem[],
+): StageRow[] {
+  return rows.map((row) => {
+    const blocker = stages.find((state) => state.stage === row.stage)?.blocker ?? null;
+    return row.blocker && listedAbove(blocker, problems)
+      ? { ...row, blocker: S.activities.deploy.waitingOnReadiness }
+      : row;
+  });
+}
+
 const READINESS_BLOCKERS: ReadonlySet<DeployBlocker["code"]> = new Set<DeployBlocker["code"]>([
   "settings_missing",
   "clone_missing",
@@ -717,22 +759,30 @@ export interface ProdBar {
 /**
  * The PROD bar for the state the server sent. `run` is the activity's latest run, QA's or
  * PROD's: its live stage states show only while it is a PROD run, and while any run goes
- * nothing may start. `when` words a timestamp.
+ * nothing may start. `when` words a timestamp. A blocker among `problems`, which the readiness
+ * strip lists, points there rather than saying it again.
  */
 export function prodBar(
   production: DeployProductionState,
   run: DeployRun | null,
   when: (iso: string) => string,
+  problems: readonly DeployProblem[] = [],
 ): ProdBar {
   const words = S.activities.deploy;
   const prodRun = run && isProdRun(run) ? run : null;
   const running = run?.status === "running";
-  const rows = stageRows(prodRun ?? (running ? run : null), production.stages);
+  const rows = pointToReadiness(
+    stageRows(prodRun ?? (running ? run : null), production.stages),
+    production.stages,
+    problems,
+  );
   const blocker = running
     ? words.blockers.run_active
-    : production.blocker
-      ? blockerText(production.blocker)
-      : null;
+    : listedAbove(production.blocker, problems)
+      ? words.waitingOnReadiness
+      : production.blocker
+        ? blockerText(production.blocker)
+        : null;
   const last = production.last;
   return {
     rows,

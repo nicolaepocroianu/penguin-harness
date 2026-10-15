@@ -481,6 +481,11 @@ export interface DeployProductionState {
 
 export interface DeployStateResponse {
   context: DeployContext;
+  /**
+   * The problems in `context` that keep every stage from starting, in the order the checks
+   * list them: those a stage does not tolerate. A stage's own blocker names only the first.
+   */
+  blocking: DeployProblem[];
   /** The activity's latest run, QA's or PROD's; null when it has had none. */
   run: DeployRun | null;
   /** The release and QA stages. */

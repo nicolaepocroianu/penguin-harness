@@ -728,7 +728,7 @@ export function ScriptEditor({
             {words.status.clips(media.totals.bound - media.totals.placeholders, media.totals.total)}
             {media.totals.placeholders > 0 && (
               <span className={toneInk.attention}>
-                {` · ${S.activities.progress.placeholders(media.totals.placeholders)}`}
+                {` · ${S.activities.journey.states.placeholders(media.totals.placeholders)}`}
               </span>
             )}
           </span>

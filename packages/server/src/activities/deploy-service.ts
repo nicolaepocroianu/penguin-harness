@@ -72,6 +72,7 @@ import {
   releaseCurrent,
   stageBlocker,
   stagesFor,
+  startProblems,
   type DeployActivitySnapshot,
   type DeployClock,
 } from "./deploy-stages.js";
@@ -425,6 +426,7 @@ export class ActivityDeployService implements ActivityDeploys {
     const running = runner.current() !== null;
     return {
       context,
+      blocking: startProblems(context),
       run: runner.latest(projectId, activityId),
       stages: DEPLOY_STAGES.map((stage) => ({
         stage,

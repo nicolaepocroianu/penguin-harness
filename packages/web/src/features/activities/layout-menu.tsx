@@ -1,5 +1,5 @@
 /**
- * The Layout menu in the activity header: the built-in and saved layouts, "Save current
+ * The Layout menu at the foot of the studio's tool rail: the built-in and saved layouts, "Save current
  * as…", "Manage…" and the Alt+number shortcut switch. It owns only the list of layouts; the
  * arrangement itself belongs to the workspace, which is handed the chosen layout to apply.
  */
@@ -7,10 +7,12 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { Dropdown, menuItemClass } from "../../components/ui/dropdown";
-import { CheckIcon, ChevronDown } from "../../components/ui/icons";
+import { GlyphIcon } from "../../components/ui/glyph-icon";
+import { CheckIcon } from "../../components/ui/icons";
 import { Input } from "../../components/ui/input";
 import { Modal } from "../../components/ui/modal";
 import { toastSuccess } from "../../components/ui/toast";
+import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
 import {
   BUILT_IN_PRESETS,
@@ -56,6 +58,9 @@ function errorText(error: PresetError): string {
   if (error === "tooLong") return words.tooLong;
   return words.empty;
 }
+
+/** Panes side by side: the rail's mark for arrangements of the workspace. */
+const LAYOUT_ICON = "M4 5h16v14H4z M10 5v14 M10 12h10";
 
 export function LayoutMenu({
   state,
@@ -166,19 +171,25 @@ export function LayoutMenu({
       <Dropdown
         open={open}
         setOpen={setOpen}
-        portal={{ direction: "down", align: "right" }}
+        portal={{ direction: "up", align: "right" }}
         menuClass="w-72 max-w-[calc(100vw-1.5rem)]"
         button={
-          <Button
-            size="sm"
-            variant="ghost"
+          // Shaped as the tools above it on the rail, whose foot it sits at.
+          <button
+            type="button"
             aria-haspopup="menu"
             aria-expanded={open}
+            title={words.menu}
             onClick={() => setOpen(!open)}
+            className={`grid w-14 place-items-center gap-1 rounded-md py-1.5 ${
+              open
+                ? "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+                : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+            }`}
           >
-            {words.menu}
-            <ChevronDown className="text-gray-400" />
-          </Button>
+            <GlyphIcon d={LAYOUT_ICON} size={ICON_SIZE.navRow} />
+            <span className="text-xs leading-none">{words.menu}</span>
+          </button>
         }
       >
         <div role="menu" aria-label={words.menu} className="max-h-[60vh] overflow-y-auto py-1">

@@ -293,6 +293,27 @@ describe("sanitize", () => {
     expect(sanitize(null)).toBeNull();
     expect(sanitize([1])).toBeNull();
   });
+
+  it("reads a layout an earlier studio saved with its tools as today's", () => {
+    // Tests and Quality are both Checks now; Sessions is part of History, so no tool opens.
+    expect(sanitize({ ...STATE, sidePanel: "tests" })?.sidePanel).toBe("checks");
+    expect(sanitize({ ...STATE, sidePanel: "quality" })?.sidePanel).toBe("checks");
+    expect(sanitize({ ...STATE, sidePanel: "sessions" })?.sidePanel).toBeNull();
+    expect(applyOrder({ sidePanel: "quality" as never })).toEqual([
+      { kind: "sidePanel", value: "checks" },
+    ]);
+  });
+
+  it("leaves a stored layout as it is until the author changes the layouts", () => {
+    const storage = memory();
+    const raw = JSON.stringify({
+      presets: [{ id: "old", name: "Review", state: { ...STATE, sidePanel: "tests" } }],
+      shortcuts: false,
+    });
+    storage.setItem(LAYOUTS_KEY, raw);
+    expect(readPresets(storage).presets[0]!.state.sidePanel).toBe("checks");
+    expect(storage.getItem(LAYOUTS_KEY)).toBe(raw);
+  });
 });
 
 describe("applyOrder", () => {

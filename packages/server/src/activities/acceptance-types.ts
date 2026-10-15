@@ -61,6 +61,37 @@ export interface AcceptanceStateResponse {
   browserInstalled: boolean;
 }
 
+/**
+ * The player check a module build ran at assembly: one result per scenario its agent exercised
+ * (a scene starting, an interaction's feedback, pause and resume, completion), in the order the
+ * checks reported them. Unlike a test report it is not held to the specification's criteria,
+ * which a scenario names only where it covers one.
+ */
+export interface PlayerCheckReport {
+  overallStatus: AcceptanceOverallStatus;
+  results: AcceptanceResult[];
+  /** When the build that ran the check finished. */
+  checkedAt: string;
+  /** Set when the run changed what its checks rest on, as on a test report. */
+  untrusted?: true;
+}
+
+/**
+ * Why a build has no player check to show: the test browser was not installed when it was
+ * assembled (`noBrowser`), or its agent never ran the check it was given (`notRun`).
+ */
+export type PlayerCheckGap = "noBrowser" | "notRun";
+
+/** GET /:activityId/player-check: the player check of the build the preview plays. */
+export interface PlayerCheckResponse {
+  /** The module build the preview plays; null when there is none. */
+  runId: string | null;
+  /** Its player check; null when it has none, or when there is no build. */
+  report: PlayerCheckReport | null;
+  /** Why a build has no report; null with a report, and with no build. */
+  gap: PlayerCheckGap | null;
+}
+
 /** What a test run is given in its workspace as `acceptance-input.json`. */
 export interface AcceptanceInput {
   /** A signed link that plays the activity, for the test browser on this machine. */

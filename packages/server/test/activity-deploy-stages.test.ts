@@ -24,6 +24,7 @@ import {
   moduleBuildLine,
   modulePackageName,
   stageBlocker,
+  startProblems,
   type DeployStageContext,
 } from "../src/activities/deploy-stages.js";
 import type { DeployContext, DeployStage } from "../src/activities/deploy-types.js";
@@ -636,6 +637,28 @@ describe("stage blockers", () => {
       stage: "verify_module",
     });
     expect(stageBlocker("verify_module", ready, {}, true)).toEqual({ code: "run_active" });
+  });
+
+  it("lists every problem that keeps the stages from starting, and none a stage tolerates", () => {
+    const problems: DeployContext["problems"] = [
+      { code: "clone_dirty", repo: "module" },
+      { code: "settings_missing", field: "qa.jenkinsUrl" },
+      { code: "clone_ahead", repo: "activityData", count: 2 },
+      { code: "branch_missing", repo: "module", branch: "main", where: "local" },
+      { code: "clone_unknown", repo: "media", what: "branch" },
+    ];
+    const context = { ...ready, ready: false, problems };
+    expect(startProblems(context)).toEqual([
+      { code: "settings_missing", field: "qa.jenkinsUrl" },
+      { code: "branch_missing", repo: "module", branch: "main", where: "local" },
+      { code: "clone_unknown", repo: "media", what: "branch" },
+    ]);
+    // A stage's own blocker names only the first of them.
+    expect(stageBlocker("verify_module", context, {}, false)).toEqual({
+      code: "settings_missing",
+      field: "qa.jenkinsUrl",
+    });
+    expect(startProblems(ready)).toEqual([]);
   });
 
   it("runs prepare once per verify: its content is what verify left in the working tree", () => {

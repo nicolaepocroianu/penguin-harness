@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { stepSpan } from "../src/features/activities/pipeline-panel";
-import { runPanel } from "../src/features/activities/studio-status";
+import { runFollow } from "../src/features/activities/studio-status";
 import {
   mediaElementSpans,
   sceneHeadingPrefix,
@@ -154,17 +154,17 @@ describe("rail states", () => {
 });
 
 describe("following a run from the header", () => {
-  const run = (kind: string) => ({ kind }) as Parameters<typeof runPanel>[0];
+  const run = (kind: string) => ({ kind, runId: "run_1" }) as Parameters<typeof runFollow>[0];
 
   it("opens Stages only while a sequence of stages runs", () => {
-    expect(runPanel(run("module"), true)).toBe("run");
-    // An Assemble pressed in Build has its transcript in Sessions, not in Stages.
-    expect(runPanel(run("module"), false)).toBe("sessions");
+    expect(runFollow(run("module"), true)).toEqual({ kind: "tool", tool: "run" });
+    // An Assemble pressed in Module has its transcript in History, shown in place.
+    expect(runFollow(run("module"), false)).toEqual({ kind: "history", runId: "run_1" });
   });
 
-  it("sends tests, quality checks and the conversation to their own panels", () => {
-    expect(runPanel(run("test"), true)).toBe("tests");
-    expect(runPanel(run("quality"), false)).toBe("quality");
-    expect(runPanel(run("assist"), false)).toBe("conversation");
+  it("sends tests and quality checks to Checks, and the conversation to Chat", () => {
+    expect(runFollow(run("test"), true)).toEqual({ kind: "tool", tool: "checks" });
+    expect(runFollow(run("quality"), false)).toEqual({ kind: "tool", tool: "checks" });
+    expect(runFollow(run("assist"), false)).toEqual({ kind: "tool", tool: "conversation" });
   });
 });

@@ -25,7 +25,10 @@ import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activi
 import type { ActivityRuns } from "./run-store.js";
 import { readArtifactBytes } from "./artifact.js";
 import {
+  RESULTS_MAX_BYTES,
   acceptanceCriteria,
+  parseAcceptanceResults,
+  playerCheckReport,
   readAcceptanceReport,
   sameCriteria,
   skippedReport,
@@ -34,11 +37,17 @@ import {
 import {
   ACCEPTANCE_REPORT_DIR,
   ACCEPTANCE_REPORT_FILE,
+  ACCEPTANCE_RESULTS_FILE,
   ACCEPTANCE_TEST_FILE,
   HARNESS_VERSION,
   TEST_FILE_MAX_BYTES,
 } from "./acceptance-harness.js";
-import type { AcceptanceReport, AcceptanceStateResponse } from "./acceptance-types.js";
+import type {
+  AcceptanceReport,
+  AcceptanceStateResponse,
+  PlayerCheckResponse,
+} from "./acceptance-types.js";
+import { PLAYER_CHECK_DIR } from "./waf-module.js";
 import { contentRevision, type ActivityDetail, type ActivityRun } from "./domain.js";
 import type { RunRequestOf } from "./run-request.js";
 import { viewportOf } from "./quality-check.js";
@@ -89,6 +98,11 @@ export abstract class ActivityAcceptance extends Interface<{
   ): Promise<ActivityRun>;
   /** The latest finished test run's report, with the criteria count and the browser's presence. */
   state(projectId: string, activityId: string): Promise<AcceptanceStateResponse>;
+  /**
+   * The player check the build the preview plays ran when it was assembled, read from that
+   * run's workspace; why it has none when it has none.
+   */
+  playerCheck(projectId: string, activityId: string): Promise<PlayerCheckResponse>;
   /** Whether the test browser is installed, for Run all stages to skip the step without it. */
   browserInstalled(): Promise<boolean>;
   /**
@@ -337,6 +351,40 @@ export class ActivityAcceptanceService implements ActivityAcceptance {
       criteria: acceptanceCriteria(spec).length,
       stale: report !== null && report.specRevision !== specRevision,
       browserInstalled: await this.browserInstalled(),
+    };
+  }
+
+  async playerCheck(projectId: string, activityId: string): Promise<PlayerCheckResponse> {
+    const activity = await this.activities.getActivity(projectId, activityId);
+    const build = await this.moduleSources.build(projectId, activity, "preview");
+    if (!build) return { runId: null, report: null, gap: null };
+    const dir = path.join(this.workspace(build.runId), PLAYER_CHECK_DIR);
+    // Written by the agent's checks, so read as untrusted: bounded, and shape-checked.
+    const reported = await readArtifactBytes(
+      path.join(dir, ACCEPTANCE_RESULTS_FILE),
+      RESULTS_MAX_BYTES,
+    )
+      .then((bytes) => parseAcceptanceResults(bytes.toString("utf8")))
+      .catch(() => null);
+    if (!reported) {
+      // The build says why it has none; an older record is told by what is on disk.
+      const staged = await fs.stat(dir).then(
+        () => true,
+        () => false,
+      );
+      return {
+        runId: build.runId,
+        report: null,
+        gap: build.unchecked ?? (staged ? "notRun" : "noBrowser"),
+      };
+    }
+    return {
+      runId: build.runId,
+      report: playerCheckReport(reported, {
+        checkedAt: build.finishedAt ?? build.createdAt,
+        untrusted: build.playerCheck?.untrusted === true,
+      }),
+      gap: null,
     };
   }
 

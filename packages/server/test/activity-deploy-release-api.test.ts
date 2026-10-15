@@ -203,6 +203,7 @@ describe("activity deploy release routes", () => {
     const { state } = await setup();
     const found = await state();
     expect(found.context.ready).toBe(true);
+    expect(found.blocking).toEqual([]);
     expect(found.run).toBeNull();
     expect(found.stages.map((stage) => [stage.stage, stage.status, stage.blocker])).toEqual([
       ["verify_module", "pending", null],

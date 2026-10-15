@@ -246,25 +246,43 @@ export function railWidthAfterKey(width: number, key: string, large = false): nu
 }
 
 /**
- * The panels the studio header's tab group opens beside the work, in tab order. Loom keeps
- * these behind a rail of its own; here the header's tabs choose which one is open.
+ * The tools the right-edge rail opens beside the work, top to bottom: Preview, Stages, Checks
+ * and Chat. The keys are what the browser remembers and saved layouts hold, so the three that
+ * were panels before keep theirs (`player`, `run`, `conversation`).
  */
-export type StudioPanel = "run" | "player" | "tests" | "quality" | "conversation" | "sessions";
-export const STUDIO_PANELS: readonly StudioPanel[] = [
-  "run",
-  "player",
-  "tests",
-  "quality",
-  "conversation",
-  "sessions",
-];
+export type StudioPanel = "player" | "run" | "checks" | "conversation";
+export const STUDIO_PANELS: readonly StudioPanel[] = ["player", "run", "checks", "conversation"];
+
+/**
+ * Keys an earlier studio remembered, as today's tools: Tests and Quality are both Checks now,
+ * and Sessions became part of History, which is a section rather than a tool.
+ */
+const RETIRED_PANELS: Readonly<Record<string, StudioPanel | null>> = {
+  tests: "checks",
+  quality: "checks",
+  sessions: null,
+};
+
+/**
+ * A remembered tool key as a tool, or null for none. Read only: what is stored stays as it is
+ * until the author chooses again or saves a layout, so an older studio still reads it.
+ */
+export function panelFromStored(raw: unknown): StudioPanel | null {
+  if (typeof raw !== "string") return null;
+  if (STUDIO_PANELS.includes(raw as StudioPanel)) return raw as StudioPanel;
+  return RETIRED_PANELS[raw] ?? null;
+}
 
 /** The side panel's width bounds, in pixels. The player wants room, so the top is generous. */
 export const SIDE_PANEL_MIN_WIDTH = 320;
 export const SIDE_PANEL_MAX_WIDTH = 1600;
 export const SIDE_PANEL_DEFAULT_WIDTH = 480;
-/** What the work keeps beside a wide panel: a usable editor and the collapsed rail's button. */
-export const SIDE_PANEL_WORK_MIN = EDITOR_MIN_WIDTH + 48;
+/**
+ * What the work (the rail and the open section) keeps beside a panel. Below it the panel covers
+ * the work instead of squeezing it: a covered editor can be uncovered, a crushed one cannot be
+ * read.
+ */
+export const SIDE_PANEL_WORK_MIN = 720;
 
 /** Keep a dragged or stored width inside the bounds, and reject anything unreadable. */
 export function clampSidePanelWidth(width: number): number {
@@ -350,8 +368,7 @@ export const SIDE_PANEL_KEY = "penguin.activitySidePanel";
 /** The panel left open last time, or none; anything unrecognised opens nothing. */
 export function readSidePanel(storage?: Pick<Storage, "getItem">): StudioPanel | null {
   try {
-    const raw = (storage ?? localStorage).getItem(SIDE_PANEL_KEY);
-    return STUDIO_PANELS.includes(raw as StudioPanel) ? (raw as StudioPanel) : null;
+    return panelFromStored((storage ?? localStorage).getItem(SIDE_PANEL_KEY));
   } catch {
     return null;
   }
