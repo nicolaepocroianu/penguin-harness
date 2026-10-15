@@ -5,6 +5,7 @@
  */
 import type { AssetManifest, UploadedMedia } from "@prismshadow/penguin-server/api";
 import { isUploadPath } from "./media-library";
+import { NO_PLACEHOLDERS, bindingOf, type PlaceholderPaths } from "./placeholder-media";
 
 type MediaAsset = AssetManifest["assets"][string][number];
 
@@ -16,8 +17,11 @@ export interface PlannedEntry {
   type: MediaAsset["type"];
   description: string;
   path: string | null;
-  /** Where the bound file came from, or null while nothing is bound. */
-  source: "generated" | "upload" | "checkout" | null;
+  /**
+   * Where the bound file came from, or null while nothing is bound. A placeholder is its own
+   * source, so a blank clip is never read as a file the checkout supplied.
+   */
+  source: "generated" | "upload" | "checkout" | "placeholder" | null;
   sceneIds: string[];
 }
 
@@ -27,7 +31,10 @@ export interface UploadEntry {
   usedBy: string[];
 }
 
-export function plannedEntries(assets: readonly MediaAsset[]): PlannedEntry[] {
+export function plannedEntries(
+  assets: readonly MediaAsset[],
+  placeholders: PlaceholderPaths = NO_PLACEHOLDERS,
+): PlannedEntry[] {
   return assets.map((asset) => ({
     key: asset.key,
     type: asset.type,
@@ -39,7 +46,9 @@ export function plannedEntries(assets: readonly MediaAsset[]): PlannedEntry[] {
         ? "generated"
         : isUploadPath(asset.path)
           ? "upload"
-          : "checkout",
+          : bindingOf(placeholders, asset.path) === "placeholder"
+            ? "placeholder"
+            : "checkout",
     sceneIds: [...new Set(asset.usages.map((usage) => usage.sceneId))],
   }));
 }

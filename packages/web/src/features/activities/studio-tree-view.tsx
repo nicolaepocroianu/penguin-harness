@@ -1,13 +1,14 @@
 /**
  * The hierarchy panel, drawn the way Loom draws it: text rows, thin guides for depth, and
  * the names first. What a row says about its state sits after the name, small: a dot for
- * media that still needs a file (a closed scene carries its children's dot so it is not lost
- * when folded), a section's unsaved edits or validity, how many scenes or audios it holds,
- * and what a section that cannot open yet is waiting for. Scenes go by the script's titles.
+ * media that still needs a real file, missing or a placeholder (a closed scene carries its
+ * children's dot so it is not lost when folded), a section's unsaved edits or validity, how
+ * many scenes or narrations it holds, and what a section that cannot open yet is waiting
+ * for. Scenes go by the script's titles.
  *
- * A row with a target opens it; a row that only groups (a scene's "Audios") folds. A
+ * A row with a target opens it; a row that only groups (a scene's "Audio") folds. A
  * branch with a target does both: its name opens it, its chevron folds it, so reaching
- * the Scenes section never collapses the scenes under it.
+ * the Storyboard never collapses the scenes under it.
  */
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Chevron } from "../../components/ui/chevron";
@@ -44,6 +45,12 @@ function rowHint(node: StudioNode, label: string): string {
   return label;
 }
 
+/** What a marked row's dot means, read at render time so the words follow the locale. */
+const MARK_WORDS: Record<NonNullable<StudioNode["mark"]>, () => string> = {
+  unbound: () => S.activities.studioTree.needsMedia,
+  placeholder: () => S.activities.studioTree.placeholder,
+};
+
 const TRAIL_TONE: Record<Exclude<SectionTrail["kind"], "count">, Tone> = {
   unsaved: "attention",
   invalid: "danger",
@@ -55,13 +62,13 @@ function Trail({ trail }: { trail: SectionTrail }) {
   const words = S.activities.studioTree.trail;
   if (trail.kind === "count")
     return (
-      <span className="ml-2 shrink-0 text-[11px] text-gray-400 tabular-nums dark:text-gray-500">
+      <span className="ml-2 shrink-0 text-xs text-gray-400 tabular-nums dark:text-gray-500">
         {trail.count}
       </span>
     );
   const tone = TRAIL_TONE[trail.kind];
   return (
-    <span className={`ml-2 inline-flex shrink-0 items-center gap-1 text-[11px] ${toneInk[tone]}`}>
+    <span className={`ml-2 inline-flex shrink-0 items-center gap-1 text-xs ${toneInk[tone]}`}>
       <span aria-hidden className={`size-1.5 rounded-full ${toneDot[tone]}`} />
       {/* A valid section only needs its dot; the word is for whoever cannot see it. */}
       <span className={trail.kind === "valid" ? "sr-only" : ""}>{words[trail.kind]}</span>
@@ -145,14 +152,14 @@ export function StudioTreeView({
               if (node.target) onChoose(node.target);
               else toggle(node.id);
             }}
-            className={`min-w-0 flex-1 truncate py-1 text-left text-[13px] ${
+            className={`min-w-0 flex-1 truncate py-1 text-left text-xs ${
               depth === 0 ? "font-medium" : ""
             } ${node.disabled ? "cursor-not-allowed text-gray-400 dark:text-gray-600" : ""}`}
           >
             {node.sceneNumber !== undefined && (
               <span
                 aria-hidden
-                className="mr-1.5 inline-block min-w-3 font-mono text-[11px] text-gray-400 tabular-nums dark:text-gray-500"
+                className="mr-1.5 inline-block min-w-3 font-mono text-xs text-gray-400 tabular-nums dark:text-gray-500"
               >
                 {node.sceneNumber}
               </span>
@@ -160,10 +167,7 @@ export function StudioTreeView({
             {label}
           </button>
           {node.waitsFor && (
-            <span
-              aria-hidden
-              className="ml-2 shrink-0 text-[11px] text-gray-400 dark:text-gray-600"
-            >
+            <span aria-hidden className="ml-2 shrink-0 text-xs text-gray-400 dark:text-gray-600">
               {words.waits[node.waitsFor]}
             </span>
           )}
@@ -171,8 +175,8 @@ export function StudioTreeView({
           {node.mark && (
             <span
               role="img"
-              aria-label={S.activities.studioTree.needsMedia}
-              title={S.activities.studioTree.needsMedia}
+              aria-label={MARK_WORDS[node.mark]()}
+              title={MARK_WORDS[node.mark]()}
               className={`size-1.5 shrink-0 rounded-full ${toneDot.attention}`}
             />
           )}
@@ -206,7 +210,7 @@ export function StudioTreeView({
                 <li
                   role="none"
                   aria-hidden
-                  className="px-2 pb-1 pt-3 text-[10.5px] font-semibold uppercase tracking-wider text-gray-400 first:pt-1 dark:text-gray-500"
+                  className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-gray-400 first:pt-1 dark:text-gray-500"
                 >
                   {S.activities.studioTree.phases[phase!]}
                 </li>

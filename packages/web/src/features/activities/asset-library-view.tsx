@@ -1,8 +1,9 @@
 /**
  * The Asset Library: every asset the media plan asks for, and every file uploaded for the
  * activity, in one place. It answers the questions the scene tree cannot at a glance: what
- * is still unbound across all scenes, which uploads nothing uses, and which assets share a
- * file. An asset opens in the editor from here.
+ * is still unbound across all scenes, which are only a placeholder, which uploads nothing
+ * uses, and which assets share a file. An asset is named by what it shows, its description,
+ * with its key underneath for whoever needs the key. An asset opens in the editor from here.
  */
 import { useState } from "react";
 import type { AssetManifest, UploadedMedia } from "@prismshadow/penguin-server/api";
@@ -28,6 +29,7 @@ import {
   type PlannedEntry,
 } from "./asset-library";
 import { fileSizeText } from "./media-library";
+import { NO_PLACEHOLDERS, type PlaceholderPaths } from "./placeholder-media";
 
 type MediaAsset = AssetManifest["assets"][string][number];
 
@@ -37,19 +39,26 @@ const SOURCE_TONE: Record<NonNullable<PlannedEntry["source"]>, BadgeTone> = {
   generated: "brand",
   upload: "gray",
   checkout: "gray",
+  placeholder: "amber",
 };
 
 const LINK = "text-left font-medium text-brand-600 hover:text-brand-700 dark:text-brand-300";
+/** An asset's name in its row: its words, which open it, in the ink of the text around it. */
+const ASSET_NAME =
+  "line-clamp-2 text-left font-medium text-gray-900 hover:text-brand-700 hover:underline dark:text-gray-100 dark:hover:text-brand-300";
 
 export function AssetLibraryView({
   assets,
   uploads,
   uploadsLoading,
   endpoint,
+  placeholders = NO_PLACEHOLDERS,
   onOpen,
 }: {
   /** The open language's group of the media plan; empty before media is planned. */
   assets: readonly MediaAsset[];
+  /** The paths the server binds an asset to until a real file replaces it. */
+  placeholders?: PlaceholderPaths;
   uploads: readonly UploadedMedia[];
   uploadsLoading: boolean;
   endpoint: string;
@@ -59,7 +68,7 @@ export function AssetLibraryView({
   const [kind, setKind] = useState<LibraryKind>("all");
   const [binding, setBinding] = useState<LibraryBinding>("any");
   const [query, setQuery] = useState("");
-  const planned = plannedEntries(assets);
+  const planned = plannedEntries(assets, placeholders);
   const files = uploadEntries(uploads, assets);
   const shownPlanned = filterPlanned(planned, kind, binding, query);
   const shownFiles = filterUploads(files, kind, binding, query);
@@ -119,12 +128,18 @@ export function AssetLibraryView({
                 {shownPlanned.map((entry) => (
                   <tr key={entry.key}>
                     <td className={TD}>
-                      <button type="button" className={LINK} onClick={() => onOpen(entry.key)}>
-                        {entry.key}
+                      <button
+                        type="button"
+                        className={ASSET_NAME}
+                        onClick={() => onOpen(entry.key)}
+                      >
+                        {entry.description.trim() || entry.key}
                       </button>
-                      <p className="line-clamp-2 text-xs text-gray-500 dark:text-gray-400">
-                        {entry.description}
-                      </p>
+                      {entry.description.trim() && (
+                        <p className="font-mono text-xs break-all text-gray-500 dark:text-gray-400">
+                          {entry.key}
+                        </p>
+                      )}
                     </td>
                     <td className={`${TD} whitespace-nowrap text-xs`}>
                       {S.activities.mediaTypes[entry.type]}

@@ -2,8 +2,12 @@
  * What narration one language still needs, and one way to ask for all of it. The list
  * and the button are driven by the same pure model, so the count an author reads is
  * exactly the work the button starts.
+ *
+ * A row leads with the words a line says, the key under it for whoever needs the key, and
+ * says its state only when the line needs something: a line with audio is the normal case,
+ * said once in the summary rather than on every row.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import type {
   ActivityRunSummary,
   AssetManifest,
@@ -27,6 +31,7 @@ import {
   speechTally,
   type SpeechFilter,
   type SpeechState,
+  type SpeechStatus,
 } from "./bulk-speech";
 import {
   inInstructionFilter,
@@ -79,6 +84,55 @@ const INSTRUCTION_FILTERS: readonly InstructionFilter[] = ["all", "main", "scaff
 // choices carry counts and can number more than the control's four columns.
 
 type MediaAsset = AssetManifest["assets"][string][number];
+
+/**
+ * What a narration row says about itself, or null for the normal case: a line with audio and
+ * nothing to translate carries no mark at all.
+ */
+function speechRowState(status: SpeechStatus): string | null {
+  const words = S.activities;
+  if (status.translation === "missing" || status.translation === "translating")
+    return words.speechTranslation[status.translation];
+  const ready = status.state === "ready";
+  if (status.translation === "outdated")
+    return ready
+      ? words.speechTranslation.outdated
+      : `${words.speechState[status.state]} · ${words.speechTranslation.outdated}`;
+  return ready ? null : words.speechState[status.state];
+}
+
+/** What a row is called: the asset's own words, and its key and scenes underneath. */
+function RowName({
+  text,
+  assetKey,
+  scenes,
+  badge,
+}: {
+  text: string | undefined;
+  assetKey: string;
+  scenes?: readonly string[];
+  badge?: ReactNode;
+}) {
+  const words = text?.trim();
+  const where = scenes?.length ? scenes.join(", ") : "";
+  return (
+    <span className="min-w-0 space-y-0.5">
+      <span className="block">
+        <span className={words ? "font-medium" : "font-mono font-medium break-all"}>
+          {words || assetKey}
+        </span>
+        {badge && <> {badge}</>}
+      </span>
+      {(words || where) && (
+        <span className="block break-all text-gray-500 dark:text-gray-400">
+          {words && <span className="font-mono">{assetKey}</span>}
+          {words && where && " · "}
+          {where}
+        </span>
+      )}
+    </span>
+  );
+}
 
 export function SpeechCoverage({
   assets,
@@ -165,6 +219,7 @@ export function SpeechCoverage({
   const types = useMemo(() => instructionTypes(assets, sources), [assets, sources]);
   const typeOf = (key: string): InstructionType => types.get(key) ?? "other";
   const runIndex = indexRuns(runs);
+  const byKey = useMemo(() => new Map(assets.map((asset) => [asset.key, asset])), [assets]);
   const statuses = speechStatuses(assets, runIndex, language, sources);
   const toTranslate = statuses.filter(
     (status) => status.translation === "missing" || status.translation === "outdated",
@@ -233,7 +288,11 @@ export function SpeechCoverage({
           </InfoPopover>
         </h4>
         <p className="text-xs text-gray-500">
-          {S.activities.bulkSpeechTally(tally.ready, tally.total)}
+          {tally.ready === tally.total ? (
+            <span className={toneInk.success}>{S.activities.bulkSpeechAllReady(tally.total)}</span>
+          ) : (
+            S.activities.bulkSpeechTally(tally.ready, tally.total)
+          )}
           {tally.pending > 0 ? ` · ${S.activities.bulkSpeechPending(tally.pending)}` : ""}
         </p>
         {tally.blocked > 0 && (
@@ -403,41 +462,40 @@ export function SpeechCoverage({
           {shown.map((status) => {
             const tone = STATE_TONE[status.state];
             const type = typeOf(status.key);
+            const stateText = speechRowState(status);
             return (
               <li key={status.key} className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => onSelect(status.key)}
                   title={status.error}
-                  className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-900"
+                  className="flex min-w-0 flex-1 items-start justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-900"
                 >
-                  <span className="min-w-0 break-all">
-                    <span className="font-medium">{status.key}</span>
-                    <span className="text-gray-500"> · {status.sceneIds.join(", ")}</span>
-                    {type !== "other" && (
-                      <>
-                        {" "}
+                  <RowName
+                    text={byKey.get(status.key)?.script}
+                    assetKey={status.key}
+                    scenes={status.sceneIds}
+                    badge={
+                      type !== "other" && (
                         <Badge tone="gray">{S.activities.instructionType.badge[type]}</Badge>
-                      </>
-                    )}
-                  </span>
-                  <span
-                    className={`shrink-0 ${
-                      status.translation === "translating"
-                        ? toneInk.busy
-                        : status.translation
-                          ? toneInk.attention
-                          : tone
-                            ? toneInk[tone]
-                            : "text-gray-500"
-                    }`}
-                  >
-                    {status.translation === "missing" || status.translation === "translating"
-                      ? S.activities.speechTranslation[status.translation]
-                      : status.translation === "outdated"
-                        ? `${S.activities.speechState[status.state]} · ${S.activities.speechTranslation.outdated}`
-                        : S.activities.speechState[status.state]}
-                  </span>
+                      )
+                    }
+                  />
+                  {stateText && (
+                    <span
+                      className={`shrink-0 ${
+                        status.translation === "translating"
+                          ? toneInk.busy
+                          : status.translation
+                            ? toneInk.attention
+                            : tone
+                              ? toneInk[tone]
+                              : "text-gray-500"
+                      }`}
+                    >
+                      {stateText}
+                    </span>
+                  )}
                 </button>
                 {status.translation === "missing" && editable && onTranslateAndSpeak ? (
                   <Button
@@ -540,6 +598,7 @@ function SoundCoverage({
   const [confirming, setConfirming] = useState(false);
   const words = S.activities.sound;
   const runIndex = indexRuns(runs);
+  const byKey = new Map(assets.map((asset) => [asset.key, asset]));
   const statuses = soundStatuses(assets, runIndex, language);
   const tally = soundTally(assets, runIndex, language);
   if (!statuses.length) return null;
@@ -552,7 +611,13 @@ function SoundCoverage({
           <p>{words.bulkHelp}</p>
         </InfoPopover>
       </h4>
-      <p className="text-xs text-gray-500">{words.bulkTally(tally.ready, tally.total)}</p>
+      <p className="text-xs text-gray-500">
+        {tally.ready === tally.total ? (
+          <span className={toneInk.success}>{words.bulkAllReady(tally.total)}</span>
+        ) : (
+          words.bulkTally(tally.ready, tally.total)
+        )}
+      </p>
       <ul className="space-y-1">
         {statuses.map((status) => {
           const tone = SOUND_TONE[status.state];
@@ -562,12 +627,14 @@ function SoundCoverage({
                 type="button"
                 onClick={() => onSelect(status.key)}
                 title={status.error}
-                className="flex w-full flex-wrap items-baseline justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-900"
+                className="flex w-full items-start justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-900"
               >
-                <span className="min-w-0 font-medium break-all">{status.key}</span>
-                <span className={`shrink-0 ${tone ? toneInk[tone] : "text-gray-500"}`}>
-                  {words.statuses[status.state]}
-                </span>
+                <RowName text={byKey.get(status.key)?.description} assetKey={status.key} />
+                {status.state !== "ready" && (
+                  <span className={`shrink-0 ${tone ? toneInk[tone] : "text-gray-500"}`}>
+                    {words.statuses[status.state]}
+                  </span>
+                )}
               </button>
             </li>
           );

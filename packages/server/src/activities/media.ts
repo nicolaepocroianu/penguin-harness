@@ -7,7 +7,7 @@ import {
   readPlayback,
   type AudioKind,
 } from "./playback.js";
-import { mediaTargetPath } from "./languages.js";
+import { ACTIVITY_LANGUAGES, mediaTargetPath } from "./languages.js";
 import { mediaRepoPath } from "./waf-layout.js";
 import type { SpeechProviderId } from "./speech-types.js";
 import { parseTimeline } from "./video-timeline.js";
@@ -181,6 +181,18 @@ export function placeholderPath(
     language,
     { key: "empty", type },
     PLACEHOLDER_EXTENSIONS[type],
+  );
+}
+
+/**
+ * Every placeholder path of one ref, for each language the product supports and each type
+ * that has a placeholder: an asset bound to one of these still waits for its real file.
+ */
+export function placeholderPaths(address: ActivityAddress): string[] {
+  return ACTIVITY_LANGUAGES.flatMap((language) =>
+    (Object.keys(PLACEHOLDER_EXTENSIONS) as PlaceholderType[]).map((type) =>
+      placeholderPath(address, language.code, type),
+    ),
   );
 }
 

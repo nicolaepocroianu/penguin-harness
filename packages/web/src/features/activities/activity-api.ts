@@ -290,6 +290,10 @@ export function activityApi(projectId: string, activityId: string, send: ApiSend
         call<UploadedMedia>("POST", "media-uploads", body),
       /** The saved draft's media stats, for a bound clip's file details. */
       stats: resource("media-stats", () => get<{ media: MediaStat[] }>("media-stats")),
+      /** The paths this ref's videos and animations are bound to until real files replace them. */
+      placeholders: resource("media-placeholders", () =>
+        get<{ paths: string[] }>("media-placeholders"),
+      ),
       /** Copy a file another activity of the project uploaded into this one's uploads. */
       copy: (body: { fromActivityId: string; path: string }) =>
         call<UploadedMedia>("POST", "media-uploads/copy", body),

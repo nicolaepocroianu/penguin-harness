@@ -6,6 +6,7 @@
  */
 
 import type { AssetManifest } from "@prismshadow/penguin-server/api";
+import { NO_PLACEHOLDERS, bindingOf, type PlaceholderPaths } from "./placeholder-media";
 
 type MediaAsset = AssetManifest["assets"][string][number];
 export type SceneAssetType = MediaAsset["type"];
@@ -24,6 +25,8 @@ export interface SceneAssetLeaf {
   /** How many times this scene asks for the asset; 1 for the ordinary case. */
   occurrences: number;
   bound: boolean;
+  /** Bound to the placeholder the server names, which still waits for a real file. */
+  placeholder?: boolean;
   /** Bound by an accepted generation run rather than by a path the author chose. */
   generated: boolean;
   /** Referenced by more than one scene, so a rebinding reaches all of them. */
@@ -68,13 +71,14 @@ export function isGeneralScene(sceneId: string): boolean {
   return /^general(?:[-_.].*)?$/i.test(sceneId.trim());
 }
 
-function leaf(asset: MediaAsset, sceneId: string): SceneAssetLeaf {
+function leaf(asset: MediaAsset, sceneId: string, placeholders: PlaceholderPaths): SceneAssetLeaf {
   const usages = asset.usages.filter((usage) => usage.sceneId === sceneId);
   return {
     key: asset.key,
     type: asset.type,
     occurrences: usages.length,
     bound: !!asset.path,
+    ...(bindingOf(placeholders, asset.path) === "placeholder" ? { placeholder: true } : {}),
     generated: !!asset.generatedAudio || !!asset.generatedImage || !!asset.generatedVideo,
     shared: new Set(asset.usages.map((usage) => usage.sceneId)).size > 1,
     bookWord: asset.role === "bookWord",
@@ -89,6 +93,7 @@ function leaf(asset: MediaAsset, sceneId: string): SceneAssetLeaf {
 export function buildSceneTree(
   spec: Record<string, unknown> | null | undefined,
   assets: readonly MediaAsset[],
+  placeholders: PlaceholderPaths = NO_PLACEHOLDERS,
 ): SceneAssetTree {
   const scenes = scenesOf(spec);
   const order = new Map(scenes.map((scene, index) => [String(scene.id), index]));
@@ -103,7 +108,9 @@ export function buildSceneTree(
       general: isGeneralScene(sceneId),
       categories: SCENE_ASSET_TYPES.map((type) => ({
         type,
-        assets: members.filter((asset) => asset.type === type).map((asset) => leaf(asset, sceneId)),
+        assets: members
+          .filter((asset) => asset.type === type)
+          .map((asset) => leaf(asset, sceneId, placeholders)),
       })).filter((category) => category.assets.length > 0),
     };
   });
@@ -113,7 +120,7 @@ export function buildSceneTree(
   });
   const unassigned = assets
     .filter((asset) => !asset.usages.some((usage) => order.has(usage.sceneId)))
-    .map((asset) => ({ ...leaf(asset, ""), occurrences: 0 }));
+    .map((asset) => ({ ...leaf(asset, "", placeholders), occurrences: 0 }));
   return { scenes: nodes, unassigned };
 }
 

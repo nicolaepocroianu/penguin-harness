@@ -29,8 +29,11 @@ export type StudioTarget =
   /** A scene the script names: its row opens the script at its heading. */
   | { kind: "scene"; sceneNumber: number };
 
-/** The one piece of state a row may carry; the view owns the words and the colour. */
-export type StudioMark = "unbound" | null;
+/**
+ * The one piece of state a row may carry; the view owns the words and the colour. Media with
+ * no file outranks a placeholder: both still need a real file, but nothing plays for the first.
+ */
+export type StudioMark = "unbound" | "placeholder" | null;
 
 /** What a section row says about its section beside its name; the view words it. */
 export type SectionTrail =
@@ -41,7 +44,7 @@ export interface StudioNode {
   id: string;
   /** A dictionary key for fixed rows, or the activity's own text for scenes and assets. */
   label: { key: StudioLabel } | { text: string };
-  /** Absent on a branch that only groups (a scene's "Audios"), which opens instead. */
+  /** Absent on a branch that only groups (a scene's "Audio"), which opens instead. */
   target?: StudioTarget;
   disabled: boolean;
   /** Why a disabled section cannot be opened yet. */
@@ -148,16 +151,27 @@ export function scriptSceneFor(
 
 function assetRow(
   sceneId: string,
-  asset: { key: string; bound: boolean; word?: string },
+  asset: { key: string; bound: boolean; placeholder?: boolean; word?: string },
 ): StudioNode {
   return {
     id: `asset:${sceneId}:${asset.key}`,
     label: { text: asset.word ?? asset.key },
     target: { kind: "asset", selection: { sceneId, key: asset.key } },
     disabled: false,
-    mark: asset.bound ? null : "unbound",
+    mark: assetMark(asset),
     children: [],
   };
+}
+
+function assetMark(asset: { bound: boolean; placeholder?: boolean }): StudioMark {
+  if (!asset.bound) return "unbound";
+  return asset.placeholder ? "placeholder" : null;
+}
+
+/** The mark a branch carries for the rows under it, so a folded scene still says so. */
+function strongestMark(rows: readonly StudioNode[]): StudioMark {
+  if (rows.some((row) => row.mark === "unbound")) return "unbound";
+  return rows.some((row) => row.mark === "placeholder") ? "placeholder" : null;
 }
 
 /** The whole hierarchy, top to bottom, in Loom's order. */
@@ -213,7 +227,7 @@ export function buildStudioTree(
         : {}),
       disabled: false,
       // A scene is marked when anything under it is, so a closed scene still says so.
-      mark: groups.some((group) => group.children.some((row) => row.mark)) ? "unbound" : null,
+      mark: strongestMark(groups.flatMap((group) => group.children)),
       children: groups,
     };
   });

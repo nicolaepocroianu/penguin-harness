@@ -1,5 +1,5 @@
 /**
- * The activity's Generation History: its saved versions, its module builds, then every run, newest first, with
+ * The activity's History: its saved versions, its module builds, then every run, newest first, with
  * how it went, its Session, a way to cancel one still running, and the candidate a
  * specification run left.
  */
@@ -66,6 +66,7 @@ export function GenerationHistory({
     .join(",");
   return (
     <div className="space-y-6">
+      <h3 className="text-sm font-semibold">{S.activities.sectionNames.history}</h3>
       <VersionsView
         editable={editable}
         draftRevision={draftRevision}
@@ -83,7 +84,7 @@ export function GenerationHistory({
         />
       )}
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold">{S.activities.runs}</h3>
+        <h4 className="text-sm font-semibold">{S.activities.runs}</h4>
         {runs.length === 0 && <p className="text-xs text-gray-500">{S.activities.noRuns}</p>}
         {runs.map((run) => (
           <article

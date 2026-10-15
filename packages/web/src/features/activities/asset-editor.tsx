@@ -40,7 +40,41 @@ import { SceneCompositionView } from "./scene-composition-view";
 import { captionsUrl, recordingUrl } from "./scene-video";
 import type { StudioDraft } from "./studio-draft";
 import { useHeldWork } from "./unsaved-work-context";
+import {
+  NO_PLACEHOLDERS,
+  bindingOf,
+  type Binding,
+  type PlaceholderPaths,
+} from "./placeholder-media";
 import type { TimelineEdits } from "./scene-timeline-view";
+
+const BINDING_TONE: Record<Binding, string> = {
+  file: toneSurface.success,
+  placeholder: toneSurface.attention,
+  none: toneSurface.attention,
+};
+
+/** Read at render time, so the words follow the locale. */
+const BINDING_LABEL: Record<Binding, () => string> = {
+  file: () => S.activities.boundMedia,
+  placeholder: () => S.activities.placeholderMedia,
+  none: () => S.activities.unboundMedia,
+};
+
+/**
+ * What the asset is bound to, beside its name. A placeholder is bound, so the module plays
+ * something, but it is not the asset's media, so it never wears the green of a real file.
+ */
+function BindingBadge({ binding }: { binding: Binding }) {
+  return (
+    <span
+      title={binding === "placeholder" ? S.activities.placeholderMediaHint : undefined}
+      className={`rounded px-2 py-0.5 text-xs ${BINDING_TONE[binding]}`}
+    >
+      {BINDING_LABEL[binding]()}
+    </span>
+  );
+}
 
 export function AssetEditor({
   manifest,
@@ -69,6 +103,7 @@ export function AssetEditor({
   defaultLanguage = "en-US",
   languageName = (code) => code,
   mediaStats,
+  placeholders = NO_PLACEHOLDERS,
   onCompose,
   onRecordVideo,
   onRenderTimeline,
@@ -121,6 +156,8 @@ export function AssetEditor({
   languageName?: (code: string) => string;
   /** The server's media stats for the saved draft: undefined while loading, null if unreadable. */
   mediaStats?: readonly MediaStat[] | null;
+  /** The paths the server binds an asset to until a real file replaces it. */
+  placeholders?: PlaceholderPaths;
   /**
    * Ask an agent to compose the scene of a video or animation asset. Given only while the
    * scene-video experiment is on; absent, the editor shows nothing of it.
@@ -406,13 +443,7 @@ export function AssetEditor({
           )}
         </div>
         {cards && <AudioViewToggle value={audioView} onChange={setAudioView} />}
-        {asset && !cards && (
-          <span
-            className={`rounded px-2 py-0.5 text-xs ${asset.path ? toneSurface.success : toneSurface.attention}`}
-          >
-            {asset.path ? S.activities.boundMedia : S.activities.unboundMedia}
-          </span>
-        )}
+        {asset && !cards && <BindingBadge binding={bindingOf(placeholders, asset.path)} />}
         {!cards && asset?.path?.startsWith("media/") && (
           // Served as the player finds it: the draft's own media, then the checkout's.
           <a

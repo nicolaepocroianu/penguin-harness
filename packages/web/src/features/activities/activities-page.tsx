@@ -96,6 +96,8 @@ import { activityApi, projectActivitiesApi, type RunStart } from "./activity-api
 import { ActivityClientContext, runStarted, summarize } from "./activity-client";
 import { ResourceCache } from "./resource-cache";
 import { useResource } from "./use-resource";
+import { NO_PLACEHOLDERS, bindingOf, type PlaceholderPaths } from "./placeholder-media";
+import { StudioSkeleton } from "./studio-skeleton";
 import { ConflictNotice } from "./conflict-notice";
 import { pretty, type DraftBlock } from "./studio-draft";
 import { useStudioDraft } from "./use-studio-draft";
@@ -598,8 +600,6 @@ function ActivityEditor({
   // read that failed, which the Deploy section reports itself.
   const deployState =
     !deployRead.error && Array.isArray(deployRead.data?.stages) ? deployRead.data : null;
-  // Which activity and ref the editors are about, as Loom titles its panels.
-  const panelSubject = detail ? `${detail.title} - ${detail.productCode} [${detail.refNum}]` : "";
   // The conversation the panel has open, whose proposal the studio shows; until the panel
   // says otherwise, the newest.
   const [threadRunId, setThreadRunId] = useState<string | null | undefined>(undefined);
@@ -952,11 +952,26 @@ function ActivityEditor({
   let currentMediaStats: MediaStat[] | null | undefined;
   if (stats.version === statsRevision && stats.error) currentMediaStats = null;
   else if (stats.version === statsRevision && stats.data) currentMediaStats = stats.data.media;
+  // The paths the server binds this ref's videos and animations to until real files replace
+  // them; read again when the ref is renumbered, since each path carries the ref's number.
+  const placeholderRead = useResource(
+    cache,
+    api.media.placeholders,
+    detail ? String(detail.refNum) : null,
+  );
+  const placeholders = useMemo<PlaceholderPaths>(
+    () => (placeholderRead.data ? new Set(placeholderRead.data.paths) : NO_PLACEHOLDERS),
+    [placeholderRead.data],
+  );
   const language = editedManifest?.assets[languageChoice]
     ? languageChoice
     : (Object.keys(editedManifest?.assets ?? {})[0] ?? "en-US");
   const tree = filterTree(
-    buildSceneTree(detail?.draft.spec ?? null, editedManifest?.assets[language] ?? []),
+    buildSceneTree(
+      detail?.draft.spec ?? null,
+      editedManifest?.assets[language] ?? [],
+      placeholders,
+    ),
     kind,
   );
   // A selection the filter or a rebuilt plan removed falls back to the first leaf, so
@@ -964,6 +979,7 @@ function ActivityEditor({
   const fullTree = buildSceneTree(
     detail?.draft.spec ?? null,
     editedManifest?.assets[language] ?? [],
+    placeholders,
   );
   // What the media plan says about each line and scene of the script, for the editor's chips.
   // Keyed on the texts the manifest and tree are read from, so a render that changes neither
@@ -975,20 +991,24 @@ function ActivityEditor({
             editedManifest?.assets[language] ?? [],
             fullTree,
             sceneRanges(description),
+            placeholders,
           )
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [detail?.draft.mediaPlan, detail?.draft.spec, media, language, description],
+    [detail?.draft.mediaPlan, detail?.draft.spec, media, language, description, placeholders],
   );
-  // Whether each clip of the shown language has a file, for the spec read as scenes.
+  // What each clip of the shown language is bound to, for the spec read as scenes.
   const mediaBindings = useMemo(
     () =>
       detail?.draft.mediaPlan
         ? new Map(
-            (editedManifest?.assets[language] ?? []).map((asset) => [asset.key, !!asset.path]),
+            (editedManifest?.assets[language] ?? []).map((asset) => [
+              asset.key,
+              bindingOf(placeholders, asset.path),
+            ]),
           )
         : null,
-    [detail?.draft.mediaPlan, editedManifest, language],
+    [detail?.draft.mediaPlan, editedManifest, language, placeholders],
   );
   // Decided as the section opens: a spec arriving from a run while the JSON is open must
   // not swap the view under the author.
@@ -1258,13 +1278,15 @@ function ActivityEditor({
       ]
     : [];
   if (!detail)
-    return (
-      <p
-        role={error || loadError ? "alert" : "status"}
-        className={`text-sm ${error || loadError ? toneInk.danger : "text-gray-500"}`}
-      >
-        {error || loadError || S.activities.loading}
-      </p>
+    return error || loadError ? (
+      <div className="p-4">
+        <p role="alert" className={`rounded-md border p-3 text-xs ${toneStrip.danger}`}>
+          {error || loadError}
+        </p>
+      </div>
+    ) : (
+      // The section asked for, not the one it may fall back to once the draft says what exists.
+      <StudioSkeleton section={sectionChoice ?? section} />
     );
   const runningRun = runIndex.running[0];
   // What the rail says beside each section: edits not yet saved, and how much there is.
@@ -1534,6 +1556,7 @@ function ActivityEditor({
             editable={editable}
             draft={draft}
             mediaStats={currentMediaStats}
+            placeholders={placeholders}
             voices={voiceOptions}
             defaultVoice={bulkVoice}
             onGenerateAudio={(lang, assetKey, voice, provider) =>
@@ -1650,7 +1673,7 @@ function ActivityEditor({
         ) : section === "specification" ? (
           <section className="flex min-h-0 min-w-0 flex-1 flex-col">
             <JsonEditor
-              title={S.activities.specEditor.title(panelSubject)}
+              title={S.activities.specEditor.title}
               editorLabel={S.activities.specEditor.editor}
               savedLabel={S.activities.specEditor.savedSide}
               saveLabel={S.activities.specEditor.save}
@@ -1696,7 +1719,6 @@ function ActivityEditor({
               // One editor per document, so unsaved text never carries to the other kind.
               key={section}
               kind={section === "module" ? "definition" : section}
-              subject={panelSubject}
               revision={detail.draft.contentRevision}
               editable={editable && available}
               onOpenSection={(target) =>
@@ -1962,6 +1984,7 @@ function ActivityEditor({
                     uploads={uploads}
                     uploadsLoading={uploadsLoading}
                     endpoint={endpoint}
+                    placeholders={placeholders}
                     onOpen={(key) => {
                       const usage = (editedManifest?.assets[language] ?? []).find(
                         (entry) => entry.key === key,

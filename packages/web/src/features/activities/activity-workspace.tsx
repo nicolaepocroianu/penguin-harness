@@ -66,7 +66,7 @@ function ChipBadge({ badge }: { badge: PanelBadge }) {
       {badge.text ? (
         <span
           aria-hidden
-          className={`rounded-full px-1.5 text-[11px] leading-4 tabular-nums ${toneSurface[badge.tone]}`}
+          className={`rounded-full px-1.5 text-xs leading-4 tabular-nums ${toneSurface[badge.tone]}`}
         >
           {badge.text}
         </span>
@@ -363,7 +363,7 @@ export function ActivityWorkspace({
               value: entry.key,
               label: (
                 <>
-                  <GlyphIcon d={entry.icon} size={14} />
+                  <GlyphIcon d={entry.icon} size={ICON_SIZE.inlineGlyph} />
                   <span className="hidden sm:inline">{entry.label}</span>
                   <span className="sr-only sm:hidden">{entry.label}</span>
                   {entry.badge && <ChipBadge badge={entry.badge} />}
@@ -485,7 +485,7 @@ export function ActivityWorkspace({
                 onClick={toggleExpanded}
                 className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
               >
-                <GlyphIcon d={expanded ? RESTORE_ICON : EXPAND_ICON} size={14} />
+                <GlyphIcon d={expanded ? RESTORE_ICON : EXPAND_ICON} size={ICON_SIZE.iconButton} />
               </button>
               <button
                 type="button"

@@ -193,13 +193,13 @@ export function VersionsView({
   return (
     <section className="space-y-3" aria-labelledby="activity-versions-title">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id="activity-versions-title" className="flex items-center gap-2 text-sm font-semibold">
+        <h4 id="activity-versions-title" className="flex items-center gap-2 text-sm font-semibold">
           {words.title}
           <InfoPopover label={words.title}>
             <p>{words.about}</p>
             <p>{words.aboutMedia}</p>
           </InfoPopover>
-        </h3>
+        </h4>
         {editable && (
           <Button
             size="sm"
@@ -412,12 +412,12 @@ function CompareView({
       aria-labelledby="activity-compare-title"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 id="activity-compare-title" className="flex items-center gap-2 text-sm font-semibold">
+        <h5 id="activity-compare-title" className="flex items-center gap-2 text-sm font-semibold">
           {words.compareTitle(seq)}
           <InfoPopover label={words.compareTitle(seq)}>
             <p>{words.compareAbout(seq)}</p>
           </InfoPopover>
-        </h4>
+        </h5>
         <Button size="sm" variant="ghost" onClick={onClose}>
           {words.closeCompare}
         </Button>
@@ -453,7 +453,7 @@ function CompareView({
           )}
           {media.length > 0 && (
             <div className="space-y-2">
-              <h5 className="text-sm font-semibold">{words.mediaTitle}</h5>
+              <h6 className="text-sm font-semibold">{words.mediaTitle}</h6>
               <div className={TABLE_WRAP}>
                 <table className={TABLE}>
                   <thead>

@@ -8,6 +8,9 @@ export const en: Strings = {
     mediaLanguage: "Language",
     noMediaAssets: "No assets match this filter.",
     boundMedia: "Bound",
+    placeholderMedia: "Placeholder",
+    placeholderMediaHint:
+      "A blank stand-in the module plays until a real file is bound. Learners would see or hear nothing here.",
     downloadCurrent: "Download current",
     unboundMedia: "Needs media",
     usedInScenes: "Used in scenes",
@@ -19,31 +22,32 @@ export const en: Strings = {
     studioTree: {
       label: "Activity hierarchy",
       rows: {
-        activityScript: "Activity Script",
-        activitySpec: "Activity Spec",
-        implementationFeatures: "Implementation Features",
-        configurationData: "Configuration Data",
-        assessmentData: "Assessment Data",
-        moduleDefinition: "Module Definition",
-        audios: "Audios",
-        scenes: "Scenes",
-        activityStats: "Activity Stats",
+        activityScript: "Script",
+        activitySpec: "Specification",
+        implementationFeatures: "Features",
+        configurationData: "Configuration",
+        assessmentData: "Assessment",
+        moduleDefinition: "Module",
+        audios: "Audio",
+        scenes: "Storyboard",
+        activityStats: "Stats",
         unassigned: "Not in any scene",
-        mediaLibrary: "Media Library",
-        history: "Generation History",
+        mediaLibrary: "Library",
+        history: "History",
         deploy: "Deploy",
       },
       phases: { write: "Write", media: "Media", build: "Build & ship", more: "More" },
       groups: {
         image: "Images",
         video: "Videos",
-        audio: "Audios",
+        audio: "Audio",
         animation: "Animations",
         bookWord: "Word pronunciations",
       },
       fold: (name: string) => `Fold ${name}`,
       unfold: (name: string) => `Unfold ${name}`,
       needsMedia: "Needs media",
+      placeholder: "Placeholder",
       trail: { unsaved: "Unsaved", valid: "Valid", invalid: "Invalid" },
       waits: { spec: "after spec", plan: "after media plan", module: "after assembly" },
       waitsHelp: {
@@ -271,10 +275,10 @@ export const en: Strings = {
         description: "Script",
         spec: "Specification",
         mediaPlan: "Media plan",
-        configuration: "Configuration Data",
-        assessment: "Assessment Data",
-        definition: "Module Definition",
-        features: "Implementation features",
+        configuration: "Configuration",
+        assessment: "Assessment",
+        definition: "Module",
+        features: "Features",
       },
       mediaTitle: "Media files",
       mediaColumns: {
@@ -421,7 +425,7 @@ export const en: Strings = {
         "New refs are made from the product's template, its canonical ref. Open that ref to make one.",
       assessmentShared: (refNum: number) =>
         `The assessment is shared by every ref, so the new ref uses the one kept on ref ${refNum}.`,
-      openAssessment: "Open Assessment Data",
+      openAssessment: "Open Assessment",
       blockersTitle: "Before the ref can be made",
       blockers: {
         missingRefNum: "Give the new ref a number.",
@@ -971,7 +975,7 @@ export const en: Strings = {
         "Out of date: the specification changed since these tests ran. Run tests again to check it.",
       untrusted:
         "These results cannot be trusted: the test run changed the harness, runner or input its checks were given. Run tests again.",
-      noAgent: "Choose an agent under the Activity Script first.",
+      noAgent: "Choose an agent under the Script first.",
       saveFirst: "Save your edits before running the tests.",
       loadFailed: "Could not load the test results.",
       lastRun: (when: string) => `Last run ${when}`,
@@ -1027,7 +1031,7 @@ export const en: Strings = {
       },
       run: "Run",
       stop: "Stop",
-      idle: "Run every stage, from the script to an assembled module, or pick one stage to run again. Each stage is an ordinary run in Generation History.",
+      idle: "Run every stage, from the script to an assembled module, or pick one stage to run again. Each stage is an ordinary run in History.",
       progress: (done: number, total: number) => `${done} of ${total}`,
       notes: {
         planCurrent: "The media plan already matches the specification.",
@@ -1038,7 +1042,7 @@ export const en: Strings = {
         notDecodable: "Word recordings are made for decodable books only.",
         noWords: "No word is waiting for a recording.",
         wordsMissingSounds:
-          "The words without a recording have no sounds yet. Give them sounds in Audios first.",
+          "The words without a recording have no sounds yet. Give them sounds in Audio first.",
         noSounds: "No music or sound effect is missing.",
         soundProviderUnavailable:
           "The sound provider cannot be used by the Media Agent. Add its key to the Media Agent's Vault.",
@@ -1064,7 +1068,7 @@ export const en: Strings = {
       failed: (reason: string) => `Stopped at a failure: ${reason}`,
       saveFirst: "Save your edits before running stages.",
       otherRun: "Another run is in progress.",
-      noAgent: "Choose an agent under the Activity Script first.",
+      noAgent: "Choose an agent under the Script first.",
       with: (agent: string) => `With ${agent}`,
       skipped: (count: number) => `${count} skipped`,
       showLog: (step: string) => `Show the ${step} session`,
@@ -1080,10 +1084,10 @@ export const en: Strings = {
       runningWith: (agent: string, stages: string) => `${agent} · ${stages}`,
     },
     specEditor: {
-      title: (subject) => `Activity Spec - ${subject}`,
+      title: "Specification",
       editor: "Specification JSON",
       savedSide: "Saved specification",
-      save: "Save Spec",
+      save: "Save specification",
     },
     specScenes: {
       view: "View",
@@ -1105,11 +1109,11 @@ export const en: Strings = {
       noCriteria:
         "No criteria yet. The tests and quality checks have nothing to hold this activity to.",
       scenesHelp:
-        "Each scene's narration lines are compared with the <audio> lines under the same scene number in the Activity Script, word for word, ignoring case and punctuation. A line that differs offers the script's line in its place; a scene the script does not number is not compared.",
+        "Each scene's narration lines are compared with the <audio> lines under the same scene number in the Script, word for word, ignoring case and punctuation. A line that differs offers the script's line in its place; a scene the script does not number is not compared.",
       noScenes: "No scenes yet.",
       summary: (matching, differing) =>
         differing === 0
-          ? `${matching} match the script`
+          ? "All match the script"
           : `${matching} match the script · ${differing} ${differing === 1 ? "differs" : "differ"}`,
       videos: (n) => `${n} ${n === 1 ? "video" : "videos"}`,
       images: (n) => `${n} ${n === 1 ? "image" : "images"}`,
@@ -1131,6 +1135,7 @@ export const en: Strings = {
       media: "Media",
       kinds: { image: "image", video: "video", animation: "animation", sound: "sound" },
       bound: "Bound",
+      placeholder: "Placeholder",
       needsFile: "Needs a file",
       scene: (n, title) => `Scene ${n}: ${title}`,
     },
@@ -1162,7 +1167,7 @@ export const en: Strings = {
       invalid: (reason) => `This is not valid JSON: ${reason}`,
     },
     studioScript: {
-      label: "Activity Script",
+      label: "Script",
       scenes: "Fold scenes",
       scenesHelp: "Fold every scene to its heading",
       diff: "Compare",
@@ -1176,6 +1181,7 @@ export const en: Strings = {
       proposed: "proposed, not applied",
       marks: { audio: "Says", video: "Video", image: "Image", animation: "Animation" },
       clipBound: "Has a file",
+      clipPlaceholder: "Placeholder",
       clipUnbound: "Needs a file",
       openClip: (key: string) => `Open ${key} in Scenes`,
       seconds: (value: string) => `${value} s`,
@@ -1253,8 +1259,8 @@ export const en: Strings = {
     },
     studioProposal: {
       title: "Proposed changes",
-      script: "Activity Script",
-      spec: "Activity Spec",
+      script: "Script",
+      spec: "Specification",
       media: (key: string, field: "description" | "script", language: string) =>
         `${key} ${field === "script" ? "script" : "description"} (${language})`,
       missingAsset: (key: string) => `The saved media plan has no asset named ${key}.`,
@@ -1313,17 +1319,17 @@ export const en: Strings = {
     railExpand: "Expand the activity rail",
     railWidth: "Activity rail width",
     sectionNames: {
-      description: "Activity Script",
-      specification: "Activity Spec",
-      features: "Implementation features",
-      configuration: "Configuration data",
-      assessment: "Assessment data",
-      scenes: "Scenes and media",
-      stats: "Activity stats",
-      speech: "Speech coverage",
-      library: "Media library",
-      module: "Module definition",
-      history: "Generation history",
+      description: "Script",
+      specification: "Specification",
+      features: "Features",
+      configuration: "Configuration",
+      assessment: "Assessment",
+      scenes: "Storyboard",
+      stats: "Stats",
+      speech: "Audio",
+      library: "Library",
+      module: "Module",
+      history: "History",
       deploy: "Deploy",
       newRef: "New ref",
     },
@@ -1408,12 +1414,12 @@ export const en: Strings = {
     assessmentRun: "Assessment",
     moduleDocuments: {
       title: {
-        configuration: (subject) => `Configuration Data - ${subject}`,
-        assessment: (subject) => `Assessment Data - ${subject}`,
-        definition: (subject) => `Module Definition - ${subject}`,
+        configuration: "Configuration",
+        assessment: "Assessment",
+        definition: "Module",
       },
       saveLabel: {
-        configuration: "Save Configuration Data",
+        configuration: "Save configuration",
         assessment: "Save Assessment",
         definition: "Save Definition",
       },
@@ -1525,7 +1531,7 @@ export const en: Strings = {
     uploaded: "Uploaded and bound",
     uploadWrongKind: (kind: string) =>
       `That file holds ${kind} media, which this asset cannot use. It was kept in the library.`,
-    libraryTitle: "Media library",
+    libraryTitle: "Library",
     libraryHint: "Bind this asset to a file already uploaded for this activity.",
     libraryOpen: "Choose from media library",
     librarySearch: "Search by file name",
@@ -1560,10 +1566,12 @@ export const en: Strings = {
       fetchFailed: (status: number) => `the clip could not be fetched (${status})`,
     },
     waveformUnavailable: "This clip's waveform could not be drawn. Playback still works.",
-    bulkSpeechTitle: "Speech coverage",
+    bulkSpeechTitle: "Audio",
     bulkSpeechHelp:
-      "Narration counts as covered once it has any binding, whether generated, uploaded or taken from the checkout.",
-    bulkSpeechTally: (ready: number, total: number) => `${ready} of ${total} narrations bound`,
+      "A line has audio once any file is bound to it, whether generated, uploaded or taken from the checkout. Only lines that need something are marked.",
+    bulkSpeechTally: (ready: number, total: number) => `${ready} of ${total} lines have audio`,
+    bulkSpeechAllReady: (total: number) =>
+      total === 1 ? "The line has audio" : `All ${total} lines have audio`,
     bulkSpeechPending: (count: number) => `${count} can be generated now`,
     bulkSpeechBlocked: (count: number) => `${count} need a script of 1–5000 characters first`,
     bulkSpeechNone: "This language has no narration.",
@@ -1580,7 +1588,7 @@ export const en: Strings = {
       all: "All",
       needs: "Needs speech",
       translate: "Needs translation",
-      ready: "Bound",
+      ready: "Has audio",
       failed: "Failed",
       blocked: "Needs a script",
     },
@@ -1616,7 +1624,7 @@ export const en: Strings = {
     },
     diffTitle: "Changes since the last save",
     diffHelp:
-      "The comparison is always against the specification currently saved. Saved versions are listed in the Generation History.",
+      "The comparison is always against the specification currently saved. Saved versions are listed in History.",
     diffNone: "No changes since the last save.",
     diffStats: (added: number, removed: number, regions: number) =>
       `+${added} −${removed} in ${regions} ${regions === 1 ? "region" : "regions"}`,
@@ -1723,7 +1731,7 @@ export const en: Strings = {
           ? "1 recorded word has no sound timings, so it is not highlighted."
           : `${n} recorded words have no sound timings, so they are not highlighted.`,
       recording: "Recording",
-      noRecording: "Not recorded yet. Record words in Audios records it.",
+      noRecording: "Not recorded yet. Use Record words in Audio to record it.",
       script: "Recording script",
       scriptHint: "Made from the word's sounds for its provider each time you save.",
       scriptYours: "Your own script. It is kept as you wrote it.",
@@ -1820,7 +1828,7 @@ export const en: Strings = {
       sharedSound:
         "Music and sound effects are shared across languages. You only need to author them once.",
       binding: "Media binding",
-      olderTakes: "Earlier takes stay in Generation History.",
+      olderTakes: "Earlier takes stay in History.",
     },
     sound: {
       prompt: "Prompt",
@@ -1861,7 +1869,9 @@ export const en: Strings = {
       bulkTitle: "Sounds",
       bulkHelp:
         "Music and sound effects in this language. Generate missing sounds runs the Generate sounds stage: it makes every sound that has a prompt and no file, one run each, and keeps each result. Upload a file or choose one from the library in the asset's editor instead when you have one.",
-      bulkTally: (ready: number, total: number) => `${ready} of ${total} sounds bound`,
+      bulkTally: (ready: number, total: number) => `${ready} of ${total} sounds have audio`,
+      bulkAllReady: (total: number) =>
+        total === 1 ? "The sound has audio" : `All ${total} sounds have audio`,
       bulk: (count: number) => `Generate missing sounds (${count})`,
       bulkConfirm: (count: number, provider: string, language: string) =>
         `Generate ${count} ${count === 1 ? "sound" : "sounds"} in ${language} with ${provider}? Each sound is a paid request to ${provider}, made by the Media Agent, and each result is kept on its sound.`,
@@ -2100,7 +2110,12 @@ export const en: Strings = {
         size: "Size",
         usedBy: "Used by",
       },
-      sources: { generated: "Generated", upload: "Uploaded", checkout: "From the checkout" },
+      sources: {
+        generated: "Generated",
+        upload: "Uploaded",
+        checkout: "From the checkout",
+        placeholder: "Placeholder",
+      },
       unbound: "Unbound",
       unused: "Not used",
       noPlan: "Plan media to see its assets here.",
@@ -2253,7 +2268,7 @@ export const en: Strings = {
     penguinAgents: "Penguin agents",
     codingAgents: "Coding agents",
     codingAgentMedia: "Speech, sound and images are still generated by the Media Agent.",
-    runs: "Generation history",
+    runs: "Runs",
     noRuns: "No generation attempts yet.",
     openSession: "Open Session",
     cancel: "Cancel generation",
@@ -2309,12 +2324,14 @@ export const en: Strings = {
     progress: {
       label: "Progress",
       script: "Script",
-      spec: "Spec",
+      spec: "Specification",
       media: "Media",
       module: "Module",
       saved: "saved",
       unsaved: "unsaved",
       clips: (bound: number, total: number) => `${bound}/${total}`,
+      placeholders: (count: number) => (count === 1 ? "1 placeholder" : `${count} placeholders`),
+      ready: (count: number) => `${count} ready`,
       videosToCheck: (count: number) =>
         count === 1 ? "a video needs a look" : `${count} videos need a look`,
       noPlan: "no plan yet",
@@ -2330,9 +2347,9 @@ export const en: Strings = {
       next: (action: string) => `Next: ${action}`,
       actions: {
         saveScript: "save the script",
-        saveSpec: "save the spec",
-        validateSpec: "validate the spec",
-        fixSpec: "fix the spec",
+        saveSpec: "save the specification",
+        validateSpec: "validate the specification",
+        fixSpec: "fix the specification",
         planMedia: "plan the media",
         finishMedia: "finish the media",
         checkVideos: "look at the scene videos",

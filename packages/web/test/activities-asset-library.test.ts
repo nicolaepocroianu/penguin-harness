@@ -63,6 +63,23 @@ describe("the asset library", () => {
     expect(entries[0]!.sceneIds).toEqual(["intro"]);
   });
 
+  it("tells a placeholder the server names from a file the checkout supplied", () => {
+    const blank = "media/loom/words/words-1/videos/english/empty.mp4";
+    const video = (key: string, path: string): MediaAsset => ({
+      key,
+      type: "video",
+      description: key,
+      path,
+      usages: [],
+    });
+    // The name alone decides nothing: only the paths the server lists are placeholders.
+    const entries = plannedEntries(
+      [video("intro", blank), video("outro", "media/loom/words/words-2/videos/english/empty.mp4")],
+      new Set([blank]),
+    );
+    expect(entries.map((entry) => entry.source)).toEqual(["placeholder", "checkout"]);
+  });
+
   it("names the assets each upload is bound to", () => {
     const files = uploadEntries(
       [

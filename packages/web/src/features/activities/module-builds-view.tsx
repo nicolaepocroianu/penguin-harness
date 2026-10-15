@@ -146,13 +146,13 @@ export function ModuleBuildsView({
   return (
     <section className="space-y-3" aria-labelledby="activity-builds-title">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id="activity-builds-title" className="flex items-center gap-2 text-sm font-semibold">
+        <h4 id="activity-builds-title" className="flex items-center gap-2 text-sm font-semibold">
           {words.title}
           <InfoPopover label={words.title}>
             <p>{words.about}</p>
             <p>{words.aboutPin}</p>
           </InfoPopover>
-        </h3>
+        </h4>
         {rows.length > 1 && (
           <Button
             size="sm"
@@ -315,7 +315,7 @@ function BuildCompare({
       aria-labelledby="activity-build-compare-title"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4
+        <h5
           id="activity-build-compare-title"
           className="flex items-center gap-2 text-sm font-semibold"
         >
@@ -323,7 +323,7 @@ function BuildCompare({
           <InfoPopover label={words.compareTitle(from, to)}>
             <p>{words.compareAbout(from, to)}</p>
           </InfoPopover>
-        </h4>
+        </h5>
         <Button size="sm" variant="ghost" onClick={onClose}>
           {words.closeCompare}
         </Button>

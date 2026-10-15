@@ -118,7 +118,7 @@ export function AssessmentItemsEditor({
               </label>
               <ul className="space-y-1">
                 {item.choices.map((choice, position) => (
-                  <li key={position} className="flex items-center gap-2">
+                  <li key={position} className="group flex items-center gap-2">
                     <input
                       type={item.interaction === "SIMPLE_CHOICE" ? "radio" : "checkbox"}
                       name={`assessment-item-${index}-correct`}
@@ -150,15 +150,21 @@ export function AssessmentItemsEditor({
                       }}
                     />
                     {editable && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        aria-label={words.removeChoiceOf(position + 1)}
-                        disabled={locked || !canRemoveChoice(item)}
-                        onClick={() => change(index, (current) => removeChoice(current, choice.id))}
-                      >
-                        {words.removeChoice}
-                      </Button>
+                      // One Remove per choice would repeat down every item, so it shows on the
+                      // choice the pointer or the keyboard is on; a phone, with no hover, keeps it.
+                      <span className="transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100 sm:opacity-0">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={words.removeChoiceOf(position + 1)}
+                          disabled={locked || !canRemoveChoice(item)}
+                          onClick={() =>
+                            change(index, (current) => removeChoice(current, choice.id))
+                          }
+                        >
+                          {words.removeChoice}
+                        </Button>
+                      </span>
                     )}
                   </li>
                 ))}
