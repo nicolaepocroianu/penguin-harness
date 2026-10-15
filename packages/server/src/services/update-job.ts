@@ -10,7 +10,9 @@
  * script path) before importing this server, and the job re-runs that script as
  * `node <entry> update --yes` — the CLI's update command owns all install-kind detection,
  * download and replacement logic (packages/cli/src/commands/update.ts). A server started
- * any other way (tests, a custom embedding) has no CLI to run and reports "unsupported".
+ * any other way (tests, a custom embedding) has no CLI to run and reports "unsupported". So
+ * does a build whose repository publishes no releases (core's RELEASE_IDENTITY), before any
+ * spawn: there is nothing to update to.
  * SECURITY: the spawned argv is a fixed literal list; nothing from any request flows into
  * the command, its arguments, or its environment.
  *
@@ -32,6 +34,8 @@
  * A platform hot-swap while a run is in flight builds a fresh service that knows nothing of
  * it; the child finishes on its own and only its status is lost. Rare enough to accept.
  */
+import { RELEASE_IDENTITY } from "@prismshadow/penguin-core";
+import type { ReleaseIdentity } from "@prismshadow/penguin-core";
 import { Component, Interface } from "@prismshadow/penguin-core/kernel";
 import { spawn } from "node:child_process";
 import type { UpdateJobPhase, UpdateJobStatus, UpdateRunResponse } from "../api/types.js";
@@ -52,6 +56,7 @@ const REFUSAL_MARKERS = [
   "could not be identified", // npmUnknownManager
   "does not run on Windows", // windowsUnsupported
   "cannot run your package manager for you", // windowsGlobalInstall
+  "which publishes no releases", // noReleases
 ];
 
 /**
@@ -164,6 +169,8 @@ export class UpdateJobService implements UpdateJob {
 
   /** The spawn a run goes through; a replacement supplies its own. */
   private readonly runner: UpdateRunner = spawnUpdateRunner;
+  /** Whether this build's repository publishes releases at all; a test wires its own. */
+  private readonly identity: ReleaseIdentity = RELEASE_IDENTITY;
 
   /** The job as it stands (idle / running with progress / done with its result). */
   status(): UpdateJobStatus {
@@ -171,28 +178,15 @@ export class UpdateJobService implements UpdateJob {
   }
 
   /**
-   * Starts a run unless one is in flight (then it is simply joined). `cliEntry` null — no
-   * CLI to run — ends at once as `unsupported`, the same answer the old blocking route
-   * gave, so the page renders the reason rather than a run that never moves.
+   * Starts a run unless one is in flight (then it is simply joined). A repository that
+   * publishes no releases, or `cliEntry` null — no CLI to run — ends at once as
+   * `unsupported`, the same answer the old blocking route gave, so the page renders the
+   * reason rather than a run that never moves.
    */
   start(cliEntry: string | null, targetVersion: string | null): UpdateJobStatus {
     if (this.current.state === "running") return this.current;
-    if (cliEntry === null) {
-      this.current = {
-        state: "done",
-        targetVersion,
-        output: "",
-        result: {
-          status: "unsupported",
-          reason: "not_launched_via_cli",
-          output: "",
-          needsRestart: false,
-        },
-        startedAt: new Date().toISOString(),
-        finishedAt: new Date().toISOString(),
-      };
-      return this.current;
-    }
+    if (!this.identity.publishesReleases) return this.refuse("fork", targetVersion);
+    if (cliEntry === null) return this.refuse("not_launched_via_cli", targetVersion);
     this.progress = INITIAL_PROGRESS;
     this.current = {
       state: "running",
@@ -203,6 +197,22 @@ export class UpdateJobService implements UpdateJob {
       startedAt: new Date().toISOString(),
     };
     void this.runner(cliEntry, (chunk) => this.absorb(chunk)).then((exit) => this.finish(exit));
+    return this.current;
+  }
+
+  /** Ends at once as `unsupported` without running anything. */
+  private refuse(
+    reason: NonNullable<UpdateRunResponse["reason"]>,
+    targetVersion: string | null,
+  ): UpdateJobStatus {
+    this.current = {
+      state: "done",
+      targetVersion,
+      output: "",
+      result: { status: "unsupported", reason, output: "", needsRestart: false },
+      startedAt: new Date().toISOString(),
+      finishedAt: new Date().toISOString(),
+    };
     return this.current;
   }
 

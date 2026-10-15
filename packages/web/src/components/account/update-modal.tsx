@@ -14,10 +14,12 @@
  * The flow and the actions live in `use-update-flow.ts`; this file only renders.
  */
 import type { ReactNode } from "react";
+import { RELEASE_IDENTITY } from "@prismshadow/penguin-core/release-identity";
 import { S } from "../../lib/strings";
 import { stripAnsi } from "../../lib/strip-ansi";
 import { toneInk } from "../../lib/tone";
-import type { UpdateFlow, UpdateMode } from "../../lib/update-flow";
+import { releasesPageUrl } from "../../lib/update-flow";
+import type { UpdateFlow, UpdateMode, UpdateUnsupported } from "../../lib/update-flow";
 import {
   checkForUpdates,
   closeUpdateModal,
@@ -28,8 +30,6 @@ import {
 } from "../../lib/use-update-flow";
 import { Button } from "../ui/button";
 import { Modal } from "../ui/modal";
-
-const RELEASES_URL = "https://github.com/Prism-Shadow/penguin-harness/releases";
 
 export function UpdateModal() {
   useUpdateFlowOwner();
@@ -55,15 +55,19 @@ export function UpdateModal() {
 }
 
 function Body({ mode, flow }: { mode: UpdateMode; flow: UpdateFlow }): ReactNode {
+  const releasesPage = releasesPageUrl();
   switch (flow.kind) {
     case "unknown":
     case "checking":
       return <Line spinner>{S.update.checkingBody}</Line>;
     case "disabled":
+      if (releasesPage === null) {
+        return <p className="text-sm">{S.update.noReleases(RELEASE_IDENTITY.repository)}</p>;
+      }
       return (
         <>
           <p className="text-sm">{S.update.checkDisabled}</p>
-          <ReleasesLink href={RELEASES_URL}>{S.update.openReleases}</ReleasesLink>
+          <ReleasesLink href={releasesPage}>{S.update.openReleases}</ReleasesLink>
         </>
       );
     case "up-to-date":
@@ -136,20 +140,32 @@ function Body({ mode, flow }: { mode: UpdateMode; flow: UpdateFlow }): ReactNode
       return (
         <>
           <p className={`text-sm font-medium ${toneInk.attention}`}>
-            {flow.reason.code === "dev"
-              ? S.update.unsupportedDev
-              : flow.reason.code === "linux-not-appimage"
-                ? S.update.unsupportedNonAppImage
-                : flow.reason.code === "not_launched_via_cli"
-                  ? S.update.unsupportedNotViaCli
-                  : S.update.unsupportedCli}
+            {unsupportedText(flow.reason)}
           </p>
           {flow.reason.code === "cli_refused" && flow.reason.detail !== "" && (
             <OutputTail text={flow.reason.detail} />
           )}
-          <ReleasesLink href={RELEASES_URL}>{S.update.openReleases}</ReleasesLink>
+          {releasesPage !== null && (
+            <ReleasesLink href={releasesPage}>{S.update.openReleases}</ReleasesLink>
+          )}
         </>
       );
+  }
+}
+
+/** Why this install cannot update itself, in words. */
+function unsupportedText(reason: UpdateUnsupported): string {
+  switch (reason.code) {
+    case "fork":
+      return S.update.noReleases(RELEASE_IDENTITY.repository);
+    case "dev":
+      return S.update.unsupportedDev;
+    case "linux-not-appimage":
+      return S.update.unsupportedNonAppImage;
+    case "not_launched_via_cli":
+      return S.update.unsupportedNotViaCli;
+    case "cli_refused":
+      return S.update.unsupportedCli;
   }
 }
 

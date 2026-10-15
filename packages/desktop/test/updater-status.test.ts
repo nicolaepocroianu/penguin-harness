@@ -179,6 +179,12 @@ describe("nextUpdateStatus", () => {
     expect(
       nextUpdateStatus(downloaded, { kind: "unsupported", reason: "linux-not-appimage" }),
     ).toEqual({ appVersion: "1.0.0", state: "unsupported", reason: "linux-not-appimage" });
+    // A build whose repository publishes no releases carries its own reason to the page.
+    expect(fold([{ kind: "unsupported", reason: "fork" }])).toEqual({
+      appVersion: "1.0.0",
+      state: "unsupported",
+      reason: "fork",
+    });
   });
 });
 

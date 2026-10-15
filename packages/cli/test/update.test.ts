@@ -2,12 +2,15 @@
  * `penguin update`'s pure pieces: install-kind detection over the three real layouts, package-
  * manager identification for global installs, version normalisation/comparison, the installer
  * argv/env built for each combination of install dir and bundled runtime, and the decision the
- * command makes before it touches anything (planUpdate) plus its confirmation gate.
+ * command makes before it touches anything (planUpdate) plus its confirmation gate, and the
+ * refusal of a build whose repository publishes no releases, before any lookup.
  *
- * No real network and no filesystem mutation — every I/O helper takes its inputs as arguments.
+ * No real network and no filesystem mutation — every I/O helper takes its inputs as arguments,
+ * and the one run of the command itself stands a failing fetch in for the network.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
+import { RELEASE_IDENTITY } from "@prismshadow/penguin-core";
 import {
   buildInstallerInvocation,
   compareVersions,
@@ -29,6 +32,9 @@ import {
   resolveRelease,
 } from "../src/commands/update.js";
 import { getMessages } from "../src/i18n.js";
+
+/** This build's repository on GitHub: every URL the command derives starts here. */
+const GITHUB_REPO = `https://github.com/${RELEASE_IDENTITY.repository}`;
 
 // POSIX-only: the fixtures are POSIX install layouts and detectInstall normalizes through
 // path.* (backslashes on Windows) — where in-place `penguin update` is refused anyway
@@ -171,13 +177,10 @@ describe("normalizeVersion / compareVersions", () => {
 
 describe("installerUrl", () => {
   it("resolves the latest release when no version is pinned", () => {
-    expect(installerUrl()).toBe(
-      "https://github.com/Prism-Shadow/penguin-harness/releases/latest/download/install.sh",
-    );
+    expect(installerUrl()).toBe(`${GITHUB_REPO}/releases/latest/download/install.sh`);
   });
   it("pins a tag, normalising the v prefix", () => {
-    const expected =
-      "https://github.com/Prism-Shadow/penguin-harness/releases/download/v0.1.2/install.sh";
+    const expected = `${GITHUB_REPO}/releases/download/v0.1.2/install.sh`;
     expect(installerUrl("0.1.2")).toBe(expected);
     expect(installerUrl("v0.1.2")).toBe(expected);
   });
@@ -185,7 +188,7 @@ describe("installerUrl", () => {
 
 describe("release source selection", () => {
   const ossOrigin = "https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com";
-  const githubApi = "https://api.github.com/repos/Prism-Shadow/penguin-harness/releases/latest";
+  const githubApi = `https://api.github.com/repos/${RELEASE_IDENTITY.repository}/releases/latest`;
   const manifest = {
     schemaVersion: 1,
     tag: "v0.2.1",
@@ -306,8 +309,8 @@ describe("release source selection", () => {
       },
       {
         source: "github",
-        baseUrl: "https://github.com/Prism-Shadow/penguin-harness/releases/download/v0.2.0",
-        url: "https://github.com/Prism-Shadow/penguin-harness/releases/download/v0.2.0/install.sh",
+        baseUrl: `${GITHUB_REPO}/releases/download/v0.2.0`,
+        url: `${GITHUB_REPO}/releases/download/v0.2.0/install.sh`,
       },
     ]);
   });
@@ -630,6 +633,42 @@ describe("confirmationMode (the gate in front of every upgrade)", () => {
   });
   it("a terminal without --yes gets the interactive prompt", () => {
     expect(confirmationMode(undefined, true)).toBe("prompt");
+  });
+});
+
+describe("a build whose repository publishes no releases", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("refuses every form of `penguin update` before any lookup, naming its repository", async () => {
+    expect(RELEASE_IDENTITY.publishesReleases).toBe(false);
+    const t = getMessages("en");
+    const fetchSpy = vi.fn(async () => {
+      throw new Error("no lookup may run");
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+    const written: string[] = [];
+    vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+      written.push(String(chunk));
+      return true;
+    });
+
+    for (const args of [
+      ["update"],
+      ["update", "--check"],
+      ["update", "--release", "v9.9.9", "-y"],
+    ]) {
+      const program = new Command();
+      registerUpdateCommand(program, t);
+      await program.parseAsync(args, { from: "user" });
+    }
+
+    const refusal = `${t.update.noReleases(RELEASE_IDENTITY.repository)}\n`;
+    expect(written).toEqual([refusal, refusal, refusal]);
+    expect(refusal).toContain(RELEASE_IDENTITY.repository);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
 

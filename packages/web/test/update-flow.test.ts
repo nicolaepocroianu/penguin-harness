@@ -5,7 +5,8 @@
  * The rules pinned here are the ones a user sees: nothing is fetched until they confirm (a
  * check ends in `available`, never `downloading`), a download sent to the background still
  * reports through the row, an installed release waits for an explicit restart — and where the
- * process cannot be restarted from the page, the modal says so instead of pretending.
+ * process cannot be restarted from the page, the modal says so instead of pretending. A build
+ * whose repository publishes no releases links to no Releases page at all.
  */
 import { describe, expect, it } from "vitest";
 import type {
@@ -13,12 +14,14 @@ import type {
   UpdateCheckResponse,
   UpdateJobStatus,
 } from "@prismshadow/penguin-server/api";
+import { RELEASE_IDENTITY } from "@prismshadow/penguin-core/release-identity";
 import {
   NO_LOCAL,
   clientFlow,
   opensWithCheck,
   releaseFlow,
   releaseUrlFor,
+  releasesPageUrl,
   updateModeFor,
   updateRowModel,
   versionBadgeFor,
@@ -174,6 +177,11 @@ describe("releaseFlow (an ordinary server)", () => {
       kind: "unsupported",
       reason: { code: "cli_refused", detail: "runs from a source checkout" },
     });
+    const fork = job({
+      state: "done",
+      result: { status: "unsupported", reason: "fork", output: "", needsRestart: false },
+    });
+    expect(release(check(), fork)).toEqual({ kind: "unsupported", reason: { code: "fork" } });
   });
 });
 
@@ -232,6 +240,30 @@ describe("clientFlow (the desktop shell's own window)", () => {
     expect(clientFlow(shell({ state: "unsupported", reason: "dev" }), NO_LOCAL)).toEqual({
       kind: "unsupported",
       reason: { code: "dev" },
+    });
+    expect(clientFlow(shell({ state: "unsupported", reason: "fork" }), NO_LOCAL)).toEqual({
+      kind: "unsupported",
+      reason: { code: "fork" },
+    });
+  });
+});
+
+describe("release links", () => {
+  it("point at the Releases of a repository that publishes them", () => {
+    const publishing = { repository: "example/penguin-harness", publishesReleases: true };
+    expect(releasesPageUrl(publishing)).toBe("https://github.com/example/penguin-harness/releases");
+    expect(releaseUrlFor("0.3.0", publishing)).toBe(
+      "https://github.com/example/penguin-harness/releases/tag/v0.3.0",
+    );
+  });
+
+  it("this build's repository publishes none, so nothing links to another repository's", () => {
+    expect(RELEASE_IDENTITY.publishesReleases).toBe(false);
+    expect(releasesPageUrl()).toBeNull();
+    expect(releaseUrlFor("0.3.0")).toBeNull();
+    expect(clientFlow(shell({ state: "available", version: "0.3.0" }), NO_LOCAL)).toMatchObject({
+      kind: "available",
+      releaseUrl: null,
     });
   });
 });

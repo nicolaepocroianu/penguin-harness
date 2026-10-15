@@ -63,6 +63,10 @@ describe("clientCheckSettle", () => {
       kind: "unsupported",
       reason: "dev",
     });
+    expect(clientCheckSettle(1, at("unsupported", { seq: 3, reason: "fork" }), 3_000)).toEqual({
+      kind: "unsupported",
+      reason: "fork",
+    });
   });
 
   it("falls back to two poll rounds when either side carries no seq", () => {

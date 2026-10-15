@@ -14,6 +14,7 @@
 import { useEffect, useRef } from "react";
 import { createStore, useStore } from "zustand";
 import type { UpdateJobStatus } from "@prismshadow/penguin-server/api";
+import { RELEASE_IDENTITY } from "@prismshadow/penguin-core/release-identity";
 import * as api from "../api/endpoints";
 import { S } from "./strings";
 import { apiErrorText } from "./api-error";
@@ -247,9 +248,11 @@ export function useUpdateFlowOwner(): void {
           break;
         case "unsupported":
           toastInfo(
-            settle.reason === "linux-not-appimage"
-              ? S.update.unsupportedNonAppImage
-              : S.update.unsupportedDev,
+            settle.reason === "fork"
+              ? S.update.noReleases(RELEASE_IDENTITY.repository)
+              : settle.reason === "linux-not-appimage"
+                ? S.update.unsupportedNonAppImage
+                : S.update.unsupportedDev,
           );
           break;
         default:

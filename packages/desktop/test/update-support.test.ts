@@ -1,20 +1,25 @@
 import { describe, expect, it } from "vitest";
+import { RELEASE_IDENTITY } from "@prismshadow/penguin-core/release-identity";
 import { feedUrlOverride, updateSourceConfig, updateSupport } from "../src/update-support.js";
 
 describe("updateSupport", () => {
+  const releases = { publishesReleases: true };
+
   it("supports packaged macOS and Windows builds", () => {
     for (const platform of ["darwin", "win32"] as const) {
-      expect(updateSupport({ isPackaged: true, platform, env: {} })).toEqual({ supported: true });
+      expect(updateSupport({ ...releases, isPackaged: true, platform, env: {} })).toEqual({
+        supported: true,
+      });
     }
   });
 
   it("supports Linux only when running as an AppImage", () => {
     const env = { APPIMAGE: "/opt/PenguinHarness.AppImage" };
-    expect(updateSupport({ isPackaged: true, platform: "linux", env })).toEqual({
+    expect(updateSupport({ ...releases, isPackaged: true, platform: "linux", env })).toEqual({
       supported: true,
     });
     // A deb install has no APPIMAGE: updating around dpkg would desync the two.
-    expect(updateSupport({ isPackaged: true, platform: "linux", env: {} })).toEqual({
+    expect(updateSupport({ ...releases, isPackaged: true, platform: "linux", env: {} })).toEqual({
       supported: false,
       reason: "linux-not-appimage",
     });
@@ -22,8 +27,40 @@ describe("updateSupport", () => {
 
   it("never updates a dev run, whatever the platform", () => {
     expect(
-      updateSupport({ isPackaged: false, platform: "darwin", env: { APPIMAGE: "/x" } }),
+      updateSupport({
+        ...releases,
+        isPackaged: false,
+        platform: "darwin",
+        env: { APPIMAGE: "/x" },
+      }),
     ).toEqual({ supported: false, reason: "dev" });
+  });
+
+  it("never updates a build whose repository publishes no releases, in any form", () => {
+    const forms = [
+      { isPackaged: true, platform: "win32", env: {} },
+      { isPackaged: true, platform: "darwin", env: {} },
+      { isPackaged: true, platform: "linux", env: { APPIMAGE: "/opt/PenguinHarness.AppImage" } },
+      { isPackaged: true, platform: "linux", env: {} },
+      { isPackaged: false, platform: "darwin", env: {} },
+    ] as const;
+    for (const form of forms) {
+      expect(updateSupport({ ...form, publishesReleases: false })).toEqual({
+        supported: false,
+        reason: "fork",
+      });
+    }
+  });
+
+  it("this build publishes no releases, so its updater stands down", () => {
+    expect(
+      updateSupport({
+        isPackaged: true,
+        platform: "win32",
+        env: {},
+        publishesReleases: RELEASE_IDENTITY.publishesReleases,
+      }),
+    ).toEqual({ supported: false, reason: "fork" });
   });
 });
 

@@ -9,14 +9,23 @@
  * in-memory (success for 1 hour, failure for 10 minutes) so a sidebar that opens on every
  * page load cannot hammer GitHub's unauthenticated rate limit; concurrent requests share
  * one in-flight lookup. `PENGUIN_UPDATE_CHECK=off` disables the lookup entirely (no
- * network call), for air-gapped or privacy-sensitive deployments.
+ * network call), for air-gapped or privacy-sensitive deployments. A build whose repository
+ * publishes no releases (core's RELEASE_IDENTITY) answers the same way: there is nothing it
+ * should be offered, and every release out there is another repository's.
  *
  * The request mirrors the CLI's fetchLatestVersion (packages/cli/src/commands/update.ts):
  * same endpoint, same accept / user-agent header shape, same 15s timeout — the server
  * cannot import the CLI package (the dependency runs the other way), hence the small
  * duplication. fetch and the clock are injectable so tests never touch the network.
  */
-import { BUILD_DATE, VERSION, compareVersions, normalizeVersion } from "@prismshadow/penguin-core";
+import {
+  BUILD_DATE,
+  RELEASE_IDENTITY,
+  VERSION,
+  compareVersions,
+  normalizeVersion,
+} from "@prismshadow/penguin-core";
+import type { ReleaseIdentity } from "@prismshadow/penguin-core";
 import type { UpdateCheckResponse } from "../api/types.js";
 import { Bind, Component, Interface, Use } from "@prismshadow/penguin-core/kernel";
 import type { AppEnv } from "../auth/middleware.js";
@@ -25,11 +34,6 @@ import type { ClassCtx, Opaque } from "@prismshadow/penguin-core/kernel";
 import { versionRoutes } from "../http/routes/version.js";
 import type { Clock, Config, Lifecycle } from "../hmr/capabilities.js";
 import type { UpdateJob } from "./update-job.js";
-
-/** Repository the released artifacts come from (same slug as cli/update.ts's REPO_SLUG). */
-const REPO_SLUG = "Prism-Shadow/penguin-harness";
-/** Releases API endpoint for the newest published release. */
-export const LATEST_RELEASE_API = `https://api.github.com/repos/${REPO_SLUG}/releases/latest`;
 
 /** How long a successful lookup is served from cache. */
 export const SUCCESS_TTL_MS = 60 * 60 * 1000;
@@ -56,6 +60,8 @@ export class UpdateCheckService implements UpdateCheck {
   @Use() private readonly clock!: Clock;
   /** Environment to read PENGUIN_UPDATE_CHECK from; a test wires its own. */
   private env: Record<string, string | undefined> = process.env;
+  /** Where releases come from, and whether there are any; a test wires its own. */
+  private identity: ReleaseIdentity = RELEASE_IDENTITY;
   private cached: { response: UpdateCheckResponse; expiresAt: number } | null = null;
   private inflight: Promise<UpdateCheckResponse> | null = null;
 
@@ -66,12 +72,13 @@ export class UpdateCheckService implements UpdateCheck {
    * exists to shield GitHub's unauthenticated rate limit from *passive* checks fired
    * by every sidebar open, and an explicit user click is rare enough to press through
    * it. Everything else is unchanged: the opt-out stays authoritative (force never
-   * dials out under PENGUIN_UPDATE_CHECK=off), the outcome lands in the same cache
+   * dials out under PENGUIN_UPDATE_CHECK=off, nor for a repository that publishes no
+   * releases), the outcome lands in the same cache
    * (subsequent passive checks reuse it), and concurrent callers — forced or not —
    * still share one in-flight lookup.
    */
   async check(force = false): Promise<UpdateCheckResponse> {
-    if (this.env["PENGUIN_UPDATE_CHECK"] === "off") {
+    if (this.env["PENGUIN_UPDATE_CHECK"] === "off" || !this.identity.publishesReleases) {
       return {
         currentVersion: VERSION,
         buildDate: BUILD_DATE,
@@ -118,9 +125,11 @@ export class UpdateCheckService implements UpdateCheck {
       error,
     });
 
+    // The Releases API endpoint for the newest release this build's repository published.
+    const latestReleaseApi = `https://api.github.com/repos/${this.identity.repository}/releases/latest`;
     let res: Response;
     try {
-      res = await this.http.fetch(LATEST_RELEASE_API, {
+      res = await this.http.fetch(latestReleaseApi, {
         headers: { accept: "application/vnd.github+json", "user-agent": "penguin-server" },
         signal: AbortSignal.timeout(15_000),
       });
