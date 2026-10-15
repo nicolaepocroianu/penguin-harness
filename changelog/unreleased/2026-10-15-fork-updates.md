@@ -3,6 +3,7 @@
 - **Date:** 2026-10-15
 - **Type:** fix
 - **Scope:** `core`, `desktop`, `server`, `cli`, `web`
+- **PR:** [#145](https://github.com/nicolaepocroianu/penguin-harness/pull/145)
 
 The desktop updater, the server's update reminder and self-update, and `penguin update` all followed the releases of `Prism-Shadow/penguin-harness`, so a Waterford install would have been offered, and could have installed, upstream's next release. Core gained a committed `RELEASE_IDENTITY` constant naming the repository a build is made from and whether that repository publishes releases. On this fork it names `nicolaepocroianu/penguin-harness`, which publishes none, and every updater now stands down before any network call.
 
