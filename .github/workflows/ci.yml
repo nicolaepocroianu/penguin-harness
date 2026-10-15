@@ -17,11 +17,30 @@ name: CI
 # branch — a stacked PR, an integration branch — gets no CI until it is retargeted at main
 # (or someone dispatches this workflow by hand). That is the trade: fewer runs over a
 # pull request's life, not a gate on every branch.
+#
+# Load is kept low on purpose (a burst of full runs once got Actions disabled on the fork):
+# - a change that touches only docs, changelog entries or agent skills runs no CI at all;
+# - a push to main runs the ubuntu jobs only: the same tree already passed the full matrix
+#   as a pull request;
+# - a draft pull request runs the ubuntu jobs only; marking it ready runs macOS, Windows and
+#   the runtimes;
+# - a newer push to the same pull request cancels the run in progress (concurrency below).
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "changelog/**"
+      - ".agents/**"
+      - "docs/**"
+      - "*.md"
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - "changelog/**"
+      - ".agents/**"
+      - "docs/**"
+      - "*.md"
   workflow_dispatch:
 
 concurrency:
@@ -197,6 +216,7 @@ jobs:
   # No format:check and no typecheck (same files, platform-independent results, gated on
   # ubuntu); no live-LLM e2e (ubuntu-only budget).
   test-macos:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     name: test-macos (${{ matrix.shard }})
     runs-on: macos-latest
     # A suite that stops making progress fails here instead of at GitHub's six-hour default.
@@ -242,6 +262,7 @@ jobs:
   # outputs and fixtures byte-identical. No format:check, no typecheck, no e2e — see the
   # macOS note above.
   test-windows:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     name: test-windows (${{ matrix.shard }})
     runs-on: windows-latest
     # A suite that stops making progress fails here instead of at GitHub's six-hour default.
@@ -297,6 +318,7 @@ jobs:
   # ~20s and have nothing to do with the suite they were attached to, which happened to be
   # the longest one in the run.
   installer-windows:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
@@ -339,6 +361,7 @@ jobs:
   # through an installer channel — signed installers stay in desktop-build.yml. Unsigned
   # by design.
   runtime:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     strategy:
       fail-fast: false
       matrix:
@@ -415,7 +438,7 @@ jobs:
           results='${{ join(needs.*.result, ' ') }}'
           echo "upstream results: $results"
           for r in $results; do
-            if [ "$r" != "success" ]; then
+            if [ "$r" != "success" ] && [ "$r" != "skipped" ]; then
               echo "::error::a CI job did not succeed ($results)"
               exit 1
             fi

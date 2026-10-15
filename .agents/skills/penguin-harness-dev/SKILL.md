@@ -39,6 +39,10 @@ bench and every fix made here live only in this repository.
   unsigned here. Do not "fix" that by adding secrets or removing the guards.
 - CI runs on every PR and push here, on ubuntu, macOS and Windows. Merge only when all three are
   green: a change checked on one platform has missed real bugs on the other two.
+- Keep CI load low — a burst of full runs once got Actions disabled on the fork. Open a PR as a
+  draft while you iterate (drafts run the ubuntu jobs only), push fixes in batches rather than one
+  commit at a time, and mark it ready when you want the full macOS/Windows matrix. Pushes to
+  `main` run ubuntu only, and docs-, changelog- or skill-only changes run no CI.
 
 ## Repo shape — read before your first edit
 
