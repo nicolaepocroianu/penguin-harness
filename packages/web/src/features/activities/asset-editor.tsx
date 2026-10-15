@@ -27,6 +27,7 @@ import { MediaComparison } from "./media-comparison";
 import { AudioAssetEditor, AudioViewToggle, type AudioView } from "./audio-asset-editor";
 import { isUploadPath } from "./media-library";
 import { MediaPlayer } from "./media-player";
+import { boundSource } from "./ref-plan";
 import { indexRuns } from "./runs-index";
 import { WaveformPlayer } from "./waveform-player";
 import { MediaTextReview } from "./media-text-review";
@@ -307,6 +308,12 @@ export function AssetEditor({
     if (isUploadPath(asset.path)) return uploadedMedia(asset.path, label);
     if (asset.type === "image" && canPreview)
       return <ImagePreview src={imageUrl} description={asset.description} />;
+    // A checkout file plays from where the player reads it, as New ref plays it.
+    const checkout = boundSource(asset, endpoint);
+    if (checkout && asset.type === "audio")
+      return <WaveformPlayer src={checkout} label={label} autoLoad />;
+    if (checkout && asset.type === "video")
+      return <MediaPlayer kind="video" src={checkout} label={label} preload="metadata" />;
     return (
       <p className="break-words text-xs text-gray-500">
         {S.activities.mediaComparison.noPreview(asset.path)}
@@ -353,6 +360,8 @@ export function AssetEditor({
   const acceptedImage = runs.find((run) => run.runId === asset?.generatedImage?.runId)?.image;
   const uploadSrc = asset?.path ? uploadUrl(asset.path) : "";
   const acceptedSrc = asset?.generatedAudio ? audioUrl(asset.generatedAudio.runId) : "";
+  // A checkout file plays from where the player reads it, as New ref plays it.
+  const boundSrc = asset ? boundSource(asset, endpoint) : null;
   // Where the bound file plays from, which is where its details are read.
   const detailsSrc = !asset?.path
     ? null
@@ -637,9 +646,21 @@ export function AssetEditor({
                   src={`${endpoint}/media-upload?path=${encodeURIComponent(asset.path!)}`}
                   label={asset.key}
                 />
+              ) : asset.type === "video" && boundSrc ? (
+                <MediaPlayer kind="video" src={boundSrc} label={asset.key} preload="metadata" />
               ) : (
-                <p className="text-xs text-gray-500">{S.activities.noInAppPreview}</p>
+                asset.path && <p className="text-xs text-gray-500">{S.activities.noInAppPreview}</p>
               ))}
+            {(asset.type === "video" || asset.type === "animation") &&
+              bindingOf(placeholders, asset.path) === "placeholder" && (
+                <p className={`text-xs ${toneInk.attention}`}>
+                  {S.activities.mediaPreview.placeholderNote(
+                    asset.type,
+                    group.filter((entry) => entry.key !== asset.key && entry.path === asset.path)
+                      .length,
+                  )}
+                </p>
+              )}
             {asset.type === "video" && details}
             {(asset.type === "video" || asset.type === "animation") && onCompose && (
               <SceneCompositionView
@@ -701,7 +722,17 @@ export function AssetEditor({
                     // The recording's player (here, or the upload's above) moves the playhead.
                     <PhonemeTimelineView asset={asset} seconds={playhead} />
                   ) : (
-                    <p className="text-xs text-gray-500">{S.activities.noInAppPreview}</p>
+                    boundSrc && (
+                      <>
+                        <WaveformPlayer
+                          key={boundSrc}
+                          src={boundSrc}
+                          label={S.activities.bookWords.recording}
+                          onTime={setPlayhead}
+                        />
+                        <PhonemeTimelineView asset={asset} seconds={playhead} />
+                      </>
+                    )
                   )}
                   {asset.generatedAudio && details}
                 </section>

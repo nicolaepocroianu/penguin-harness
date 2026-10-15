@@ -72,7 +72,8 @@ import { conversationThreads, focusFor } from "./conversation";
 import type { ProposalChange } from "./proposal";
 import { ScriptEditor } from "./script-editor";
 import { PipelineControls, PipelinePanel } from "./pipeline-panel";
-import { storyboardFrames, type StoryboardFrame } from "./storyboard";
+import { placeholderAssets, storyboardFrames, type StoryboardFrame } from "./storyboard";
+import { mediaPreview } from "./media-preview";
 import { Storyboard } from "./storyboard-view";
 import { QualityChecksView } from "./quality-checks-view";
 import { TestResultsView } from "./test-results-view";
@@ -1033,13 +1034,27 @@ function ActivityEditor({
     },
     [setSection],
   );
+  const scriptScenes = sceneRanges(description);
   const frames = storyboardFrames(
     fullTree,
-    detail?.draft.mediaPlan?.manifest.assets[language] ?? [],
     runIndex,
     proposal.read?.proposal?.changes ?? [],
     language,
+    {
+      text: description,
+      scenes: scriptScenes,
+      ...(scriptMedia ? { clipFor: scriptMedia.clipFor } : {}),
+    },
   );
+  // What each asset of the shown language looks like where it is listed, read from the file
+  // it plays from. The saved plan's binding, so a path being typed is not fetched per key.
+  const savedAssets = detail?.draft.mediaPlan?.manifest.assets[language];
+  const previewOf = (assetKey: string) =>
+    mediaPreview(
+      savedAssets?.find((asset) => asset.key === assetKey),
+      endpoint,
+      placeholders,
+    );
   const selection =
     selected && treeSelections(tree).some((entry) => sameSelection(entry, selected))
       ? selected
@@ -1484,7 +1499,8 @@ function ActivityEditor({
               </div>
             )}
             <StudioTreeView
-              nodes={buildStudioTree(sections, tree, railTrails, sceneRanges(description))}
+              nodes={buildStudioTree(sections, tree, railTrails, scriptScenes)}
+              previewOf={previewOf}
               section={section}
               selection={section === "scenes" && !board ? selection : null}
               onChoose={(target) => {
@@ -1520,13 +1536,8 @@ function ActivityEditor({
                 .find((scene) => scene.sceneId === sceneId)
                 ?.categories.flatMap((category) => category.assets) ?? []
             }
-            thumbnailUrl={(assetKey) =>
-              `${endpoint}/media-image?${new URLSearchParams({
-                language,
-                assetKey,
-                expectedRevision: draft.revision,
-              })}`
-            }
+            previewOf={previewOf}
+            placeholders={placeholderAssets(fullTree)}
             onSelect={setBoardScene}
             onOpen={(sceneId, key) => {
               setKind("all");
@@ -1851,6 +1862,9 @@ function ActivityEditor({
                   <SpeechCoverage
                     assets={withoutBookWords(editedManifest.assets[language] ?? [])}
                     language={language}
+                    endpoint={endpoint}
+                    scenes={fullTree}
+                    script={{ text: description, scenes: scriptScenes }}
                     editable={editable}
                     canGenerate={draft.can("draftChange") === null}
                     onSelect={(key) => {
@@ -1985,6 +1999,7 @@ function ActivityEditor({
                     uploadsLoading={uploadsLoading}
                     endpoint={endpoint}
                     placeholders={placeholders}
+                    previewOf={previewOf}
                     onOpen={(key) => {
                       const usage = (editedManifest?.assets[language] ?? []).find(
                         (entry) => entry.key === key,

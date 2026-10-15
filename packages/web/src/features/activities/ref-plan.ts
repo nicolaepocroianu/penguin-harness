@@ -262,8 +262,9 @@ export function needsGeneration(rows: readonly RefPlanRow[]): boolean {
 }
 
 /**
- * Where an asset's bound file plays from, on the template's endpoint: a generated clip from
- * its run, an upload from the uploads, anything else from the checkout. Null when unbound.
+ * Where an asset's bound file plays from, on the template's endpoint: a generated clip or
+ * picture from its run, an upload from the uploads, anything else from the checkout. Null
+ * when unbound.
  */
 export function boundSource(asset: MediaAsset, endpoint: string): string | null {
   if (!asset.path) return null;
@@ -271,6 +272,8 @@ export function boundSource(asset: MediaAsset, endpoint: string): string | null 
     return `${endpoint}/runs/${encodeURIComponent(asset.generatedAudio.runId)}/audio`;
   if (asset.generatedVideo)
     return `${endpoint}/runs/${encodeURIComponent(asset.generatedVideo.runId)}/video`;
+  if (asset.generatedImage)
+    return `${endpoint}/runs/${encodeURIComponent(asset.generatedImage.runId)}/image`;
   if (isUploadPath(asset.path))
     return `${endpoint}/media-upload?${new URLSearchParams({ path: asset.path })}`;
   return `${endpoint}/sandbox/media/${asset.path

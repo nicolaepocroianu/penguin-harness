@@ -4,7 +4,8 @@
  * media that still needs a real file, missing or a placeholder (a closed scene carries its
  * children's dot so it is not lost when folded), a section's unsaved edits or validity, how
  * many scenes or narrations it holds, and what a section that cannot open yet is waiting
- * for. Scenes go by the script's titles.
+ * for. Scenes go by the script's titles, and a picture or video row leads with a small
+ * picture of its file.
  *
  * A row with a target opens it; a row that only groups (a scene's "Audio") folds. A
  * branch with a target does both: its name opens it, its chevron folds it, so reaching
@@ -15,6 +16,8 @@ import { Chevron } from "../../components/ui/chevron";
 import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, type Tone } from "../../lib/tone";
+import type { MediaPreview } from "./media-preview";
+import { MediaThumb } from "./media-thumb";
 import type { SceneAssetSelection } from "./scene-asset-tree";
 import {
   isCurrent,
@@ -81,11 +84,14 @@ export function StudioTreeView({
   section,
   selection,
   onChoose,
+  previewOf,
 }: {
   nodes: readonly StudioNode[];
   section: WorkspaceSection;
   selection: SceneAssetSelection | null;
   onChoose: (target: StudioTarget) => void;
+  /** What a picture or video row looks like, drawn small before its name. */
+  previewOf?: (assetKey: string) => MediaPreview;
 }) {
   // Scenes starts open because it is where most of the work is; every other branch
   // starts closed so a thirteen-scene activity still fits the panel.
@@ -164,6 +170,17 @@ export function StudioTreeView({
                 {node.sceneNumber}
               </span>
             )}
+            {previewOf &&
+              node.target?.kind === "asset" &&
+              (node.assetType === "image" || node.assetType === "video") && (
+                <span className="mr-1.5 inline-block h-3.5 w-5 overflow-hidden rounded-sm align-middle">
+                  <MediaThumb
+                    preview={previewOf(node.target.selection.key)}
+                    type={node.assetType}
+                    compact
+                  />
+                </span>
+              )}
             {label}
           </button>
           {node.waitsFor && (

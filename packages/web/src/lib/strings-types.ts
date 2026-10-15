@@ -475,7 +475,7 @@ export type Strings = {
     };
     /** Creating a ref whose number a deleted activity still holds. */
     archivedConflict: string;
-    /** The storyboard: every scene as a frame, the Scenes section's first view. */
+    /** The storyboard: every scene as a card, the Scenes section's first view. */
     studioBoard: {
       title: string;
       count: (n: number) => string;
@@ -488,14 +488,48 @@ export type Strings = {
       previousScene: (scene: string) => string;
       nextScene: (scene: string) => string;
       open: string;
-      scene: (n: number, id: string) => string;
+      /** A scene by its number and its name: the script's title, else its id. */
+      scene: (n: number, name: string) => string;
       shared: string;
       working: string;
       proposed: string;
       unbound: (n: number) => string;
+      /** A scene's assets bound only to the placeholder. */
+      placeholders: (n: number) => string;
       assets: (n: number) => string;
       noAssets: string;
       empty: string;
+      /** The beats a card does not show. */
+      more: (n: number) => string;
+      /** A scene the script says nothing for. */
+      noBeats: string;
+      /** After a beat whose clip is bound only to the placeholder. */
+      beatPlaceholder: string;
+      /** The board's one notice about placeholders, its explanation and its action. */
+      placeholderNotice: (n: number) => string;
+      placeholderNoticeBody: string;
+      reviewPlaceholders: string;
+    };
+    /** An asset's picture where it is listed (Storyboard, Library, the scene tree). */
+    mediaPreview: {
+      /** Said on the picture of a video bound only to the placeholder. */
+      placeholder: string;
+      /** Under the asset editor's player, for a video or animation bound to the placeholder. */
+      placeholderNote: (type: "video" | "animation", others: number) => string;
+    };
+    /** Narration played where it is listed: one line, or a scene's lines one after another. */
+    clipPlayback: {
+      /** A line's play button, by its words; null when the line has none. */
+      play: (line: string | null) => string;
+      stop: (line: string | null) => string;
+      /** A scene's button: the visible word, and the name that says which scene. */
+      playSceneShort: string;
+      stopSceneShort: string;
+      playScene: (scene: string) => string;
+      stopScene: (scene: string) => string;
+      lines: (n: number) => string;
+      /** A line whose file the browser could not play. */
+      failed: string;
     };
     /** The Deploy section: whether a deploy of this activity could start, and what is missing. */
     deploy: {

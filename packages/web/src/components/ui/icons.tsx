@@ -172,6 +172,12 @@ export const INFO_ICON = "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5m0-8h.01"
 export const QUOTE_ICON =
   "M9.5 6.5C7 7.5 5.5 9.5 5.5 12.5v4h5v-5h-3c0-1.8.9-3.1 2.6-3.8zM19.5 6.5c-2.5 1-4 3-4 6v4h5v-5h-3c0-1.8.9-3.1 2.6-3.8z";
 
+/** A triangle pointing on, drawn filled: a clip that can be heard from where it is listed. */
+export const PLAY_ICON = "M7 4l13 8-13 8z";
+
+/** Two upright bars: the clip sounding now, which another press stops. */
+export const PAUSE_ICON = "M8 5v14M16 5v14";
+
 /** A pane with an arrow leaving it: this opens somewhere outside the app, in a tab of its own. */
 export const EXTERNAL_LINK_ICON =
   "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3";

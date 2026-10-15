@@ -55,6 +55,8 @@ export interface StudioNode {
   sceneId?: string;
   /** The scene's number in the script, shown before its title. */
   sceneNumber?: number;
+  /** An asset row's kind of media, which decides whether it shows a picture. */
+  assetType?: SceneAssetType;
   children: StudioNode[];
 }
 
@@ -151,7 +153,13 @@ export function scriptSceneFor(
 
 function assetRow(
   sceneId: string,
-  asset: { key: string; bound: boolean; placeholder?: boolean; word?: string },
+  asset: {
+    key: string;
+    type: SceneAssetType;
+    bound: boolean;
+    placeholder?: boolean;
+    word?: string;
+  },
 ): StudioNode {
   return {
     id: `asset:${sceneId}:${asset.key}`,
@@ -159,6 +167,7 @@ function assetRow(
     target: { kind: "asset", selection: { sceneId, key: asset.key } },
     disabled: false,
     mark: assetMark(asset),
+    assetType: asset.type,
     children: [],
   };
 }
