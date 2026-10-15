@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isReservedEnvKey, validateAgentEnvEntry } from "../src/env.js";
+import { isReservedEnvKey, sandboxedAgentEnv, validateAgentEnvEntry } from "../src/env.js";
 import { parseDefinition } from "../src/types.js";
 
 describe("agent env rules", () => {
@@ -17,6 +17,21 @@ describe("agent env rules", () => {
     for (const key of ["GEMINI_API_KEY", "COPILOT_GITHUB_TOKEN", "PATHS", "MY_PENGUIN"]) {
       expect(isReservedEnvKey(key)).toBe(false);
     }
+  });
+
+  it("hands an agent none of the host's harness-control variables", () => {
+    // Whatever the host's own environment holds, an agent gets only the allow-listed
+    // plumbing: the API address and the token, which carries the admin's authority, stay out.
+    const env = sandboxedAgentEnv(
+      { NO_BROWSER: "1" },
+      {
+        PATH: "/usr/bin",
+        PENGUIN_API_URL: "http://127.0.0.1:7364",
+        PENGUIN_API_TOKEN: "admin-token",
+        PENGUIN_SESSION_ID: "s",
+      },
+    );
+    expect(env).toEqual({ PATH: "/usr/bin", NO_BROWSER: "1" });
   });
 
   it("names what is wrong with a key or value", () => {

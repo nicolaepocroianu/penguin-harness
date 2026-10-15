@@ -14,7 +14,7 @@ The CLI is a thin client of the server. Every session-facing command (`run`, `ch
 A CLI that talks to the server on the local machine needs no login. The CLI picks its server in this order, and the first match wins:
 
 1. `--server <url>`: an explicit target.
-2. `PENGUIN_API_URL`: the same, from the environment. Server-driven sessions inject it into every tool subprocess, together with `PENGUIN_API_TOKEN`, `PENGUIN_PROJECT_ID`, `PENGUIN_AGENT_ID` and `PENGUIN_SESSION_ID`, so an agent's own `penguin` calls reach the server that runs them.
+2. `PENGUIN_API_URL`: the same, from the environment. Server-driven sessions inject it into every tool subprocess, together with `PENGUIN_API_TOKEN`, `PENGUIN_PROJECT_ID`, `PENGUIN_AGENT_ID` and `PENGUIN_SESSION_ID`, so an agent's own `penguin` calls reach the server that runs them. A session working in an activity run's folder gets neither the address nor the token.
 3. A live `server.lock` at the data root (`PENGUIN_HOME`, else `~/.penguin/data`): the CLI attaches to the running local server.
 4. Auto-start: the CLI spawns a detached local server on an ephemeral port, waits for it and attaches. The server's output goes to `<root>/logs/server-auto-<date>.log`. If two CLIs race, the losing spawn exits and both attach to the winner.
 

@@ -2,12 +2,14 @@
  * An activity run's own agent works confined to the run's workspace: the WAF checkout is
  * read-only to its commands by enforcement, not by the prompt's word. Where nothing can
  * confine them the run is refused before it starts. A coding agent runs its commands
- * itself, outside Penguin's sandbox, so it is neither confined nor refused.
+ * itself, outside Penguin's sandbox, so it is neither confined nor refused. Confined or not,
+ * a run's agent is not handed the API token or the `penguin` CLI.
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivityDetail, ActivityDraft } from "../src/activities/domain.js";
+import type { ActivityRuns } from "../src/activities/run-store.js";
 import type { SessionEnv } from "../src/runtime/session-manager.js";
 import { SandboxService } from "../src/sandbox/service.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser, type TestApp } from "./helpers.js";
@@ -78,6 +80,36 @@ describe("activity runs and the sandbox", () => {
       npm_config_cache: path.join("/runs/r1", ".npm-cache"),
     });
     expect(env.controlEnv(session)).not.toHaveProperty("npm_config_cache");
+  });
+
+  it("gives a run's Session no way to drive the server, and an ordinary Session its usual one", async () => {
+    // A CLI entry to point the shim at, so an ordinary Session has one on its PATH.
+    t = await createTestApp({ config: { cliEntry: fileURLToPath(import.meta.url) } });
+    const env = t.deps.tree.api<SessionEnv>("SessionRuntimeModule", "SessionEnv");
+    const runs = t.deps.tree.api<ActivityRuns>("ActivitiesModule", "ActivityRuns");
+    const coordinates = { projectId: "p", agentId: "a", sessionId: "s" };
+    const ordinary = { ...coordinates, workspaceDir: path.join(t.root, "workspaces", "w1") };
+    // The run's own Session, and a subagent working in a folder of the run's.
+    const run = { ...coordinates, workspaceDir: runs.workspace("run_1") };
+    const nested = { ...coordinates, workspaceDir: path.join(runs.workspace("run_1"), "module") };
+
+    expect(env.controlEnv(ordinary)).toMatchObject({
+      PENGUIN_API_URL: expect.stringContaining(`:${t.deps.config.port}`),
+      PENGUIN_API_TOKEN: t.deps.authService.localApiToken(),
+      PENGUIN_SESSION_ID: "s",
+    });
+    expect(env.pathPrepend(ordinary)).toEqual([path.join(t.root, "bin")]);
+    for (const session of [run, nested]) {
+      const confined = { ...session, sandboxMode: "workspace-write" as const };
+      for (const ctx of [session, confined]) {
+        const vars = env.controlEnv(ctx);
+        expect(vars).not.toHaveProperty("PENGUIN_API_URL");
+        expect(vars).not.toHaveProperty("PENGUIN_API_TOKEN");
+        // Only the means to reach the server are withheld; the Session's coordinates stay.
+        expect(vars).toMatchObject({ PENGUIN_PROJECT_ID: "p", PENGUIN_SESSION_ID: "s" });
+        expect(env.pathPrepend(ctx)).toEqual([]);
+      }
+    }
   });
 
   it("starts a coding agent's run without a sandbox, and does not hand it a floor", async () => {

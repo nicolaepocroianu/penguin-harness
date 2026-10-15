@@ -2757,14 +2757,17 @@ export const en: Strings = {
         "The checkouts activities are authored, played and deployed from: the framework, the navigation bar, media and activity data, plus one repository per product's module. Penguin clones them into its own data folder and installs what the framework and navigation bar build with, by itself when the server starts and they are not there yet; Prepare does it again, for instance after a failure. Media is cloned partially, and a product's media is fetched only when it is needed. git uses this server's own SSH keys. To use a checkout you already have instead, enter its folder below; Penguin then only reads it.",
       confineAgents: "Confine activity agents",
       confineAgentsInfo:
-        "While this is on, an activity run's agent can change files only in that run's own folder: its commands and its file tools both. The WAF checkout and everything else on this machine stay read-only to it. Agents can still read anywhere. Turn it off only if you trust what your activity agents do. Runs already going keep the setting they started with.",
-      confineAgentsReady: "Activity agents run confined.",
+        "While this is on, a Penguin agent in an activity run can change files only in that run's own folder: its commands and its file tools both. It cannot change the WAF checkout or anything else on this machine. Only writing is confined: the agent can still read every file this server can, Penguin's data folder and the secrets in it included, and it can still reach the network. A run on a coding agent is not confined: the coding agent runs its own commands, outside Penguin's sandbox. Turn it off only if you trust what your activity agents do. Runs already going keep the setting they started with.",
+      confineAgentsReady:
+        "Penguin agents in activity runs are confined: they can change files only in their run's folder.",
       confineAgentsOff:
         "Activity agents are not confined. They can change any file this server can.",
       confineAgentsUnavailable:
-        "No sandbox is available, so activity runs will not start. Install the sandbox plugin, or turn this off.",
+        "No sandbox is available, so activity runs on a Penguin agent will not start. Install the sandbox plugin, or turn this off.",
       confineAgentsSaved: (on) =>
-        on ? "Activity agents will run confined." : "Activity agents will not be confined.",
+        on
+          ? "Penguin agents in activity runs will be confined."
+          : "Activity agents will not be confined.",
       confineAgentsLoadFailed: (reason) => `Could not read this setting: ${reason}`,
       ready: "Ready",
       notReady: "Not prepared. Prepare clones what is missing.",
