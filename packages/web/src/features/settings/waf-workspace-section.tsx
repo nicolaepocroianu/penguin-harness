@@ -3,7 +3,9 @@
  * and deployed from — framework, navbar, media and activity data — which Penguin clones and
  * keeps under its data folder, or an existing checkout it only reads. Prepare clones what is
  * missing on the server and takes minutes, so the page asks again every couple of seconds
- * while it runs. Below, the remotes and branches it clones from; nothing is written until Save.
+ * while it runs. At the top, how activity runs work here (confined, and for how long), each saved
+ * the moment it changes. Below, the remotes and branches it clones from; nothing is written until
+ * Save.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { WafWorkspaceSettings, WafWorkspaceStatus } from "@prismshadow/penguin-server/api";
@@ -18,6 +20,7 @@ import { Input } from "../../components/ui/input";
 import { toastError, toastInfo, toastSuccess } from "../../components/ui/toast";
 import { useProject } from "../../state/project";
 import { WorkspaceSelect } from "../chat/workspace-select";
+import { ActivityRunLimitRow } from "./activity-run-limit-row";
 import { ActivitySandboxRow } from "./activity-sandbox-row";
 import { SectionShell } from "./section-shell";
 import {
@@ -158,6 +161,7 @@ export function WafWorkspaceSection() {
       }
     >
       <ActivitySandboxRow />
+      <ActivityRunLimitRow />
       <div aria-live="polite">
         {view !== null && (
           <p

@@ -264,6 +264,12 @@ export interface ServerSettings {
    * the composition routes answer 403. Read per request, so it needs no restart.
    */
   activityVideoExperiment: boolean;
+  /**
+   * How long any activity run may work, in whole minutes, before the server fails it with its
+   * limit named and stops its Session; null (the default) leaves each kind of run its own limit.
+   * Read on every pass over the running runs, so it reaches runs already working, no restart.
+   */
+  activityRunLimitMinutes: number | null;
 }
 
 export interface ServerSettingsResponse {
@@ -278,6 +284,12 @@ export interface ServerSettingsUpdateRequest {
   companyMode?: boolean;
   /** Scene videos experiment switch; see `ServerSettings.activityVideoExperiment`. */
   activityVideoExperiment?: boolean;
+  /**
+   * The activity run time limit; see `ServerSettings.activityRunLimitMinutes`. A whole number
+   * of minutes from 1 to 1440, or null for each kind's own; anything else is 400
+   * `invalid_run_limit` and writes nothing.
+   */
+  activityRunLimitMinutes?: number | null;
   /**
    * New proxy address. Accepted forms: any proxy URL undici's dispatcher takes —
    * `http://`, `https://`, `socks5://` / `socks://`, credentials allowed — or bare

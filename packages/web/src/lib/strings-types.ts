@@ -2353,6 +2353,12 @@ export type Strings = {
       confineAgentsUnavailable: string;
       confineAgentsSaved: (on: boolean) => string;
       confineAgentsLoadFailed: (reason: string) => string;
+      runLimit: string;
+      runLimitInfo: string;
+      /** The pick that leaves every kind of run its own limit. */
+      runLimitDefault: string;
+      /** One limit the picker offers, in whole minutes. */
+      runLimitMinutes: (minutes: number) => string;
       ready: string;
       notReady: string;
       preparing: string;

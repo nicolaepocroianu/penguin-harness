@@ -49,6 +49,7 @@ import { COMPOSITION_LOOK_FILE, COMPOSITION_LOOK_GUIDE, sceneLook } from "../sce
 import { critiqueForAgent } from "../scene-critique.js";
 import { atomicJson } from "../service.js";
 import {
+  DOCUMENT_RUN_MS,
   authoringSkill,
   requireCompleted,
   type RunKindServices,
@@ -272,6 +273,8 @@ export const compositionKind: SessionRunKind<
   runner: "session",
   experimental: true,
   needsScript: true,
+  // It writes a page and its frames; the server records the video from them afterwards.
+  limits: { wallClockMs: DOCUMENT_RUN_MS },
   check: (services, request, activity, projectId) =>
     compositionStage(services, projectId, activity, request.composition),
   record: ({ target }) => ({ composition: target }),

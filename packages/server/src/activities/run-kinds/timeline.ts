@@ -18,7 +18,12 @@ import {
   timelineEditTarget,
   type TimelineEditStage,
 } from "../timeline-edit.js";
-import { requireCompleted, type RunKindServices, type SessionRunKind } from "./contract.js";
+import {
+  DOCUMENT_RUN_MS,
+  requireCompleted,
+  type RunKindServices,
+  type SessionRunKind,
+} from "./contract.js";
 
 /**
  * What a timeline run stages: the timeline the video has (saved, or started from its newest
@@ -68,6 +73,8 @@ export const timelineKind: SessionRunKind<
   runner: "session",
   experimental: true,
   needsScript: true,
+  // It writes the timeline again, one document; the server renders it afterwards.
+  limits: { wallClockMs: DOCUMENT_RUN_MS },
   check: (services, request, activity, projectId) =>
     timelineEditStage(services, projectId, activity, request.timeline),
   record: ({ target }) => ({ timelineEdit: target }),

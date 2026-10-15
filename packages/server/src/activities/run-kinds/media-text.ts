@@ -11,7 +11,7 @@ import {
 } from "../media-text.js";
 import type { RunRequestOf } from "../run-request.js";
 import { atomicJson } from "../service.js";
-import { requireCompleted, type SessionRunKind } from "./contract.js";
+import { MINUTE_MS, requireCompleted, type SessionRunKind } from "./contract.js";
 
 /** What a media text run writes. */
 export const MEDIA_TEXT_OUTPUT = "media-text.json";
@@ -24,6 +24,8 @@ export const mediaTextKind: SessionRunKind<
   run: "media-text",
   runner: "session",
   needsScript: true,
+  // It writes one line of text, at most a few thousand characters, and runs no program.
+  limits: { wallClockMs: 15 * MINUTE_MS },
   check: async (_services, request, activity) => mediaTextTarget(activity, request.mediaText),
   record: (mediaText) => ({ mediaText }),
   async stage({ prepared, workspace }) {
