@@ -3,6 +3,7 @@
 - **Date:** 2026-10-16
 - **Type:** fix
 - **Scope:** `server`, `web`
+- **PR:** [#155](https://github.com/nicolaepocroianu/penguin-harness/pull/155)
 
 A deploy started again after its wait was stopped, timed out or cut short by a restart no longer
 queued a second Jenkins job while the first was still going or had already succeeded: each trigger
