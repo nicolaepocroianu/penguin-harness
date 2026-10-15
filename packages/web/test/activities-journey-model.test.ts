@@ -147,6 +147,9 @@ describe("the journey's six steps", () => {
     // A failure on an earlier specification does not count; it is out of date.
     expect(checks({ tests: { passed: 1, failed: 2, stale: true } }).state).toBe("Out of date");
     expect(checks({ tests: null, quality: null }).state).toBe("Not run");
+    // Without criteria the tests cannot run, so nothing having run is still Not run.
+    expect(checks({ criteria: 0, tests: null, quality: null }).state).toBe("Not run");
+    expect(checks({ criteria: 0, tests: null }).state).toBe("Passed");
     expect(checks({ quality: null }).state).toBe("Partly run");
     expect(checks({ running: true })).toMatchObject({ state: "Running", mark: "busy" });
     expect(checks(null).state).toBe("Not read yet");

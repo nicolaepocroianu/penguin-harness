@@ -196,8 +196,9 @@ function checksState(checks: ChecksFacts | null): StepState {
     return failed(words.checksFailing(failing + (checks.quality?.findings ?? 0)));
   if (checks.quality?.findings) return attention(words.checksFindings(checks.quality.findings));
   if (checks.tests?.stale) return attention(words.checksOutdated);
+  // Tests need criteria to run at all, so without them only quality is due.
   const testsDue = checks.criteria > 0 && !checks.tests;
-  if (testsDue && !checks.quality) return todo(words.checksNotRun);
+  if (!checks.tests && !checks.quality) return todo(words.checksNotRun);
   if (testsDue || !checks.quality) return todo(words.checksPartly);
   return done(words.checksPassed);
 }

@@ -488,7 +488,7 @@ export function ActivityWorkspace({
         {(panels.length > 0 || layoutState) && (
           <nav
             aria-label={S.activities.studioPanels.rail}
-            className="flex w-16 shrink-0 flex-col items-center gap-1 border-l border-gray-200 py-2 dark:border-gray-800"
+            className="flex w-12 shrink-0 flex-col items-center gap-1 border-l border-gray-200 py-2 sm:w-16 dark:border-gray-800"
           >
             {panels.map((entry) => {
               const on = entry.key === panel;
@@ -499,14 +499,14 @@ export function ActivityWorkspace({
                   aria-pressed={on}
                   title={entry.label}
                   onClick={() => choosePanel(entry.key)}
-                  className={`relative grid w-14 place-items-center gap-1 rounded-md py-1.5 ${
+                  className={`relative grid w-10 place-items-center gap-1 rounded-md py-1.5 sm:w-14 ${
                     on
                       ? "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
                       : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
                   }`}
                 >
                   <GlyphIcon d={entry.icon} size={ICON_SIZE.navRow} />
-                  <span className="text-xs leading-none">{entry.label}</span>
+                  <span className="text-xs leading-none max-sm:sr-only">{entry.label}</span>
                   {entry.badge && <ToolBadge badge={entry.badge} />}
                 </button>
               );

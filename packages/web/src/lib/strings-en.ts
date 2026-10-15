@@ -2446,7 +2446,7 @@ export const en: Strings = {
         title: "Before QA",
         summary: (blockers: number, recommendations: number) =>
           [
-            blockers ? `${blockers} ${blockers === 1 ? "blocks" : "block"}` : "",
+            blockers ? `${blockers} ${blockers === 1 ? "blocker" : "blockers"}` : "",
             recommendations ? `${recommendations} recommended` : "",
           ]
             .filter(Boolean)

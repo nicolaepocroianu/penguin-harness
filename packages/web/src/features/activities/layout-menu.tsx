@@ -181,14 +181,14 @@ export function LayoutMenu({
             aria-expanded={open}
             title={words.menu}
             onClick={() => setOpen(!open)}
-            className={`grid w-14 place-items-center gap-1 rounded-md py-1.5 ${
+            className={`grid w-10 place-items-center gap-1 rounded-md py-1.5 sm:w-14 ${
               open
                 ? "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
                 : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
             }`}
           >
             <GlyphIcon d={LAYOUT_ICON} size={ICON_SIZE.navRow} />
-            <span className="text-xs leading-none">{words.menu}</span>
+            <span className="text-xs leading-none max-sm:sr-only">{words.menu}</span>
           </button>
         }
       >

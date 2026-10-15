@@ -99,7 +99,7 @@ export function JourneySteps({
                 <StepMarkIcon mark={step.mark} tone={step.tone} />
                 <span className="grid min-w-0 text-xs leading-tight">
                   <span className="truncate font-medium @max-xl:sr-only">{step.label}</span>
-                  <span className={`truncate @max-5xl:sr-only ${inkOf(step.tone)}`}>
+                  <span className={`truncate @max-3xl:sr-only ${inkOf(step.tone)}`}>
                     {step.state}
                   </span>
                 </span>
