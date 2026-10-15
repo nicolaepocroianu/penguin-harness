@@ -13,6 +13,7 @@ import { validateAssessment } from "../module-overrides.js";
 import type { RunRequestOf } from "../run-request.js";
 import { atomicJson } from "../service.js";
 import {
+  DOCUMENT_RUN_MS,
   RunRefusal,
   authoringSkill,
   hasValidSpec,
@@ -53,6 +54,8 @@ export const assessmentKind: SessionRunKind<
   runner: "session",
   // An assessment is written from the specification.
   needsScript: false,
+  // It writes the hints and the assessment, two documents, and runs no program.
+  limits: { wallClockMs: DOCUMENT_RUN_MS },
   async check(services, request, activity) {
     if (!hasValidSpec(activity))
       throw new HttpError(

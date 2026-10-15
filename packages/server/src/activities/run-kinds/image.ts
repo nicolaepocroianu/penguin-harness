@@ -11,6 +11,7 @@ import {
   type ImageTarget,
 } from "../generated-image.js";
 import { IMAGE_STYLE } from "../media-style.js";
+import { MEDIA_HELPER_TIMEOUT_MS } from "../media-helper-runner.js";
 import type { RunRequestOf } from "../run-request.js";
 import { atomicJson } from "../service.js";
 import { AGENTHUB_VERSION } from "../sound-models.js";
@@ -30,6 +31,10 @@ export const imageKind: SessionRunKind<RunRequestOf<"image">, ImageTarget, Image
   runner: "session",
   mediaAgent: true,
   needsScript: true,
+  // It installs the helper's packages and runs the helper once: the two programs the server
+  // allows MEDIA_HELPER_TIMEOUT_MS each when it runs a speech or sound helper itself, with as
+  // long again for the agent's own turns.
+  limits: { wallClockMs: 4 * MEDIA_HELPER_TIMEOUT_MS },
   check: async (_services, request, activity) => imageTarget(activity, request.image),
   async authorize(services, _image, { projectId, agentId }) {
     if (!(await services.vaultKeys(projectId, agentId)).includes("GEMINI_API_KEY"))

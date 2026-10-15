@@ -17,7 +17,12 @@ import {
   type CritiqueStage,
 } from "../scene-critique.js";
 import type { VideoResult } from "../video-types.js";
-import { requireCompleted, type RunKindServices, type SessionRunKind } from "./contract.js";
+import {
+  DOCUMENT_RUN_MS,
+  requireCompleted,
+  type RunKindServices,
+  type SessionRunKind,
+} from "./contract.js";
 
 /**
  * What a critique run stages: the asset's newest recording (never a finished video), the
@@ -81,6 +86,8 @@ export const critiqueKind: SessionRunKind<RunRequestOf<"critique">, CritiqueStag
   runner: "session",
   experimental: true,
   needsScript: true,
+  // It looks at stills the server took and writes its scores: one document, no program.
+  limits: { wallClockMs: DOCUMENT_RUN_MS },
   check: (services, request, activity, projectId) =>
     critiqueStage(services, projectId, activity, request.critique),
   record: ({ target }) => ({ critique: target }),

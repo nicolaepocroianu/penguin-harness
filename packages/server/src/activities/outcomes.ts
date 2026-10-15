@@ -12,6 +12,7 @@
  *   inputs, and every commit would otherwise be a recipe of its own;
  * - what a run's checks found, read from its record and its folder once, as it ends (a later
  *   change to the folder changes nothing), and which module build a test or quality run judged;
+ * - the limit a run was stopped at, when the server stopped it (`limit.time`);
  * - a later run of the same target superseding an earlier one;
  * - how each part of a draft changed (an accepted candidate, an amendment by a run of another
  *   kind, an edit or a return to an earlier version, by digest and size, never by text), which
@@ -49,6 +50,7 @@ import type {
   OutcomeRun,
   OutcomeRunsQuery,
   OutcomeTally,
+  RunLimit,
   RunRecipe,
   RunStory,
   Witnessed,
@@ -303,7 +305,7 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
     }
     if ((moment.session || moment.server) && row.recipe_id === null && this.opening(run.runId))
       this.started(run, moment);
-    if (run.status !== "running" && row.settled_at === null) this.settled(run);
+    if (run.status !== "running" && row.settled_at === null) this.settled(run, moment.limit);
     if (run.kind === "assist") this.discarded(run);
   }
 
@@ -458,15 +460,21 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
     this.fact(run, "started", run.createdAt, { runtime, ...(prompt ? { prompt } : {}) });
   }
 
-  private settled(run: ActivityRun): void {
+  private settled(run: ActivityRun, limit: RunLimit | undefined): void {
     const at = run.finishedAt ?? run.createdAt;
     const checks = checkMetrics(run, this.runs.workspace(run.runId));
+    const limited = limit ? { [`limit.${limit}`]: 1 } : {};
     this.db
       .prepare(
         "UPDATE activity_run_outcomes SET status = ?, settled_at = ?, metrics_json = ? WHERE run_id = ?",
       )
-      .run(run.status, at, JSON.stringify({ ...this.metrics(run.runId), ...checks }), run.runId);
-    this.fact(run, "settled", at, { status: run.status });
+      .run(
+        run.status,
+        at,
+        JSON.stringify({ ...this.metrics(run.runId), ...checks, ...limited }),
+        run.runId,
+      );
+    this.fact(run, "settled", at, { status: run.status, ...(limit ? { limit } : {}) });
     if (Object.keys(checks).length) this.fact(run, "checks", at, checks);
     const prefixes = JUDGES[run.kind];
     if (prefixes && run.status === "succeeded") this.judged(run, at, checks, prefixes);

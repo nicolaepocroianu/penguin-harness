@@ -105,6 +105,11 @@ One more run of a stage, told what the attempt before it got wrong; stages allow
 stage.
 _Avoid_: Retry, fix-up pass
 
+**Time limit**:
+How long a run may work before the server stops it and it fails; each run kind has its own, which
+an admin may replace with one for every run.
+_Avoid_: Timeout, deadline
+
 ### Modules
 
 **Module**:

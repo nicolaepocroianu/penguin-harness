@@ -167,6 +167,25 @@ interface RunKindBase<Request extends RunRequest, Prepared, Run extends Activity
   readonly accept?: Acceptance<Run>;
 }
 
+/** One minute, the unit a run's limits are reckoned in. */
+export const MINUTE_MS = 60_000;
+
+/**
+ * A run that writes a document or two and runs no program: nothing it does waits on a build, a
+ * player or a provider.
+ */
+export const DOCUMENT_RUN_MS = 30 * MINUTE_MS;
+
+/** How long a run of a kind may work before the engine stops it. */
+export interface RunLimits {
+  /**
+   * From the moment the run opened, staging included. A run still working then fails with its
+   * limit named, and its Session (or the server's work in its place) is stopped as Stop stops it.
+   * An admin's limit, when set, replaces every kind's own.
+   */
+  readonly wallClockMs: number;
+}
+
 /** A kind whose agent works in a Session. */
 export interface SessionRunKind<
   Request extends RunRequest,
@@ -175,6 +194,8 @@ export interface SessionRunKind<
   Staged = void,
 > extends RunKindBase<Request, Prepared, Run> {
   readonly runner: "session";
+  /** How long a run may work; absent, only an admin's limit stops it. */
+  readonly limits?: RunLimits;
   /**
    * Stages the run's workspace. It may record on `run` what it staged (a digest, say): the
    * engine saves the record before the run's Session starts, so the agent never works on a run
@@ -204,7 +225,10 @@ export interface SessionRunKind<
   /** How a failure names what the Session did not write, when not the outputs. */
   readonly missing?: string;
   collect(input: CollectInput<Run>): Promise<Settlement | null>;
-  /** Records on a failed run what the failure was, when its kind keeps that. */
+  /**
+   * Records on a failed run what the failure was, when its kind keeps that: a run its limit
+   * stopped included.
+   */
   failed?(run: Run, error: unknown): void;
 }
 

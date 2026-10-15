@@ -2,8 +2,9 @@
  * Admin server-settings routes (admin only, 403 for non-admins):
  * GET|PUT /api/admin/settings — the server-global settings stored in server_settings:
  * the proxy settings (the "application uses the proxy" and "agent environment uses the
- * proxy" switches and their shared explicit address) and the upload limits (the
- * per-file and per-message attachment caps, in whole MB).
+ * proxy" switches and their shared explicit address), the upload limits (the
+ * per-file and per-message attachment caps, in whole MB) and the activity switches (the
+ * scene-video experiment, and how long an activity run may work).
  * A PUT applies immediately: everything is validated first (a rejected request writes
  * nothing), then the persisted values are written, then the process dispatcher is
  * rebuilt so new outbound connections follow the change without a restart (the agent
@@ -43,6 +44,11 @@ import {
   VIDEO_EXPERIMENT_SETTING,
   readVideoExperiment,
 } from "../../activities/video-experiment.js";
+import {
+  RUN_LIMIT_SETTING,
+  parseRunLimitMinutes,
+  readRunLimitMinutes,
+} from "../../activities/run-limits.js";
 
 /**
  * proxyUrl update value -> stored value: null and empty/whitespace-only clear the
@@ -100,6 +106,7 @@ export function adminSettingsRoutes(deps: AdminSettingsRouteDeps): Hono<AppEnv> 
       activityVideoExperiment: readVideoExperiment(
         deps.serverSettingsRepo.get(VIDEO_EXPERIMENT_SETTING),
       ),
+      activityRunLimitMinutes: readRunLimitMinutes(deps.serverSettingsRepo.get(RUN_LIMIT_SETTING)),
     },
   });
 
@@ -113,6 +120,8 @@ export function adminSettingsRoutes(deps: AdminSettingsRouteDeps): Hono<AppEnv> 
     const proxyForAgent = optionalBoolean(body, "proxyForAgent");
     const companyMode = optionalBoolean(body, "companyMode");
     const videoExperiment = optionalBoolean(body, "activityVideoExperiment");
+    const runLimitProvided = body.activityRunLimitMinutes !== undefined;
+    const runLimit = runLimitProvided ? parseRunLimitMinutes(body.activityRunLimitMinutes) : null;
     const proxyUrlProvided = body.proxyUrl !== undefined;
     const proxyUrl = proxyUrlProvided ? parseProxyUrl(body.proxyUrl) : null;
     const attachmentMaxMb =
@@ -143,6 +152,8 @@ export function adminSettingsRoutes(deps: AdminSettingsRouteDeps): Hono<AppEnv> 
     // Read per request by the activity routes, like company mode: no restart.
     if (videoExperiment !== undefined)
       deps.serverSettingsRepo.set(VIDEO_EXPERIMENT_SETTING, JSON.stringify(videoExperiment));
+    // Read on every pass over the running runs: no restart, and runs already working follow it.
+    if (runLimitProvided) deps.serverSettingsRepo.set(RUN_LIMIT_SETTING, JSON.stringify(runLimit));
     if (proxyForApp !== undefined) deps.serverSettingsRepo.setProxyForApp(proxyForApp);
     if (proxyForAgent !== undefined) deps.serverSettingsRepo.setProxyForAgent(proxyForAgent);
     if (proxyUrlProvided) deps.serverSettingsRepo.setProxyUrl(proxyUrl);

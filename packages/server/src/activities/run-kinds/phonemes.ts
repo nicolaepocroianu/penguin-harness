@@ -13,13 +13,15 @@ import {
 } from "../phonemes-run.js";
 import type { RunRequestOf } from "../run-request.js";
 import { atomicJson } from "../service.js";
-import { requireCompleted, type SessionRunKind } from "./contract.js";
+import { MINUTE_MS, requireCompleted, type SessionRunKind } from "./contract.js";
 
 export const phonemesKind: SessionRunKind<RunRequestOf<"phonemes">, PhonemesTarget, PhonemesRun> = {
   run: "phonemes",
   runner: "session",
   // The words come from the book's plan, not its script.
   needsScript: false,
+  // It writes the sounds of a book's words, one short document, and runs no program.
+  limits: { wallClockMs: 15 * MINUTE_MS },
   check: async (_services, request, activity) => phonemesTarget(activity, request.phonemes),
   record: (phonemes) => ({ phonemes }),
   async stage({ prepared, workspace }) {

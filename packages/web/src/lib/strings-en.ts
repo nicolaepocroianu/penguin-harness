@@ -2769,6 +2769,14 @@ export const en: Strings = {
           ? "Penguin agents in activity runs will be confined."
           : "Activity agents will not be confined.",
       confineAgentsLoadFailed: (reason) => `Could not read this setting: ${reason}`,
+      runLimit: "Run time limit",
+      runLimitInfo:
+        "How long an activity run may work before Penguin stops it and marks it failed, so a run that loops or hangs does not hold its activity, or the Stages, until someone presses Stop. Each kind of run has its own limit, the longest for module builds, which build what they make and check it in the player. A limit picked here replaces them all, for runs already working too.",
+      runLimitDefault: "Each kind's own",
+      runLimitMinutes: (minutes) =>
+        minutes % 60 === 0
+          ? `${minutes / 60} hour${minutes === 60 ? "" : "s"}`
+          : `${minutes} minute${minutes === 1 ? "" : "s"}`,
       ready: "Ready",
       notReady: "Not prepared. Prepare clones what is missing.",
       preparing: "Preparing the workspace. Cloning and installing can take several minutes.",

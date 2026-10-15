@@ -37,6 +37,7 @@ import {
 } from "../spec-prompts.js";
 import { HttpError } from "../../http/errors.js";
 import {
+  DOCUMENT_RUN_MS,
   hasValidSpec,
   requireCompleted,
   type CollectInput,
@@ -133,6 +134,8 @@ export const specKind: SessionRunKind<RunRequestOf<"spec">, { repair?: string },
   run: "spec",
   runner: "session",
   needsScript: true,
+  // A pass writes one specification and runs no program.
+  limits: { wallClockMs: DOCUMENT_RUN_MS },
   check: async (_services, request) => ({ repair: request.repair }),
   record: () => ({}),
   // The pass reads the specification it starts from, or, for a first one, the template.
@@ -158,6 +161,8 @@ export const mediaSpecKind: SessionRunKind<
   runner: "session",
   // The media pass is written from the specification.
   needsScript: false,
+  // Like the first pass, it writes one specification and runs no program.
+  limits: { wallClockMs: DOCUMENT_RUN_MS },
   async check(_services, request, activity) {
     if (!hasValidSpec(activity))
       throw new HttpError(

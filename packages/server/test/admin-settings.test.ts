@@ -11,6 +11,9 @@
  * post-write pair so a one-field PUT cannot create an unsendable configuration — and the same
  * atomicity guarantee the proxy fields have.
  *
+ * So does the activity run time limit: none by default (each kind of run keeps its own), whole
+ * minutes in bounds, null to clear it, and the same atomicity.
+ *
  * The reachability probe rides the same route too: the rule that decides reachable from
  * unreachable, and the endpoint around it. Its fetch is always stubbed — a test that reached a
  * real provider would fail on an offline machine and turn CI into a network monitor.
@@ -29,6 +32,7 @@ import {
   MAX_ATTACHMENT_MB,
   MIN_ATTACHMENT_MB,
 } from "../src/services/attachment-limits.js";
+import { RUN_LIMIT_MAX_MINUTES, RUN_LIMIT_MIN_MINUTES } from "../src/activities/run-limits.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser } from "./helpers.js";
 import type { TestApp } from "./helpers.js";
 
@@ -297,6 +301,34 @@ describe("admin server settings", () => {
     const { settings } = await getSettings();
     expect(settings.proxyForApp).toBe(true);
     expect(settings.attachmentMaxMb).toBe(DEFAULT_ATTACHMENT_MAX_MB);
+  });
+
+  it("run time limit: none by default, whole minutes in bounds, and null clears it", async () => {
+    expect((await getSettings()).settings.activityRunLimitMinutes).toBeNull();
+    for (const minutes of [RUN_LIMIT_MIN_MINUTES, RUN_LIMIT_MAX_MINUTES, 90]) {
+      const res = await admin.put("/api/admin/settings", { activityRunLimitMinutes: minutes });
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as ServerSettingsResponse).settings.activityRunLimitMinutes).toBe(
+        minutes,
+      );
+    }
+    for (const bad of [RUN_LIMIT_MIN_MINUTES - 1, RUN_LIMIT_MAX_MINUTES + 1, 2.5, "90", true]) {
+      // A refused limit writes nothing, the good field beside it included.
+      const res = await admin.put("/api/admin/settings", {
+        companyMode: true,
+        activityRunLimitMinutes: bad,
+      });
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({ error: { code: "invalid_run_limit" } });
+    }
+    expect((await getSettings()).settings).toMatchObject({
+      companyMode: false,
+      activityRunLimitMinutes: 90,
+    });
+    expect((await admin.put("/api/admin/settings", { activityRunLimitMinutes: null })).status).toBe(
+      200,
+    );
+    expect((await getSettings()).settings.activityRunLimitMinutes).toBeNull();
   });
   // —— reachability probe ——
 

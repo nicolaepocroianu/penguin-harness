@@ -24,7 +24,7 @@ import type { Members, ProjectActivityWork, Projects } from "../src/mechanisms/p
 import type { Reassembly } from "../src/hmr/capabilities.js";
 import type { RuntimeSession } from "../src/runtime/session-manager.js";
 import type { SessionRow } from "../src/db/repos/sessions.js";
-import { apiClient, createTestApp, provisionUser, waitFor } from "./helpers.js";
+import { apiClient, createTestApp, loginAdmin, provisionUser, waitFor } from "./helpers.js";
 import { userChannelKey } from "../src/http/routes/events.js";
 import { activitySpec, refMediaDir, savedActivitySpec } from "./activity-fixtures.js";
 import { fakeMp3Encoding, fakeMediaHelper, mp3OfWave, speechWave } from "./audio-fixtures.js";
@@ -36,6 +36,7 @@ import {
   verifyMediaArtifacts,
 } from "../src/activities/waf-module.js";
 import { IMAGE_STYLE, NARRATION_DELIVERY } from "../src/activities/media-style.js";
+import { DOCUMENT_RUN_MS, MINUTE_MS } from "../src/activities/run-kinds/contract.js";
 
 function deferred() {
   let resolve!: () => void;
@@ -59,6 +60,10 @@ describe("activity generation through Harness sessions", () => {
     let complete: () => void = () => {};
     const waiting = new Set<string>();
     const disposed = new Set<string>();
+    /** The Sessions whose task was stopped while it worked. */
+    const aborted = new Set<string>();
+    /** How far `elapse` has moved the server's clock past the real one. */
+    let elapsedMs = 0;
     let output = JSON.stringify(activitySpec);
     let fatal = false;
     const prompts: string[] = [];
@@ -83,6 +88,7 @@ describe("activity generation through Harness sessions", () => {
           else options.signal.addEventListener("abort", () => resolve(), { once: true });
         });
         if (options.signal.aborted) {
+          aborted.add(row.sessionId);
           yield abortEvent();
           return;
         }
@@ -146,7 +152,12 @@ describe("activity generation through Harness sessions", () => {
     });
     // Speech has no Session: the server runs its helper, which this fake stands in for.
     const helper = fakeMediaHelper();
-    const t = await createTestApp({ ...fakeMp3Encoding, mediaHelperPorts: helper.ports });
+    const t = await createTestApp({
+      ...fakeMp3Encoding,
+      mediaHelperPorts: helper.ports,
+      // A run outlives its time limit in no time: `elapse` moves only the server's clock.
+      now: () => new Date(Date.now() + elapsedMs),
+    });
     // Newly created sessions are adopted directly (the loader is only for resumes).
     // Substitute execution at that seam while retaining real creation and indexing.
     const adopt = t.deps.manager.adopt.bind(t.deps.manager);
@@ -478,6 +489,10 @@ describe("activity generation through Harness sessions", () => {
       },
       finish,
       disposed,
+      aborted,
+      elapse: (ms: number) => {
+        elapsedMs += ms;
+      },
       endTask: async (run: ActivityRun) => {
         complete();
         await waitFor(() => t.deps.manager.statusOf(run.sessionId!) === "idle");
@@ -1666,6 +1681,121 @@ describe("activity generation through Harness sessions", () => {
     expect(
       ((await (await f.client.get(f.endpoint)).json()) as ActivityDetail).draft.contentRevision,
     ).toBe(f.draft.contentRevision);
+  });
+
+  describe("a run's time limit", () => {
+    const project = "generator-activities";
+    const message = "The spec run was stopped after 30 minutes, its time limit.";
+
+    it("leaves a run under its limit working, to end as it would have", async () => {
+      const f = await fixture();
+      const run = await f.start();
+      // A specification pass may work half an hour.
+      f.elapse(DOCUMENT_RUN_MS - MINUTE_MS);
+      await f.service.reconcile();
+      expect(await f.service.isRunning(project, f.activity.id, run.runId)).toBe(true);
+      expect(f.aborted.has(run.sessionId!)).toBe(false);
+      expect(await f.finish(run)).toMatchObject({ status: "succeeded", error: null });
+    });
+
+    it("settles a run whose Session finished, however long ago it started", async () => {
+      const f = await fixture();
+      const run = await f.start();
+      await f.endTask(run);
+      f.elapse(DOCUMENT_RUN_MS + MINUTE_MS);
+      await f.service.reconcile();
+      expect((await f.service.run(project, f.activity.id, run.runId)).status).toBe("succeeded");
+    });
+
+    it("fails a run that works past it, names it, stops the Session and records it", async () => {
+      const f = await fixture();
+      const run = await f.start();
+      f.elapse(DOCUMENT_RUN_MS + MINUTE_MS);
+      await f.service.reconcile();
+      expect(await f.service.run(project, f.activity.id, run.runId)).toMatchObject({
+        status: "failed",
+        error: message,
+        candidate: null,
+      });
+      // Stopped the way Stop stops it: the task is aborted, and its Session goes idle.
+      await waitFor(() => f.aborted.has(run.sessionId!));
+      await waitFor(() => f.t.deps.manager.statusOf(run.sessionId!) === "idle");
+      await f.service.reconcile();
+      expect((await f.service.run(project, f.activity.id, run.runId)).status).toBe("failed");
+      // The ledger says the run was stopped at its time limit, and counts it.
+      const outcomes = f.t.deps.tree.api<ActivityOutcomes>("ActivitiesModule", "ActivityOutcomes");
+      const [story] = await outcomes.history(project, f.activity.id, run.runId);
+      expect(story!.facts.find((fact) => fact.fact === "settled")?.detail).toEqual({
+        status: "failed",
+        limit: "time",
+      });
+      const [tally] = await outcomes.tally({ kind: "spec", projectId: project });
+      expect(tally!.metrics).toMatchObject({ failed: 1, "limit.time": 1 });
+      // The draft is as it was.
+      expect(
+        ((await (await f.client.get(f.endpoint)).json()) as ActivityDetail).draft.contentRevision,
+      ).toBe(f.draft.contentRevision);
+    });
+
+    it("follows an admin's limit in place of the kind's own", async () => {
+      const f = await fixture();
+      const admin = apiClient(f.t.app, (await loginAdmin(f.t.app)).cookie);
+      const set = await admin.put("/api/admin/settings", { activityRunLimitMinutes: 60 });
+      expect(set.status, await set.clone().text()).toBe(200);
+      const run = await f.start();
+      f.elapse(DOCUMENT_RUN_MS + MINUTE_MS);
+      await f.service.reconcile();
+      expect(await f.service.isRunning(project, f.activity.id, run.runId)).toBe(true);
+      f.elapse(DOCUMENT_RUN_MS);
+      await f.service.reconcile();
+      expect(await f.service.run(project, f.activity.id, run.runId)).toMatchObject({
+        status: "failed",
+        error: "The spec run was stopped after 60 minutes, its time limit.",
+      });
+      await waitFor(() => f.aborted.has(run.sessionId!));
+    });
+
+    it("ends the Stages there, starting nothing after the run it stopped", async () => {
+      const f = await fixture();
+      const response = await f.client.post(`${f.endpoint}/pipeline`, {
+        agentId: "default_agent",
+      });
+      expect(response.status, await response.clone().text()).toBe(202);
+      const runs = async () =>
+        ((await (await f.client.get(`${f.endpoint}/runs`)).json()) as { runs: ActivityRun[] }).runs;
+      await waitFor(() => f.waiting.size > 0);
+      const run = (await runs()).find(
+        (entry) => entry.kind === "spec" && entry.status === "running",
+      );
+      expect(run?.sessionId).toBeTruthy();
+      f.elapse(DOCUMENT_RUN_MS + MINUTE_MS);
+      await f.service.reconcile();
+      type Pipeline = {
+        status: string;
+        error: string | null;
+        steps: { step: string; status: string; detail: string | null; runIds: string[] }[];
+      };
+      let pipeline: Pipeline | null = null;
+      const deadline = Date.now() + 5000;
+      while (pipeline?.status !== "failed" && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        pipeline = (
+          (await (await f.client.get(`${f.endpoint}/pipeline`)).json()) as {
+            pipeline: Pipeline;
+          }
+        ).pipeline;
+      }
+      expect(pipeline).toMatchObject({ status: "failed", error: message });
+      expect(pipeline!.steps[0]).toMatchObject({
+        step: "spec",
+        status: "failed",
+        detail: message,
+        runIds: [run!.runId],
+      });
+      expect(pipeline!.steps.slice(1).every((step) => step.status === "cancelled")).toBe(true);
+      // No repair round and no later stage started a run.
+      expect((await runs()).map((entry) => entry.runId)).toEqual([run!.runId]);
+    });
   });
 
   it("lists compact summaries and authorizes candidate retrieval by project and activity", async () => {

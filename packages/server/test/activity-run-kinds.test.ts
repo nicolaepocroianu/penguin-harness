@@ -154,6 +154,22 @@ describe("the run a request asks for", () => {
   });
 });
 
+describe("how long a run may work", () => {
+  it("gives every kind whose agent works in a Session a limit, a module build the longest", () => {
+    const limits = new Map(
+      Object.values(RUN_KINDS).flatMap((kind) =>
+        kind.runner === "session" ? [[kind.run, kind.limits?.wallClockMs] as const] : [],
+      ),
+    );
+    for (const [kind, limit] of limits)
+      expect(limit, `the ${kind} kind's limit`).toBeGreaterThan(0);
+    const longest = Math.max(...[...limits.values()].map((limit) => limit ?? 0));
+    expect(limits.get("module")).toBe(longest);
+    // A test run plays the module too, so it may work longer than a document is written in.
+    expect(limits.get("test")).toBeGreaterThan(limits.get("spec")!);
+  });
+});
+
 describe("whether a run may start", () => {
   const owner = { projectId: "kinds-work" };
 
