@@ -42,11 +42,12 @@ function prodRepos(clones: FakeClones, root: string, moduleBuilds: () => number)
 
 /**
  * Two Jenkins servers: each job has no build until it is started, then its newest start as a
- * build that succeeded, numbered on from 9.
+ * build that succeeded (still going while `hold.going` is set), numbered on from 9.
  */
 function fakeJenkins() {
   const calls: Array<{ url: string; method: string; body?: string; auth?: string }> = [];
   const started = new Map<string, { params: URLSearchParams; count: number }>();
+  const hold = { going: false };
   const respond = (status: number, body: unknown = "") => ({
     status,
     headers: { get: () => null },
@@ -79,8 +80,8 @@ function fakeJenkins() {
             {
               number,
               url: `job/${encodeURIComponent(job)}/${number}/`,
-              building: false,
-              result: "SUCCESS",
+              building: hold.going,
+              result: hold.going ? null : "SUCCESS",
               actions: [
                 { parameters: [...build.params].map(([name, value]) => ({ name, value })) },
               ],
@@ -93,7 +94,7 @@ function fakeJenkins() {
     calls.filter(
       (call) => call.url.endsWith("/buildWithParameters") && call.url.includes("Modules"),
     ).length;
-  return { calls, request, moduleBuilds };
+  return { calls, request, moduleBuilds, hold };
 }
 
 const basic = (user: string, token: string) =>
@@ -141,7 +142,9 @@ describe("activity deploy to PROD", () => {
         jenkinsFetch: jenkins.request,
         runProcess: async () => ({ code: 0, tail: "" }),
         now: () => clock.at,
-        sleep: async () => {},
+        sleep: async (ms) => {
+          clock.at += ms;
+        },
       },
       wafWorkspacePorts: { clones },
     });
@@ -434,5 +437,42 @@ describe("activity deploy to PROD", () => {
     expect(after.production.stages.map((stage) => stage.status)).toEqual(["pending", "pending"]);
     expect(after.production.last?.deployedAt).toBe("2026-09-28T09:00:00.000Z");
     expect(events.map((event) => event.target)).toEqual(["qa", "prod", "qa"]);
+  });
+
+  it("deploys to PROD once when it is started again after the wait for it ran out of time", async () => {
+    const { client, endpoint, state, settle, jenkins, events, deployQa } = await setup("admin");
+    await deployQa();
+    const settings = await client.put("/api/admin/activity-deploy/settings", {
+      timeouts: { deployMinutes: 1 },
+    });
+    expect(settings.status).toBe(200);
+    const prodStarts = () =>
+      jenkins.calls.filter(
+        (call) => call.url.startsWith(PROD_JENKINS) && call.url.endsWith("/buildWithParameters"),
+      ).length;
+    const deployProd = async () => {
+      const res = await client.post(`${endpoint}/deploy`, { stage: "prod", confirm: "words" });
+      expect(res.status).toBe(202);
+      await settle();
+      return state();
+    };
+    // PROD's Jenkins takes longer than the wait for it, twice: the second start follows the first.
+    jenkins.hold.going = true;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const timedOut = await deployProd();
+      expect(timedOut.run?.stages.map((stage) => stage.error?.code ?? stage.status)).toEqual([
+        "done",
+        "deploy_timed_out",
+      ]);
+      expect(timedOut.production.stages.map((stage) => stage.status)).toEqual(["done", "failed"]);
+      expect(prodStarts()).toBe(1);
+    }
+    // It finished in Jenkins meanwhile: started again, the deploy is recorded, and nothing new runs.
+    jenkins.hold.going = false;
+    const done = await deployProd();
+    expect(done.run?.status).toBe("succeeded");
+    expect(done.production.last?.url).toBe(`${PROD_JENKINS}/job/WAF%20Activity%20Deploy/9/`);
+    expect(prodStarts()).toBe(1);
+    expect(events.map((event) => event.target)).toEqual(["qa", "prod"]);
   });
 });

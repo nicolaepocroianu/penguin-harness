@@ -766,6 +766,10 @@ export type Strings = {
         jenkins_failed: (status: number) => string;
         build_failed: (result: string) => string;
         no_newer_tag: (before: string | null, after: string | null) => string;
+        /** The build succeeded; no newer tag holds the commit it was started for. */
+        tag_without_commit: (tag: string, commit: string) => string;
+        /** A build with the same parameters is still going; its page when Jenkins gave one. */
+        build_in_flight: (url: string | null) => string;
         build_timed_out: (minutes: number) => string;
         missing_input: (stage: string) => string;
         preflight_failed: (errors: number) => string;
@@ -785,6 +789,11 @@ export type Strings = {
         deploy: string;
         deploying: string;
         started: string;
+        /** Offered first once a PROD deploy was started and the wait for it did not finish. */
+        wait: string;
+        waitStarted: string;
+        /** Why waiting comes first. */
+        waitFirst: string;
         /** Shown in place of Deploy to PROD to an owner who is not an admin. */
         adminOnly: string;
         /** Nothing stands in the way. */

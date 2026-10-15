@@ -9,11 +9,15 @@
  *   prepare_deploy        make the deploy branch from main, carrying that content; write the
  *                         package name and version; compile `res/style.scss` when there is one
  *                         (with the pinned Sass the preview uses too, `module-builder.ts`);
- *                         commit as the configured identity (nothing to commit is not a failure)
- *   trigger_module_build  note the newest release tag and Jenkins build, push main when the
- *                         remote lacks it, push the deploy branch, and start the module build
- *   await_module_build    every 15 seconds, look for a newer release tag than the one noted,
- *                         until one appears, the build fails, or the configured minutes pass
+ *                         commit those files as the configured identity (nothing to commit is
+ *                         not a failure), and name what else changed since verify_module, which
+ *                         stays out
+ *   trigger_module_build  note the newest release tag, Jenkins build and deploy branch commit,
+ *                         push main when the remote lacks it, push the deploy branch, and start
+ *                         the module build
+ *   await_module_build    every 15 seconds, follow that build until it succeeds, fails, or the
+ *                         configured minutes pass; once it succeeded, take the newer release tag
+ *                         that holds the commit it was started for
  *
  * and the QA deploy after it:
  *
@@ -38,6 +42,12 @@
  *                               version
  *   await_production_deploy     follow that deploy as await_activity_deploy follows QA's, and
  *                               record when PROD got it
+ *
+ * A trigger run again after its wait did not finish (stopped, timed out, or cut short by a
+ * restart) starts nothing when what it would start is what it started last and Jenkins still
+ * has that build queued or going, or finished with success: the wait after it follows that
+ * build. Any other build with the same parameters still queued or going fails the trigger, since
+ * a second would run beside it (`startOrFollow`).
  *
  * Everything runs in the WAF workspace's clones. The module and media clones hold authored
  * work, which the stages commit rather than discard; the activity-data clone is the deploy's
@@ -102,6 +112,9 @@ export const BUILD_POLL_MS = 15_000;
 
 /** How long a push may take. */
 export const PUSH_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** How many paths a failure, the metadata or a log line names at most. */
+const PATHS_SHOWN = 20;
 
 /** A release version: plain semver, as the module's tags are. */
 const SEMVER = /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
@@ -402,8 +415,33 @@ async function syncModule(source: string, target: string): Promise<number> {
   return copied;
 }
 
-async function tagsOf(ctx: DeployStageContext): Promise<string | null> {
-  return latestSemver(await cloneOf(ctx, ctx.module.dir).fetchTags());
+/** The plain semver tags newer than `before`, oldest first. */
+function newerTags(
+  tags: readonly string[],
+  before: string | null,
+): Array<{ tag: string; version: string }> {
+  const newer: Array<{ tag: string; version: string }> = [];
+  for (const raw of tags) {
+    const version = plainSemver(raw);
+    if (version && (before === null || compareSemver(version, before) > 0))
+      newer.push({ tag: raw.trim(), version });
+  }
+  return newer.sort((a, b) => compareSemver(a.version, b.version));
+}
+
+/**
+ * The release a module build made of `commit`: the oldest tag newer than `before` that holds it
+ * (a build tags what it built, or a commit it made on top). Null when none does.
+ */
+async function releaseOf(
+  clone: Clone,
+  tags: readonly string[],
+  before: string | null,
+  commit: string,
+): Promise<string | null> {
+  for (const { tag, version } of newerTags(tags, before))
+    if (await clone.tagHolds(tag, commit)) return version;
+  return null;
 }
 
 async function jenkinsCall<T>(call: () => Promise<T>): Promise<T> {
@@ -415,6 +453,42 @@ async function jenkinsCall<T>(call: () => Promise<T>): Promise<T> {
       status: error instanceof JenkinsError ? error.status : 0,
     });
   }
+}
+
+/** Whether a build has yet to finish. */
+function going(status: JenkinsBuildStatus): boolean {
+  return status.state === "queued" || status.state === "building";
+}
+
+/**
+ * What a trigger does before starting its job. `last` is the stage's last start when this one
+ * would start the same thing again (its wait did not finish, and nothing it starts from has
+ * changed). When Jenkins has that start's build, numbered above its floor, queued or going, or
+ * succeeded and `good` (absent: any success), it is followed instead of started again: the
+ * answer carries that start's floor. Otherwise a build of these parameters still queued or
+ * going fails the stage, as a second would run beside it, and the newest build is the floor the
+ * new one is looked for above.
+ */
+async function startOrFollow(
+  ctx: DeployStageContext,
+  job: string,
+  match: Record<string, string>,
+  last: { floor: number | null; good?: () => Promise<boolean> } | null,
+): Promise<{ follow: boolean; floor: number | null }> {
+  if (last) {
+    const status = await jenkinsCall(() => ctx.jenkins.status(job, match, { after: last.floor }));
+    const finishedWell = status.state === "succeeded" && (!last.good || (await last.good()));
+    if (going(status) || finishedWell) {
+      ctx.log(
+        `Jenkins has the build the last start began, ${status.state}${status.url ? ` (${status.url})` : ""}: following it rather than starting another.`,
+      );
+      return { follow: true, floor: last.floor };
+    }
+  }
+  const newest = await jenkinsCall(() => ctx.jenkins.status(job, match));
+  if (going(newest))
+    throw new DeployStageFailure({ code: "build_in_flight", url: newest.url ?? null });
+  return { follow: false, floor: newest.number ?? null };
 }
 
 const verifyModule: DeployStageDefinition = {
@@ -467,16 +541,23 @@ async function onMainCarryingWork(ctx: DeployStageContext, clone: Clone): Promis
   if (workInPlace) ctx.log("No commit yet: the new module's work stays in place.");
 }
 
-/** Writes the package name, and the version when one is given, into package.json and its lock. */
-async function syncPackage(ctx: DeployStageContext): Promise<string | undefined> {
+/**
+ * Writes the package name, and the version when one is given, into package.json and its lock.
+ * Answers the version package.json has, and the files written, relative to the clone.
+ */
+async function syncPackage(
+  ctx: DeployStageContext,
+): Promise<{ version: string | undefined; written: string[] }> {
   const name = modulePackageName(ctx.module.folder);
   const file = path.join(ctx.module.dir, "package.json");
   const pkg = JSON.parse(await fs.readFile(file, "utf8")) as Record<string, unknown>;
   pkg.name = name;
   if (ctx.moduleVersion) pkg.version = ctx.moduleVersion;
   await fs.writeFile(file, `${JSON.stringify(pkg, null, 2)}\n`);
+  const written = ["package.json"];
   const lockFile = path.join(ctx.module.dir, "package-lock.json");
   if (await exists(lockFile)) {
+    written.push("package-lock.json");
     const lock = JSON.parse(await fs.readFile(lockFile, "utf8")) as Record<string, unknown>;
     lock.name = name;
     if (ctx.moduleVersion) lock.version = ctx.moduleVersion;
@@ -487,7 +568,13 @@ async function syncPackage(ctx: DeployStageContext): Promise<string | undefined>
     }
     await fs.writeFile(lockFile, `${JSON.stringify(lock, null, 2)}\n`);
   }
-  return typeof pkg.version === "string" ? pkg.version : undefined;
+  return { version: typeof pkg.version === "string" ? pkg.version : undefined, written };
+}
+
+/** A log line naming at most PATHS_SHOWN of `paths`, and how many more there are. */
+function someOf(paths: readonly string[]): string {
+  const more = paths.length - PATHS_SHOWN;
+  return `${paths.slice(0, PATHS_SHOWN).join(", ")}${more > 0 ? ` and ${more} more` : ""}`;
 }
 
 const prepareDeploy: DeployStageDefinition = {
@@ -499,9 +586,9 @@ const prepareDeploy: DeployStageDefinition = {
     // once per verify (stageBlocker).
     const clone = cloneOf(ctx, ctx.module.dir);
     await clone.branchFrom(branch, BASE_BRANCH);
-    const version = await syncPackage(ctx);
+    const { version, written } = await syncPackage(ctx);
     if (version) ctx.metadata.moduleVersion = version;
-    if (await exists(path.join(ctx.module.dir, "res", "style.scss")))
+    if (await exists(path.join(ctx.module.dir, "res", "style.scss"))) {
       await logged(
         ctx,
         "sass",
@@ -515,12 +602,22 @@ const prepareDeploy: DeployStageDefinition = {
             onOutput,
           }),
       );
-    else ctx.log("No res/style.scss: no stylesheet to compile.");
-    await clone.stage();
+      written.push("res/style.css");
+    } else ctx.log("No res/style.scss: no stylesheet to compile.");
+    // Only what this stage wrote joins what verify_module committed and checked: a file saved
+    // in the clone while the checks ran was never checked, so it stays out of the release.
+    const staged: string[] = [];
+    for (const file of written) if (await clone.changed(file)) staged.push(file);
+    if (staged.length) await clone.stage(staged);
     const commit = await clone.commitStaged(
       identityOf(ctx),
       `Prepare module deploy for ${ctx.productCode}`,
     );
+    const left = await clone.changes();
+    if (left.length)
+      ctx.log(
+        `Left out of the deploy commit, changed since verify_module checked the module: ${someOf(left)}.`,
+      );
     if (!commit) {
       ctx.log("Nothing changed since the branch's last commit: nothing to commit.");
       return;
@@ -530,10 +627,21 @@ const prepareDeploy: DeployStageDefinition = {
 };
 
 /**
- * How a trigger reads the newest build before starting one: past the queue, whose matching
- * item has no number yet — reading it would leave no floor, and an older success could pass.
+ * The module build the last trigger started, when this trigger would start it again: the wait
+ * after it did not finish, and the deploy branch at `commit` holds the same files it was started
+ * for (verify and prepare run again commit the same content anew).
  */
-const BEFORE_TRIGGER = { skipQueue: true } as const;
+async function lastModuleBuild(
+  ctx: DeployStageContext,
+  clone: Clone,
+  commit: string,
+): Promise<{ tag: string | null; floor: number | null; commit: string } | null> {
+  const last = ctx.earlier.trigger_module_build;
+  if (!last?.buildCommit || last.preBuildTag === undefined || ctx.earlier.await_module_build)
+    return null;
+  if (!(await clone.sameContent(last.buildCommit, commit))) return null;
+  return { tag: last.preBuildTag, floor: last.preBuildNumber ?? null, commit: last.buildCommit };
+}
 
 const triggerModuleBuild: DeployStageDefinition = {
   id: "trigger_module_build",
@@ -541,11 +649,30 @@ const triggerModuleBuild: DeployStageDefinition = {
     const branch = deployBranchName(ctx.module.folder);
     const job = ctx.settings.jobs.moduleBuild;
     const params = { Modules: moduleBuildLine(ctx.module.folder) };
-    ctx.metadata.preBuildTag = await tagsOf(ctx);
-    ctx.log(`Newest release tag before the build: ${ctx.metadata.preBuildTag ?? "none"}.`);
-    const before = await jenkinsCall(() => ctx.jenkins.status(job, params, BEFORE_TRIGGER));
-    ctx.metadata.preBuildNumber = before.number ?? null;
     const clone = cloneOf(ctx, ctx.module.dir);
+    const tags = await clone.fetchTags();
+    const commit = await clone.commitOf(branch);
+    const last = await lastModuleBuild(ctx, clone, commit);
+    const start = await startOrFollow(
+      ctx,
+      job,
+      params,
+      last && {
+        floor: last.floor,
+        // One that succeeded is followed only when it released what it was started for.
+        good: async () => (await releaseOf(clone, tags, last.tag, last.commit)) !== null,
+      },
+    );
+    if (start.follow && last) {
+      ctx.metadata.preBuildTag = last.tag;
+      ctx.metadata.preBuildNumber = last.floor;
+      ctx.metadata.buildCommit = last.commit;
+      return;
+    }
+    ctx.metadata.preBuildTag = latestSemver(tags);
+    ctx.log(`Newest release tag before the build: ${ctx.metadata.preBuildTag ?? "none"}.`);
+    ctx.metadata.preBuildNumber = start.floor;
+    ctx.metadata.buildCommit = commit;
     if (!(await clone.remoteHasBranch(BASE_BRANCH))) await clone.push(BASE_BRANCH);
     await clone.push(branch, { lease: true, track: true });
     checkStopped(ctx);
@@ -565,8 +692,13 @@ const awaitModuleBuild: DeployStageDefinition = {
       throw new DeployStageFailure({ code: "missing_input", stage: "trigger_module_build" });
     const before = triggered.preBuildTag;
     const after = triggered.preBuildNumber ?? null;
+    const clone = cloneOf(ctx, ctx.module.dir);
+    // A start recorded before its commit was noted pushed the deploy branch as it still is.
+    const commit =
+      triggered.buildCommit ?? (await clone.commitOf(deployBranchName(ctx.module.folder)));
     ctx.metadata.preBuildTag = before;
     ctx.metadata.preBuildNumber = after;
+    ctx.metadata.buildCommit = commit;
     const job = ctx.settings.jobs.moduleBuild;
     const params = { Modules: moduleBuildLine(ctx.module.folder) };
     const minutes = ctx.settings.timeouts.buildMinutes;
@@ -589,14 +721,23 @@ const awaitModuleBuild: DeployStageDefinition = {
           result: status.result ?? "FAILURE",
           url: status.url ?? null,
         });
-      const latest = await tagsOf(ctx);
-      if (latest && (before === null || compareSemver(latest, before) > 0)) {
-        ctx.metadata.resolvedModuleVersion = latest;
-        ctx.log(`Released as ${latest}.`);
-        return;
+      if (status.state === "succeeded") {
+        // Only this build, once it succeeded, releases the module, and only as a tag that
+        // holds what it built: a tag a leftover or a manual build made is never taken for it.
+        const tags = await clone.fetchTags();
+        const version = await releaseOf(clone, tags, before, commit);
+        if (version) {
+          ctx.metadata.resolvedModuleVersion = version;
+          ctx.log(`Released as ${version}.`);
+          return;
+        }
+        const newest = newerTags(tags, before).at(-1);
+        throw new DeployStageFailure(
+          newest
+            ? { code: "tag_without_commit", tag: newest.tag, commit }
+            : { code: "no_newer_tag", before, after: latestSemver(tags) },
+        );
       }
-      if (status.state === "succeeded")
-        throw new DeployStageFailure({ code: "no_newer_tag", before, after: latest });
       if (ctx.clock.now() >= deadline)
         throw new DeployStageFailure({ code: "build_timed_out", minutes });
       await ctx.clock.sleep(BUILD_POLL_MS, ctx.signal);
@@ -606,9 +747,6 @@ const awaitModuleBuild: DeployStageDefinition = {
 
 /** How often the activity deploy is looked at while waiting for it. */
 export const DEPLOY_POLL_MS = 15_000;
-
-/** How many media paths a failure or the metadata names at most. */
-const PATHS_SHOWN = 20;
 
 function qaOf(ctx: DeployStageContext): DeployQaContext {
   if (!ctx.qa) throw new Error("This run has no activity-data or media clone to work in.");
@@ -817,10 +955,21 @@ const triggerActivityDeploy: DeployStageDefinition = {
     const qa = qaOf(ctx);
     const job = ctx.settings.jobs.activityDeploy;
     const params = activityDeployParams(ctx.productCode, qa.target);
-    const before = await jenkinsCall(() =>
-      ctx.jenkins.status(job, activityDeployMatch(params), BEFORE_TRIGGER),
+    // Run again after its wait did not finish, with no new activity data published since and
+    // the same framework version, the deploy deploys what the last one did.
+    const last = ctx.earlier.trigger_activity_deploy;
+    const repeat =
+      last?.preDeployNumber !== undefined &&
+      !ctx.earlier.await_activity_deploy &&
+      last.qaFrameworkVersion === qa.target.frameworkVersion &&
+      ctx.metadata.activityDataCommit === undefined;
+    const start = await startOrFollow(
+      ctx,
+      job,
+      activityDeployMatch(params),
+      repeat ? { floor: last.preDeployNumber ?? null } : null,
     );
-    ctx.metadata.preDeployNumber = before.number ?? null;
+    ctx.metadata.preDeployNumber = start.floor;
     ctx.metadata.qaFrameworkVersion = qa.target.frameworkVersion;
     ctx.metadata.qaActivityUrl = qaActivityUrl(
       qa.target.activityBaseUrl,
@@ -828,6 +977,7 @@ const triggerActivityDeploy: DeployStageDefinition = {
       qa.refNum,
       qa.target.frameworkVersion,
     );
+    if (start.follow) return;
     checkStopped(ctx);
     ctx.log(`Starting Jenkins job "${job}" with ${new URLSearchParams(params).toString()}.`);
     const { queueUrl } = await jenkinsCall(() => ctx.jenkins.trigger(job, params));
@@ -960,11 +1110,22 @@ const triggerProductionDeploy: DeployStageDefinition = {
     if (qa.moduleRunId) ctx.metadata.moduleRunId = qa.moduleRunId;
     const job = ctx.settings.jobs.activityDeploy;
     const params = activityDeployParams(ctx.productCode, prod.target);
-    const before = await jenkinsCall(() =>
-      ctx.jenkins.status(job, activityDeployMatch(params), BEFORE_TRIGGER),
+    // Run again after its wait did not finish, with the same framework version, the deploy
+    // deploys what the last one did: a QA stage run since would have set this one back.
+    const last = ctx.earlier.trigger_production_deploy;
+    const repeat =
+      last?.preProductionDeployNumber !== undefined &&
+      !ctx.earlier.await_production_deploy &&
+      last.prodFrameworkVersion === prod.target.frameworkVersion;
+    const start = await startOrFollow(
+      ctx,
+      job,
+      activityDeployMatch(params),
+      repeat ? { floor: last.preProductionDeployNumber ?? null } : null,
     );
-    ctx.metadata.preProductionDeployNumber = before.number ?? null;
+    ctx.metadata.preProductionDeployNumber = start.floor;
     ctx.metadata.prodFrameworkVersion = prod.target.frameworkVersion;
+    if (start.follow) return;
     checkStopped(ctx);
     ctx.log(
       `Starting Jenkins job "${job}" on PROD with ${new URLSearchParams(params).toString()}.`,

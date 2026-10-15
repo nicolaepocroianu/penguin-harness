@@ -82,14 +82,14 @@ function fakeProcess(
 
 function fakeJenkins(statuses: Array<JenkinsBuildStatus | Error> = [{ state: "unknown" }]) {
   const triggers: Array<{ job: string; params: Record<string, string> }> = [];
-  const polls: Array<{ after: number | null | undefined; skipQueue?: boolean }> = [];
+  const polls: Array<{ after: number | null | undefined }> = [];
   const jenkins: DeployJenkins = {
     async trigger(job, params) {
       triggers.push({ job, params });
       return { queueUrl: "https://jenkins.example.org/queue/item/7/" };
     },
     async status(_job, _params, options) {
-      polls.push({ after: options?.after, ...(options?.skipQueue ? { skipQueue: true } : {}) });
+      polls.push({ after: options?.after });
       const next = statuses.length > 1 ? statuses.shift()! : statuses[0]!;
       if (next instanceof Error) throw next;
       return next;
@@ -327,7 +327,9 @@ describe("prepare_deploy", () => {
     );
     await fs.mkdir(path.join(dir, "res"));
     await fs.writeFile(path.join(dir, "res", "style.scss"), "a { b: c }");
-    const clones = fakeClones(dir);
+    const clones = fakeClones(dir, {
+      changed: ["package.json", "package-lock.json", "res/style.css"],
+    });
     const npx = fakeProcess();
     const sass = fakeStyles();
     const { ctx, lines } = context({
@@ -357,10 +359,28 @@ describe("prepare_deploy", () => {
     ]);
     expect(lines).toContain("$ sass@1.54.0 res/style.scss res/style.css --no-source-map");
     expect(lines).toContain("compiled");
+    expect(asked(clones, "stage")).toEqual([
+      [["package.json", "package-lock.json", "res/style.css"], {}],
+    ]);
     expect(asked(clones, "commitStaged")).toEqual([
       ["Prepare module deploy for words", { name: "Deploy Bot", email: "deploy@example.org" }],
     ]);
     expect(ctx.metadata).toEqual({ moduleVersion: "2.3.4", commit: "0123abcd" });
+    expect(lines.some((line) => line.startsWith("Left out"))).toBe(false);
+  });
+
+  it("commits only the files it wrote: what was saved while verify_module's checks ran stays out", async () => {
+    const dir = await moduleClone();
+    // The studio saved a draft into the clone after verify_module committed and checked it.
+    const unchecked = Array.from({ length: 22 }, (_, i) => `generated/words/scene-${i}.json`);
+    const clones = fakeClones(dir, { changed: ["package.json", ...unchecked] });
+    const { ctx, lines } = context({ dir, clones });
+    await run("prepare_deploy", ctx);
+    expect(asked(clones, "stage")).toEqual([[["package.json"], {}]]);
+    expect(ctx.metadata.commit).toBe("0123abcd");
+    expect(lines).toContain(
+      `Left out of the deploy commit, changed since verify_module checked the module: ${unchecked.slice(0, 20).join(", ")} and 2 more.`,
+    );
   });
 
   it("keeps the version, skips a missing stylesheet and commits nothing when nothing changed", async () => {
@@ -405,9 +425,14 @@ describe("trigger_module_build", () => {
     const jenkins = fakeJenkins([{ state: "succeeded", number: 41 }]);
     const { ctx } = context({ dir, clones, jenkins: jenkins.jenkins });
     await run("trigger_module_build", ctx);
-    expect(ctx.metadata).toEqual({ preBuildTag: "1.2.0", preBuildNumber: 41 });
-    // A queued build has no number; the floor is the newest build Jenkins has.
-    expect(jenkins.polls).toEqual([{ after: undefined, skipQueue: true }]);
+    expect(ctx.metadata).toEqual({
+      preBuildTag: "1.2.0",
+      preBuildNumber: 41,
+      buildCommit: "0123abcd",
+    });
+    // The newest build, which has finished, is the floor the new one is looked for above.
+    expect(jenkins.polls).toEqual([{ after: undefined }]);
+    expect(asked(clones, "commitOf")).toEqual([["loom/words-deploy"]]);
     expect(clones.ops(dir)).toContain("fetchTags");
     expect(asked(clones, "push")).toEqual([
       ["main", {}],
@@ -442,12 +467,120 @@ describe("trigger_module_build", () => {
       error: { code: "jenkins_failed", status: 401 },
     });
   });
+
+  it("starts no build beside one of the module still queued or going", async () => {
+    const dir = await moduleClone();
+    for (const going of [
+      { state: "queued", url: "https://jenkins.example.org/queue/item/8/" },
+      { state: "building", number: 42, url: "https://jenkins.example.org/job/x/42/" },
+    ] as const) {
+      const clones = fakeClones(dir);
+      const jenkins = fakeJenkins([going]);
+      const { ctx } = context({ dir, clones, jenkins: jenkins.jenkins });
+      await expect(run("trigger_module_build", ctx)).rejects.toMatchObject({
+        error: { code: "build_in_flight", url: going.url },
+      });
+      expect(asked(clones, "push")).toEqual([]);
+      expect(jenkins.triggers).toEqual([]);
+    }
+  });
+
+  // Started again after its wait was stopped, timed out or cut short by a restart: verify and
+  // prepare ran again too, committing the same files anew.
+  const again = {
+    trigger_module_build: { preBuildTag: "1.2.0", preBuildNumber: 41, buildCommit: "c1" },
+  };
+  const sameFiles = { head: "c2", trees: { c1: "files", c2: "files" } };
+
+  it("follows the build its last start began for the same files, still going or released", async () => {
+    const dir = await moduleClone();
+    const building: JenkinsBuildStatus = {
+      state: "building",
+      number: 42,
+      url: "https://jenkins.example.org/job/x/42/",
+    };
+    const cases: Array<[JenkinsBuildStatus, string[]]> = [
+      [building, ["1.2.0"]],
+      [{ state: "succeeded", number: 42 }, ["1.2.0", "1.3.0"]],
+    ];
+    for (const [status, tags] of cases) {
+      const clones = fakeClones(dir, { ...sameFiles, tags: [tags] });
+      const jenkins = fakeJenkins([status]);
+      const { ctx, lines } = context({ dir, clones, jenkins: jenkins.jenkins, earlier: again });
+      await run("trigger_module_build", ctx);
+      expect(ctx.metadata).toEqual({ preBuildTag: "1.2.0", preBuildNumber: 41, buildCommit: "c1" });
+      expect(jenkins.polls).toEqual([{ after: 41 }]);
+      expect(asked(clones, "push")).toEqual([]);
+      expect(jenkins.triggers).toEqual([]);
+      expect(
+        lines.some((line) => line.endsWith("following it rather than starting another.")),
+      ).toBe(true);
+    }
+    const clones = fakeClones(dir, { ...sameFiles, tags: [["1.2.0"]] });
+    const { ctx, lines } = context({
+      dir,
+      clones,
+      jenkins: fakeJenkins([building]).jenkins,
+      earlier: again,
+    });
+    await run("trigger_module_build", ctx);
+    expect(lines).toContain(
+      "Jenkins has the build the last start began, building (https://jenkins.example.org/job/x/42/): following it rather than starting another.",
+    );
+  });
+
+  it("starts a new build once the last one failed or released nothing of its commit", async () => {
+    const dir = await moduleClone();
+    const cases: Array<[JenkinsBuildStatus, Record<string, string[]>]> = [
+      [{ state: "failed", number: 42, result: "FAILURE" }, {}],
+      [{ state: "succeeded", number: 42 }, { "1.3.0": ["someone-else"] }],
+    ];
+    for (const [status, tagCommits] of cases) {
+      const clones = fakeClones(dir, { ...sameFiles, tags: [["1.2.0", "1.3.0"]], tagCommits });
+      const jenkins = fakeJenkins([status]);
+      const { ctx } = context({ dir, clones, jenkins: jenkins.jenkins, earlier: again });
+      await run("trigger_module_build", ctx);
+      expect(jenkins.polls).toEqual([{ after: 41 }, { after: undefined }]);
+      expect(jenkins.triggers).toHaveLength(1);
+      expect(ctx.metadata).toEqual({ preBuildTag: "1.3.0", preBuildNumber: 42, buildCommit: "c2" });
+    }
+  });
+
+  it("follows nothing once the files changed or the last wait finished", async () => {
+    const dir = await moduleClone();
+    const building: JenkinsBuildStatus = {
+      state: "building",
+      number: 42,
+      url: "https://jenkins.example.org/job/x/42/",
+    };
+    const changed = context({
+      dir,
+      clones: fakeClones(dir, { head: "c2", trees: { c1: "old", c2: "new" } }),
+      jenkins: fakeJenkins([building]).jenkins,
+      earlier: again,
+    });
+    // A build of the old files is still going: a second would run beside it.
+    await expect(run("trigger_module_build", changed.ctx)).rejects.toMatchObject({
+      error: { code: "build_in_flight", url: building.url },
+    });
+    const jenkins = fakeJenkins([{ state: "succeeded", number: 42 }]);
+    const waited = context({
+      dir,
+      clones: fakeClones(dir, sameFiles),
+      jenkins: jenkins.jenkins,
+      earlier: { ...again, await_module_build: { resolvedModuleVersion: "1.3.0" } },
+    });
+    await run("trigger_module_build", waited.ctx);
+    expect(jenkins.polls).toEqual([{ after: undefined }]);
+    expect(jenkins.triggers).toHaveLength(1);
+  });
 });
 
 describe("await_module_build", () => {
-  it("polls every 15 seconds until a newer tag appears, and records it", async () => {
+  it("polls every 15 seconds until the build succeeds, then takes the newer tag that holds its commit", async () => {
     const dir = await moduleClone();
-    const clones = fakeClones(dir, { tags: [["1.2.0"], ["1.2.0"], ["1.2.0", "1.3.0"]] });
+    // A newer tag is there while the build still runs: it is not taken for the release.
+    const clones = fakeClones(dir, { tags: [["1.2.0", "1.3.0"]] });
     const jenkins = fakeJenkins([
       { state: "queued", url: "https://jenkins.example.org/queue/item/7/" },
       { state: "building", number: 42, url: "https://jenkins.example.org/job/x/42/" },
@@ -459,13 +592,65 @@ describe("await_module_build", () => {
       clones,
       jenkins: jenkins.jenkins,
       clock: time.clock,
-      earlier: { trigger_module_build: { preBuildTag: "1.2.0", preBuildNumber: 41 } },
+      earlier: {
+        trigger_module_build: { preBuildTag: "1.2.0", preBuildNumber: 41, buildCommit: "c1" },
+      },
     });
     await run("await_module_build", ctx);
     expect(ctx.metadata.resolvedModuleVersion).toBe("1.3.0");
     expect(ctx.metadata.moduleBuildUrl).toBe("https://jenkins.example.org/job/x/42/");
+    expect(ctx.metadata.buildCommit).toBe("c1");
     expect(time.sleeps).toEqual([15_000, 15_000]);
     expect(jenkins.polls.every((poll) => poll.after === 41)).toBe(true);
+    expect(asked(clones, "fetchTags")).toHaveLength(1);
+    expect(asked(clones, "tagHolds")).toEqual([["1.3.0", "c1"]]);
+  });
+
+  it("takes the oldest newer tag that holds the commit, and fails when none does", async () => {
+    const dir = await moduleClone();
+    const earlier = {
+      trigger_module_build: { preBuildTag: "1.2.0", preBuildNumber: 41, buildCommit: "c1" },
+    };
+    const tags = [["1.2.0", "1.3.0", "v1.3.1", "1.4.0", "1.1.0"]];
+    const released = context({
+      dir,
+      clones: fakeClones(dir, {
+        tags,
+        tagCommits: { "1.3.0": ["manual"], "v1.3.1": ["c1"], "1.4.0": ["c1", "later"] },
+      }),
+      jenkins: fakeJenkins([{ state: "succeeded", number: 42 }]).jenkins,
+      earlier,
+    });
+    await run("await_module_build", released.ctx);
+    expect(released.ctx.metadata.resolvedModuleVersion).toBe("1.3.1");
+    // Every newer tag was made by other builds: none is this one's release.
+    const others = context({
+      dir,
+      clones: fakeClones(dir, { tags, tagCommits: { "1.3.0": [], "v1.3.1": [], "1.4.0": [] } }),
+      jenkins: fakeJenkins([{ state: "succeeded", number: 42 }]).jenkins,
+      earlier,
+    });
+    await expect(run("await_module_build", others.ctx)).rejects.toMatchObject({
+      error: { code: "tag_without_commit", tag: "1.4.0", commit: "c1" },
+    });
+  });
+
+  it("looks for the deploy branch's commit when the start was recorded before commits were", async () => {
+    const dir = await moduleClone();
+    const clones = fakeClones(dir, {
+      head: "c9",
+      tags: [["1.2.0", "1.3.0"]],
+      tagCommits: { "1.3.0": ["c9"] },
+    });
+    const { ctx } = context({
+      dir,
+      clones,
+      jenkins: fakeJenkins([{ state: "succeeded", number: 42 }]).jenkins,
+      earlier: { trigger_module_build: { preBuildTag: "1.2.0", preBuildNumber: 41 } },
+    });
+    await run("await_module_build", ctx);
+    expect(asked(clones, "commitOf")).toEqual([["loom/words-deploy"]]);
+    expect(ctx.metadata).toMatchObject({ resolvedModuleVersion: "1.3.0", buildCommit: "c9" });
   });
 
   it("takes a first tag as new when the module had none", async () => {
@@ -473,7 +658,8 @@ describe("await_module_build", () => {
     const { ctx } = context({
       dir,
       clones: fakeClones(dir, { tags: [["0.1.0"]] }),
-      metadata: { preBuildTag: null, preBuildNumber: null },
+      jenkins: fakeJenkins([{ state: "succeeded", number: 1 }]).jenkins,
+      metadata: { preBuildTag: null, preBuildNumber: null, buildCommit: "c1" },
     });
     await run("await_module_build", ctx);
     expect(ctx.metadata.resolvedModuleVersion).toBe("0.1.0");
@@ -501,9 +687,10 @@ describe("await_module_build", () => {
       error: { code: "no_newer_tag", before: "1.2.0", after: "1.2.0" },
     });
     const time = fakeClock();
+    // A newer tag that some other build made while this one ran is never taken for it.
     const slow = context({
       dir,
-      clones: fakeClones(dir, { tags: [["1.2.0"]] }),
+      clones: fakeClones(dir, { tags: [["1.2.0", "1.3.0"]] }),
       jenkins: fakeJenkins([{ state: "building" }]).jenkins,
       clock: time.clock,
       earlier,

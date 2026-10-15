@@ -66,22 +66,14 @@ function asked(clones: FakeClones, dir: string): unknown[][] {
 
 function fakeJenkins(statuses: JenkinsBuildStatus[] = [{ state: "unknown" }]) {
   const triggers: Array<{ job: string; params: Record<string, string> }> = [];
-  const polls: Array<{
-    params: Record<string, string>;
-    after: number | null | undefined;
-    skipQueue?: boolean;
-  }> = [];
+  const polls: Array<{ params: Record<string, string>; after: number | null | undefined }> = [];
   const jenkins: DeployJenkins = {
     async trigger(job, params) {
       triggers.push({ job, params });
       return { queueUrl: null };
     },
     async status(_job, params, options) {
-      polls.push({
-        params,
-        after: options?.after,
-        ...(options?.skipQueue ? { skipQueue: true } : {}),
-      });
+      polls.push({ params, after: options?.after });
       return statuses.length > 1 ? statuses.shift()! : statuses[0]!;
     },
   };
@@ -423,8 +415,8 @@ describe("trigger_activity_deploy and await_activity_deploy", () => {
       deploy_environment: "loom",
       template_names: "words",
     });
-    // A queued deploy has no number; the floor is the newest build Jenkins has.
-    expect(jenkins.polls[0]!.skipQueue).toBe(true);
+    // The newest deploy, none of it still going, is the floor the new one is looked for above.
+    expect(jenkins.polls.map((poll) => poll.after)).toEqual([undefined]);
     expect(ctx.metadata).toMatchObject({
       preDeployNumber: null,
       qaFrameworkVersion: "4.2.1",
@@ -516,6 +508,73 @@ describe("trigger_activity_deploy and await_activity_deploy", () => {
     expect(await failure(run("await_activity_deploy", never.ctx))).toEqual({
       code: "missing_input",
       stage: "trigger_activity_deploy",
+    });
+  });
+
+  // Started again after its wait was stopped, timed out or cut short by a restart.
+  const going: JenkinsBuildStatus = { state: "building", number: 7, url: "https://j/d/7/" };
+
+  it("follows the QA deploy its last start began while nothing new was published", async () => {
+    const earlier = {
+      trigger_activity_deploy: { preDeployNumber: 6, qaFrameworkVersion: "4.2.1" },
+    };
+    for (const status of [going, { state: "succeeded", number: 7 } as const]) {
+      const again = await setup({ earlier });
+      const jenkins = fakeJenkins([status]);
+      again.ctx.jenkins = jenkins.jenkins;
+      await run("trigger_activity_deploy", again.ctx);
+      expect(jenkins.triggers).toEqual([]);
+      expect(jenkins.polls.map((poll) => poll.after)).toEqual([6]);
+      expect(again.ctx.metadata.preDeployNumber).toBe(6);
+    }
+    // This run published new activity data: a new deploy, which never runs beside one going.
+    const published = await setup({ earlier, metadata: { activityDataCommit: "d1" } });
+    published.ctx.jenkins = fakeJenkins([going]).jenkins;
+    expect(await failure(run("trigger_activity_deploy", published.ctx))).toEqual({
+      code: "build_in_flight",
+      url: "https://j/d/7/",
+    });
+    // A last start whose wait finished, or one with another framework version, is not followed.
+    for (const other of [
+      { ...earlier, await_activity_deploy: { qaDeployedAt: "2026-09-28T12:00:00.000Z" } },
+      { trigger_activity_deploy: { preDeployNumber: 6, qaFrameworkVersion: "4.2.0" } },
+    ]) {
+      const fresh = await setup({ earlier: other });
+      const jenkins = fakeJenkins([{ state: "succeeded", number: 7 }]);
+      fresh.ctx.jenkins = jenkins.jenkins;
+      await run("trigger_activity_deploy", fresh.ctx);
+      expect(jenkins.triggers).toHaveLength(1);
+      expect(fresh.ctx.metadata.preDeployNumber).toBe(7);
+    }
+  });
+
+  it("follows the PROD deploy its last start began, which the wait then records", async () => {
+    const prod = { target: { tier: "prod", environment: "DEFAULT", frameworkVersion: "4.1.0" } };
+    const earlier = {
+      await_activity_deploy: { contentRevision: "rev-41" },
+      trigger_production_deploy: { preProductionDeployNumber: 8, prodFrameworkVersion: "4.1.0" },
+    };
+    const again = await setup({ prod, earlier });
+    const jenkins = fakeJenkins([{ state: "succeeded", number: 9, url: "https://j/p/9/" }]);
+    again.ctx.jenkins = jenkins.jenkins;
+    await run("trigger_production_deploy", again.ctx);
+    expect(jenkins.triggers).toEqual([]);
+    await run("await_production_deploy", again.ctx);
+    expect(jenkins.polls.map((poll) => poll.after)).toEqual([8, 8]);
+    expect(again.ctx.metadata).toMatchObject({
+      productionDeployNumber: 9,
+      productionDeployUrl: "https://j/p/9/",
+      prodDeployedAt: "2026-09-28T12:00:00.000Z",
+    });
+    // Another PROD deploy of this activity still going, not this run's to follow.
+    const beside = await setup({
+      prod,
+      earlier: { await_activity_deploy: earlier.await_activity_deploy },
+    });
+    beside.ctx.jenkins = fakeJenkins([going]).jenkins;
+    expect(await failure(run("trigger_production_deploy", beside.ctx))).toEqual({
+      code: "build_in_flight",
+      url: "https://j/d/7/",
     });
   });
 });

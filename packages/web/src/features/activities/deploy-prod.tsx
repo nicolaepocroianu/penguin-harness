@@ -2,8 +2,9 @@
  * The PROD lane, beside the QA one: where PROD stands (a short state, the last deploy, why it
  * cannot start now, its two stages), and Deploy to PROD for an admin who owns the project. The
  * button opens a dialog whose confirm stays disabled until the product code is typed; the server
- * checks the code, the admin and that QA has the activity as it is now again. The run's log is
- * the one under both lanes.
+ * checks the code, the admin and that QA has the activity as it is now again. Once a PROD deploy
+ * was started and the wait for it did not finish, Wait for the PROD deploy comes first, so a retry
+ * follows that deploy rather than starting a second. The run's log is the one under both lanes.
  */
 import { useEffect, useRef, useState } from "react";
 import type {
@@ -74,22 +75,32 @@ export function DeployProd({
   const running = run?.status === "running";
   const prodRunning = running && run?.target === "prod";
   const confirmed = prodConfirmed(typed, productCode);
+  // The line under the buttons: why the first action cannot start, why waiting comes first, or
+  // that a deploy can start.
+  const blockedBy = bar.wait ? bar.wait.blocker : bar.blocker;
+  let note: { text: string; ink: string };
+  if (blockedBy) note = { text: blockedBy, ink: "text-gray-600 dark:text-gray-300" };
+  else if (bar.wait) note = { text: words.prod.waitFirst, ink: toneInk.attention };
+  else note = { text: words.prod.ready, ink: toneInk.success };
 
   function close() {
     setOpen(false);
     setTyped("");
   }
 
-  async function start() {
-    if (!confirmed) return;
+  async function begin(
+    stage: "prod" | "await_production_deploy",
+    confirm: string,
+    started: string,
+  ) {
     setBusy(true);
     setError(null);
     try {
-      const value = await api.deploy.start({ stage: "prod", target: "prod", confirm: typed });
+      const value = await api.deploy.start({ stage, target: "prod", confirm });
       if (!alive.current) return;
       close();
       onRun(value.run);
-      onAnnounce({ kind: "info", text: words.prod.started });
+      onAnnounce({ kind: "info", text: started });
     } catch (cause) {
       if (!alive.current) return;
       close();
@@ -104,6 +115,16 @@ export function DeployProd({
     } finally {
       if (alive.current) setBusy(false);
     }
+  }
+
+  function start() {
+    if (confirmed) void begin("prod", typed, words.prod.started);
+  }
+
+  // Waiting deploys nothing, so it asks for no typed code; the server still takes the product
+  // code every PROD start carries.
+  function wait() {
+    void begin("await_production_deploy", productCode, words.prod.waitStarted);
   }
 
   return (
@@ -125,19 +146,33 @@ export function DeployProd({
         <span className="flex-1" />
         {editable &&
           (isAdmin ? (
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={busy || running || bar.blocker !== null}
-              aria-describedby={!running && bar.blocker ? "deploy-prod-blocker" : undefined}
-              aria-busy={busy}
-              onClick={() => {
-                setError(null);
-                setOpen(true);
-              }}
-            >
-              {prodRunning ? words.prod.deploying : words.prod.deploy}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant={bar.wait ? "secondary" : "primary"}
+                disabled={busy || running || bar.blocker !== null}
+                aria-describedby={!running && bar.blocker ? "deploy-prod-blocker" : undefined}
+                aria-busy={busy}
+                onClick={() => {
+                  setError(null);
+                  setOpen(true);
+                }}
+              >
+                {prodRunning ? words.prod.deploying : words.prod.deploy}
+              </Button>
+              {bar.wait && (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={busy || bar.wait.blocker !== null}
+                  aria-describedby="deploy-prod-blocker"
+                  aria-busy={busy}
+                  onClick={wait}
+                >
+                  {words.prod.wait}
+                </Button>
+              )}
+            </div>
           ) : (
             <p className="text-xs text-gray-500 dark:text-gray-400" data-testid="deploy-prod-admin">
               {words.prod.adminOnly}
@@ -148,10 +183,10 @@ export function DeployProd({
         {!running && (
           <p
             id="deploy-prod-blocker"
-            className={`text-xs ${bar.blocker ? "text-gray-600 dark:text-gray-300" : toneInk.success}`}
+            className={`text-xs ${note.ink}`}
             data-testid="deploy-prod-blocker"
           >
-            {bar.blocker ?? words.prod.ready}
+            {note.text}
           </p>
         )}
         {bar.line && (
@@ -194,7 +229,7 @@ export function DeployProd({
         confirmDisabled={!confirmed}
         busy={busy}
         onClose={close}
-        onConfirm={() => void start()}
+        onConfirm={start}
       >
         <div className="space-y-3">
           <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">

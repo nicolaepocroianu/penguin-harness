@@ -350,6 +350,8 @@ describe("the module release", () => {
       { code: "jenkins_failed", status: 403 },
       { code: "build_failed", result: "FAILURE", url: null },
       { code: "no_newer_tag", before: null, after: "1.0.0" },
+      { code: "tag_without_commit", tag: "1.4.0", commit: "0123abcd4567" },
+      { code: "build_in_flight", url: null },
       { code: "build_timed_out", minutes: 1 },
       { code: "missing_input", stage: "trigger_module_build" },
       { code: "interrupted" },
@@ -358,6 +360,14 @@ describe("the module release", () => {
     for (const error of errors) expect(stageErrorText(error).length).toBeGreaterThan(5);
     expect(stageErrorText(errors[0]!)).toBe(
       "npm run lint failed with exit code 1. The log shows its output.",
+    );
+    expect(
+      stageErrorText({ code: "tag_without_commit", tag: "1.4.0", commit: "0123abcd4567" }),
+    ).toBe(
+      "The build succeeded, but the newest release tag, 1.4.0, does not hold the deploy commit 0123abcd: another build made it. Start the build again.",
+    );
+    expect(stageErrorText({ code: "build_in_flight", url: "https://j/x/42/" })).toBe(
+      "A Jenkins build with the same settings is still queued or running (https://j/x/42/). Let it finish, or stop it in Jenkins, then start again.",
     );
     expect(stageErrorText({ code: "missing_input", stage: "trigger_module_build" })).toBe(
       "Run Push and start the build first: this stage works from what it records.",

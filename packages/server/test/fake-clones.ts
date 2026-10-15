@@ -42,12 +42,16 @@ export interface FakeRepo {
   tags?: string[][] | (() => string[]);
   /** Files HEAD has; true for every file. */
   inHead?: string[] | true;
-  /** Files new or changed since HEAD. */
+  /** Files new or changed since HEAD; a commit takes out the ones staged. */
   changed?: string[];
   /** Nothing is staged when a commit is asked for. */
   nothingStaged?: boolean;
-  /** The commit a commit makes; "0123abcd" unless named. */
+  /** The commit a commit makes, and the one every branch is at; "0123abcd" unless named. */
   head?: string;
+  /** The files each commit holds, one name per set; a commit holds files of its own unless named. */
+  trees?: Record<string, string>;
+  /** The commits each release tag holds; every tag holds every commit unless named. */
+  tagCommits?: Record<string, string[]>;
   /** Branches that have diverged from origin's. */
   diverged?: string[];
   /** No commit yet: carried work stays in place. */
@@ -271,12 +275,17 @@ class FakeClone implements Clone {
   }
 
   async stage(paths?: readonly string[], options: { sparse?: boolean } = {}): Promise<void> {
-    this.call("stage", paths ? [...paths] : "all", options);
+    const repo = this.call("stage", paths ? [...paths] : "all", options);
+    const staged = stagedOf(repo);
+    for (const file of paths ?? repo.changed ?? []) staged.add(file);
   }
 
   async commitStaged(identity: CloneIdentity, message: string): Promise<string | null> {
     const repo = this.call("commitStaged", message, identity);
     if (repo.nothingStaged) return null;
+    const staged = stagedOf(repo);
+    if (repo.changed) repo.changed = repo.changed.filter((file) => !staged.has(file));
+    staged.clear();
     repo.dirty = false;
     repo.unborn = false;
     return repo.head ?? "0123abcd";
@@ -295,7 +304,34 @@ class FakeClone implements Clone {
   async changed(file: string): Promise<boolean> {
     return (this.call("changed", file).changed ?? []).includes(file);
   }
+
+  async changes(): Promise<string[]> {
+    return [...(this.call("changes").changed ?? [])];
+  }
+
+  async commitOf(branch: string): Promise<string> {
+    return this.call("commitOf", branch).head ?? "0123abcd";
+  }
+
+  async sameContent(a: string, b: string): Promise<boolean> {
+    const { trees = {} } = this.call("sameContent", a, b);
+    return (trees[a] ?? a) === (trees[b] ?? b);
+  }
+
+  async tagHolds(tag: string, commit: string): Promise<boolean> {
+    const held = this.call("tagHolds", tag, commit).tagCommits?.[tag];
+    return held === undefined || held.includes(commit);
+  }
 }
 
 /** How often each repository's tag lists were read, across every clone opened on it. */
 const fetchedTags = new WeakMap<string[][], number>();
+
+/** What each repository has staged and not committed yet. */
+const stagedFiles = new WeakMap<FakeRepo, Set<string>>();
+
+function stagedOf(repo: FakeRepo): Set<string> {
+  let staged = stagedFiles.get(repo);
+  if (!staged) stagedFiles.set(repo, (staged = new Set()));
+  return staged;
+}

@@ -1,13 +1,15 @@
 /**
  * The PROD deploy's words in the Deploy section: its stages and failures say something, the
- * gate says why PROD waits, the bar shows the last deploy and the live PROD run, and the typed
- * confirmation matches only the product code.
+ * gate says why PROD waits, the bar shows the last deploy and the live PROD run, waiting comes
+ * first once a started deploy's wait did not finish, and the typed confirmation matches only the
+ * product code.
  */
 import { describe, expect, it } from "vitest";
 import type {
   DeployProductionState,
   DeployRun,
   DeployStage,
+  DeployStageError,
   DeployStageState,
 } from "@prismshadow/penguin-server/api";
 import {
@@ -19,6 +21,7 @@ import {
   prodBar,
   prodConfirmed,
   prodRefusalText,
+  prodWaitFirst,
   refusalText,
   runLine,
   stageErrorText,
@@ -153,6 +156,47 @@ describe("the PROD deploy's words", () => {
     );
     expect(qa.line).toBeNull();
     expect(qa.blocker).toBe("A deploy is running on this server.");
+  });
+
+  it("offers waiting first once the PROD deploy was started and the wait for it did not finish", () => {
+    const started = (
+      wait: DeployStageState["status"],
+      blocker: DeployStageState["blocker"] = null,
+    ) =>
+      production({
+        stages: [
+          state("trigger_production_deploy", "done"),
+          { ...state("await_production_deploy", wait), blocker },
+        ],
+      });
+    const ended = (error: DeployStageError, status: DeployRun["status"] = "failed") =>
+      run({
+        status,
+        stages: [
+          { stage: "trigger_production_deploy", status: "done", error: null },
+          { stage: "await_production_deploy", status: "failed", error },
+        ],
+      });
+    // Timed out, cut short by a restart, or stopped: the deploy may still be going in Jenkins.
+    const timedOut = ended({ code: "deploy_timed_out", minutes: 30, target: "prod" });
+    expect(prodWaitFirst(started("failed"), timedOut)).toBe(true);
+    expect(prodWaitFirst(started("failed"), ended({ code: "interrupted" }, "interrupted"))).toBe(
+      true,
+    );
+    expect(prodWaitFirst(started("cancelled"), run({ status: "cancelled" }))).toBe(true);
+    expect(prodBar(started("failed"), timedOut, when).wait).toEqual({ blocker: null });
+    const missing = { code: "settings_missing", field: "prod.token" } as const;
+    expect(prodBar(started("failed", missing), null, when).wait).toEqual({
+      blocker: blockerText(missing),
+    });
+    // Jenkins said the deploy failed: that one is started again.
+    const failed = ended({ code: "build_failed", result: "FAILURE", url: null });
+    expect(prodWaitFirst(started("failed"), failed)).toBe(false);
+    // Nothing started, a wait that finished, or a run still going: deploying stays first.
+    expect(prodWaitFirst(production(), null)).toBe(false);
+    expect(prodWaitFirst(started("done"), null)).toBe(false);
+    expect(prodWaitFirst(started("running"), run())).toBe(false);
+    expect(prodBar(production(), null, when).wait).toBeNull();
   });
 
   it("confirms only on the product code, exactly", () => {

@@ -341,6 +341,10 @@ export function stageErrorText(error: DeployStageError): string {
       return words.build_failed(error.result);
     case "no_newer_tag":
       return words.no_newer_tag(error.before, error.after);
+    case "tag_without_commit":
+      return words.tag_without_commit(error.tag, error.commit);
+    case "build_in_flight":
+      return words.build_in_flight(error.url);
     case "build_timed_out":
       return words.build_timed_out(error.minutes);
     case "missing_input":
@@ -757,6 +761,32 @@ export interface ProdBar {
   last: string;
   /** The last PROD deploy's Jenkins page; null when there is none. */
   lastUrl: string | null;
+  /**
+   * Set when Wait for the PROD deploy is the action to offer first (`prodWaitFirst`): why the
+   * wait cannot run now, or null when it can.
+   */
+  wait: { blocker: string | null } | null;
+}
+
+/**
+ * Whether waiting for the PROD deploy is the action to offer first: nothing runs, the PROD
+ * deploy was started, and the wait for it did not finish (it failed, was stopped, or the server
+ * stopped under it). The deploy Jenkins has may still be going or already done, and deploying
+ * again would start a second one. A wait that ended because Jenkins said the deploy failed is
+ * not: that deploy is started again.
+ */
+export function prodWaitFirst(production: DeployProductionState, run: DeployRun | null): boolean {
+  if (run?.status === "running") return false;
+  const status = (stage: DeployStage) =>
+    production.stages.find((state) => state.stage === stage)?.status;
+  if (status("trigger_production_deploy") !== "done") return false;
+  const wait = status("await_production_deploy");
+  if (wait === undefined || wait === "done") return false;
+  const ended =
+    run && isProdRun(run)
+      ? run.stages.find((entry) => entry.stage === "await_production_deploy")?.error
+      : null;
+  return ended?.code !== "build_failed";
 }
 
 /**
@@ -787,12 +817,18 @@ export function prodBar(
         ? blockerText(production.blocker)
         : null;
   const last = production.last;
+  const waitBlocker = production.stages.find(
+    (state) => state.stage === "await_production_deploy",
+  )?.blocker;
   return {
     rows,
     line: prodRun ? runLine(prodRun) : null,
     blocker,
     last: last ? words.prod.last(when(last.deployedAt), last.frameworkVersion) : words.prod.never,
     lastUrl: last?.url ?? null,
+    wait: prodWaitFirst(production, run)
+      ? { blocker: waitBlocker ? blockerText(waitBlocker) : null }
+      : null,
   };
 }
 
