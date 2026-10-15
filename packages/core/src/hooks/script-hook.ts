@@ -67,6 +67,9 @@ export async function runHookScript(
       // spawn boots a whole Electron app (GPU process and all) instead of running the
       // script, and dies on machines where that fails. A plain Node execPath ignores it.
       env: prependPathEnv({ ...process.env, ELECTRON_RUN_AS_NODE: "1" }, opts.pathPrepend ?? []),
+      // A host with no console (the desktop app, a background server) would otherwise open a
+      // console window on Windows for every hook run.
+      windowsHide: true,
     });
     let stdout = "";
     let stderr = "";

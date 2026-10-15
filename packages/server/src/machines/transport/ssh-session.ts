@@ -211,7 +211,12 @@ class MachineShell {
     const port = await freeLocalPort();
     if (port === null) throw new Error("no free local port for the session's SOCKS listener");
     this.#mark = `--penguin-${randomBytes(9).toString("hex")}--`;
-    const child = spawn("ssh", sessionArgs(this.target, port), { stdio: ["pipe", "pipe", "pipe"] });
+    // Hidden: on Windows a server with no console would show ssh.exe's own window for as long
+    // as the session is held.
+    const child = spawn("ssh", sessionArgs(this.target, port), {
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    });
     // setEncoding, not String(chunk): a multibyte character whose bytes land in two `data`
     // events would otherwise decode to two replacement characters. The stream's decoder holds
     // an incomplete sequence back until the rest of it arrives.

@@ -129,7 +129,11 @@ export function resolveRunner(requireFrom: NodeRequire = createRequire(import.me
 
 /** Functional probe: the runner answers `--probe` on a host where it can actually confine. */
 function defaultProbe(runner: string, timeoutMs: number): boolean {
-  const probe = spawnSync(runner, ["--probe"], { timeout: timeoutMs, stdio: "ignore" });
+  const probe = spawnSync(runner, ["--probe"], {
+    timeout: timeoutMs,
+    stdio: "ignore",
+    windowsHide: true,
+  });
   return probe.status === 0;
 }
 

@@ -461,6 +461,7 @@ function run(command: string, args: string[], env: Record<string, string>): Prom
     const child = spawn(command, args, {
       stdio: "inherit",
       env: { ...process.env, ...env },
+      windowsHide: true,
     });
     child.on("error", () => resolve(-1));
     child.on("close", (code) => resolve(code ?? -1));

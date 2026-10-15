@@ -135,6 +135,9 @@ export const spawnUpdateRunner: UpdateRunner = (cliEntry, onOutput) =>
     const child = spawn(process.execPath, [cliEntry, "update", "--yes"], {
       env: { ...process.env, PENGUIN_LANG: "en" },
       stdio: ["ignore", "pipe", "pipe"],
+      // A server with no console (the desktop app's, or one `penguin` started in the
+      // background) would otherwise open a console window for the run on Windows.
+      windowsHide: true,
     });
     const forward = (chunk: Buffer) => onOutput(chunk.toString("utf8"));
     child.stdout.on("data", forward);

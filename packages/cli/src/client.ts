@@ -123,6 +123,7 @@ export async function autoStartServer(
       detached: true,
       stdio: ["ignore", fd, fd],
       env: { ...process.env, PORT: "0" },
+      windowsHide: true,
     });
   } finally {
     fs.closeSync(fd);

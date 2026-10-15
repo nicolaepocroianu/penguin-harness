@@ -6,6 +6,10 @@
  * spaces or `$`. The remote command string is the one place a shell is involved, and it is
  * quoted by commands.ts for exactly that reason.
  *
+ * Every spawn is `windowsHide`: on Windows a server with no console of its own (the desktop
+ * app's, or one `penguin` started in the background) would otherwise open a console window
+ * for each ssh, scp or tar it runs.
+ *
  * Failures are returned, never thrown, and carry ssh's own stderr verbatim — a wrong key, a
  * host-key mismatch or a refused connection is the user's to read, and rewording OpenSSH's
  * diagnostics into our own vocabulary would only lose detail.
@@ -37,7 +41,11 @@ export function run(
     execFile(
       file,
       args,
-      { timeout: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 },
+      {
+        timeout: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+        maxBuffer: 16 * 1024 * 1024,
+        windowsHide: true,
+      },
       (error, stdout, stderr) => {
         const code =
           error && typeof (error as NodeJS.ErrnoException & { code?: number }).code === "number"
@@ -77,7 +85,7 @@ export function runWithInput(
   opts: { input: Buffer; onLine?: (line: string) => void; timeoutMs?: number },
 ): Promise<ExecResult> {
   return new Promise((resolve) => {
-    const child = spawn(file, args, { stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(file, args, { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
     let stdout = "";
     let stderr = "";
     let pending = "";
@@ -128,7 +136,12 @@ export function runBytes(
     execFile(
       file,
       args,
-      { encoding: "buffer", timeout: DEFAULT_TIMEOUT_MS, maxBuffer: 256 * 1024 * 1024 },
+      {
+        encoding: "buffer",
+        timeout: DEFAULT_TIMEOUT_MS,
+        maxBuffer: 256 * 1024 * 1024,
+        windowsHide: true,
+      },
       (error, stdout, stderr) => {
         const code =
           error && typeof (error as NodeJS.ErrnoException & { code?: number }).code === "number"

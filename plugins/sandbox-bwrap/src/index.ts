@@ -88,7 +88,7 @@ function defaultProbe(timeoutMs: number, runner: string): boolean {
   const probe = spawnSync(
     runner,
     ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--die-with-parent", "--", "true"],
-    { timeout: timeoutMs, stdio: "ignore" },
+    { timeout: timeoutMs, stdio: "ignore", windowsHide: true },
   );
   return probe.status === 0;
 }
