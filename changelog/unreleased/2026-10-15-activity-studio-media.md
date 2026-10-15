@@ -3,7 +3,7 @@
 - **Date:** 2026-10-15
 - **Type:** feature
 - **Scope:** `web`
-- **PR:** pending
+- **PR:** [#148](https://github.com/nicolaepocroianu/penguin-harness/pull/148)
 
 Phase 2 of the Activity Studio audit. Media is shown and heard where it is listed. The asset
 editor plays a checkout video or recording instead of saying it has no preview. Every narration
@@ -37,6 +37,9 @@ first frame. A storyboard card reads its scene's beats from the script, under th
   A scene with placeholders says how many on its picture, and the board says once how many
   assets are still placeholders, with a button that opens the first one. The chosen scene's
   sheet no longer repeats the specification's raw description.
+- **Placeholder copy.** The shared placeholder plays a stock stand-in clip, not a blank frame, so
+  the board's notice, the editor's note and phase 1's Placeholder hint call it a shared stand-in
+  rather than saying learners see or hear nothing.
 - **Stored data.** Nothing new is stored. Posters are decoded in the browser from files the
   studio already serves; no poster file, cache or manifest field was added.
 - **Tests.** Unit tests cover the beats, scene titles, posters and placeholder counts, the media
