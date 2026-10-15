@@ -432,11 +432,14 @@ class GitClone implements Clone {
     const from = work ? await this.head() : "";
     const message = `${SET_ASIDE}: work set aside to bring ${branch} up to origin`;
     const stash = ["stash", "push", "--include-untracked", "-m", message];
-    let stashed = work && (await this.run(stash, { allowFailure: true })).code === 0;
+    // Setting the work aside runs to its end: a stop that comes meanwhile is met below, where
+    // the work is put back, never between the stash and the code that knows of it.
+    const once = { allowFailure: true, unstoppable: true };
+    let stashed = work && (await this.run(stash, once)).code === 0;
     // git cannot stash in a repository with no commit yet, whose work then stays where it
     // is. A stash that failed for any other reason (a conflict, say) fails with git's words.
     if (work && !stashed && (await this.has("HEAD"))) {
-      await this.run(stash);
+      await this.run(stash, { unstoppable: true });
       stashed = true;
     }
     if (work && !stashed) return this.keepInPlace(branch);

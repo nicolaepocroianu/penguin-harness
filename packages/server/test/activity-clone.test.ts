@@ -212,30 +212,37 @@ describe("putting a clone on a branch as origin has it", () => {
     expect(git(dir, "stash", "list")).toBe("");
   }, 30_000);
 
-  it("puts the work back even when the deploy is stopped while main is brought up to origin", async () => {
-    const remote = await origin();
-    const dir = await remote.cloneOf("clone");
-    await remote.push({ "from-origin.txt": "theirs" });
-    git(dir, "checkout", "-b", "loom/words-deploy");
-    await write(dir, "authored.txt", "mine");
-    const controller = new AbortController();
-    // Stopped as the fast-forward finishes: every command after it is refused but the ones
-    // that put the work back.
-    const stopping: DeployGit = {
-      async run(args, cwd, options) {
-        const result = await spawnGit.run(args, cwd, options);
-        if (args[0] === "merge") controller.abort();
-        return result;
-      },
-    };
-    const clone = gitClones(stopping).open(dir, { signal: controller.signal });
-    await clone.fetch();
-    const failure = await clone.onBranchFromOrigin("main", { work: "carry" }).catch((e) => e);
-    expect(failure).toBeInstanceOf(CloneStopped);
-    expect(git(dir, "branch", "--show-current")).toBe("loom/words-deploy");
-    expect(status(dir)).toBe("?? authored.txt");
-    expect(git(dir, "stash", "list")).toBe("");
-  }, 30_000);
+  it.each([
+    ["the work is set aside", "stash push"],
+    ["main is brought up to origin", "merge --ff-only"],
+  ])(
+    "puts the work back even when the deploy is stopped as %s",
+    async (_, stoppedAt) => {
+      const remote = await origin();
+      const dir = await remote.cloneOf("clone");
+      await remote.push({ "from-origin.txt": "theirs" });
+      git(dir, "checkout", "-b", "loom/words-deploy");
+      await write(dir, "authored.txt", "mine");
+      const controller = new AbortController();
+      // Stopped as that command finishes: every command after it is refused but the ones that
+      // put the work back.
+      const stopping: DeployGit = {
+        async run(args, cwd, options) {
+          const result = await spawnGit.run(args, cwd, options);
+          if (args.join(" ").startsWith(stoppedAt)) controller.abort();
+          return result;
+        },
+      };
+      const clone = gitClones(stopping).open(dir, { signal: controller.signal });
+      await clone.fetch();
+      const failure = await clone.onBranchFromOrigin("main", { work: "carry" }).catch((e) => e);
+      expect(failure).toBeInstanceOf(CloneStopped);
+      expect(git(dir, "branch", "--show-current")).toBe("loom/words-deploy");
+      expect(status(dir)).toBe("?? authored.txt");
+      expect(git(dir, "stash", "list")).toBe("");
+    },
+    30_000,
+  );
 
   it("fails naming git's words when the carried work conflicts with origin's, which the stash keeps and counts", async () => {
     const remote = await origin({ "shared.txt": "base\n" });
