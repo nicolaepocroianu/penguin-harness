@@ -9,7 +9,7 @@ import {
   type SessionSandboxMode,
 } from "@prismshadow/penguin-core";
 import { Component, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
-import type { Config, Channels, Log, Paths } from "../hmr/capabilities.js";
+import type { Clock, Config, Channels, Log, Paths } from "../hmr/capabilities.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import type { AgentConfig, AgentLifecycle } from "../mechanisms/agents.js";
 import { CODING_AGENT_PROVIDER } from "../coding-agents/session-runtime.js";
@@ -22,6 +22,13 @@ import { atomicJson } from "./service.js";
 import type { ActivityLock } from "./activity-lock.js";
 import type { ActivityRuns } from "./run-store.js";
 import type { ActivityOutcomes } from "./outcomes.js";
+import type { RunLimit } from "./outcome-types.js";
+import {
+  RUN_LIMIT_SETTING,
+  readRunLimitMinutes,
+  timeLimitMessage,
+  wallClockLimitMs,
+} from "./run-limits.js";
 import type { AudioResult } from "./audio.js";
 import { SoundModelPorts } from "./sound-models.js";
 import { LocalAudio, type LocalAudioRequest } from "./local-audio.js";
@@ -163,6 +170,7 @@ export class ActivityGenerationService implements ActivityGeneration {
   @Use() private readonly runs!: ActivityRuns;
   @Use() private readonly lock!: ActivityLock;
   @Use() private readonly outcomes!: ActivityOutcomes;
+  @Use() private readonly clock!: Clock;
   private readonly observers = new Map<string, Observer>();
   /** What is waiting for a run to end, by run id: each looks at the run again when it does. */
   private readonly settling = new Map<string, Set<() => void>>();
@@ -275,12 +283,18 @@ export class ActivityGenerationService implements ActivityGeneration {
     };
   }
 
-  private finish(run: ActivityRun, status: ActivityRun["status"], error: string | null = null) {
+  /** Ends a run as `status`; `limit` names the limit the engine stopped it at, if it did. */
+  private finish(
+    run: ActivityRun,
+    status: ActivityRun["status"],
+    error: string | null = null,
+    limit?: RunLimit,
+  ) {
     run.status = status;
     run.error = error;
     run.finishedAt = new Date().toISOString();
     this.runs.save(run);
-    if (status !== "running") this.outcomes.witness({ run });
+    if (status !== "running") this.outcomes.witness({ run, ...(limit ? { limit } : {}) });
     if (status !== "running")
       for (const check of [...(this.settling.get(run.runId) ?? [])]) check();
     this.observers.get(run.runId)?.unsubscribe();
@@ -1419,19 +1433,23 @@ export class ActivityGenerationService implements ActivityGeneration {
         this.observers.delete(runId);
       }
     }
+    // Read once a pass, so an admin's change reaches runs already working.
+    const adminLimit = active.length
+      ? readRunLimitMinutes(this.settings.get(RUN_LIMIT_SETTING))
+      : null;
     for (const initial of active) {
       await this.lock.run(initial.activityId, async () => {
         if (this.stopped) return;
         const run = this.runs.running().find((item) => item.runId === initial.runId);
-        if (
-          !run ||
-          !run.sessionId ||
-          this.stopped ||
-          this.sessions.statusOf(run.sessionId) !== "idle"
-        )
-          return;
+        if (!run) return;
         const kind = SESSION_KINDS.get(run.kind);
         if (!kind) return;
+        // A Session that went idle has finished its work, and is settled whenever it is looked
+        // at; one still working, or the server's work in its place, answers to its limit.
+        if (!run.sessionId || this.sessions.statusOf(run.sessionId) !== "idle") {
+          this.stopAtTimeLimit(run, kind, adminLimit);
+          return;
+        }
         try {
           await this.sessions.atIdleBoundary(run.sessionId, async () => {
             // A coding agent that stopped short said why (its request_end carries the reason);
@@ -1449,6 +1467,22 @@ export class ActivityGenerationService implements ActivityGeneration {
         }
       });
     }
+  }
+
+  /**
+   * Fails a run that has worked longer than it may, its limit named, and then stops what is
+   * still working on it in the order Stop does: so the Stages waiting on it move on at once, and
+   * a Session that answers late finds its run already ended.
+   */
+  private stopAtTimeLimit(run: ActivityRun, kind: SessionKind, adminLimit: number | null): void {
+    const limitMs = wallClockLimitMs(kind.limits, adminLimit);
+    if (limitMs === undefined) return;
+    if (this.clock.now().getTime() - Date.parse(run.createdAt) <= limitMs) return;
+    const error = new Error(timeLimitMessage(run.kind, limitMs));
+    kind.failed?.(run, error);
+    this.finish(run, "failed", error.message, "time");
+    this.localRuns.get(run.runId)?.abort();
+    if (run.sessionId) this.sessions.abortTask(run.sessionId);
   }
 }
 

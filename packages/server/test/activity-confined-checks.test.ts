@@ -4,7 +4,7 @@
  * server's harness and runner served from memory to a child Node under the permission model, the
  * browser locked to the play link behind its guard. What a check may not do — read or write this
  * disk, start a process, see the server's environment, open a local file or another port — fails
- * that check. Skipped where Playwright's Chromium is not installed.
+ * that check. Skipped where Playwright's Chromium is not installed, unless the run requires it.
  */
 import { spawn } from "node:child_process";
 import fs from "node:fs";
@@ -12,7 +12,6 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { chromium } from "playwright-core";
 import { afterEach, describe, expect, it } from "vitest";
 import { isPlayOrigin, lockdownArgs, vetCall } from "../src/activities/browser-guard.js";
 import {
@@ -21,6 +20,7 @@ import {
   type ChecksOutcome,
 } from "../src/activities/confined-checks.js";
 import { playwrightCoreDir } from "../src/activities/test-browser.js";
+import { installedChromium } from "./installed-chromium.js";
 
 /** A module page that plays one case: a star to tap, then the end. */
 const PAGE = `<!doctype html>
@@ -62,14 +62,7 @@ const PAGE = `<!doctype html>
 </body></html>
 `;
 
-const executable = (() => {
-  try {
-    const file = chromium.executablePath();
-    return file && fs.existsSync(file) ? file : null;
-  } catch {
-    return null;
-  }
-})();
+const executable = installedChromium();
 const coreDir = playwrightCoreDir();
 
 const closers: (() => Promise<void>)[] = [];
@@ -222,11 +215,16 @@ criterion("spawn", () => {
 });
 criterion("env", () => {
   expect(process.env.PENGUIN_CHECKS_SECRET === undefined, "It saw the server's environment.");
-  // What Node needs, its IPC channel, and what Windows' process spawning adds on its own.
+  // What Node needs, its IPC channel, and what each OS adds to every child on its own: Windows'
+  // process spawning adds the profile variables, macOS CoreFoundation adds its text encoding.
   const needed = /^(PATH|TEMP|TMP|TMPDIR|SYSTEMROOT|WINDIR|NODE_CHANNEL_\\w+)$/i;
   const windows = /^(HOMEDRIVE|HOMEPATH|LOGONSERVER|SYSTEMDRIVE|USERDOMAIN|USERNAME|USERPROFILE)$/i;
+  const macos = /^__CF_USER_TEXT_ENCODING$/;
   const kept = Object.keys(process.env).filter(
-    (key) => !needed.test(key) && !(process.platform === "win32" && windows.test(key)),
+    (key) =>
+      !needed.test(key) &&
+      !(process.platform === "win32" && windows.test(key)) &&
+      !(process.platform === "darwin" && macos.test(key)),
   );
   expect(kept.length === 0, "It was given more than Node needs: " + kept.join(", "));
 });
@@ -258,7 +256,7 @@ criterion("port", async () => {
     expect(byCriterion.write).toMatchObject({ status: "failed" });
     expect(fs.existsSync(`${secretFile}.copy`)).toBe(false);
     expect(byCriterion.spawn).toMatchObject({ status: "failed" });
-    expect(byCriterion.env).toMatchObject({ status: "passed" });
+    expect(byCriterion.env, JSON.stringify(byCriterion.env)).toMatchObject({ status: "passed" });
     expect(byCriterion.file).toMatchObject({ status: "failed" });
     expect(byCriterion.file!.error).toContain("A check may open only the played activity");
     expect(byCriterion.port).toMatchObject({ status: "passed" });

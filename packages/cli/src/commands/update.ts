@@ -52,6 +52,10 @@
  *
  * The data root (~/.penguin/data) is never touched — the installer only replaces bin/lib/web/node
  * — and the confirmation prompt says so, because that is the thing users worry about.
+ *
+ * A build whose repository publishes no releases (core's RELEASE_IDENTITY) refuses before any
+ * lookup, `--check` included: the OSS mirror below is another repository's release channel, and
+ * an install must never be moved onto a build from somewhere else.
  * Docs: /docs/cli § "penguin update".
  */
 import { spawn } from "node:child_process";
@@ -60,7 +64,12 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from "no
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { VERSION, compareVersions, normalizeVersion } from "@prismshadow/penguin-core";
+import {
+  RELEASE_IDENTITY,
+  VERSION,
+  compareVersions,
+  normalizeVersion,
+} from "@prismshadow/penguin-core";
 import type { Command } from "commander";
 import type { InstallerSource, Messages } from "../i18n.js";
 
@@ -69,8 +78,8 @@ import type { InstallerSource, Messages } from "../i18n.js";
 // unit-tested surface.
 export { compareVersions, normalizeVersion };
 
-/** Repository the released artifacts come from — the same repo install.sh downloads from. */
-export const REPO_SLUG = "Prism-Shadow/penguin-harness";
+/** Repository the released artifacts come from: this build's own (core's RELEASE_IDENTITY). */
+export const REPO_SLUG = RELEASE_IDENTITY.repository;
 /** Releases API endpoint for the newest published release. */
 export const LATEST_RELEASE_API = `https://api.github.com/repos/${REPO_SLUG}/releases/latest`;
 /** Public roots shared with the stable installer entry point. */
@@ -563,6 +572,10 @@ export function registerUpdateCommand(program: Command, t: Messages): void {
     .option("--release <tag>", t.update.releaseOpt)
     .option("-y, --yes", t.update.yes)
     .action(async (opts: { check?: boolean; release?: string; yes?: boolean }) => {
+      if (!RELEASE_IDENTITY.publishesReleases) {
+        process.stdout.write(`${t.update.noReleases(RELEASE_IDENTITY.repository)}\n`);
+        return;
+      }
       const current = VERSION;
       const source = parseDownloadSource(process.env.PENGUIN_DOWNLOAD_SOURCE);
       if (!source) throw new Error(t.update.invalidDownloadSource());

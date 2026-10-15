@@ -24,6 +24,7 @@ const settings = (companyMode: boolean): ServerSettings => ({
   attachmentTotalMb: 500,
   companyMode,
   activityVideoExperiment: false,
+  activityRunLimitMinutes: null,
 });
 
 /** Records what the switch sent and answers with the server's stored settings. */

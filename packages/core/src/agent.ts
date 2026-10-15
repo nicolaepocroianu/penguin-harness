@@ -143,9 +143,11 @@ export interface CreateAgentOptions {
    * Sessions, which inherit the getter like `proxyEnv`. The Web server points it at the
    * shim directory holding its own `penguin`, so a command an Agent runs reaches the CLI
    * of the harness that is running it rather than whatever is installed globally. Re-read
-   * at every spawn. Absent = PATH is untouched (SDK/CLI standalone use).
+   * at every spawn, and evaluated with the Session's own coordinates like `controlEnv`, so
+   * a host can leave the PATH of a Session alone because of where it works. Absent = PATH
+   * is untouched (SDK/CLI standalone use).
    */
-  pathPrepend?: () => string[];
+  pathPrepend?: (ctx: ControlEnvContext) => string[];
   /**
    * Sandbox-confinement seam for the command subprocesses of every Session this Agent
    * creates or resumes — and of its subagents' Sessions, which inherit the getter (see
@@ -182,7 +184,10 @@ export interface PromptSection {
   text: string;
 }
 
-/** The Session coordinates a {@link CreateAgentOptions.controlEnv} policy is evaluated with. */
+/**
+ * The Session coordinates a {@link CreateAgentOptions.controlEnv} or
+ * {@link CreateAgentOptions.pathPrepend} policy is evaluated with.
+ */
 export interface ControlEnvContext {
   projectId: string;
   agentId: string;
@@ -418,8 +423,8 @@ export class Agent {
     private readonly proxyEnv?: () => ProxyEnvPolicy | null,
     /** See {@link CreateAgentOptions.controlEnv}; evaluated per Session with that Session's coordinates. */
     private readonly controlEnv?: (ctx: ControlEnvContext) => Record<string, string>,
-    /** See {@link CreateAgentOptions.pathPrepend}; forwarded into every Session's Environment and hooks. */
-    private readonly pathPrepend?: () => string[],
+    /** See {@link CreateAgentOptions.pathPrepend}; evaluated per Session for its Environment and hooks. */
+    private readonly pathPrepend?: (ctx: ControlEnvContext) => string[],
     /** See {@link CreateAgentOptions.confineSpawn}; forwarded into every Session's Environment. */
     private readonly confineSpawn?: () => SpawnConfiner | null,
     /** See {@link CreateAgentOptions.assembly}; read at every Session creation. */
@@ -679,6 +684,7 @@ export class Agent {
     const rt = this.buildRuntime(spec, context);
 
     const hooks = await this.sessionHooks(
+      spec,
       rt.subagentRunner,
       spec.subagentDepth > 0 || opts.source === "subagent",
     );
@@ -831,7 +837,7 @@ export class Agent {
       return r;
     };
 
-    const hooks = await this.sessionHooks(rt.subagentRunner, meta.source === "subagent");
+    const hooks = await this.sessionHooks(spec, rt.subagentRunner, meta.source === "subagent");
 
     // Continue writing to the original Trace file (the Trace only records real messages; synthesized paired placeholders are re-emitted in memory alongside carry-over).
     const trace = new Writer({
@@ -1251,22 +1257,12 @@ export class Agent {
       services: { subagentRunner, ...(visionDescriber ? { visionDescriber } : {}) },
       ...(Object.keys(initial.vault).length > 0 ? { vault: initial.vault } : {}),
       ...(this.proxyEnv ? { proxyEnv: this.proxyEnv } : {}),
-      // The control-env policy is bound to THIS Session's coordinates here (sessionId is
-      // final by now); the getter shape keeps it re-evaluated at every command spawn, so
-      // the host can rotate what it injects (e.g. its API token) without a rebuild.
-      ...(this.controlEnv
-        ? {
-            controlEnv: () =>
-              this.controlEnv!({
-                projectId: this.state.projectId,
-                agentId: this.state.agentId,
-                sessionId,
-                workspaceDir,
-                ...(sandboxMode !== undefined ? { sandboxMode } : {}),
-              }),
-          }
-        : {}),
-      ...(this.pathPrepend ? { pathPrepend: this.pathPrepend } : {}),
+      // The control-env and PATH policies are bound to THIS Session's coordinates here
+      // (sessionId is final by now); the getter shape keeps them re-evaluated at every
+      // command spawn, so the host can rotate what it injects (e.g. its API token) without a
+      // rebuild.
+      ...(this.controlEnv ? { controlEnv: () => this.controlEnv!(this.coordinates(spec)) } : {}),
+      ...(this.pathPrepend ? { pathPrepend: () => this.pathPrepend!(this.coordinates(spec)) } : {}),
       ...(confineSpawn ? { confineSpawn } : {}),
       ...(sandboxMode !== undefined ? { sandboxMode } : {}),
     });
@@ -1399,6 +1395,17 @@ export class Agent {
     };
   }
 
+  /** A Session's coordinates, as the host's controlEnv and pathPrepend policies read them. */
+  private coordinates(spec: SessionSpec): ControlEnvContext {
+    return {
+      projectId: this.state.projectId,
+      agentId: this.state.agentId,
+      sessionId: spec.sessionId,
+      workspaceDir: spec.workspaceDir,
+      ...(spec.sandboxMode !== undefined ? { sandboxMode: spec.sandboxMode } : {}),
+    };
+  }
+
   /**
    * The hooks of a top-level Session: every hook package installed in the Agent's
    * `agent_state/hooks/` (read fresh per Session, like skills), each command run as a script
@@ -1412,6 +1419,7 @@ export class Agent {
    * packages stay installed, and this is the one place a Session's hooks are assembled.
    */
   private async sessionHooks(
+    spec: SessionSpec,
     runner: SubagentRunner,
     child: boolean,
   ): Promise<SessionHooks | undefined> {
@@ -1427,7 +1435,9 @@ export class Agent {
     // CreateAgentOptions.pathPrepend). Only the environment half applies: a hook is run as
     // `node <script>` directly, with no shell and so no login profile to re-prepend
     // anything after it.
-    const pathPrepend = this.pathPrepend;
+    const pathPrepend = this.pathPrepend
+      ? () => this.pathPrepend!(this.coordinates(spec))
+      : undefined;
     const stop = installed.flatMap((hook) =>
       hook.stop.map((cmd) =>
         scriptStopHook(hook.name, hook.dir, cmd.command, cmd.timeout, pathPrepend),

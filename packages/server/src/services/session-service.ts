@@ -97,10 +97,10 @@ export interface SessionServiceDeps {
    */
   controlEnv?: (ctx: ControlEnvContext) => Record<string, string>;
   /**
-   * PATH threading (same getter the session loader passes): the shim directory holding
+   * PATH threading (same policy the session loader passes): the shim directory holding
    * this harness's own `penguin`, put in front of every command an Agent runs.
    */
-  pathPrepend?: () => string[];
+  pathPrepend?: (ctx: ControlEnvContext) => string[];
   /**
    * The channel of the Session's ENABLED messaging binding, or null when none is enabled
    * (SessionInfo.messagingChannel, the sidebar row's per-channel indicator — saved-but-

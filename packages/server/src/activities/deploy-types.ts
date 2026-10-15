@@ -125,6 +125,12 @@ export type DeployProblem =
   | { code: "clone_dirty"; repo: DeployRepo }
   /** The clone has commits its upstream does not. */
   | { code: "clone_ahead"; repo: DeployRepo; count: number }
+  /**
+   * Work a deploy set aside in git's stash (its message begins "penguin-harness deploy") and
+   * could not put back. A deploy would leave it out, so none starts until someone puts it
+   * back or drops it by hand.
+   */
+  | { code: "clone_stash_left"; repo: DeployRepo }
   /** The clone's origin is not the remote the settings or the module name. */
   | { code: "clone_remote_mismatch"; repo: DeployRepo }
   /**

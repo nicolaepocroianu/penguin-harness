@@ -19,6 +19,8 @@ export default defineConfig({
     // Window/threshold arithmetic plus its two defaults: pure numbers, no Node dependency, so
     // the web app can bundle the compaction-threshold derivation its context ring fills against.
     "src/llm/context-limits.ts",
+    // The release identity: one constant, so the web app reads the same answer the updaters do.
+    "src/release-identity.ts",
     // Hot-update kernel: zero-dependency subpath so web can bundle it directly.
     "src/kernel/index.ts",
   ],

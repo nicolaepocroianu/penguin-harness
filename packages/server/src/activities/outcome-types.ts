@@ -7,10 +7,15 @@
  */
 import type { ActivityDraft, ActivityRun, ActivityRunKind } from "./domain.js";
 
+/** A limit the server stopped a run at: `time` when it worked longer than it may. */
+export type RunLimit = "time";
+
 /** A moment the ledger is shown: how a run, or an activity's draft, stands now. */
 export type Witnessed =
   | {
       run: ActivityRun;
+      /** As the run ends: the limit the server stopped it at, when it did. */
+      limit?: RunLimit;
       /** The first message the run's agent is given, as its Session starts. */
       prompt?: string;
       /** The Session the run's agent works in, by its provider and model, as it was created. */

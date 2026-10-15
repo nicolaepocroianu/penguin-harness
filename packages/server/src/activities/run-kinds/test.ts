@@ -30,6 +30,7 @@ import {
   testFileHash,
 } from "../acceptance-collect.js";
 import type { AcceptanceStage } from "../acceptance-types.js";
+import { CHECKS_TIMEOUT_MS } from "../confined-checks.js";
 import type { TestRun } from "../domain.js";
 import type { RunRequestOf } from "../run-request.js";
 import { atomicJson } from "../service.js";
@@ -57,6 +58,10 @@ export const testKind: SessionRunKind<RunRequestOf<"test">, AcceptanceStage, Tes
   runner: "session",
   // Tests are written from the specification's acceptance criteria.
   needsScript: false,
+  // It writes the checks and plays them, and plays them again once it has fixed its own: two
+  // full runs of checks, each of which may take CHECKS_TIMEOUT_MS. Earlier checks the server
+  // runs again in its place are bounded by CHECKS_TIMEOUT_MS itself.
+  limits: { wallClockMs: 2 * CHECKS_TIMEOUT_MS },
   async check(_services, request, activity) {
     if (!hasValidSpec(activity))
       throw new HttpError(

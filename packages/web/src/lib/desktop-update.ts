@@ -24,7 +24,7 @@ export type ClientCheckSettle =
   | { kind: "found"; version: string | null }
   /** The check ran into a build already sitting on disk: point at the install step, not at a download. */
   | { kind: "ready"; version: string | null }
-  | { kind: "unsupported"; reason: "dev" | "linux-not-appimage" | null }
+  | { kind: "unsupported"; reason: NonNullable<DesktopUpdateStatus["reason"]> | null }
   /**
    * `message` is the shell's own failure text when there is one — an updater error is
    * not always a failed check (a download that fails its sha512 or, on Windows, its

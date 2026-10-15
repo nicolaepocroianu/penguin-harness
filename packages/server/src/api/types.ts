@@ -264,6 +264,12 @@ export interface ServerSettings {
    * the composition routes answer 403. Read per request, so it needs no restart.
    */
   activityVideoExperiment: boolean;
+  /**
+   * How long any activity run may work, in whole minutes, before the server fails it with its
+   * limit named and stops its Session; null (the default) leaves each kind of run its own limit.
+   * Read on every pass over the running runs, so it reaches runs already working, no restart.
+   */
+  activityRunLimitMinutes: number | null;
 }
 
 export interface ServerSettingsResponse {
@@ -278,6 +284,12 @@ export interface ServerSettingsUpdateRequest {
   companyMode?: boolean;
   /** Scene videos experiment switch; see `ServerSettings.activityVideoExperiment`. */
   activityVideoExperiment?: boolean;
+  /**
+   * The activity run time limit; see `ServerSettings.activityRunLimitMinutes`. A whole number
+   * of minutes from 1 to 1440, or null for each kind's own; anything else is 400
+   * `invalid_run_limit` and writes nothing.
+   */
+  activityRunLimitMinutes?: number | null;
   /**
    * New proxy address. Accepted forms: any proxy URL undici's dispatcher takes —
    * `http://`, `https://`, `socks5://` / `socks://`, credentials allowed — or bare
@@ -3779,7 +3791,10 @@ export interface UpdateCheckResponse {
   publishedAt: string | null;
   /** When this result was produced (ISO 8601) — a cached result keeps its original timestamp. */
   checkedAt: string;
-  /** Present (true) when update checks are turned off via PENGUIN_UPDATE_CHECK=off; no network call was made. */
+  /**
+   * Present (true) when update checks are turned off — via PENGUIN_UPDATE_CHECK=off, or because
+   * this build's repository publishes no releases (core's RELEASE_IDENTITY); no network call was made.
+   */
   disabled?: true;
   /** Why the lookup failed: unreachable network / GitHub rate limit / unusable response. */
   error?: "network" | "rate_limited" | "bad_response";
@@ -3824,8 +3839,12 @@ export interface DesktopUpdateStatus {
   percent?: number;
   /** Updater failure text (`error`). */
   message?: string;
-  /** Why this install form cannot update itself (`unsupported`): dev run, or a Linux install that is not an AppImage (e.g. .deb — the system package manager owns it). */
-  reason?: "dev" | "linux-not-appimage";
+  /**
+   * Why this install form cannot update itself (`unsupported`): a build whose repository publishes
+   * no releases (`fork`), a dev run, or a Linux install that is not an AppImage (e.g. .deb — the
+   * system package manager owns it).
+   */
+  reason?: "fork" | "dev" | "linux-not-appimage";
 }
 
 /**
@@ -3921,8 +3940,11 @@ export interface DesktopTrayCommandMessage {
  */
 export interface UpdateRunResponse {
   status: "updated" | "failed" | "unsupported";
-  /** Set when the server cannot run the CLI at all (started without `penguin server|web`). */
-  reason?: "not_launched_via_cli";
+  /**
+   * Set when the server does not run the CLI at all: this build's repository publishes no
+   * releases (`fork`), or the server was started without `penguin server|web`.
+   */
+  reason?: "fork" | "not_launched_via_cli";
   /** Tail of the update command's combined stdout+stderr (capped; empty when nothing ran). */
   output: string;
   /** True when the install changed (or was already current): restart the service to run the new version. */

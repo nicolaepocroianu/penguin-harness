@@ -2,7 +2,8 @@
  * The Agent-level hook switch — `hooks.enabled` in `system_config.yaml`. Absent means on, and
  * `false` leaves a new Session with no hooks at all while the packages stay installed. The
  * manifest loader is tolerant of a stray `enabled` key (a package exported while the switch
- * was per-package): it loads, and nothing reads the field.
+ * was per-package): it loads, and nothing reads the field. A hook script's PATH starts with
+ * what the host's PATH policy gives the Session it runs for.
  */
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -106,6 +107,36 @@ describe("the Agent-level hook switch", () => {
       expect(await again.runUserPromptHook("expander", "hi")).toEqual({ context: "expanded" });
     } finally {
       again.dispose();
+    }
+  });
+});
+
+describe("a hook script's PATH", () => {
+  it("starts with what the host's PATH policy gives the hook's own Session", async () => {
+    const agent = await createAgent({
+      pathPrepend: (ctx) => [path.join(ctx.workspaceDir, "shim")],
+    });
+    await installHook(
+      tmpRoot,
+      ...ids,
+      { ...MANIFEST, name: "path-reader" },
+      {
+        "expand.mjs":
+          'import path from "node:path";\n' +
+          "process.stdout.write(JSON.stringify({ context: process.env.PATH.split(path.delimiter)[0] }));\n",
+      },
+    );
+    for (const name of ["ws-a", "ws-b"]) {
+      const ws = path.join(tmpRoot, name);
+      await fs.mkdir(ws, { recursive: true });
+      const session = await agent.createSession({ workspaceDir: ws });
+      try {
+        expect(await session.runUserPromptHook("path-reader", "hi")).toEqual({
+          context: path.join(ws, "shim"),
+        });
+      } finally {
+        session.dispose();
+      }
     }
   });
 });

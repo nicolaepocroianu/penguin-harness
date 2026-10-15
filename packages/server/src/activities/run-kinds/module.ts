@@ -38,6 +38,7 @@ import {
   testFileHash,
 } from "../acceptance-collect.js";
 import { playwrightVersion } from "../acceptance-service.js";
+import { CHECKS_TIMEOUT_MS } from "../confined-checks.js";
 import {
   RUN_FEATURES_FILE,
   featureClause,
@@ -280,6 +281,10 @@ export const moduleKind: SessionRunKind<
   run: "module",
   runner: "session",
   needsScript: true,
+  // The longest kind: it type-checks and builds the module, then plays it in its player check,
+  // and builds and checks again after each fix. One full run of checks may take
+  // CHECKS_TIMEOUT_MS when the server runs them, so this is the build and three such runs.
+  limits: { wallClockMs: 4 * CHECKS_TIMEOUT_MS },
   async check(services, request, activity, projectId) {
     if (!hasValidSpec(activity))
       throw new HttpError(

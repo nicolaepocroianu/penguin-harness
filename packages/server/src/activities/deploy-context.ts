@@ -189,6 +189,9 @@ export async function buildDeployContext(
       problems.push({ code: "clone_remote_mismatch", repo: entry.repo });
     if (ownOnly && state.ahead !== null && state.ahead > 0)
       problems.push({ code: "clone_ahead", repo: entry.repo, count: state.ahead });
+    // Work in the stash is in no working tree a deploy commits.
+    if (await known(clones[index]!.stashedWork()))
+      problems.push({ code: "clone_stash_left", repo: entry.repo });
     // What git could not say is not ready: a deploy must not start on a guess.
     if (state.clean === null)
       problems.push({ code: "clone_unknown", repo: entry.repo, what: "status" });

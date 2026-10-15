@@ -3,7 +3,7 @@
  * that answers the inspection bridge as a WAF module does, a placeholder case's hidden checks,
  * and the frozen harness and runner from this checkout served from memory. Sealing's proofs
  * run the same way: every check fails on an empty page and passes on the gold module.
- * Skipped where Playwright's Chromium is not installed.
+ * Skipped where Playwright's Chromium is not installed, unless the run requires it.
  */
 import fs from "node:fs";
 import http from "node:http";
@@ -11,7 +11,6 @@ import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { chromium } from "playwright-core";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   HarnessCheckRunner,
@@ -21,6 +20,7 @@ import {
 import { proveCase, serveFolder } from "../../../scripts/activity-bench/seal.js";
 import { PlainVault } from "../../../scripts/activity-bench/vault.js";
 import { PLACEHOLDER, removeTemps, tempDir } from "./activity-bench-fixtures.js";
+import { installedChromium } from "./installed-chromium.js";
 
 const STAR = "CASE-001-placeholder-tap-the-star";
 
@@ -65,14 +65,7 @@ const FIXTURE_MODULE = `<!doctype html>
 </body></html>
 `;
 
-const executable = (() => {
-  try {
-    const file = chromium.executablePath();
-    return file && fs.existsSync(file) ? file : null;
-  } catch {
-    return null;
-  }
-})();
+const executable = installedChromium();
 
 afterEach(removeTemps);
 

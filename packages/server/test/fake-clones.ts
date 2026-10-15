@@ -52,6 +52,8 @@ export interface FakeRepo {
   diverged?: string[];
   /** No commit yet: carried work stays in place. */
   unborn?: boolean;
+  /** How many times a deploy set work aside in the stash and could not put it back. */
+  stashed?: number;
   /** Operations that fail, with what git says. */
   fail?: Partial<Record<string, string>>;
 }
@@ -258,6 +260,10 @@ class FakeClone implements Clone {
     repo.branch = branch;
     if (mode.work === "discard") repo.dirty = false;
     return { workInPlace: mode.work === "carry" && !!repo.unborn && !!repo.dirty };
+  }
+
+  async stashedWork(): Promise<number> {
+    return this.call("stashedWork").stashed ?? 0;
   }
 
   async branchFrom(branch: string, start: string): Promise<void> {

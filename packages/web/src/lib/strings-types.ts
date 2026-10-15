@@ -573,6 +573,8 @@ export type Strings = {
         dirty: string;
         ahead: (n: number) => string;
         remoteMismatch: string;
+        /** Work a deploy set aside in git's stash and could not put back. */
+        stashLeft: string;
         unknown: string;
         /** What git could not say about a present clone. */
         notKnown: { status: string; upstream: string; branch: string; sparse: string };
@@ -599,6 +601,7 @@ export type Strings = {
         media_path_missing: (path: string) => string;
         clone_dirty: (repo: string) => string;
         clone_ahead: (repo: string, n: number) => string;
+        clone_stash_left: (repo: string) => string;
         clone_remote_mismatch: (repo: string) => string;
         branch_missing: (repo: string, branch: string, where: "local" | "remote") => string;
         not_canonical: string;
@@ -2485,6 +2488,12 @@ export type Strings = {
       confineAgentsUnavailable: string;
       confineAgentsSaved: (on: boolean) => string;
       confineAgentsLoadFailed: (reason: string) => string;
+      runLimit: string;
+      runLimitInfo: string;
+      /** The pick that leaves every kind of run its own limit. */
+      runLimitDefault: string;
+      /** One limit the picker offers, in whole minutes. */
+      runLimitMinutes: (minutes: number) => string;
       ready: string;
       notReady: string;
       preparing: string;
@@ -2565,6 +2574,7 @@ export type Strings = {
     unsupportedNonAppImage: string;
     unsupportedNotViaCli: string;
     unsupportedCli: string;
+    noReleases: (repository: string) => string;
     foundNew: (v: string) => string;
     foundNewUnnamed: string;
     readyToast: (v: string | null) => string;

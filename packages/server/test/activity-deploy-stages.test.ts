@@ -723,6 +723,16 @@ describe("stage blockers", () => {
       code: "not_ready",
       problem: { code: "clone_remote_mismatch", repo: "activityData" },
     });
+    // Work a deploy left in a stash is in no working tree a stage commits: nothing starts.
+    const stashLeft: DeployContext = {
+      ...ready,
+      ready: false,
+      problems: [{ code: "clone_stash_left", repo: "module" }],
+    };
+    expect(stageBlocker("verify_module", stashLeft, {}, false)).toEqual({
+      code: "not_ready",
+      problem: { code: "clone_stash_left", repo: "module" },
+    });
     const unset: DeployContext = {
       ...ready,
       ready: false,

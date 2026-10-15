@@ -1,9 +1,10 @@
 /**
  * A clone, against real repositories: a bare origin in a temp folder, clones of it reached by
  * file URL, and real git. What it proves: the state a clone reports; putting a clone on a
- * branch as origin has it, carrying work, discarding it, or refusing a branch that diverged;
- * a stash that cannot be put back; staging in batches, committing, pushing with a lease; tags;
- * a partial clone's sparse folders; and the deploy log a clone writes.
+ * branch as origin has it, carrying work, discarding it, or refusing a branch that diverged
+ * with the work put back as it was, even when stopped; a stash that cannot be put back, and
+ * counting it; staging in batches, committing, pushing with a lease; tags; a partial clone's
+ * sparse folders; and the deploy log a clone writes.
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs/promises";
@@ -18,6 +19,7 @@ import {
   gitClones,
   type Clone,
 } from "../src/activities/clone.js";
+import { spawnGit, type DeployGit } from "../src/activities/deploy-git.js";
 
 const clones = gitClones();
 const WHO = { name: "Deploy Bot", email: "deploy@example.org" };
@@ -160,33 +162,121 @@ describe("putting a clone on a branch as origin has it", () => {
     expect(git(dir, "rev-parse", "HEAD")).toBe(git(dir, "rev-parse", "origin/main"));
   }, 30_000);
 
-  it("refuses a main that has diverged from origin's, keeping the work in the stash", async () => {
-    const remote = await origin();
+  const status = (dir: string) => git(dir, "status", "--porcelain", "--untracked-files=all");
+
+  /**
+   * A clone whose main has a commit origin's lacks while origin's has one it lacks, holding
+   * uncommitted work of every kind on `on`: a changed file, a staged new one, an untracked one.
+   */
+  async function divergedWithWork(on = "main") {
+    const remote = await origin({ "README.md": "hello", "tracked.txt": "base" });
     const dir = await remote.cloneOf("clone");
     await write(dir, "local.txt", "committed here");
     git(dir, "add", "--all");
     git(dir, "commit", "-m", "local");
     await remote.push({ "from-origin.txt": "theirs" });
+    if (on !== "main") git(dir, "checkout", "-b", on);
+    await write(dir, "tracked.txt", "changed");
+    await write(dir, "staged.txt", "staged");
+    git(dir, "add", "staged.txt");
     await write(dir, "authored.txt", "mine");
+    return { dir, head: git(dir, "rev-parse", "HEAD"), status: status(dir) };
+  }
+
+  it("refuses a main that has diverged from origin's, putting the work back as it was", async () => {
+    const { dir, head, status: before } = await divergedWithWork();
+    expect(before).toBe("A  staged.txt\n M tracked.txt\n?? authored.txt");
     const clone = clones.open(dir);
     await clone.fetch();
     const failure = await clone.onBranchFromOrigin("main", { work: "carry" }).catch((e) => e);
     expect(failure).toBeInstanceOf(CloneDiverged);
     expect((failure as CloneDiverged).command).toBe("git merge --ff-only origin/main");
-    expect(git(dir, "stash", "list")).toContain("penguin-harness deploy");
+    // Nothing is left in the stash: the work is where it was, staged as it was.
+    expect(git(dir, "stash", "list")).toBe("");
+    expect(await clone.stashedWork()).toBe(0);
+    expect(git(dir, "branch", "--show-current")).toBe("main");
+    expect(git(dir, "rev-parse", "HEAD")).toBe(head);
+    expect(status(dir)).toBe(before);
+    expect(await read(dir, "authored.txt")).toBe("mine");
   }, 30_000);
 
-  it("fails naming git's words when the carried work conflicts with origin's, which the stash keeps", async () => {
+  it("goes back to the branch the clone was on, its work as it was, when main has diverged", async () => {
+    const { dir, head, status: before } = await divergedWithWork("loom/words-deploy");
+    const clone = clones.open(dir);
+    await clone.fetch();
+    const failure = await clone.onBranchFromOrigin("main", { work: "carry" }).catch((e) => e);
+    expect(failure).toBeInstanceOf(CloneDiverged);
+    expect(git(dir, "branch", "--show-current")).toBe("loom/words-deploy");
+    expect(git(dir, "rev-parse", "HEAD")).toBe(head);
+    expect(status(dir)).toBe(before);
+    expect(git(dir, "stash", "list")).toBe("");
+  }, 30_000);
+
+  it.each([
+    ["the work is set aside", "stash push"],
+    ["main is brought up to origin", "merge --ff-only"],
+  ])(
+    "puts the work back even when the deploy is stopped as %s",
+    async (_, stoppedAt) => {
+      const remote = await origin();
+      const dir = await remote.cloneOf("clone");
+      await remote.push({ "from-origin.txt": "theirs" });
+      git(dir, "checkout", "-b", "loom/words-deploy");
+      await write(dir, "authored.txt", "mine");
+      const controller = new AbortController();
+      // Stopped as that command finishes: every command after it is refused but the ones that
+      // put the work back.
+      const stopping: DeployGit = {
+        async run(args, cwd, options) {
+          const result = await spawnGit.run(args, cwd, options);
+          if (args.join(" ").startsWith(stoppedAt)) controller.abort();
+          return result;
+        },
+      };
+      const clone = gitClones(stopping).open(dir, { signal: controller.signal });
+      await clone.fetch();
+      const failure = await clone.onBranchFromOrigin("main", { work: "carry" }).catch((e) => e);
+      expect(failure).toBeInstanceOf(CloneStopped);
+      expect(git(dir, "branch", "--show-current")).toBe("loom/words-deploy");
+      expect(status(dir)).toBe("?? authored.txt");
+      expect(git(dir, "stash", "list")).toBe("");
+    },
+    30_000,
+  );
+
+  it("fails naming git's words when the carried work conflicts with origin's, which the stash keeps and counts", async () => {
     const remote = await origin({ "shared.txt": "base\n" });
     const dir = await remote.cloneOf("clone");
-    await remote.push({ "shared.txt": "theirs\n" });
+    await remote.push({ "shared.txt": "theirs\n", "added.txt": "theirs" });
     await write(dir, "shared.txt", "mine\n");
+    await write(dir, "added.txt", "mine");
     const clone = clones.open(dir);
     await clone.fetch();
     const failure = await clone.onBranchFromOrigin("main", { work: "carry" }).catch((e) => e);
     expect(failure).toBeInstanceOf(CloneError);
     expect((failure as CloneError).command).toBe("git stash pop");
-    expect(git(dir, "stash", "list")).toContain("penguin-harness deploy");
+    expect(git(dir, "stash", "list")).toBe(
+      "stash@{0}: On main: penguin-harness deploy: work set aside to bring main up to origin",
+    );
+    expect(await clone.stashedWork()).toBe(1);
+  }, 30_000);
+
+  it("counts the work deploys left in the stash, as earlier versions named it too, and no other", async () => {
+    const remote = await origin();
+    const dir = await remote.cloneOf("clone");
+    const clone = clones.open(dir);
+    expect(await clone.stashedWork()).toBe(0);
+    for (const [file, message] of [
+      ["one.txt", "penguin-harness deploy"],
+      ["two.txt", "my own notes about penguin-harness deploy"],
+      ["three.txt", "penguin-harness deployment"],
+    ] as const) {
+      await write(dir, file, "work");
+      git(dir, "stash", "push", "--include-untracked", "-m", message);
+    }
+    await write(dir, "four.txt", "work");
+    git(dir, "stash", "push", "--include-untracked");
+    expect(await clone.stashedWork()).toBe(1);
   }, 30_000);
 
   it("keeps a new repository's work in place, on main as origin has it", async () => {
