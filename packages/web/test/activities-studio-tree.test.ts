@@ -163,6 +163,12 @@ describe("studio tree", () => {
     expect(find(onlyPlaceholder, "scene:scene-4")!.mark).toBe("placeholder");
   });
 
+  it("names an asset row's kind of media, which decides whether it shows a picture", () => {
+    expect(find(tree, "asset:scene-4:backdrop")!.assetType).toBe("video");
+    expect(find(tree, "asset:scene-4:find_P")!.assetType).toBe("audio");
+    expect(find(tree, "scene:scene-4")!.assetType).toBeUndefined();
+  });
+
   it("makes an asset row current only while the scenes section shows that asset", () => {
     const row = find(tree, "asset:scene-4:find_P")!;
     const selection = { sceneId: "scene-4", key: "find_P" };

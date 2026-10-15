@@ -537,14 +537,42 @@ export const en: Strings = {
       previousScene: (scene: string) => `Previous scene: ${scene}`,
       nextScene: (scene: string) => `Next scene: ${scene}`,
       open: "Open",
-      scene: (n: number, id: string) => `Scene ${n}, ${id}`,
+      scene: (n: number, name: string) => `Scene ${n}, ${name}`,
       shared: "Shared media",
       working: "An agent is working on this scene",
       proposed: "A proposal waits for this scene",
       unbound: (n: number) => `${n} without media`,
+      placeholders: (n: number) => `${n} ${n === 1 ? "placeholder" : "placeholders"}`,
       assets: (n: number) => `${n} ${n === 1 ? "asset" : "assets"}`,
       noAssets: "This scene asks for no media.",
       empty: "The specification has no scenes yet.",
+      more: (n: number) => `${n} more`,
+      noBeats: "The script says nothing for this scene yet.",
+      beatPlaceholder: "placeholder",
+      placeholderNotice: (n: number) =>
+        n === 1 ? "1 asset is still a placeholder." : `${n} assets are still placeholders.`,
+      placeholderNoticeBody:
+        "Learners see a blank frame where each one belongs until a real file replaces it.",
+      reviewPlaceholders: "Review placeholders",
+    },
+    mediaPreview: {
+      placeholder: "Placeholder video",
+      placeholderNote: (type: "video" | "animation", others: number) =>
+        `This ${type} is the shared blank placeholder, so learners see an empty frame until a real one replaces it.${
+          others
+            ? ` ${others} other ${others === 1 ? "asset uses" : "assets use"} the same file.`
+            : ""
+        }`,
+    },
+    clipPlayback: {
+      play: (line: string | null) => (line ? `Play “${line}”` : "Play this line"),
+      stop: (line: string | null) => (line ? `Stop “${line}”` : "Stop this line"),
+      playSceneShort: "Play scene",
+      stopSceneShort: "Stop",
+      playScene: (scene: string) => `Play scene: ${scene}`,
+      stopScene: (scene: string) => `Stop scene: ${scene}`,
+      lines: (n: number) => `${n} ${n === 1 ? "line" : "lines"}`,
+      failed: "Could not play this file.",
     },
     deploy: {
       title: "Deploy",

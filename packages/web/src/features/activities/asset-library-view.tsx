@@ -3,7 +3,8 @@
  * activity, in one place. It answers the questions the scene tree cannot at a glance: what
  * is still unbound across all scenes, which are only a placeholder, which uploads nothing
  * uses, and which assets share a file. An asset is named by what it shows, its description,
- * with its key underneath for whoever needs the key. An asset opens in the editor from here.
+ * with its key underneath for whoever needs the key, and led by its picture: an image, a
+ * video's first frame, or a play button for sound. An asset opens in the editor from here.
  */
 import { useState } from "react";
 import type { AssetManifest, UploadedMedia } from "@prismshadow/penguin-server/api";
@@ -28,10 +29,52 @@ import {
   type LibraryKind,
   type PlannedEntry,
 } from "./asset-library";
+import { ICON_GAP } from "../../lib/icon-scale";
+import { toneInk } from "../../lib/tone";
+import { ClipButton, useClipPlayer, type ClipPlayer } from "./clip-player";
 import { fileSizeText } from "./media-library";
+import type { MediaPreview } from "./media-preview";
+import { MediaThumb } from "./media-thumb";
 import { NO_PLACEHOLDERS, type PlaceholderPaths } from "./placeholder-media";
+import { boundSource } from "./ref-plan";
 
 type MediaAsset = AssetManifest["assets"][string][number];
+
+const NO_PREVIEW = (): MediaPreview => ({ kind: "none" });
+
+/** The box an asset's picture fills at the head of its row. */
+const PICTURE =
+  "h-9 w-12 shrink-0 overflow-hidden rounded border border-gray-200 dark:border-gray-800";
+
+/** What leads an asset's row: its sound's play button when it has a file, else its picture. */
+function AssetPicture({
+  asset,
+  preview,
+  endpoint,
+  player,
+}: {
+  asset: MediaAsset;
+  preview: MediaPreview;
+  endpoint: string;
+  player: ClipPlayer;
+}) {
+  const src = asset.type === "audio" ? boundSource(asset, endpoint) : null;
+  if (src)
+    return (
+      <span className="flex h-9 w-12 shrink-0 items-center justify-center">
+        <ClipButton
+          clip={{ key: asset.key, src }}
+          words={asset.script || asset.description}
+          player={player}
+        />
+      </span>
+    );
+  return (
+    <span className={PICTURE}>
+      <MediaThumb preview={preview} type={asset.type} compact />
+    </span>
+  );
+}
 
 const KINDS: readonly LibraryKind[] = ["all", "audio", "image", "video", "animation"];
 const BINDINGS: readonly LibraryBinding[] = ["any", "unbound", "bound"];
@@ -53,12 +96,15 @@ export function AssetLibraryView({
   uploadsLoading,
   endpoint,
   placeholders = NO_PLACEHOLDERS,
+  previewOf = NO_PREVIEW,
   onOpen,
 }: {
   /** The open language's group of the media plan; empty before media is planned. */
   assets: readonly MediaAsset[];
   /** The paths the server binds an asset to until a real file replaces it. */
   placeholders?: PlaceholderPaths;
+  /** What an asset looks like: its picture, its video's first frame, or a placeholder. */
+  previewOf?: (assetKey: string) => MediaPreview;
   uploads: readonly UploadedMedia[];
   uploadsLoading: boolean;
   endpoint: string;
@@ -68,6 +114,8 @@ export function AssetLibraryView({
   const [kind, setKind] = useState<LibraryKind>("all");
   const [binding, setBinding] = useState<LibraryBinding>("any");
   const [query, setQuery] = useState("");
+  const player = useClipPlayer();
+  const byKey = new Map(assets.map((asset) => [asset.key, asset]));
   const planned = plannedEntries(assets, placeholders);
   const files = uploadEntries(uploads, assets);
   const shownPlanned = filterPlanned(planned, kind, binding, query);
@@ -76,6 +124,7 @@ export function AssetLibraryView({
 
   return (
     <section className="space-y-4">
+      {player.element}
       <h3 className="text-sm font-semibold">{S.activities.libraryTitle}</h3>
       <div className="flex flex-wrap items-center gap-2">
         <ChipGroup
@@ -128,18 +177,35 @@ export function AssetLibraryView({
                 {shownPlanned.map((entry) => (
                   <tr key={entry.key}>
                     <td className={TD}>
-                      <button
-                        type="button"
-                        className={ASSET_NAME}
-                        onClick={() => onOpen(entry.key)}
-                      >
-                        {entry.description.trim() || entry.key}
-                      </button>
-                      {entry.description.trim() && (
-                        <p className="font-mono text-xs break-all text-gray-500 dark:text-gray-400">
-                          {entry.key}
-                        </p>
-                      )}
+                      <div className={`flex items-center ${ICON_GAP.card}`}>
+                        {byKey.has(entry.key) && (
+                          <AssetPicture
+                            asset={byKey.get(entry.key)!}
+                            preview={previewOf(entry.key)}
+                            endpoint={endpoint}
+                            player={player}
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <button
+                            type="button"
+                            className={ASSET_NAME}
+                            onClick={() => onOpen(entry.key)}
+                          >
+                            {entry.description.trim() || entry.key}
+                          </button>
+                          {entry.description.trim() && (
+                            <p className="font-mono text-xs break-all text-gray-500 dark:text-gray-400">
+                              {entry.key}
+                            </p>
+                          )}
+                          {player.failed === entry.key && (
+                            <p className={`text-xs ${toneInk.danger}`}>
+                              {S.activities.clipPlayback.failed}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className={`${TD} whitespace-nowrap text-xs`}>
                       {S.activities.mediaTypes[entry.type]}

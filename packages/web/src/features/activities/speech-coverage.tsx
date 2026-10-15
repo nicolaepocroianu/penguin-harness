@@ -5,7 +5,9 @@
  *
  * A row leads with the words a line says, the key under it for whoever needs the key, and
  * says its state only when the line needs something: a line with audio is the normal case,
- * said once in the summary rather than on every row.
+ * said once in the summary rather than on every row. Lines sit under the scene that says
+ * them, in the script's order, and a line with audio plays where it is listed: one press
+ * plays it, Play scene plays the scene's lines one after another, through one shared player.
  */
 import { useMemo, useState, type ReactNode } from "react";
 import type {
@@ -18,12 +20,21 @@ import type {
 } from "@prismshadow/penguin-server/api";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
+import { GlyphIcon } from "../../components/ui/glyph-icon";
+import { PAUSE_ICON, PLAY_ICON } from "../../components/ui/icons";
 import { ChipGroup } from "../../components/ui/chip-group";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { Select } from "../../components/ui/select";
 import { InfoPopover } from "../../components/ui/info-popover";
+import { ICON_GAP, ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
 import { toneInk, type Tone } from "../../lib/tone";
+import { ClipButton, useClipPlayer, type Clip, type ClipPlayer } from "./clip-player";
+import { narrationScenes, type NarrationScene } from "./narration-scenes";
+import { boundSource } from "./ref-plan";
+import type { SceneAssetTree } from "./scene-assets";
+import { formatClipLength } from "./script-media";
+import type { ScriptScene } from "./script-model";
 import {
   inSpeechFilter,
   pendingSpeechKeys,
@@ -80,6 +91,9 @@ const FILTERS: readonly SpeechFilter[] = [
 
 const INSTRUCTION_FILTERS: readonly InstructionFilter[] = ["all", "main", "scaffolding"];
 
+const NO_SCENES: SceneAssetTree = { scenes: [], unassigned: [] };
+const NO_SCRIPT = { text: "", scenes: [] };
+
 // The app's segmented control (`components/ui/segmented.tsx`), laid out to wrap: these
 // choices carry counts and can number more than the control's four columns.
 
@@ -134,6 +148,61 @@ function RowName({
   );
 }
 
+/** What a group of lines is called: shared media, its scene's title or id, or no scene. */
+function sceneName(group: NarrationScene<unknown>): string {
+  if (group.general) return S.activities.studioBoard.shared;
+  if (!group.sceneId) return S.activities.noSceneUsage;
+  return group.title ?? group.sceneId;
+}
+
+/** A scene's heading over its lines: its number and title, how many lines, and Play scene. */
+function SceneHeading({
+  group,
+  playable,
+  player,
+}: {
+  group: NarrationScene<unknown>;
+  playable: readonly Clip[];
+  player: ClipPlayer;
+}) {
+  const copy = S.activities.clipPlayback;
+  const name = sceneName(group);
+  const run = `scene:${group.sceneId}`;
+  const running = player.run === run;
+  return (
+    <div className="flex items-center gap-2 px-2 pt-2">
+      {group.number !== null && (
+        <span
+          aria-hidden
+          className="font-mono text-xs text-gray-400 tabular-nums dark:text-gray-500"
+        >
+          {group.number}
+        </span>
+      )}
+      <h5 className="min-w-0 truncate text-xs font-semibold">{name}</h5>
+      <span className="shrink-0 text-xs text-gray-500 tabular-nums dark:text-gray-400">
+        {copy.lines(group.rows.length)}
+      </span>
+      <span className="flex-1" />
+      {playable.length > 0 && (
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-label={running ? copy.stopScene(name) : copy.playScene(name)}
+          onClick={() => player.toggleRun(run, playable)}
+        >
+          <GlyphIcon
+            d={running ? PAUSE_ICON : PLAY_ICON}
+            size={ICON_SIZE.inlineGlyph}
+            filled={!running}
+          />
+          {running ? copy.stopSceneShort : copy.playSceneShort}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 export function SpeechCoverage({
   assets,
   language,
@@ -162,9 +231,18 @@ export function SpeechCoverage({
   voiceDisabled = false,
   soundProvider,
   onGenerateSounds,
+  endpoint,
+  scenes = NO_SCENES,
+  script = NO_SCRIPT,
 }: {
   assets: readonly MediaAsset[];
   language: string;
+  /** Where the activity's files are served, for playing a line where it is listed. */
+  endpoint: string;
+  /** The scenes in the specification's order, which the lines are grouped under. */
+  scenes?: SceneAssetTree;
+  /** The script, which names the scenes and orders the lines within each. */
+  script?: { text: string; scenes: readonly ScriptScene[] };
   /** The activity's runs, which say what is generating and what failed. */
   runs?: readonly ActivityRunSummary[];
   /** Every language's bound and total narration, for switching between them. */
@@ -215,6 +293,7 @@ export function SpeechCoverage({
   const [filter, setFilter] = useState<SpeechFilter>("all");
   const [adding, setAdding] = useState("");
   const [instruction, setInstruction] = useState<InstructionFilter>("all");
+  const player = useClipPlayer();
   // Derived from each line's words on every change, never stored (see instruction-type.ts).
   const types = useMemo(() => instructionTypes(assets, sources), [assets, sources]);
   const typeOf = (key: string): InstructionType => types.get(key) ?? "other";
@@ -249,6 +328,13 @@ export function SpeechCoverage({
   const shown = statuses.filter(
     (status) => inSpeechFilter(status, filter) && inType(status, instruction),
   );
+  const groups = narrationScenes(shown, scenes, script, (key) => byKey.get(key)?.script);
+  // A line plays from wherever its bound file is served; a line with no file has no button.
+  const clipOf = (key: string): Clip | null => {
+    const asset = byKey.get(key);
+    const src = asset ? boundSource(asset, endpoint) : null;
+    return src ? { key, src } : null;
+  };
   // The provider the narrations share picks the voices offered; with several, every voice.
   const provider = sharedProvider(assets);
   const bulkVoices =
@@ -458,82 +544,127 @@ export function SpeechCoverage({
             />
           </div>
         )}
-        <ul className="space-y-1">
-          {shown.map((status) => {
-            const tone = STATE_TONE[status.state];
-            const type = typeOf(status.key);
-            const stateText = speechRowState(status);
+        {player.element}
+        <div className="space-y-2">
+          {groups.map((group) => {
+            const clips = group.rows.flatMap((status) => clipOf(status.key) ?? []);
             return (
-              <li key={status.key} className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => onSelect(status.key)}
-                  title={status.error}
-                  className="flex min-w-0 flex-1 items-start justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-900"
-                >
-                  <RowName
-                    text={byKey.get(status.key)?.script}
-                    assetKey={status.key}
-                    scenes={status.sceneIds}
-                    badge={
-                      type !== "other" && (
-                        <Badge tone="gray">{S.activities.instructionType.badge[type]}</Badge>
-                      )
-                    }
-                  />
-                  {stateText && (
-                    <span
-                      className={`shrink-0 ${
-                        status.translation === "translating"
-                          ? toneInk.busy
-                          : status.translation
-                            ? toneInk.attention
-                            : tone
-                              ? toneInk[tone]
-                              : "text-gray-500"
-                      }`}
-                    >
-                      {stateText}
-                    </span>
-                  )}
-                </button>
-                {status.translation === "missing" && editable && onTranslateAndSpeak ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={!canGenerate}
-                    onClick={() => onTranslateAndSpeak(status.key)}
-                  >
-                    {S.activities.speechTranslation.translateAndSpeak}
-                  </Button>
-                ) : (
-                  (status.translation === "missing" || status.translation === "outdated") &&
-                  editable &&
-                  onTranslate && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={!canGenerate}
-                      onClick={() => onTranslate(status.key)}
-                    >
-                      {S.activities.speechTranslation.translate}
-                    </Button>
-                  )
-                )}
-                {status.state === "failed" && editable && onRetry && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={!canGenerate}
-                    onClick={() => onRetry(status.key)}
-                  >
-                    {S.activities.bulkSpeechRetry}
-                  </Button>
-                )}
-              </li>
+              <div key={group.sceneId || "unplaced"} className="space-y-0.5">
+                <SceneHeading group={group} playable={clips} player={player} />
+                <ul className="space-y-0.5">
+                  {group.rows.map((status) => {
+                    const tone = STATE_TONE[status.state];
+                    const type = typeOf(status.key);
+                    const stateText = speechRowState(status);
+                    const asset = byKey.get(status.key);
+                    const clip = clipOf(status.key);
+                    const sounding = player.playing === status.key;
+                    return (
+                      <li
+                        key={status.key}
+                        className={`flex items-center ${ICON_GAP.tight} rounded-md pl-1 ${
+                          sounding ? "bg-brand-50 dark:bg-brand-950" : ""
+                        }`}
+                      >
+                        {clip ? (
+                          <ClipButton clip={clip} words={asset?.script} player={player} />
+                        ) : (
+                          <span aria-hidden className="size-7 shrink-0" />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => onSelect(status.key)}
+                          title={status.error}
+                          className="flex min-w-0 flex-1 items-start justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-900"
+                        >
+                          <RowName
+                            text={asset?.script}
+                            assetKey={status.key}
+                            // Under its scene's heading, a line names its scenes only when
+                            // others say it too, or when no heading names them.
+                            scenes={
+                              status.sceneIds.length > 1 || !group.sceneId
+                                ? status.sceneIds
+                                : undefined
+                            }
+                            badge={
+                              type !== "other" && (
+                                <Badge tone="gray">
+                                  {S.activities.instructionType.badge[type]}
+                                </Badge>
+                              )
+                            }
+                          />
+                          <span className="flex shrink-0 items-baseline gap-2">
+                            {player.failed === status.key ? (
+                              <span className={toneInk.danger}>
+                                {S.activities.clipPlayback.failed}
+                              </span>
+                            ) : (
+                              stateText && (
+                                <span
+                                  className={
+                                    status.translation === "translating"
+                                      ? toneInk.busy
+                                      : status.translation
+                                        ? toneInk.attention
+                                        : tone
+                                          ? toneInk[tone]
+                                          : "text-gray-500"
+                                  }
+                                >
+                                  {stateText}
+                                </span>
+                              )
+                            )}
+                            {clip && asset?.durationMs !== undefined && (
+                              <span className="font-mono text-gray-500 tabular-nums dark:text-gray-400">
+                                {formatClipLength(asset.durationMs)}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                        {status.translation === "missing" && editable && onTranslateAndSpeak ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={!canGenerate}
+                            onClick={() => onTranslateAndSpeak(status.key)}
+                          >
+                            {S.activities.speechTranslation.translateAndSpeak}
+                          </Button>
+                        ) : (
+                          (status.translation === "missing" || status.translation === "outdated") &&
+                          editable &&
+                          onTranslate && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={!canGenerate}
+                              onClick={() => onTranslate(status.key)}
+                            >
+                              {S.activities.speechTranslation.translate}
+                            </Button>
+                          )
+                        )}
+                        {status.state === "failed" && editable && onRetry && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={!canGenerate}
+                            onClick={() => onRetry(status.key)}
+                          >
+                            {S.activities.bulkSpeechRetry}
+                          </Button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             );
           })}
-        </ul>
+        </div>
         {editable && queued > 0 ? (
           <div className="flex flex-wrap items-center gap-2">
             <p role="status" className={`text-xs ${toneInk.busy}`}>

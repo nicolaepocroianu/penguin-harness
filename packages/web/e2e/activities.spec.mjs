@@ -2888,6 +2888,156 @@ test("the storyboard shows every scene, and walks into its media scene by scene"
   expect(f.errors).toEqual([]);
 });
 
+test("media shows and plays where it is listed: by scene in Audio, on the storyboard, in the editor", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  const blank = "media/loom/words/words-12/videos/english/empty.mp4";
+  // Each clip asked for, once per run of requests, in the order the page asked; and every
+  // other file asked for, which pictures are.
+  const heard = [];
+  const seen = new Set();
+  await page.route("**/*", (route) => {
+    const p = new URL(route.request().url()).pathname;
+    if (p === `${base}/act_test/media-placeholders`)
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ paths: [blank] }),
+      });
+    if (p.startsWith(`${base}/act_test/sandbox/media/`)) {
+      const file = p.split("/").pop();
+      if (!file.endsWith(".wav")) seen.add(file);
+      else if (heard.at(-1) !== file) heard.push(file);
+      if (file.endsWith(".wav"))
+        return route.fulfill({ contentType: "audio/wav", body: toneWav(0.2) });
+      return route.fulfill({ status: 404, contentType: "text/plain", body: "Not found" });
+    }
+    return route.fallback();
+  });
+  await create(page);
+  await openSection(page, "Script");
+  await page
+    .getByRole("textbox", { name: "Script", exact: true })
+    .fill(
+      [
+        "Scene 1: Intro",
+        "<video>An island</video>",
+        "<audio>Welcome along</audio>",
+        "Scene 2: Rocks",
+        "<audio>Here are the stones</audio>",
+        "Then <audio>Find the letter d</audio>",
+      ].join("\n"),
+    );
+  await page.getByRole("button", { name: "Save script", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Save script", exact: true })).toBeDisabled();
+  await openSection(page, "Specification");
+  await page.getByRole("textbox", { name: "Specification JSON", exact: true }).fill(
+    JSON.stringify({
+      ...spec,
+      scenes: [
+        { id: "scene-1", description: "<video>An island</video> appears." },
+        { id: "scene-2", description: "Find the letter d." },
+      ],
+    }),
+  );
+  await page.getByRole("button", { name: "Save specification", exact: true }).click();
+  await openSection(page, "Storyboard");
+  await planMedia(page);
+  const use = (sceneId, key) => ({
+    sceneId,
+    sourceKey: key,
+    occurrence: 1,
+    sceneOccurrenceCount: 1,
+  });
+  const narration = (key, script, sceneId) => ({
+    key,
+    type: "audio",
+    speechProvider: "gemini",
+    description: `${key} line`,
+    script,
+    path: `media/audio/${key}.wav`,
+    usages: [use(sceneId, key)],
+  });
+  await openManifest(page);
+  await page.getByRole("textbox", { name: /^Asset manifest/ }).fill(
+    JSON.stringify({
+      productCode: "words",
+      refNum: 12,
+      assets: {
+        "en-US": [
+          {
+            key: "island",
+            type: "video",
+            description: "An island",
+            path: "media/videos/island.mp4",
+            usages: [use("scene-1", "island")],
+          },
+          narration("welcome", "Welcome along", "scene-1"),
+          // The plan holds the letter before the stones; the script says the stones first.
+          narration("find_d", "Find the letter d", "scene-2"),
+          narration("stones", "Here are the stones", "scene-2"),
+          {
+            key: "chest",
+            type: "video",
+            description: "A chest",
+            path: blank,
+            usages: [use("scene-2", "chest")],
+          },
+        ],
+      },
+    }),
+  );
+  await openSection(page, "Storyboard");
+  await page.getByRole("button", { name: "Validate and save media", exact: true }).click();
+
+  // Audio: the lines under their scenes' titles, in the script's order, each one playable.
+  await openSection(page, "Audio");
+  await expect(page.getByRole("heading", { name: "Intro", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Rocks", exact: true })).toBeVisible();
+  const plays = page.getByRole("button", { name: /^Play “/ });
+  await expect(plays).toHaveCount(3);
+  expect(
+    await plays.evaluateAll((buttons) => buttons.map((b) => b.getAttribute("aria-label"))),
+  ).toEqual(["Play “Welcome along”", "Play “Here are the stones”", "Play “Find the letter d”"]);
+  await page.getByRole("button", { name: "Play “Welcome along”", exact: true }).click();
+  await expect.poll(() => heard).toEqual(["welcome.wav"]);
+  // Play scene plays the scene's lines one after another, then offers itself again.
+  await page.getByRole("button", { name: "Play scene: Rocks", exact: true }).click();
+  await expect.poll(() => heard).toEqual(["welcome.wav", "stones.wav", "find_d.wav"]);
+  await expect(page.getByRole("button", { name: "Play scene: Rocks", exact: true })).toBeVisible();
+
+  // The storyboard: scene titles, the script's beats with no markup, and the poster's file.
+  await page.getByRole("treeitem", { name: "Storyboard", exact: true, level: 1 }).click();
+  const intro = page.getByRole("button", { name: "Scene 1, Intro", exact: true });
+  await expect(intro).toContainText("An island");
+  await expect(intro).toContainText("Welcome along");
+  await expect(intro).not.toContainText("<");
+  await expect.poll(() => seen.has("island.mp4")).toBe(true);
+  await expect(
+    page.getByRole("button", { name: "Scene 2, Rocks. 1 placeholder", exact: true }),
+  ).toBeVisible();
+  // The placeholder is said once for the board, and is never loaded for a picture.
+  await expect(page.getByText("1 asset is still a placeholder.", { exact: true })).toBeVisible();
+  expect(seen.has("empty.mp4")).toBe(false);
+
+  // Its video plays in the asset editor, from the file the player reads.
+  await page.getByRole("button", { name: "Review placeholders", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "chest", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Play bound media: chest", { exact: true })).toHaveAttribute(
+    "src",
+    `${base}/act_test/sandbox/media/loom/words/words-12/videos/english/empty.mp4`,
+  );
+  await expect(page.getByText(/^This video is the shared blank placeholder/)).toBeVisible();
+  await expect(page.getByText(/has no in-app preview/)).toHaveCount(0);
+
+  // The Library plays sound where it is listed too.
+  await openSection(page, "Library");
+  await expect(
+    page.getByRole("button", { name: "Play “Welcome along”", exact: true }),
+  ).toBeVisible();
+  expect(f.errors).toEqual([]);
+});
+
 test("the script saves itself after a pause, and waits while a run is in flight", async ({
   page,
 }) => {
