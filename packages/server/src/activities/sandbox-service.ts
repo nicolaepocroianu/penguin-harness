@@ -29,6 +29,7 @@ import { runConfinement } from "./run-sandbox.js";
 import type { ActivityDraft, ActivityRecord, ModuleDocumentKind } from "./domain.js";
 import type { ModuleBuilder } from "./module-builder.js";
 import type { ActivityModuleSource, ModuleRef } from "./module-source.js";
+import type { ActivityRuns } from "./run-store.js";
 import {
   activityPayload,
   scopeConfigurationToLanguage,
@@ -216,6 +217,8 @@ export abstract class ActivitySandbox extends Interface<{
   /** One file of the checkout's navigation bar module, which every played layout carries. */
   navbarFile(rawPath: string): Promise<SandboxMediaResponse>;
   build(projectId: string, activityId: string, force?: boolean): Promise<SandboxBuildReport>;
+  /** Forgets the builds of these runs, whose folders have been removed. */
+  forgetRuns(runIds: string[]): void;
   /** Whether a module exists to play: a built run, or the product's checkout folder. */
   hasModule(projectId: string, activity: ActivityRecord): Promise<boolean>;
   media(
@@ -277,6 +280,7 @@ export class ActivitySandboxService implements ActivitySandbox {
   @Use() private readonly config!: Config;
   @Use() private readonly moduleSources!: ActivityModuleSource;
   @Use() private readonly moduleBuilder!: ModuleBuilder;
+  @Use() private readonly runs!: ActivityRuns;
 
   @Use() private readonly wafWorkspace!: WafWorkspace;
   @Use() private readonly links!: ActivityPlayLinks;
@@ -742,6 +746,10 @@ export class ActivitySandboxService implements ActivitySandbox {
       (await this.ensureCurrent(source)) ??
       report({ ok: true, joined: false, skipped: true, log: "" })
     );
+  }
+
+  forgetRuns(runIds: string[]): void {
+    for (const runId of runIds) this.builder.forget(sandboxModuleRoot(this.runs.workspace(runId)));
   }
 
   /**

@@ -88,7 +88,7 @@ import { TraceService } from "./services/trace-service.js";
 import { WorkspaceFilesService } from "./services/workspace-files-service.js";
 import { RevealService } from "./services/reveal-path.js";
 import { ProjectAccess } from "./services/project-access.js";
-import { ProjectService, ProjectRuns } from "./services/project-service.js";
+import { ProjectService, ProjectPreviews, ProjectRuns } from "./services/project-service.js";
 import { ProjectActivityWorkService } from "./services/project-activity-work.js";
 import { AuthService, InitialProjectProvisioner } from "./auth/service.js";
 import { AdminService } from "./services/admin-service.js";
@@ -488,6 +488,7 @@ export class CodingAgentsModule {}
     ActivityDeploys,
     ActivityDeployEvents,
     WafWorkspace,
+    ProjectPreviews,
   ],
 })
 export class ActivitiesModule {}

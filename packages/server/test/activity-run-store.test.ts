@@ -4,6 +4,7 @@
  * authoring and generation share keeps "no run is working on this activity" true for as long
  * as the one who checked it holds the activity.
  */
+import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { wire } from "@prismshadow/penguin-core/kernel";
@@ -11,6 +12,7 @@ import type { ActivityDetail, ActivityRun } from "../src/activities/domain.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../src/mechanisms/activities.js";
 import { isRunWorkspace, type ActivityRuns } from "../src/activities/run-store.js";
 import { ActivityLockService } from "../src/activities/activity-lock.js";
+import { modulePackagesRoot } from "../src/activities/run-kinds/module.js";
 import { apiClient, createTestApp, provisionUser, type TestApp } from "./helpers.js";
 
 function deferred<T = void>() {
@@ -191,6 +193,60 @@ describe("ActivityRuns", () => {
     expect(isRunWorkspace(t.root, path.join(folder, "sub"))).toBe(true);
     expect(isRunWorkspace(t.root, path.dirname(folder))).toBe(false);
     expect(isRunWorkspace(t.root, t.root)).toBe(false);
+  });
+
+  it("removes a deleted project's run folders, and nothing a link in one points to", async () => {
+    const { t, client, create, runs, newRun } = await setup();
+    const added = await client.post("/api/projects/runstore-work/activities", {
+      productCode: "letters",
+      refNum: 1,
+      title: "letters 1",
+    });
+    expect(added.status, await added.clone().text()).toBe(201);
+    const second = (await added.json()) as ActivityDetail;
+    const other = await create("runstore-other", "numbers");
+    const settle = (run: ActivityRun) => {
+      runs.open(run);
+      runs.save({ ...run, status: "succeeded" });
+      return run.runId;
+    };
+    const built = settle(newRun({ kind: "module" }));
+    const spec = settle(newRun({ activityId: second.id, draftId: second.draft.draftId }));
+    const theirs = settle(
+      newRun({ activityId: other.id, projectId: "runstore-other", draftId: other.draft.draftId }),
+    );
+    expect(runs.projectRunIds("runstore-work").sort()).toEqual([built, spec].sort());
+
+    // A module run's packages are linked in from the cache every module run shares.
+    const packages = path.join(modulePackagesRoot(t.root), "set", "node_modules");
+    await fs.mkdir(path.join(packages, "webpack"), { recursive: true });
+    await fs.writeFile(path.join(packages, "webpack", "package.json"), "{}");
+    const module = path.join(runs.workspace(built), "module");
+    await fs.mkdir(module, { recursive: true });
+    await fs.writeFile(path.join(module, "definition.json"), "{}");
+    // A junction on Windows, which needs no privilege; elsewhere a directory symlink.
+    await fs.symlink(packages, path.join(module, "node_modules"), "junction");
+    for (const runId of [spec, theirs]) {
+      await fs.mkdir(runs.workspace(runId), { recursive: true });
+      await fs.writeFile(path.join(runs.workspace(runId), "input.json"), "{}");
+    }
+
+    expect((await client.delete("/api/projects/runstore-work")).status).toBe(204);
+    for (const runId of [built, spec])
+      await expect(fs.stat(runs.workspace(runId))).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await fs.readFile(path.join(packages, "webpack", "package.json"), "utf8")).toBe("{}");
+    expect(await fs.readFile(path.join(runs.workspace(theirs), "input.json"), "utf8")).toBe("{}");
+    expect(runs.projectRunIds("runstore-work")).toEqual([]);
+    expect(runs.projectRunIds("runstore-other")).toEqual([theirs]);
+  });
+
+  it("removes run folders only: an id that names none removes nothing", async () => {
+    const { t, runs } = await setup();
+    await fs.mkdir(runs.workspace("run_kept"), { recursive: true });
+    await fs.writeFile(path.join(t.root, "kept.txt"), "kept");
+    await runs.removeWorkspaces(["", ".", "..", "../kept.txt", "run_missing"]);
+    expect(await fs.readFile(path.join(t.root, "kept.txt"), "utf8")).toBe("kept");
+    expect((await fs.stat(runs.workspace("run_kept"))).isDirectory()).toBe(true);
   });
 
   it("finds runs by their Session, per project", async () => {

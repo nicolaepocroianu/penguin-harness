@@ -39,6 +39,7 @@ import type { Schedules, SessionIndex } from "../mechanisms/sessions.js";
 import type { ErrorLog, UsageStore } from "../mechanisms/observability.js";
 import type { TraceIndex } from "../mechanisms/traces.js";
 import type { OrgCache } from "../mechanisms/organization.js";
+import type { ActivityRuns } from "../activities/run-store.js";
 
 /** Fallback timeout for waiting on runs to settle before deleting a Project. */
 const ABORT_SETTLE_TIMEOUT_MS = 5000;
@@ -75,6 +76,10 @@ export class ProjectService implements ProjectLifecycle {
   @Use() private readonly manager!: ProjectRuns;
   /** Trace-index cleanup on Project destruction (rows describe files removed with the Project dir). */
   @Use() private readonly traceIndex!: TraceIndex;
+  /** The Project's activity runs: their folders live outside the Project dir. */
+  @Use() private readonly activityRuns!: ActivityRuns;
+  /** The previews that built those runs' modules, told the folders are gone. */
+  @Use() private readonly previews!: ProjectPreviews;
 
   // Access control lives in ProjectAccess (services/project-access.ts); these delegate so
   // in-package callers keep one entry point.
@@ -245,8 +250,8 @@ export class ProjectService implements ProjectLifecycle {
    * **last accessible Project** is refused too (deleting it would leave the list
    * empty, with no Project to select in the Web client and the page stuck on a
    * skeleton screen — a typical case being a non-first user deleting the initial
-   * Project provisioned at signup); active runs are drained first, then the DB and
-   * directory are cleared.
+   * Project provisioned at signup); active runs are drained first, then the DB, the
+   * directory and the activity runs' folders are cleared.
    */
   async deleteProject(userId: string, projectId: string): Promise<void> {
     this.requireProjectOwner(userId, projectId);
@@ -286,6 +291,8 @@ export class ProjectService implements ProjectLifecycle {
         new Promise<void>((resolve) => setTimeout(resolve, ABORT_SETTLE_TIMEOUT_MS).unref?.()),
       ]);
     }
+    // Read before the rows go: activity_runs is cascade-deleted with the Project.
+    const runIds = this.activityRuns.projectRunIds(projectId);
     this.projects.delete(projectId); // project_members, machine_project and model_promotions cascade-deleted
     this.agents.deleteByProject(projectId);
     this.sessions.deleteByProject(projectId);
@@ -295,6 +302,8 @@ export class ProjectService implements ProjectLifecycle {
     this.orgCache.deleteProject(projectId);
     this.traceIndex.removeProject(projectId);
     await fs.rm(projectDir(this.root, projectId), { recursive: true, force: true });
+    await this.activityRuns.removeWorkspaces(runIds);
+    this.previews.forgetRuns(runIds);
   }
 
   // —— Member authorization ——
@@ -372,4 +381,9 @@ export class ProjectService implements ProjectLifecycle {
 /** What destroying a Project needs of the session runtime — declared at the consumer. */
 export abstract class ProjectRuns extends Interface<{
   abortProject(projectId: string): Promise<void>[];
+}>() {}
+
+/** What destroying a Project needs of the activity previews — declared at the consumer. */
+export abstract class ProjectPreviews extends Interface<{
+  forgetRuns(runIds: string[]): void;
 }>() {}

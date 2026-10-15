@@ -1,3 +1,4 @@
+import fs from "node:fs/promises";
 import path from "node:path";
 import { Component, Interface, Use, type Opaque } from "@prismshadow/penguin-core/kernel";
 import type { Config, Db } from "../hmr/capabilities.js";
@@ -46,6 +47,13 @@ export abstract class ActivityRuns extends Interface<{
   hasActive(activityId: string): boolean;
   /** The run's folder, where its agent or the server does its work. */
   workspace(runId: string): string;
+  /** Every run of a project, of every activity, by id. */
+  projectRunIds(projectId: string): string[];
+  /**
+   * Removes these runs' folders. A link inside one (a module run's linked packages) is
+   * removed, never what it points to. A folder that cannot be removed is left as it is.
+   */
+  removeWorkspaces(runIds: string[]): Promise<void>;
   /** The activity whose run the Session is, if it is one. */
   activityOfSession(sessionId: string): string | undefined;
   /** Every run Session of a project, session id to activity id, in one read. */
@@ -158,6 +166,24 @@ export class ActivityRunStore implements ActivityRuns {
 
   workspace(runId: string): string {
     return path.join(this.config.root, RUNS_DIR, runId);
+  }
+
+  projectRunIds(projectId: string): string[] {
+    const rows = this.db
+      .prepare("SELECT run_id FROM activity_runs WHERE project_id = ?")
+      .all(projectId) as Array<{ run_id: string }>;
+    return rows.map((row) => row.run_id);
+  }
+
+  async removeWorkspaces(runIds: string[]): Promise<void> {
+    // An id that names no folder below the runs' own (empty, or with `..`) removes nothing.
+    const folders = runIds
+      .map((runId) => this.workspace(runId))
+      .filter((folder) => isRunWorkspace(this.config.root, folder));
+    // fs.rm unlinks a symlink or junction it meets rather than descending through it.
+    await Promise.allSettled(
+      folders.map((folder) => fs.rm(folder, { recursive: true, force: true })),
+    );
   }
 
   activityOfSession(sessionId: string): string | undefined {
