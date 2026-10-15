@@ -8,18 +8,26 @@
  * ships. That Sass is installed once under Penguin's root on first use and run from there
  * with this process's Node, so after the first compile nothing asks a registry again.
  *
+ * A run workspace's build is its agent's code, so it is built as the agent's own commands ran:
+ * confined to the module while activity agents are confined (`sandbox-build-runner`). A
+ * checkout module's build runs the checkout's code, and is not.
+ *
  * Tests replace `ModuleBuilder` with builds over a fake compiler; nothing here is reached by a
  * test that installs a package.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { SpawnConfiner } from "@prismshadow/penguin-core";
 import { Component, Interface, Use } from "@prismshadow/penguin-core/kernel";
 import type { Config } from "../hmr/capabilities.js";
+import type { Settings } from "../mechanisms/settings.js";
+import { Sandbox, SandboxModule } from "../sandbox/service.js";
 import {
   spawnDeployProcess,
   type DeployProcess,
   type DeployProcessResult,
 } from "./deploy-process.js";
+import { confinedArgv, type ProgramConfiner } from "./run-program.js";
 import { spawnModuleBuild, spawnNodeScript, type BuildOutcome } from "./sandbox-build-runner.js";
 import { spawnCheckoutBuild, type CheckoutBuildJob } from "./sandbox-checkout-build.js";
 import { PLAYER_BUILD_SCRIPT, PLAYER_SOURCE } from "./sandbox-player.js";
@@ -41,6 +49,10 @@ export interface StyleJob {
   signal?: AbortSignal;
   /** The compiler's output, as it arrives. */
   onOutput?: (text: string) => void;
+  /** The compiler's whole environment; absent, this process's. */
+  env?: NodeJS.ProcessEnv;
+  /** The compiler runs confined (see `ProgramSpec.confine`). */
+  confine?: ProgramConfiner;
 }
 
 /** How a compile went, as a deploy's programs report it. */
@@ -58,7 +70,11 @@ export interface PlayerBuildJob {
 export abstract class ModuleBuilder extends Interface<{
   /** Compiles one stylesheet with the pinned Sass. */
   compileStyle(job: StyleJob): Promise<StyleResult>;
-  /** A run workspace's module, built in place by its own script, its stylesheet first. */
+  /**
+   * A run workspace's module, built in place by its own script, its stylesheet first, with
+   * none of this server's environment and, while activity agents are confined, writable only
+   * in the module.
+   */
   buildRun(workspace: string): Promise<BuildOutcome>;
   /** A checkout module, built into Penguin's output without writing to the checkout. */
   buildCheckout(job: CheckoutBuildJob): Promise<BuildOutcome>;
@@ -66,11 +82,18 @@ export abstract class ModuleBuilder extends Interface<{
   buildPlayer(job: PlayerBuildJob): Promise<BuildOutcome>;
 }>() {}
 
-/** The builds, over one stylesheet compiler: the real one, or a test's. */
-export function moduleBuilds(compileStyle: StyleCompiler): ModuleBuilder {
+/**
+ * The builds, over one stylesheet compiler (the real one, or a test's) and the sandbox a run's
+ * build is confined in: `runConfiner` answers it when a build starts, null while activity
+ * agents are not confined.
+ */
+export function moduleBuilds(
+  compileStyle: StyleCompiler,
+  runConfiner: () => SpawnConfiner | null = () => null,
+): ModuleBuilder {
   return {
     compileStyle,
-    buildRun: (workspace) => spawnModuleBuild(workspace, { compileStyle }),
+    buildRun: (workspace) => spawnModuleBuild(workspace, { compileStyle, confiner: runConfiner() }),
     buildCheckout: (job) => spawnCheckoutBuild(job, { compileStyle }),
     buildPlayer: (job) =>
       spawnNodeScript(PLAYER_BUILD_SCRIPT, {
@@ -176,15 +199,18 @@ export class PinnedSass {
 
   /** Compiles one stylesheet: `sass <from> <to> --no-source-map`, as a deploy runs it. */
   async compile(job: StyleJob): Promise<StyleResult> {
-    let cli: string;
+    let argv: [string, ...string[]];
     try {
-      cli = await this.cli(job.cwd);
+      argv = [process.execPath, await this.cli(job.cwd), job.from, job.to, "--no-source-map"];
+      if (job.confine) argv = confinedArgv(job.confine, argv);
     } catch (error) {
       return { code: 1, tail: (error as Error).message };
     }
-    return this.run(process.execPath, [cli, job.from, job.to, "--no-source-map"], {
+    const [command, ...args] = argv;
+    return this.run(command, args, {
       cwd: job.cwd,
       shell: false,
+      ...(job.env ? { env: job.env } : {}),
       ...(job.signal ? { signal: job.signal } : {}),
       ...(job.onOutput ? { onOutput: job.onOutput } : {}),
     });
@@ -194,6 +220,8 @@ export class PinnedSass {
 @Component()
 export class DefaultModuleBuilder implements ModuleBuilder {
   @Use() private readonly config!: Config;
+  @Use() private readonly settings!: Settings;
+  @Use(SandboxModule) private readonly sandbox!: Sandbox;
 
   private builds: ModuleBuilder | null = null;
 
@@ -201,7 +229,11 @@ export class DefaultModuleBuilder implements ModuleBuilder {
   private real(): ModuleBuilder {
     if (!this.builds) {
       const sass = new PinnedSass(sassHome(this.config.root));
-      this.builds = moduleBuilds((job) => sass.compile(job));
+      // Read as each build starts: an admin's switch applies to the next build.
+      this.builds = moduleBuilds(
+        (job) => sass.compile(job),
+        () => (this.settings.getConfineActivityAgents() ? this.sandbox.confiner() : null),
+      );
     }
     return this.builds;
   }

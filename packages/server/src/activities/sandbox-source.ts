@@ -44,6 +44,13 @@ export function runBuildOutput(moduleRoot: string): string {
   return path.join(moduleRoot, "dist", "debug");
 }
 
+/**
+ * The folder of a run's module npm keeps its cache in while the module builds confined: the
+ * module is the one place such a build may write. It is not part of the module, so nothing
+ * that lists, compares or deploys a module's files takes it.
+ */
+export const RUN_BUILD_NPM_CACHE = ".npm-cache";
+
 /** The directory, under Penguin's root, that a checkout module is built into. */
 export function checkoutOutputRoot(penguinRoot: string, moduleFolder: string): string {
   return path.join(penguinRoot, "activity-sandbox", "modules", moduleFolder);

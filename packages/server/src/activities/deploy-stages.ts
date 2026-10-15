@@ -71,6 +71,7 @@ import {
 import { runPreflight } from "./deploy-preflight.js";
 import { syncMedia } from "./deploy-media.js";
 import { withinRoot } from "./sandbox-paths.js";
+import { RUN_BUILD_NPM_CACHE } from "./sandbox-source.js";
 import {
   DEPLOY_ALL_STAGES,
   DEPLOY_PROD_STAGES,
@@ -378,7 +379,7 @@ async function exists(file: string): Promise<boolean> {
 }
 
 /** What is never copied from an assembled module into the clone. */
-const NOT_COPIED = new Set([".git", "node_modules"]);
+const NOT_COPIED = new Set([".git", "node_modules", RUN_BUILD_NPM_CACHE]);
 
 /** Copies the assembled module over the clone's working tree (files the module lacks stay). */
 async function syncModule(source: string, target: string): Promise<number> {

@@ -12,7 +12,8 @@
  *   a shell gives a command it could not find: sh's 127, cmd's 9009);
  * - `timed_out`: it ran past `timeoutMs` and was stopped;
  * - `stopped`: the caller's signal aborted, or `stop()` was called;
- * - `failed_to_start`: it could not be started for another reason (`error` says which).
+ * - `failed_to_start`: it could not be started for another reason (`error` says which), a
+ *   sandbox that would not confine it among them.
  *
  * Never throws, and never rejects.
  */
@@ -39,6 +40,22 @@ export type ProgramStream = "stdout" | "stderr";
 
 export type ProgramOutcome = "exited" | "not_found" | "timed_out" | "stopped" | "failed_to_start";
 
+/**
+ * Puts a program in a sandbox: given the argv it would be spawned with, answers the argv to
+ * spawn instead (a sandbox runner wrapping it). Throws when it cannot confine it.
+ */
+export type ProgramConfiner = (argv: readonly string[]) => readonly string[];
+
+/** `argv` as `confine` rewrote it. Throws when it refuses, or leaves nothing to start. */
+export function confinedArgv(
+  confine: ProgramConfiner,
+  argv: readonly string[],
+): [string, ...string[]] {
+  const [program, ...rest] = confine(argv);
+  if (program === undefined) throw new Error("The sandbox gave no program to start.");
+  return [program, ...rest];
+}
+
 export interface ProgramSpec {
   command: string;
   args?: readonly string[];
@@ -50,6 +67,12 @@ export interface ProgramSpec {
    * it goes through cmd.exe with its arguments quoted for it. Ignored elsewhere.
    */
   windowsShell?: boolean;
+  /**
+   * The program runs confined: the argv it would be spawned with, cmd.exe included when
+   * `windowsShell` sends it there, goes to the confiner, and what comes back is spawned. A
+   * confiner that throws means the program does not start (`failed_to_start`, with its reason).
+   */
+  confine?: ProgramConfiner;
   timeoutMs: number;
   /** Aborting it stops the program and everything it started. */
   signal?: AbortSignal;
@@ -213,7 +236,15 @@ export function startProgram(spec: ProgramSpec): RunningProgram {
     finish("not_found", null, `${spec.command} was not found on PATH.`);
     return handle;
   }
-  const [file, args, verbatim] = commandLine(spec);
+  let file: string;
+  let args: string[];
+  let verbatim: boolean;
+  try {
+    [file, args, verbatim] = commandLine(spec);
+  } catch (error) {
+    finish("failed_to_start", null, (error as Error).message);
+    return handle;
+  }
   const piped = spec.input !== undefined || spec.holdInput === true;
   let proc: ChildProcess;
   try {
@@ -289,13 +320,34 @@ function startFailure(spec: ProgramSpec, error: NodeJS.ErrnoException): ProgramO
   return "failed_to_start";
 }
 
-/** The file to spawn and its arguments, through cmd.exe for a Windows `.cmd` wrapper. */
+/**
+ * The file to spawn and its arguments, through cmd.exe for a Windows `.cmd` wrapper and
+ * through the confiner when there is one. Throws when the program cannot be confined.
+ */
 function commandLine(spec: ProgramSpec): [string, string[], boolean] {
+  const [file, args, verbatim] = shellLine(spec);
+  if (!spec.confine) return [file, args, verbatim];
+  const [program, ...rest] = confinedArgv(spec.confine, [file, ...args]);
+  // A sandbox runner is an ordinary program, which quotes what it starts itself.
+  return [program, rest, false];
+}
+
+/** The file to spawn and its arguments, through cmd.exe for a Windows `.cmd` wrapper. */
+function shellLine(spec: ProgramSpec): [string, string[], boolean] {
   const args = [...(spec.args ?? [])];
   if (!spec.windowsShell || process.platform !== "win32") return [spec.command, args, false];
+  const tokens = [spec.command, ...args];
+  const comspec = process.env.ComSpec || "cmd.exe";
+  if (spec.confine) {
+    // A sandbox runner hands cmd its line as one argument quoted as the C runtime quotes it,
+    // which /s undoes only for a line with no quotes of its own.
+    if (tokens.some(needsCmdQuoting))
+      throw new Error(`${spec.command} cannot run confined with arguments cmd.exe would quote.`);
+    return [comspec, ["/d", "/s", "/c", tokens.join(" ")], false];
+  }
   // With /s, cmd strips only the outer pair of quotes before running the rest as written.
-  const line = [spec.command, ...args].map(quoteForCmd).join(" ");
-  return [process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", `"${line}"`], true];
+  const line = tokens.map(quoteForCmd).join(" ");
+  return [comspec, ["/d", "/s", "/c", `"${line}"`], true];
 }
 
 /** Whether cmd.exe would find `spec.command`: in the working folder or on PATH, by PATHEXT. */
@@ -321,8 +373,12 @@ function onWindowsPath(spec: ProgramSpec): boolean {
  * escapes as `^%` outside a fresh pair.
  */
 function quoteForCmd(token: string): string {
-  if (token !== "" && !/[\s"%&|<>^()]/.test(token)) return token;
+  if (!needsCmdQuoting(token)) return token;
   return `"${token.replaceAll('"', '""').replaceAll("%", '"^%"')}"`;
+}
+
+function needsCmdQuoting(token: string): boolean {
+  return token === "" || /[\s"%&|<>^()]/.test(token);
 }
 
 /**

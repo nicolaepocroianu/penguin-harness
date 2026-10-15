@@ -11,9 +11,17 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { ActivityRunSummary } from "./domain.js";
 import type { ModuleBuildDiff, ModuleBuildFileDiff } from "./module-build-types.js";
+import { RUN_BUILD_NPM_CACHE } from "./sandbox-source.js";
 
 /** Folders a build's files never come from. */
-const SKIPPED_DIRS = new Set(["node_modules", ".git", "dist", "build", ".typescript-build"]);
+const SKIPPED_DIRS = new Set([
+  "node_modules",
+  ".git",
+  "dist",
+  "build",
+  ".typescript-build",
+  RUN_BUILD_NPM_CACHE,
+]);
 
 /** Files a compare shows as text. */
 const TEXT_EXTENSIONS = new Set([".js", ".ts", ".json", ".css", ".scss", ".html"]);

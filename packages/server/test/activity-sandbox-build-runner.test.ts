@@ -111,7 +111,7 @@ describe("running a module's own build", () => {
     await fs.writeFile(path.join(dir, "res", "style.scss"), ".a .b { color: red; }", "utf8");
     const sass = compiler();
     const outcome = await spawnModuleBuild(dir, sass);
-    expect(sass.jobs).toEqual([{ cwd: dir, from: "res/style.scss", to: "res/style.css" }]);
+    expect(sass.jobs).toMatchObject([{ cwd: dir, from: "res/style.scss", to: "res/style.css" }]);
     expect(outcome.ok).toBe(true);
     expect(outcome.log).toContain("Compiled res/style.scss to res/style.css.");
     expect(outcome.log).toContain("saw css: true");

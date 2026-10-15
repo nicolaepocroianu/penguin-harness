@@ -63,6 +63,8 @@ async function sandbox(options: {
   edits?: Partial<Record<"configuration" | "assessment", { value: unknown; stale: boolean }>>;
   /** What a module build answers. */
   build?: { ok: boolean; log: string };
+  /** Whether activity agents are confined, and why nothing could confine them right now. */
+  confinement?: { on?: boolean; problem?: string | null };
 }) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-sandbox-"));
   const runs = options.runs ?? [
@@ -123,6 +125,8 @@ async function sandbox(options: {
     root,
     wafRoot: options.wafRoot ?? null,
     builder: builds.builder,
+    confineActivityAgents: options.confinement?.on,
+    confinementProblem: options.confinement?.problem,
   });
   return {
     service,
@@ -357,6 +361,40 @@ describe("the payload a preview serves", () => {
   it("refuses to build when there is no module workspace", async () => {
     const { service } = await build({ runs: [] });
     await expect(service.build(PROJECT, ACTIVITY)).rejects.toThrow("No module has been built");
+  });
+
+  it("refuses to build a run's module nothing could confine, as the run itself would be", async () => {
+    // Its build runs code the run's agent wrote.
+    const problem =
+      'sandbox mode "workspace-write" is configured but no sandbox backend is mounted';
+    const { service, builds } = await build({ confinement: { problem } });
+    const refused = await service.build(PROJECT, ACTIVITY, true).catch((error: unknown) => error);
+    expect(refused).toBeInstanceOf(HttpError);
+    expect(refused).toMatchObject({ status: 409, code: "sandbox_unavailable" });
+    expect((refused as HttpError).message).toContain("Enable a sandbox plugin for this project");
+    expect((refused as HttpError).message).toContain(problem);
+    // The play page, which builds a module older than its sources, says the same.
+    const page = await service.playerPage(PROJECT, ACTIVITY, "/play/", {});
+    expect(page.status).toBe(409);
+    expect(page.html).toContain("Enable a sandbox plugin for this project");
+    expect(builds.runs).toEqual([]);
+  });
+
+  it("plays a run's module already built where nothing could confine a new build", async () => {
+    const { service, root, builds } = await build({ confinement: { problem: "no backend" } });
+    const output = path.join(root, "activity-runs", "run_new", "module", "dist", "debug");
+    await fs.mkdir(output, { recursive: true });
+    await fs.writeFile(path.join(output, "entry.js"), "");
+    const page = await service.playerPage(PROJECT, ACTIVITY, "/play/", {});
+    // Past the module to the player, which a test does not build.
+    expect(page.html).toContain("The player did not build.");
+    expect(builds.runs).toEqual([]);
+  });
+
+  it("builds a run's module unconfined, unrefused, once an admin turned confinement off", async () => {
+    const { service, builds } = await build({ confinement: { on: false, problem: "no backend" } });
+    expect((await service.build(PROJECT, ACTIVITY, true)).ok).toBe(true);
+    expect(builds.runs).toHaveLength(1);
   });
 
   it("does not offer a build when there is no module workspace", async () => {

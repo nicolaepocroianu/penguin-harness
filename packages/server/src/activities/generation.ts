@@ -6,7 +6,6 @@ import {
   MEDIA_AGENT_ID,
   loadAgentVault,
   userText,
-  type SessionSandboxMode,
 } from "@prismshadow/penguin-core";
 import { Component, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
 import type { Clock, Config, Channels, Log, Paths } from "../hmr/capabilities.js";
@@ -122,6 +121,7 @@ import { mediaTextKind } from "./run-kinds/media-text.js";
 import { phonemesKind } from "./run-kinds/phonemes.js";
 import { videoKind } from "./run-kinds/video.js";
 import { Sandbox, SandboxModule } from "../sandbox/service.js";
+import { RUN_SANDBOX_MODE, sandboxUnavailable } from "./run-sandbox.js";
 
 /** How long a Project's ElevenLabs voice list is reused before it is read again. */
 const VOICE_LIBRARY_TTL_MS = 10 * 60 * 1000;
@@ -135,9 +135,6 @@ const SETTLE_CHECK_MS = 5000;
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
-
-/** The confinement every activity run's own agent works under: its workspace, and only that. */
-const RUN_SANDBOX_MODE: SessionSandboxMode = "workspace-write";
 
 interface Observer {
   unsubscribe: () => void;
@@ -567,14 +564,7 @@ export class ActivityGenerationService implements ActivityGeneration {
             !work && !codingAgentId && !local && this.settings.getConfineActivityAgents();
           if (confined) {
             const problem = this.sandbox.confinementProblem(RUN_SANDBOX_MODE);
-            if (problem !== null)
-              throw new HttpError(
-                409,
-                "sandbox_unavailable",
-                "Activity runs need a sandbox so the WAF checkout stays read-only. Enable a " +
-                  "sandbox plugin for this project on the Plugins page (sandbox-dsh works on " +
-                  `Windows, macOS and Linux), then try again. (${problem})`,
-              );
+            if (problem !== null) throw sandboxUnavailable(problem);
           }
           this.runs.open(run);
           this.outcomes.witness({ run });

@@ -8,11 +8,27 @@
  * the same one the deploy runs, so the module's own toolchain is what runs — not the
  * harness's. A preview built by anything else would be a
  * preview of something the deployment will never produce.
+ *
+ * A run's module is code its agent wrote, its package.json scripts and webpack config
+ * included, and building it runs that code here. So a run build starts its programs with
+ * none of this server's environment, and, while activity agents are confined, in the sandbox
+ * the agent's own commands ran in: writable in the module folder and nowhere else, so the
+ * shared module packages it links in, the rest of the run and the WAF checkout stay as they
+ * were.
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import type { SpawnConfiner } from "@prismshadow/penguin-core";
 import type { StyleCompiler } from "./module-builder.js";
-import { clampLog, runProgram, type ProgramResult, type ProgramSpec } from "./run-program.js";
+import { RUN_SANDBOX_MODE } from "./run-sandbox.js";
+import {
+  clampLog,
+  runProgram,
+  type ProgramConfiner,
+  type ProgramResult,
+  type ProgramSpec,
+} from "./run-program.js";
+import { RUN_BUILD_NPM_CACHE } from "./sandbox-source.js";
 
 /** Long enough for a cold webpack build, short enough that a hung one is not forever. */
 export const BUILD_TIMEOUT_MS = 10 * 60 * 1000;
@@ -23,6 +39,55 @@ export const BUILD_LOG_MAX = 256 * 1024;
 export interface BuildOutcome {
   ok: boolean;
   log: string;
+}
+
+/** How a run build's programs are started: with this environment, and confined when it says. */
+interface RunBuildSpawn {
+  env: NodeJS.ProcessEnv;
+  confine?: ProgramConfiner;
+}
+
+/**
+ * What a run build's programs keep of this process's environment: what Windows, Node and npm
+ * need to start (the PATH, the temporary folder, the system folder and shell, the user folders
+ * npm finds its settings in). Never a key, a token or a `PENGUIN_*` setting.
+ */
+const RUN_BUILD_ENV = new Set([
+  "PATH",
+  "PATHEXT",
+  "TEMP",
+  "TMP",
+  "TMPDIR",
+  "HOME",
+  "USERPROFILE",
+  "APPDATA",
+  "LOCALAPPDATA",
+  "SYSTEMROOT",
+  "SYSTEMDRIVE",
+  "WINDIR",
+  "COMSPEC",
+]);
+
+/**
+ * How the programs of a build of the run module at `moduleRoot` start (see the top of this
+ * file): `confiner` is the session sandbox's, or null while activity agents are not confined.
+ */
+function runBuildSpawn(moduleRoot: string, confiner: SpawnConfiner | null): RunBuildSpawn {
+  const env: NodeJS.ProcessEnv = {};
+  // By name whatever its case: Windows keeps the case a name was written in (`Path`).
+  for (const [key, value] of Object.entries(process.env))
+    if (value !== undefined && RUN_BUILD_ENV.has(key.toUpperCase())) env[key] = value;
+  // Under the desktop app this process's interpreter is Electron, which runs a script only with
+  // this set; the Sass compile and the Windows sandbox runner both start it.
+  if (process.versions.electron !== undefined) env.ELECTRON_RUN_AS_NODE = "1";
+  if (!confiner) return { env };
+  // npm keeps its cache in the user's profile, which a confined build cannot write.
+  env.npm_config_cache = path.join(moduleRoot, RUN_BUILD_NPM_CACHE);
+  return {
+    env,
+    confine: (argv) =>
+      confiner(argv, { cwd: moduleRoot, workspaceDir: moduleRoot, sessionMode: RUN_SANDBOX_MODE }),
+  };
 }
 
 /** What a build's log ends with when it did not succeed. */
@@ -105,20 +170,29 @@ export function styleOutcome(
  * asked to see their activity, and "npm is not installed" is an answer to that, while an
  * exception thrown at whoever happened to request the preview is not.
  *
+ * Both programs start as `runBuildSpawn` says, through `confiner` when there is one; a
+ * program the sandbox will not confine does not run, and the build fails saying why.
+ *
  * `npm_config_ignore_scripts` is not set here: the module's `.npmrc` already sets
  * `ignore-scripts`, and the build itself is a script.
  */
 export async function spawnModuleBuild(
   workspace: string,
-  options: { timeoutMs?: number; compileStyle: StyleCompiler },
+  options: { timeoutMs?: number; compileStyle: StyleCompiler; confiner?: SpawnConfiner | null },
 ): Promise<BuildOutcome> {
   const script = moduleBuildScript(workspace);
   if (!script)
     return { ok: false, log: "The module's package.json has no build or buildDebug script." };
+  const spawn = runBuildSpawn(workspace, options.confiner ?? null);
   let styleLog = "";
   if (existsSync(path.join(workspace, "res", "style.scss"))) {
     const style = styleOutcome(
-      await options.compileStyle({ cwd: workspace, from: "res/style.scss", to: "res/style.css" }),
+      await options.compileStyle({
+        cwd: workspace,
+        from: "res/style.scss",
+        to: "res/style.css",
+        ...spawn,
+      }),
       "res/style.scss",
       "res/style.css",
     );
@@ -126,7 +200,7 @@ export async function spawnModuleBuild(
     styleLog = style.log;
   }
   const build = await runBuildChild(
-    { command: "npm", args: ["run", script], cwd: workspace, windowsShell: true },
+    { command: "npm", args: ["run", script], cwd: workspace, windowsShell: true, ...spawn },
     options,
   );
   return { ok: build.ok, log: clampLog(styleLog + build.log, BUILD_LOG_MAX) };

@@ -22,7 +22,10 @@ import path from "node:path";
 import { Component, Interface, Use, type Opaque } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring } from "../mechanisms/activities.js";
+import type { Settings } from "../mechanisms/settings.js";
 import type { Config } from "../hmr/capabilities.js";
+import { Sandbox, SandboxModule } from "../sandbox/service.js";
+import { RUN_SANDBOX_MODE, sandboxUnavailable } from "./run-sandbox.js";
 import type { ActivityDraft, ActivityRecord, ModuleDocumentKind } from "./domain.js";
 import type { ModuleBuilder } from "./module-builder.js";
 import type { ActivityModuleSource, ModuleRef } from "./module-source.js";
@@ -277,6 +280,8 @@ export class ActivitySandboxService implements ActivitySandbox {
 
   @Use() private readonly wafWorkspace!: WafWorkspace;
   @Use() private readonly links!: ActivityPlayLinks;
+  @Use() private readonly settings!: Settings;
+  @Use(SandboxModule) private readonly sessionSandbox!: Sandbox;
 
   /**
    * One build per workspace, shared by everyone waiting on it.
@@ -550,7 +555,20 @@ export class ActivitySandboxService implements ActivitySandbox {
     const builtAt = await this.builtAtMs(source);
     const sources = await this.mtimes(moduleSourceDirs(source));
     if (!moduleStale(builtAt, sources)) return null;
+    this.requireConfinable(source);
     return report(await this.builderFor(source).ensure(source.root, true));
+  }
+
+  /**
+   * Refuses to build a run's module that would build confined with nothing to confine it. Its
+   * build runs code the run's agent wrote, so it is confined as the agent was (the module
+   * builder's `buildRun`), and refused where the run itself would have been. A checkout
+   * module's build runs the checkout's own code, and is never refused.
+   */
+  private requireConfinable(source: ModuleSource): void {
+    if (source.kind !== "run" || !this.settings.getConfineActivityAgents()) return;
+    const problem = this.sessionSandbox.confinementProblem(RUN_SANDBOX_MODE);
+    if (problem !== null) throw sandboxUnavailable(problem);
   }
 
   /** What the client is told about a preview. Never claims more than it can show. */
@@ -715,6 +733,7 @@ export class ActivitySandboxService implements ActivitySandbox {
     }
     if (!source)
       throw new HttpError(409, "preview_not_built", "No module has been built for this activity.");
+    this.requireConfinable(source);
     return report(await this.builderFor(source).ensure(source.root, force));
   }
 
@@ -965,7 +984,14 @@ export class ActivitySandboxService implements ActivitySandbox {
         `${source.moduleFolder} has no ${configuration}, so there is nothing for this ref to play. Loom generates it in its assets configuration stage.`,
       );
 
-    const built = await this.ensureCurrent(source);
+    let built: SandboxBuildReport | null;
+    try {
+      built = await this.ensureCurrent(source);
+    } catch (error) {
+      // A build refused is a page saying why, as everything else that leaves nothing to play.
+      if (error instanceof HttpError) return failurePage(error.status, error.message);
+      throw error;
+    }
     if (built && !built.ok) return failurePage(500, "The module did not build.", built.log);
     const navbar = await this.navbarSource();
     const navbarBuilt = navbar ? await this.ensureCurrent(navbar) : null;
