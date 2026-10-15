@@ -1,4 +1,4 @@
-# Background programs no longer open console windows on Windows
+# Background programs no longer open windows
 
 - **Date:** 2026-10-16
 - **Type:** fix
@@ -20,8 +20,17 @@ agents themselves already started hidden, and still do.
   scripts, ssh, scp and tar to remote machines and the held ssh session, the MXC sandbox's
   `--probe`, the desktop app's `reg` calls, the server `penguin` starts in the background, the
   server under `penguin serve`, and the package manager `penguin update` runs.
-- A test in core reads every package and plugin, and fails when a `child_process` call does not
-  pass `windowsHide: true`. It follows aliases such as a promisified `execFile` or an injected
-  `spawn`. Three spawns are meant to be seen and are listed in the test: showing a file in the
-  file manager, opening the browser, and the shell `penguin config lang` opens.
-- Nothing changes on macOS or Linux, where the option is ignored.
+- On macOS and Linux these programs already ran out of sight, and still do: a child process
+  gets no window or terminal there, nothing starts a terminal emulator, and agent checks and
+  sessions run with `NO_BROWSER=1`.
+- Under the desktop app, the update run starts the CLI with `ELECTRON_RUN_AS_NODE`, on every
+  platform. Without it, a call to the update endpoint would start a second copy of the app. The
+  app's own window updates through the desktop updater, so this was reachable only through the
+  API.
+- A test in core reads every package and plugin and fails in two cases. One is a
+  `child_process` call that does not pass `windowsHide: true`; the test follows aliases such as
+  a promisified `execFile` or an injected `spawn`. The other is a file that starts a program
+  meant to show something (`open`, `xdg-open`, `osascript`, Explorer, a terminal emulator) and
+  is not on the test's list. Three spawns are meant to be seen: showing a file in the file
+  manager, opening the browser, and the shell `penguin config lang` opens. So is the desktop
+  app's macOS administrator prompt for installing `penguin`.

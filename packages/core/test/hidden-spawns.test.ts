@@ -1,19 +1,25 @@
 /**
- * Every child process Penguin starts is hidden on Windows (`windowsHide: true`), except the
- * few that exist to put something in front of the user.
+ * Every child process Penguin starts runs out of sight on every platform, except the few
+ * that exist to put something in front of the user.
  *
- * Why: a process with no console of its own — the desktop app, its server, the server
- * `penguin` starts in the background — gives every unhidden console program it starts a NEW
- * console window. With Windows Terminal as the default terminal that window also takes focus,
- * so a version check, an update run or an ssh call pulls the user out of whatever they were
- * doing. The option is ignored on macOS and Linux.
+ * Windows: a process with no console of its own — the desktop app, its server, the server
+ * `penguin` starts in the background — gives every console program it starts without
+ * `windowsHide: true` a NEW console window. With Windows Terminal as the default terminal that
+ * window also takes focus, so a version check, an update run or an ssh call pulls the user out
+ * of whatever they were doing.
  *
- * The check reads source, not behaviour. Every call to a `child_process` function — imported
- * by name or as a namespace, or reached through a local alias such as a promisified
- * `execFile` or an injectable default — must pass an object literal holding
- * `windowsHide: true`. A reference the check cannot follow (handed to another function,
- * re-exported, a dynamic import) fails as well, so a new call site cannot slip past it. It
- * lives in core because every surface builds on core; it scans every package and plugin.
+ * macOS and Linux: a child process never gets a window or a terminal of its own (the option
+ * is ignored there). What does show something is starting a program whose job is to: `open`,
+ * `xdg-open`, `osascript`, a terminal emulator. `windowsHide` does not stop those anywhere.
+ *
+ * The check reads source, not behaviour, so it holds the same on all three platforms CI runs.
+ * Every call to a `child_process` function — imported by name or as a namespace, or reached
+ * through a local alias such as a promisified `execFile` or an injectable default — must pass
+ * an object literal holding `windowsHide: true`. A reference the check cannot follow (handed
+ * to another function, re-exported, a dynamic import) fails as well, so a new call site cannot
+ * slip past it. And a file that names one of the on-screen programs as what it starts must be
+ * listed in SHOWS_UI. It lives in core because every surface builds on core; it scans every
+ * package and plugin.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
@@ -35,6 +41,37 @@ const VISIBLE: Record<string, string> = {
     "the user's own interactive shell, in their terminal",
 };
 
+/**
+ * Programs whose job is to put something on screen: a file manager, a browser, a dialog, a
+ * terminal. Hiding the spawn does not stop them on any platform.
+ */
+const SCREEN_PROGRAMS = new Set([
+  "open",
+  "xdg-open",
+  "osascript",
+  "explorer",
+  "explorer.exe",
+  "x-terminal-emulator",
+  "gnome-terminal",
+  "konsole",
+  "xfce4-terminal",
+  "xterm",
+  "kitty",
+  "alacritty",
+  "wezterm",
+  "wt",
+  "wt.exe",
+]);
+
+/** The files that start a program in SCREEN_PROGRAMS on purpose, with the reason. */
+const SHOWS_UI: Record<string, string> = {
+  "packages/server/src/services/reveal-path.ts":
+    "shows a file in Finder, Explorer or the file manager when the user asks",
+  "packages/cli/src/commands/serve.ts": "opens the user's browser on the app",
+  "packages/desktop/src/cli-install.ts":
+    "macOS administrator prompt to link `penguin` into /usr/local/bin; not asked again once declined",
+};
+
 const SPAWNERS = new Set([
   "spawn",
   "spawnSync",
@@ -54,6 +91,8 @@ interface FileReport {
   problems: string[];
   /** VISIBLE keys this file used. */
   visible: string[];
+  /** SCREEN_PROGRAMS it starts, as `<line>:<program>`. */
+  screenPrograms: string[];
 }
 
 function scriptKind(file: string): ts.ScriptKind {
@@ -142,11 +181,32 @@ function enclosingFunction(node: ts.Node): string {
   return "(top level)";
 }
 
+/** The SCREEN_PROGRAMS entry a string literal names (a bare name or a path to one). */
+function screenProgram(node: ts.Node): string | undefined {
+  if (!ts.isStringLiteralLike(node)) return undefined;
+  const name = node.text.split(/[\\/]/).pop()?.toLowerCase();
+  return name !== undefined && SCREEN_PROGRAMS.has(name) ? name : undefined;
+}
+
 /** Checks one source file; `file` is repo-relative with forward slashes. */
 function checkSource(file: string, text: string): FileReport {
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, scriptKind(file));
-  const report: FileReport = { calls: 0, problems: [], visible: [] };
+  const report: FileReport = { calls: 0, problems: [], visible: [], screenPrograms: [] };
   const lineOf = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+  const noteScreenProgram = (node: ts.Node | undefined): void => {
+    if (node === undefined) return;
+    const program = screenProgram(node);
+    if (program !== undefined) report.screenPrograms.push(`${lineOf(node)}:${program}`);
+  };
+
+  // What a spawn starts is often built first as `{ command: "...", args }`.
+  const visitCommands = (node: ts.Node): void => {
+    if (ts.isPropertyAssignment(node) && node.name.getText(sf) === "command") {
+      noteScreenProgram(node.initializer);
+    }
+    ts.forEachChild(node, visitCommands);
+  };
+  visitCommands(sf);
 
   // Local names for child_process: functions (and their aliases), and whole-module namespaces.
   const functions = new Set<string>();
@@ -275,6 +335,7 @@ function checkSource(file: string, text: string): FileReport {
   };
   const checkCall = (call: ts.CallExpression): void => {
     report.calls += 1;
+    noteScreenProgram(call.arguments[0]);
     if (hidesWindow(call)) return;
     const key = `${file}#${enclosingFunction(call)}`;
     if (key in VISIBLE) {
@@ -354,16 +415,32 @@ function sourceFiles(): string[] {
   return files;
 }
 
-describe("child processes are hidden on Windows", () => {
+/** A quoted SCREEN_PROGRAMS name, bare or at the end of a path: which files are worth parsing. */
+const SCREEN_LITERAL = new RegExp(
+  `["'\`](?:[^"'\`]*[\\\\/])?(?:${[...SCREEN_PROGRAMS].map((p) => p.replace(/[.]/g, "\\.")).join("|")})["'\`]`,
+  "i",
+);
+
+describe("child processes run out of sight on Windows, macOS and Linux", () => {
   const reports = sourceFiles().flatMap((full) => {
     const text = readFileSync(full, "utf8");
-    if (!text.includes("child_process")) return [];
+    if (!text.includes("child_process") && !SCREEN_LITERAL.test(text)) return [];
     const file = path.relative(repoRoot, full).split(path.sep).join("/");
     return [{ file, ...checkSource(file, text) }];
   });
 
   it("passes windowsHide: true at every spawn that is not meant to be seen", () => {
     expect(reports.flatMap((r) => r.problems)).toEqual([]);
+  });
+
+  it("starts a program that shows something only where SHOWS_UI says so", () => {
+    const unlisted = reports.filter((r) => r.screenPrograms.length > 0 && !(r.file in SHOWS_UI));
+    expect(unlisted.map((r) => `${r.file}: ${r.screenPrograms.join(", ")}`)).toEqual([]);
+  });
+
+  it("lists only files that still start such a program", () => {
+    const starting = new Set(reports.filter((r) => r.screenPrograms.length > 0).map((r) => r.file));
+    expect(Object.keys(SHOWS_UI).filter((file) => !starting.has(file))).toEqual([]);
   });
 
   it("finds the spawns it guards (the scan is not looking in the wrong place)", () => {
@@ -445,6 +522,30 @@ describe("the hidden-spawn check itself", () => {
       }`;
     expect(problems(client("{ windowsHide: true }"))).toEqual([]);
     expect(problems(client("{ stdio: 'pipe' }"))).toHaveLength(1);
+  });
+
+  it("notices a program that shows something, however it is named", () => {
+    const shown = (text: string) => checkSource("x/src/a.ts", text).screenPrograms;
+    expect(
+      shown(
+        `import { spawn } from "node:child_process"; spawn("xdg-open", [u], { windowsHide: true });`,
+      ),
+    ).toEqual(["1:xdg-open"]);
+    expect(shown(`const run = { command: "/usr/bin/osascript", args: ["-e", s] };`)).toEqual([
+      "1:osascript",
+    ]);
+    expect(
+      shown(
+        `import { execFile } from "node:child_process"; execFile("gnome-terminal", ["--"], { windowsHide: true });`,
+      ),
+    ).toEqual(["1:gnome-terminal"]);
+    expect(
+      shown(
+        `import { spawn } from "node:child_process"; spawn("git", ["status"], { windowsHide: true });`,
+      ),
+    ).toEqual([]);
+    expect(SCREEN_LITERAL.test(`{ command: "xdg-open" }`)).toBe(true);
+    expect(SCREEN_LITERAL.test(`socket.on("opened")`)).toBe(false);
   });
 
   it("flags what it cannot follow", () => {
