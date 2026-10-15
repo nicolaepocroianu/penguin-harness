@@ -703,6 +703,18 @@ async function openPanel(page, name) {
   return panel;
 }
 
+/**
+ * Replaces all of a CodeMirror editor's text (the script, a specification or document's JSON).
+ * `fill()` selects the old text through the DOM and types at once; on a slow page the editor
+ * puts its own caret back first and the new text lands in front of the old. The editor's own
+ * select-all leaves it nothing to put back.
+ */
+async function replaceText(editor, text) {
+  await editor.press("ControlOrMeta+a");
+  if (text) await editor.page().keyboard.insertText(text);
+  else await editor.press("Delete");
+}
+
 /** The ref's menu, which opens on the ref's name beside the activity's title. */
 function refMenu(page) {
   return page.locator('nav[aria-label="Breadcrumb"] button[aria-haspopup="menu"]');
@@ -744,10 +756,11 @@ async function openSection(page, name) {
   const opened = !(await button.count());
   // Entering the workspace can paint it narrow and then widen it as the sidebar folds, so
   // an Expand clicked mid-change can land on the rail beside the work and fold it instead.
-  // Keep opening until the section is there.
+  // Keep opening until the section is there. The widening can also take Expand away between
+  // the count and the click, so the click gives up quickly and the next round looks again.
   if (opened)
     await expect(async () => {
-      if (!(await button.count())) await expand.click();
+      if (!(await button.count())) await expand.click({ timeout: 1_000 });
       await expect(button).toBeVisible({ timeout: 1_000 });
     }).toPass();
   // Clicking the section already showing re-renders the rail under the click, but a rail
@@ -834,9 +847,10 @@ async function create(page, { activityType = "standard", readingMode = "Decodabl
     expect(body.bookMode).toBe(readingMode === "Decodable" ? "decodable" : "readAlong");
   else expect(body).not.toHaveProperty("bookMode");
   await expect(page).toHaveURL(/activities\/act_test$/);
-  await page
-    .getByRole("textbox", { name: "Script", exact: true })
-    .fill("Practice common sight words");
+  await replaceText(
+    page.getByRole("textbox", { name: "Script", exact: true }),
+    "Practice common sight words",
+  );
   await page.getByRole("button", { name: "Save script", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save script", exact: true })).toBeDisabled();
   await openSection(page, "Specification");
@@ -861,9 +875,10 @@ test("plans media, preserves unsaved bindings on navigation, and saves paths for
     ],
   };
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(withMedia));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(withMedia),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await plan.click();
@@ -901,7 +916,7 @@ test("reviews specification edits against the saved specification before saving"
   await create(page);
   const editor = page.getByRole("textbox", { name: "Specification JSON", exact: true });
   await openSection(page, "Specification");
-  await editor.fill(JSON.stringify(spec));
+  await replaceText(editor, JSON.stringify(spec));
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
 
   // Nothing edited yet, so there is nothing to review or save.
@@ -921,7 +936,7 @@ test("reviews specification edits against the saved specification before saving"
       { id: "quiz", description: "Answer" },
     ],
   };
-  await editor.fill(JSON.stringify(edited, null, 2));
+  await replaceText(editor, JSON.stringify(edited, null, 2));
   await expect(save).toBeEnabled();
   await expect(diff).toHaveAttribute("title", /^Unsaved changes/);
 
@@ -944,7 +959,7 @@ test("reviews specification edits against the saved specification before saving"
   await page.reload();
   await openSection(page, "Specification");
   await expect(save).toBeDisabled();
-  await editor.fill(JSON.stringify(edited, null, 2));
+  await replaceText(editor, JSON.stringify(edited, null, 2));
   await diff.click();
   await expect(toolbar.getByRole("button", { name: "Inline", exact: true })).toBeVisible();
   await toolbar.getByRole("button", { name: "Inline", exact: true }).click();
@@ -956,7 +971,7 @@ test("reviews specification edits against the saved specification before saving"
   await diff.click();
 
   // Text that is not a JSON object cannot be saved, and says why.
-  await editor.fill("{ not json");
+  await replaceText(editor, "{ not json");
   await expect(page.getByText(/^This is not valid JSON/)).toBeVisible();
   await expect(save).toBeDisabled();
   expect(f.errors).toEqual([]);
@@ -967,7 +982,8 @@ test("reads the specification as scenes, checks narration against the script, an
 }) => {
   const f = await fixture(page);
   await create(page);
-  await page.getByRole("textbox", { name: "Specification JSON", exact: true }).fill(
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
     JSON.stringify({
       ...spec,
       activityDescription: "usesAssessment=true\nPractice words",
@@ -984,9 +1000,10 @@ test("reads the specification as scenes, checks narration against the script, an
   );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Script");
-  await page
-    .getByRole("textbox", { name: "Script", exact: true })
-    .fill("Scene 1: Intro\n<audio>Hello there, friend!</audio>");
+  await replaceText(
+    page.getByRole("textbox", { name: "Script", exact: true }),
+    "Scene 1: Intro\n<audio>Hello there, friend!</audio>",
+  );
   await page.getByRole("button", { name: "Save script", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save script", exact: true })).toBeDisabled();
 
@@ -1033,9 +1050,10 @@ test("reports speech coverage and generates every missing narration at once", as
   const f = await fixture(page);
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -1135,9 +1153,10 @@ test("chooses a narration's voice from the picker and applies one voice to every
   });
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -1239,9 +1258,10 @@ test("uploads media into the ref's uploads and binds it from the library", async
   const f = await fixture(page);
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -1329,9 +1349,10 @@ test("previews only saved images and resets previews across edits and failures",
   const f = await fixture(page);
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -1384,9 +1405,10 @@ test("edits scripts and explicitly accepts speech while regeneration keeps the a
   const f = await fixture(page);
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -1488,9 +1510,10 @@ test("stacks a card per language: Save accepts that language's take, and an uplo
   });
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -1572,9 +1595,10 @@ test("edits image descriptions and explicitly accepts images while failed regene
   const f = await fixture(page);
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -1654,9 +1678,10 @@ test("reviews and accepts an improved image prompt without changing its saved me
   const f = await fixture(page);
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -1720,9 +1745,10 @@ test("reviews narration suggestions, preserves existing audio provenance, and bl
   const f = await fixture(page);
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -1786,9 +1812,10 @@ test("members cannot edit media text", async ({ page }) => {
   const f = await fixture(page);
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -1828,9 +1855,10 @@ test("image candidates from a conflicting run remain view-only", async ({ page }
   const f = await fixture(page);
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -1906,7 +1934,7 @@ test("polling preserves unsaved edits and exposes conflicting output for review"
   await openSection(page, "History");
   await expect(page.getByRole("button", { name: "Cancel generation" })).toBeVisible();
   await openSection(page, "Script");
-  await page.getByRole("textbox", { name: "Script", exact: true }).fill("My unsaved edit");
+  await replaceText(page.getByRole("textbox", { name: "Script", exact: true }), "My unsaved edit");
   f.conflict();
   await openSection(page, "History");
   await expect(
@@ -2036,7 +2064,7 @@ test("dirty drafts block sidebar, Session, browser back, and project switches", 
   const description = page.getByRole("textbox", { name: "Script", exact: true });
   await openSection(page, "Storyboard");
   await openSection(page, "Script");
-  await description.fill("Keep this edit");
+  await replaceText(description, "Keep this edit");
   const dialog = page.getByRole("dialog", { name: "Discard unsaved changes?" });
   await openSection(page, "History");
   await page.getByRole("link", { name: "Open Session" }).click();
@@ -2081,7 +2109,7 @@ test("dirty drafts block sidebar, Session, browser back, and project switches", 
     .click();
   await openSection(page, "Storyboard");
   await openSection(page, "Script");
-  await description.fill("Another edit");
+  await replaceText(description, "Another edit");
   // Re-entering the workspace collapsed the sidebar again; expand it for the switcher.
   await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
   await page.getByRole("button", { name: "Activities test", exact: true }).click();
@@ -2156,7 +2184,7 @@ test("polling errors recover without clearing a save conflict or unsaved edits",
   await expect(page.getByRole("alert")).toHaveCount(0);
   await openSection(page, "Storyboard");
   await openSection(page, "Script");
-  await description.fill("Keep this unsaved edit");
+  await replaceText(description, "Keep this unsaved edit");
   f.changeSavedDescription();
   await page.getByRole("button", { name: "Save script", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Draft changed");
@@ -2210,7 +2238,7 @@ test("canceling the dirty-editor guard prevents Project deletion and remount", a
   const description = page.getByRole("textbox", { name: "Script", exact: true });
   await openSection(page, "Storyboard");
   await openSection(page, "Script");
-  await description.fill("Keep before deletion");
+  await replaceText(description, "Keep before deletion");
   const original = await description.elementHandle();
   const dialog = page.getByRole("dialog", { name: "Discard unsaved changes?" });
   const deleteDialog = page.getByRole("dialog", { name: "Delete Project", exact: true });
@@ -2247,7 +2275,7 @@ test("declining a refresh fallback preserves detached text without retaining Pro
   const description = page.getByRole("textbox", { name: "Script", exact: true });
   await openSection(page, "Storyboard");
   await openSection(page, "Script");
-  await description.fill("Copy this before leaving");
+  await replaceText(description, "Copy this before leaving");
   const original = await description.elementHandle();
   const dialog = page.getByRole("dialog", { name: "Discard unsaved changes?" });
   const settings = await projectSettings(page);
@@ -2297,7 +2325,7 @@ test("leaving with unsaved edits asks through the app's dialog", async ({ page }
   const description = page.getByRole("textbox", { name: "Script", exact: true });
   await openSection(page, "Storyboard");
   await openSection(page, "Script");
-  await description.fill("Keep this edit");
+  await replaceText(description, "Keep this edit");
   await page.getByRole("link", { name: "All activities" }).click();
   const dialog = page.getByRole("dialog", { name: "Discard unsaved changes?" });
   await expect(dialog).toBeVisible();
@@ -2329,7 +2357,7 @@ test("the script editor folds scenes, diffs against the last save and shows an a
   ].join("\n");
   const box = page.getByRole("textbox", { name: "Script", exact: true });
   const save = page.getByRole("button", { name: "Save script", exact: true });
-  await box.fill(script);
+  await replaceText(box, script);
   await save.click();
   await expect(save).toBeDisabled();
   // Away from the cursor an element's tags draw as a small mark; on the cursor's line, as written.
@@ -2346,7 +2374,7 @@ test("the script editor folds scenes, diffs against the last save and shows an a
   await expect(box).toContainText("An island.");
 
   // An edit reads against the last save, names its scene, and reverts where it stands.
-  await box.fill(script.replace("Find d.", "Find lowercase d."));
+  await replaceText(box, script.replace("Find d.", "Find lowercase d."));
   await page
     .getByRole("group", { name: "Compare", exact: true })
     .getByRole("button", { name: "Last save", exact: true })
@@ -2440,7 +2468,7 @@ test("reviews an agent's proposed script change by change and applies what was k
   ].join("\n");
   const box = page.getByRole("textbox", { name: "Script", exact: true });
   const save = page.getByRole("button", { name: "Save script", exact: true });
-  await box.fill(script);
+  await replaceText(box, script);
   await save.click();
   await expect(save).toBeDisabled();
 
@@ -2833,9 +2861,10 @@ test("the storyboard shows every scene, and walks into its media scene by scene"
     ],
   };
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(withScenes));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(withScenes),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   // This fixture plans media from a manifest the request carries, so plan this spec's.
   const asset = (key, sceneId) => ({
@@ -3050,7 +3079,7 @@ test("the script saves itself after a pause, and waits while a run is in flight"
   page.on("request", (request) => {
     if (request.url().endsWith(`${base}/act_test/description`)) saves.push(request.postDataJSON());
   });
-  await box.fill("Scene 1: Intro");
+  await replaceText(box, "Scene 1: Intro");
   await expect(page.getByText("Unsaved, saves in a moment", { exact: true })).toBeVisible();
   await page.clock.fastForward(5_500);
   await expect(page.getByText("Saved", { exact: true }).first()).toBeVisible();
@@ -3058,7 +3087,7 @@ test("the script saves itself after a pause, and waits while a run is in flight"
 
   // A run moves the draft, so the script holds its edits until the run ends.
   await generateSpecification(page);
-  await box.fill("Scene 1: Welcome");
+  await replaceText(box, "Scene 1: Welcome");
   await expect(
     page.getByText("Unsaved, saves when the running work ends", { exact: true }),
   ).toBeVisible();
@@ -3116,9 +3145,10 @@ test("the player draws the module's behavior map and follows the phase it report
     return route.fallback();
   });
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify({ ...spec, scenes: [{ id: "rocks", description: "Find d" }] }));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify({ ...spec, scenes: [{ id: "rocks", description: "Find d" }] }),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   // The preview plays as soon as it opens; there is nothing to press.
   const panel = await openPanel(page, "Preview");
@@ -3226,9 +3256,10 @@ test("lists the live tap targets on the current state and keeps the map under th
     return route.fallback();
   });
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify({ ...spec, scenes: [{ id: "rocks", description: "Find d" }] }));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify({ ...spec, scenes: [{ id: "rocks", description: "Find d" }] }),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   const play = () => openPanel(page, "Preview");
   await play();
@@ -3356,9 +3387,10 @@ test("edits the module's configuration, saves it, and discards the edit", async 
     return route.fallback();
   });
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await page.reload();
   detail = await page.evaluate((url) => fetch(url).then((r) => r.json()), `${base}/act_test`);
@@ -3378,12 +3410,12 @@ test("edits the module's configuration, saves it, and discards the edit", async 
   await expect(page.getByRole("button", { name: "Discard edit", exact: true })).toHaveCount(0);
 
   // Text that is not JSON cannot be saved, and says why.
-  await field.fill("{ maxRounds: 5 }");
+  await replaceText(field, "{ maxRounds: 5 }");
   await expect(page.getByText(/^This is not valid JSON: /)).toBeVisible();
   await expect(save).toBeDisabled();
   expect(documentWrites).toEqual([]);
 
-  await field.fill('{ "maxRounds": 5 }');
+  await replaceText(field, '{ "maxRounds": 5 }');
   await save.click();
   await expect.poll(() => documentWrites.length).toBe(1);
   expect(documentWrites[0]).toEqual({
@@ -3415,7 +3447,7 @@ test("edits the module's configuration, saves it, and discards the edit", async 
 
   // Leaving a document with unsaved text asks first: Cancel keeps the text, Discard leaves,
   // and the text does not carry into the other document.
-  await field.fill('{ "maxRounds": 9 }');
+  await replaceText(field, '{ "maxRounds": 9 }');
   await expect(save).toBeEnabled();
   await openSection(page, "Assessment");
   const leave = page.getByRole("dialog");
@@ -3516,9 +3548,10 @@ test("summarises the module definition and checks the files it loads", async ({ 
     return route.fallback();
   });
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await page.reload();
   await openSection(page, "Module");
@@ -3557,9 +3590,10 @@ test("summarises the module definition and checks the files it loads", async ({ 
     '"engine": "html"',
   );
   // An unsaved edit shows in the summary, and leaving for a neighbour asks first.
-  await page
-    .getByRole("textbox", { name: /^Document JSON/ })
-    .fill(JSON.stringify({ ...definition, engine: "canvas" }));
+  await replaceText(
+    page.getByRole("textbox", { name: /^Document JSON/ }),
+    JSON.stringify({ ...definition, engine: "canvas" }),
+  );
   await view.getByRole("button", { name: "Summary", exact: true }).click();
   await expect(page.getByText("Shows your unsaved edit.", { exact: true })).toBeVisible();
   await expect(page.getByRole("definition").first()).toHaveText("canvas");
@@ -3610,9 +3644,10 @@ test("shows the shared assessment read-only on a ref that is not canonical", asy
     return route.fallback();
   });
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await page.reload();
   await openSection(page, "Assessment");
@@ -3752,9 +3787,10 @@ test("generates an assessment, accepts it, and edits a question and its correct 
     return route.fallback();
   });
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify({ ...spec, runtime: { ...spec.runtime, usesAssessment: true } }));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify({ ...spec, runtime: { ...spec.runtime, usesAssessment: true } }),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await page.reload();
   detail = await page.evaluate((url) => fetch(url).then((r) => r.json()), `${base}/act_test`);
@@ -3894,9 +3930,10 @@ test("speech coverage says what failed, filters the list, and tries one again", 
     });
   });
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -4235,9 +4272,10 @@ test("trims a stretch out of a narration into a candidate, and Save binds the sh
     return route.fallback();
   });
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -4418,9 +4456,10 @@ test("shows a narration's file details", async ({ page }) => {
     }),
   );
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -4485,9 +4524,10 @@ test("Stats counts and weighs the media plan by type and language", async ({ pag
     });
   });
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -4660,9 +4700,10 @@ test("adds a language, translates a narration into it, and translates the rest a
     return route.fallback();
   });
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -4740,9 +4781,10 @@ test("a narration shows a card for every language, the default first, and transl
     }),
   );
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -4801,9 +4843,10 @@ test("marks an audio asset as music or a sound effect, with how the module plays
   });
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -4870,9 +4913,10 @@ test("filters narration by instruction type, as main instructions or scaffolding
   const f = await fixture(page);
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -4950,9 +4994,10 @@ test("opens an image full size and closes it with Escape", async ({ page }) => {
   const f = await fixture(page);
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -5395,9 +5440,10 @@ test("picks a file uploaded to another activity", async ({ page }) => {
   });
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -5666,10 +5712,10 @@ test("makes a ref from the template, keeping one image and regenerating a narrat
       .getByRole("button", { name: "Regenerate", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   const script = page.getByRole("textbox", { name: "Script", exact: true });
-  await script.fill("");
+  await replaceText(script, "");
   await expect(page.getByText("Write a script for hello.")).toBeVisible();
   await expect(createButton).toBeDisabled();
-  await script.fill("Hi there");
+  await replaceText(script, "Hi there");
   await expect(createButton).toBeEnabled();
   await createButton.click();
 
@@ -5744,9 +5790,10 @@ test("the preview builds a module no one has built, plays it, and replays a save
 
   // Saving the draft plays the new module, without asking.
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await expect.poll(() => plays).toBe(2);
   expect(builds).toHaveLength(1);
@@ -5975,7 +6022,7 @@ test("saves a named version and lists it", async ({ page }) => {
 
   // A changed script leaves v1 behind; the next save is v2 and is the current one.
   await openSection(page, "Script");
-  await page.getByRole("textbox", { name: "Script", exact: true }).fill("A changed script");
+  await replaceText(page.getByRole("textbox", { name: "Script", exact: true }), "A changed script");
   await page.getByRole("button", { name: "Save script", exact: true }).click();
   await openSection(page, "History");
   await expect(page.getByRole("row", { name: /^v1\b/ })).not.toContainText("Current");
@@ -6519,9 +6566,10 @@ test("checks quality and lists what must be fixed", async ({ page }) => {
     return route.fallback();
   });
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
 
   // Without the test browser, Check quality is not offered, and the page says why.
@@ -6664,9 +6712,10 @@ test("runs the tests and lists each criterion's result", async ({ page }) => {
     return route.fallback();
   });
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify({ ...spec, acceptance_criterias: criteria }));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify({ ...spec, acceptance_criterias: criteria }),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
 
   // Without the test browser, Run tests is not offered, and the page says why.
@@ -6857,9 +6906,10 @@ test("writes a prompt for a sound effect, generates it, and keeps the new clip",
   // The editor asks which providers the agent can use as it opens, so the stubs come first.
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -7028,9 +7078,10 @@ test("lists the model hub as a sound provider, disabled until it offers a model"
   });
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -7196,9 +7247,10 @@ test("generates the missing sounds from Audio", async ({ page }) => {
     return route.fallback();
   });
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -7432,9 +7484,10 @@ test("speaks a narration with ElevenLabs and keeps its word timings", async ({ p
   });
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -7719,9 +7772,10 @@ test("refreshes a decodable book's words and corrects one word's sounds", async 
 
   await create(page, { activityType: "book" });
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(bookSpec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(bookSpec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -7954,9 +8008,10 @@ test("records a decodable book's words and shows each word's sounds in time", as
 
   await create(page, { activityType: "book" });
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(bookSpec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(bookSpec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -9031,7 +9086,10 @@ test("marks the deployed version and says the activity changed since", async ({ 
 
   // Editing the script leaves QA behind.
   await openSection(page, "Script");
-  await page.getByRole("textbox", { name: "Script", exact: true }).fill("A script QA has not seen");
+  await replaceText(
+    page.getByRole("textbox", { name: "Script", exact: true }),
+    "A script QA has not seen",
+  );
   await page.getByRole("button", { name: "Save script", exact: true }).click();
   await openSection(page, "History");
   await expect(status).toContainText("Changed since the QA deploy");
@@ -9306,9 +9364,10 @@ test("composes a scene from its storyboard when the experiment is on", async ({ 
   });
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -9430,9 +9489,10 @@ test("shows nothing of scene videos while the experiment is off", async ({ page 
   });
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -9625,9 +9685,10 @@ test("records a composed scene and keeps it as the scene's video", async ({ page
   });
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -9812,9 +9873,10 @@ test("a timeline's edit outlives a newer draft from elsewhere, and saves over it
   });
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
@@ -9883,7 +9945,7 @@ test("a timeline's edit outlives a newer draft from elsewhere, and saves over it
   // Taking the saved version instead drops the author's: the script elsewhere wins.
   await openSection(page, "Script");
   const script = page.getByRole("textbox", { name: "Script", exact: true });
-  await script.fill("My version of the script");
+  await replaceText(script, "My version of the script");
   f.changeSavedDraft((draft) => {
     draft.description = "The script from another tab";
   });
@@ -10088,9 +10150,10 @@ test("edits, saves and renders a scene video's timeline", async ({ page }) => {
   });
   await create(page);
   await openSection(page, "Specification");
-  await page
-    .getByRole("textbox", { name: "Specification JSON", exact: true })
-    .fill(JSON.stringify(spec));
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify(spec),
+  );
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);

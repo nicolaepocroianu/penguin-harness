@@ -259,5 +259,14 @@ pnpm --filter @prismshadow/penguin-web test
 pnpm format && pnpm format:check
 ```
 
-Playwright (`packages/web/e2e/`) only when selectors or flows move. On a shared machine, probe with
-`ss -tln` before picking ports, and never point `PENGUIN_HOME` at `~/.penguin`.
+CI runs Playwright's `activities` project on every pull request (the `e2e-web` job, ubuntu). When a
+change moves a selector, a flow, or a string those specs read, run it before pushing; it needs the
+web build and Chromium but no server or port:
+
+```sh
+pnpm --filter @prismshadow/penguin-web build
+cd packages/web && pnpm exec playwright test -c e2e/playwright.config.mjs --project activities
+```
+
+The `shared-server` project (`e2e/run.sh`, a real server and a mock LLM) is not in CI. On a shared
+machine, probe with `ss -tln` before picking ports, and never point `PENGUIN_HOME` at `~/.penguin`.

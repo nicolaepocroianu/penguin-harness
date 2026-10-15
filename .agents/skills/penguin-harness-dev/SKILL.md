@@ -87,7 +87,9 @@ when a path does not resolve.
 Node must be >= 24. In each worktree, `pnpm install --frozen-lockfile` first.
 
 The full chain CI runs is `pnpm build`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`,
-`sh scripts/test-installer.sh`. **Do not reach for `pnpm test` by reflex** — it is nine packages and
+`sh scripts/test-installer.sh`, and the web's `activities` Playwright project. CI installs
+Playwright's Chromium for the server shards and sets `PENGUIN_TEST_REQUIRE_BROWSER=1`, so the
+server's real-browser suites fail there instead of skipping. **Do not reach for `pnpm test` by reflex** — it is nine packages and
 ~2500 tests, minutes per run, and for a docs-only diff it proves nothing the narrow run does not.
 Pick the narrowest evidence that would actually fail for this change's regression:
 
@@ -104,6 +106,8 @@ pnpm --filter @prismshadow/penguin-web test                                     
 | The model catalog | core `model-catalog.test.ts`, web `model-grouping.test.ts` and `protocol-path.test.ts`, server `models.test.ts` |
 | Request assembly, history rebuild, compaction, the system prompt, a tool's description or schema | core's three `prompt-cache-*` suites — read the section below before you touch what they report |
 | One package's source | that package's `test`, plus `typecheck` |
+| Server `src/activities/{browser-guard,confined-checks,test-browser,quality-accessibility}.ts`, `scripts/activity-bench/` | server `activity-confined-checks`, `activity-bench-harness`, `activity-quality-probe` with Chromium installed (`pnpm --filter @prismshadow/penguin-server exec playwright-core install chromium`): without it they skip |
+| Web flows, selectors, or strings the e2e specs read | the web `activities` Playwright project — see the frontend skill's Verify |
 | Exported core types, or anything downstream imports | `pnpm build` + `pnpm typecheck` before any test |
 | `package.json`, the lockfile, `pnpm-workspace.yaml` | `pnpm install --frozen-lockfile` + `pnpm build` |
 | Installers, `release.yml` | `sh scripts/test-installer.sh` |

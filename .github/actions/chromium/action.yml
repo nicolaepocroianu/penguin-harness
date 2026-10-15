@@ -1,0 +1,67 @@
+# Playwright's Chromium for the jobs whose tests drive a real browser.
+#
+# Those tests skip where the browser is not installed, so a laptop without it still runs the
+# rest of the suite. On a runner nothing installs it by default, and a skip there reads as a
+# pass: the browser proofs of the server's confined checks and the bench's sealing passed
+# green on every platform without running. This action installs the browser and then sets
+# PENGUIN_TEST_REQUIRE_BROWSER=1 for the rest of the job, which turns that skip into a
+# failure (packages/server/test/installed-chromium.ts).
+#
+# The browser lands in Playwright's default folder for the OS, not PLAYWRIGHT_BROWSERS_PATH:
+# the bench harness asks a child with a scrubbed environment where Chromium is, and that
+# child would not see the variable. The folder is cached per OS, keyed on every
+# playwright-core version pnpm-lock.yaml resolves, since each version names its own browser
+# build. One key for every job on an OS: the jobs install the same `chromium` (the browser
+# and its headless shell), whichever package's Playwright does it.
+name: Install Playwright's Chromium
+description: >-
+  Installs the Chromium a package's Playwright drives (with its system libraries on Linux),
+  cached per OS on the resolved playwright-core versions, and makes a missing browser fail the
+  job's tests rather than skip them.
+
+inputs:
+  package:
+    description: The pnpm filter of the package whose Playwright installs the browser.
+    required: true
+  cli:
+    description: >-
+      That package's Playwright command: `playwright-core` where it depends on playwright-core
+      itself, `playwright` where it has @playwright/test.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve playwright-core
+      id: version
+      shell: bash
+      run: |
+        versions="$(sed -nE 's/^  playwright-core@([^:(]+):.*/\1/p' pnpm-lock.yaml | sort -u | paste -sd+ -)"
+        if [ -z "$versions" ]; then
+          echo "::error::pnpm-lock.yaml resolves no playwright-core"
+          exit 1
+        fi
+        echo "playwright-core $versions"
+        echo "key=playwright-chromium-${RUNNER_OS}-${versions}" >> "$GITHUB_OUTPUT"
+
+    - name: Cache the browser
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/ms-playwright
+          ~/Library/Caches/ms-playwright
+          ~/AppData/Local/ms-playwright
+        key: ${{ steps.version.outputs.key }}
+
+    # A cache hit still runs the install: it downloads nothing then, and on Linux it still
+    # installs the system libraries, which live outside the cached folder.
+    - name: Install Chromium
+      shell: bash
+      env:
+        PACKAGE: ${{ inputs.package }}
+        CLI: ${{ inputs.cli }}
+      run: |
+        deps=""
+        if [ "$RUNNER_OS" = "Linux" ]; then deps="--with-deps"; fi
+        pnpm --filter "$PACKAGE" exec "$CLI" install $deps chromium
+        echo "PENGUIN_TEST_REQUIRE_BROWSER=1" >> "$GITHUB_ENV"
