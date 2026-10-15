@@ -28,3 +28,6 @@ web's `activities` Playwright project.
   web's `@playwright/test`, ran `playwright test --project activities`, and uploaded the
   Playwright results when it failed. It joined the `ci` gate. The `shared-server` project
   stayed out of CI.
+- The development skill's verification section named the web `activities` project as part of
+  the chain CI runs and listed the server's real-browser suites with the sources they cover;
+  the frontend skill's Verify gave the commands to run the `activities` project locally.
