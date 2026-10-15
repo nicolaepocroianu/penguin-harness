@@ -54,7 +54,7 @@ describe("activity generation through Harness sessions", () => {
   });
 
   async function fixture(
-    moduleOutput: boolean | "audio" | "image" | "media-text" = false,
+    moduleOutput: boolean | "audio" | "media-text" = false,
     activityType: "standard" | "book" = "standard",
   ) {
     let complete: () => void = () => {};
@@ -92,12 +92,7 @@ describe("activity generation through Harness sessions", () => {
           yield abortEvent();
           return;
         }
-        if (moduleOutput === "image") {
-          await fs.writeFile(
-            path.join(row.workspace!, IMAGE_OUTPUT),
-            output === "invalid" ? Buffer.from("invalid") : imagePng(),
-          );
-        } else if (moduleOutput === "media-text") {
+        if (moduleOutput === "media-text") {
           const target = JSON.parse(
             await fs.readFile(path.join(row.workspace!, "media-text-input.json"), "utf8"),
           ) as { language: string; assetKey: string; type: "image" | "audio" };
@@ -150,7 +145,8 @@ describe("activity generation through Harness sessions", () => {
         yield requestEnd(fatal ? "fatal" : "completed");
       },
     });
-    // Speech has no Session: the server runs its helper, which this fake stands in for.
+    // Images and speech have no Session: the server runs their helper, which this fake stands
+    // in for.
     const helper = fakeMediaHelper();
     const t = await createTestApp({
       ...fakeMp3Encoding,
@@ -221,18 +217,26 @@ describe("activity generation through Harness sessions", () => {
       (
         (await (await client.get(`${endpoint}/runs`)).json()) as { runs: ActivityRunSummary[] }
       ).runs.find((r) => r.runId === run.runId)!;
+    /** A run the server's helper works on, as it reads once it has ended. */
+    async function helperSettled(run: ActivityRun) {
+      let summary = await summaryOf(run);
+      const deadline = Date.now() + 5000;
+      while (summary.status === "running" && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        summary = await summaryOf(run);
+      }
+      return summary;
+    }
     async function finish(run: ActivityRun, value = JSON.stringify(activitySpec), fail = false) {
       let summary: ActivityRunSummary;
-      if (run.kind === "audio") {
-        await helper.finish({
-          "speech.wav": value === "invalid" ? Buffer.from("invalid") : speechWave(),
-        });
-        summary = await summaryOf(run);
-        const deadline = Date.now() + 5000;
-        while (summary.status === "running" && Date.now() < deadline) {
-          await new Promise((resolve) => setTimeout(resolve, 10));
-          summary = await summaryOf(run);
-        }
+      if (run.kind === "audio" || run.kind === "image") {
+        const invalid = value === "invalid" ? Buffer.from("invalid") : null;
+        await helper.finish(
+          run.kind === "audio"
+            ? { "speech.wav": invalid ?? speechWave() }
+            : { [IMAGE_OUTPUT]: invalid ?? imagePng() },
+        );
+        summary = await helperSettled(run);
       } else {
         output = value;
         fatal = fail;
@@ -251,6 +255,7 @@ describe("activity generation through Harness sessions", () => {
       prompts,
       waiting,
       helper,
+      helperSettled,
       client,
       activity,
       draft,
@@ -360,7 +365,7 @@ describe("activity generation through Harness sessions", () => {
         expect(response.status, await response.clone().text()).toBe(202);
         const run = (await response.clone().json()) as ActivityRun;
         expect(run.status, run.error ?? "").toBe("running");
-        await waitFor(() => waiting.has(run.sessionId!));
+        await waitFor(() => helper.waiting(run.runId) !== null);
         return response;
       },
       startMediaText: async (type: "image" | "audio" = "image") => {
@@ -680,7 +685,7 @@ describe("activity generation through Harness sessions", () => {
   });
 
   it("keeps image candidates immutable, accepts explicitly, preserves them on failure, and verifies WAF bytes", async () => {
-    const f = await fixture("image");
+    const f = await fixture();
     const missingCredential = await f.startImage(false);
     expect(missingCredential.status).toBe(400);
     expect(((await missingCredential.json()) as { error: { code: string } }).error.code).toBe(
@@ -694,14 +699,25 @@ describe("activity generation through Harness sessions", () => {
       prompt: "A blue penguin",
       model: "gemini-3.1-flash-image",
     });
-    const session = f.t.deps.sessionsRepo.findById(run.sessionId!)!;
-    expect(session.approvalMode).toBe("allow-all");
-    expect(
-      await fs.readFile(path.join(session.workspace!, "image-input.json"), "utf8"),
-    ).not.toContain("fake-test-only");
+    // No agent draws it: the server runs the staged helper with the Media Agent's Vault, and
+    // has it link in the agenthub install every run shares.
+    expect(run.sessionId).toBeNull();
+    expect(f.helper.calls.at(-1)).toMatchObject({
+      script: "generate-image.mjs",
+      install: true,
+      cacheDir: expect.stringMatching(/media-helper-cache$/),
+      vault: { GEMINI_API_KEY: "fake-test-only" },
+    });
+    const runWorkspace = f.helper.waiting(run.runId)!;
+    expect(await fs.readFile(path.join(runWorkspace, "generate-image.mjs"), "utf8")).toContain(
+      "AutoLLMClient",
+    );
+    expect(await fs.readFile(path.join(runWorkspace, "image-input.json"), "utf8")).not.toContain(
+      "fake-test-only",
+    );
     // Every image is drawn in the house style, sent beside the author's description.
     expect(
-      JSON.parse(await fs.readFile(path.join(session.workspace!, "image-input.json"), "utf8")),
+      JSON.parse(await fs.readFile(path.join(runWorkspace, "image-input.json"), "utf8")),
     ).toMatchObject({ style: IMAGE_STYLE });
     expect(run.image).not.toHaveProperty("style");
     const result = await f.finish(run);
@@ -763,9 +779,8 @@ describe("activity generation through Harness sessions", () => {
 
     const second = (await (await f.startImage()).json()) as ActivityRun;
     expect(second.runId).not.toBe(run.runId);
-    const secondSession = f.t.deps.sessionsRepo.findById(second.sessionId!)!;
     const imageInput = JSON.parse(
-      await fs.readFile(path.join(secondSession.workspace!, "input.json"), "utf8"),
+      await fs.readFile(path.join(f.helper.waiting(second.runId)!, "input.json"), "utf8"),
     );
     expect(imageInput.draft.mediaPlan.manifest.assets["en-US"][0].generatedImage).toEqual(
       savedAsset.generatedImage,
@@ -802,7 +817,7 @@ describe("activity generation through Harness sessions", () => {
       image: { language: "en-US", assetKey: "cover" },
     } as const satisfies RunRequest;
     async function setup() {
-      const f = await fixture("image");
+      const f = await fixture();
       // Plans media with an image to draw; refused, since the Media Agent has no key yet.
       expect((await f.startImage(false)).status).toBe(400);
       const vault = (keys: string[]) =>
@@ -838,7 +853,7 @@ describe("activity generation through Harness sessions", () => {
         agentId: "default_agent",
         started: (run) => (started = run),
       });
-      await waitFor(() => started !== null && f.waiting.has(started.sessionId!));
+      await waitFor(() => started !== null && f.helper.waiting(started.runId) !== null);
       await f.finish(started!);
       const settled = await outcome;
       expect(settled).toMatchObject({
@@ -860,7 +875,7 @@ describe("activity generation through Harness sessions", () => {
         agentId: "default_agent",
         started: (run) => (started = run),
       });
-      await waitFor(() => started !== null && f.waiting.has(started.sessionId!));
+      await waitFor(() => started !== null && f.helper.waiting(started.runId) !== null);
       const edited = await f.client.patch(`${f.endpoint}/description`, {
         description: "Teach other words",
         expectedRevision: (await current()).draft.contentRevision,
@@ -887,7 +902,7 @@ describe("activity generation through Harness sessions", () => {
         started: (run) => (started = run),
         signal: controller.signal,
       });
-      await waitFor(() => started !== null && f.waiting.has(started.sessionId!));
+      await waitFor(() => started !== null && f.helper.waiting(started.runId) !== null);
       controller.abort();
       expect(await outcome).toEqual({ outcome: "stopped" });
       // The run is left alone: it finishes as an ordinary run, its candidate not accepted.
@@ -899,7 +914,7 @@ describe("activity generation through Harness sessions", () => {
   });
 
   it("retains a previewable image conflict without applying it when the draft changes", async () => {
-    const f = await fixture("image");
+    const f = await fixture();
     const run = (await (await f.startImage()).json()) as ActivityRun;
     await f.client.patch(`${f.endpoint}/description`, {
       description: "Edited during generation",
@@ -915,6 +930,29 @@ describe("activity generation through Harness sessions", () => {
         })
       ).status,
     ).toBe(409);
+  });
+
+  it("fails an image run with the helper's own words, or naming the image it did not write", async () => {
+    const f = await fixture();
+    const refused = (await (await f.startImage()).json()) as ActivityRun;
+    const words =
+      "Image generation failed. Check the Agent Vault GEMINI_API_KEY, provider access, and saved image settings. No candidate was accepted.";
+    await f.helper.finish({}, { ok: false, error: words });
+    expect(await f.helperSettled(refused)).toMatchObject({ status: "failed", error: words });
+    const empty = (await (await f.startImage()).json()) as ActivityRun;
+    await f.helper.finish({});
+    expect(await f.helperSettled(empty)).toMatchObject({
+      status: "failed",
+      error: "The generate-image.mjs helper ended without image.png.",
+    });
+    // Stopping the run stops its helper.
+    const stopped = (await (await f.startImage()).json()) as ActivityRun;
+    const call = f.helper.calls.at(-1)!;
+    expect((await f.client.post(`${f.endpoint}/runs/${stopped.runId}/cancel`, {})).status).toBe(
+      200,
+    );
+    expect(call.signal.aborted).toBe(true);
+    expect(await f.helperSettled(stopped)).toMatchObject({ status: "cancelled" });
   });
 
   it("reviews media text as a candidate, accepts it explicitly, and preserves media bindings", async () => {

@@ -96,7 +96,6 @@ import {
   type ActivityRun,
   type ActivityRunKind,
   type ActivityRunSummary,
-  type AudioRun,
   type DeterministicRunKind,
 } from "./domain.js";
 import { normalizeMediaTags } from "./spec-normalization.js";
@@ -554,7 +553,7 @@ export class ActivityGenerationService implements ActivityGeneration {
           } as ActivityRun;
           // A model on this machine runs no agent, and a coding agent runs its commands itself,
           // outside Penguin's sandbox.
-          const local = kind.runner === "server" ? kind.local(prepared) : null;
+          const local = kind.runner === "server" ? (kind.local?.(prepared) ?? null) : null;
           // Penguin's own agent runs a stage's commands confined to the run's workspace, so
           // the WAF checkout is read-only to them by enforcement, not by the prompt's word —
           // unless an admin turned confinement off for this server (System settings > WAF
@@ -628,18 +627,19 @@ export class ActivityGenerationService implements ActivityGeneration {
               return run;
             }
             if (kind.runner === "server") {
-              // Speech and sound need no agent: the server runs the staged helper itself, as
-              // Loom's audio stage calls its provider, and collects the clip as a Session's
-              // would be. agenthub is installed first for Gemini speech and hub models.
+              // Images, speech and sound need no agent: the server runs the staged helper
+              // itself, as Loom's media stages call their provider, and collects what it wrote
+              // as a Session's would be. agenthub is installed first for images, Gemini speech
+              // and hub models.
               if (this.stopped)
                 throw new HttpError(503, "activity_stopping", "Server is stopping.");
               const controller = new AbortController();
               this.localRuns.set(run.runId, controller);
               const helper = kind.helper(prepared);
               this.outcomes.witness({ run, server: `helper:${helper.script}` });
-              void this.track(this.generateAudio(run as AudioRun, kind, helper, controller)).catch(
+              void this.track(this.generateWithHelper(run, kind, helper, controller)).catch(
                 (error: unknown) => {
-                  this.log.line(`[activities] Audio settlement failed: ${String(error)}`);
+                  this.log.line(`[activities] Media helper settlement failed: ${String(error)}`);
                 },
               );
               return run;
@@ -776,12 +776,12 @@ export class ActivityGenerationService implements ActivityGeneration {
   }
 
   /**
-   * A speech or sound run's helper, run by the server: no Session, no model request. What it
-   * wrote is collected as a Session's would be; a failure is the helper's own words.
+   * An image, speech or sound run's helper, run by the server: no Session, no model request.
+   * What it wrote is collected as a Session's would be; a failure is the helper's own words.
    */
-  private async generateAudio(
-    run: AudioRun,
-    kind: ServerRunKind<RunRequest, unknown, AudioRun>,
+  private async generateWithHelper(
+    run: ActivityRun,
+    kind: ServerRunKind<RunRequest, unknown, ActivityRun>,
     helper: { script: MediaHelperScript; install: boolean },
     controller: AbortController,
   ): Promise<void> {
@@ -792,7 +792,7 @@ export class ActivityGenerationService implements ActivityGeneration {
         this.finish(
           current,
           this.stopped ? "interrupted" : "failed",
-          error instanceof Error ? error.message : "Audio generation failed.",
+          error instanceof Error ? error.message : "Generation failed.",
         );
       });
     };
@@ -812,7 +812,7 @@ export class ActivityGenerationService implements ActivityGeneration {
         return;
       }
       await this.lock.run(run.activityId, async () => {
-        const current = (await this.getRun(run.projectId, run.activityId, run.runId)) as AudioRun;
+        const current = await this.getRun(run.projectId, run.activityId, run.runId);
         if (current.status !== "running" || this.stopped || controller.signal.aborted) return;
         try {
           const { draftChanged } = await kind.collect({
@@ -833,7 +833,7 @@ export class ActivityGenerationService implements ActivityGeneration {
               ? `The ${helper.script} helper ended without ${kind.missing(current)}.`
               : error instanceof Error
                 ? error.message
-                : "Could not collect the clip.",
+                : "Could not collect what the helper wrote.",
           );
         }
       });

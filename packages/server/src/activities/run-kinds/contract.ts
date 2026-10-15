@@ -245,8 +245,8 @@ export interface ServerRunKind<
   Run extends ActivityRun,
 > extends RunKindBase<Request, Prepared, Run> {
   readonly runner: "server";
-  /** The request for a model on this machine, when the run uses one. */
-  local(prepared: Prepared): LocalAudioRequest | null;
+  /** The request for a model on this machine, when the run uses one; absent, it never does. */
+  local?(prepared: Prepared): LocalAudioRequest | null;
   stage(input: StageInput<Prepared, Run>): Promise<void>;
   helper(prepared: Prepared): { script: MediaHelperScript; install: boolean };
   /** The file the helper must have written, named when it did not. */

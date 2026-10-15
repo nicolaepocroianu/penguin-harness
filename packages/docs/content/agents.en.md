@@ -18,7 +18,7 @@ In the sidebar, select **Agents**. The page lists every agent in the current Pro
 Every Project starts with three built-in agents, which cannot be deleted:
 
 - `default_agent`, the **General Agent**, the default agent for conversations.
-- `media_agent`, the **Media Agent**, which makes every activity's images. Put the media providers' keys (`GEMINI_API_KEY`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`) in its Vault. Speech, music and sound effects are made from the same keys, but the server runs them directly: narrations, word recordings and sounds start no Media Agent Session.
+- `media_agent`, the **Media Agent**, whose Vault holds the media providers' keys. Put `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID` there. Every activity's images, speech, music and sound effects are made from those keys, and the server runs their providers directly: images, narrations, word recordings and sounds start no Media Agent Session.
 - `activity_agent`, the **Activity Agent**, which runs every Activities stage except media unless you pick another agent: the specification, script, media list, assessment, module and acceptance tests. It comes with the **waf-authoring** plugin's Skills installed. A Project created before it existed gets it the next time its agents are listed.
 
 While these are the only agents, a card below them offers to create your first one: "No agent of your own yet".

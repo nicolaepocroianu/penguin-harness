@@ -28,8 +28,8 @@ import { toneDot, toneInk, type Tone } from "../../lib/tone";
 import { MessageStream } from "../chat/message-stream";
 import { useSessionTranscript } from "./use-session-transcript";
 
-/** Stages the server runs itself, clip by clip, with no agent Session to follow. */
-const RUN_BY_SERVER: ReadonlySet<PipelineStep> = new Set(["speech", "words", "sounds"]);
+/** Stages the server runs itself, asset by asset, with no agent Session to follow. */
+const RUN_BY_SERVER: ReadonlySet<PipelineStep> = new Set(["speech", "images", "words", "sounds"]);
 
 const STEP_TONE: Record<PipelineStepStatus, Tone> = {
   pending: "muted",

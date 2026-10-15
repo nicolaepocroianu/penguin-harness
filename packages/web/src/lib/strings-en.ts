@@ -1096,7 +1096,8 @@ export const en: Strings = {
       skipped: (count: number) => `${count} skipped`,
       showLog: (step: string) => `Show the ${step} session`,
       waitingForSession: "Waiting for the stage's session to start…",
-      runByServer: "The server makes each clip itself, so this stage has no session to show.",
+      runByServer:
+        "The server makes each clip or image itself, so this stage has no session to show.",
       openInChat: "Open in chat",
       noRun: "No stages have run in this session of the server.",
       earlier: (count: number) => `Earlier runs (${count})`,

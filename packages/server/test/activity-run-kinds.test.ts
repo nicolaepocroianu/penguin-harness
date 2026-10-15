@@ -29,7 +29,15 @@ import { phonemesKind } from "../src/activities/run-kinds/phonemes.js";
 import { mediaSpecKind, specKind, SPEC_OUTPUT } from "../src/activities/run-kinds/spec.js";
 import { testKind } from "../src/activities/run-kinds/test.js";
 import { imageKind, IMAGE_OUTPUT } from "../src/activities/run-kinds/image.js";
+import { speechKind } from "../src/activities/run-kinds/audio.js";
 import { moduleKind } from "../src/activities/run-kinds/module.js";
+import {
+  linkCachedDependencies,
+  type DependencyInstaller,
+} from "../src/activities/media-helper-runner.js";
+import type { AudioTarget } from "../src/activities/audio.js";
+import type { ImageTarget } from "../src/activities/generated-image.js";
+import { SPEECH_MODEL } from "../src/activities/voice-catalogue.js";
 import { PHONEMES_FILE } from "../src/activities/phonemes-run.js";
 import { experimentOff } from "../src/activities/video-experiment.js";
 import {
@@ -375,27 +383,6 @@ describe("collecting what an agent wrote", () => {
     expect(phonemesKind.outputs).toEqual([PHONEMES_FILE]);
   });
 
-  it("stores an image through the authoring service before keeping it", async () => {
-    const dir = await workspace();
-    await fs.writeFile(path.join(dir, IMAGE_OUTPUT), imagePng());
-    const stored: string[] = [];
-    const current = run("image", { image: { language: "en-US", assetKey: "cover" } as never });
-    await imageKind.collect(
-      collecting(current, dir, {
-        services: services({
-          activities: {
-            storeImage: async (_p: string, _a: string, runId: string) => {
-              stored.push(runId);
-              return { runId, sha256: "abc", bytes: 1 };
-            },
-          } as unknown as RunKindServices["activities"],
-        }),
-      }),
-    );
-    expect(stored).toEqual([current.runId]);
-    expect(JSON.parse(current.candidate!)).toMatchObject({ runId: current.runId });
-  });
-
   it("writes a test run's report beside what the agent reported, and keeps no candidate", async () => {
     const dir = await workspace();
     await fs.writeFile(
@@ -632,5 +619,96 @@ describe("a module repair round", () => {
     ).toBe("repair_nothing_failed");
     // A repair is still an assembly: only the canonical ref changes the module.
     expect(await refused({ canonical: false })).toBe("ref_not_canonical");
+  });
+});
+
+describe("an image the server draws with its helper", () => {
+  const image: ImageTarget = {
+    language: "en-US",
+    assetKey: "cover",
+    prompt: "A blue penguin",
+    model: "gemini-3.1-flash-image",
+  };
+  function staging<Prepared, Run extends ActivityRun>(
+    prepared: Prepared,
+    current: Run,
+    dir: string,
+  ) {
+    return {
+      services: services(),
+      activity: activity(),
+      prepared,
+      run: current,
+      workspace: dir,
+      confined: false,
+      description: "Teach sight words",
+      expectedRevision: "r1",
+    };
+  }
+
+  it("runs the image helper with agenthub, and names the image when there is none", () => {
+    expect(imageKind.runner).toBe("server");
+    expect(imageKind.helper(image)).toEqual({ script: "generate-image.mjs", install: true });
+    expect(imageKind.missing(run("image", { image }))).toBe(IMAGE_OUTPUT);
+  });
+
+  it("stores the image through the authoring service before keeping it, with no Session", async () => {
+    const dir = await workspace();
+    await fs.writeFile(path.join(dir, IMAGE_OUTPUT), imagePng());
+    const stored: string[] = [];
+    const current = run("image", { image, agentId: "media_agent", sessionId: null });
+    const input = collecting(current, dir, {
+      observed: undefined,
+      services: services({
+        activities: {
+          storeImage: async (_p: string, _a: string, runId: string) => {
+            stored.push(runId);
+            return { runId, sha256: "abc", bytes: 1 };
+          },
+        } as unknown as RunKindServices["activities"],
+      }),
+    });
+    expect(await imageKind.collect(input)).toEqual({
+      draftChanged: "The draft changed during image generation.",
+    });
+    expect(stored).toEqual([current.runId]);
+    expect(JSON.parse(current.candidate!)).toMatchObject({ runId: current.runId });
+    expect(input.saved.at(-1)!.candidate).toBe(current.candidate);
+  });
+
+  it("links the one agenthub install every image and Gemini narration shares", async () => {
+    const drawn = await workspace();
+    const again = await workspace();
+    const spoken = await workspace();
+    await imageKind.stage(staging(image, run("image", { image }), drawn));
+    await imageKind.stage(staging(image, run("image", { image }), again));
+    const narration: AudioTarget = {
+      language: "en-US",
+      assetKey: "welcome",
+      script: "Hello!",
+      voice: "Kore",
+      model: SPEECH_MODEL,
+    };
+    await speechKind.stage(staging(narration, run("audio", { audio: narration }), spoken));
+    expect(speechKind.helper(narration).install).toBe(true);
+    const cache = await workspace();
+    const installs: string[] = [];
+    const install: DependencyInstaller = async (dir) => {
+      installs.push(dir);
+      await fs.mkdir(path.join(dir, "node_modules", "@prismshadow", "agenthub"), {
+        recursive: true,
+      });
+      return { ok: true, timedOut: false };
+    };
+    const signal = new AbortController().signal;
+    for (const dir of [drawn, again, spoken])
+      expect(await linkCachedDependencies(dir, cache, process.env, signal, install)).toEqual({
+        ok: true,
+      });
+    expect(installs).toHaveLength(1);
+    const linked = await Promise.all(
+      [drawn, again, spoken].map((dir) => fs.realpath(path.join(dir, "node_modules"))),
+    );
+    expect(new Set(linked).size).toBe(1);
   });
 });

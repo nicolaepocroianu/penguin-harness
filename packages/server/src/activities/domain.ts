@@ -298,6 +298,10 @@ export interface AudioRun extends ActivityRunCommon {
   kind: "audio";
   audio: AudioTarget;
 }
+/**
+ * An image for one asset; the server runs the image helper, not an agent. An older record
+ * carries the id of the Media Agent Session that drew it.
+ */
 export interface ImageRun extends ActivityRunCommon {
   kind: "image";
   image: ImageTarget;

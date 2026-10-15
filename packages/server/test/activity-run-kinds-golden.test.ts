@@ -6,8 +6,8 @@
  * The golden values were captured once, from the code before run kinds became modules, with
  * `UPDATE_RUN_KIND_GOLDEN=1`. Values that differ between test runs (the server root, ids,
  * timestamps, the signed play link) are replaced by placeholders before they are compared.
- * Nothing reaches a model: a run's task is recorded and never started, and the speech and sound
- * helpers never end.
+ * Nothing reaches a model: a run's task is recorded and never started, and the image, speech and
+ * sound helpers never end.
  */
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
