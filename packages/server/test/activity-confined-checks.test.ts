@@ -215,11 +215,16 @@ criterion("spawn", () => {
 });
 criterion("env", () => {
   expect(process.env.PENGUIN_CHECKS_SECRET === undefined, "It saw the server's environment.");
-  // What Node needs, its IPC channel, and what Windows' process spawning adds on its own.
+  // What Node needs, its IPC channel, and what each OS adds to every child on its own: Windows'
+  // process spawning adds the profile variables, macOS CoreFoundation adds its text encoding.
   const needed = /^(PATH|TEMP|TMP|TMPDIR|SYSTEMROOT|WINDIR|NODE_CHANNEL_\\w+)$/i;
   const windows = /^(HOMEDRIVE|HOMEPATH|LOGONSERVER|SYSTEMDRIVE|USERDOMAIN|USERNAME|USERPROFILE)$/i;
+  const macos = /^__CF_USER_TEXT_ENCODING$/;
   const kept = Object.keys(process.env).filter(
-    (key) => !needed.test(key) && !(process.platform === "win32" && windows.test(key)),
+    (key) =>
+      !needed.test(key) &&
+      !(process.platform === "win32" && windows.test(key)) &&
+      !(process.platform === "darwin" && macos.test(key)),
   );
   expect(kept.length === 0, "It was given more than Node needs: " + kept.join(", "));
 });
@@ -251,7 +256,7 @@ criterion("port", async () => {
     expect(byCriterion.write).toMatchObject({ status: "failed" });
     expect(fs.existsSync(`${secretFile}.copy`)).toBe(false);
     expect(byCriterion.spawn).toMatchObject({ status: "failed" });
-    expect(byCriterion.env).toMatchObject({ status: "passed" });
+    expect(byCriterion.env, JSON.stringify(byCriterion.env)).toMatchObject({ status: "passed" });
     expect(byCriterion.file).toMatchObject({ status: "failed" });
     expect(byCriterion.file!.error).toContain("A check may open only the played activity");
     expect(byCriterion.port).toMatchObject({ status: "passed" });
