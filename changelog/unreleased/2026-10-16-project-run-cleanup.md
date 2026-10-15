@@ -3,6 +3,7 @@
 - **Date:** 2026-10-16
 - **Type:** fix
 - **Scope:** `server`
+- **PR:** [#157](https://github.com/nicolaepocroianu/penguin-harness/pull/157)
 
 Deleting a project, and so an admin deleting a user who owned projects, removed the project's
 activity run folders (`activity-runs/<runId>` under the server root) along with its rows and its
