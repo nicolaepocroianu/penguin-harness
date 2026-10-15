@@ -10,7 +10,7 @@ export const en: Strings = {
     boundMedia: "Bound",
     placeholderMedia: "Placeholder",
     placeholderMediaHint:
-      "A blank stand-in the module plays until a real file is bound. Learners would see or hear nothing here.",
+      "A shared stand-in the module plays until a real file is bound. Learners get the same stand-in wherever one is used, not this asset's own media.",
     downloadCurrent: "Download current",
     unboundMedia: "Needs media",
     usedInScenes: "Used in scenes",
@@ -552,13 +552,13 @@ export const en: Strings = {
       placeholderNotice: (n: number) =>
         n === 1 ? "1 asset is still a placeholder." : `${n} assets are still placeholders.`,
       placeholderNoticeBody:
-        "Learners see a blank frame where each one belongs until a real file replaces it.",
+        "Each one plays the shared stand-in clip until a real file replaces it.",
       reviewPlaceholders: "Review placeholders",
     },
     mediaPreview: {
       placeholder: "Placeholder video",
       placeholderNote: (type: "video" | "animation", others: number) =>
-        `This ${type} is the shared blank placeholder, so learners see an empty frame until a real one replaces it.${
+        `This ${type} is bound to the shared placeholder, a stand-in clip learners see until a real one replaces it.${
           others
             ? ` ${others} other ${others === 1 ? "asset uses" : "assets use"} the same file.`
             : ""

@@ -3027,7 +3027,7 @@ test("media shows and plays where it is listed: by scene in Audio, on the storyb
     "src",
     `${base}/act_test/sandbox/media/loom/words/words-12/videos/english/empty.mp4`,
   );
-  await expect(page.getByText(/^This video is the shared blank placeholder/)).toBeVisible();
+  await expect(page.getByText(/^This video is bound to the shared placeholder/)).toBeVisible();
   await expect(page.getByText(/has no in-app preview/)).toHaveCount(0);
 
   // The Library plays sound where it is listed too.

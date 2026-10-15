@@ -5,7 +5,8 @@
  *
  * Nothing is stored for it. The browser decodes the first frame from the video it would
  * play anyway, so a poster can never go stale against its file. A placeholder is said for
- * what it is and never loaded: its frame is blank, and naming it is the point.
+ * what it is and never loaded: every placeholder plays the same stand-in clip, so its picture
+ * would say nothing about the asset, and naming it is the point.
  */
 import type { MediaAsset } from "@prismshadow/penguin-server/api";
 import { bindingOf, type PlaceholderPaths } from "./placeholder-media";

@@ -43,14 +43,13 @@ function Beat({ beat }: { beat: StoryBeat }) {
       >
         <GlyphIcon d={BEAT_ICON[beat.kind]} size={ICON_SIZE.inlineGlyph} />
       </span>
-      <span className="line-clamp-1 min-w-0 flex-1">
-        {beatText(beat)}
-        {beat.placeholder && (
-          <span className={`ml-1.5 ${toneInk.attention}`}>
-            {S.activities.studioBoard.beatPlaceholder}
-          </span>
-        )}
-      </span>
+      <span className="line-clamp-1 min-w-0 flex-1">{beatText(beat)}</span>
+      {/* Outside the clamped words, so a long line never cuts the state off. */}
+      {beat.placeholder && (
+        <span className={`shrink-0 ${toneInk.attention}`}>
+          {S.activities.studioBoard.beatPlaceholder}
+        </span>
+      )}
     </span>
   );
 }
