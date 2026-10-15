@@ -3,6 +3,7 @@
 - **Date:** 2026-10-15
 - **Type:** feature
 - **Scope:** `web`, `server`
+- **PR:** [#150](https://github.com/nicolaepocroianu/penguin-harness/pull/150)
 
 Phase 3 of the Activity Studio audit. The header shows the activity's journey in six steps:
 Script, Specification, Media, Module, Checks and Deploy. Each step says where it stands in a mark
