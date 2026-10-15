@@ -94,6 +94,38 @@ describe("a poll while the page is on screen", () => {
     expect(read).toHaveBeenCalledTimes(1);
   });
 
+  it("goes on reading while hidden at the asked pace for as long as the page asks, then stops", async () => {
+    const view = page();
+    const { read, answer } = reads();
+    let queued = true;
+    pollWhileVisible(read, view, () => queued);
+    await answer();
+    // The read already set off stands when the page hides.
+    view.show(false);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(read).toHaveBeenCalledTimes(2);
+    await answer();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(read).toHaveBeenCalledTimes(3);
+    // The page is asked again after each read: once it is done, the read out is the last.
+    queued = false;
+    await answer();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(read).toHaveBeenCalledTimes(3);
+    view.show(true);
+    expect(read).toHaveBeenCalledTimes(4);
+  });
+
+  it("reads on from a load in a hidden tab while the page asks it to", async () => {
+    const view = page();
+    view.visibilityState = "hidden";
+    const { read, answer } = reads();
+    pollWhileVisible(read, view, () => true);
+    await answer();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
   it("reads nothing more once stopped, shown or not", async () => {
     const view = page();
     const { read, answer } = reads();

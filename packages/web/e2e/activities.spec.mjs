@@ -1052,9 +1052,11 @@ test("reads the specification as scenes, checks narration against the script, an
   expect(f.errors).toEqual([]);
 });
 
-test("reports speech coverage and generates every missing narration at once", async ({ page }) => {
-  const f = await fixture(page);
-  await create(page);
+/**
+ * Save the specification and a media plan whose en-US narrations are the ones named, each with
+ * what it holds beyond its key: Gemini's, which this fixture's speech setup lists voices for.
+ */
+async function saveNarrations(page, narrations) {
   await openSection(page, "Specification");
   await replaceText(
     page.getByRole("textbox", { name: "Specification JSON", exact: true }),
@@ -1063,34 +1065,37 @@ test("reports speech coverage and generates every missing narration at once", as
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
-
-  // Three narrations: one already bound, one ready to generate, one still without a script.
-  // Gemini's, which this fixture's speech setup lists voices for.
-  const narration = (key, extra) => ({
-    key,
-    type: "audio",
-    speechProvider: "gemini",
-    description: `${key} line`,
-    usages: [{ sceneId: "intro", sourceKey: key, occurrence: 1, sceneOccurrenceCount: 1 }],
-    ...extra,
-  });
   await openManifest(page);
   await page.getByRole("textbox", { name: /^Asset manifest/ }).fill(
     JSON.stringify({
       productCode: "words",
       refNum: 12,
       assets: {
-        "en-US": [
-          narration("greeting", { script: "Hello there", path: "media/audio/greeting.wav" }),
-          narration("welcome", { script: "Welcome along" }),
-          narration("prompt", { script: "Pick a word" }),
-          narration("silent", {}),
-        ],
+        "en-US": Object.entries(narrations).map(([key, extra]) => ({
+          key,
+          type: "audio",
+          speechProvider: "gemini",
+          description: `${key} line`,
+          usages: [{ sceneId: "intro", sourceKey: key, occurrence: 1, sceneOccurrenceCount: 1 }],
+          ...extra,
+        })),
       },
     }),
   );
   await openSection(page, "Storyboard");
   await page.getByRole("button", { name: "Validate and save media", exact: true }).click();
+}
+
+test("reports speech coverage and generates every missing narration at once", async ({ page }) => {
+  const f = await fixture(page);
+  await create(page);
+  // Three narrations: one already bound, one ready to generate, one still without a script.
+  await saveNarrations(page, {
+    greeting: { script: "Hello there", path: "media/audio/greeting.wav" },
+    welcome: { script: "Welcome along" },
+    prompt: { script: "Pick a word" },
+    silent: {},
+  });
 
   await openSection(page, "Audio");
   await expect(page.getByText("1 of 4 lines have audio")).toBeVisible();
@@ -2244,6 +2249,42 @@ test("a hidden tab stops polling the activity and reads it again on coming back"
   await expect(description).toHaveText("Remote description");
   await page.clock.fastForward(30_000);
   await expect.poll(() => f.historyReads).toBe(hidden + 2);
+  expect(f.errors).toEqual([]);
+});
+
+test("a hidden tab goes on reading while narrations wait in the queue, and stops once it empties", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  await saveNarrations(page, {
+    welcome: { script: "Welcome along" },
+    prompt: { script: "Pick a word" },
+    goodbye: { script: "See you soon" },
+  });
+  await openSection(page, "Audio");
+  await page.getByRole("button", { name: "Generate 3 missing", exact: true }).click();
+  await page.getByRole("button", { name: "Generate 3 missing", exact: true }).last().click();
+  await expect(page.getByText(/2 narrations queued/)).toBeVisible();
+  await setTabHidden(page, true);
+  // Each run that finishes while the author is in another tab is read, and the next narration
+  // is asked for: the first was started on screen, the second hidden.
+  f.finishAudio();
+  await expect
+    .poll(() => f.audioRequests.map((request) => request.assetKey))
+    .toEqual(["welcome", "prompt"]);
+  f.finishAudio();
+  await expect
+    .poll(() => f.audioRequests.map((request) => request.assetKey))
+    .toEqual(["welcome", "prompt", "goodbye"]);
+  // With nothing left to ask for, the hidden tab reads no more, though the last run goes on.
+  await page.waitForTimeout(1000);
+  const drained = f.historyReads;
+  await page.waitForTimeout(2500);
+  expect(f.historyReads).toBe(drained);
+  await setTabHidden(page, false);
+  await expect.poll(() => f.historyReads).toBeGreaterThan(drained);
+  await expect(page.getByRole("button", { name: "Stop queue", exact: true })).toHaveCount(0);
   expect(f.errors).toEqual([]);
 });
 

@@ -582,6 +582,10 @@ function ActivityEditor({
     voice: string;
     keys: string[];
   } | null>(null);
+  // The queue moves on only when a poll reads that the last run finished, so while narrations
+  // wait the poll goes on reading in a hidden tab.
+  const speechQueued = useRef(false);
+  speechQueued.current = !!speechQueue?.keys.length;
   const [uploadsLoading, setUploadsLoading] = useState(false);
   const alive = useRef(true);
   const loadUploads = useCallback(async () => {
@@ -660,7 +664,8 @@ function ActivityEditor({
       alive.current = false;
     };
   }, []); // The editor is keyed by activity and the workspace by project.
-  // A hidden tab reads nothing; it reads once on coming back, then at the usual pace.
+  // A hidden tab reads nothing while no narration waits in the queue; it reads once on coming
+  // back, then at the usual pace.
   useEffect(() => {
     if (!available) return;
     let cancelled = false;
@@ -697,7 +702,7 @@ function ActivityEditor({
       }
       return active ? 2000 : 30_000;
     }
-    const stop = pollWhileVisible(refresh, document);
+    const stop = pollWhileVisible(refresh, document, () => speechQueued.current);
     return () => {
       cancelled = true;
       stop();
