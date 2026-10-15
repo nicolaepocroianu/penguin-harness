@@ -93,7 +93,10 @@ export abstract class CodingAgents extends Interface<{
    * Built from the same in-memory state + bounded event log the detail route serves.
    */
   sessionTranscript(sessionId: string): { markdown: string; filename: string } | undefined;
-  /** The SSE channel a session's events are published to (created with the session). */
+  /**
+   * The SSE channel a session's events are published to (undefined: unknown session). The
+   * hub may have reclaimed an idle one since; this hands out the one events reach now.
+   */
   channelFor(sessionId: string): ChannelApi | undefined;
   prompt(sessionId: string, text: string): void;
   cancel(sessionId: string): Promise<void>;
