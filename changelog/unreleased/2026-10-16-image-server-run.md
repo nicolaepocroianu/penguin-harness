@@ -30,5 +30,7 @@ image's workspace.
   install and five for the helper.
 - The image prompt module was removed, with its entry in the activity bench's recipe surface, and
   the image entry of the run kinds' golden fixture recorded no prompt.
-- The Stages panel said the images step had no session to show, instead of waiting for one, and
-  the Agents page of the docs said images start no Media Agent Session.
+- The Stages panel said the images step had no session to show, instead of waiting for one. The
+  media editor's help said the server makes images with Gemini, using `GEMINI_API_KEY` from the
+  Media Agent's Vault, and starts no Session. The Agents page of the docs said images start no
+  Media Agent Session.

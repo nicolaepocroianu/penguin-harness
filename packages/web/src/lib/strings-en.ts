@@ -2182,7 +2182,7 @@ export const en: Strings = {
     invalidTextCandidate: "This text suggestion does not match the selected asset.",
     textRun: "Media text",
     imageHelp:
-      "Images use Gemini through a Session of the Media Agent. Add GEMINI_API_KEY to the Media Agent's Vault. Preview a candidate before accepting it; regeneration keeps your accepted image.",
+      "The server makes images with Gemini, using GEMINI_API_KEY from the Media Agent's Vault, and starts no Session. Preview a candidate before accepting it; regeneration keeps your accepted image.",
     generateImage: "Generate image",
     regenerateImage: "Regenerate image",
     imageCandidates: "Image candidates",
