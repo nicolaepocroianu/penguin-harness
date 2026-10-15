@@ -218,6 +218,20 @@ describe("the readiness list and the next-step button", () => {
         }
   });
 
+  it("blocks on work a deploy left in a clone's stash, with its own fix", () => {
+    const stash: DeployProblem = { code: "clone_stash_left", repo: "module" };
+    const items = readinessItems({ ...facts, deploy: { ...clear, blocking: [stash] } });
+    expect(items).toMatchObject([
+      {
+        id: "deploy:stash:module",
+        kind: "blocker",
+        title: "Put back or drop the work stashed in the Module clone",
+        fix: { label: "Fix in Deploy", go: { kind: "section", section: "deploy" } },
+      },
+    ]);
+    expect(items[0]!.detail).toMatch(/^The Module clone has work a deploy set aside/);
+  });
+
   it("asks for a module before anything the deploy says", () => {
     const unbuilt = {
       ...facts,

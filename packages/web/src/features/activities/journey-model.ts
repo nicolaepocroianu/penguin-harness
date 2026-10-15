@@ -324,6 +324,13 @@ function problemFix(problem: DeployProblem): { group: string; title: string } {
       return { group: `dirty:${problem.repo}`, title: words.cloneDirty(repo(problem.repo)) };
     case "clone_ahead":
       return { group: `ahead:${problem.repo}`, title: words.cloneAhead(repo(problem.repo)) };
+    case "clone_stash_left":
+      return { group: `stash:${problem.repo}`, title: words.cloneStash(repo(problem.repo)) };
+    default: {
+      // A problem the server added and this list does not word yet fails the build here.
+      const unworded: never = problem;
+      return unworded;
+    }
   }
 }
 

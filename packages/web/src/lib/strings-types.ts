@@ -2213,6 +2213,7 @@ export type Strings = {
         cloneRemote: (repo: string) => string;
         cloneDirty: (repo: string) => string;
         cloneAhead: (repo: string) => string;
+        cloneStash: (repo: string) => string;
       };
       proposalWaiting: string;
     };

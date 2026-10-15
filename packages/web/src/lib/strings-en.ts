@@ -2542,6 +2542,7 @@ export const en: Strings = {
         cloneRemote: (repo: string) => `Point the ${repo} clone at its remote`,
         cloneDirty: (repo: string) => `Commit or discard the ${repo} clone's changes`,
         cloneAhead: (repo: string) => `Push the ${repo} clone's commits`,
+        cloneStash: (repo: string) => `Put back or drop the work stashed in the ${repo} clone`,
       },
       proposalWaiting: "Proposal waiting",
     },
