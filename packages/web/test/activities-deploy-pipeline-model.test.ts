@@ -70,6 +70,8 @@ describe("the readiness strip", () => {
       [{ code: "branch_missing", repo: "module", branch: "main", where: "local" }, null],
       [{ code: "branch_missing", repo: "module", branch: "main", where: "remote" }, null],
       [{ code: "clone_dirty", repo: "activityData" }, null],
+      // Work left in a stash is put back or dropped by hand.
+      [{ code: "clone_stash_left", repo: "module" }, null],
       [{ code: "git_unavailable" }, null],
       [{ code: "not_canonical" }, null],
     ];

@@ -65,6 +65,8 @@ export function problemText(problem: DeployProblem): string {
       return words.clone_dirty(repoName(problem.repo));
     case "clone_ahead":
       return words.clone_ahead(repoName(problem.repo), problem.count);
+    case "clone_stash_left":
+      return words.clone_stash_left(repoName(problem.repo));
     case "clone_remote_mismatch":
       return words.clone_remote_mismatch(repoName(problem.repo));
     case "branch_missing":
@@ -94,6 +96,7 @@ function cloneRow(context: DeployContext, repo: DeployRepo, clone: CloneState): 
     if (problem.code === "clone_dirty") states.push(words.clone.dirty);
     if (problem.code === "clone_remote_mismatch") states.push(words.clone.remoteMismatch);
     if (problem.code === "clone_ahead") states.push(words.clone.ahead(problem.count));
+    if (problem.code === "clone_stash_left") states.push(words.clone.stashLeft);
     if (problem.code === "clone_unknown") states.push(words.clone.notKnown[problem.what]);
     if (problem.code === "remote_unreachable") states.push(words.clone.remoteUnreachable);
     if (problem.code === "branch_missing")

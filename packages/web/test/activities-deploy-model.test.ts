@@ -74,6 +74,7 @@ const EVERY_PROBLEM: DeployProblem[] = [
   { code: "clone_unknown", repo: "media", what: "sparse" },
   { code: "remote_unreachable", repo: "activityData" },
   { code: "media_path_missing", path: "media/loom/words" },
+  { code: "clone_stash_left", repo: "media" },
 ];
 
 describe("deploy problems", () => {
@@ -176,6 +177,24 @@ describe("deploy readiness", () => {
     });
     // Prepare clones adds the missing media folder.
     expect(clonesMissing(unknown)).toBe(true);
+  });
+
+  it("marks a clone holding work a deploy left in git's stash, and says how to clear it", () => {
+    const left = context({
+      ready: false,
+      problems: [{ code: "clone_stash_left", repo: "module" }],
+    });
+    const rows = Object.fromEntries(readinessRows(left).map((row) => [row.id, row]));
+    expect(rows["clone:module"]).toMatchObject({
+      tone: "danger",
+      state: "Has work a deploy left in git's stash",
+    });
+    expect(rows["clone:media"]).toMatchObject({ tone: "success" });
+    const text = problemText({ code: "clone_stash_left", repo: "module" });
+    expect(text).toMatch(/^The Module clone has work a deploy set aside in git's stash/);
+    expect(text).toContain('"penguin-harness deploy"');
+    // No press on the page clears it: someone puts the work back or drops it by hand.
+    expect(clonesMissing(left)).toBe(false);
   });
 
   it("says a module remote that cannot be cloned from", () => {

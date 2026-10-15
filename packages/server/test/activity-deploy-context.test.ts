@@ -2,7 +2,8 @@
  * Whether a deploy could start, built over fake clones and a fake disk: the ref must be the
  * canonical one, the layout mainOnly, the settings complete and the module's repository
  * known; each clone must be there, clean, pushed and pointing at the right remote, with main
- * in it. The deploy branches are reported, not required. The remote is asked only on request.
+ * in it and no work a deploy left in its stash. The deploy branches are reported, not
+ * required. The remote is asked only on request.
  */
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -289,6 +290,28 @@ describe("deploy context", () => {
       exists: disk(repos),
     });
     expect(context.problems).toEqual([{ code: "clone_ahead", repo: "activityData", count: 1 }]);
+  });
+
+  it("names work a deploy left in a clone's stash, which a deploy would leave out", async () => {
+    const repos = healthyRepos();
+    repos[PATHS.module]!.stashed = 1;
+    repos[PATHS.media]!.stashed = 2;
+    const context = await buildDeployContext(input(), {
+      clones: fakeClones(repos),
+      exists: disk(repos),
+    });
+    expect(context.ready).toBe(false);
+    expect(context.problems).toEqual([
+      { code: "clone_stash_left", repo: "module" },
+      { code: "clone_stash_left", repo: "media" },
+    ]);
+    // What git cannot list is not a stash.
+    repos[PATHS.media]!.fail = { stashedWork: "fatal: bad revision" };
+    const unread = await buildDeployContext(input(), {
+      clones: fakeClones(repos),
+      exists: disk(repos),
+    });
+    expect(unread.problems).toEqual([{ code: "clone_stash_left", repo: "module" }]);
   });
 
   it("asks the remote about main and the deploy branches only when asked to", async () => {
