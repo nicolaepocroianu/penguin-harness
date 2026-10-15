@@ -27,6 +27,7 @@ import type {
 import { toastAttention, toastError, toastInfo, toastSuccess } from "../../components/ui/toast";
 import { discoverCodingAgents, listCodingAgents } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
+import { formatMonthDay, localYmd } from "../../lib/format";
 import { S } from "../../lib/strings";
 import { toneInk, toneStrip } from "../../lib/tone";
 import { useDocumentTitle } from "../../lib/use-document-title";
@@ -75,8 +76,7 @@ import { PipelineControls, PipelinePanel } from "./pipeline-panel";
 import { placeholderAssets, storyboardFrames, type StoryboardFrame } from "./storyboard";
 import { mediaPreview } from "./media-preview";
 import { Storyboard } from "./storyboard-view";
-import { QualityChecksView } from "./quality-checks-view";
-import { TestResultsView } from "./test-results-view";
+import { ChecksPanel } from "./checks-panel";
 import { ModuleDocumentView } from "./module-document-view";
 import { ActivityStatsView } from "./activity-stats-view";
 import { RefSwitcher } from "./ref-switcher";
@@ -86,8 +86,18 @@ import { GenerationHistory } from "./history-section";
 import { DeployPanel } from "./deploy-panel";
 import { useAssistProposal, type ProposalRead } from "./use-assist-proposal";
 import { StudioTreeView } from "./studio-tree-view";
-import { SessionsPanel } from "./sessions-panel";
-import { ProgressSteps, ProposalWaiting, RunningChip, qaFact, runPanel } from "./studio-status";
+import { ProposalWaiting, RunningChip, runFollow } from "./studio-status";
+import { JourneySteps, NextStepButton } from "./journey-header";
+import {
+  deployFacts,
+  journeySteps,
+  moduleFacts,
+  nextStep,
+  readinessItems,
+  stepOf,
+  type JourneyFacts,
+  type JourneyTarget,
+} from "./journey-model";
 import { SandboxPanel } from "./sandbox-panel";
 import { sandboxHasModule } from "./sandbox";
 import { JsonEditor } from "./json-editor";
@@ -107,7 +117,7 @@ import { ProjectMediaView } from "./project-media-view";
 import type { GroupSort } from "./activity-groups";
 import { UnsavedWorkProvider, useUnsavedWork, useUnsavedWorkGuard } from "./unsaved-work-context";
 import type { ShownAsset } from "./unsaved-work";
-import { usePanelBadges } from "./panel-badges";
+import { playerCheckVersion, useChecks } from "./use-checks";
 import { videosToCheck } from "./scene-video";
 import { applyVoice, optionsFromVoices } from "./voice-catalogue";
 import {
@@ -505,6 +515,9 @@ function ActivityEditor({
   const [settledScript, setSettledScript] = useState<string | null>(null);
   const [boardScene, setBoardScene] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState<{ key: StudioPanel; at: number } | null>(null);
+  // A run History should show with its transcript open, as when the running chip follows it.
+  const [historyFocus, setHistoryFocus] = useState<{ runId: string; at: number } | null>(null);
+  const { locale } = useLocale();
   // An excerpt on its way to the conversation's composer, from another panel.
   const [excerpt, setExcerpt] = useState<string | null>(null);
   const takeExcerpt = useCallback(() => setExcerpt(null), []);
@@ -1099,14 +1112,49 @@ function ActivityEditor({
         }
       : undefined;
   const languages = Object.keys(detail?.draft.mediaPlan?.manifest.assets ?? {});
-  const badges = usePanelBadges(
+  const playingRunId = playingModuleRunId(runIndex, detail?.draft.pinnedModuleRunId);
+  const checks = useChecks(
     client,
     runs,
     detail?.draft.contentRevision ?? "",
+    playingRunId,
     !!detail && available,
   );
   const panels: StudioPanelEntry[] = detail
     ? [
+        {
+          key: "player",
+          label: S.activities.studioPanels.names.player,
+          icon: "M8 5v14l11-7z",
+          render: () => (
+            <div className="space-y-6 p-3">
+              <SandboxPanel
+                projectId={projectId}
+                activityId={detail.id}
+                revision={detail.draft.contentRevision}
+                moduleRunId={playingRunId}
+                spec={detail.draft.spec}
+                languages={languages}
+                hasMedia={!!editedManifest?.assets[language]?.length}
+                onPick={(pick, sceneId) => {
+                  // Matched against every kind of media, whatever the tree shows.
+                  const found = assetForPick(
+                    buildSceneTree(detail.draft.spec, editedManifest?.assets[language] ?? []),
+                    sceneId,
+                    pick,
+                  );
+                  if (!found) return null;
+                  showAsset({ key: found.key, language }, () => {
+                    setSelected(found);
+                    setBoard(false);
+                    setSection("scenes");
+                  });
+                  return found.key;
+                }}
+              />
+            </div>
+          ),
+        },
         {
           key: "run",
           label: S.activities.studioPanels.names.run,
@@ -1171,72 +1219,23 @@ function ActivityEditor({
             </div>
           ),
         },
-        {
-          key: "player",
-          label: S.activities.studioPanels.names.player,
-          icon: "M8 5v14l11-7z",
-          render: () => (
-            <div className="space-y-6 p-3">
-              <SandboxPanel
-                projectId={projectId}
-                activityId={detail.id}
-                revision={detail.draft.contentRevision}
-                moduleRunId={playingModuleRunId(runIndex, detail.draft.pinnedModuleRunId)}
-                spec={detail.draft.spec}
-                languages={languages}
-                hasMedia={!!editedManifest?.assets[language]?.length}
-                onPick={(pick, sceneId) => {
-                  // Matched against every kind of media, whatever the tree shows.
-                  const found = assetForPick(
-                    buildSceneTree(detail.draft.spec, editedManifest?.assets[language] ?? []),
-                    sceneId,
-                    pick,
-                  );
-                  if (!found) return null;
-                  showAsset({ key: found.key, language }, () => {
-                    setSelected(found);
-                    setBoard(false);
-                    setSection("scenes");
-                  });
-                  return found.key;
-                }}
-              />
-            </div>
-          ),
-        },
         ...(available
           ? [
               {
-                key: "tests" as const,
-                label: S.activities.studioPanels.names.tests,
-                badge: badges.tests,
-                icon: "M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3",
-                render: () => (
-                  <div className="p-3">
-                    <TestResultsView
-                      runs={runs}
-                      editable={editable}
-                      runner={selectedAgent ? runner : null}
-                      revision={detail.draft.contentRevision}
-                      blocked={draft.can("tests")}
-                    />
-                  </div>
-                ),
-              },
-              {
-                key: "quality" as const,
-                label: S.activities.studioPanels.names.quality,
-                badge: badges.quality,
+                key: "checks" as const,
+                label: S.activities.studioPanels.names.checks,
+                badge: checks.badge,
                 icon: "M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z M9 12l2 2 4-4",
                 render: () => (
-                  <div className="p-3">
-                    <QualityChecksView
-                      runs={runs}
-                      editable={editable}
-                      revision={detail.draft.contentRevision}
-                      blocked={draft.can("quality")}
-                    />
-                  </div>
+                  <ChecksPanel
+                    runs={runs}
+                    editable={editable}
+                    runner={selectedAgent ? runner : null}
+                    revision={detail.draft.contentRevision}
+                    playerCheckVersion={playerCheckVersion(playingRunId)}
+                    testsBlocked={draft.can("tests")}
+                    qualityBlocked={draft.can("quality")}
+                  />
                 ),
               },
             ]
@@ -1284,12 +1283,6 @@ function ActivityEditor({
             />
           ),
         },
-        {
-          key: "sessions",
-          label: S.activities.studioPanels.names.sessions,
-          icon: "M4 5h16v11H9l-5 4z",
-          render: () => <SessionsPanel runs={runs} />,
-        },
       ]
     : [];
   if (!detail)
@@ -1304,6 +1297,47 @@ function ActivityEditor({
       <StudioSkeleton section={sectionChoice ?? section} />
     );
   const runningRun = runIndex.running[0];
+  // The journey: where each step stands, and what stands between the activity and QA.
+  const journeyFacts: JourneyFacts = {
+    status: detail.draft.status,
+    hasSpec: !!detail.draft.spec,
+    scriptDirty: edited.description,
+    specDirty: edited.spec,
+    media: scriptMedia?.totals ?? null,
+    videosToCheck: videosToCheck(detail.draft.mediaPlan?.manifest.assets, runs),
+    module: moduleFacts({
+      builds: runIndex.of("module").filter((run) => run.status === "succeeded"),
+      sandboxModule: hasModule,
+      building: runIndex.isRunning("module"),
+      revision: detail.draft.contentRevision,
+    }),
+    checks: checks.facts,
+    deploy: deployState ? deployFacts(deployState) : null,
+  };
+  // A build's date as the viewer's own calendar day.
+  const steps = journeySteps(journeyFacts, (iso) =>
+    formatMonthDay(localYmd(new Date(iso)), locale),
+  );
+  const readiness = readinessItems(journeyFacts);
+  const next = nextStep(journeyFacts, readiness);
+  const canGo = (target: JourneyTarget) =>
+    target.kind === "section"
+      ? sections.some((entry) => entry.key === target.section && entry.enabled)
+      : panels.some((entry) => entry.key === target.tool);
+  const goTo = (target: JourneyTarget) => {
+    if (target.kind === "section") setSection(target.section);
+    else setShowPanel({ key: target.tool, at: Date.now() });
+  };
+  /** Opens where a run is followed: its tool, or its transcript in History. */
+  const follow = (run: ActivityRunSummary) => {
+    const where = runFollow(run, pipelineRunning);
+    if (where.kind === "tool") {
+      setShowPanel({ key: where.tool, at: Date.now() });
+      return;
+    }
+    setSection("history");
+    setHistoryFocus({ runId: where.runId, at: Date.now() });
+  };
   // What the rail says beside each section: edits not yet saved, and how much there is.
   const railTrails = sectionTrails({
     descriptionDirty: edited.description,
@@ -1320,122 +1354,94 @@ function ActivityEditor({
         layout={{ section, onSection: setSection }}
         header={
           <>
-            {/* On a phone the breadcrumb and the progress bar take the whole first row and
-                the Layout menu and panel tabs wrap under them; a nav squeezed beside them
-                would stack its words and run the bar under the menu. */}
+            {/* The way back, the title and the ref stay together and give way first: the
+                title truncates, and on a phone the product code steps aside. */}
             <nav
               aria-label={S.activities.breadcrumb}
-              className="flex min-w-0 flex-1 basis-full flex-wrap items-center gap-1.5 text-sm sm:basis-0"
+              className="flex max-w-[40%] min-w-0 shrink items-center gap-1.5 text-sm"
             >
-              {/* The way back, the title and the ref stay on one row: a crumb wrapped alone
-                  leaves its "/" hanging at a line's end. On a phone the way back is an arrow
-                  and the product code, which the ref menu also names, steps aside. */}
-              <div className="flex min-w-0 basis-full items-center gap-1.5 sm:basis-auto">
-                <Link
-                  to="/activities"
-                  title={S.activities.backToActivities}
-                  className="-ml-1 shrink-0 rounded p-1 text-gray-500 hover:text-gray-800 sm:ml-0 sm:p-0 dark:text-gray-400 dark:hover:text-gray-200"
-                >
-                  <GlyphIcon d={BACK_ICON} size={ICON_SIZE.rowLead} className="sm:hidden" />
-                  <span className="sr-only sm:not-sr-only">{S.activities.backToActivities}</span>
-                </Link>
-                <span
-                  aria-hidden
-                  className="hidden shrink-0 text-gray-300 sm:inline dark:text-gray-600"
-                >
-                  /
-                </span>
-                {/* The product code earns its place only when the title does not already say it. */}
-                {detail.productCode !== detail.title && (
-                  <>
-                    <span
-                      className="hidden shrink-0 font-mono text-xs text-gray-500 sm:inline dark:text-gray-400"
-                      title={`${S.activities.collection}: ${detail.collectionId}`}
-                    >
-                      {detail.productCode}
-                    </span>
-                    <span
-                      aria-hidden
-                      className="hidden shrink-0 text-gray-300 sm:inline dark:text-gray-600"
-                    >
-                      /
-                    </span>
-                  </>
-                )}
-                <h2
-                  className="min-w-0 flex-1 truncate font-semibold sm:flex-initial"
-                  title={detail.title}
-                >
-                  {detail.title}
-                </h2>
-                <RefSwitcher
-                  activity={detail}
-                  editable={editable && available}
-                  onIdentity={(record) => {
-                    draft.updateRecord(record);
-                    // A name or tags change shows on the list's cards, for every ref of the
-                    // product; the list is kept while an activity is open, so refresh it now.
-                    void onSaved();
-                  }}
-                  revision={detail.draft.contentRevision}
-                  onRenumbered={(value, from) => {
-                    draft.renumbered(value, from);
-                    announce({
-                      kind: "success",
-                      text: S.activities.studioRefs.renumbered(from, value.refNum),
-                    });
-                    // An assembled module keeps the old number in its file names.
-                    if (hasModule)
-                      announce({ kind: "attention", text: S.activities.studioRefs.reassemble });
-                    void onSaved();
-                  }}
-                  onDeleted={() => onDeleted(detail.title)}
-                  // The new-ref table walks the media plan, so the way in waits for one.
-                  onNewRef={detail.draft.mediaPlan ? () => setSection("newRef") : undefined}
-                  // Reloading can throw edits away, so it sits in the ref's menu behind the
-                  // discard confirmation rather than in the header's busiest row.
-                  onReload={
-                    busy || !available
-                      ? undefined
-                      : () => unsaved.confirm({ kind: "draftText" }, () => void draft.reload())
-                  }
-                />
-              </div>
-              <ProgressSteps
-                facts={{
-                  status: detail.draft.status,
-                  scriptDirty: edited.description,
-                  specDirty: edited.spec,
-                  media: scriptMedia?.totals ?? null,
-                  videosToCheck: videosToCheck(detail.draft.mediaPlan?.manifest.assets, runs),
-                  hasModule,
-                  qa: deployState ? qaFact(deployState) : null,
+              <Link
+                to="/activities"
+                title={S.activities.backToActivities}
+                className="-ml-1 shrink-0 rounded p-1 text-gray-500 hover:text-gray-800 sm:ml-0 sm:p-0 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <GlyphIcon d={BACK_ICON} size={ICON_SIZE.rowLead} className="sm:hidden" />
+                <span className="sr-only sm:not-sr-only">{S.activities.backToActivities}</span>
+              </Link>
+              <span
+                aria-hidden
+                className="hidden shrink-0 text-gray-300 sm:inline dark:text-gray-600"
+              >
+                /
+              </span>
+              {/* The product code earns its place only when the title does not already say it. */}
+              {detail.productCode !== detail.title && (
+                <>
+                  <span
+                    className="hidden shrink-0 font-mono text-xs text-gray-500 sm:inline dark:text-gray-400"
+                    title={`${S.activities.collection}: ${detail.collectionId}`}
+                  >
+                    {detail.productCode}
+                  </span>
+                  <span
+                    aria-hidden
+                    className="hidden shrink-0 text-gray-300 sm:inline dark:text-gray-600"
+                  >
+                    /
+                  </span>
+                </>
+              )}
+              <h2
+                className="min-w-0 flex-1 truncate font-semibold sm:flex-initial"
+                title={detail.title}
+              >
+                {detail.title}
+              </h2>
+              <RefSwitcher
+                activity={detail}
+                editable={editable && available}
+                onIdentity={(record) => {
+                  draft.updateRecord(record);
+                  // A name or tags change shows on the list's cards, for every ref of the
+                  // product; the list is kept while an activity is open, so refresh it now.
+                  void onSaved();
                 }}
-                canOpen={(key) => sections.some((entry) => entry.key === key && entry.enabled)}
-                canAct={editable && available}
-                onOpen={setSection}
-                onNext={(go) => {
-                  if (go.kind === "section") setSection(go.section);
-                  else setShowPanel({ key: go.panel, at: Date.now() });
+                revision={detail.draft.contentRevision}
+                onRenumbered={(value, from) => {
+                  draft.renumbered(value, from);
+                  announce({
+                    kind: "success",
+                    text: S.activities.studioRefs.renumbered(from, value.refNum),
+                  });
+                  // An assembled module keeps the old number in its file names.
+                  if (hasModule)
+                    announce({ kind: "attention", text: S.activities.studioRefs.reassemble });
+                  void onSaved();
+                }}
+                onDeleted={() => onDeleted(detail.title)}
+                // The new-ref table walks the media plan, so the way in waits for one.
+                onNewRef={detail.draft.mediaPlan ? () => setSection("newRef") : undefined}
+                // Reloading can throw edits away, so it sits in the ref's menu behind the
+                // discard confirmation rather than in the header's busiest row.
+                onReload={
+                  busy || !available
+                    ? undefined
+                    : () => unsaved.confirm({ kind: "draftText" }, () => void draft.reload())
+                }
+              />
+            </nav>
+            <span aria-hidden className="h-6 w-px shrink-0 bg-gray-200 dark:bg-gray-800" />
+            <JourneySteps steps={steps} current={stepOf(section)} canGo={canGo} onGo={goTo} />
+            {scriptProposal !== null && editable && (
+              <ProposalWaiting
+                onReview={() => {
+                  setSection("description");
+                  setReviewRequest({ at: Date.now() });
                 }}
               />
-              {scriptProposal !== null && editable && (
-                <ProposalWaiting
-                  onReview={() => {
-                    setSection("description");
-                    setReviewRequest({ at: Date.now() });
-                  }}
-                />
-              )}
-              {runningRun && (
-                <RunningChip
-                  run={runningRun}
-                  onFollow={() =>
-                    setShowPanel({ key: runPanel(runningRun, pipelineRunning), at: Date.now() })
-                  }
-                />
-              )}
-            </nav>
+            )}
+            {runningRun && <RunningChip run={runningRun} onFollow={() => follow(runningRun)} />}
+            <NextStepButton next={next} items={readiness} onGo={goTo} />
           </>
         }
         notices={
@@ -2074,6 +2080,7 @@ function ActivityEditor({
                     unsaved={dirty}
                     onRestored={(restored) => draft.applyDraft(restored, "none")}
                     pinnedModuleRunId={detail.draft.pinnedModuleRunId}
+                    focusRun={historyFocus}
                     onDraft={(pinned) =>
                       // A pin changes only which build the preview plays; unsaved text stays.
                       draft.applyDraft(pinned, "unsaved")

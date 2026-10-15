@@ -31,7 +31,7 @@ import { ActivityVersions, VERSION_LABEL_MAX } from "./version-service.js";
 import type { ActivityQuality } from "./quality-check.js";
 import type { QualityStateResponse } from "./quality-types.js";
 import type { ActivityAcceptance } from "./acceptance-service.js";
-import type { AcceptanceStateResponse } from "./acceptance-types.js";
+import type { AcceptanceStateResponse, PlayerCheckResponse } from "./acceptance-types.js";
 import { parseRefDecisions } from "./ref-template.js";
 import type { ActivityPhonemes } from "./phonemes.js";
 import type { BookWordsRefresh, BookWordsSetup, BookWordsState } from "./book-word-types.js";
@@ -1391,6 +1391,15 @@ export class ActivityRoutes {
           requireValidId(c, "projectId"),
           pathParam(c, "activityId"),
         )) satisfies AcceptanceStateResponse,
+      ),
+    );
+    // The player check the build the preview plays ran at assembly, for the studio's Checks.
+    app.get("/:activityId/player-check", async (c) =>
+      c.json(
+        (await this.acceptance.playerCheck(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+        )) satisfies PlayerCheckResponse,
       ),
     );
     // What stands between the draft and an assembled module, checked where the facts live.

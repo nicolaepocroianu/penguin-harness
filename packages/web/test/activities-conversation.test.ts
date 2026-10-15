@@ -15,7 +15,7 @@ import {
 } from "../src/features/activities/conversation";
 import { sessionDraftKey } from "../src/features/chat/draft-cache";
 import { indexRuns } from "../src/features/activities/runs-index";
-import { runTitle } from "../src/features/activities/sessions-panel";
+import { runKindLabel } from "../src/features/activities/run-toasts";
 import { STUDIO_PANELS, readSidePanel } from "../src/features/activities/workspace-model";
 
 const run = (
@@ -96,8 +96,8 @@ describe("conversation panel", () => {
   });
 
   it("titles a conversation run and remembers the panel", () => {
-    expect(runTitle("assist")).toBe("Conversation");
-    expect(runTitle("assessment")).toBe("Assessment");
+    expect(runKindLabel({ kind: "assist" })).toBe("Conversation");
+    expect(runKindLabel({ kind: "assessment" })).toBe("Assessment");
     expect(STUDIO_PANELS).toContain("conversation");
     expect(readSidePanel({ getItem: () => "conversation" })).toBe("conversation");
   });

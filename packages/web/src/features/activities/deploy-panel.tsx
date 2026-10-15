@@ -1,8 +1,10 @@
 /**
  * Deploy: whether a deploy of this activity could start now and, when it cannot, what is
- * missing, each problem beside the press that clears it (Prepare clones, Check remote, or the
- * settings page an admin fills in). Then the QA pipeline, QA and PROD side by side, and the
- * repository checks, folded. Every press is explicit, and a release asks before it pushes.
+ * missing — said once, here, each problem beside the press that clears it (Prepare clones,
+ * Check remote, or the settings page an admin fills in), with the repository checks that fail
+ * open under it and the rest folded. Then QA and PROD as two lanes, each with its one button and
+ * the stages it runs, and the log under both. Every press is explicit, and a release asks before
+ * it pushes.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
@@ -35,9 +37,9 @@ import {
   readinessRows,
   type ReadinessAction,
 } from "./deploy-model";
+import { DeployLog, useDeployLog } from "./deploy-log";
 import { DeployProd } from "./deploy-prod";
 import { DeployQa } from "./deploy-qa";
-import { DeployRelease } from "./deploy-release";
 import type { Announcement } from "./run-toasts";
 
 export function DeployPanel({
@@ -70,6 +72,7 @@ export function DeployPanel({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"prepare" | "remote" | null>(null);
+  const [allChecks, setAllChecks] = useState(false);
   const alive = useRef(true);
   useEffect(
     () => () => {
@@ -143,9 +146,13 @@ export function DeployPanel({
     }
   }
 
+  const runId = state?.run?.runId ?? null;
+  const lines = useDeployLog(runId, { onRun: setRun, onSettled: reload, onAnnounce });
+
   const line = context ? readinessLine(context) : null;
   const rows = context ? readinessRows(context) : [];
   const groups = context ? readinessGroups(context.problems) : [];
+  const failing = rows.filter((row) => row.tone === "attention" || row.tone === "danger");
   const isAdmin = user?.isAdmin === true;
 
   /** The press that clears a group of problems, when this viewer may make it. */
@@ -191,6 +198,48 @@ export function DeployPanel({
     }
   }
 
+  /** Every check, in a table, when the reader asks for them. */
+  const checksTable = allChecks && (
+    <div className="border-t border-gray-200 bg-white px-4 py-3 text-gray-900 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100">
+      <div className={TABLE_WRAP}>
+        <table className={TABLE} aria-label={words.checksLabel}>
+          <thead>
+            <tr className={TABLE_HEAD_ROW}>
+              <th className={TH}>{words.columns.check}</th>
+              <th className={TH}>{words.columns.state}</th>
+            </tr>
+          </thead>
+          <tbody className={TBODY}>
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <td className={`${TD} whitespace-nowrap font-medium`}>
+                  <span className="flex items-center gap-2">
+                    <span
+                      aria-hidden
+                      className={`size-1.5 shrink-0 rounded-full ${toneDot[row.tone]}`}
+                    />
+                    {row.label}
+                  </span>
+                </td>
+                <td className={`${TD} break-words text-xs`}>{row.state}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+  const checksToggle = (
+    <button
+      type="button"
+      aria-expanded={allChecks}
+      onClick={() => setAllChecks(!allChecks)}
+      className="shrink-0 text-xs underline-offset-2 hover:underline"
+    >
+      {allChecks ? words.hideChecks : words.showAllChecks(rows.length)}
+    </button>
+  );
+
   return (
     <section className="space-y-5" aria-labelledby="activity-deploy-title">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -206,6 +255,7 @@ export function DeployPanel({
         {editable && (
           <Button
             size="sm"
+            title={words.checkRemoteHint}
             disabled={context === null || busy !== null}
             aria-busy={busy === "remote"}
             onClick={() => void checkRemote()}
@@ -270,15 +320,49 @@ export function DeployPanel({
                   );
                 })}
               </ul>
+              {/* The checks that explain the problems, open; the rest folded beside them. */}
+              {failing.length > 0 && (
+                <div className="border-t border-gray-200 bg-white px-4 py-3 text-gray-900 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100">
+                  <h4 className="text-xs font-semibold">{words.failingChecks}</h4>
+                  <ul aria-label={words.failingChecks} className="mt-1.5 space-y-1">
+                    {failing.map((row) => (
+                      <li key={row.id} className="flex items-baseline gap-2 text-xs">
+                        <span
+                          aria-hidden
+                          className={`size-1.5 shrink-0 translate-y-[-1px] rounded-full ${toneDot[row.tone]}`}
+                        />
+                        <span className="font-medium">{row.label}</span>
+                        <span className="min-w-0 break-words text-gray-600 dark:text-gray-300">
+                          {row.state}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 bg-white px-4 py-2 text-xs text-gray-600 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300">
+                <span>{words.otherChecksPass(rows.length - failing.length)}</span>
+                {checksToggle}
+              </div>
+              {checksTable}
             </section>
           ) : (
-            <p
-              role="status"
-              className={`text-sm font-medium ${toneInk[line.tone]}`}
-              data-testid="deploy-readiness"
-            >
-              {line.text}
-            </p>
+            <section className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                <p
+                  role="status"
+                  className={`text-sm font-medium ${toneInk[line.tone]}`}
+                  data-testid="deploy-readiness"
+                >
+                  {line.text}
+                </p>
+                <span className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                  {checksSummary(rows)}
+                  {checksToggle}
+                </span>
+              </div>
+              {checksTable}
+            </section>
           )}
           {pinnedBuild && (
             <p
@@ -290,30 +374,29 @@ export function DeployPanel({
             </p>
           )}
           {state && context.branches.deploy && (
-            <DeployRelease
-              editable={editable}
-              run={state.run}
-              stages={state.stages}
-              branch={context.branches.deploy}
-              activityDataBranch={context.branches.activityData}
-              productCode={productCode}
-              readinessBlocker={
-                readinessBlocksStart(state.stages) ? words.waitingOnReadiness : null
-              }
-              onRun={setRun}
-              onSettled={reload}
-              onAnnounce={onAnnounce}
-            />
-          )}
-          {state && context.branches.deploy && (
-            <div className="grid gap-4 md:grid-cols-2">
-              <DeployQa run={state.run} stages={state.stages} />
+            <div className="grid gap-4 lg:grid-cols-2">
+              <DeployQa
+                editable={editable}
+                run={state.run}
+                stages={state.stages}
+                problems={context.problems}
+                branch={context.branches.deploy}
+                activityDataBranch={context.branches.activityData}
+                productCode={productCode}
+                readinessBlocker={
+                  readinessBlocksStart(state.stages) ? words.waitingOnReadiness : null
+                }
+                onRun={setRun}
+                onSettled={reload}
+                onAnnounce={onAnnounce}
+              />
               {state.production && (
                 <DeployProd
                   editable={editable}
                   isAdmin={isAdmin}
                   production={state.production}
                   run={state.run}
+                  problems={context.problems}
                   productCode={productCode}
                   activityDataBranch={context.branches.activityData}
                   onRun={setRun}
@@ -323,42 +406,9 @@ export function DeployPanel({
               )}
             </div>
           )}
-          <details className="rounded-xl border border-gray-200 dark:border-gray-800">
-            <summary className="cursor-pointer rounded-xl px-4 py-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2">
-              <span className="font-medium">{words.diagnostics}</span>{" "}
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                · {checksSummary(rows)}
-              </span>
-            </summary>
-            <div className="px-4 pb-4">
-              <div className={TABLE_WRAP}>
-                <table className={TABLE} aria-label={words.checksLabel}>
-                  <thead>
-                    <tr className={TABLE_HEAD_ROW}>
-                      <th className={TH}>{words.columns.check}</th>
-                      <th className={TH}>{words.columns.state}</th>
-                    </tr>
-                  </thead>
-                  <tbody className={TBODY}>
-                    {rows.map((row) => (
-                      <tr key={row.id}>
-                        <td className={`${TD} whitespace-nowrap font-medium`}>
-                          <span className="flex items-center gap-2">
-                            <span
-                              aria-hidden
-                              className={`size-1.5 shrink-0 rounded-full ${toneDot[row.tone]}`}
-                            />
-                            {row.label}
-                          </span>
-                        </td>
-                        <td className={`${TD} break-words text-xs`}>{row.state}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </details>
+          {state && context.branches.deploy && (
+            <DeployLog lines={lines} running={state.run?.status === "running"} runId={runId} />
+          )}
         </>
       )}
     </section>

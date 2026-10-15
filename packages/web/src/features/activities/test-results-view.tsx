@@ -15,7 +15,7 @@ import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk } from "../../lib/tone";
 import { runStarted, useActivityClient } from "./activity-client";
-import { reportVersion } from "./panel-badges";
+import { reportVersion } from "./use-checks";
 import { indexRuns } from "./runs-index";
 import { useResource } from "./use-resource";
 import type { DraftBlock } from "./studio-draft";

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityRunSummary, AssetManifest } from "@prismshadow/penguin-server/api";
 import { buildSceneTree } from "../src/features/activities/scene-assets";
-import { sessionRuns } from "../src/features/activities/sessions-panel";
 import {
   assetForPick,
   buildStudioTree,
@@ -13,6 +12,8 @@ import {
 } from "../src/features/activities/studio-tree";
 import {
   SIDE_PANEL_KEY,
+  STUDIO_PANELS,
+  panelFromStored,
   SIDE_PANEL_MAX_WIDTH,
   SIDE_PANEL_MIN_WIDTH,
   SIDE_PANEL_WORK_MIN,
@@ -261,6 +262,15 @@ describe("side panel", () => {
     expect(sidePanelFitsBeside(0)).toBe(true);
   });
 
+  it("covers the work rather than leave it under about 720 pixels", () => {
+    expect(SIDE_PANEL_WORK_MIN).toBe(720);
+    // A 1280-pixel window leaves the workspace about 1170: the panel fits beside, narrowed.
+    expect(sidePanelFitsBeside(1170)).toBe(true);
+    expect(sidePanelWidthFor(480, 1170)).toBe(450);
+    // A 1024-pixel one leaves about 920: beside it, the work would drop under 720.
+    expect(sidePanelFitsBeside(920)).toBe(false);
+  });
+
   it("takes its stored width, short of crushing the editor", () => {
     expect(sidePanelWidthFor(700, 0)).toBe(700);
     expect(sidePanelWidthFor(700, 2000)).toBe(700);
@@ -319,18 +329,26 @@ describe("side panel", () => {
     };
     expect(readSidePanel(broken)).toBeNull();
   });
-});
 
-describe("sessions panel", () => {
-  const run = (runId: string, createdAt: string, sessionId: string | null) =>
-    ({ runId, createdAt, sessionId, kind: "audio", status: "succeeded" }) as ActivityRunSummary;
-
-  it("lists only runs that became a session, newest first", () => {
-    const runs = [
-      run("a", "2026-09-20T10:00:00Z", "s1"),
-      run("b", "2026-09-22T10:00:00Z", null),
-      run("c", "2026-09-21T10:00:00Z", "s3"),
-    ];
-    expect(sessionRuns(runs).map((entry) => entry.runId)).toEqual(["c", "a"]);
+  it("reads a tool an earlier studio remembered as today's, without rewriting it", () => {
+    const store = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => void store.set(key, value),
+    };
+    // Tests and Quality are both Checks now; Sessions moved into History, so no tool opens.
+    for (const [stored, tool] of [
+      ["tests", "checks"],
+      ["quality", "checks"],
+      ["sessions", null],
+      ["run", "run"],
+      ["conversation", "conversation"],
+    ] as const) {
+      store.set(SIDE_PANEL_KEY, stored);
+      expect(readSidePanel(storage)).toBe(tool);
+      expect(store.get(SIDE_PANEL_KEY)).toBe(stored);
+    }
+    expect(panelFromStored(7)).toBeNull();
+    expect(STUDIO_PANELS).toEqual(["player", "run", "checks", "conversation"]);
   });
 });

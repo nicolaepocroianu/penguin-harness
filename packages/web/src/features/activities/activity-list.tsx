@@ -25,7 +25,7 @@ import {
   type ActivityGroup,
   type GroupSort,
 } from "./activity-groups";
-import { runTitle } from "./sessions-panel";
+import { runKindLabel } from "./run-toasts";
 
 export function ActivityList({
   items,
@@ -327,7 +327,7 @@ function SummaryStatus({ status }: { status: ActivitySummary["status"] }) {
   const words = S.activities.home.status;
   const [tone, text] =
     status.kind === "running"
-      ? (["busy", words.running(runTitle(status.runKind))] as const)
+      ? (["busy", words.running(runKindLabel({ kind: status.runKind }))] as const)
       : status.kind === "stale"
         ? (["attention", words.stale] as const)
         : status.kind === "built"

@@ -92,7 +92,7 @@ export interface ResultRow {
 }
 
 /** The report's results as table rows, in the specification's order. */
-export function resultRows(report: AcceptanceReport): ResultRow[] {
+export function resultRows(report: Pick<AcceptanceReport, "results">): ResultRow[] {
   const words = S.activities.tests;
   return report.results.map((result, index) => ({
     key: `${index}:${result.criterion}`,

@@ -10,7 +10,6 @@ import {
 } from "../src/features/activities/script-media";
 import { sceneRanges } from "../src/features/activities/script-model";
 import { buildSceneTree } from "../src/features/activities/scene-assets";
-import { progressSteps } from "../src/features/activities/studio-status";
 
 type MediaAsset = AssetManifest["assets"][string][number];
 
@@ -120,34 +119,6 @@ describe("script figures", () => {
   it("gives clip lengths in seconds, then minutes", () => {
     expect(formatClipLength(1800)).toBe("1.8 s");
     expect(formatClipLength(65_000)).toBe("1 min 05 s");
-  });
-});
-
-describe("the header's progress steps", () => {
-  const facts = {
-    status: "valid" as const,
-    scriptDirty: false,
-    specDirty: false,
-    media: { bound: 21, total: 27 },
-    hasModule: false,
-    qa: null,
-  };
-
-  it("says where each step stands, in a tone by meaning", () => {
-    expect(progressSteps(facts).map(({ label, state, tone }) => [label, state, tone])).toEqual([
-      ["Script", "saved", "success"],
-      ["Specification", "Validated", "success"],
-      ["Media", "21/27", "attention"],
-      ["Module", "not built", "muted"],
-      ["QA", "not checked", "muted"],
-    ]);
-  });
-
-  it("puts unsaved edits first, and waits on a plan before counting media", () => {
-    const steps = progressSteps({ ...facts, scriptDirty: true, specDirty: true, media: null });
-    expect(steps[0]).toMatchObject({ state: "unsaved", tone: "attention" });
-    expect(steps[1]).toMatchObject({ state: "unsaved", tone: "attention" });
-    expect(steps[2]).toMatchObject({ state: "no plan yet", tone: "muted" });
   });
 });
 

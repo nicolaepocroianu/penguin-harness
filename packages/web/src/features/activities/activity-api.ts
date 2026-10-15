@@ -254,6 +254,8 @@ export function activityApi(projectId: string, activityId: string, send: ApiSend
       /** The latest test report, read raw; `readTestState` reads it. */
       report: resource("test-report", () => get<unknown>("test-report")),
     },
+    /** The player check of the build the preview plays, read raw; `readPlayerCheck` reads it. */
+    playerCheck: resource("player-check", () => get<unknown>("player-check")),
     quality: {
       /** The latest quality reports, read raw; `readQualityState` reads them. */
       report: resource("quality", () => get<unknown>("quality")),

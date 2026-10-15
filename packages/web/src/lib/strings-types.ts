@@ -140,25 +140,11 @@ export type Strings = {
       tooLong: string;
       empty: string;
     };
-    /** The icon rail on the right and the panels it opens. */
-    panelBadges: {
-      running: string;
-      failed: (n: number) => string;
-      passed: (n: number) => string;
-      stale: (n: number) => string;
-      staleFailed: (n: number) => string;
-      findings: (n: number) => string;
-    };
+    /** The right-edge rail of tools, and the panel one of them opens beside the work. */
     studioPanels: {
       rail: string;
       close: string;
-      names: Record<"run" | "player" | "tests" | "quality" | "conversation" | "sessions", string>;
-      sessionsEmpty: string;
-      showTranscript: string;
-      hideTranscript: string;
-      /** Accessible name for a run's Show/Hide toggle: distinguishes same-kind runs for assistive tech. */
-      transcriptToggle: (action: string, run: string, time: string) => string;
-      openFullPage: string;
+      names: Record<"run" | "player" | "checks" | "conversation", string>;
       /** The divider between the work and the open panel. */
       width: string;
       expand: string;
@@ -552,6 +538,8 @@ export type Strings = {
       preparing: string;
       prepared: string;
       checkRemote: string;
+      /** What Check remote does, for its tooltip and its accessible description. */
+      checkRemoteHint: string;
       checkingRemote: string;
       remoteChecked: string;
       /** The long name of each setting, by its dotted path. */
@@ -592,6 +580,8 @@ export type Strings = {
         notKnown: { status: string; upstream: string; branch: string; sparse: string };
         remoteUnreachable: string;
         mediaPathMissing: (path: string) => string;
+        /** A clone check that found no branch the deploy starts from: short, since the problem is said above. */
+        branchMissing: (branch: string, where: "local" | "remote") => string;
       };
       branch: {
         local: string;
@@ -622,10 +612,17 @@ export type Strings = {
       /** The module release: its stages, their states and why one cannot run, the log. */
       releaseTitle: string;
       workflowTitle: string;
-      workflowSummary: string;
-      diagnostics: string;
       /** The folded checks' summary: how many, and how many want a look. */
       checksSummary: (total: number, attention: number) => string;
+      /** The checks that fail, shown open under what is missing. */
+      failingChecks: string;
+      /** The rest of the checks, folded beside the failing ones. */
+      otherChecksPass: (count: number) => string;
+      showAllChecks: (total: number) => string;
+      hideChecks: string;
+      /** The QA lane's menu: the module release on its own, and running one stage at a time. */
+      moreActions: string;
+      releaseOnly: string;
       /** The admin's way to the WAF workspace page, where the shared clones are prepared. */
       openWorkspaceSettings: string;
       /** Why Deploy to QA waits while the readiness strip lists problems. */
@@ -643,7 +640,6 @@ export type Strings = {
       phaseLabels: { module: string; data: string; qa: string };
       stageProgress: (done: number, total: number) => string;
       releaseAbout: string;
-      releaseModule: string;
       releasing: string;
       releaseStarted: string;
       /** The confirm dialog's name and body: it pushes a branch and starts a Jenkins build. */
@@ -663,7 +659,6 @@ export type Strings = {
       resolvedVersion: (version: string) => string;
       openBuild: string;
       stagesLabel: string;
-      stageColumns: { stage: string; state: string };
       advanced: string;
       /** The per-stage Run button's accessible name. */
       runStage: (stage: string) => string;
@@ -2033,6 +2028,40 @@ export type Strings = {
     runningChip: (what: string) => string;
     /** The running chip's action: open the panel that follows the run. */
     followRun: string;
+    /** A run's Session transcript, shown in place in History. */
+    runTranscript: {
+      show: string;
+      hide: string;
+      /** Accessible name for a run's Show/Hide toggle: distinguishes same-kind runs for assistive tech. */
+      toggle: (action: string, run: string, time: string) => string;
+    };
+    /** The Checks tool: the player check from assembly, the tests and quality, together. */
+    checks: {
+      /** The tool's mark on the rail, in words. */
+      badge: {
+        running: string;
+        failing: (failing: number, findings: number) => string;
+        findings: (count: number) => string;
+      };
+      player: {
+        title: string;
+        about: string;
+        none: string;
+        noBrowser: string;
+        notRun: string;
+        loadFailed: string;
+        /** When the check ran: during the build's assembly. */
+        checkedAt: (when: string) => string;
+        passed: (count: number) => string;
+        failed: (failed: number, total: number) => string;
+        skipped: string;
+        untrusted: string;
+        resultsLabel: string;
+        /** The results column that names what each check exercised. */
+        scenario: string;
+        showAll: (count: number) => string;
+      };
+    };
     refresh: string;
     status: {
       running: string;
@@ -2042,43 +2071,150 @@ export type Strings = {
       cancelled: string;
       interrupted: string;
     };
-    progress: {
+    /**
+     * The header's journey: six steps from the script to a deploy, each with its state, and the
+     * readiness list behind the one next-step button.
+     */
+    journey: {
       label: string;
-      script: string;
-      spec: string;
-      media: string;
-      module: string;
-      saved: string;
-      unsaved: string;
-      clips: (bound: number, total: number) => string;
-      /** How many clips are bound only to a placeholder, said beside the count of real files. */
-      placeholders: (count: number) => string;
-      ready: (count: number) => string;
-      /** The Media step once every clip has a file, while kept scene videos failed their check. */
-      videosToCheck: (count: number) => string;
-      noPlan: string;
-      built: string;
-      notBuilt: string;
-      specDraft: string;
-      qa: string;
-      qaDeployed: string;
-      qaDeploying: string;
-      qaFailed: string;
-      qaNotDeployed: string;
-      qaUnknown: string;
-      next: (action: string) => string;
-      actions: Record<
-        | "saveScript"
-        | "saveSpec"
-        | "validateSpec"
-        | "fixSpec"
-        | "planMedia"
-        | "finishMedia"
-        | "checkVideos"
-        | "buildModule"
-        | "deployQa",
+      steps: Record<"script" | "specification" | "media" | "module" | "checks" | "deploy", string>;
+      states: {
+        saved: string;
+        unsaved: string;
+        noSpec: string;
+        invalid: string;
+        notValidated: string;
+        validated: string;
+        noPlan: string;
+        /** Clips with real files, of all the plan holds. */
+        clips: (ready: number, total: number) => string;
+        ready: (count: number) => string;
+        /** How many clips are bound only to a placeholder, said beside the count of real files. */
+        placeholders: (count: number) => string;
+        /** Once every clip has a file, while kept scene videos failed their check. */
+        videosToCheck: (count: number) => string;
+        noClips: string;
+        building: string;
+        notBuilt: string;
+        outdated: string;
+        built: string;
+        builtOn: (date: string) => string;
+        checksUnknown: string;
+        checksRunning: string;
+        checksFailing: (count: number) => string;
+        checksFindings: (count: number) => string;
+        checksOutdated: string;
+        checksNotRun: string;
+        checksPartly: string;
+        checksPassed: string;
+        deploying: string;
+        needsModule: string;
+        deployUnknown: string;
+        onQa: string;
+        blocked: string;
+        deployFailed: string;
+        qaBehind: string;
+        deployReady: string;
+      };
+      /** The next-step button. */
+      next: {
+        steps: (count: number) => string;
+        ready: string;
+        deploying: string;
+        onQa: string;
+        unknown: string;
+        /** The same, where the header is as narrow as a phone. */
+        short: {
+          steps: (count: number) => string;
+          ready: string;
+          deploying: string;
+          onQa: string;
+          unknown: string;
+        };
+      };
+      /** The list the button opens. */
+      readiness: {
+        title: string;
+        summary: (blockers: number, recommendations: number) => string;
+        blocker: string;
+        recommendation: string;
+        none: string;
+        unknown: string;
+        deploying: string;
+        onQa: string;
+        openDeploy: string;
+      };
+      /** Where an item is fixed, as the press that goes there. */
+      go: Record<
+        | "script"
+        | "specification"
+        | "media"
+        | "module"
+        | "stages"
+        | "checks"
+        | "deploy"
+        | "deployFix",
         string
       >;
+      items: {
+        buildModule: string;
+        moduleBuilding: string;
+        buildModuleDetail: string;
+        saveScript: string;
+        saveSpec: string;
+        saveDetail: string;
+        writeSpec: string;
+        writeSpecDetail: string;
+        validateSpec: string;
+        validateSpecDetail: string;
+        fixSpec: string;
+        fixSpecDetail: string;
+        planMedia: string;
+        planMediaDetail: string;
+        bindMedia: string;
+        bindMediaDetail: (missing: number, total: number) => string;
+        checkVideos: string;
+        checkVideosDetail: (count: number) => string;
+        replacePlaceholders: (count: number) => string;
+        placeholdersDetail: (count: number) => string;
+        rebuild: string;
+        rebuildDetail: string;
+        addCriteria: string;
+        addCriteriaDetail: string;
+        runChecks: string;
+        runBoth: string;
+        testsNotRun: string;
+        testsOutdated: string;
+        qualityNotRun: string;
+        fixFindings: string;
+        /** What the checks found: failing criteria, open quality findings, failing scenarios. */
+        found: (tests: number, findings: number, scenarios: number) => string;
+        playerCheck: string;
+        playerNoBrowser: string;
+        playerNotRun: string;
+        qaFailed: string;
+        qaFailedDetail: string;
+        qaBehind: string;
+        qaBehindDetail: string;
+      };
+      /** A deploy problem's fix, as an instruction; the problem itself is said in its detail. */
+      fixes: {
+        settings: string;
+        clones: string;
+        workspace: string;
+        remote: string;
+        branch: (branch: string) => string;
+        canonical: string;
+        product: string;
+        layout: string;
+        git: string;
+        moduleRemote: string;
+        cloneUnknown: (repo: string) => string;
+        cloneRemote: (repo: string) => string;
+        cloneDirty: (repo: string) => string;
+        cloneAhead: (repo: string) => string;
+        cloneStash: (repo: string) => string;
+      };
       proposalWaiting: string;
     };
     draftStatus: { draft: string; valid: string; invalid: string };

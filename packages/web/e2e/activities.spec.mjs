@@ -684,14 +684,20 @@ async function fixture(page) {
  */
 
 /**
- * Opens one of the right rail's panels (Stages, Player, Tests, Quality, ...), leaving it open
- * when it already is: its tab toggles.
+ * Opens one of the right-edge tools (Preview, Stages, Checks, Chat), leaving it open when it
+ * already is: its button toggles.
  */
-/** A rail panel's chip, whose name may carry its badge after a comma ("Tests , 2 failed"). */
+/** A tool's button on the rail, whose name may carry its mark after a comma ("Checks, 2 failing"). */
 function panelTab(page, name) {
   return page
-    .getByRole("group", { name: "Activity panels", exact: true })
+    .getByRole("navigation", { name: "Studio tools", exact: true })
     .getByRole("button", { name: new RegExp(`^${name}( ?,|$)`) });
+}
+
+/** Runs one of the QA lane's other actions from its More menu. */
+async function deployMore(page, name, role = "menuitem") {
+  await page.getByRole("button", { name: "More deploy actions", exact: true }).click();
+  await page.getByRole(role, { name, exact: true }).click();
 }
 
 async function openPanel(page, name) {
@@ -2039,9 +2045,9 @@ test("the studio header wraps its controls instead of overlapping them", async (
   const headerControls = () => [
     page.locator('nav[aria-label="Breadcrumb"] h2'),
     refMenu(page),
-    // The progress steps beside the ref, which carry the draft's state.
-    page.getByRole("list", { name: "Progress", exact: true }),
-    page.getByRole("button", { name: "Layout", exact: true }),
+    // The journey beside the ref, which carries the draft's state, and the next step.
+    page.getByRole("list", { name: "Activity journey", exact: true }),
+    page.getByRole("button", { name: /(steps? to QA|Ready for QA|Before QA|On QA)$/ }),
   ];
 
   await page.setViewportSize({ width: 375, height: 812 });
@@ -4165,7 +4171,7 @@ test("the studio composer keeps its unsent text, and the conversation it was wri
   expect(f.errors).toEqual([]);
 });
 
-test("a run's session transcript opens in place in the Sessions panel", async ({ page }) => {
+test("a run's session transcript opens in place in History", async ({ page }) => {
   const f = await fixture(page);
   await create(page);
   await openSection(page, "Script");
@@ -4179,17 +4185,21 @@ test("a run's session transcript opens in place in the Sessions panel", async ({
       });
     return route.fallback();
   });
-  await page.getByRole("button", { name: "Sessions", exact: true }).click();
-  const panel = page.getByRole("complementary", { name: "Sessions", exact: true });
+  // The rail no longer offers Sessions: each run in History opens its own.
+  await expect(panelTab(page, "Sessions")).toHaveCount(0);
+  await openSection(page, "History");
   // The accessible name carries which run this toggle is for, so two same-kind runs are
-  // distinguishable to assistive tech even though the visible label is always "Show"/"Hide".
-  const toggle = panel.getByRole("button", { name: /^Show: Specification,/ });
+  // distinguishable to assistive tech even though the visible label is always the same.
+  const toggle = page.getByRole("button", { name: /^Show transcript: Specification,/ });
   await expect(toggle).toBeVisible();
   await toggle.click();
-  await expect(panel.getByRole("link", { name: /Open full page/ })).toBeVisible();
+  const hide = page.getByRole("button", { name: /^Hide transcript: Specification,/ });
+  await expect(hide).toHaveAttribute("aria-expanded", "true");
+  const transcript = page.locator(`#${await hide.getAttribute("aria-controls")}`);
+  await expect(transcript).toBeVisible();
   await expect(page).toHaveURL(/\/activities\//);
-  await panel.getByRole("button", { name: /^Hide: Specification,/ }).click();
-  await expect(panel.getByRole("link", { name: /Open full page/ })).toHaveCount(0);
+  await hide.click();
+  await expect(transcript).toHaveCount(0);
   expect(f.errors).toEqual([]);
 });
 
@@ -5816,10 +5826,7 @@ test("resizes the side panel by drag and keyboard, and lets it fill the workspac
   await page.setViewportSize({ width: 1700, height: 1000 });
   const f = await fixture(page);
   await create(page);
-  await page
-    .getByRole("group", { name: "Activity panels" })
-    .getByRole("button", { name: "Preview" })
-    .click();
+  await panelTab(page, "Preview").click();
   const player = page.getByRole("complementary", { name: "Preview", exact: true });
   const divider = page.getByRole("separator", { name: "Panel width", exact: true });
   await expect(divider).toHaveAttribute("aria-valuenow", "480");
@@ -5848,8 +5855,9 @@ test("resizes the side panel by drag and keyboard, and lets it fill the workspac
   // Filling the workspace covers the work; putting it back restores the divider.
   await page.getByRole("button", { name: "Fill the workspace", exact: true }).click();
   await expect(divider).toHaveCount(0);
+  // Everything but the app's rail and the tool rail, which stays to switch tools.
   const body = await player.boundingBox();
-  expect(body.width).toBeGreaterThan(1600);
+  expect(body.width).toBeGreaterThan(1500);
   await page
     .getByRole("button", { name: "Put the panel back beside the work", exact: true })
     .click();
@@ -5860,7 +5868,8 @@ test("resizes the side panel by drag and keyboard, and lets it fill the workspac
 test("switches the studio to the Reviewing layout and saves a layout of its own", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1700, height: 1000 });
+  // Wide enough for Reviewing's 820-pixel panel, the rail at 300 and the tool rail together.
+  await page.setViewportSize({ width: 1780, height: 1000 });
   const f = await fixture(page);
   await create(page);
   const layoutMenu = page.getByRole("button", { name: "Layout", exact: true });
@@ -6573,7 +6582,7 @@ test("checks quality and lists what must be fixed", async ({ page }) => {
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
 
   // Without the test browser, Check quality is not offered, and the page says why.
-  await openPanel(page, "Quality");
+  await openPanel(page, "Checks");
   await expect(page.getByRole("heading", { name: /^Quality/, level: 3 })).toBeVisible();
   const check = page.getByRole("button", { name: "Check quality", exact: true });
   await expect(check).toBeDisabled();
@@ -6587,7 +6596,7 @@ test("checks quality and lists what must be fixed", async ({ page }) => {
 
   // Installed, it checks; the reports appear once the run settles.
   browserInstalled = true;
-  await reopenPanel(page, "Quality");
+  await reopenPanel(page, "Checks");
   await expect(check).toBeEnabled();
   await check.click();
   await expect(page.getByText("Checking quality…", { exact: true })).toBeVisible();
@@ -6719,7 +6728,7 @@ test("runs the tests and lists each criterion's result", async ({ page }) => {
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
 
   // Without the test browser, Run tests is not offered, and the page says why.
-  await openPanel(page, "Tests");
+  await openPanel(page, "Checks");
   await expect(page.getByRole("heading", { name: /^Test results/ })).toBeVisible();
   const runTests = page.getByRole("button", { name: "Run tests", exact: true });
   await expect(runTests).toBeDisabled();
@@ -6735,7 +6744,7 @@ test("runs the tests and lists each criterion's result", async ({ page }) => {
 
   // Installed, it runs; the results appear once the run settles.
   browserInstalled = true;
-  await reopenPanel(page, "Tests");
+  await reopenPanel(page, "Checks");
   await expect(runTests).toBeEnabled();
   await runTests.click();
   await expect(page.getByText("Running tests…", { exact: true })).toBeVisible();
@@ -6762,14 +6771,14 @@ test("runs the tests and lists each criterion's result", async ({ page }) => {
 
   // Once the specification changes, the old results are marked out of date.
   stale = true;
-  await reopenPanel(page, "Tests");
+  await reopenPanel(page, "Checks");
   await expect(page.getByTestId("tests-stale")).toHaveText(
     "Out of date: the specification changed since these tests ran. Run tests again to check it.",
   );
 
   // Results from a run that changed what its checks rest on say they cannot be trusted.
   current = { ...report, untrusted: true };
-  await reopenPanel(page, "Tests");
+  await reopenPanel(page, "Checks");
   await expect(page.getByTestId("tests-untrusted")).toHaveText(
     "These results cannot be trusted: the test run changed the harness, runner or input its checks were given. Run tests again.",
   );
@@ -8181,7 +8190,12 @@ test("shows what a deploy still needs", async ({ page }) => {
       exact: true,
     }),
   ).toBeVisible();
-  await page.getByText("Repository & branch details", { exact: true }).click();
+  // The checks that explain the problems are open; the rest fold behind Show all.
+  const failing = page.getByRole("list", { name: "Checks that fail", exact: true });
+  await expect(failing).toContainText("Media clone");
+  await expect(failing).toContainText("Not cloned yet");
+  await expect(page.getByRole("table", { name: "Deploy checks" })).toHaveCount(0);
+  await page.getByRole("button", { name: /^Show all \d+ checks$/ }).click();
   const checks = page.getByRole("table", { name: "Deploy checks" });
   await expect(checks.getByRole("row", { name: /^Media clone/ })).toContainText("Not cloned yet");
   await expect(checks.getByRole("row", { name: /^Ref/ })).toContainText("The canonical ref");
@@ -8216,6 +8230,115 @@ test("shows what a deploy still needs", async ({ page }) => {
     checks.getByRole("row", { name: /^Branch loom\/words-activity-data/ }),
   ).toContainText("Here · not on the remote yet");
   expect(remoteChecks).toBe(1);
+  expect(f.errors).toEqual([]);
+});
+
+test("the next step lists what stands before QA, blockers first, and goes where each is fixed", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  const clean = { present: true, branch: "main", clean: true, ahead: 0, remoteUrlMatches: true };
+  // The module clone has no main branch: every stage, QA's and PROD's, waits on it.
+  const noMain = { code: "branch_missing", repo: "module", branch: "main", where: "local" };
+  const blocker = { code: "not_ready", problem: noMain };
+  const context = {
+    ready: false,
+    problems: [noMain],
+    remoteChecked: false,
+    module: {
+      folder: "waf-module-words",
+      remote: "git@github.com:org/waf-module-words.git",
+      clone: clean,
+    },
+    activityData: { clone: clean },
+    media: { clone: clean },
+    branches: { deploy: "loom/words-deploy", activityData: "loom/words-activity-data" },
+    branchState: {
+      deploy: { local: false, remote: null },
+      activityData: { local: true, remote: null },
+    },
+  };
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const json = (value, status = 200) =>
+      route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
+    if (url.pathname === `${base}/act_test/sandbox/status`)
+      return json({
+        state: "ready",
+        playable: true,
+        buildable: true,
+        message: "Ready.",
+        buildLog: null,
+      });
+    if (url.pathname === `${base}/act_test/deploy` && request.method() === "GET")
+      return json({
+        context,
+        blocking: [noMain],
+        run: null,
+        stages: ["verify_module", "prepare_deploy"].map((stage) => ({
+          stage,
+          status: "pending",
+          finishedAt: null,
+          metadata: {},
+          blocker,
+        })),
+        production: {
+          stages: ["trigger_production_deploy", "await_production_deploy"].map((stage) => ({
+            stage,
+            status: "pending",
+            finishedAt: null,
+            metadata: {},
+            blocker,
+          })),
+          blocker,
+          last: null,
+        },
+      });
+    if (url.pathname === `${base}/act_test/deploy/context` && request.method() === "GET")
+      return json({ context });
+    return route.fallback();
+  });
+  await create(page);
+
+  // The journey says the deploy is blocked, in its mark and in words.
+  const journey = page.getByRole("list", { name: "Activity journey", exact: true });
+  await expect(journey.getByRole("button", { name: /^Deploy/ })).toHaveAttribute(
+    "title",
+    "Deploy: Blocked",
+  );
+  // The one next-step button never offers QA while the deploy would refuse it.
+  await expect(page.getByRole("button", { name: "Ready for QA" })).toHaveCount(0);
+  await page.getByRole("button", { name: /steps? to QA$/ }).click();
+  const list = page.getByRole("dialog", { name: "Before QA", exact: true });
+  const blockers = list.getByRole("list", { name: "Blocks the deploy", exact: true });
+  await expect(blockers.getByRole("listitem")).toHaveCount(1);
+  await expect(blockers).toContainText("Create the main branch");
+  await expect(blockers).toContainText("The Module clone has no main branch.");
+  // Recommendations come after it.
+  await expect(list.getByRole("list", { name: "Recommended", exact: true })).toBeVisible();
+  await blockers.getByRole("button", { name: "Fix in Deploy", exact: true }).click();
+  await expect(list).toBeHidden();
+
+  // Deploy says the blocker once, next to its fix, with the failing check open; the QA and
+  // PROD lanes point to it rather than saying it again.
+  await expect(page.getByTestId("deploy-readiness")).toHaveText(
+    "Not ready to deploy: 1 thing is missing.",
+  );
+  await expect(page.getByText("The Module clone has no main branch.", { exact: true })).toHaveCount(
+    1,
+  );
+  await expect(page.getByRole("list", { name: "Checks that fail", exact: true })).toContainText(
+    "No main branch here",
+  );
+  await expect(page.getByRole("button", { name: "Deploy to QA", exact: true })).toBeDisabled();
+  await expect(page.getByTestId("deploy-prod-blocker")).toHaveText(
+    "Waits for what is missing above.",
+  );
+  await expect(journey.getByRole("button", { name: /^Deploy/ })).toHaveAttribute(
+    "aria-current",
+    "step",
+  );
   expect(f.errors).toEqual([]);
 });
 
@@ -8586,7 +8709,7 @@ test("releases the module and follows the log", async ({ page }) => {
   await create(page);
   await openSection(page, "Deploy");
   const table = page.getByRole("list", { name: "Deployment stages" });
-  await page.getByRole("button", { name: "Run one stage", exact: true }).click();
+  await deployMore(page, "Run one stage", "menuitemcheckbox");
   await expect(table.getByRole("listitem", { name: /^Verify the module/ })).toContainText(
     "Not run",
   );
@@ -8594,7 +8717,7 @@ test("releases the module and follows the log", async ({ page }) => {
     "Waits for Push and start the build to finish.",
   );
 
-  await page.getByRole("button", { name: "Release module", exact: true }).click();
+  await deployMore(page, "Release the module only");
   const dialog = page.getByRole("dialog", { name: "Release the module" });
   await expect(
     dialog.getByText(
@@ -8770,7 +8893,7 @@ test("deploys to QA and links to the activity there", async ({ page }) => {
   await create(page);
   await openSection(page, "Deploy");
   const table = page.getByRole("list", { name: "Deployment stages" });
-  await page.getByRole("button", { name: "Run one stage", exact: true }).click();
+  await deployMore(page, "Run one stage", "menuitemcheckbox");
   await expect(table.getByRole("listitem", { name: /^Export the activity data/ })).toContainText(
     "Waits for Wait for the release tag to finish.",
   );
@@ -8799,7 +8922,7 @@ test("deploys to QA and links to the activity there", async ({ page }) => {
   for (const name of [/^Export the activity data/, /^Publish the media/, /^Wait for the QA deploy/])
     await expect(table.getByRole("listitem", { name })).toContainText("Done");
   expect(starts).toHaveLength(1);
-  await page.getByRole("button", { name: "Run one stage", exact: true }).click();
+  await deployMore(page, "Run one stage", "menuitemcheckbox");
   await expect(page.getByRole("progressbar", { name: "QA deployment" })).toHaveAttribute(
     "aria-valuenow",
     "2",
@@ -8994,8 +9117,10 @@ test("deploys to PROD only after typing the product code", async ({ page }) => {
   await expect(page.getByTestId("deploy-prod-blocker")).toHaveText(
     "Ready to deploy what QA has to PROD.",
   );
-  const table = page.getByRole("table", { name: "PROD deploy stages" });
-  await expect(table.getByRole("row", { name: /^Start the PROD deploy/ })).toContainText("Not run");
+  const table = page.getByRole("list", { name: "PROD deploy stages" });
+  await expect(table.getByRole("listitem", { name: /^Start the PROD deploy/ })).toContainText(
+    "Not run",
+  );
 
   await page.getByRole("button", { name: "Deploy to PROD", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Deploy to PROD" });
@@ -9030,7 +9155,7 @@ test("deploys to PROD only after typing the product code", async ({ page }) => {
     jenkinsUrl,
   );
   for (const name of [/^Start the PROD deploy/, /^Wait for the PROD deploy/])
-    await expect(table.getByRole("row", { name })).toContainText("Done");
+    await expect(table.getByRole("listitem", { name })).toContainText("Done");
   // The release section keeps its own line: a PROD run is not a release.
   await expect(page.getByTestId("deploy-run-status")).toHaveCount(0);
   expect(starts).toHaveLength(1);

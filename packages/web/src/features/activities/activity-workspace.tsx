@@ -8,19 +8,21 @@
  * browser's: a real `separator` that drags and also moves by keyboard, with its width
  * remembered only on release rather than on every frame.
  *
- * On the right, a thin icon rail opens one side panel at a time (the player, the agent
- * sessions) beside the work, the way Loom's right rail does, so the main panel stays the
- * only large thing on screen until an author asks for more. That panel has a divider of its
- * own, like Loom's split views, and can fill the whole workspace: the player is what an
- * author most needs to see large.
+ * On the right edge, a rail of four tools (Preview, Stages, Checks, Chat) opens one side panel
+ * at a time beside the work, the way Loom's right rail does, so the main panel stays the only
+ * large thing on screen until an author asks for more. That panel has a divider of its own,
+ * like Loom's split views, and can fill the whole workspace: the player is what an author most
+ * needs to see large. Where it would leave the work under `SIDE_PANEL_WORK_MIN`, it covers the
+ * work from the right instead of squeezing it.
  *
- * Given the open section, the header also carries the Layout menu (layout-menu.tsx): named
- * arrangements of the rail, the side panel, the section, the player's map and the run log,
- * applied here through the same setters the rail and the panels use.
+ * The header is one row the page fills (the breadcrumb, the journey, the next step); it is a
+ * container its contents measure, so they fold to their marks rather than wrap. Given the open
+ * section, the rail's foot carries the Layout menu (layout-menu.tsx): named arrangements of the
+ * rail, the side panel, the section, the player's map and the run log, applied here through the
+ * same setters the rail and the panels use.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Chevron } from "../../components/ui/chevron";
-import { ChipGroup } from "../../components/ui/chip-group";
 import { GlyphIcon } from "../../components/ui/glyph-icon";
 import { CloseIcon } from "../../components/ui/icons";
 import { ICON_SIZE } from "../../lib/icon-scale";
@@ -56,26 +58,19 @@ import { applyOrder, type LayoutPreset, type LayoutState } from "./layout-preset
 import { setMapVisible, setMapWidth, useMapVisible, useMapWidth } from "./map-prefs";
 import { setShowReasoning, useShowReasoning } from "./run-log-prefs";
 import { SidePanelFill } from "./side-panel-fill";
-import type { PanelBadge } from "./panel-badges";
-import { toneDot, toneSurface } from "../../lib/tone";
+import type { PanelBadge } from "./checks-model";
+import { toneDot } from "../../lib/tone";
 
-/** A chip's figure, or a dot while its run is in progress; the words go to a reader. */
-function ChipBadge({ badge }: { badge: PanelBadge }) {
+/** A tool's mark on the rail: a dot, pulsing while its run is in progress; the words go to a reader. */
+function ToolBadge({ badge }: { badge: PanelBadge }) {
   return (
     <>
-      {badge.text ? (
-        <span
-          aria-hidden
-          className={`rounded-full px-1.5 text-xs leading-4 tabular-nums ${toneSurface[badge.tone]}`}
-        >
-          {badge.text}
-        </span>
-      ) : (
-        <span
-          aria-hidden
-          className={`size-1.5 rounded-full motion-safe:animate-pulse ${toneDot[badge.tone]}`}
-        />
-      )}
+      <span
+        aria-hidden
+        className={`absolute top-1 right-1.5 size-1.5 rounded-full ${toneDot[badge.tone]} ${
+          badge.text ? "" : "motion-safe:animate-pulse"
+        }`}
+      />
       <span className="sr-only">{`, ${badge.label}`}</span>
     </>
   );
@@ -85,13 +80,13 @@ function ChipBadge({ badge }: { badge: PanelBadge }) {
 const EXPAND_ICON = "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5";
 const RESTORE_ICON = "M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5";
 
-/** One entry of the right rail: its icon, and what its panel shows once opened. */
+/** One tool of the right rail: its icon, and what its panel shows once opened. */
 export interface StudioPanelEntry {
   key: StudioPanel;
   label: string;
   /** A stroke icon path in a 24-unit box. */
   icon: string;
-  /** What the panel holds that needs the author, said on the chip. */
+  /** What the panel holds that needs the author, marked on the tool. */
   badge?: PanelBadge | null;
   render: () => ReactNode;
 }
@@ -113,7 +108,7 @@ export function ActivityWorkspace({
    * and a choice should hand the workspace back.
    */
   rail: (dismiss: () => void) => ReactNode;
-  /** The panels the right rail offers; none leaves the rail out. */
+  /** The tools the right rail offers; none leaves the rail out. */
   panels?: readonly StudioPanelEntry[];
   /**
    * A panel the page wants in front, as when a run it just started should be followed.
@@ -348,161 +343,180 @@ export function ActivityWorkspace({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-white dark:bg-gray-950">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-gray-200 px-4 py-2.5 dark:border-gray-800">
+      {/* One row: what it holds folds to its marks before it would wrap. */}
+      <div className="@container flex min-h-12 shrink-0 items-center gap-2 border-b border-gray-200 px-4 py-1.5 dark:border-gray-800">
         {header}
-        {layoutState && <LayoutMenu state={layoutState} onApply={applyLayout} />}
-        {panels.length > 0 && (
-          <ChipGroup<StudioPanel | "">
-            label={S.activities.studioPanels.rail}
-            value={panel ?? ""}
-            onChange={(key) => {
-              if (key !== "") choosePanel(key);
-            }}
-            chipClassName="inline-flex items-center gap-1.5"
-            options={panels.map((entry) => ({
-              value: entry.key,
-              label: (
-                <>
-                  <GlyphIcon d={entry.icon} size={ICON_SIZE.inlineGlyph} />
-                  <span className="hidden sm:inline">{entry.label}</span>
-                  <span className="sr-only sm:hidden">{entry.label}</span>
-                  {entry.badge && <ChipBadge badge={entry.badge} />}
-                </>
-              ),
-            }))}
-          />
-        )}
       </div>
       {notices && (
         <div className="shrink-0 space-y-2 border-b border-gray-200 px-4 py-2 empty:hidden dark:border-gray-800">
           {notices}
         </div>
       )}
-      <div ref={bodyRef} className="relative flex min-h-0 flex-1">
-        <div
-          style={open ? { width: `${applied}px` } : undefined}
-          className={`flex min-h-0 shrink-0 flex-col border-gray-200 dark:border-gray-800 ${
-            open ? "" : "w-auto border-r"
-          }`}
-        >
-          <div className="flex shrink-0 items-center gap-1 border-b border-gray-200 px-2 py-1.5 dark:border-gray-800">
-            {open && (
-              <span className="min-w-0 flex-1 truncate px-1 text-xs font-medium">
-                {S.activities.workspaceRail}
-              </span>
-            )}
-            <button
-              type="button"
-              aria-expanded={open}
-              aria-label={open ? S.activities.railCollapse : S.activities.railExpand}
-              title={open ? S.activities.railCollapse : S.activities.railExpand}
-              onClick={toggle}
-              className="rounded-md p-1 hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              <Chevron
-                open={false}
-                size={ICON_SIZE.chevronDense}
-                className={`text-gray-500 ${open ? "rotate-180" : ""}`}
-              />
-            </button>
-          </div>
-          {open && rail(() => setNarrowOpen(false))}
-        </div>
-        {open && beside && (
+      <div className="flex min-h-0 flex-1">
+        <div ref={bodyRef} className="relative flex min-h-0 min-w-0 flex-1">
           <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label={S.activities.railWidth}
-            aria-valuenow={applied}
-            aria-valuemin={RAIL_MIN_WIDTH}
-            aria-valuemax={RAIL_MAX_WIDTH}
-            title={S.activities.railWidth}
-            tabIndex={0}
-            onPointerDown={onPointerDown}
-            onKeyDown={onKeyDown}
-            className={`w-1.5 shrink-0 cursor-col-resize outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-400/60 ${
-              dragging
-                ? "bg-gray-300 dark:bg-gray-600"
-                : "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-            }`}
-          />
-        )}
-        {/* Too narrow for both, and the rail is open: the rail has the workspace. */}
-        {(beside || !open) && children}
-        {panelInline && (
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label={S.activities.studioPanels.width}
-            aria-valuenow={panelApplied}
-            aria-valuemin={SIDE_PANEL_MIN_WIDTH}
-            aria-valuemax={SIDE_PANEL_MAX_WIDTH}
-            title={S.activities.studioPanels.width}
-            tabIndex={0}
-            onPointerDown={onPanelPointerDown}
-            onKeyDown={onPanelKeyDown}
-            className={`w-1.5 shrink-0 cursor-col-resize outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-400/60 ${
-              panelDragging
-                ? "bg-gray-300 dark:bg-gray-600"
-                : "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-            }`}
-          />
-        )}
-        {/* While dragging, the player's frame would swallow the pointer; a cover keeps it. */}
-        {(dragging || panelDragging) && <div className="absolute inset-0 z-50 cursor-col-resize" />}
-        {openPanel && (
-          <aside
-            aria-label={openPanel.label}
-            // Expanded, it fills the workspace; too narrow to sit beside the work, it covers
-            // the editor from the right.
-            style={
-              expanded
-                ? undefined
-                : {
-                    width: `${sideBeside ? panelApplied : clampSidePanelWidth(panelWidth)}px`,
-                    ...(sideBeside ? {} : { right: 0 }),
-                  }
-            }
-            className={`flex min-h-0 max-w-full shrink-0 flex-col border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950 ${
-              expanded
-                ? "absolute inset-0 z-40"
-                : sideBeside
-                  ? "border-l"
-                  : "absolute inset-y-0 z-40 border-l shadow-lg"
+            style={open ? { width: `${applied}px` } : undefined}
+            className={`flex min-h-0 shrink-0 flex-col border-gray-200 dark:border-gray-800 ${
+              open ? "" : "w-auto border-r"
             }`}
           >
-            <div className="flex h-10 shrink-0 items-center gap-2 border-b border-gray-200 px-3 dark:border-gray-800">
-              <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{openPanel.label}</h2>
+            <div className="flex shrink-0 items-center gap-1 border-b border-gray-200 px-2 py-1.5 dark:border-gray-800">
+              {open && (
+                <span className="min-w-0 flex-1 truncate px-1 text-xs font-medium">
+                  {S.activities.workspaceRail}
+                </span>
+              )}
               <button
                 type="button"
-                aria-pressed={expanded}
-                aria-label={
-                  expanded ? S.activities.studioPanels.restore : S.activities.studioPanels.expand
-                }
-                title={
-                  expanded ? S.activities.studioPanels.restore : S.activities.studioPanels.expand
-                }
-                onClick={toggleExpanded}
-                className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                aria-expanded={open}
+                aria-label={open ? S.activities.railCollapse : S.activities.railExpand}
+                title={open ? S.activities.railCollapse : S.activities.railExpand}
+                onClick={toggle}
+                className="rounded-md p-1 hover:bg-gray-100 dark:hover:bg-gray-800"
               >
-                <GlyphIcon d={expanded ? RESTORE_ICON : EXPAND_ICON} size={ICON_SIZE.iconButton} />
-              </button>
-              <button
-                type="button"
-                aria-label={S.activities.studioPanels.close}
-                title={S.activities.studioPanels.close}
-                onClick={() => choosePanel(openPanel.key)}
-                className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-              >
-                <CloseIcon />
+                <Chevron
+                  open={false}
+                  size={ICON_SIZE.chevronDense}
+                  className={`text-gray-500 ${open ? "rotate-180" : ""}`}
+                />
               </button>
             </div>
-            <div ref={setPanelBody} className="min-h-0 flex-1 overflow-y-auto">
-              <SidePanelFill.Provider value={{ expanded, body: panelBody }}>
-                {openPanel.render()}
-              </SidePanelFill.Provider>
-            </div>
-          </aside>
+            {open && rail(() => setNarrowOpen(false))}
+          </div>
+          {open && beside && (
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label={S.activities.railWidth}
+              aria-valuenow={applied}
+              aria-valuemin={RAIL_MIN_WIDTH}
+              aria-valuemax={RAIL_MAX_WIDTH}
+              title={S.activities.railWidth}
+              tabIndex={0}
+              onPointerDown={onPointerDown}
+              onKeyDown={onKeyDown}
+              className={`w-1.5 shrink-0 cursor-col-resize outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-400/60 ${
+                dragging
+                  ? "bg-gray-300 dark:bg-gray-600"
+                  : "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+              }`}
+            />
+          )}
+          {/* Too narrow for both, and the rail is open: the rail has the workspace. */}
+          {(beside || !open) && children}
+          {panelInline && (
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label={S.activities.studioPanels.width}
+              aria-valuenow={panelApplied}
+              aria-valuemin={SIDE_PANEL_MIN_WIDTH}
+              aria-valuemax={SIDE_PANEL_MAX_WIDTH}
+              title={S.activities.studioPanels.width}
+              tabIndex={0}
+              onPointerDown={onPanelPointerDown}
+              onKeyDown={onPanelKeyDown}
+              className={`w-1.5 shrink-0 cursor-col-resize outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-400/60 ${
+                panelDragging
+                  ? "bg-gray-300 dark:bg-gray-600"
+                  : "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+              }`}
+            />
+          )}
+          {/* While dragging, the player's frame would swallow the pointer; a cover keeps it. */}
+          {(dragging || panelDragging) && (
+            <div className="absolute inset-0 z-50 cursor-col-resize" />
+          )}
+          {openPanel && (
+            <aside
+              aria-label={openPanel.label}
+              // Expanded, it fills the workspace; too narrow to sit beside the work, it covers
+              // the editor from the right.
+              style={
+                expanded
+                  ? undefined
+                  : {
+                      width: `${sideBeside ? panelApplied : clampSidePanelWidth(panelWidth)}px`,
+                      ...(sideBeside ? {} : { right: 0 }),
+                    }
+              }
+              className={`flex min-h-0 max-w-full shrink-0 flex-col border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950 ${
+                expanded
+                  ? "absolute inset-0 z-40"
+                  : sideBeside
+                    ? "border-l"
+                    : "absolute inset-y-0 z-40 border-l shadow-lg"
+              }`}
+            >
+              <div className="flex h-10 shrink-0 items-center gap-2 border-b border-gray-200 px-3 dark:border-gray-800">
+                <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{openPanel.label}</h2>
+                <button
+                  type="button"
+                  aria-pressed={expanded}
+                  aria-label={
+                    expanded ? S.activities.studioPanels.restore : S.activities.studioPanels.expand
+                  }
+                  title={
+                    expanded ? S.activities.studioPanels.restore : S.activities.studioPanels.expand
+                  }
+                  onClick={toggleExpanded}
+                  className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                >
+                  <GlyphIcon
+                    d={expanded ? RESTORE_ICON : EXPAND_ICON}
+                    size={ICON_SIZE.iconButton}
+                  />
+                </button>
+                <button
+                  type="button"
+                  aria-label={S.activities.studioPanels.close}
+                  title={S.activities.studioPanels.close}
+                  onClick={() => choosePanel(openPanel.key)}
+                  className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+              <div ref={setPanelBody} className="min-h-0 flex-1 overflow-y-auto">
+                <SidePanelFill.Provider value={{ expanded, body: panelBody }}>
+                  {openPanel.render()}
+                </SidePanelFill.Provider>
+              </div>
+            </aside>
+          )}
+        </div>
+        {(panels.length > 0 || layoutState) && (
+          <nav
+            aria-label={S.activities.studioPanels.rail}
+            className="flex w-12 shrink-0 flex-col items-center gap-1 border-l border-gray-200 py-2 sm:w-16 dark:border-gray-800"
+          >
+            {panels.map((entry) => {
+              const on = entry.key === panel;
+              return (
+                <button
+                  key={entry.key}
+                  type="button"
+                  aria-pressed={on}
+                  title={entry.label}
+                  onClick={() => choosePanel(entry.key)}
+                  className={`relative grid w-10 place-items-center gap-1 rounded-md py-1.5 sm:w-14 ${
+                    on
+                      ? "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+                      : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                  }`}
+                >
+                  <GlyphIcon d={entry.icon} size={ICON_SIZE.navRow} />
+                  <span className="text-xs leading-none max-sm:sr-only">{entry.label}</span>
+                  {entry.badge && <ToolBadge badge={entry.badge} />}
+                </button>
+              );
+            })}
+            {layoutState && (
+              <div className="mt-auto">
+                <LayoutMenu state={layoutState} onApply={applyLayout} />
+              </div>
+            )}
+          </nav>
         )}
       </div>
     </div>

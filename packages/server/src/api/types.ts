@@ -4992,6 +4992,9 @@ export type {
   AcceptanceRunRecord,
   AcceptanceSkipReason,
   AcceptanceStateResponse,
+  PlayerCheckGap,
+  PlayerCheckReport,
+  PlayerCheckResponse,
 } from "../activities/acceptance-types.js";
 export type {
   QualityFinding,
