@@ -111,6 +111,8 @@ import { NO_PLACEHOLDERS, bindingOf, type PlaceholderPaths } from "./placeholder
 import { StudioSkeleton } from "./studio-skeleton";
 import { ConflictNotice } from "./conflict-notice";
 import { pretty, type DraftBlock } from "./studio-draft";
+import { sameValue } from "./draft-merge";
+import { pollWhileVisible } from "./visible-poll";
 import { useStudioDraft } from "./use-studio-draft";
 import { ActivityList } from "./activity-list";
 import { ProjectMediaView } from "./project-media-view";
@@ -146,6 +148,11 @@ const BACK_ICON = "M15 18l-6-6 6-6M9 12h12";
 function pipelineOrNull(value: unknown): PipelineState | null {
   const state = value as PipelineState | null;
   return state && Array.isArray(state.steps) && typeof state.status === "string" ? state : null;
+}
+
+/** `next`, or the value held when it is the same, which React then leaves unrendered. */
+function unlessSame<T>(next: T): (held: T) => T {
+  return (held) => (sameValue(held, next) ? held : next);
 }
 
 function announce({ kind, text }: Announcement) {
@@ -653,11 +660,11 @@ function ActivityEditor({
       alive.current = false;
     };
   }, []); // The editor is keyed by activity and the workspace by project.
+  // A hidden tab reads nothing; it reads once on coming back, then at the usual pace.
   useEffect(() => {
     if (!available) return;
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-    async function refresh() {
+    async function refresh(): Promise<number> {
       const revisionAtStart = draft.revision;
       let active = false;
       try {
@@ -672,25 +679,28 @@ function ActivityEditor({
           // So is the stages' history.
           api.pipeline.history().catch(() => null),
         ]);
-        if (cancelled) return;
+        // The poll has stopped, so no next read waits on the delay.
+        if (cancelled) return 0;
         setLoadError("");
-        cache.put(api.runs.list, history);
+        // An answer the same as the one held changes nothing on screen, so it is not set.
+        const held = cache.peek(api.runs.list);
+        if (held.error !== null || !sameValue(held.data, history))
+          cache.put(api.runs.list, history);
         setSandboxModule(sandboxHasModule(sandbox));
-        if (stages) setPipeline(pipelineOrNull(stages.pipeline));
+        if (stages) setPipeline(unlessSame(pipelineOrNull(stages.pipeline)));
         if (sequences && Array.isArray(sequences.pipelines))
-          setPipelineHistory(sequences.pipelines);
+          setPipelineHistory(unlessSame(sequences.pipelines));
         active = indexRuns(history).busy || stages?.pipeline?.status === "running";
         draft.receive(value, revisionAtStart);
       } catch (e) {
         if (!cancelled) setLoadError(apiErrorText(e));
-      } finally {
-        if (!cancelled) timer = setTimeout(() => void refresh(), active ? 2000 : 30_000);
       }
+      return active ? 2000 : 30_000;
     }
-    void refresh();
+    const stop = pollWhileVisible(refresh, document);
     return () => {
       cancelled = true;
-      clearTimeout(timer);
+      stop();
     };
   }, [api, cache, refreshVersion, available]);
   // Background work announces itself when it settles, wherever the author has gone in

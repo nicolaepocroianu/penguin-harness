@@ -25,6 +25,7 @@ import {
   mediaWithSaved,
   mergeDraft,
   pretty,
+  sameValue,
   savedValue,
   savesConflict,
   type FieldId,
@@ -176,6 +177,28 @@ function withDraft(detail: ActivityDetail, draft: ActivityDraft): ActivityDetail
     title: draft.status === "valid" ? String(draft.spec?.title) : detail.title,
     draft,
   };
+}
+
+/**
+ * The draft less the content its revision is made from: the server computes the revision
+ * from that content on every read, so the same revision is the same content.
+ */
+function bookkeeping(draft: ActivityDraft) {
+  const { description: _d, spec: _s, mediaPlan: _m, moduleDocuments: _o, ...rest } = draft;
+  return rest;
+}
+
+/**
+ * Whether a detail read again says nothing the studio does not hold: the draft's content by
+ * its revision, everything else by value. The ref's own `updatedAt` is not enough: a product's
+ * tags live on the product, so changing them leaves the ref's row as it was.
+ */
+function sameDetail(held: ActivityDetail, read: ActivityDetail): boolean {
+  const { draft: heldDraft, ...heldRecord } = held;
+  const { draft: readDraft, ...readRecord } = read;
+  return (
+    sameValue(heldRecord, readRecord) && sameValue(bookkeeping(heldDraft), bookkeeping(readDraft))
+  );
 }
 
 const ASSET_TYPES = ["audio", "image", "video", "animation"];
@@ -353,6 +376,8 @@ export class StudioDraft {
   receive(detail: ActivityDetail, revisionAtStart: string): void {
     if (this.state.busy || this.revision !== revisionAtStart) return;
     if (this.state.dirty && detail.draft.contentRevision === this.revision) return;
+    // Nothing new: what the studio shows stands, and nothing renders again.
+    if (this.state.detail && sameDetail(this.state.detail, detail)) return;
     this.adopt(detail, { keepTexts: true });
   }
 

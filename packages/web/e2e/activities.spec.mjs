@@ -2204,6 +2204,49 @@ test("polling errors recover without clearing a save conflict or unsaved edits",
   expect(f.errors).toEqual([]);
 });
 
+/** Send the tab to the back, or bring it forward, as the browser tells a page it did. */
+async function setTabHidden(page, hidden) {
+  await page.evaluate((value) => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => (value ? "hidden" : "visible"),
+    });
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => value });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, hidden);
+}
+
+test("a hidden tab stops polling the activity and reads it again on coming back", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  await page.clock.install();
+  await page.reload();
+  const description = page.getByRole("textbox", { name: "Script", exact: true });
+  await openSection(page, "Script");
+  await expect(description).toHaveText("Practice common sight words");
+  // On screen, a settled activity is read again every 30 seconds.
+  const shown = f.historyReads;
+  await page.clock.fastForward(30_000);
+  await expect.poll(() => f.historyReads).toBeGreaterThan(shown);
+  await setTabHidden(page, true);
+  const hidden = f.historyReads;
+  f.changeSavedDescription();
+  await page.clock.fastForward(120_000);
+  // Long enough for a request the page sent to reach the fixture.
+  await page.waitForTimeout(1000);
+  expect(f.historyReads).toBe(hidden);
+  await expect(description).toHaveText("Practice common sight words");
+  // Shown again, it reads at once, takes what changed meanwhile, and polls as before.
+  await setTabHidden(page, false);
+  await expect.poll(() => f.historyReads).toBe(hidden + 1);
+  await expect(description).toHaveText("Remote description");
+  await page.clock.fastForward(30_000);
+  await expect.poll(() => f.historyReads).toBe(hidden + 2);
+  expect(f.errors).toEqual([]);
+});
+
 test("an activity collapses the sidebar without changing the stored choice", async ({ page }) => {
   const f = await fixture(page);
   await create(page);
