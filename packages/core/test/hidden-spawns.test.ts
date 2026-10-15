@@ -150,17 +150,44 @@ function isValueReference(node: ts.Identifier): boolean {
   return !inTypePosition(node);
 }
 
-/** Some argument is an object literal holding `windowsHide: true`. */
+/** What an object literal leaves `windowsHide` as: proven `true`, anything else, or untouched. */
+type HideValue = "true" | "other" | "absent";
+
+/**
+ * The value the child gets, so the last property that can set it decides: read from the end,
+ * a spread is looked into when it is an object literal (or a choice between two), and is
+ * unproven otherwise. A computed key could be `windowsHide` and is unproven too.
+ */
+function windowsHideIn(literal: ts.ObjectLiteralExpression): HideValue {
+  for (const p of [...literal.properties].reverse()) {
+    if (ts.isSpreadAssignment(p)) {
+      const spread = spreadWindowsHide(p.expression);
+      if (spread !== "absent") return spread;
+    } else if (p.name !== undefined && ts.isComputedPropertyName(p.name)) {
+      return "other";
+    } else if (p.name?.getText().replace(/^["']|["']$/g, "") === "windowsHide") {
+      return ts.isPropertyAssignment(p) && p.initializer.kind === ts.SyntaxKind.TrueKeyword
+        ? "true"
+        : "other";
+    }
+  }
+  return "absent";
+}
+
+function spreadWindowsHide(expression: ts.Expression): HideValue {
+  if (ts.isParenthesizedExpression(expression)) return spreadWindowsHide(expression.expression);
+  if (ts.isObjectLiteralExpression(expression)) return windowsHideIn(expression);
+  if (ts.isConditionalExpression(expression)) {
+    const whenTrue = spreadWindowsHide(expression.whenTrue);
+    return whenTrue === spreadWindowsHide(expression.whenFalse) ? whenTrue : "other";
+  }
+  return "other";
+}
+
+/** Some argument is an object literal that leaves `windowsHide` proven `true`. */
 function hidesWindow(call: ts.CallExpression): boolean {
   return call.arguments.some(
-    (arg) =>
-      ts.isObjectLiteralExpression(arg) &&
-      arg.properties.some(
-        (p) =>
-          ts.isPropertyAssignment(p) &&
-          p.name.getText() === "windowsHide" &&
-          p.initializer.kind === ts.SyntaxKind.TrueKeyword,
-      ),
+    (arg) => ts.isObjectLiteralExpression(arg) && windowsHideIn(arg) === "true",
   );
 }
 
@@ -256,6 +283,27 @@ function checkSource(file: string, text: string): FileReport {
       report.problems.push(
         `${file}:${lineOf(node)} imports child_process dynamically; import it statically so this check can follow it`,
       );
+    }
+    // A re-export hands the functions to every importer of this file, out of the check's
+    // sight. Types may pass through.
+    if (
+      ts.isExportDeclaration(node) &&
+      isChildProcessModule(node.moduleSpecifier) &&
+      !node.isTypeOnly
+    ) {
+      const clause = node.exportClause;
+      const reexportsValue =
+        clause === undefined ||
+        ts.isNamespaceExport(clause) ||
+        clause.elements.some((element) => {
+          const exported = (element.propertyName ?? element.name).text;
+          return !element.isTypeOnly && (SPAWNERS.has(exported) || exported === "default");
+        });
+      if (reexportsValue) {
+        report.problems.push(
+          `${file}:${lineOf(node)} re-exports child_process; its importers would start processes this check cannot see`,
+        );
+      }
     }
     ts.forEachChild(node, visitBindings);
   };
@@ -554,6 +602,31 @@ describe("the hidden-spawn check itself", () => {
     );
     expect(problems(`import * as cp from "node:child_process"; register(cp);`)).toHaveLength(1);
     expect(problems(`const cp = await import("node:child_process");`)).toHaveLength(1);
+  });
+
+  it("takes the windowsHide the child actually gets, after later properties", () => {
+    const call = (options: string) =>
+      problems(`import { spawn } from "node:child_process"; spawn("a", [], ${options});`);
+    expect(call(`{ windowsHide: true, ...{ windowsHide: false } }`)).toHaveLength(1);
+    expect(call(`{ windowsHide: true, ...options }`)).toHaveLength(1);
+    expect(call(`{ windowsHide: true, windowsHide: false }`)).toHaveLength(1);
+    expect(call(`{ windowsHide: true, ["windows" + "Hide"]: false }`)).toHaveLength(1);
+    expect(call(`{ ...options, windowsHide: true }`)).toEqual([]);
+    expect(call(`{ windowsHide: false, ...{ windowsHide: true } }`)).toEqual([]);
+    expect(
+      call(`{ windowsHide: true, ...(raw ? { windowsVerbatimArguments: true } : {}) }`),
+    ).toEqual([]);
+    expect(call(`{ windowsHide: true, ...(raw ? { windowsHide: false } : {}) }`)).toHaveLength(1);
+  });
+
+  it("flags child_process re-exported, which hides every caller of the re-export", () => {
+    expect(problems(`export { spawn } from "node:child_process";`)).toHaveLength(1);
+    expect(problems(`export { execFile as run } from "child_process";`)).toHaveLength(1);
+    expect(problems(`export * from "node:child_process";`)).toHaveLength(1);
+    expect(problems(`export * as cp from "node:child_process";`)).toHaveLength(1);
+    expect(problems(`export { default } from "node:child_process";`)).toHaveLength(1);
+    expect(problems(`export type { ChildProcess } from "node:child_process";`)).toEqual([]);
+    expect(problems(`export { type ChildProcess } from "node:child_process";`)).toEqual([]);
   });
 
   it("ignores types and other modules", () => {
