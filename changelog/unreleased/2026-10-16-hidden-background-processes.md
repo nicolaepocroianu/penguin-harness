@@ -3,6 +3,7 @@
 - **Date:** 2026-10-16
 - **Type:** fix
 - **Scope:** `server`, `core`, `cli`, `desktop`, `plugins`
+- **PR:** [#154](https://github.com/nicolaepocroianu/penguin-harness/pull/154)
 
 On Windows, a Penguin with no console of its own (the desktop app, or the server `penguin`
 starts in the background) opened a console window for every program it started without hiding
