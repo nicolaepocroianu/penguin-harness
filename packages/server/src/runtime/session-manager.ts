@@ -261,7 +261,7 @@ export function createCoreSessionLoader(
   opts: {
     proxyEnv?: () => ProxyEnvPolicy | null;
     controlEnv?: (ctx: ControlEnvContext) => Record<string, string>;
-    pathPrepend?: () => string[];
+    pathPrepend?: (ctx: ControlEnvContext) => string[];
     confineSpawn?: () => SpawnConfiner | null;
     /**
      * A Session's confinement floor, asked again whenever it is rebuilt because core does not
@@ -2302,12 +2302,16 @@ export abstract class SessionServiceIface extends Interface<
   >
 >() {}
 
-/** The per-spawn policies every Session's command environment is built with. */
+/**
+ * The per-spawn policies every Session's command environment is built with. A Session working
+ * in an activity run's folder is given no way to drive this server: controlEnv leaves out the
+ * API address and token, and pathPrepend the `penguin` shim.
+ */
 export abstract class SessionEnv extends Interface<{
   proxyEnv(): ProxyEnvPolicy | null;
   controlEnv(ctx: ControlEnvContext): Record<string, string>;
   /** The directories at the FRONT of every command's PATH: the harness's own CLI shim (see CreateAgentOptions.pathPrepend). */
-  pathPrepend(): string[];
+  pathPrepend(ctx: ControlEnvContext): string[];
   confineSpawn(): SpawnConfiner | null;
 }>() {}
 
@@ -2352,6 +2356,15 @@ export class SessionsModule {
     const sandbox = this.sandbox as SandboxService;
     const orgCache = this.orgCache;
 
+    // Whether a Session's commands are handed the means to drive this server: the API address,
+    // the token (the admin's authority) and the `penguin` shim. Not an activity run's: its
+    // agent works unattended on text it did not write (a Loom export, the WAF checkout, media
+    // notes) and nothing it is asked to do needs the API, so it gets no way to switch its own
+    // confinement off, change a draft or start a paid run. Judged by the Workspace, like the
+    // run's confinement floor: its subagents work there too.
+    const reachesServer = (ctx: ControlEnvContext): boolean =>
+      !isRunWorkspace(config.root, ctx.workspaceDir);
+
     // Which commands run confined, under which policy, by which backend is policy — the
     // sandbox module's; core only carries the spawn seam, reached through this getter.
     const env: SessionEnv = {
@@ -2368,8 +2381,12 @@ export class SessionsModule {
         const token = authState.apiToken;
         const orgId = orgCache.ownerOfSession(ctx.sessionId)?.orgId ?? null;
         return {
-          PENGUIN_API_URL: `http://${host}:${config.port}`,
-          ...(token !== null ? { PENGUIN_API_TOKEN: token } : {}),
+          ...(reachesServer(ctx)
+            ? {
+                PENGUIN_API_URL: `http://${host}:${config.port}`,
+                ...(token !== null ? { PENGUIN_API_TOKEN: token } : {}),
+              }
+            : {}),
           PENGUIN_PROJECT_ID: ctx.projectId,
           PENGUIN_AGENT_ID: ctx.agentId,
           PENGUIN_SESSION_ID: ctx.sessionId,
@@ -2390,7 +2407,8 @@ export class SessionsModule {
       // new capability — and read for truth rather than for null, because a runtime older than
       // this field publishes a config without it and wrote no shim either: no field, no
       // directory, feature off, rather than a push declined over a PATH entry.
-      pathPrepend: (): string[] => (config.cliEntry ? [cliShimDir(config.root)] : []),
+      pathPrepend: (ctx: ControlEnvContext): string[] =>
+        config.cliEntry && reachesServer(ctx) ? [cliShimDir(config.root)] : [],
       confineSpawn: () => sandbox.confiner(),
     };
 

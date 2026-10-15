@@ -692,6 +692,31 @@ describe("a Session's confinement floor and protected roots", () => {
     }
   });
 
+  it("asks the host's PATH policy with the Session's own coordinates", async () => {
+    // A host decides a Session's PATH front by where it works, as it does its control env.
+    const contexts: unknown[] = [];
+    const agent = await createAgent({
+      pathPrepend: (ctx) => {
+        contexts.push(ctx);
+        return [path.join(ctx.workspaceDir, "shim")];
+      },
+    });
+    const ws = await workspace("ws-path");
+    const session = await agent.createSession({ workspaceDir: ws, sandboxMode: "workspace-write" });
+    try {
+      expect(lastEnvConfig().pathPrepend!()).toEqual([path.join(ws, "shim")]);
+      expect(contexts).toEqual([
+        expect.objectContaining({
+          sessionId: session.sessionId,
+          workspaceDir: ws,
+          sandboxMode: "workspace-write",
+        }),
+      ]);
+    } finally {
+      session.dispose();
+    }
+  });
+
   it("leaves a Session without a floor on the host's confiner exactly as before", async () => {
     const host = recordingHost();
     const agent = await createAgent({ confineSpawn: host.confineSpawn });
