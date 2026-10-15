@@ -25,9 +25,16 @@ web's `activities` Playwright project.
   which throws when `PENGUIN_TEST_REQUIRE_BROWSER=1` and Chromium is not installed. Without the
   variable a machine with no Chromium still skips those suites.
 - The `e2e-web (activities)` job built core and the web app, installed Chromium through the
-  web's `@playwright/test`, ran `playwright test --project activities`, and uploaded the
-  Playwright results when it failed. It joined the `ci` gate. The `shared-server` project
-  stayed out of CI.
+  web's `@playwright/test` and ran `playwright test --project activities`. When it failed it
+  uploaded the Playwright results, each failed test's trace among them: the config kept traces
+  of failures when `CI` was set. It joined the `ci` gate. The `shared-server` project stayed
+  out of CI.
+- Two races in the `activities` spec that showed once the suite ran slower (under tracing and
+  load) were fixed in the spec. Filling a CodeMirror editor (the script, the specification or
+  document JSON) with `fill()` could put the new text in front of the old; a `replaceText()`
+  helper selected through the editor's own select-all instead, at every such fill.
+  `openSection()` could wait out the whole test on an Expand button that the widening layout had
+  already taken away; its click now gave up after a second and looked again.
 - The development skill's verification section named the web `activities` project as part of
   the chain CI runs and listed the server's real-browser suites with the sources they cover;
   the frontend skill's Verify gave the commands to run the `activities` project locally.

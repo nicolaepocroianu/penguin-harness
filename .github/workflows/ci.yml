@@ -238,7 +238,7 @@ jobs:
       - name: Web e2e (Playwright, activities)
         working-directory: packages/web
         run: pnpm exec playwright test -c e2e/playwright.config.mjs --project activities
-      # What a failing spec left behind: its error context and the page at the failure.
+      # What a failing spec left behind: its error context and its trace (kept under CI).
       - name: Upload Playwright results
         if: failure()
         uses: actions/upload-artifact@v4
