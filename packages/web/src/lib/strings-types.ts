@@ -1031,6 +1031,8 @@ export type Strings = {
         | "noBrowser"
         | "moduleNotChecked"
         | "moduleCheckSkipped"
+        | "moduleCheckUntrusted"
+        | "moduleChecksFailing"
         | "testsFailing"
         | "testsStillFailing"
         | "testsUntrusted",
@@ -1063,6 +1065,10 @@ export type Strings = {
       doneFold: (count: number) => string;
       /** The agent and the stages a running sequence uses, in one line. */
       runningWith: (agent: string, stages: string) => string;
+      /** A sequence of every stage from the one named on, as the history names it. */
+      allFrom: (stage: string) => string;
+      /** On a failed or stopped sequence: run the stage it did not finish and every one after. */
+      continueFrom: (stage: string) => string;
     };
     /** The specification's labels in the JSON editor. */
     specEditor: {

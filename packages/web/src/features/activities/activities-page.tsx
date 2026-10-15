@@ -72,7 +72,7 @@ import { ConversationPanel } from "./conversation-panel";
 import { conversationThreads, focusFor } from "./conversation";
 import type { ProposalChange } from "./proposal";
 import { ScriptEditor } from "./script-editor";
-import { PipelineControls, PipelinePanel } from "./pipeline-panel";
+import { PipelineControls, PipelinePanel, type StageChoice } from "./pipeline-panel";
 import { placeholderAssets, storyboardFrames, type StoryboardFrame } from "./storyboard";
 import { mediaPreview } from "./media-preview";
 import { Storyboard } from "./storyboard-view";
@@ -501,7 +501,7 @@ function ActivityEditor({
   const [pipeline, setPipeline] = useState<PipelineState | null>(null);
   /** Every sequence the activity has run, newest first, for the Stages panel's history. */
   const [pipelineHistory, setPipelineHistory] = useState<PipelineState[]>([]);
-  const [pipelineChoice, setPipelineChoice] = useState<PipelineSelection>("all");
+  const [pipelineChoice, setPipelineChoice] = useState<StageChoice>("all");
   // The languages the product supports: what the activity may be translated into.
   // A table is kept only when it is one; anything else offers no language to add.
   const languageTable = useResource(cache, project.languages, "").data;
@@ -1283,6 +1283,12 @@ function ActivityEditor({
                     setExcerpt(text);
                     setShowPanel({ key: "conversation", at: Date.now() });
                   }}
+                  onContinue={
+                    editable && available
+                      ? (from) => runStages({ from }, pipeline?.scope ?? undefined)
+                      : undefined
+                  }
+                  blocked={pipelineBlocked}
                 />
               </div>
             </div>

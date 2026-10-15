@@ -40,7 +40,10 @@ const STEP_TONE: Record<PipelineStepStatus, Tone> = {
   cancelled: "muted",
 };
 
-export const PIPELINE_CHOICES: readonly PipelineSelection[] = [
+/** What the stage picker offers; a sequence from a stage on is started by Continue. */
+export type StageChoice = Exclude<PipelineSelection, { from: PipelineStep }>;
+
+export const PIPELINE_CHOICES: readonly StageChoice[] = [
   "all",
   "spec",
   "mediaSpec",
@@ -57,9 +60,24 @@ export const PIPELINE_CHOICES: readonly PipelineSelection[] = [
 
 function choiceLabel(choice: PipelineSelection) {
   const words = S.activities.studioRun;
+  if (typeof choice === "object") return words.allFrom(words.steps[choice.from]);
   if (choice === "all") return words.all;
   if (choice === "assets") return words.assets;
   return choice === "narration" ? words.narration : words.steps[choice];
+}
+
+/**
+ * The stage a sequence that did not finish can be taken up at: the one it failed or stopped
+ * at, when it was running every stage from some stage on. A sequence of one stage, or of the
+ * narration or assets, ran only what the author picked, and taking it up would run more.
+ */
+export function continueStep(pipeline: PipelineState | null): PipelineStep | null {
+  if (pipeline?.status !== "failed" && pipeline?.status !== "cancelled") return null;
+  if (pipeline.selection !== "all" && typeof pipeline.selection !== "object") return null;
+  const stopped = pipeline.steps.find(
+    (entry) => entry.status === "failed" || entry.status === "cancelled",
+  );
+  return stopped?.step ?? null;
 }
 
 /** What the run is doing, or how it ended, in one line. */
@@ -86,13 +104,13 @@ export function PipelineControls({
   onRun,
   onStop,
 }: {
-  choice: PipelineSelection;
+  choice: StageChoice;
   pipeline: PipelineState | null;
   /** The agent the run uses, named in the one line the controls fold to while it runs. */
   agentLabel: string;
   /** Why Run cannot be pressed now, if it cannot. */
   blocked: string | null;
-  onChoose: (choice: PipelineSelection) => void;
+  onChoose: (choice: StageChoice) => void;
   onRun: () => void;
   onStop: () => void;
 }) {
@@ -117,7 +135,7 @@ export function PipelineControls({
             size="sm"
             aria-label={words.stage}
             value={choice}
-            onChange={(event) => onChoose(event.target.value as PipelineSelection)}
+            onChange={(event) => onChoose(event.target.value as StageChoice)}
           >
             {PIPELINE_CHOICES.map((entry) => (
               <option key={entry} value={entry}>
@@ -459,6 +477,8 @@ export function PipelinePanel({
   runs,
   agentLabel,
   onAddExcerpt,
+  onContinue,
+  blocked = null,
 }: {
   pipeline: PipelineState | null;
   /** The activity's sequences, newest first, as the server keeps them (the latest included). */
@@ -468,6 +488,13 @@ export function PipelinePanel({
   agentLabel: string;
   /** Ask the activity's conversation about part of a stage's transcript. */
   onAddExcerpt: (text: string) => void;
+  /**
+   * Run the stage the latest sequence failed or stopped at, and every one after it; absent
+   * where the author cannot run stages.
+   */
+  onContinue?: (from: PipelineStep) => void;
+  /** Why the stages cannot be run now, if they cannot. */
+  blocked?: string | null;
 }) {
   const words = S.activities.studioRun;
   // An earlier run the author opened from the list; the latest shows otherwise.
@@ -496,6 +523,8 @@ export function PipelinePanel({
       </div>
     );
   const line = summary(pipeline);
+  // Only the latest sequence is taken up: an earlier one stopped before later runs changed things.
+  const resume = onContinue && !earlier ? continueStep(pipeline) : null;
   const running = pipeline.status === "running";
   const runningStep = pipeline.steps.find((entry) => entry.status === "running")?.step;
   // The author's choice in this run, else the running stage, else the last that ran an agent.
@@ -572,6 +601,11 @@ export function PipelinePanel({
             />
           ))}
         </div>
+        {resume && (
+          <Button size="sm" onClick={() => onContinue?.(resume)} disabled={!!blocked}>
+            {words.continueFrom(words.steps[resume])}
+          </Button>
+        )}
         <ol>
           {folded ? (
             <>

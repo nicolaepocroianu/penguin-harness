@@ -1147,6 +1147,10 @@ export const en: Strings = {
           "Built and type-checked, but not checked in the player: an admin has not installed the test browser in System settings.",
         moduleCheckSkipped:
           "Built and type-checked, but the agent did not run the player check. Run the module stage again.",
+        moduleCheckUntrusted:
+          "Built and type-checked, but the player check's files changed while it ran, so its results cannot be trusted. Run the module stage again.",
+        moduleChecksFailing:
+          "Built and type-checked, but some checks failed when the module was played in the player. Open the stage's session to see which.",
         testsFailing: "Some acceptance checks fail. Open the test report to see which.",
         testsStillFailing:
           "Some acceptance checks still fail after the module was rebuilt once with what they found. Open the test report to see which.",
@@ -1174,6 +1178,8 @@ export const en: Strings = {
       backToLatest: "Back to the latest run",
       doneFold: (count: number) => `${count} ${count === 1 ? "stage" : "stages"} done`,
       runningWith: (agent: string, stages: string) => `${agent} · ${stages}`,
+      allFrom: (stage: string) => `All stages from ${stage}`,
+      continueFrom: (stage: string) => `Continue from ${stage}`,
     },
     specEditor: {
       title: "Specification",

@@ -21,10 +21,12 @@ export const PIPELINE_STEPS = [
 export type PipelineStep = (typeof PIPELINE_STEPS)[number];
 /**
  * Every step, one step, "narration": translating what a language lacks and then speaking
- * it, so a language with empty scripts is voiced in one go, or "assets": speaking and drawing
- * every unbound narration and image, as a ref made from its template does next.
+ * it, so a language with empty scripts is voiced in one go, "assets": speaking and drawing
+ * every unbound narration and image, as a ref made from its template does next, or every step
+ * from one on, which takes up a sequence that stopped at that step.
  */
-export type PipelineSelection = "all" | "narration" | "assets" | PipelineStep;
+export type PipelineSelection =
+  "all" | "narration" | "assets" | PipelineStep | { from: PipelineStep };
 
 export type PipelineStepStatus =
   "pending" | "running" | "succeeded" | "skipped" | "failed" | "cancelled";
@@ -59,6 +61,13 @@ export type PipelineNote =
   | "moduleNotChecked"
   /** The module was built, but its agent never ran the player check it was given. */
   | "moduleCheckSkipped"
+  /**
+   * The module was built, but its run changed the files its player check rests on, so what
+   * the check found cannot be trusted.
+   */
+  | "moduleCheckUntrusted"
+  /** The module was built, but checks in its player check fail. */
+  | "moduleChecksFailing"
   /** Acceptance checks fail, and the module was not rebuilt with what they found. */
   | "testsFailing"
   /** Acceptance checks still fail after the module was rebuilt once with what they found. */

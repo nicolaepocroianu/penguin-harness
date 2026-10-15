@@ -28,7 +28,8 @@
  * written to `activity_pipelines` as it progresses, so the Stages panel keeps every sequence
  * as history across restarts (one cut short by a restart reads as stopped). Its runs outlive
  * it in the generation history either way. A step that fails stops the sequence; nothing is
- * rolled back, and nothing after it runs.
+ * rolled back, and nothing after it runs. A sequence chosen from a step on runs that step and
+ * every one after it, which is how a stopped sequence is taken up where it stopped.
  */
 import { isBookWord, wordsMissingPhonemes } from "./book-words.js";
 import { PHONEMES_RUN_MAX_WORDS } from "./phonemes-run.js";
@@ -42,6 +43,8 @@ import type { ActivitySandbox } from "./sandbox-service.js";
 import type { ActivityAcceptance } from "./acceptance-service.js";
 import type { ActivityOutcomes } from "./outcomes.js";
 import { acceptanceCriteria, failedChecks } from "./acceptance-collect.js";
+import { checkMetrics } from "./outcome-checks.js";
+import type { ActivityRuns } from "./run-store.js";
 import {
   DEFAULT_SPEECH_PROVIDER,
   ELEVENLABS_BUILTIN_VOICE_ID,
@@ -88,21 +91,29 @@ export {
   type PipelineNote,
 } from "./pipeline-types.js";
 
+function isStep(value: unknown): value is PipelineStep {
+  return typeof value === "string" && (PIPELINE_STEPS as readonly string[]).includes(value);
+}
+
 export function parseSelection(value: unknown): PipelineSelection {
   if (value === undefined || value === "all") return "all";
   if (value === "narration") return "narration";
   if (value === "assets") return "assets";
-  if (typeof value === "string" && (PIPELINE_STEPS as readonly string[]).includes(value))
-    return value as PipelineStep;
+  if (isStep(value)) return value;
+  const from = value && typeof value === "object" ? (value as { from?: unknown }).from : undefined;
+  if (isStep(from)) return { from };
   throw new HttpError(
     400,
     "invalid_request",
-    "stage must be all, narration, assets, or one of the pipeline steps.",
+    "stage must be all, narration, assets, one of the pipeline steps, or { from: <step> }.",
   );
 }
 
 export function stepsFor(selection: PipelineSelection): PipelineStep[] {
   if (selection === "all") return [...PIPELINE_STEPS];
+  // Every step from one on, in the order "all" runs them.
+  if (typeof selection === "object")
+    return PIPELINE_STEPS.slice(PIPELINE_STEPS.indexOf(selection.from));
   if (selection === "narration") return ["translations", "speech"];
   if (selection === "assets") return ["speech", "images"];
   return [selection];
@@ -324,7 +335,8 @@ export type StagesPort = Pick<
   > &
   Pick<ActivitySandbox, "currentAssessment"> &
   Pick<ActivityAcceptance, "browserInstalled" | "testRun" | "state"> &
-  Pick<ActivityOutcomes, "attribute">;
+  Pick<ActivityOutcomes, "attribute"> &
+  Pick<ActivityRuns, "workspace">;
 
 export interface PipelineDeps {
   stages: StagesPort;
@@ -347,6 +359,20 @@ const SKIP_NOTES: Record<RunSkip, PipelineNote | null> = {
   notCanonical: "notCanonical",
   providerUnavailable: null,
 };
+
+/**
+ * What a built module's player check leaves to say about it, read as the outcome ledger reads
+ * it: a module that only compiled is not one that was seen to play, and one whose check nothing
+ * vouches for, or that failed it, was not seen to play well. The run still succeeded; its build
+ * is kept and can be tested and repaired.
+ */
+function playerCheckNote(run: ActivityRun, workspace: string): PipelineNote | null {
+  const checks = checkMetrics(run, workspace);
+  if (checks["playerCheck.untrusted"]) return "moduleCheckUntrusted";
+  if (run.unchecked === "noBrowser") return "moduleNotChecked";
+  if (run.unchecked) return "moduleCheckSkipped";
+  return checks["playerCheck.failed"] ? "moduleChecksFailing" : null;
+}
 
 export class PipelineRunner {
   private readonly states = new Map<string, PipelineState>();
@@ -713,10 +739,8 @@ export class PipelineRunner {
       { kind: "module", ...(input.bookMode ? { bookMode: input.bookMode } : {}) },
       runtime,
     );
-    // A module that only compiled is not one that was seen to play: the stage says so.
-    const unchecked = outcome.outcome === "skipped" ? undefined : outcome.run.unchecked;
-    if (unchecked)
-      step.note = unchecked === "noBrowser" ? "moduleNotChecked" : "moduleCheckSkipped";
+    if (outcome.outcome !== "skipped")
+      step.note = playerCheckNote(outcome.run, stages.workspace(outcome.run.runId));
   }
 
   /** The module build this sequence made, when its module step made one. */
@@ -983,6 +1007,7 @@ export class ActivityPipelineService implements ActivityPipelines {
   @Use() private readonly sandbox!: ActivitySandbox;
   @Use() private readonly acceptance!: ActivityAcceptance;
   @Use() private readonly outcomes!: ActivityOutcomes;
+  @Use() private readonly runs!: ActivityRuns;
   @Use() private readonly db!: Db;
   private runner: PipelineRunner | null = null;
 
@@ -996,7 +1021,7 @@ export class ActivityPipelineService implements ActivityPipelines {
         if (step.status === "running" || step.status === "pending") step.status = "cancelled";
       this.write(state);
     }
-    const { activities, generation, sandbox, acceptance, outcomes } = this;
+    const { activities, generation, sandbox, acceptance, outcomes, runs } = this;
     const runner = new PipelineRunner({
       persist: (state) => this.write(state),
       stages: {
@@ -1027,6 +1052,7 @@ export class ActivityPipelineService implements ActivityPipelines {
           acceptance.testRun(projectId, activityId, moduleRunId),
         state: (projectId, activityId) => acceptance.state(projectId, activityId),
         attribute: (cause, operation) => outcomes.attribute(cause, operation),
+        workspace: (runId) => runs.workspace(runId),
       },
     });
     this.runner = runner;

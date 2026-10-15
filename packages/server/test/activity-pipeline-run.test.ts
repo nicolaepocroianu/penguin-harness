@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import {
   PipelineRunner,
   ActivityPipelineService,
@@ -16,6 +19,8 @@ import { contentRevision, type ActivityRun } from "../src/activities/domain.js";
 import type { AcceptanceReport } from "../src/activities/acceptance-types.js";
 import type { RunAndAcceptOptions, RunOutcome, RunRequest } from "../src/activities/run-request.js";
 import { runKindOf } from "../src/activities/run-kinds/index.js";
+import { ACCEPTANCE_RESULTS_FILE } from "../src/activities/acceptance-harness.js";
+import { PLAYER_CHECK_DIR } from "../src/activities/waf-module.js";
 import type { AssetManifest, MediaAsset } from "../src/activities/media.js";
 import { drawnOutScript, geminiScript, syncWordScripts } from "../src/activities/pronunciation.js";
 import type { SpeechProviderId } from "../src/activities/speech-types.js";
@@ -25,6 +30,11 @@ import {
 } from "../src/activities/voice-catalogue.js";
 
 const usage = [{ sceneId: "intro", sourceKey: "k", occurrence: 1, sceneOccurrenceCount: 1 }];
+
+/** Where the fake runs' folders are, one folder per world: only player checks write there. */
+const workspaces = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-pipeline-run-"));
+let worlds = 0;
+afterAll(() => fs.rmSync(workspaces, { recursive: true, force: true }));
 
 /** A test run's report: each check passed, failed on what it saw, or never ran. */
 function testReport(checks: ("passed" | "failed" | "notRun")[], reused = false): AcceptanceReport {
@@ -221,6 +231,21 @@ describe("choosing the work", () => {
     expect(stepsFor(parseSelection("assets"))).toEqual(["speech", "images"]);
     expect(() => parseSelection("deploy")).toThrow(/stage must be/);
   });
+
+  it("runs every step from one on, in the order all runs them", () => {
+    expect(stepsFor(parseSelection({ from: "images" }))).toEqual([
+      "images",
+      "assessment",
+      "module",
+      "test",
+    ]);
+    expect(stepsFor(parseSelection({ from: "test" }))).toEqual(["test"]);
+    expect(stepsFor(parseSelection({ from: "spec" }))).toEqual(stepsFor("all"));
+    // Only the step is kept from what was sent.
+    expect(parseSelection({ from: "module", extra: 1 })).toEqual({ from: "module" });
+    for (const value of [{ from: "deploy" }, { from: "all" }, {}, null, ["images"]])
+      expect(() => parseSelection(value)).toThrow(/stage must be/);
+  });
 });
 
 /** An activity and the two services, faked closely enough to show what the sequence does. */
@@ -229,6 +254,11 @@ function world(
     fail?: ActivityRun["kind"];
     /** What a succeeding module run reports about its player check. */
     unchecked?: ActivityRun["unchecked"];
+    /**
+     * A succeeding module run's player check: whether its run changed the files the check
+     * rests on, and the results it wrote, if any.
+     */
+    playerCheck?: { untrusted?: boolean; results?: ("passed" | "failed")[] };
     /** The Media Agent has no image provider key: an image run is refused. */
     noImageKey?: boolean;
     description?: string;
@@ -298,6 +328,7 @@ function world(
   const reports = new Map<string, AcceptanceReport>();
   const asset = (language: string, key: string) =>
     activity.draft.mediaPlan!.manifest.assets[language]!.find((item) => item.key === key)!;
+  const workspace = path.join(workspaces, `world_${++worlds}`);
 
   /** While held, every run stays under way until the test lets go or the sequence stops it. */
   let holding: Promise<void> | null = null;
@@ -404,6 +435,18 @@ function world(
       }
       run.status = "succeeded";
       if (run.kind === "module" && options.unchecked) run.unchecked = options.unchecked;
+      if (run.kind === "module" && options.playerCheck) {
+        const { untrusted, results } = options.playerCheck;
+        run.playerCheck = { staged: {}, ...(untrusted ? { untrusted: true } : {}) };
+        if (results) {
+          const dir = path.join(workspace, run.runId, PLAYER_CHECK_DIR);
+          fs.mkdirSync(dir, { recursive: true });
+          fs.writeFileSync(
+            path.join(dir, ACCEPTANCE_RESULTS_FILE),
+            JSON.stringify({ results: results.map((status) => ({ status })) }),
+          );
+        }
+      }
       if (run.kind === "test")
         reports.set(run.runId, options.reports?.[reports.size] ?? testReport(["passed"], true));
       if (run.kind === "spec") {
@@ -518,6 +561,9 @@ function world(
       tested.push(moduleRunId);
       return { kind: "test", test: { ...(moduleRunId ? { moduleRunId } : {}) } } as RunRequest;
     },
+    workspace(runId: string) {
+      return path.join(workspace, runId);
+    },
     // The latest finished test run's report, as the acceptance service answers it.
     async state() {
       const latest = runs.filter((run) => run.kind === "test" && run.status === "succeeded").at(-1);
@@ -625,6 +671,33 @@ describe("running the stages", () => {
       const module = w.runner.status("act")!.steps.find((step) => step.step === "module")!;
       expect(module).toMatchObject({ status: "succeeded", note });
     }
+  });
+
+  it("says when the module failed its player check, or its check cannot be trusted, and keeps the build", async () => {
+    const note = async (options: Parameters<typeof world>[0]) => {
+      const w = world(options);
+      await w.runner.start("proj", "act", { selection: "module", agentId: "agent" }).done;
+      return w.runner.status("act")!.steps[0];
+    };
+    expect(await note({ playerCheck: { results: ["passed", "passed"] } })).toMatchObject({
+      status: "succeeded",
+      note: null,
+    });
+    expect(await note({ playerCheck: { results: ["passed", "failed"] } })).toMatchObject({
+      status: "succeeded",
+      note: "moduleChecksFailing",
+    });
+    // A run that changed what its check rests on: whatever its results say, nothing vouches for
+    // them, and that is said before anything else about the check.
+    for (const options of [
+      { playerCheck: { untrusted: true, results: ["passed" as const] } },
+      { playerCheck: { untrusted: true, results: ["failed" as const] } },
+      { unchecked: "notRun" as const, playerCheck: { untrusted: true } },
+    ])
+      expect(await note(options)).toMatchObject({
+        status: "succeeded",
+        note: "moduleCheckUntrusted",
+      });
   });
 
   it("keeps a current media plan instead of rebuilding it", async () => {
@@ -907,6 +980,55 @@ describe("running the stages", () => {
     expect(final.status).toBe("failed");
     expect(final.error).toBe("test broke");
     expect(final.steps.at(-1)!.status).toBe("failed");
+  });
+
+  describe("continuing from a stage", () => {
+    it("runs the stage a sequence stopped at and every one after it, and none before", async () => {
+      const options: NonNullable<Parameters<typeof world>[0]> = { fail: "image" };
+      const w = world(options);
+      await w.runner.start("proj", "act", { selection: "all", agentId: "agent" }).done;
+      const failed = w.runner.status("act")!;
+      expect(failed.status).toBe("failed");
+      expect(failed.steps.find((step) => step.status === "failed")!.step).toBe("images");
+      delete options.fail;
+      w.started.length = 0;
+      const { state, done } = w.runner.start("proj", "act", {
+        selection: { from: "images" },
+        agentId: "agent",
+      });
+      expect(state.selection).toEqual({ from: "images" });
+      expect(state.steps.map((step) => step.step)).toEqual([
+        "images",
+        "assessment",
+        "module",
+        "test",
+      ]);
+      await done;
+      expect(w.runner.status("act")!.status).toBe("succeeded");
+      // The specification, media and speech the failed sequence made are not made again.
+      expect(w.started).toEqual(["image:en-US:cat", "module"]);
+    });
+
+    it("tests what the preview plays when it takes up at the tests, and the build it makes from the module on", async () => {
+      const atTests = world({ criteria: ["It starts."] });
+      await atTests.runner.start("proj", "act", { selection: "spec", agentId: "agent" }).done;
+      await atTests.runner.start("proj", "act", { selection: { from: "test" }, agentId: "agent" })
+        .done;
+      // No module step ran in this sequence, so the tests play what the preview plays.
+      expect(atTests.tested).toEqual([undefined]);
+      expect(atTests.runner.status("act")!.steps).toMatchObject([
+        { step: "test", status: "succeeded" },
+      ]);
+
+      const atModule = world({ criteria: ["It starts."] });
+      await atModule.runner.start("proj", "act", { selection: "spec", agentId: "agent" }).done;
+      await atModule.runner.start("proj", "act", {
+        selection: { from: "module" },
+        agentId: "agent",
+      }).done;
+      const built = atModule.runs.find((run) => run.kind === "module")!.runId;
+      expect(atModule.tested).toEqual([built]);
+    });
   });
 
   describe("the test step's repair round", () => {
