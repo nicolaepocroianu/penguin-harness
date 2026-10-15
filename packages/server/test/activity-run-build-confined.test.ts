@@ -5,7 +5,8 @@
  * sandbox, writable only in the module. Real programs throughout: the module's `npm run build`
  * and a stand-in for the pinned Sass's command line, each a probe that says what it saw and
  * where it could write. A stand-in sandbox runner shows what reaches the confiner; the real
- * sandbox, where this host has one, shows what the confinement stops.
+ * sandbox, where this host has one, shows what the confinement stops. Installing the pinned
+ * Sass, where it is not there yet, is a stand-in for npm that probes what npm would start with.
  */
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
@@ -15,7 +16,9 @@ import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import type { SpawnConfiner } from "@prismshadow/penguin-core";
 import type { SandboxProvider } from "@prismshadow/penguin-core/plugin";
+import { spawnDeployProcess, type DeployProcess } from "../src/activities/deploy-process.js";
 import { moduleBuilds, PinnedSass, sassHome } from "../src/activities/module-builder.js";
+import { MODULE_PACKAGES } from "../src/activities/waf-module.js";
 import { SandboxService } from "../src/sandbox/service.js";
 
 /** A variable of this server's that a build must not see, named as the harness's own are. */
@@ -67,16 +70,26 @@ afterEach(async () => {
   for (const root of roots.splice(0)) await fs.rm(root, { recursive: true, force: true });
 });
 
+/** Lays out the Sass command line's stand-in as an install of the pinned Sass in `home`. */
+async function layOutSass(home: string, writes: Record<string, string> = {}): Promise<void> {
+  const sass = path.join(home, "node_modules", "sass");
+  await fs.mkdir(sass, { recursive: true });
+  await fs.writeFile(path.join(sass, "package.json"), JSON.stringify({ version: "1.54.0" }));
+  await fs.writeFile(path.join(sass, "sass.js"), sassCli(writes));
+}
+
 /**
  * A run's module (a stylesheet and an `npm run build` that probes) beside Penguin's root, with
  * the pinned Sass already installed there as its stand-in, and the packages every run shares
- * linked in as the module's node_modules. Made under `parent`.
+ * linked in as the module's node_modules. Made under `parent`. With `sassInstall`, the pinned
+ * Sass is not installed yet, and that is the npm that installs it.
  */
 async function runModule(
   options: {
     parent?: string;
     stylesheet?: boolean;
     writes?: (layout: { shared: string }) => Record<string, string>;
+    sassInstall?: DeployProcess["run"];
   } = {},
 ) {
   const root = await fs.mkdtemp(path.join(options.parent ?? os.tmpdir(), "penguin-run-build-"));
@@ -94,13 +107,10 @@ async function runModule(
   await fs.writeFile(path.join(module, "build.js"), probe("build", writes));
   if (options.stylesheet ?? true)
     await fs.writeFile(path.join(module, "res", "style.scss"), ".a { color: red; }");
-  const sass = path.join(sassHome(root), "node_modules", "sass");
-  await fs.mkdir(sass, { recursive: true });
-  await fs.writeFile(path.join(sass, "package.json"), JSON.stringify({ version: "1.54.0" }));
-  await fs.writeFile(path.join(sass, "sass.js"), sassCli(writes));
+  if (!options.sassInstall) await layOutSass(sassHome(root), writes);
   const runner = path.join(root, "stand-in-runner.cjs");
   await fs.writeFile(runner, STAND_IN_RUNNER);
-  const pinned = new PinnedSass(sassHome(root));
+  const pinned = new PinnedSass(sassHome(root), options.sassInstall);
   /** The builder over the pinned Sass, its run builds confined by `confiner` (null: not). */
   const builder = (confiner: SpawnConfiner | null) =>
     moduleBuilds(
@@ -160,6 +170,53 @@ describe("a run module's build", () => {
     expect(outcome.log).toContain("build sandboxed=no");
     expect(outcome.log).toContain("build secret=none");
     expect(existsSync(path.join(module, ".npm-cache"))).toBe(false);
+  });
+
+  it("installs the Sass it waits for with none of the module's npm settings or the server's secrets", async () => {
+    process.env[SECRET] = "leaked";
+    process.env[TOKEN] = "leaked";
+    /** What each install's npm read as its project config, and the variables it started with. */
+    const installs: { npmrc: string | null; saw: string }[] = [];
+    const npm: DeployProcess["run"] = async (command, args, options) => {
+      if (command !== "npm") return spawnDeployProcess.run(command, args, options);
+      // A real program started as npm would be, saying which of the variables it was given.
+      const started = await spawnDeployProcess.run(
+        process.execPath,
+        [
+          "-e",
+          `console.log("npm secret=" + (process.env.${SECRET} ?? "none") + " token=" + (process.env.${TOKEN} ?? "none"))`,
+        ],
+        { ...options, shell: false },
+      );
+      installs.push({
+        npmrc: await fs.readFile(path.join(options.cwd, ".npmrc"), "utf8").catch(() => null),
+        saw: started.tail.trim(),
+      });
+      await layOutSass(options.cwd);
+      return { code: 0, tail: "added 1 package" };
+    };
+    for (const confined of [false, true]) {
+      const { module, runner, builder } = await runModule({ sassInstall: npm });
+      // The agent's own registry (nothing listens there), and this server's variables expanded
+      // into the credentials npm would send it.
+      await fs.writeFile(
+        path.join(module, ".npmrc"),
+        `registry=http://127.0.0.1:9/\n//127.0.0.1:9/:_authToken=\${${SECRET}}\n`,
+      );
+      const confiner = confined ? standInConfiner(runner).confiner : null;
+      const outcome = await builder(confiner).buildRun(module);
+      expect(outcome.ok, outcome.log).toBe(true);
+      expect(await fs.readFile(path.join(module, "res", "style.css"), "utf8")).toContain(".a");
+    }
+    // npm read the settings every run's module is scaffolded with, never the agent's.
+    expect(installs.map((install) => install.npmrc)).toEqual([
+      MODULE_PACKAGES.npmrc,
+      MODULE_PACKAGES.npmrc,
+    ]);
+    expect(installs.map((install) => install.saw)).toEqual([
+      "npm secret=none token=none",
+      "npm secret=none token=none",
+    ]);
   });
 
   it("runs nothing of a build the sandbox will not confine, and says why", async () => {

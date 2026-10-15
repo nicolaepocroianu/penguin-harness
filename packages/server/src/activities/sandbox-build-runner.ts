@@ -69,17 +69,36 @@ const RUN_BUILD_ENV = new Set([
 ]);
 
 /**
+ * What an npm install made for a run build keeps besides: how npm reaches a registry from this
+ * machine. Such an install runs none of the module's code, so a proxy's credentials reach npm
+ * alone; a build's own programs never get them.
+ */
+const NPM_NETWORK_ENV = new Set(["HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS"]);
+
+/**
+ * This process's environment as a run build's programs start with it (`RUN_BUILD_ENV`), or,
+ * with `install`, as an npm install made for the build starts with it (`NPM_NETWORK_ENV` too).
+ */
+export function runBuildEnv(options: { install?: boolean } = {}): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+  // By name whatever its case: Windows keeps the case a name was written in (`Path`).
+  for (const [key, value] of Object.entries(process.env)) {
+    const name = key.toUpperCase();
+    const kept = RUN_BUILD_ENV.has(name) || (options.install === true && NPM_NETWORK_ENV.has(name));
+    if (value !== undefined && kept) env[key] = value;
+  }
+  // Under the desktop app this process's interpreter is Electron, which runs a script only with
+  // this set; the Sass compile and the Windows sandbox runner both start it.
+  if (process.versions.electron !== undefined) env.ELECTRON_RUN_AS_NODE = "1";
+  return env;
+}
+
+/**
  * How the programs of a build of the run module at `moduleRoot` start (see the top of this
  * file): `confiner` is the session sandbox's, or null while activity agents are not confined.
  */
 function runBuildSpawn(moduleRoot: string, confiner: SpawnConfiner | null): RunBuildSpawn {
-  const env: NodeJS.ProcessEnv = {};
-  // By name whatever its case: Windows keeps the case a name was written in (`Path`).
-  for (const [key, value] of Object.entries(process.env))
-    if (value !== undefined && RUN_BUILD_ENV.has(key.toUpperCase())) env[key] = value;
-  // Under the desktop app this process's interpreter is Electron, which runs a script only with
-  // this set; the Sass compile and the Windows sandbox runner both start it.
-  if (process.versions.electron !== undefined) env.ELECTRON_RUN_AS_NODE = "1";
+  const env = runBuildEnv();
   if (!confiner) return { env };
   // npm keeps its cache in the user's profile, which a confined build cannot write.
   env.npm_config_cache = path.join(moduleRoot, RUN_BUILD_NPM_CACHE);
@@ -191,6 +210,7 @@ export async function spawnModuleBuild(
         cwd: workspace,
         from: "res/style.scss",
         to: "res/style.css",
+        runModule: true,
         ...spawn,
       }),
       "res/style.scss",
