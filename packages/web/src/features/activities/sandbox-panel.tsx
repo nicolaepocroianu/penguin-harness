@@ -12,11 +12,26 @@ import { SidePanelFill } from "./side-panel-fill";
 import {
   highlightMessage,
   pickModeMessage,
+  readPlayerMedia,
   readPlayerPick,
   readPlayerReport,
   type PlayerPick,
   type PlayerReport,
 } from "./player-bridge";
+import {
+  IDLE_CLOCK,
+  clockAfterMedia,
+  clockAfterReport,
+  playView,
+  sceneOfLine,
+  tapNow,
+  type LinePick,
+  type PlayClock,
+  type PlayScene,
+  type Sounding,
+} from "./play-model";
+import { PlayNow } from "./play-now";
+import { PlayTimeline } from "./play-timeline";
 import {
   MAP_GUTTER,
   MAP_MIN,
@@ -33,14 +48,29 @@ import {
   useMapWidth,
 } from "./map-prefs";
 
+/** How long a playing module may stay quiet before the panel stops waiting for a report. */
+const SILENT_AFTER_MS = 8000;
+/** How often the lit word moves while a line is being said. */
+const WORD_TICK_MS = 80;
+
 /**
  * Opens what an author picked in the player, answering the name of what it opened, or null
  * when nothing in the activity is named the way the picked element is.
  */
-/** How long a playing module may stay quiet before the panel stops waiting for a report. */
-const SILENT_AFTER_MS = 8000;
-
 export type OnPick = (pick: PlayerPick, sceneId: string | null) => string | null;
+
+/**
+ * The player's scenes and lines, and how they meet the Script: the line an author chose
+ * (there or here), a way to choose one here, and a way to hear which line is being said.
+ */
+export interface PlayLink {
+  scenes: readonly PlayScene[];
+  pick: LinePick | null;
+  onLine?: (key: string) => void;
+  onSounding?: (sounding: Sounding | null) => void;
+}
+
+const NO_PLAY: PlayLink = { scenes: [], pick: null };
 
 /**
  * The activity's preview, the way Loom's is: it builds what it needs and plays, with nothing
@@ -59,6 +89,7 @@ export function SandboxPanel({
   languages,
   onPick,
   hasMedia = true,
+  play = NO_PLAY,
 }: {
   projectId: string;
   activityId: string;
@@ -71,6 +102,7 @@ export function SandboxPanel({
   onPick?: OnPick;
   /** Whether the activity has a media plan, without which there is nothing to pick. */
   hasMedia?: boolean;
+  play?: PlayLink;
 }) {
   const { api } = useActivityClient();
   const base = `${api.endpoint}/sandbox`;
@@ -171,6 +203,7 @@ export function SandboxPanel({
           languages={languages}
           onPick={onPick}
           hasMedia={hasMedia}
+          play={play}
         />
       )}
       {log && (
@@ -188,8 +221,12 @@ export function SandboxPanel({
 }
 
 /**
- * The activity, playing as soon as the panel opens. In a panel that fills the workspace it
- * fits the height left under its controls as well as the width, so the whole screen shows.
+ * The activity, playing as soon as the panel opens, with its scenes as a timeline under it and
+ * the shown scene's lines (play-now.tsx) beside it when there is room, under it when not.
+ *
+ * Filling the workspace, the panel is Play mode: the player fits the height left under its
+ * controls and the timeline as well as the width, so the whole screen shows, and the lines and
+ * the behavior map share the column beside it.
  */
 function SandboxPlayer({
   projectId,
@@ -199,6 +236,7 @@ function SandboxPlayer({
   languages,
   onPick,
   hasMedia,
+  play,
 }: {
   projectId: string;
   activityId: string;
@@ -207,6 +245,7 @@ function SandboxPlayer({
   languages: string[];
   onPick?: OnPick;
   hasMedia: boolean;
+  play: PlayLink;
 }) {
   const own = parseResolution((spec?.runtime as Record<string, unknown> | undefined)?.resolution);
   // Another screen to try the activity at; empty plays it at its own resolution.
@@ -245,12 +284,40 @@ function SandboxPlayer({
   // Only modules built on Loom's state machine report their state. One that has said
   // nothing for a while is not going to, and "not yet" would be a promise it cannot keep.
   const [silent, setSilent] = useState(false);
+  // What this run of the activity has said about its scenes and clips (play-model.ts).
+  const [clock, setClock] = useState<PlayClock>(IDLE_CLOCK);
+  const [now, setNow] = useState(() => Date.now());
+  // While a line is being said, its word moves on with the time since it started.
+  const sounding = clock.audio;
+  useEffect(() => {
+    if (!sounding) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), WORD_TICK_MS);
+    return () => clearInterval(timer);
+  }, [sounding]);
+  const scenesRef = useRef(play.scenes);
+  scenesRef.current = play.scenes;
+  const onSoundingRef = useRef(play.onSounding);
+  onSoundingRef.current = play.onSounding;
+  // The Script hears which line is being said, and only a line the player walks.
+  const saying =
+    sounding && sceneOfLine(scenesRef.current, sounding.key) !== null ? sounding : null;
+  useEffect(() => {
+    onSoundingRef.current?.(saying);
+  }, [saying]);
+  useEffect(() => () => onSoundingRef.current?.(null), []);
   useEffect(() => {
     const receive = (event: MessageEvent) => {
       const frame = frameRef.current?.contentWindow;
       const next = readPlayerReport(event.data, event.source, frame);
       if (next) {
         setReport(next);
+        setClock((clock) => clockAfterReport(clock, next, Date.now()));
+        return;
+      }
+      const media = readPlayerMedia(event.data, event.source, frame);
+      if (media) {
+        setClock((clock) => clockAfterMedia(clock, media, Date.now()));
         return;
       }
       const pick = readPlayerPick(event.data, event.source, frame);
@@ -279,6 +346,7 @@ function SandboxPlayer({
   // outline describe nothing on screen any more.
   useEffect(() => {
     setReport(null);
+    setClock(IDLE_CLOCK);
     setOutlined(null);
     setPreviewed(null);
     setPicking(false);
@@ -337,28 +405,44 @@ function SandboxPlayer({
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  // Filling the workspace, the player also fits the height under its controls: the panel
-  // body's height, less where the player starts in it and a margin below.
+  // Filling the workspace, the stage fits the height under its controls: the panel body's
+  // height, less where the stage starts in it and a margin below. The player takes what the
+  // timeline under it leaves.
   const fill = useContext(SidePanelFill);
-  const [fitHeight, setFitHeight] = useState(0);
+  const belowRef = useRef<HTMLDivElement | null>(null);
+  const [stageHeight, setStageHeight] = useState(0);
+  const [belowHeight, setBelowHeight] = useState(0);
   useLayoutEffect(() => {
     const body = fill.body;
-    const element = boxRef.current;
+    const element = areaRef.current;
     if (!fill.expanded || !body || !element) {
-      setFitHeight(0);
+      setStageHeight(0);
       return;
     }
     const measure = () => {
       const top =
         element.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop;
-      setFitHeight(Math.max(120, body.clientHeight - top - 16));
+      setStageHeight(Math.max(240, body.clientHeight - top - 16));
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(body);
     return () => observer.disconnect();
   }, [fill.expanded, fill.body]);
-  const split = showMap && sideBySide(areaWidth);
+  useLayoutEffect(() => {
+    const element = belowRef.current;
+    if (!element) return;
+    const measure = () => setBelowHeight(element.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const fitHeight = stageHeight ? Math.max(120, stageHeight - belowHeight - 12) : 0;
+  // The lines (and the map, when shown) sit beside the player whenever there is room.
+  const split = sideBySide(areaWidth);
+  // Play mode: the stage fills the panel, and the column beside it scrolls on its own.
+  const stage = fill.expanded && split && stageHeight > 0;
   const appliedMapWidth = clampMapWidth(mapWidth, areaWidth);
   // The drag in progress: the divider holding the pointer, and where the drag started.
   const dragRef = useRef<{
@@ -425,15 +509,27 @@ function SandboxPlayer({
     setMapWidth(next);
     rememberMapWidth(next);
   }
-  const scale = fitScale(viewport, { width: boxWidth, height: fitHeight || viewport.height });
+  // On the stage the activity grows to fill it, up to twice its own size.
+  const scale = fitScale(
+    viewport,
+    { width: boxWidth, height: fitHeight || viewport.height },
+    stage ? 2 : 1,
+  );
   const url = playUrl(projectId, activityId, {
     scene: scene || undefined,
     language: language || undefined,
   });
+  const view = playView(play.scenes, clock, play.pick, now);
+  const shown = play.scenes.find((entry) => entry.sceneId === view.sceneId) ?? null;
+  /** Play the activity again, from a scene or from where it starts. */
+  function playFrom(sceneId: string) {
+    setScene(sceneId);
+    setReloadKey((value) => value + 1);
+  }
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        {scenes.length > 0 && (
+        {scenes.length > 0 && play.scenes.length === 0 && (
           <Select
             size="sm"
             aria-label={S.activities.previewScene}
@@ -468,29 +564,29 @@ function SandboxPlayer({
             {picking ? S.activities.studioPlayer.picking : S.activities.studioPlayer.pick}
           </Button>
         )}
-        <Button size="sm" onClick={() => setReloadKey((value) => value + 1)}>
-          {S.activities.previewReload}
-        </Button>
         <a className="text-xs underline" target="_blank" rel="noopener noreferrer" href={url}>
           {S.activities.sandboxOpen}
         </a>
-        <Select
-          size="sm"
-          aria-label={S.activities.previewResolutionLabel}
-          value={resolution}
-          onChange={(event) => setResolution(event.target.value)}
-        >
-          <option value="">
-            {S.activities.previewResolutionOwn(`${own.width}×${own.height}`)}
-          </option>
-          {PREVIEW_RESOLUTIONS.filter((size) => size !== `${own.width}x${own.height}`).map(
-            (size) => (
-              <option key={size} value={size}>
-                {S.activities.previewResolution(size.replace("x", "×"))}
-              </option>
-            ),
-          )}
-        </Select>
+        <span className="flex-1" />
+        <div className="w-56">
+          <Select
+            size="sm"
+            aria-label={S.activities.previewResolutionLabel}
+            value={resolution}
+            onChange={(event) => setResolution(event.target.value)}
+          >
+            <option value="">
+              {S.activities.previewResolutionOwn(`${own.width}×${own.height}`)}
+            </option>
+            {PREVIEW_RESOLUTIONS.filter((size) => size !== `${own.width}x${own.height}`).map(
+              (size) => (
+                <option key={size} value={size}>
+                  {S.activities.previewResolution(size.replace("x", "×"))}
+                </option>
+              ),
+            )}
+          </Select>
+        </div>
       </div>
       <div
         ref={areaRef}
@@ -499,13 +595,16 @@ function SandboxPlayer({
           split
             ? {
                 gridTemplateColumns: `minmax(${PLAYER_MIN}px, 1fr) ${MAP_GUTTER - 16}px ${appliedMapWidth}px`,
+                ...(stage ? { height: stageHeight } : {}),
               }
             : undefined
         }
       >
-        <div ref={boxRef} className="min-w-0">
+        <div ref={boxRef} className={`min-w-0 ${stage ? "flex flex-col justify-center" : ""}`}>
           <div
-            className="mx-auto max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-black"
+            className={`mx-auto max-w-full overflow-hidden border border-gray-200 bg-white dark:border-gray-800 dark:bg-black ${
+              stage ? "rounded-xl shadow-lg" : "rounded-lg"
+            }`}
             style={{
               height: Math.round(viewport.height * scale),
               width: Math.round(viewport.width * scale) + 2,
@@ -526,41 +625,18 @@ function SandboxPlayer({
               }}
             />
           </div>
-          <div className="mt-3 space-y-2 text-sm">
+          <div ref={belowRef} className="mt-3 space-y-2">
+            <PlayTimeline
+              scenes={play.scenes}
+              playingSceneId={view.playingSceneId}
+              shownSceneId={view.sceneId}
+              onRestart={() => setReloadKey((value) => value + 1)}
+              onJump={playFrom}
+            />
             {picked && (
-              <p role="status" className="text-gray-600 dark:text-gray-300">
+              <p role="status" className="text-sm text-gray-600 dark:text-gray-300">
                 {picked}
               </p>
-            )}
-            <p aria-live="polite" className="text-gray-600 dark:text-gray-300">
-              {report
-                ? S.activities.studioPlayer.now(report.state.state, report.state.sceneId)
-                : silent
-                  ? S.activities.studioPlayer.silent
-                  : S.activities.studioPlayer.waiting}
-            </p>
-            {report && report.interactables.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-xs text-gray-500">
-                  {S.activities.studioPlayer.tapTargets}
-                </span>
-                {report.interactables.map((entry) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    aria-pressed={outlined === entry.id}
-                    title={entry.description ?? entry.id}
-                    onClick={() => outline(entry.id)}
-                    className={`rounded-md border px-2 py-0.5 text-xs ${
-                      outlined === entry.id
-                        ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
-                        : "border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900"
-                    }`}
-                  >
-                    {entry.id}
-                  </button>
-                ))}
-              </div>
             )}
           </div>
         </div>
@@ -588,10 +664,28 @@ function SandboxPlayer({
           />
         )}
         <div
-          className={`min-w-0 text-sm ${
-            split ? "" : "mt-2 border-t border-gray-200 pt-2 dark:border-gray-800"
+          className={`min-w-0 space-y-3 text-sm ${
+            split
+              ? stage
+                ? "min-h-0 overflow-y-auto pr-1"
+                : ""
+              : "mt-2 border-t border-gray-200 pt-2 dark:border-gray-800"
           }`}
         >
+          <PlayNow
+            scene={shown}
+            view={view}
+            tap={tapNow(report, clock)}
+            state={report?.state.state ?? null}
+            status={silent ? S.activities.studioPlayer.silent : S.activities.studioPlayer.waiting}
+            quiet={
+              !!report &&
+              silent &&
+              !clock.heard &&
+              play.scenes.some((entry) => entry.lines.length > 0)
+            }
+            onLine={play.onLine}
+          />
           <StateMapView
             open={showMap}
             onToggle={toggleMap}

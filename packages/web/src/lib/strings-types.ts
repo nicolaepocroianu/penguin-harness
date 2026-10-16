@@ -55,9 +55,7 @@ export type Strings = {
     };
     /** What the playing activity reports about itself, under the player. */
     studioPlayer: {
-      now: (state: string, scene: string) => string;
       waiting: string;
-      tapTargets: string;
       pick: string;
       picking: string;
       opened: (name: string) => string;
@@ -103,6 +101,44 @@ export type Strings = {
           close: string;
         };
       };
+    };
+    /**
+     * Play mode and the player's lines: the scene timeline under the player, the scene's
+     * narration with the spoken line lit, and what can be tapped now, in words.
+     */
+    studioPlay: {
+      /** The heading over the scene being shown, and its lines. */
+      now: string;
+      /** A scene by its place and its title in the script. */
+      scene: (number: number, title: string | null) => string;
+      lines: (scene: string) => string;
+      noLines: string;
+      /** Said to a reader on the line being spoken, and on one an author chose. */
+      speaking: string;
+      chosen: string;
+      /** A line's length when it comes from its words rather than its clip. */
+      about: (length: string) => string;
+      /** A line's button: light it here and in the script. */
+      showLine: (words: string) => string;
+      timeline: string;
+      /** A scene on the timeline: restart the activity there. */
+      jump: (scene: string) => string;
+      restart: string;
+      previous: string;
+      next: string;
+      /** What can be tapped now, in words. */
+      tap: {
+        speaking: string;
+        video: string;
+        nothing: string;
+        /** "Tap First rock or rock-c · Drag rock-b · 2 more". */
+        targets: (groups: { verb: string; names: string[] }[], more: number) => string;
+        verbs: Record<"CLICK" | "SELECT" | "SELECT_CLICK" | "DRAG", string>;
+      };
+      /** A module that never reports its media: no line can be lit as it plays. */
+      quiet: string;
+      /** The state as the module names it, for whoever reads machine ids. */
+      state: (state: string) => string;
     };
     /** Named workspace layouts, from the Layout menu in the activity header. */
     layouts: {
@@ -401,6 +437,18 @@ export type Strings = {
         built: string;
         next: { spec: string; mediaPlan: string; module: string };
       };
+      /** The list's lenses, by what an activity needs (activity-groups.ts). */
+      lensLabel: string;
+      lenses: { all: string; progress: string; attention: string; built: string };
+      columns: { activity: string; milestones: string; status: string; edited: string };
+      ref: (refNum: number) => string;
+      /** The milestone bar's steps, named on hover and to a reader. */
+      milestones: { spec: string; mediaPlan: string; module: string };
+      milestone: (name: string, done: boolean) => string;
+      /** A row's menu: open it, or make a new ref of its product. */
+      more: (title: string) => string;
+      open: string;
+      newRefFrom: (productCode: string) => string;
     };
     /** The project media library: every activity's uploads, browsed and downloaded together. */
     projectMedia: {
@@ -516,6 +564,11 @@ export type Strings = {
       lines: (n: number) => string;
       /** A line whose file the browser could not play. */
       failed: string;
+      /** Every line with a file, one after another in scene order: the word, and its full name. */
+      playAllShort: string;
+      stopAllShort: string;
+      playAll: (n: number) => string;
+      stopAll: string;
     };
     /** The Deploy section: whether a deploy of this activity could start, and what is missing. */
     deploy: {
@@ -1090,6 +1143,12 @@ export type Strings = {
       clipPlaceholder: string;
       clipUnbound: string;
       openClip: (key: string) => string;
+      /** A clip chip's play button, by what the line says. */
+      playClip: (words: string) => string;
+      stopClip: (words: string) => string;
+      /** The small player a video chip opens over the script. */
+      closeVideo: string;
+      videoOf: (words: string) => string;
       seconds: (value: string) => string;
       minutes: (minutes: number, seconds: string) => string;
       sceneFacts: {
@@ -1850,6 +1909,15 @@ export type Strings = {
       unused: string;
       noPlan: string;
       noMatch: string;
+      /** The Library's grid or table switch. */
+      layout: string;
+      layouts: { grid: string; table: string };
+      /** The grid's two groups: what still needs a file, and what is ready. */
+      needsAttention: string;
+      ready: string;
+      needsFile: string;
+      facts: (parts: string[]) => string;
+      scenes: (ids: string) => string;
     };
     runSettled: {
       succeeded: (what: string) => string;
@@ -1933,7 +2001,6 @@ export type Strings = {
     previewScene: string;
     previewSceneDefault: string;
     previewLanguageDefault: string;
-    previewReload: string;
     previewResolution: (dimensions: string) => string;
     previewResolutionLabel: string;
     previewResolutionOwn: (dimensions: string) => string;
@@ -1963,6 +2030,16 @@ export type Strings = {
     readingMode: string;
     readingModeHint: string;
     chooseReadingMode: string;
+    /** The create dialog's own words: what the learner does first, then the codes, with hints. */
+    createActivity: {
+      learner: string;
+      learnerHint: string;
+      learnerPlaceholder: string;
+      productCodeHint: string;
+      /** Under the ref number the dialog filled in: a new product's first, or the next free one. */
+      refFirst: string;
+      refNext: string;
+    };
     readAlong: string;
     decodable: string;
     empty: string;

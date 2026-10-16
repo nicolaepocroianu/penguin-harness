@@ -95,3 +95,36 @@ export function filterUploads(
       matches(query, entry.upload.name, entry.upload.path, ...entry.usedBy),
   );
 }
+
+/**
+ * An asset that still needs a file: nothing bound, or only the placeholder, which plays the
+ * same stand-in clip for every asset. The grid puts these first.
+ */
+export function needsAttention(entry: PlannedEntry): boolean {
+  return !entry.path || entry.source === "placeholder";
+}
+
+/** How the Library lays out what it lists: pictures in a grid, or rows in a table. */
+export type LibraryLayout = "grid" | "table";
+
+export const LIBRARY_LAYOUT_KEY = "penguin.activityLibraryLayout";
+
+/** This viewer's choice; unreadable storage, or none yet, gives the grid. */
+export function readLibraryLayout(storage?: Pick<Storage, "getItem">): LibraryLayout {
+  try {
+    return (storage ?? localStorage).getItem(LIBRARY_LAYOUT_KEY) === "table" ? "table" : "grid";
+  } catch {
+    return "grid";
+  }
+}
+
+export function writeLibraryLayout(
+  layout: LibraryLayout,
+  storage?: Pick<Storage, "setItem">,
+): void {
+  try {
+    (storage ?? localStorage).setItem(LIBRARY_LAYOUT_KEY, layout);
+  } catch {
+    // Storage may be unavailable; the choice then lasts as long as the page.
+  }
+}

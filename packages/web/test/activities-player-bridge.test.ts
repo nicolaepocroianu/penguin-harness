@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   HIGHLIGHT_MESSAGE,
+  MEDIA_MESSAGE,
   PICKED_MESSAGE,
   PICK_MODE_MESSAGE,
   STATE_MESSAGE,
   highlightMessage,
   pickModeMessage,
+  readPlayerMedia,
   readPlayerPick,
   readPlayerReport,
 } from "../src/features/activities/player-bridge";
@@ -138,5 +140,36 @@ describe("player bridge", () => {
   it("switches picking on and off", () => {
     expect(pickModeMessage(true)).toEqual({ type: PICK_MODE_MESSAGE, on: true });
     expect(pickModeMessage(false)).toEqual({ type: PICK_MODE_MESSAGE, on: false });
+  });
+
+  it("reads a clip the activity started or ended, only from the player and in its shape", () => {
+    const message = {
+      type: MEDIA_MESSAGE,
+      detail: { index: 7, kind: "audio", key: "scene-2-audio-hunt", status: "started" },
+    };
+    expect(readPlayerMedia(message, frame, frame)).toEqual({
+      index: 7,
+      kind: "audio",
+      key: "scene-2-audio-hunt",
+      status: "started",
+    });
+    expect(readPlayerMedia(message, { name: "other" }, frame)).toBeNull();
+    expect(readPlayerMedia(message, frame, null)).toBeNull();
+    expect(readPlayerMedia({ ...message, type: STATE_MESSAGE }, frame, frame)).toBeNull();
+    expect(
+      readPlayerMedia({ ...message, detail: { ...message.detail, index: 1.5 } }, frame, frame),
+    ).toBeNull();
+    expect(
+      readPlayerMedia({ ...message, detail: { ...message.detail, key: "" } }, frame, frame),
+    ).toBeNull();
+    expect(
+      readPlayerMedia(
+        { ...message, detail: { ...message.detail, status: "x".repeat(201) } },
+        frame,
+        frame,
+      ),
+    ).toBeNull();
+    // A state report is not a media report, nor the other way round.
+    expect(readPlayerReport(message, frame, frame)).toBeNull();
   });
 });

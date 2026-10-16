@@ -8,7 +8,8 @@ import type { Log } from "../hmr/capabilities.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import type { ActivitySandbox } from "./sandbox-service.js";
 import { contentRevision, type ActivityRecord } from "./domain.js";
-import { summarize, type ActivitySummary } from "./activity-summary.js";
+import { posterOf, summarize, type ActivitySummary } from "./activity-summary.js";
+import { placeholderPaths } from "./media.js";
 
 export abstract class ActivitySummaries extends Interface<{
   forActivities(
@@ -62,6 +63,7 @@ export class ActivitySummaryService implements ActivitySummaries {
           : "stale",
       hasModule,
       runningKind: runs.find((run) => run.status === "running")?.kind ?? null,
+      poster: posterOf(plan?.manifest.assets, draft.spec, new Set(placeholderPaths(record))),
     });
   }
 }

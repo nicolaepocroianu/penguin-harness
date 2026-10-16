@@ -30,6 +30,7 @@ import { ICON_GAP, ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
 import { toneInk, type Tone } from "../../lib/tone";
 import { ClipButton, useClipPlayer, type Clip, type ClipPlayer } from "./clip-player";
+import { ClipWave } from "./clip-wave";
 import { narrationScenes, type NarrationScene } from "./narration-scenes";
 import { boundSource } from "./ref-plan";
 import type { SceneAssetTree } from "./scene-assets";
@@ -93,6 +94,8 @@ const INSTRUCTION_FILTERS: readonly InstructionFilter[] = ["all", "main", "scaff
 
 const NO_SCENES: SceneAssetTree = { scenes: [], unassigned: [] };
 const NO_SCRIPT = { text: "", scenes: [] };
+/** The run that plays every line, scene by scene. */
+const ALL_LINES = "all";
 
 // The app's segmented control (`components/ui/segmented.tsx`), laid out to wrap: these
 // choices carry counts and can number more than the control's four columns.
@@ -335,6 +338,10 @@ export function SpeechCoverage({
     const src = asset ? boundSource(asset, endpoint) : null;
     return src ? { key, src } : null;
   };
+  // Every line shown that has a file, in the order the groups list them: Play all.
+  const everyClip = groups.flatMap((group) =>
+    group.rows.flatMap((status) => clipOf(status.key) ?? []),
+  );
   // The provider the narrations share picks the voices offered; with several, every voice.
   const provider = sharedProvider(assets);
   const bulkVoices =
@@ -367,12 +374,36 @@ export function SpeechCoverage({
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <h4 className="flex items-center gap-2 text-sm font-semibold">
-          {S.activities.bulkSpeechTitle}
-          <InfoPopover label={S.activities.bulkSpeechTitle}>
-            <p>{S.activities.bulkSpeechHelp}</p>
-          </InfoPopover>
-        </h4>
+        <div className="flex items-center gap-2">
+          <h4 className="flex items-center gap-2 text-sm font-semibold">
+            {S.activities.bulkSpeechTitle}
+            <InfoPopover label={S.activities.bulkSpeechTitle}>
+              <p>{S.activities.bulkSpeechHelp}</p>
+            </InfoPopover>
+          </h4>
+          <span className="flex-1" />
+          {everyClip.length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label={
+                player.run === ALL_LINES
+                  ? S.activities.clipPlayback.stopAll
+                  : S.activities.clipPlayback.playAll(everyClip.length)
+              }
+              onClick={() => player.toggleRun(ALL_LINES, everyClip)}
+            >
+              <GlyphIcon
+                d={player.run === ALL_LINES ? PAUSE_ICON : PLAY_ICON}
+                size={ICON_SIZE.inlineGlyph}
+                filled={player.run !== ALL_LINES}
+              />
+              {player.run === ALL_LINES
+                ? S.activities.clipPlayback.stopAllShort
+                : S.activities.clipPlayback.playAllShort}
+            </Button>
+          )}
+        </div>
         <p className="text-xs text-gray-500">
           {tally.ready === tally.total ? (
             <span className={toneInk.success}>{S.activities.bulkSpeechAllReady(tally.total)}</span>
@@ -596,6 +627,14 @@ export function SpeechCoverage({
                             }
                           />
                           <span className="flex shrink-0 items-baseline gap-2">
+                            {clip && (
+                              <ClipWave
+                                src={clip.src}
+                                bars={18}
+                                played={sounding ? player.progress : 0}
+                                className="h-4 w-16 self-center text-brand-600 max-sm:hidden dark:text-brand-300"
+                              />
+                            )}
                             {player.failed === status.key ? (
                               <span className={toneInk.danger}>
                                 {S.activities.clipPlayback.failed}

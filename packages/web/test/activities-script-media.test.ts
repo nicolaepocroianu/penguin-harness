@@ -67,6 +67,7 @@ describe("tying script lines to clips", () => {
     );
     expect(media.clipFor("audio", "We are going on a treasure hunt!")).toEqual({
       key: "s2_hunt",
+      type: "audio",
       bound: true,
       durationMs: 1800,
     });
@@ -76,6 +77,7 @@ describe("tying script lines to clips", () => {
   it("says a clip has no file yet, and says nothing for a line no clip has", () => {
     expect(media.clipFor("audio", "Each treasure is a letter.")).toEqual({
       key: "s2_letter",
+      type: "audio",
       bound: false,
     });
     expect(media.clipFor("audio", "Something the plan never heard")).toBeNull();
@@ -97,10 +99,31 @@ describe("tying script lines to clips", () => {
     );
     expect(marked.clipFor("video", "A colorful island with a treasure map.")).toEqual({
       key: "s1_island",
+      type: "video",
       bound: true,
       placeholder: true,
     });
     expect(marked.totals).toEqual({ bound: 2, total: 3, placeholders: 1 });
+  });
+
+  it("plays a clip in place only from a real file, never from the placeholder", () => {
+    const placeholders = new Set(["media/island.mp4"]);
+    const playable = buildScriptMedia(
+      assets,
+      buildSceneTree(spec, assets, placeholders),
+      sceneRanges(script),
+      placeholders,
+      "/api/a",
+    );
+    expect(playable.clipFor("audio", "We are going on a treasure hunt!")?.src).toBe(
+      "/api/a/sandbox/media/hunt.wav",
+    );
+    expect(
+      playable.clipFor("video", "A colorful island with a treasure map.")?.src,
+    ).toBeUndefined();
+    expect(playable.clipFor("audio", "Each treasure is a letter.")?.src).toBeUndefined();
+    // Without the place files are served from, nothing plays.
+    expect(media.clipFor("audio", "We are going on a treasure hunt!")?.src).toBeUndefined();
   });
 
   it("reads the words between an element's tags", () => {

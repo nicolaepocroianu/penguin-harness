@@ -128,6 +128,7 @@ import type { SpeechProviderId } from "./speech-types.js";
 import {
   nextFreeRefNum,
   refDraftFromTemplate,
+  type ProductRefNumber,
   type RefAssetDecision,
   type RefNumberSuggestion,
 } from "./ref-template.js";
@@ -866,6 +867,8 @@ export class ActivityService implements ActivityAuthoring {
       moduleFolder?: unknown;
       /** A book's reading mode; like the module folder, only read for the product's first ref. */
       bookMode?: "decodable" | "readAlong";
+      /** What the learner does, in the author's words: the script starts with it. */
+      description?: string;
     },
   ): Promise<ActivityRecord & { draft: ActivityDraft }> {
     let productCode: string, refNum: number;
@@ -940,13 +943,15 @@ export class ActivityService implements ActivityAuthoring {
           archived: false,
           tags: this.productTags(product.productId),
         };
+        // The script starts as the author's first words about the activity, or empty.
+        const description = input.description?.trim() ? `${input.description.trim()}\n` : "";
         const draft: ActivityDraft = {
           draftId: newId("draft"),
           activityId: activity.id,
           baseVersionId: null,
-          contentRevision: contentRevision({ description: "", spec: null }),
+          contentRevision: contentRevision({ description, spec: null }),
           status: "draft",
-          description: "",
+          description,
           spec: null,
           updatedAt: now,
         };
@@ -2555,6 +2560,35 @@ export class ActivityService implements ActivityAuthoring {
       canonical: !!activity.productId && this.isCanonicalRef(activity),
       taken,
     };
+  }
+
+  /**
+   * The number a new activity of this product code would take in the project's collection,
+   * by the rule above. Read only: an unknown or malformed code simply has no refs yet.
+   */
+  async productRefNumber(projectId: string, productCode: unknown): Promise<ProductRefNumber> {
+    let code: string;
+    try {
+      code = normalizeProductCode(productCode);
+    } catch (error) {
+      throw new HttpError(400, "activity_invalid", (error as Error).message);
+    }
+    // The collection a create without one lands in; a project with none has no refs at all.
+    const collection = this.db
+      .prepare(
+        "SELECT collection_id FROM activity_collections WHERE project_id = ? ORDER BY created_at, collection_id LIMIT 1",
+      )
+      .get(projectId) as { collection_id: string } | undefined;
+    const taken = collection
+      ? (
+          this.db
+            .prepare(
+              "SELECT ref_num AS refNum FROM activities WHERE collection_id = ? AND product_code = ? ORDER BY ref_num",
+            )
+            .all(collection.collection_id, code) as { refNum: number }[]
+        ).map((row) => row.refNum)
+      : [];
+    return { refNum: nextFreeRefNum(taken), taken };
   }
 
   /**

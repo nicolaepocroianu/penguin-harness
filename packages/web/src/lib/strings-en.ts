@@ -59,9 +59,7 @@ export const en: Strings = {
         `Scene ${number}: ${title} (${id})`,
     },
     studioPlayer: {
-      now: (state: string, scene: string) => `Now in ${state}, ${scene}`,
       waiting: "The activity has not reported its state yet.",
-      tapTargets: "Tap targets",
       pick: "Pick",
       picking: "Click something in the preview",
       opened: (name: string) => `Opened ${name}.`,
@@ -91,7 +89,7 @@ export const en: Strings = {
           SELECT_CLICK: "select and tap",
           DRAG: "drag",
         },
-        resizeMap: "Resize the behavior map",
+        resizeMap: "Resize the column beside the player",
         zoom: "Zoom",
         zoomIn: "Zoom in",
         zoomOut: "Zoom out",
@@ -114,6 +112,40 @@ export const en: Strings = {
           close: "Close",
         },
       },
+    },
+    studioPlay: {
+      now: "Now",
+      scene: (number, title) => (title ? `Scene ${number} · ${title}` : `Scene ${number}`),
+      lines: (scene) => `Lines in ${scene}`,
+      noLines: "No narration in this scene.",
+      speaking: "being said now",
+      chosen: "chosen",
+      about: (length) => `about ${length}`,
+      showLine: (words) => `Show “${words}” in the script`,
+      timeline: "Scenes",
+      jump: (scene) => `Play from ${scene}`,
+      restart: "Restart",
+      previous: "Previous scene",
+      next: "Next scene",
+      tap: {
+        speaking: "Nothing to tap while the narrator speaks.",
+        video: "Nothing to tap while a video plays.",
+        nothing: "Nothing to tap here.",
+        targets: (groups, more) => {
+          const or = (names: string[]) =>
+            names.length < 2
+              ? (names[0] ?? "")
+              : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
+          return [
+            ...groups.map((group) => `${group.verb} ${or(group.names)}`),
+            ...(more ? [`${more} more`] : []),
+          ].join(" · ");
+        },
+        verbs: { CLICK: "Tap", SELECT: "Select", SELECT_CLICK: "Select and tap", DRAG: "Drag" },
+      },
+      quiet:
+        "This module doesn't say which clip it is playing, so no line lights up as it plays. Modules built on Loom's media runtime do.",
+      state: (state) => `The module calls this state ${state}.`,
     },
     layouts: {
       menu: "Layout",
@@ -447,6 +479,20 @@ export const en: Strings = {
         built: "Built",
         next: { spec: "Specification next", mediaPlan: "Media plan next", module: "Module next" },
       },
+      lensLabel: "Show",
+      lenses: { all: "All", progress: "In progress", attention: "Needs you", built: "Built" },
+      columns: {
+        activity: "Activity",
+        milestones: "Milestones",
+        status: "Status",
+        edited: "Edited",
+      },
+      ref: (refNum: number) => `ref ${refNum}`,
+      milestones: { spec: "Specification", mediaPlan: "Media plan", module: "Module" },
+      milestone: (name: string, done: boolean) => `${name}: ${done ? "done" : "not yet"}`,
+      more: (title: string) => `More for ${title}`,
+      open: "Open",
+      newRefFrom: (productCode: string) => `New ref of ${productCode}`,
     },
     projectMedia: {
       title: "Project media library",
@@ -558,6 +604,10 @@ export const en: Strings = {
       stopScene: (scene: string) => `Stop scene: ${scene}`,
       lines: (n: number) => `${n} ${n === 1 ? "line" : "lines"}`,
       failed: "Could not play this file.",
+      playAllShort: "Play all",
+      stopAllShort: "Stop",
+      playAll: (n: number) => `Play all ${n} ${n === 1 ? "line" : "lines"}, scene by scene`,
+      stopAll: "Stop playing every line",
     },
     deploy: {
       title: "Deploy",
@@ -1207,6 +1257,10 @@ export const en: Strings = {
       clipPlaceholder: "Placeholder",
       clipUnbound: "Needs a file",
       openClip: (key: string) => `Open ${key} in Scenes`,
+      playClip: (words: string) => (words ? `Play “${words}”` : "Play this clip"),
+      stopClip: (words: string) => (words ? `Stop “${words}”` : "Stop this clip"),
+      closeVideo: "Close the video",
+      videoOf: (words: string) => (words ? `Video: ${words}` : "Video"),
       seconds: (value: string) => `${value} s`,
       minutes: (minutes: number, seconds: string) => `${minutes} min ${seconds} s`,
       sceneFacts: {
@@ -2143,6 +2197,14 @@ export const en: Strings = {
       unused: "Not used",
       noPlan: "Plan media to see its assets here.",
       noMatch: "Nothing matches these filters.",
+      layout: "Show as",
+      layouts: { grid: "Grid", table: "Table" },
+      needsAttention: "Needs attention",
+      ready: "Ready",
+      needsFile: "Needs a file",
+      /** An asset's facts on one line, where there are no columns to hold them. */
+      facts: (parts: string[]) => parts.join(" · "),
+      scenes: (ids: string) => `Scenes ${ids}`,
     },
     runSettled: {
       succeeded: (what: string) => `${what} finished.`,
@@ -2247,7 +2309,6 @@ export const en: Strings = {
     previewScene: "Start scene",
     previewSceneDefault: "Module default",
     previewLanguageDefault: "Default language",
-    previewReload: "Reload preview",
     previewResolution: (dimensions: string) => `${dimensions} viewport`,
     previewResolutionLabel: "Preview resolution",
     previewResolutionOwn: (dimensions: string) => `${dimensions} (the activity's own)`,
@@ -2278,6 +2339,16 @@ export const en: Strings = {
     readingModeHint:
       "Read-along starts the narration on each page. Decodable lets a child tap a word to hear it sounded out. Every ref of the book uses this mode.",
     chooseReadingMode: "Choose a reading mode",
+    createActivity: {
+      learner: "What should the learner do?",
+      learnerHint: "This becomes the start of the script. Plain sentences are enough.",
+      learnerPlaceholder:
+        "A treasure hunt for capital and lowercase letters: the narrator names a letter, and the learner presses and holds it.",
+      productCodeHint:
+        "Letters and digits, with dots, dashes or underscores. Every ref of this product shares it.",
+      refFirst: "This product's first ref.",
+      refNext: "The next free number for this product.",
+    },
     readAlong: "Read-along",
     decodable: "Decodable",
     empty: "No activities yet. Create one with its product code and reference number.",

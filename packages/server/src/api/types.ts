@@ -4942,6 +4942,7 @@ export type {
 } from "../activities/domain.js";
 export type { SandboxStatus, SandboxBuildReport } from "../activities/sandbox-paths.js";
 export type {
+  ActivityPoster,
   ActivitySummary,
   ActivitySummaryStatus,
   SummaryMilestone,
@@ -5046,6 +5047,7 @@ export type {
   ModuleBuildText,
 } from "../activities/module-build-types.js";
 export type {
+  ProductRefNumber,
   RefAssetAction,
   RefAssetDecision,
   RefNumberSuggestion,

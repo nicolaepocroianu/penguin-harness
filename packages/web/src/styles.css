@@ -1093,6 +1093,51 @@ html.dark .script-editor .cm-editor .cm-json-punctuation {
 .script-editor .cm-editor button.cm-clip:hover {
   @apply border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900;
 }
+/* A chip with a real file to play: a round play button leads it, and fills while it plays. */
+.script-editor .cm-editor .cm-clip-group {
+  margin-left: 0.5rem;
+  white-space: nowrap;
+}
+.script-editor .cm-editor .cm-clip-group .cm-clip {
+  margin-left: 0.25rem;
+}
+.script-editor .cm-editor .cm-clip-play {
+  position: relative;
+  display: inline-block;
+  width: 1.05rem;
+  height: 1.05rem;
+  vertical-align: -0.2rem;
+  cursor: pointer;
+  @apply rounded-full border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-800;
+}
+/* A triangle to play. */
+.script-editor .cm-editor .cm-clip-play::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 55%;
+  transform: translate(-50%, -50%);
+  border-style: solid;
+  border-width: 0.22rem 0 0.22rem 0.36rem;
+  border-color: transparent transparent transparent currentColor;
+}
+/* Two bars to stop, on the accent while it plays. */
+.script-editor .cm-editor .cm-clip-play.cm-clip-playing {
+  border-color: var(--accent-bg);
+  background-color: var(--accent-bg);
+  color: var(--accent-fg);
+}
+.script-editor .cm-editor .cm-clip-play.cm-clip-playing::before {
+  left: 50%;
+  width: 0.36rem;
+  height: 0.42rem;
+  border-width: 0 0.12rem;
+  border-color: transparent currentColor;
+}
+/* The line the preview is saying, or one an author chose: a selection, in the brand's hue. */
+.script-editor .cm-editor .cm-line-lit {
+  @apply rounded-sm bg-brand-50 dark:bg-brand-950/60;
+}
 .script-editor .cm-editor .cm-scene-facts {
   margin-left: 0.75rem;
   font-weight: 400;

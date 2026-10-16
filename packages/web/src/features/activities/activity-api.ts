@@ -27,6 +27,7 @@ import type {
   ModuleBuildList,
   ModuleDocuments,
   ModuleProductsResponse,
+  ProductRefNumber,
   PipelineState,
   ProjectMediaListing,
   RefNumberSuggestion,
@@ -80,6 +81,10 @@ export type RunAccept =
 const activitiesPath = (projectId: string) =>
   `/api/projects/${encodeURIComponent(projectId)}/activities`;
 
+/** Where one activity's routes are served, its files among them. */
+export const activityEndpoint = (projectId: string, activityId: string) =>
+  `${activitiesPath(projectId)}/${encodeURIComponent(activityId)}`;
+
 /**
  * The project's activities as a whole: the list, making one, the module products, the media
  * library, and the setup every activity uses (languages, voices, providers, scene looks).
@@ -111,6 +116,9 @@ export function projectActivitiesApi(projectId: string, send: ApiSend = apiFetch
     refs: (collectionId: string) =>
       send<{ activities: ActivityRecord[] }>(`${base}?${new URLSearchParams({ collectionId })}`),
     create: (body: Record<string, unknown>) => send<ActivityDetail>(base, { method: "POST", body }),
+    /** The number a new activity of this product code would take, deleted refs counted. */
+    refNumber: (productCode: string) =>
+      send<ProductRefNumber>(`${base}/ref-number?${new URLSearchParams({ productCode })}`),
     moduleProducts: () => send<ModuleProductsResponse>(`${base}/module-products`),
     claimModuleProduct: (body: { moduleFolder: string; productCode: string }) =>
       send<ClaimModuleProductResponse>(`${base}/module-products/claim`, { method: "POST", body }),
@@ -131,7 +139,7 @@ export interface ImplementationFeatures {
 
 /** One activity's routes. */
 export function activityApi(projectId: string, activityId: string, send: ApiSend = apiFetch) {
-  const endpoint = `${activitiesPath(projectId)}/${encodeURIComponent(activityId)}`;
+  const endpoint = activityEndpoint(projectId, activityId);
   const get = <T>(path: string) => send<T>(path ? `${endpoint}/${path}` : endpoint);
   const call = <T>(
     method: "POST" | "PUT" | "PATCH",

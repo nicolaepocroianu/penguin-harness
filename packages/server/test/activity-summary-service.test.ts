@@ -47,6 +47,7 @@ describe("ActivitySummaryService.forActivities", () => {
       done: 0,
       total: 3,
       status: { kind: "next", milestone: "spec" },
+      poster: null,
     });
     expect(lines.some((line) => line.includes(broken.id) && line.includes("boom"))).toBe(true);
   });

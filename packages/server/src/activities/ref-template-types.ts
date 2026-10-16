@@ -32,3 +32,13 @@ export interface RefNumberSuggestion {
   /** Every number the product's refs hold, deleted ones included. */
   taken: number[];
 }
+
+/**
+ * The number a new activity of a product code would take, before any of its refs is open:
+ * what the create dialog fills in as the author types the code.
+ */
+export interface ProductRefNumber {
+  refNum: number;
+  /** Every number the product's refs hold, deleted ones included; empty for a new product. */
+  taken: number[];
+}

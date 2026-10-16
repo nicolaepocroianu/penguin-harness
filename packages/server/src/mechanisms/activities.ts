@@ -28,7 +28,11 @@ import type {
 import type { BundleItem, ProjectMediaListing } from "../activities/media-library-types.js";
 import type { ImplementationFeature } from "../activities/implementation-features.js";
 import type { ReadinessCheck } from "../activities/readiness-types.js";
-import type { RefAssetDecision, RefNumberSuggestion } from "../activities/ref-template-types.js";
+import type {
+  ProductRefNumber,
+  RefAssetDecision,
+  RefNumberSuggestion,
+} from "../activities/ref-template-types.js";
 import type {
   ActivityDetail,
   ActivityDraft,
@@ -465,6 +469,8 @@ export abstract class ActivityAuthoring extends Interface<{
       activityType?: "standard" | "book";
       /** A book's reading mode, kept only when this ref creates the product. */
       bookMode?: "decodable" | "readAlong";
+      /** What the learner does, in the author's words: the first lines of the script. */
+      description?: string;
     },
   ): Promise<ActivityRecord & { draft: ActivityDraft }>;
   getActivity(
@@ -496,6 +502,11 @@ export abstract class ActivityAuthoring extends Interface<{
    * whether this ref is the template new refs are made from.
    */
   nextRefNumber(projectId: string, activityId: string): Promise<RefNumberSuggestion>;
+  /**
+   * The number a new activity of this product code would take, by the same rule, before any
+   * ref of it is open: 0 for a product no ref holds yet.
+   */
+  productRefNumber(projectId: string, productCode: unknown): Promise<ProductRefNumber>;
   /**
    * A new ref made from the product's template (its canonical ref, marked stable): the
    * template's draft and files, with each asset kept, cleared for regeneration or bound to one

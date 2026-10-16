@@ -12,6 +12,7 @@
 import type { AssetManifest } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
 import { NO_PLACEHOLDERS, bindingOf, type PlaceholderPaths } from "./placeholder-media";
+import { boundSource } from "./ref-plan";
 import type { SceneAssetTree } from "./scene-assets";
 import { mediaElementSpans, type MediaElement, type ScriptScene } from "./script-model";
 import { scriptSceneFor } from "./studio-tree";
@@ -20,12 +21,18 @@ type MediaAsset = AssetManifest["assets"][string][number];
 
 export interface ScriptClip {
   key: string;
+  type: MediaAsset["type"];
   /** A file is bound to it, by a generation run or by an author. */
   bound: boolean;
   /** What is bound is the placeholder, which still waits for a real file. */
   placeholder?: boolean;
   /** The bound clip's length, when the plan knows it. */
   durationMs?: number;
+  /**
+   * Where the clip plays from, so its chip can play it in place: only a real file, never the
+   * placeholder, which would play the same stand-in clip for every line.
+   */
+  src?: string;
 }
 
 export interface SceneMedia {
@@ -72,17 +79,23 @@ export function buildScriptMedia(
   tree: SceneAssetTree,
   scenes: readonly ScriptScene[],
   placeholders: PlaceholderPaths = NO_PLACEHOLDERS,
+  /** Where the activity's files are served; without it no chip plays. */
+  endpoint?: string,
 ): ScriptMedia {
   const byText = new Map<string, ScriptClip>();
   for (const asset of assets) {
     const words = normalizeWords(matchText(asset) ?? "");
     if (!words) continue;
     const id = `${asset.type}:${words}`;
+    const binding = bindingOf(placeholders, asset.path);
+    const src = endpoint && binding === "file" ? boundSource(asset, endpoint) : null;
     const clip: ScriptClip = {
       key: asset.key,
+      type: asset.type,
       bound: !!asset.path,
-      ...(bindingOf(placeholders, asset.path) === "placeholder" ? { placeholder: true } : {}),
+      ...(binding === "placeholder" ? { placeholder: true } : {}),
       ...(asset.durationMs !== undefined ? { durationMs: asset.durationMs } : {}),
+      ...(src ? { src } : {}),
     };
     // Two clips with the same words: a bound one says more about the line than an empty one,
     // and a real file more than a placeholder.

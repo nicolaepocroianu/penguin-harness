@@ -1,15 +1,24 @@
-import { useState } from "react";
+/**
+ * Loom-style create dialog, starting from the idea: what the learner should do comes first and
+ * becomes the first lines of the script, so the author lands on their own words rather than an
+ * empty editor. The codes follow, with what they are for; the ref number arrives filled in with
+ * the next free one for the product code typed (deleted refs keep theirs), unless the author
+ * types one of their own.
+ */
+import { useEffect, useRef, useState } from "react";
 import { ApiError } from "../../api/client";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
+import { Input, Textarea } from "../../components/ui/input";
 import { Modal } from "../../components/ui/modal";
 import { Select } from "../../components/ui/select";
 import { projectActivitiesApi } from "./activity-api";
 
-/** Loom-style create dialog: the fields an activity starts with, nothing more. */
+/** How long typing pauses before the next free number is asked for. */
+const ASK_AFTER_MS = 250;
+
 export function CreateActivityDialog({
   projectId,
   onClose,
@@ -19,13 +28,45 @@ export function CreateActivityDialog({
   onClose: () => void;
   onCreated: (activityId: string) => void;
 }) {
+  const words = S.activities.createActivity;
+  const [description, setDescription] = useState("");
   const [productCode, setProductCode] = useState("");
   const [refNum, setRefNum] = useState("");
+  // The number the server suggested for the code typed, and whether the code is a new product.
+  const [suggested, setSuggested] = useState<{ refNum: number; first: boolean } | null>(null);
+  const typedRef = useRef(false);
   const [title, setTitle] = useState("");
   const [activityType, setActivityType] = useState("standard");
   const [bookMode, setBookMode] = useState<"" | "readAlong" | "decodable">("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const code = productCode.trim();
+    if (!code) {
+      setSuggested(null);
+      return;
+    }
+    let live = true;
+    const timer = setTimeout(() => {
+      projectActivitiesApi(projectId)
+        .refNumber(code)
+        .then((answer) => {
+          if (!live || typeof answer?.refNum !== "number" || !Array.isArray(answer.taken)) return;
+          setSuggested({ refNum: answer.refNum, first: answer.taken.length === 0 });
+          if (!typedRef.current) setRefNum(String(answer.refNum));
+        })
+        .catch(() => {
+          // A code the server cannot read is said when the activity is created.
+          if (live) setSuggested(null);
+        });
+    }, ASK_AFTER_MS);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [projectId, productCode]);
+
   async function create(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setCreating(true);
@@ -37,7 +78,9 @@ export function CreateActivityDialog({
         title,
         activityType,
         ...(activityType === "book" ? { bookMode } : {}),
+        ...(description.trim() ? { description } : {}),
       });
+      setDescription("");
       setProductCode("");
       setRefNum("");
       setTitle("");
@@ -54,10 +97,13 @@ export function CreateActivityDialog({
       setCreating(false);
     }
   }
+  const filled = suggested !== null && refNum === String(suggested.refNum);
   return (
     <Modal
       open
       title={S.activities.create}
+      // Wide enough for a few sentences about the activity to read as a paragraph.
+      widthClass="sm:max-w-xl"
       onClose={onClose}
       footer={
         <>
@@ -77,26 +123,44 @@ export function CreateActivityDialog({
       }
     >
       <form id="create-activity" onSubmit={(event) => void create(event)} className="space-y-3">
-        <Input
+        <Textarea
           size="sm"
-          label={S.activities.productCode}
-          value={productCode}
-          onChange={(e) => setProductCode(e.target.value)}
-          required
-          maxLength={100}
+          rows={4}
+          label={words.learner}
+          hint={words.learnerHint}
+          placeholder={words.learnerPlaceholder}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          maxLength={100_000}
           disabled={creating}
         />
-        <Input
-          size="sm"
-          label={S.activities.refNum}
-          type="number"
-          min={0}
-          step={1}
-          value={refNum}
-          onChange={(e) => setRefNum(e.target.value)}
-          required
-          disabled={creating}
-        />
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_9rem]">
+          <Input
+            size="sm"
+            label={S.activities.productCode}
+            hint={words.productCodeHint}
+            value={productCode}
+            onChange={(e) => setProductCode(e.target.value)}
+            required
+            maxLength={100}
+            disabled={creating}
+          />
+          <Input
+            size="sm"
+            label={S.activities.refNum}
+            hint={filled ? (suggested.first ? words.refFirst : words.refNext) : undefined}
+            type="number"
+            min={0}
+            step={1}
+            value={refNum}
+            onChange={(e) => {
+              typedRef.current = true;
+              setRefNum(e.target.value);
+            }}
+            required
+            disabled={creating}
+          />
+        </div>
         <Input
           size="sm"
           label={S.activities.name}

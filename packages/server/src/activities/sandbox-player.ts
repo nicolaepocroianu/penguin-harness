@@ -17,8 +17,8 @@ import { createHash } from "node:crypto";
  * The player's entry, bundled against the framework.
  *
  * Loom's `player.js`, including its inspector bridge: the page reports the activity's
- * state and its tap targets to the App that opened it, and outlines a tap target when the
- * App asks. Loom found the App through `document.referrer`; this page is served with no
+ * state, its tap targets and the clips it starts and ends to the App that opened it, and
+ * outlines a tap target when the App asks. Loom found the App through `document.referrer`; this page is served with no
  * referrer, so the App's origin arrives signed in the page's configuration instead, and a
  * page with none reports nothing. What the page needs to know arrives as JSON in
  * `#penguin-sandbox`, not as query parameters, because the page is the server's to write.
@@ -108,6 +108,37 @@ document.addEventListener(
 document.addEventListener(
     ACTIVITY_INTERACTABLES_EVENT,
     (event) => relayActivityState(latestActivityState, event.detail),
+    true
+);
+
+// What the activity plays: the framework records each clip it starts and ends by its asset
+// key, which is how the App lights the line being spoken. Like the state, the event is
+// dispatched on the activity's root without bubbling, so it is caught on the way down. Only
+// the kind, the key and what happened go out; nothing else of the record does.
+const ACTIVITY_MEDIA_EVENT = 'waf:activity-media-change';
+const MEDIA_MESSAGE = 'penguin-sandbox:activity-media';
+document.addEventListener(
+    ACTIVITY_MEDIA_EVENT,
+    (event) => {
+        const record = event.detail;
+        if (!record || !sandbox.parentOrigin || window.parent === window) return;
+        try {
+            window.parent.postMessage(
+                {
+                    type: MEDIA_MESSAGE,
+                    detail: {
+                        index: record.index,
+                        kind: record.kind,
+                        key: record.key,
+                        status: record.status,
+                    },
+                },
+                sandbox.parentOrigin
+            );
+        } catch (error) {
+            // As with the state: a value the clone cannot carry is the inspector's loss only.
+        }
+    },
     true
 );
 

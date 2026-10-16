@@ -1,7 +1,8 @@
 /**
  * The App's half of the player's inspector bridge (the page's half is in the server's
- * `sandbox-player.ts`): the played activity reports each state it enters and what can be
- * tapped, and the App may ask for one tap target to be outlined.
+ * `sandbox-player.ts`): the played activity reports each state it enters, what can be
+ * tapped and each clip it starts and ends, and the App may ask for one tap target to be
+ * outlined.
  *
  * Everything that arrives is untrusted. The page runs a module's code, written by an agent
  * or by Loom, so a message counts only when it comes from the player's own frame, only in
@@ -87,6 +88,39 @@ export function readPlayerReport(
     .map(interactable)
     .filter((entry): entry is PlayerInteractable => entry !== null);
   return { state: { index: detail.index as number, phase, sceneId, state }, interactables };
+}
+
+export const MEDIA_MESSAGE = "penguin-sandbox:activity-media";
+
+/**
+ * A clip the activity started or ended, as the framework records it: what kind of media
+ * (`audio`, `video`), the asset's key, and what happened (`started`, `completed`,
+ * `interrupted`, `failed`, ...). The page sends nothing else of the record.
+ */
+export interface PlayerMedia {
+  index: number;
+  kind: string;
+  key: string;
+  status: string;
+}
+
+/** The media report a message carries, under the same rules as a state report. */
+export function readPlayerMedia(
+  data: unknown,
+  source: unknown,
+  frame: unknown,
+): PlayerMedia | null {
+  if (!frame || source !== frame) return null;
+  if (!data || typeof data !== "object") return null;
+  const message = data as Record<string, unknown>;
+  if (message.type !== MEDIA_MESSAGE) return null;
+  const detail = message.detail as Record<string, unknown> | null | undefined;
+  if (!detail || typeof detail !== "object") return null;
+  const kind = text(detail.kind);
+  const key = text(detail.key);
+  const status = text(detail.status);
+  if (!Number.isInteger(detail.index) || !kind || !key || !status) return null;
+  return { index: detail.index as number, kind, key, status };
 }
 
 /** The request to outline one tap target, or to clear the outline with null. */

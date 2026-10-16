@@ -20,6 +20,9 @@ describe("activity preview helpers", () => {
     expect(fitScale({ width: 640, height: 480 }, { width: 320, height: 480 })).toBe(0.5);
     expect(fitScale({ width: 640, height: 480 }, { width: 2000, height: 2000 })).toBe(1);
     expect(fitScale({ width: 640, height: 480 }, { width: 0, height: 480 })).toBe(1);
+    // On the stage the activity may grow, up to the most it is allowed.
+    expect(fitScale({ width: 640, height: 480 }, { width: 960, height: 2000 }, 2)).toBe(1.5);
+    expect(fitScale({ width: 640, height: 480 }, { width: 4000, height: 4000 }, 2)).toBe(2);
   });
 
   it("builds the preview URL with optional scene and language overrides", () => {

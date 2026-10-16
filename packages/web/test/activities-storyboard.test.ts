@@ -194,7 +194,7 @@ describe("scene beats", () => {
       ["<video>A treasure chest</video> then <image></image>", "<image/> stray tag"],
       (element, text) =>
         element === "video" && text === "A treasure chest"
-          ? { key: "chest", bound: true, placeholder: true }
+          ? { key: "chest", type: "video" as const, bound: true, placeholder: true }
           : null,
     );
     expect(beats).toEqual([
