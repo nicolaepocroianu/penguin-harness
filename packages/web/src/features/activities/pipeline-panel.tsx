@@ -69,8 +69,9 @@ function choiceLabel(choice: PipelineSelection) {
 /**
  * The stage a sequence that did not finish can be taken up at: the one it failed or stopped
  * at, when it was running every stage from some stage on. A sequence of one stage, or of the
- * narration or assets, ran only what the author picked, and taking it up would run more. One
- * stopped before its first stage started a run did nothing there is to take up.
+ * narration or assets, ran only what the author picked, and taking it up would run more. A
+ * sequence of every stage stopped before its first stage started a run is not offered it, as
+ * taking it up would do what Run does; one from a stage on is, as Run cannot start there.
  */
 export function continueStep(pipeline: PipelineState | null): PipelineStep | null {
   if (pipeline?.status !== "failed" && pipeline?.status !== "cancelled") return null;
@@ -80,7 +81,8 @@ export function continueStep(pipeline: PipelineState | null): PipelineStep | nul
   );
   const stopped = pipeline.steps[at];
   if (!stopped) return null;
-  if (at === 0 && stopped.status === "cancelled" && !stopped.runIds.length) return null;
+  const untouched = at === 0 && stopped.status === "cancelled" && !stopped.runIds.length;
+  if (untouched && pipeline.selection === "all") return null;
   return stopped.step;
 }
 

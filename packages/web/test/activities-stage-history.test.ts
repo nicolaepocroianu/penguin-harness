@@ -196,7 +196,7 @@ describe("taking a sequence up where it stopped", () => {
       expect(continueStep({ ...failedAtImages, selection })).toBeNull();
   });
 
-  it("is not offered for a sequence stopped before its first stage started anything", () => {
+  it("is not offered for a sequence of every stage stopped before its first stage started anything", () => {
     // Stopped, or cut short by a restart, before the first stage began: every stage reads stopped.
     const before = sequence("p1", {
       status: "cancelled",
@@ -213,6 +213,19 @@ describe("taking a sequence up where it stopped", () => {
     const [first, ...rest] = before.steps;
     expect(continueStep({ ...before, steps: [{ ...first!, runIds: ["run_1"] }, ...rest] })).toBe(
       "speech",
+    );
+  });
+
+  it("is still offered at its first stage for a sequence from a stage on stopped before it began", () => {
+    // A Continue that was itself stopped, or cut short by a restart, before its images run started.
+    const resumed = sequence("p2", {
+      status: "cancelled",
+      selection: { from: "images" },
+      steps: steps(["images", "cancelled"], ["module", "cancelled"], ["test", "cancelled"]),
+    });
+    expect(continueStep(resumed)).toBe("images");
+    expect(render(resumed, [resumed], { onContinue: () => undefined })).toContain(
+      words.continueFrom(words.steps.images),
     );
   });
 

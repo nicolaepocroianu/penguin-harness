@@ -23,8 +23,10 @@ that check's results could not be trusted, where it had read as a plain success 
   kept was continued with the agent and voice the controls held. A running sequence was named by
   the agent it was started with.
 - Continue was offered on the latest sequence only, when it had run every stage (from the start,
-  or from a stage on), and not for one stopped before its first stage started a run. While the
-  stages could not be run, Continue was held and said why beside it, as its description.
+  or from a stage on). A sequence of every stage stopped before its first stage started a run was
+  not offered it, since Run did the same; one from a stage on, stopped the same way, was still
+  offered it at that stage. While the stages could not be run, Continue was held and said why
+  beside it, as its description.
 - A sequence taken up at the tests played what the preview plays, as the tests run on their own
   do; one taken up at the module tested the build it made.
 - The module step read its run's player check as the outcome ledger counts it. A run that changed
