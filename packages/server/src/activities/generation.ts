@@ -121,7 +121,7 @@ import { mediaTextKind } from "./run-kinds/media-text.js";
 import { phonemesKind } from "./run-kinds/phonemes.js";
 import { videoKind } from "./run-kinds/video.js";
 import { Sandbox, SandboxModule } from "../sandbox/service.js";
-import { RUN_SANDBOX_MODE, sandboxUnavailable } from "./run-sandbox.js";
+import { RUN_SANDBOX_MODE, runConfinement } from "./run-sandbox.js";
 
 /** How long a Project's ElevenLabs voice list is reused before it is read again. */
 const VOICE_LIBRARY_TTL_MS = 10 * 60 * 1000;
@@ -558,14 +558,14 @@ export class ActivityGenerationService implements ActivityGeneration {
           // Penguin's own agent runs a stage's commands confined to the run's workspace, so
           // the WAF checkout is read-only to them by enforcement, not by the prompt's word —
           // unless an admin turned confinement off for this server (System settings > WAF
-          // workspace). With nothing able to confine, the run is refused here rather than left
-          // to fail at its first command.
-          const confined =
-            !work && !codingAgentId && !local && this.settings.getConfineActivityAgents();
-          if (confined) {
-            const problem = this.sandbox.confinementProblem(RUN_SANDBOX_MODE);
-            if (problem !== null) throw sandboxUnavailable(problem);
-          }
+          // workspace). A coding agent's commands are not, but a module its agent writes is
+          // built here, confined, for the run's player check. With nothing able to confine, the
+          // run is refused here rather than left to fail at its first command or that check.
+          const confinement =
+            !work && !local && (!codingAgentId || kind.writesModule)
+              ? runConfinement(this.settings, this.sandbox)
+              : null;
+          const confined = confinement !== null && !codingAgentId;
           this.runs.open(run);
           this.outcomes.witness({ run });
           try {

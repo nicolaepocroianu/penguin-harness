@@ -2,8 +2,9 @@
  * An activity run's own agent works confined to the run's workspace: the WAF checkout is
  * read-only to its commands by enforcement, not by the prompt's word. Where nothing can
  * confine them the run is refused before it starts. A coding agent runs its commands
- * itself, outside Penguin's sandbox, so it is neither confined nor refused. Confined or not,
- * a run's agent is not handed the API token or the `penguin` CLI.
+ * itself, outside Penguin's sandbox, so it is not confined, and refused only for a module run,
+ * whose module the server builds confined. Confined or not, a run's agent is not handed the
+ * API token or the `penguin` CLI.
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +13,7 @@ import type { ActivityDetail, ActivityDraft } from "../src/activities/domain.js"
 import type { ActivityRuns } from "../src/activities/run-store.js";
 import type { SessionEnv } from "../src/runtime/session-manager.js";
 import { SandboxService } from "../src/sandbox/service.js";
+import { activitySpec } from "./activity-fixtures.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser, type TestApp } from "./helpers.js";
 
 const STAGE_AGENT = fileURLToPath(new URL("./coding-agents-stage-agent.mjs", import.meta.url));
@@ -112,18 +114,20 @@ describe("activity runs and the sandbox", () => {
     }
   });
 
+  /** Registers the stage agent as a coding agent a run may name. */
+  async function addCodingAgent(f: Awaited<ReturnType<typeof fixture>>) {
+    const response = await f.admin.post("/api/coding-agents/agents", {
+      id: "stage-agent",
+      command: process.execPath,
+      args: [STAGE_AGENT],
+      env: {},
+    });
+    expect(response.status).toBe(201);
+  }
+
   it("starts a coding agent's run without a sandbox, and does not hand it a floor", async () => {
     const f = await fixture(new SandboxService([]));
-    expect(
-      (
-        await f.admin.post("/api/coding-agents/agents", {
-          id: "stage-agent",
-          command: process.execPath,
-          args: [STAGE_AGENT],
-          env: {},
-        })
-      ).status,
-    ).toBe(201);
+    await addCodingAgent(f);
     const response = await f.admin.post(`${f.endpoint}/generate-spec`, {
       codingAgentId: "stage-agent",
       expectedRevision: f.revision,
@@ -131,6 +135,26 @@ describe("activity runs and the sandbox", () => {
     expect(response.status, await response.clone().text()).toBe(202);
     await vi.waitFor(() => expect(f.createSession).toHaveBeenCalled());
     expect(f.createSession.mock.calls[0]![0]).not.toHaveProperty("sandboxMode");
+  });
+
+  it("refuses a coding agent's module run nothing could confine the module's build of", async () => {
+    const f = await fixture(new SandboxService([]));
+    await addCodingAgent(f);
+    const saved = await f.admin.post(`${f.endpoint}/apply-generated-spec`, {
+      spec: activitySpec,
+      expectedRevision: f.revision,
+    });
+    expect(saved.status, await saved.clone().text()).toBe(200);
+    // Its player check plays a build of the module its agent writes, which this server makes.
+    const response = await f.admin.post(`${f.endpoint}/assemble-module`, {
+      codingAgentId: "stage-agent",
+      expectedRevision: ((await saved.json()) as ActivityDraft).contentRevision,
+    });
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("sandbox_unavailable");
+    expect(f.createSession).not.toHaveBeenCalled();
+    expect(await f.runs()).toEqual([]);
   });
 
   describe("the admin switch", () => {

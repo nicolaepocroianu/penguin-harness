@@ -11,6 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mediaVersion } from "../src/activities/media-origin.js";
+import type { ModuleBuilder } from "../src/activities/module-builder.js";
 import { playLinkExpiry, PLAY_TOKEN_TTL_MS } from "../src/activities/sandbox-service.js";
 import { HttpError } from "../src/http/errors.js";
 import { fakeModuleBuilder, wiredSandbox } from "./activity-sandbox-wiring.js";
@@ -63,8 +64,10 @@ async function sandbox(options: {
   edits?: Partial<Record<"configuration" | "assessment", { value: unknown; stale: boolean }>>;
   /** What a module build answers. */
   build?: { ok: boolean; log: string };
+  /** The module builder, when not one whose builds answer `build` at once. */
+  builder?: ModuleBuilder;
   /** Whether activity agents are confined, and why nothing could confine them right now. */
-  confinement?: { on?: boolean; problem?: string | null };
+  confinement?: { on?: boolean | (() => boolean); problem?: string | null };
 }) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-sandbox-"));
   const runs = options.runs ?? [
@@ -124,7 +127,7 @@ async function sandbox(options: {
     generation: { list: async () => runs, moduleBuilds: async () => runs },
     root,
     wafRoot: options.wafRoot ?? null,
-    builder: builds.builder,
+    builder: options.builder ?? builds.builder,
     confineActivityAgents: options.confinement?.on,
     confinementProblem: options.confinement?.problem,
   });
@@ -368,11 +371,16 @@ describe("the payload a preview serves", () => {
     const problem =
       'sandbox mode "workspace-write" is configured but no sandbox backend is mounted';
     const { service, builds } = await build({ confinement: { problem } });
-    const refused = await service.build(PROJECT, ACTIVITY, true).catch((error: unknown) => error);
-    expect(refused).toBeInstanceOf(HttpError);
-    expect(refused).toMatchObject({ status: 409, code: "sandbox_unavailable" });
-    expect((refused as HttpError).message).toContain("Enable a sandbox plugin for this project");
-    expect((refused as HttpError).message).toContain(problem);
+    // Forced, or asked for while the module has never been built: either would run a build.
+    for (const force of [true, false]) {
+      const refused = await service
+        .build(PROJECT, ACTIVITY, force)
+        .catch((error: unknown) => error);
+      expect(refused).toBeInstanceOf(HttpError);
+      expect(refused).toMatchObject({ status: 409, code: "sandbox_unavailable" });
+      expect((refused as HttpError).message).toContain("Enable a sandbox plugin for this project");
+      expect((refused as HttpError).message).toContain(problem);
+    }
     // The play page, which builds a module older than its sources, says the same.
     const page = await service.playerPage(PROJECT, ACTIVITY, "/play/", {});
     expect(page.status).toBe(409);
@@ -388,7 +396,40 @@ describe("the payload a preview serves", () => {
     const page = await service.playerPage(PROJECT, ACTIVITY, "/play/", {});
     // Past the module to the player, which a test does not build.
     expect(page.html).toContain("The player did not build.");
+    // Asked for without force, a build of a module already current is not one that would run.
+    expect(await service.build(PROJECT, ACTIVITY)).toMatchObject({ ok: true, skipped: true });
     expect(builds.runs).toEqual([]);
+  });
+
+  it("joins a run module's build in flight only under the confinement it was asked for", async () => {
+    let confined = false;
+    let reads = 0;
+    const finishes: ((outcome: { ok: boolean; log: string }) => void)[] = [];
+    const builder: ModuleBuilder = {
+      ...fakeModuleBuilder().builder,
+      buildRun: () => new Promise((resolve) => finishes.push(resolve)),
+    };
+    const on = () => {
+      reads += 1;
+      return confined;
+    };
+    const { service } = await build({ builder, confinement: { on } });
+    const first = service.build(PROJECT, ACTIVITY, true);
+    await vi.waitFor(() => expect(finishes).toHaveLength(1));
+    // An admin turns confinement on while that build runs; two requests arrive after.
+    confined = true;
+    const after = [service.build(PROJECT, ACTIVITY, true), service.build(PROJECT, ACTIVITY, true)];
+    await vi.waitFor(() => expect(reads).toBe(3));
+    expect(finishes).toHaveLength(1);
+    finishes[0]!({ ok: true, log: "unconfined" });
+    expect(await first).toMatchObject({ joined: false, log: "unconfined" });
+    // Neither joined it, and none built beside it: one more build began once it was done.
+    await vi.waitFor(() => expect(finishes).toHaveLength(2));
+    finishes[1]!({ ok: true, log: "confined" });
+    const results = await Promise.all(after);
+    expect(results.map((result) => result.log)).toEqual(["confined", "confined"]);
+    expect(results.filter((result) => result.joined)).toHaveLength(1);
+    expect(finishes).toHaveLength(2);
   });
 
   it("builds a run's module unconfined, unrefused, once an admin turned confinement off", async () => {

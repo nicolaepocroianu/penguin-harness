@@ -44,7 +44,11 @@ export interface BuilderDeps {
  * of them is true.
  */
 export class SandboxBuilder {
-  private readonly running = new Map<string, Promise<Omit<BuildResult, "joined">>>();
+  /** The build in flight in each workspace, and the conditions it was asked for under. */
+  private readonly running = new Map<
+    string,
+    { conditions: string; attempt: Promise<Omit<BuildResult, "joined">> }
+  >();
   private readonly lastBuild = new Map<string, BuildAttempt>();
 
   constructor(private readonly deps: BuilderDeps) {}
@@ -72,19 +76,28 @@ export class SandboxBuilder {
    *
    * `force` rebuilds regardless — what a Play button does, because an author pressing it
    * after a build they believe failed is asking for a build, not a freshness opinion.
+   *
+   * `conditions` names what a build asked for now runs under, where a caller's builds differ
+   * (a run's module, confined or not). A request joins a build in flight only under the same
+   * conditions; otherwise it waits for that build to settle, never building beside it in the
+   * same folder, and then decides for itself.
    */
-  ensure(workspace: string, force = false): Promise<BuildResult> {
+  ensure(workspace: string, force = false, conditions = ""): Promise<BuildResult> {
     const inFlight = this.running.get(workspace);
-    if (inFlight) return inFlight.then((attempt) => ({ ...attempt, joined: true }));
+    if (inFlight?.conditions === conditions)
+      return inFlight.attempt.then((attempt) => ({ ...attempt, joined: true }));
 
-    const attempt = this.resolve(workspace, force);
-    this.running.set(workspace, attempt);
+    const attempt = inFlight
+      ? inFlight.attempt.catch(() => undefined).then(() => this.resolve(workspace, force))
+      : this.resolve(workspace, force);
+    const entry = { conditions, attempt };
+    this.running.set(workspace, entry);
     // Cleared BEFORE the caller is resolved, not in a trailing `finally`. A cleanup that
     // runs after means the next call arrives while the entry is still there and joins a
     // promise that has already settled -- which reports a skip as a join, and reports a
     // failed build as one someone else was already running.
     const clear = () => {
-      if (this.running.get(workspace) === attempt) this.running.delete(workspace);
+      if (this.running.get(workspace) === entry) this.running.delete(workspace);
     };
     return attempt.then(
       (value) => {
@@ -142,7 +155,7 @@ export class SandboxBuilder {
  * A failed build says so and points at its output. It never reports a preview as ready on
  * the strength of an old build that happens to still be on disk.
  */
-export function describeBuild(result: BuildResult): string {
+export function describeBuild(result: Pick<BuildResult, "ok" | "joined" | "skipped">): string {
   if (result.skipped) return "The module was already up to date.";
   if (!result.ok)
     return result.joined

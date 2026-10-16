@@ -7,19 +7,27 @@
  * where it could write. A stand-in sandbox runner shows what reaches the confiner; the real
  * sandbox, where this host has one, shows what the confinement stops. Installing the pinned
  * Sass, where it is not there yet, is a stand-in for npm that probes what npm would start with.
+ * The builder the server wires reads the admin switch and the session sandbox as each build
+ * starts.
  */
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import type { SpawnConfiner } from "@prismshadow/penguin-core";
+import { wire } from "@prismshadow/penguin-core/kernel";
 import type { SandboxProvider } from "@prismshadow/penguin-core/plugin";
 import { spawnDeployProcess, type DeployProcess } from "../src/activities/deploy-process.js";
-import { moduleBuilds, PinnedSass, sassHome } from "../src/activities/module-builder.js";
+import {
+  DefaultModuleBuilder,
+  moduleBuilds,
+  PinnedSass,
+  sassHome,
+} from "../src/activities/module-builder.js";
 import { MODULE_PACKAGES } from "../src/activities/waf-module.js";
-import { SandboxService } from "../src/sandbox/service.js";
+import { SandboxService, type Sandbox } from "../src/sandbox/service.js";
 
 /** A variable of this server's that a build must not see, named as the harness's own are. */
 const SECRET = "PENGUIN_PREVIEW_BUILD_PROBE";
@@ -88,7 +96,7 @@ async function runModule(
   options: {
     parent?: string;
     stylesheet?: boolean;
-    writes?: (layout: { shared: string }) => Record<string, string>;
+    writes?: (layout: { root: string; shared: string }) => Record<string, string>;
     sassInstall?: DeployProcess["run"];
   } = {},
 ) {
@@ -96,7 +104,7 @@ async function runModule(
   roots.push(root);
   const module = path.join(root, "activity-runs", "run_1", "module");
   const shared = path.join(root, "module-packages-cache", "set", "node_modules");
-  const writes = options.writes?.({ shared }) ?? {};
+  const writes = options.writes?.({ root, shared }) ?? {};
   await fs.mkdir(path.join(module, "res"), { recursive: true });
   await fs.mkdir(shared, { recursive: true });
   await fs.symlink(shared, path.join(module, "node_modules"), "junction");
@@ -175,7 +183,10 @@ describe("a run module's build", () => {
   it("installs the Sass it waits for with none of the module's npm settings or the server's secrets", async () => {
     process.env[SECRET] = "leaked";
     process.env[TOKEN] = "leaked";
-    /** What each install's npm read as its project config, and the variables it started with. */
+    /**
+     * What each install's npm read as its project config, and the variables and user config it
+     * started with.
+     */
     const installs: { npmrc: string | null; saw: string }[] = [];
     const npm: DeployProcess["run"] = async (command, args, options) => {
       if (command !== "npm") return spawnDeployProcess.run(command, args, options);
@@ -184,7 +195,8 @@ describe("a run module's build", () => {
         process.execPath,
         [
           "-e",
-          `console.log("npm secret=" + (process.env.${SECRET} ?? "none") + " token=" + (process.env.${TOKEN} ?? "none"))`,
+          `const user = process.env.npm_config_userconfig;
+console.log("npm secret=" + (process.env.${SECRET} ?? "none") + " token=" + (process.env.${TOKEN} ?? "none") + " userconfig=" + (user ? JSON.stringify(require("fs").readFileSync(user, "utf8")) : "unset"))`,
         ],
         { ...options, shell: false },
       );
@@ -213,9 +225,10 @@ describe("a run module's build", () => {
       MODULE_PACKAGES.npmrc,
       MODULE_PACKAGES.npmrc,
     ]);
+    // Nor this server's user config: npm's user config was an empty file of the install's own.
     expect(installs.map((install) => install.saw)).toEqual([
-      "npm secret=none token=none",
-      "npm secret=none token=none",
+      'npm secret=none token=none userconfig=""',
+      'npm secret=none token=none userconfig=""',
     ]);
   });
 
@@ -236,6 +249,59 @@ describe("a run module's build", () => {
     expect(build.ok).toBe(false);
     expect(build.log).toContain("The build could not be started: sandbox mode");
     expect(existsSync(path.join(plain.module, "build.done"))).toBe(false);
+  });
+});
+
+describe("the module builder the server wires", () => {
+  /** The server's module builder over Penguin's root, with the admin switch and sandbox given. */
+  function wired(
+    root: string,
+    confined: () => boolean,
+    sandbox: Pick<Sandbox, "confinementProblem" | "confiner">,
+  ) {
+    return wire(DefaultModuleBuilder, {
+      config: { root },
+      settings: { getConfineActivityAgents: confined },
+      sandbox,
+    });
+  }
+
+  it("confines a run's build while activity agents are confined, as the switch says at each build", async () => {
+    const { root, module, runner } = await runModule();
+    const standIn = standInConfiner(runner);
+    let on = true;
+    const builder = wired(root, () => on, {
+      confinementProblem: () => null,
+      confiner: () => standIn.confiner,
+    });
+    const confined = await builder.buildRun(module);
+    expect(confined.ok, confined.log).toBe(true);
+    expect(confined.log).toContain("sass sandboxed=yes");
+    expect(confined.log).toContain("build sandboxed=yes");
+    // An admin turns it off: the next build reads that.
+    on = false;
+    const unconfined = await builder.buildRun(module);
+    expect(unconfined.ok, unconfined.log).toBe(true);
+    expect(unconfined.log).toContain("sass sandboxed=no");
+    expect(unconfined.log).toContain("build sandboxed=no");
+    // The first build's two programs alone went through the sandbox.
+    expect(standIn.calls).toHaveLength(2);
+  });
+
+  it("runs nothing of a run's build that nothing can confine while they are, and says why", async () => {
+    const { root, module } = await runModule();
+    const builder = wired(root, () => true, {
+      confinementProblem: () => "no sandbox backend is mounted",
+      confiner: () => {
+        throw new Error("The confiner is not asked for when nothing can confine.");
+      },
+    });
+    const outcome = await builder.buildRun(module);
+    expect(outcome.ok).toBe(false);
+    expect(outcome.log).toContain("Enable a sandbox plugin for this project");
+    expect(outcome.log).toContain("no sandbox backend is mounted");
+    expect(existsSync(path.join(module, "res", "style.css"))).toBe(false);
+    expect(existsSync(path.join(module, "build.done"))).toBe(false);
   });
 });
 
@@ -265,14 +331,30 @@ async function hostSandbox(): Promise<SandboxService | null> {
 
 const sandbox = await hostSandbox();
 
+/**
+ * Where the real sandbox's module is laid out: outside the temporary folder, which a sandbox may
+ * leave writable, in a folder of this package's own that is removed once these tests are done.
+ */
+const OUTSIDE_TMP = path.resolve(
+  import.meta.dirname,
+  "..",
+  "node_modules",
+  ".cache",
+  `run-build-confined-${process.pid}`,
+);
+afterAll(() => fs.rm(OUTSIDE_TMP, { recursive: true, force: true }));
+
 describe.skipIf(sandbox === null)("a run module's build in this host's sandbox", () => {
   it("writes its module and nothing outside it, the shared packages included", async () => {
-    // Outside the temporary folder, which a sandbox may leave writable.
-    const outside = path.join(os.homedir(), `penguin-run-build-${process.pid}.txt`);
-    roots.push(outside);
+    await fs.mkdir(OUTSIDE_TMP, { recursive: true });
+    let outside = "";
     const { module, shared, builder } = await runModule({
-      parent: os.homedir(),
-      writes: ({ shared }) => ({ outside, shared: path.join(shared, "probe.txt") }),
+      parent: OUTSIDE_TMP,
+      writes: ({ root, shared }) => {
+        // Outside the module, in no folder a confined build may write.
+        outside = path.join(root, "outside.txt");
+        return { outside, shared: path.join(shared, "probe.txt") };
+      },
     });
     const outcome = await builder(sandbox!.confiner()).buildRun(module);
     expect(outcome.ok, outcome.log).toBe(true);

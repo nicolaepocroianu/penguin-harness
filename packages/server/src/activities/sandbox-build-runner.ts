@@ -50,7 +50,9 @@ interface RunBuildSpawn {
 /**
  * What a run build's programs keep of this process's environment: what Windows, Node and npm
  * need to start (the PATH, the temporary folder, the system folder and shell, the user folders
- * npm finds its settings in). Never a key, a token or a `PENGUIN_*` setting.
+ * npm finds its settings in). Never a key, a token or a `PENGUIN_*` setting, and not
+ * `NODE_OPTIONS`: this server's own Node flags (a script it preloads, its heap size) are not
+ * the build's, which sets any it needs in its own script.
  */
 const RUN_BUILD_ENV = new Set([
   "PATH",

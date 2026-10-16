@@ -128,6 +128,27 @@ describe("requests that overlap", () => {
     expect(results.every((r) => r.ok && r.log === "one build")).toBe(true);
   });
 
+  it("has a request under other conditions wait out the build in flight, then build its own", async () => {
+    const h = harness();
+    const first = h.builder.ensure("/w", true, "unconfined");
+    const later = [
+      h.builder.ensure("/w", true, "confined"),
+      h.builder.ensure("/w", true, "confined"),
+    ];
+    for (let tick = 0; tick < 5; tick += 1) await new Promise((resolve) => setTimeout(resolve, 0));
+    // Never two builds in one folder at once.
+    expect(h.calls).toEqual(["/w"]);
+    await h.finish({ ok: true, log: "unconfined build" });
+    expect(await first).toMatchObject({ joined: false, log: "unconfined build" });
+    await h.finish({ ok: true, log: "confined build" });
+    const results = await Promise.all(later);
+    expect(results.map((result) => [result.joined, result.log])).toEqual([
+      [false, "confined build"],
+      [true, "confined build"],
+    ]);
+    expect(h.calls).toEqual(["/w", "/w"]);
+  });
+
   it("keeps separate workspaces separate", async () => {
     const h = harness();
     const a = h.builder.ensure("/a");

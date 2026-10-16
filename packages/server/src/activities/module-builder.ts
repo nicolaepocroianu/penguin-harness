@@ -29,6 +29,7 @@ import {
   type DeployProcessResult,
 } from "./deploy-process.js";
 import { confinedArgv, type ProgramConfiner } from "./run-program.js";
+import { runConfinement } from "./run-sandbox.js";
 import {
   runBuildEnv,
   spawnModuleBuild,
@@ -86,7 +87,8 @@ export abstract class ModuleBuilder extends Interface<{
   /**
    * A run workspace's module, built in place by its own script, its stylesheet first, with
    * none of this server's environment and, while activity agents are confined, writable only
-   * in the module.
+   * in the module. Whether they are is read as each build starts (`runConfinement`); with
+   * nothing to confine it then, nothing runs and the outcome says why.
    */
   buildRun(workspace: string): Promise<BuildOutcome>;
   /** A checkout module, built into Penguin's output without writing to the checkout. */
@@ -98,7 +100,7 @@ export abstract class ModuleBuilder extends Interface<{
 /**
  * The builds, over one stylesheet compiler (the real one, or a test's) and the sandbox a run's
  * build is confined in: `runConfiner` answers it when a build starts, null while activity
- * agents are not confined.
+ * agents are not confined, and throws the refusal when nothing can confine it.
  */
 export function moduleBuilds(
   compileStyle: StyleCompiler,
@@ -106,7 +108,15 @@ export function moduleBuilds(
 ): ModuleBuilder {
   return {
     compileStyle,
-    buildRun: (workspace) => spawnModuleBuild(workspace, { compileStyle, confiner: runConfiner() }),
+    buildRun: async (workspace) => {
+      let confiner: SpawnConfiner | null;
+      try {
+        confiner = runConfiner();
+      } catch (error) {
+        return { ok: false, log: (error as Error).message };
+      }
+      return spawnModuleBuild(workspace, { compileStyle, confiner });
+    },
     buildCheckout: (job) => spawnCheckoutBuild(job, { compileStyle }),
     buildPlayer: (job) =>
       spawnNodeScript(PLAYER_BUILD_SCRIPT, {
@@ -157,7 +167,9 @@ async function installedSass(home: string): Promise<string | null> {
  * A run's module is its agent's work, and its `.npmrc` could name a registry of the agent's
  * that serves its own `sass`, kept here for every later compile, or expand this server's
  * variables into credentials sent there. So an install for one (`StyleJob.runModule`) uses the
- * `.npmrc` the module was scaffolded with and starts with none of this server's secrets.
+ * `.npmrc` the module was scaffolded with, an empty user config in place of this server's own
+ * `~/.npmrc`, and starts with none of this server's secrets. npm's global config, the Node
+ * installation's own, still applies.
  */
 export class PinnedSass {
   private installing: Promise<string> | null = null;
@@ -190,22 +202,24 @@ export class PinnedSass {
         `${JSON.stringify({ private: true })}\n`,
       );
       const npmrc = path.join(staging, ".npmrc");
-      if (job?.runModule) await fs.writeFile(npmrc, MODULE_PACKAGES.npmrc);
-      else if (job) await fs.copyFile(path.join(job.cwd, ".npmrc"), npmrc).catch(() => undefined);
+      const userconfig = path.join(staging, "user.npmrc");
+      let env: NodeJS.ProcessEnv | undefined;
+      if (job?.runModule) {
+        await fs.writeFile(npmrc, MODULE_PACKAGES.npmrc);
+        await fs.writeFile(userconfig, "");
+        env = { ...runBuildEnv({ install: true }), npm_config_userconfig: userconfig };
+      } else if (job) await fs.copyFile(path.join(job.cwd, ".npmrc"), npmrc).catch(() => undefined);
       const result = await this.run(
         "npm",
         ["install", SASS_PACKAGE, "--no-audit", "--no-fund", "--ignore-scripts"],
-        {
-          cwd: staging,
-          timeoutMs: SASS_INSTALL_TIMEOUT_MS,
-          ...(job?.runModule ? { env: runBuildEnv({ install: true }) } : {}),
-        },
+        { cwd: staging, timeoutMs: SASS_INSTALL_TIMEOUT_MS, ...(env ? { env } : {}) },
       );
       if (result.code !== 0 || result.error)
         throw new Error(
           `Installing ${SASS_PACKAGE} failed${result.error ? ` (${result.error})` : ""}: ${result.tail.trim()}`,
         );
       await fs.rm(npmrc, { force: true });
+      await fs.rm(userconfig, { force: true });
       // Another server process may have finished first; its install is as good as this one.
       // An install cut short before this rename existed is replaced.
       if (!(await installedSass(this.home)))
@@ -254,7 +268,7 @@ export class DefaultModuleBuilder implements ModuleBuilder {
       // Read as each build starts: an admin's switch applies to the next build.
       this.builds = moduleBuilds(
         (job) => sass.compile(job),
-        () => (this.settings.getConfineActivityAgents() ? this.sandbox.confiner() : null),
+        () => runConfinement(this.settings, this.sandbox),
       );
     }
     return this.builds;

@@ -2920,7 +2920,7 @@ export const en: Strings = {
       confineAgentsOff:
         "Activity agents are not confined. They can change any file this server can.",
       confineAgentsUnavailable:
-        "No sandbox is available, so activity runs on a Penguin agent will not start, and previews of a module a run built will not build. Install the sandbox plugin, or turn this off.",
+        "No sandbox is available, so activity runs on a Penguin agent and module runs on any agent will not start, and previews of a module a run built will not build. Install the sandbox plugin, or turn this off.",
       confineAgentsSaved: (on) =>
         on
           ? "Penguin agents in activity runs will be confined."

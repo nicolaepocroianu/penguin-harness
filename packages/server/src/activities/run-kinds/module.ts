@@ -281,6 +281,7 @@ export const moduleKind: SessionRunKind<
   run: "module",
   runner: "session",
   needsScript: true,
+  writesModule: true,
   // The longest kind: it type-checks and builds the module, then plays it in its player check,
   // and builds and checks again after each fix. One full run of checks may take
   // CHECKS_TIMEOUT_MS when the server runs them, so this is the build and three such runs.
