@@ -443,18 +443,57 @@ function newerTags(
   return newer.sort((a, b) => compareSemver(a.version, b.version));
 }
 
+/** The files a module build may change in what it tags, and only in their "version". */
+const VERSIONED_FILES = new Set(["package.json", "package-lock.json"]);
+
+/** A package.json or package-lock.json without its own version; null when it is not JSON. */
+function unversioned(text: string | null): string | null {
+  if (text === null) return null;
+  try {
+    const json = JSON.parse(text) as Record<string, unknown>;
+    delete json.version;
+    const root = (json.packages as Record<string, Record<string, unknown>> | undefined)?.[""];
+    if (root) delete root.version;
+    return JSON.stringify(json);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * How a release tag holds a commit: `commit` when it is that commit or one made on top of
+ * it; `content` when it has every file the commit has as the commit has it, package.json and
+ * package-lock.json apart from their version (a build that squashes or rebases what it
+ * releases).
+ */
+type TagHold = "commit" | "content";
+
+/** How release tag `tag` holds `commit` (see `TagHold`); null when it does not hold it. */
+async function tagHold(clone: Clone, tag: string, commit: string): Promise<TagHold | null> {
+  if (await clone.tagHolds(tag, commit)) return "commit";
+  for (const file of await clone.tagDiffers(tag, commit)) {
+    if (!VERSIONED_FILES.has(file)) return null;
+    const tagged = unversioned(await clone.fileAt({ tag }, file));
+    if (tagged === null || tagged !== unversioned(await clone.fileAt({ commit }, file)))
+      return null;
+  }
+  return "content";
+}
+
 /**
  * The release a module build made of `commit`: the oldest tag newer than `before` that holds it
- * (a build tags what it built, or a commit it made on top). Null when none does.
+ * (see `tagHold`), and how it does. Null when none does.
  */
 async function releaseOf(
   clone: Clone,
   tags: readonly string[],
   before: string | null,
   commit: string,
-): Promise<string | null> {
-  for (const { tag, version } of newerTags(tags, before))
-    if (await clone.tagHolds(tag, commit)) return version;
+): Promise<{ tag: string; version: string; hold: TagHold } | null> {
+  for (const { tag, version } of newerTags(tags, before)) {
+    const hold = await tagHold(clone, tag, commit);
+    if (hold) return { tag, version, hold };
+  }
   return null;
 }
 
@@ -759,13 +798,17 @@ const awaitModuleBuild: DeployStageDefinition = {
       if (status.state === "succeeded") {
         // Only this build, once it succeeded, releases the module, and only as a tag that
         // holds what it built: a tag a leftover or a manual build made is never taken for it.
-        const { tags, version } = await ctx.serial("module", async () => {
+        const { tags, release } = await ctx.serial("module", async () => {
           const fetched = await clone.fetchTags();
-          return { tags: fetched, version: await releaseOf(clone, fetched, before, commit) };
+          return { tags: fetched, release: await releaseOf(clone, fetched, before, commit) };
         });
-        if (version) {
-          ctx.metadata.resolvedModuleVersion = version;
-          ctx.log(`Released as ${version}.`);
+        if (release) {
+          ctx.metadata.resolvedModuleVersion = release.version;
+          ctx.log(
+            release.hold === "commit"
+              ? `Released as ${release.version}: tag ${release.tag} holds ${commit}.`
+              : `Released as ${release.version}: tag ${release.tag} does not hold ${commit} but has its files as it has them (package.json and package-lock.json apart from their version).`,
+          );
           return;
         }
         const newest = newerTags(tags, before).at(-1);

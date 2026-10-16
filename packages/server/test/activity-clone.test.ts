@@ -421,7 +421,7 @@ describe("committing and publishing", () => {
     expect((await clone.changes()).sort()).toEqual(["a.txt", "moved.txt", "new folder/"]);
   }, 30_000);
 
-  it("names a branch's commit, compares two commits' files, and says whether a tag holds a commit", async () => {
+  it("names a branch's commit, compares two commits' files, and says whether a tag holds a commit or its files", async () => {
     const remote = await origin({ "a.txt": "1" });
     const dir = await remote.cloneOf("clone");
     const clone = clones.open(dir);
@@ -452,6 +452,15 @@ describe("committing and publishing", () => {
     expect(await clone.tagHolds("v1.1.0", first)).toBe(false);
     expect(await clone.tagHolds("1.0.0", again)).toBe(false);
     await expect(clone.tagHolds("2.0.0", again)).rejects.toBeInstanceOf(CloneError);
+    // What a tag has otherwise than a commit, a file it adds aside, and what a file holds.
+    expect(await clone.tagDiffers("v1.1.0", first)).toEqual([]);
+    expect(await clone.tagDiffers("v1.1.0", base)).toEqual(["a.txt"]);
+    expect(await clone.tagDiffers("1.0.0", bumped)).toEqual(["a.txt", "package.json"]);
+    await expect(clone.tagDiffers("2.0.0", again)).rejects.toBeInstanceOf(CloneError);
+    expect(await clone.fileAt({ tag: "v1.1.0" }, "package.json")).toBe('{"version":"1.1.0"}');
+    expect(await clone.fileAt({ commit: first }, "a.txt")).toBe("2");
+    expect(await clone.fileAt({ commit: base }, "package.json")).toBeNull();
+    expect(await clone.fileAt({ tag: "2.0.0" }, "a.txt")).toBeNull();
   }, 30_000);
 
   it("fetches origin's tags", async () => {

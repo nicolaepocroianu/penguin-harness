@@ -704,6 +704,64 @@ describe("await_module_build", () => {
     });
   });
 
+  it("takes a tag that does not hold the commit only when it has the commit's files, a version bump apart", async () => {
+    const dir = await moduleClone();
+    const pkg = (version: string) =>
+      `{\n  "name": "wafmodule-words",\n  "version": "${version}"\n}\n`;
+    const lock = (version: string) =>
+      JSON.stringify({ name: "wafmodule-words", version, packages: { "": { version } } });
+    const built = {
+      "src/index.js": "export {};",
+      "res/style.css": "a{}",
+      "package.json": pkg("1.2.0"),
+      "package-lock.json": lock("1.2.0"),
+    };
+    const released = async (tagged: Record<string, string>, ancestor = false) => {
+      const { ctx, lines } = context({
+        dir,
+        clones: fakeClones(dir, {
+          tags: [["1.2.0", "1.3.0"]],
+          tagCommits: { "1.3.0": ancestor ? ["c1"] : ["squashed"] },
+          files: { c1: built, "1.3.0": tagged },
+        }),
+        jenkins: fakeJenkins([{ state: "succeeded", number: 42 }]).jenkins,
+        earlier: {
+          trigger_module_build: { preBuildTag: "1.2.0", preBuildNumber: 41, buildCommit: "c1" },
+        },
+      });
+      await run("await_module_build", ctx);
+      return { version: ctx.metadata.resolvedModuleVersion, log: lines.at(-1) };
+    };
+    // The build tagged the commit, or one it made on top of it.
+    expect(await released({}, true)).toEqual({
+      version: "1.3.0",
+      log: "Released as 1.3.0: tag 1.3.0 holds c1.",
+    });
+    // The build squashed or rebased it: the same files, and a file of its own beside them.
+    const sameFiles = /^Released as 1\.3\.0: tag 1\.3\.0 does not hold c1 but has its files/;
+    const squashed = await released({ ...built, "CHANGELOG.md": "1.3.0" });
+    expect(squashed.version).toBe("1.3.0");
+    expect(squashed.log).toMatch(sameFiles);
+    // It bumped the version as it did.
+    const bumped = await released({
+      ...built,
+      "package.json": pkg("1.3.0"),
+      "package-lock.json": lock("1.3.0"),
+    });
+    expect(bumped.version).toBe("1.3.0");
+    expect(bumped.log).toMatch(sameFiles);
+    // A tag on other content is not this build's release: a source changed, package.json
+    // changed past its version, or files the commit has missing.
+    for (const other of [
+      { ...built, "src/index.js": "export default 1;" },
+      { ...built, "package.json": pkg("1.3.0").replace("wafmodule-words", "wafmodule-other") },
+      { "src/index.js": "export {};", "package.json": pkg("1.3.0") },
+    ])
+      await expect(released(other)).rejects.toMatchObject({
+        error: { code: "tag_without_commit", tag: "1.3.0", commit: "c1" },
+      });
+  });
+
   it("looks for the deploy branch's commit when the start was recorded before commits were", async () => {
     const dir = await moduleClone();
     const clones = fakeClones(dir, {

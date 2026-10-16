@@ -53,6 +53,11 @@ export interface FakeRepo {
   trees?: Record<string, string>;
   /** The commits each release tag holds; every tag holds every commit unless named. */
   tagCommits?: Record<string, string[]>;
+  /**
+   * The files each commit and each release tag has, by name, with what each holds; a commit
+   * not named here has files no tag has.
+   */
+  files?: Record<string, Record<string, string>>;
   /** Branches that have diverged from origin's. */
   diverged?: string[];
   /** No commit yet: carried work stays in place. */
@@ -351,6 +356,19 @@ class FakeClone implements Clone {
   async tagHolds(tag: string, commit: string): Promise<boolean> {
     const held = this.call("tagHolds", tag, commit).tagCommits?.[tag];
     return held === undefined || held.includes(commit);
+  }
+
+  async tagDiffers(tag: string, commit: string): Promise<string[]> {
+    const { files = {} } = this.call("tagDiffers", tag, commit);
+    const committed = files[commit];
+    // A commit whose files are not named differs from every tag.
+    if (!committed) return ["(files not named)"];
+    return Object.keys(committed).filter((file) => files[tag]?.[file] !== committed[file]);
+  }
+
+  async fileAt(at: { tag: string } | { commit: string }, file: string): Promise<string | null> {
+    const { files = {} } = this.call("fileAt", at, file);
+    return files["tag" in at ? at.tag : at.commit]?.[file] ?? null;
   }
 }
 

@@ -171,6 +171,10 @@ export interface Clone {
   sameContent(a: string, b: string): Promise<boolean>;
   /** Whether release tag `tag` holds `commit`: it is that commit, or one made on top of it. */
   tagHolds(tag: string, commit: string): Promise<boolean>;
+  /** The files `commit` has that release tag `tag` does not, or has otherwise. */
+  tagDiffers(tag: string, commit: string): Promise<string[]>;
+  /** What `file` holds in release tag `tag` or in `commit`; null when there is no such file. */
+  fileAt(at: { tag: string } | { commit: string }, file: string): Promise<string | null>;
 }
 
 /** Every clone, and making them. */
@@ -257,6 +261,8 @@ interface RunOptions {
   /** Runs, and runs to its end, even once the signal has aborted: putting work back. */
   unstoppable?: boolean;
   timeoutMs?: number;
+  /** How many characters of each stream are kept (by default `GIT_OUTPUT_MAX`). */
+  outputMax?: number;
 }
 
 class GitClone implements Clone {
@@ -282,6 +288,7 @@ class GitClone implements Clone {
     const result = await this.git.run(args, this.dir, {
       ...(timeoutMs ? { timeoutMs } : {}),
       ...(signal ? { signal } : {}),
+      ...(options.outputMax ? { outputMax: options.outputMax } : {}),
     });
     if (log && !options.quiet)
       for (const line of `${result.stdout}\n${result.stderr}`.split(/\r?\n/))
@@ -607,7 +614,30 @@ class GitClone implements Clone {
     if (result.code === 1) return false;
     throw new CloneError(args, result);
   }
+
+  async tagDiffers(tag: string, commit: string): Promise<string[]> {
+    // Files the tag adds are not the commit's, so they are not asked about.
+    const args = ["diff", "--name-only", "-z", "--no-renames", "--diff-filter=DMT"];
+    args.push(commit, `refs/tags/${tag}`, "--");
+    const listed = await this.run(args, { quiet: true, outputMax: FILE_OUTPUT_MAX });
+    return listed.stdout.split("\0").filter((file) => file !== "");
+  }
+
+  async fileAt(at: { tag: string } | { commit: string }, file: string): Promise<string | null> {
+    const revision = "tag" in at ? `refs/tags/${at.tag}` : at.commit;
+    const shown = await this.run(["show", `${revision}:${file}`], {
+      allowFailure: true,
+      quiet: true,
+      outputMax: FILE_OUTPUT_MAX,
+    });
+    // A file past the bound is cut, so it reads as none rather than as what is left of it.
+    if (shown.code !== 0 || shown.stdout.length >= FILE_OUTPUT_MAX) return null;
+    return shown.stdout;
+  }
 }
+
+/** How much of a file, or of a list of files, git's output may carry. */
+const FILE_OUTPUT_MAX = 16 * 1024 * 1024;
 
 /** One `git status --porcelain -z` entry: the index's and the working tree's state, and the path. */
 const STATUS_ENTRY = /^([ MTADRCU?!])([ MTADRCU?!]) (.+)$/s;

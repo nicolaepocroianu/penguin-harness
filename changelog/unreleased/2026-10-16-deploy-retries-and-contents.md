@@ -9,7 +9,7 @@ A deploy started again after its wait was stopped, timed out or cut short by a r
 queued a second Jenkins job while the first was still going or had already succeeded: each trigger
 stage followed the build its last start began instead, and the wait after it recorded that build.
 The module release took a release tag only once its own Jenkins build had succeeded, and only a
-tag that holds the commit the build was started for. `prepare_deploy` committed only the files it
+tag that holds the commit the build was started for or has its files. `prepare_deploy` committed only the files it
 wrote, so a draft saved into the module clone while `verify_module`'s checks ran stayed out of the
 release. The PROD card offered **Wait for the PROD deploy** first once a PROD deploy had started
 and the wait for it had not finished, and the QA card did the same for the module build and the QA
@@ -36,15 +36,20 @@ and a web remote naming a user was refused.
   client's `skipQueue` read was removed.
 - `await_module_build` followed the build until Jenkins reported it succeeded, failed or the
   configured minutes passed, and then took the oldest plain semver tag newer than the one noted
-  that holds the build's commit (`git merge-base --is-ancestor`). A succeeded build whose newer
-  tags all lacked the commit failed with the new stage error `tag_without_commit`, naming the
-  newest of them. A start recorded before `buildCommit` existed was matched against the deploy
+  that holds the build's commit: the commit is the tagged one or an ancestor of it
+  (`git merge-base --is-ancestor`), or the tagged commit has every file the commit has as the
+  commit has it, `package.json` and `package-lock.json` compared without their `version` (and the
+  lock's `packages[""].version`), so a build that squashed or rebased the deploy commit, bumping
+  the version, still released it. The stage log named which of the two took the tag. A succeeded
+  build whose newer tags all held neither failed with the new stage error `tag_without_commit`,
+  naming the newest of them. A start recorded before `buildCommit` existed was matched against the deploy
   branch's commit.
 - `prepare_deploy` staged `package.json`, `package-lock.json` and `res/style.css` when it had
   written and changed them, in place of `git add --all`, and logged every other changed path
   (the first 20 and how many more) as left out of the deploy commit. `verify_module` still
   committed the whole working tree as authored.
-- The clone gained `changes`, `commitOf`, `sameContent` and `tagHolds`.
+- The clone gained `changes`, `commitOf`, `sameContent`, `tagHolds`, `tagDiffers` and `fileAt`;
+  the git port took an output bound per call, which `tagDiffers` and `fileAt` raised to 16 MiB.
 - The deploy's git work ran in the WAF workspace's queue for its repository (`WafWorkspace.serial`,
   added to the workspace's interface), which cloning a module and adding media folders already
   used: on the module clone, `verify_module`'s fetch through its commit, `prepare_deploy`'s branch
