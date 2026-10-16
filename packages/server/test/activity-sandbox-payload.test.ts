@@ -351,6 +351,15 @@ describe("the payload a preview serves", () => {
     expect(report.log).toContain("Module not found");
   });
 
+  it("forgets the build of a run whose folder was removed", async () => {
+    const { service } = await build({ build: { ok: false, log: "Module not found: ./missing" } });
+    await service.build(PROJECT, ACTIVITY, true);
+    service.forgetRuns(["run_other"]);
+    expect((await service.status(PROJECT, ACTIVITY)).buildLog).toContain("Module not found");
+    service.forgetRuns(["run_new"]);
+    expect((await service.status(PROJECT, ACTIVITY)).buildLog).toBeNull();
+  });
+
   it("refuses to build from a ref that does not own the module", async () => {
     // A build writes into the shared module, and only the canonical ref owns it.
     const { service, activities } = await build({});

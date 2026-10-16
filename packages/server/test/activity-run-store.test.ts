@@ -4,14 +4,24 @@
  * authoring and generation share keeps "no run is working on this activity" true for as long
  * as the one who checked it holds the activity.
  */
+import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { projectDir } from "@prismshadow/penguin-core";
 import { wire } from "@prismshadow/penguin-core/kernel";
 import type { ActivityDetail, ActivityRun } from "../src/activities/domain.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../src/mechanisms/activities.js";
 import { isRunWorkspace, type ActivityRuns } from "../src/activities/run-store.js";
 import { ActivityLockService } from "../src/activities/activity-lock.js";
-import { apiClient, createTestApp, provisionUser, type TestApp } from "./helpers.js";
+import { modulePackagesRoot } from "../src/activities/run-kinds/module.js";
+import { fakeModuleBuilder } from "./activity-sandbox-wiring.js";
+import {
+  apiClient,
+  createTestApp,
+  provisionUser,
+  type TestApp,
+  type TestAppOptions,
+} from "./helpers.js";
 
 function deferred<T = void>() {
   let resolve!: (value: T) => void;
@@ -29,8 +39,8 @@ describe("ActivityRuns", () => {
     for (const t of apps.splice(0)) await t.cleanup();
   });
 
-  async function setup() {
-    const t = await createTestApp();
+  async function setup(options: TestAppOptions = {}) {
+    const t = await createTestApp(options);
     apps.push(t);
     const owner = await provisionUser(t.app, "runstore");
     const client = apiClient(t.app, owner.cookie);
@@ -191,6 +201,141 @@ describe("ActivityRuns", () => {
     expect(isRunWorkspace(t.root, path.join(folder, "sub"))).toBe(true);
     expect(isRunWorkspace(t.root, path.dirname(folder))).toBe(false);
     expect(isRunWorkspace(t.root, t.root)).toBe(false);
+  });
+
+  it("removes a deleted project's run folders, and nothing a link in one points to", async () => {
+    const { t, client, create, runs, newRun } = await setup();
+    const added = await client.post("/api/projects/runstore-work/activities", {
+      productCode: "letters",
+      refNum: 1,
+      title: "letters 1",
+    });
+    expect(added.status, await added.clone().text()).toBe(201);
+    const second = (await added.json()) as ActivityDetail;
+    const other = await create("runstore-other", "numbers");
+    const settle = (run: ActivityRun) => {
+      runs.open(run);
+      runs.save({ ...run, status: "succeeded" });
+      return run.runId;
+    };
+    const built = settle(newRun({ kind: "module" }));
+    const spec = settle(newRun({ activityId: second.id, draftId: second.draft.draftId }));
+    const theirs = settle(
+      newRun({ activityId: other.id, projectId: "runstore-other", draftId: other.draft.draftId }),
+    );
+    expect(runs.projectRunIds("runstore-work").sort()).toEqual([built, spec].sort());
+
+    // A module run's packages are linked in from the cache every module run shares.
+    const packages = path.join(modulePackagesRoot(t.root), "set", "node_modules");
+    await fs.mkdir(path.join(packages, "webpack"), { recursive: true });
+    await fs.writeFile(path.join(packages, "webpack", "package.json"), "{}");
+    const module = path.join(runs.workspace(built), "module");
+    await fs.mkdir(module, { recursive: true });
+    await fs.writeFile(path.join(module, "definition.json"), "{}");
+    // A junction on Windows, which needs no privilege; elsewhere a directory symlink.
+    await fs.symlink(packages, path.join(module, "node_modules"), "junction");
+    for (const runId of [spec, theirs]) {
+      await fs.mkdir(runs.workspace(runId), { recursive: true });
+      await fs.writeFile(path.join(runs.workspace(runId), "input.json"), "{}");
+    }
+
+    expect((await client.delete("/api/projects/runstore-work")).status).toBe(204);
+    for (const runId of [built, spec])
+      await expect(fs.stat(runs.workspace(runId))).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await fs.readFile(path.join(packages, "webpack", "package.json"), "utf8")).toBe("{}");
+    expect(await fs.readFile(path.join(runs.workspace(theirs), "input.json"), "utf8")).toBe("{}");
+    expect(runs.projectRunIds("runstore-work")).toEqual([]);
+    expect(runs.projectRunIds("runstore-other")).toEqual([theirs]);
+  });
+
+  it("removes run folders only: an id that names none removes nothing", async () => {
+    const { t, runs } = await setup();
+    await fs.mkdir(runs.workspace("run_kept"), { recursive: true });
+    await fs.writeFile(path.join(t.root, "kept.txt"), "kept");
+    await runs.removeWorkspaces(["", ".", "..", "../kept.txt", "run_missing"]);
+    expect(await fs.readFile(path.join(t.root, "kept.txt"), "utf8")).toBe("kept");
+    expect((await fs.stat(runs.workspace("run_kept"))).isDirectory()).toBe(true);
+  });
+
+  it("removes a deleted project's run folders even when its own folder stays, and logs each left", async () => {
+    const lines: string[] = [];
+    const { t, client, runs, newRun } = await setup({ log: (line) => lines.push(line) });
+    const [gone, held] = [newRun(), newRun()].map((run) => {
+      runs.open(run);
+      runs.save({ ...run, status: "succeeded" });
+      return run.runId;
+    });
+    for (const runId of [gone!, held!]) {
+      await fs.mkdir(runs.workspace(runId), { recursive: true });
+      await fs.writeFile(path.join(runs.workspace(runId), "input.json"), "{}");
+    }
+    // What Windows answers for a file a process still holds open, after rm's own retries.
+    const busy = new Set(
+      [projectDir(t.root, "runstore-work"), runs.workspace(held!)].map((dir) => path.resolve(dir)),
+    );
+    const rm = fs.rm;
+    const refuse = vi.spyOn(fs, "rm").mockImplementation(async (target, options) => {
+      if (busy.has(path.resolve(String(target))))
+        throw Object.assign(new Error("resource busy or locked"), { code: "EBUSY" });
+      return rm(target, options);
+    });
+    try {
+      expect((await client.delete("/api/projects/runstore-work")).status).toBe(500);
+    } finally {
+      refuse.mockRestore();
+    }
+    await expect(fs.stat(runs.workspace(gone!))).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await fs.readFile(path.join(runs.workspace(held!), "input.json"), "utf8")).toBe("{}");
+    expect(lines.filter((line) => line.includes("left in place"))).toEqual([
+      `[activities] Run ${held}'s folder was left in place (EBUSY): ${runs.workspace(held!)}`,
+    ]);
+  });
+
+  it("waits for a preview build in a run's folder before removing it, refusing new ones", async () => {
+    const building = deferred<string>();
+    const release = deferred();
+    const { t, client, activity, runs, newRun } = await setup({
+      moduleBuilder: {
+        ...fakeModuleBuilder().builder,
+        buildRun: async (workspace) => {
+          building.resolve(workspace);
+          await release.promise;
+          // A build writes its bundle into the run's folder as it ends.
+          await fs.mkdir(path.join(workspace, "dist", "debug"), { recursive: true });
+          await fs.writeFile(path.join(workspace, "dist", "debug", "entry.js"), "");
+          return { ok: true, log: "compiled" };
+        },
+      },
+    });
+    const run = newRun({ kind: "module" });
+    runs.open(run);
+    runs.save({ ...run, status: "succeeded" });
+    const module = path.join(runs.workspace(run.runId), "module");
+    await fs.mkdir(module, { recursive: true });
+    await fs.writeFile(path.join(module, "definition.json"), "{}");
+    const sandbox = `/api/projects/runstore-work/activities/${activity.id}/sandbox`;
+    const link = new URL((await client.get(`${sandbox}/play`)).headers.get("location")!);
+    const played = (file: string) =>
+      t.app.request(new URL(link.pathname.replace(/play$/, file), link.origin).toString(), {
+        headers: { host: link.host },
+      });
+    expect((await played("module/definition.json")).status).toBe(200);
+
+    const build = client.post(`${sandbox}/build`, { force: true });
+    expect(await building.promise).toBe(module);
+    const deleting = client.delete("/api/projects/runstore-work");
+    await tick();
+    expect((await fs.stat(module)).isDirectory()).toBe(true);
+    const refused = await client.post(`${sandbox}/build`, { force: true });
+    expect(refused.status).toBe(409);
+    expect(await refused.json()).toMatchObject({ error: { code: "project_deleting" } });
+    release.resolve();
+    expect((await build).status).toBe(200);
+
+    expect((await deleting).status).toBe(204);
+    await expect(fs.stat(runs.workspace(run.runId))).rejects.toMatchObject({ code: "ENOENT" });
+    // A link signed for the run plays nothing once its project is gone.
+    expect((await played("module/definition.json")).status).toBe(404);
   });
 
   it("finds runs by their Session, per project", async () => {

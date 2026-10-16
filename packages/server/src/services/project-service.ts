@@ -73,8 +73,18 @@ export class ProjectService implements ProjectLifecycle {
   @Use() private readonly projectConfig!: ProjectConfigStore;
   /** What destroying a Project needs of the session runtime — declared at the consumer. */
   @Use() private readonly manager!: ProjectRuns;
+  /**
+   * Activity image, speech and sound runs, and test runs that rerun earlier checks, which have no
+   * Session for `manager` to abort. Runs `openDeterministic` opened (video recordings, timeline
+   * renders, quality checks) are neither stopped nor awaited here.
+   */
+  @Use() private readonly serverRuns!: ProjectServerRuns;
   /** Trace-index cleanup on Project destruction (rows describe files removed with the Project dir). */
   @Use() private readonly traceIndex!: TraceIndex;
+  /** The Project's activity runs: their folders live outside the Project dir. */
+  @Use() private readonly activityRuns!: ProjectActivityRuns;
+  /** The previews that built those runs' modules, told the folders are gone. */
+  @Use() private readonly previews!: ProjectPreviews;
 
   // Access control lives in ProjectAccess (services/project-access.ts); these delegate so
   // in-package callers keep one entry point.
@@ -245,8 +255,8 @@ export class ProjectService implements ProjectLifecycle {
    * **last accessible Project** is refused too (deleting it would leave the list
    * empty, with no Project to select in the Web client and the page stuck on a
    * skeleton screen — a typical case being a non-first user deleting the initial
-   * Project provisioned at signup); active runs are drained first, then the DB and
-   * directory are cleared.
+   * Project provisioned at signup); active runs are drained first, then the DB, the
+   * activity runs' folders and the directory are cleared.
    */
   async deleteProject(userId: string, projectId: string): Promise<void> {
     this.requireProjectOwner(userId, projectId);
@@ -279,13 +289,18 @@ export class ProjectService implements ProjectLifecycle {
   }
 
   private async removeProject(projectId: string): Promise<void> {
-    const runnings = this.manager.abortProject(projectId);
+    const runnings = [
+      ...this.manager.abortProject(projectId),
+      ...this.serverRuns.abortProject(projectId),
+    ];
     if (runnings.length > 0) {
       await Promise.race([
         Promise.allSettled(runnings).then(() => undefined),
         new Promise<void>((resolve) => setTimeout(resolve, ABORT_SETTLE_TIMEOUT_MS).unref?.()),
       ]);
     }
+    // Read before the rows go: activity_runs is cascade-deleted with the Project.
+    const runIds = this.activityRuns.projectRunIds(projectId);
     this.projects.delete(projectId); // project_members, machine_project and model_promotions cascade-deleted
     this.agents.deleteByProject(projectId);
     this.sessions.deleteByProject(projectId);
@@ -294,6 +309,10 @@ export class ProjectService implements ProjectLifecycle {
     this.schedules.deleteByProject(projectId);
     this.orgCache.deleteProject(projectId);
     this.traceIndex.removeProject(projectId);
+    // The run folders go first: their ids went with the rows, so if the Project dir cannot be
+    // removed (a file a Session still holds, on Windows), nothing would find them again.
+    await this.activityRuns.removeWorkspaces(runIds);
+    this.previews.forgetRuns(runIds);
     await fs.rm(projectDir(this.root, projectId), { recursive: true, force: true });
   }
 
@@ -372,4 +391,25 @@ export class ProjectService implements ProjectLifecycle {
 /** What destroying a Project needs of the session runtime — declared at the consumer. */
 export abstract class ProjectRuns extends Interface<{
   abortProject(projectId: string): Promise<void>[];
+}>() {}
+
+/**
+ * What destroying a Project needs of the activity runs worked under the server's own controller
+ * (media helpers, local audio, test reruns), which have no Session to abort — declared at the
+ * consumer.
+ */
+export abstract class ProjectServerRuns extends Interface<{
+  abortProject(projectId: string): Promise<void>[];
+}>() {}
+
+/** What destroying a Project needs of its activity runs' folders — declared at the consumer. */
+export abstract class ProjectActivityRuns extends Interface<{
+  projectRunIds(projectId: string): string[];
+  /** Never rejects: a folder that cannot be removed is left in place and logged. */
+  removeWorkspaces(runIds: string[]): Promise<void>;
+}>() {}
+
+/** What destroying a Project needs of the activity previews — declared at the consumer. */
+export abstract class ProjectPreviews extends Interface<{
+  forgetRuns(runIds: string[]): void;
 }>() {}

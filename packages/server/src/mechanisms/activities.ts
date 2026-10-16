@@ -92,6 +92,13 @@ export abstract class ActivityGeneration extends Interface<{
   discardProposal(projectId: string, activityId: string, runId: string): Promise<void>;
   cancel(projectId: string, activityId: string, runId: string): Promise<ActivityRun>;
   /**
+   * Stops the Project's image, speech and sound runs (media helpers, local audio) and test runs
+   * that rerun earlier checks, which have no Session to abort; each promise settles once that
+   * run's work has ended. Runs `openDeterministic` opened are worked by their callers and are not
+   * among them.
+   */
+  abortProject(projectId: string): Promise<void>[];
+  /**
    * Records a run the server does itself, with no Session or agent (a quality check), under
    * the same one-run-per-activity rule as every other run. The caller does the work in the
    * run's workspace (`ActivityRuns.workspace`) and then settles it.

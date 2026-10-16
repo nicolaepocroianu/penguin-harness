@@ -22,6 +22,7 @@ import path from "node:path";
 import { Component, Interface, Use, type Opaque } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring } from "../mechanisms/activities.js";
+import type { ProjectActivityWork } from "../mechanisms/projects.js";
 import type { Settings } from "../mechanisms/settings.js";
 import type { Config } from "../hmr/capabilities.js";
 import { Sandbox, SandboxModule } from "../sandbox/service.js";
@@ -29,6 +30,7 @@ import { runConfinement } from "./run-sandbox.js";
 import type { ActivityDraft, ActivityRecord, ModuleDocumentKind } from "./domain.js";
 import type { ModuleBuilder } from "./module-builder.js";
 import type { ActivityModuleSource, ModuleRef } from "./module-source.js";
+import type { ActivityRuns } from "./run-store.js";
 import {
   activityPayload,
   scopeConfigurationToLanguage,
@@ -216,6 +218,8 @@ export abstract class ActivitySandbox extends Interface<{
   /** One file of the checkout's navigation bar module, which every played layout carries. */
   navbarFile(rawPath: string): Promise<SandboxMediaResponse>;
   build(projectId: string, activityId: string, force?: boolean): Promise<SandboxBuildReport>;
+  /** Forgets the builds of these runs, whose folders have been removed. */
+  forgetRuns(runIds: string[]): void;
   /** Whether a module exists to play: a built run, or the product's checkout folder. */
   hasModule(projectId: string, activity: ActivityRecord): Promise<boolean>;
   media(
@@ -277,6 +281,8 @@ export class ActivitySandboxService implements ActivitySandbox {
   @Use() private readonly config!: Config;
   @Use() private readonly moduleSources!: ActivityModuleSource;
   @Use() private readonly moduleBuilder!: ModuleBuilder;
+  @Use() private readonly runs!: ActivityRuns;
+  @Use() private readonly projectWork!: ProjectActivityWork;
 
   @Use() private readonly wafWorkspace!: WafWorkspace;
   @Use() private readonly links!: ActivityPlayLinks;
@@ -551,11 +557,14 @@ export class ActivitySandboxService implements ActivitySandbox {
   }
 
   /** Builds a source if its build is older than what it is built from. */
-  private async ensureCurrent(source: ModuleSource): Promise<SandboxBuildReport | null> {
+  private async ensureCurrent(
+    projectId: string,
+    source: ModuleSource,
+  ): Promise<SandboxBuildReport | null> {
     const builtAt = await this.builtAtMs(source);
     const sources = await this.mtimes(moduleSourceDirs(source));
     if (!moduleStale(builtAt, sources)) return null;
-    return this.buildNow(source);
+    return this.buildNow(projectId, source);
   }
 
   /**
@@ -563,13 +572,17 @@ export class ActivitySandboxService implements ActivitySandbox {
    * code its agent wrote, so it builds confined as the agent worked (the module builder's
    * `buildRun`), or is refused where the run itself would have been (`runConfinement`); a
    * request joins only a build asked for under the same confinement. A checkout module's build
-   * runs the checkout's own code, and is neither confined nor refused.
+   * runs the checkout's own code, and is neither confined nor refused. A run's module is built
+   * inside the run's folder, so its build is the Project's work: deleting the Project waits for
+   * it before removing the folder, and a build asked for meanwhile is refused.
    */
-  private async buildNow(source: ModuleSource): Promise<SandboxBuildReport> {
+  private async buildNow(projectId: string, source: ModuleSource): Promise<SandboxBuildReport> {
     if (source.kind !== "run") return report(await this.checkoutBuilder.ensure(source.root, true));
     const confined = runConfinement(this.settings, this.sessionSandbox) !== null;
     return report(
-      await this.builder.ensure(source.root, true, confined ? "confined" : "unconfined"),
+      await this.projectWork.run(projectId, () =>
+        this.builder.ensure(source.root, true, confined ? "confined" : "unconfined"),
+      ),
     );
   }
 
@@ -737,11 +750,15 @@ export class ActivitySandboxService implements ActivitySandbox {
     }
     if (!source)
       throw new HttpError(409, "preview_not_built", "No module has been built for this activity.");
-    if (force) return this.buildNow(source);
+    if (force) return this.buildNow(projectId, source);
     return (
-      (await this.ensureCurrent(source)) ??
+      (await this.ensureCurrent(projectId, source)) ??
       report({ ok: true, joined: false, skipped: true, log: "" })
     );
+  }
+
+  forgetRuns(runIds: string[]): void {
+    for (const runId of runIds) this.builder.forget(sandboxModuleRoot(this.runs.workspace(runId)));
   }
 
   /**
@@ -993,7 +1010,7 @@ export class ActivitySandboxService implements ActivitySandbox {
 
     let built: SandboxBuildReport | null;
     try {
-      built = await this.ensureCurrent(source);
+      built = await this.ensureCurrent(projectId, source);
     } catch (error) {
       // A build refused is a page saying why, as everything else that leaves nothing to play.
       if (error instanceof HttpError) return failurePage(error.status, error.message);
@@ -1001,7 +1018,7 @@ export class ActivitySandboxService implements ActivitySandbox {
     }
     if (built && !built.ok) return failurePage(500, "The module did not build.", built.log);
     const navbar = await this.navbarSource();
-    const navbarBuilt = navbar ? await this.ensureCurrent(navbar) : null;
+    const navbarBuilt = navbar ? await this.ensureCurrent(projectId, navbar) : null;
     if (navbarBuilt && !navbarBuilt.ok)
       return failurePage(500, "The navigation bar did not build.", navbarBuilt.log);
     // The media checkout is sparse: the shared files the navbar and the module require are

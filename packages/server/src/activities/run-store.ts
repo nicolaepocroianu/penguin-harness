@@ -1,6 +1,7 @@
+import fs from "node:fs/promises";
 import path from "node:path";
 import { Component, Interface, Use, type Opaque } from "@prismshadow/penguin-core/kernel";
-import type { Config, Db } from "../hmr/capabilities.js";
+import type { Config, Db, Log } from "../hmr/capabilities.js";
 import type { ActivityRun, ActivityRunSummary } from "./domain.js";
 
 /** Where every run's folder lives, under the server root. */
@@ -46,6 +47,14 @@ export abstract class ActivityRuns extends Interface<{
   hasActive(activityId: string): boolean;
   /** The run's folder, where its agent or the server does its work. */
   workspace(runId: string): string;
+  /** Every run of a project, of every activity, by id. */
+  projectRunIds(projectId: string): string[];
+  /**
+   * Removes these runs' folders. A link inside one (a module run's linked packages) is
+   * removed, never what it points to. A folder that cannot be removed is left as it is, and
+   * the server log names it.
+   */
+  removeWorkspaces(runIds: string[]): Promise<void>;
   /** The activity whose run the Session is, if it is one. */
   activityOfSession(sessionId: string): string | undefined;
   /** Every run Session of a project, session id to activity id, in one read. */
@@ -63,6 +72,7 @@ function summaryOf(row: RunRow): ActivityRunSummary {
 export class ActivityRunStore implements ActivityRuns {
   @Use() private readonly db!: Db;
   @Use() private readonly config!: Config;
+  @Use() private readonly log!: Log;
 
   open(run: ActivityRun): void {
     const { candidate: _candidate, kind: _kind, ...metadata } = run;
@@ -158,6 +168,31 @@ export class ActivityRunStore implements ActivityRuns {
 
   workspace(runId: string): string {
     return path.join(this.config.root, RUNS_DIR, runId);
+  }
+
+  projectRunIds(projectId: string): string[] {
+    const rows = this.db
+      .prepare("SELECT run_id FROM activity_runs WHERE project_id = ?")
+      .all(projectId) as Array<{ run_id: string }>;
+    return rows.map((row) => row.run_id);
+  }
+
+  async removeWorkspaces(runIds: string[]): Promise<void> {
+    await Promise.all(
+      runIds.map(async (runId) => {
+        const folder = this.workspace(runId);
+        // An id that names no folder below the runs' own (empty, or with `..`) removes nothing.
+        if (!isRunWorkspace(this.config.root, folder)) return;
+        // fs.rm unlinks a symlink or junction it meets rather than descending through it.
+        await fs.rm(folder, { recursive: true, force: true }).catch((error: unknown) => {
+          // Its rows are gone, so nothing will find the folder again but whoever reads this.
+          const code = (error as NodeJS.ErrnoException).code ?? String(error);
+          this.log.line(
+            `[activities] Run ${runId}'s folder was left in place (${code}): ${folder}`,
+          );
+        });
+      }),
+    );
   }
 
   activityOfSession(sessionId: string): string | undefined {

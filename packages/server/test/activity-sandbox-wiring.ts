@@ -50,10 +50,11 @@ export function wiredSandbox(deps: {
 }): ActivitySandboxService {
   const config = { root: deps.root };
   const wafWorkspace = { root: async () => deps.wafRoot };
+  const runs = deps.runs ?? wire(ActivityRunStore, { config });
   const moduleSources = wire(ActivityModuleSourceService, {
     activities: deps.activities,
     generation: deps.generation,
-    runs: deps.runs ?? wire(ActivityRunStore, { config }),
+    runs,
     config,
     wafWorkspace,
   });
@@ -73,5 +74,8 @@ export function wiredSandbox(deps: {
       confinementProblem: () => deps.confinementProblem ?? null,
       confiner: () => (argv: readonly string[]) => argv,
     },
+    runs,
+    // No Project is ever deleted here: a run's build is admitted as it is asked for.
+    projectWork: { run: <T>(_projectId: string, operation: () => Promise<T>) => operation() },
   });
 }

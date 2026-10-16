@@ -141,6 +141,19 @@ interface Observer {
   error: string | null;
 }
 
+/**
+ * An image, speech or sound run (its media helper, or local audio), or a test run that reruns
+ * earlier checks: the server works it under this controller, with no Session to stop it.
+ */
+interface LocalRun {
+  projectId: string;
+  controller: AbortController;
+  /** A kind the server runs itself, whose time limit the work answers to. */
+  kind?: LimitedKind;
+  /** Settles once its work has ended, however it ended. */
+  settled: Promise<void>;
+}
+
 @Component()
 export class ActivityGenerationService implements ActivityGeneration {
   @Use() private readonly projectWork!: ProjectActivityWork;
@@ -162,10 +175,7 @@ export class ActivityGenerationService implements ActivityGeneration {
    * The work the server does itself on a running run, by run id: what stops it, and for a kind
    * the server runs itself, that kind, whose limit the work answers to.
    */
-  private readonly localRuns = new Map<
-    string,
-    { controller: AbortController; kind?: LimitedKind }
-  >();
+  private readonly localRuns = new Map<string, LocalRun>();
   @Use() private readonly settings!: Settings;
   @Use() private readonly wafWorkspace!: WafWorkspace;
   @Use() private readonly browser!: TestBrowser;
@@ -584,13 +594,12 @@ export class ActivityGenerationService implements ActivityGeneration {
               await atomicJson(path.join(workspace, "local-audio-input.json"), local);
               if (this.stopped)
                 throw new HttpError(503, "activity_stopping", "Server is stopping.");
-              const controller = new AbortController();
-              this.localRuns.set(run.runId, { controller, kind });
               this.outcomes.witness({ run, server: `local:${local.provider}/${local.model}` });
-              void this.track(this.generateLocal(run, local, controller)).catch(
-                (error: unknown) => {
-                  this.log.line(`[activities] Local audio settlement failed: ${String(error)}`);
-                },
+              this.workLocally(
+                run,
+                "Local audio",
+                (controller) => this.generateLocal(run, local, controller),
+                kind,
               );
               return run;
             }
@@ -627,13 +636,9 @@ export class ActivityGenerationService implements ActivityGeneration {
               // What the kind recorded on the run as it staged it is kept before the work
               // starts, as it is before a Session's.
               this.runs.save(run);
-              const controller = new AbortController();
-              this.localRuns.set(run.runId, { controller });
-              void this.track(
+              this.workLocally(run, "Server work", (controller) =>
                 this.workOnServer(run, kind, () => work(stage, controller.signal), controller),
-              ).catch((error: unknown) => {
-                this.log.line(`[activities] Server work settlement failed: ${String(error)}`);
-              });
+              );
               return run;
             }
             if (kind.runner === "server") {
@@ -643,14 +648,13 @@ export class ActivityGenerationService implements ActivityGeneration {
               // and hub models.
               if (this.stopped)
                 throw new HttpError(503, "activity_stopping", "Server is stopping.");
-              const controller = new AbortController();
-              this.localRuns.set(run.runId, { controller, kind });
               const helper = kind.helper(prepared);
               this.outcomes.witness({ run, server: `helper:${helper.script}` });
-              void this.track(this.generateWithHelper(run, kind, helper, controller)).catch(
-                (error: unknown) => {
-                  this.log.line(`[activities] Media helper settlement failed: ${String(error)}`);
-                },
+              this.workLocally(
+                run,
+                "Media helper",
+                (controller) => this.generateWithHelper(run, kind, helper, controller),
+                kind,
               );
               return run;
             }
@@ -742,6 +746,45 @@ export class ActivityGenerationService implements ActivityGeneration {
         return run;
       }),
     );
+  }
+
+  /**
+   * Stops the Project's runs worked under a controller here (see `LocalRun`), which have no
+   * Session to abort, and returns each one's settling: until it has settled, its work can still
+   * hold its folder open or write into it. Runs `openDeterministic` opened (video recordings,
+   * timeline renders, quality checks) are worked by their callers and are not among them.
+   */
+  abortProject(projectId: string): Promise<void>[] {
+    const settling: Promise<void>[] = [];
+    for (const local of this.localRuns.values()) {
+      if (local.projectId !== projectId) continue;
+      local.controller.abort();
+      settling.push(local.settled);
+    }
+    return settling;
+  }
+
+  /**
+   * Starts the work the server does itself for a run. With no Session to stop, Stop, the run's
+   * time limit, a server stopping and its Project's deletion stop it through its controller.
+   */
+  private workLocally(
+    run: ActivityRun,
+    what: string,
+    work: (controller: AbortController) => Promise<void>,
+    kind?: LimitedKind,
+  ): void {
+    const local: LocalRun = {
+      projectId: run.projectId,
+      controller: new AbortController(),
+      settled: Promise.resolve(),
+      ...(kind ? { kind } : {}),
+    };
+    // Kept before the work starts: its own `finally` is what forgets it.
+    this.localRuns.set(run.runId, local);
+    local.settled = this.track(work(local.controller)).catch((error: unknown) => {
+      this.log.line(`[activities] ${what} settlement failed: ${String(error)}`);
+    });
   }
 
   private async generateLocal(
