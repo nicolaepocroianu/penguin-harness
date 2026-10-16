@@ -269,3 +269,63 @@ describe("arguments through the Windows shell", () => {
     expect(JSON.parse(result.stdout)).toEqual(args);
   });
 });
+
+describe("a confined program", () => {
+  it("is started as its confiner rewrote it", async () => {
+    const asked: (readonly string[])[] = [];
+    const result = await runProgram(
+      node("console.log('as given')", {
+        confine: (argv) => {
+          asked.push(argv);
+          return [process.execPath, "-e", "console.log('as confined')"];
+        },
+      }),
+    );
+    expect(asked).toEqual([[process.execPath, "-e", "console.log('as given')"]]);
+    expect(result).toMatchObject({ outcome: "exited", code: 0, stdout: "as confined\n" });
+  });
+
+  it("does not start when its confiner refuses, and says why", async () => {
+    const result = await runProgram(
+      node("console.log('ran')", {
+        confine: () => {
+          throw new Error("no sandbox backend is mounted");
+        },
+      }),
+    );
+    expect(result).toMatchObject({
+      outcome: "failed_to_start",
+      error: "no sandbox backend is mounted",
+      output: "",
+    });
+  });
+
+  it("reaches the Windows shell through its confiner, given a line cmd.exe runs as written", async () => {
+    const asked: (readonly string[])[] = [];
+    const spec = (args: string[]): ProgramSpec => ({
+      command: "npm",
+      args,
+      windowsShell: true,
+      timeoutMs: 60_000,
+      confine: (argv) => (asked.push(argv), argv),
+    });
+    const plain = await runProgram(spec(["--version"]));
+    expect(plain).toMatchObject({ outcome: "exited", code: 0 });
+    const quoted = await runProgram(spec(["--version", "with space"]));
+    if (process.platform === "win32") {
+      expect(asked[0]).toEqual([
+        process.env.ComSpec || "cmd.exe",
+        "/d",
+        "/s",
+        "/c",
+        "npm --version",
+      ]);
+      // A runner's own quoting of the line is not cmd's: refused rather than run as mangled.
+      expect(quoted).toMatchObject({ outcome: "failed_to_start" });
+      expect(quoted.error).toContain("cannot run confined");
+    } else {
+      expect(asked[0]).toEqual(["npm", "--version"]);
+      expect(quoted.outcome).toBe("exited");
+    }
+  });
+});

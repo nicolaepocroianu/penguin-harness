@@ -22,7 +22,10 @@ import path from "node:path";
 import { Component, Interface, Use, type Opaque } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring } from "../mechanisms/activities.js";
+import type { Settings } from "../mechanisms/settings.js";
 import type { Config } from "../hmr/capabilities.js";
+import { Sandbox, SandboxModule } from "../sandbox/service.js";
+import { runConfinement } from "./run-sandbox.js";
 import type { ActivityDraft, ActivityRecord, ModuleDocumentKind } from "./domain.js";
 import type { ModuleBuilder } from "./module-builder.js";
 import type { ActivityModuleSource, ModuleRef } from "./module-source.js";
@@ -92,7 +95,7 @@ import {
 } from "./sandbox-assessment.js";
 
 /** A build result as a caller sees it, with the sentence already written. */
-function report(result: BuildResult): SandboxBuildReport {
+function report(result: Omit<BuildResult, "finishedAtMs">): SandboxBuildReport {
   return {
     ok: result.ok,
     joined: result.joined,
@@ -277,6 +280,8 @@ export class ActivitySandboxService implements ActivitySandbox {
 
   @Use() private readonly wafWorkspace!: WafWorkspace;
   @Use() private readonly links!: ActivityPlayLinks;
+  @Use() private readonly settings!: Settings;
+  @Use(SandboxModule) private readonly sessionSandbox!: Sandbox;
 
   /**
    * One build per workspace, shared by everyone waiting on it.
@@ -550,7 +555,22 @@ export class ActivitySandboxService implements ActivitySandbox {
     const builtAt = await this.builtAtMs(source);
     const sources = await this.mtimes(moduleSourceDirs(source));
     if (!moduleStale(builtAt, sources)) return null;
-    return report(await this.builderFor(source).ensure(source.root, true));
+    return this.buildNow(source);
+  }
+
+  /**
+   * Builds a source now, or joins a build of it already under way. A run's module is built from
+   * code its agent wrote, so it builds confined as the agent worked (the module builder's
+   * `buildRun`), or is refused where the run itself would have been (`runConfinement`); a
+   * request joins only a build asked for under the same confinement. A checkout module's build
+   * runs the checkout's own code, and is neither confined nor refused.
+   */
+  private async buildNow(source: ModuleSource): Promise<SandboxBuildReport> {
+    if (source.kind !== "run") return report(await this.checkoutBuilder.ensure(source.root, true));
+    const confined = runConfinement(this.settings, this.sessionSandbox) !== null;
+    return report(
+      await this.builder.ensure(source.root, true, confined ? "confined" : "unconfined"),
+    );
   }
 
   /** What the client is told about a preview. Never claims more than it can show. */
@@ -698,7 +718,9 @@ export class ActivitySandboxService implements ActivitySandbox {
    * Build this activity's module if it needs it, and say what happened.
    *
    * `force` rebuilds regardless — what a Play button does, because an author pressing it
-   * after a build they believe failed is asking for a build, not a freshness opinion.
+   * after a build they believe failed is asking for a build, not a freshness opinion. Without
+   * it, the module is built as its play page builds it: only when it is older than what it is
+   * built from, so a build that would be refused is refused only when one would run.
    */
   async build(projectId: string, activityId: string, force = false): Promise<SandboxBuildReport> {
     const activity = await this.activities.getActivity(projectId, activityId);
@@ -715,7 +737,11 @@ export class ActivitySandboxService implements ActivitySandbox {
     }
     if (!source)
       throw new HttpError(409, "preview_not_built", "No module has been built for this activity.");
-    return report(await this.builderFor(source).ensure(source.root, force));
+    if (force) return this.buildNow(source);
+    return (
+      (await this.ensureCurrent(source)) ??
+      report({ ok: true, joined: false, skipped: true, log: "" })
+    );
   }
 
   /**
@@ -965,7 +991,14 @@ export class ActivitySandboxService implements ActivitySandbox {
         `${source.moduleFolder} has no ${configuration}, so there is nothing for this ref to play. Loom generates it in its assets configuration stage.`,
       );
 
-    const built = await this.ensureCurrent(source);
+    let built: SandboxBuildReport | null;
+    try {
+      built = await this.ensureCurrent(source);
+    } catch (error) {
+      // A build refused is a page saying why, as everything else that leaves nothing to play.
+      if (error instanceof HttpError) return failurePage(error.status, error.message);
+      throw error;
+    }
     if (built && !built.ok) return failurePage(500, "The module did not build.", built.log);
     const navbar = await this.navbarSource();
     const navbarBuilt = navbar ? await this.ensureCurrent(navbar) : null;

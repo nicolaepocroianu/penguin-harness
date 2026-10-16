@@ -22,6 +22,8 @@ export interface DeployProcessOptions {
   onOutput?: (text: string) => void;
   /** Whether the program goes through the shell; on Windows by default, for npm and npx. */
   shell?: boolean;
+  /** The program's whole environment; absent, this process's with git told never to prompt. */
+  env?: NodeJS.ProcessEnv;
 }
 
 export interface DeployProcessResult {
@@ -48,7 +50,7 @@ export const spawnDeployProcess: DeployProcess = {
       command,
       args,
       cwd: options.cwd,
-      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+      env: options.env ?? { ...process.env, GIT_TERMINAL_PROMPT: "0" },
       windowsShell: options.shell ?? true,
       timeoutMs: options.timeoutMs ?? PROCESS_TIMEOUT_MS,
       signal: options.signal,

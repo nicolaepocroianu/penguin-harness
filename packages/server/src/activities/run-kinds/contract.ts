@@ -139,6 +139,12 @@ interface RunKindBase<Request extends RunRequest, Prepared, Run extends Activity
   /** Refused while the activity has no script. */
   readonly needsScript: boolean;
   /**
+   * Its agent writes a module, which the server builds for the run's player check and its
+   * previews, confined whichever agent wrote it (`run-sandbox`): a coding agent's run is
+   * refused too where that build would be.
+   */
+  readonly writesModule?: true;
+  /**
    * Whether the run may start on this activity, and what it needs if so: rejects with the
    * refusal a start would answer.
    */

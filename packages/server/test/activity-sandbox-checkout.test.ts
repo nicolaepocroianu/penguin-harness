@@ -33,7 +33,9 @@ async function write(file: string, content: unknown) {
 }
 
 /** A checkout with one Loom module and its media, a Penguin root, and a service over both. */
-async function setup(options: { runs?: boolean; canonical?: boolean } = {}) {
+async function setup(
+  options: { runs?: boolean; canonical?: boolean; confinementProblem?: string } = {},
+) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-checkout-"));
   const penguin = path.join(root, "penguin");
   const waf = path.join(root, "waf");
@@ -98,6 +100,7 @@ async function setup(options: { runs?: boolean; canonical?: boolean } = {}) {
     root: penguin,
     wafRoot: waf,
     builder: builds.builder,
+    confinementProblem: options.confinementProblem,
   });
   return { service, root, penguin, waf, moduleRoot, generation, builds };
 }
@@ -246,6 +249,13 @@ describe("previewing a module from the WAF checkout", () => {
       },
     ]);
     expect(builds.runs).toEqual([]);
+  });
+
+  it("builds a checkout module where nothing could confine a run's build", async () => {
+    // A checkout module's build runs the checkout's own code, not a run agent's.
+    const { service, builds } = await made({ confinementProblem: "no sandbox backend" });
+    expect((await service.build(PROJECT, ACTIVITY, true)).ok).toBe(true);
+    expect(builds.checkouts).toHaveLength(1);
   });
 
   it("never writes to the checkout while reading it", async () => {

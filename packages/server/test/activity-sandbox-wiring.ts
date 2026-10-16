@@ -43,6 +43,10 @@ export function wiredSandbox(deps: {
   /** Where runs keep their folders; a run store over Penguin's root by default. */
   runs?: ActivityRuns;
   builder?: ModuleBuilder;
+  /** Whether activity agents are confined, as the admin switch says when read; on by default. */
+  confineActivityAgents?: boolean | (() => boolean);
+  /** Why nothing could confine a run's build right now; null (it could) by default. */
+  confinementProblem?: string | null;
 }): ActivitySandboxService {
   const config = { root: deps.root };
   const wafWorkspace = { root: async () => deps.wafRoot };
@@ -59,5 +63,15 @@ export function wiredSandbox(deps: {
     wafWorkspace,
     moduleSources,
     moduleBuilder: deps.builder ?? fakeModuleBuilder().builder,
+    settings: {
+      getConfineActivityAgents: () =>
+        typeof deps.confineActivityAgents === "function"
+          ? deps.confineActivityAgents()
+          : (deps.confineActivityAgents ?? true),
+    },
+    sessionSandbox: {
+      confinementProblem: () => deps.confinementProblem ?? null,
+      confiner: () => (argv: readonly string[]) => argv,
+    },
   });
 }

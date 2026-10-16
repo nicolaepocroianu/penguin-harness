@@ -19,12 +19,14 @@ describe("what a preview may fetch from a build workspace", () => {
     expect(moduleFilePath("/absolute.js")).toBeNull();
   });
 
-  it("closes the dependency and version-control directories", () => {
-    // A preview has no business reading either, and node_modules is most of the workspace.
+  it("closes the dependency, version-control and npm cache directories", () => {
+    // A preview has no business reading any, and node_modules is most of the workspace.
     expect(moduleFilePath("node_modules/left-pad/index.js")).toBeNull();
     expect(moduleFilePath(".git/config")).toBeNull();
     expect(moduleFilePath(".typescript-build/index.js")).toBeNull();
     expect(moduleFilePath("src/node_modules/x.js")).toBeNull();
+    // Where a confined build of a run's module keeps npm's cache.
+    expect(moduleFilePath(".npm-cache/_cacache/index-v5/00/entry.json")).toBeNull();
   });
 
   it("refuses an extension nobody serves rather than sending it as bytes", () => {

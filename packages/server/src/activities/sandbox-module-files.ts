@@ -11,6 +11,7 @@
  * the rest turns a preview route into a way to read a workspace.
  */
 import { previewMediaPath } from "./sandbox-model.js";
+import { RUN_BUILD_NPM_CACHE } from "./sandbox-source.js";
 
 /** What a preview may fetch from a build workspace. */
 const SERVABLE_EXTENSIONS = new Set([
@@ -52,7 +53,7 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 /** Directories inside a build workspace a preview never reaches into. */
-const CLOSED_DIRS = new Set(["node_modules", ".git", ".typescript-build"]);
+const CLOSED_DIRS = new Set(["node_modules", ".git", ".typescript-build", RUN_BUILD_NPM_CACHE]);
 
 function extension(pathname: string): string {
   const dot = pathname.lastIndexOf(".");
@@ -64,10 +65,10 @@ function extension(pathname: string): string {
  * The module file this request is asking for, or null when it is not one to serve.
  *
  * Three refusals, and each has a reason. A path that climbs out is refused by shape, as
- * everywhere else in this port. A dependency or version-control directory is closed
- * because a preview has no business reading either. And an extension nobody serves is
- * refused rather than sent as bytes: a build workspace holds `.log`, `.ts` and `.env`
- * files, and none of them belong in a browser.
+ * everywhere else in this port. A dependency, version-control or npm cache directory is
+ * closed because a preview has no business reading any of them. And an extension nobody
+ * serves is refused rather than sent as bytes: a build workspace holds `.log`, `.ts` and
+ * `.env` files, and none of them belong in a browser.
  */
 export function moduleFilePath(raw: string): string | null {
   const relative = previewMediaPath(raw);
