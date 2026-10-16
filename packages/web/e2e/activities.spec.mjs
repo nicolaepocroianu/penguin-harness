@@ -1313,6 +1313,9 @@ test("uploads media into the ref's uploads and binds it from the library", async
   await comparison.getByRole("button", { name: "Use new", exact: true }).click();
   await expect(comparison).toHaveCount(0);
   await expect(binding).toHaveValue(/^media\/loom\/words\/words-1\/uploads\/dog-[a-f0-9]{8}\.png$/);
+  // The cat binding may already have saved itself on a slow machine. Once the dog binding has
+  // too, rebinding the cat below is always a change, which saves (and says so) a moment later.
+  await mediaAutosaved(page);
 
   // Clearing and rebinding from the library reaches the same file.
   await page.getByRole("button", { name: "Clear media path", exact: true }).click();
