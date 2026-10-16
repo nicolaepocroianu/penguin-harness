@@ -295,6 +295,7 @@ async function fixture(page) {
     }
     if (p === `${base}/act_test/pipeline` && request.method() === "GET")
       return json({ pipeline: null });
+    if (p === `${base}/act_test/pipelines`) return json({ pipelines: [] });
     if (
       p === `${base}/act_test/generate-spec` ||
       p === `${base}/act_test/assemble-module` ||
@@ -2221,34 +2222,68 @@ async function setTabHidden(page, hidden) {
   }, hidden);
 }
 
+/**
+ * The requests the page sends, counted as the browser issues them rather than as the fixture
+ * answers them. `settled()` returns once every request sent so far is counted: the page sends
+ * one more, and the browser reports requests in the order they went out.
+ */
+function sentRequests(page) {
+  const sent = [];
+  let marks = 0;
+  const pathOf = (request) => new URL(request.url()).pathname;
+  page.on("request", (request) => sent.push(request));
+  return {
+    /** How many requests went to `path`, of those after the first `from`. */
+    count: (path, from = 0) =>
+      sent.slice(from).filter((request) => pathOf(request) === path).length,
+    /** Where the first request `matches` picks out stands among those sent, or -1. */
+    indexOf: (matches) => sent.findIndex(matches),
+    async settled() {
+      const mark = `/e2e-sent-${++marks}`;
+      const seen = page.waitForRequest((request) => pathOf(request) === mark);
+      await page.evaluate((url) => void fetch(url).catch(() => undefined), mark);
+      await seen;
+    },
+  };
+}
+
+const runsPath = `${base}/act_test/runs`;
+
 test("a hidden tab stops polling the activity and reads it again on coming back", async ({
   page,
 }) => {
   const f = await fixture(page);
   await create(page);
   await page.clock.install();
+  const sent = sentRequests(page);
   await page.reload();
   const description = page.getByRole("textbox", { name: "Script", exact: true });
   await openSection(page, "Script");
   await expect(description).toHaveText("Practice common sight words");
+  await sent.settled();
+  const stagesHistory = sent.count(`${base}/act_test/pipelines`);
+  expect(stagesHistory).toBeGreaterThan(0);
   // On screen, a settled activity is read again every 30 seconds.
-  const shown = f.historyReads;
+  const shown = sent.count(runsPath);
   await page.clock.fastForward(30_000);
-  await expect.poll(() => f.historyReads).toBeGreaterThan(shown);
+  await expect.poll(() => sent.count(runsPath)).toBeGreaterThan(shown);
   await setTabHidden(page, true);
-  const hidden = f.historyReads;
+  await sent.settled();
+  const hidden = sent.count(runsPath);
   f.changeSavedDescription();
   await page.clock.fastForward(120_000);
-  // Long enough for a request the page sent to reach the fixture.
-  await page.waitForTimeout(1000);
-  expect(f.historyReads).toBe(hidden);
+  await sent.settled();
+  expect(sent.count(runsPath)).toBe(hidden);
   await expect(description).toHaveText("Practice common sight words");
   // Shown again, it reads at once, takes what changed meanwhile, and polls as before.
   await setTabHidden(page, false);
-  await expect.poll(() => f.historyReads).toBe(hidden + 1);
+  await expect.poll(() => sent.count(runsPath)).toBe(hidden + 1);
   await expect(description).toHaveText("Remote description");
   await page.clock.fastForward(30_000);
-  await expect.poll(() => f.historyReads).toBe(hidden + 2);
+  await expect.poll(() => sent.count(runsPath)).toBe(hidden + 2);
+  // No sequence started or settled, so only the first read read the stages' history.
+  await sent.settled();
+  expect(sent.count(`${base}/act_test/pipelines`)).toBe(stagesHistory);
   expect(f.errors).toEqual([]);
 });
 
@@ -2262,6 +2297,9 @@ test("a hidden tab goes on reading while narrations wait in the queue, and stops
     prompt: { script: "Pick a word" },
     goodbye: { script: "See you soon" },
   });
+  await page.clock.install();
+  await page.reload();
+  const sent = sentRequests(page);
   await openSection(page, "Audio");
   await page.getByRole("button", { name: "Generate 3 missing", exact: true }).click();
   await page.getByRole("button", { name: "Generate 3 missing", exact: true }).last().click();
@@ -2277,13 +2315,22 @@ test("a hidden tab goes on reading while narrations wait in the queue, and stops
   await expect
     .poll(() => f.audioRequests.map((request) => request.assetKey))
     .toEqual(["welcome", "prompt", "goodbye"]);
-  // With nothing left to ask for, the hidden tab reads no more, though the last run goes on.
-  await page.waitForTimeout(1000);
-  const drained = f.historyReads;
-  await page.waitForTimeout(2500);
-  expect(f.historyReads).toBe(drained);
+  // Asking for the last narration restarts the poll, and its first read is the last while
+  // hidden, though the last run goes on.
+  const last = () =>
+    sent.indexOf(
+      (request) =>
+        new URL(request.url()).pathname === `${base}/act_test/generate-audio` &&
+        request.postDataJSON()?.assetKey === "goodbye",
+    );
+  await expect.poll(() => (last() < 0 ? 0 : sent.count(runsPath, last() + 1))).toBeGreaterThan(0);
+  await sent.settled();
+  const drained = sent.count(runsPath);
+  await page.clock.fastForward(60_000);
+  await sent.settled();
+  expect(sent.count(runsPath)).toBe(drained);
   await setTabHidden(page, false);
-  await expect.poll(() => f.historyReads).toBeGreaterThan(drained);
+  await expect.poll(() => sent.count(runsPath)).toBeGreaterThan(drained);
   await expect(page.getByRole("button", { name: "Stop queue", exact: true })).toHaveCount(0);
   expect(f.errors).toEqual([]);
 });

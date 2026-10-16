@@ -126,6 +126,35 @@ describe("a poll while the page is on screen", () => {
     expect(read).toHaveBeenCalledTimes(2);
   });
 
+  it("goes on after a read that rejects, though reads should not, and logs it", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const view = page();
+    const broken = new Error("broken read");
+    const read = vi
+      .fn<() => Promise<number>>()
+      .mockRejectedValueOnce(broken)
+      .mockRejectedValueOnce(broken)
+      .mockResolvedValue(1000);
+    const stop = pollWhileVisible(read, view);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(logged).toHaveBeenCalledWith(broken);
+    // The read asked for no delay, so the next waits the poll's own.
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(read).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(read).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(0);
+    // Hidden, then shown again, it reads at once: the rejected read is not still out.
+    view.show(false);
+    view.show(true);
+    expect(read).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(read).toHaveBeenCalledTimes(4);
+    expect(logged).toHaveBeenCalledTimes(2);
+    stop();
+    logged.mockRestore();
+  });
+
   it("reads nothing more once stopped, shown or not", async () => {
     const view = page();
     const { read, answer } = reads();

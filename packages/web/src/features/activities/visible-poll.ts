@@ -14,9 +14,13 @@ export interface PageVisibility {
   removeEventListener(type: "visibilitychange", listener: () => void): void;
 }
 
+/** How long after a read that rejected the next one runs. */
+const AFTER_REJECTION_MS = 30_000;
+
 /**
  * Run `read` now, then again each time the delay it resolves with (in ms) has passed. `read`
- * never rejects: it reports its own failures and says when to try again. The first read runs
+ * never rejects: it reports its own failures and says when to try again. One that rejects all
+ * the same is logged, and the poll carries on after `AFTER_REJECTION_MS`. The first read runs
  * hidden or not, since it is what the page loads. A hidden page goes on reading at the same
  * pace for as long as `keepReading()` says so; it is asked on hiding and after each read.
  * Returns the stop.
@@ -37,9 +41,16 @@ export function pollWhileVisible(
   const run = async () => {
     timer = undefined;
     reading = true;
-    const delay = await read();
-    reading = false;
-    if (!stopped && (visible() || keepReading())) timer = setTimeout(() => void run(), delay);
+    let delay = AFTER_REJECTION_MS;
+    try {
+      delay = await read();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      // A read left marked as out would stop the poll for good: no timer, and none on showing.
+      reading = false;
+      if (!stopped && (visible() || keepReading())) timer = setTimeout(() => void run(), delay);
+    }
   };
   const changed = () => {
     if (stopped) return;

@@ -113,6 +113,7 @@ import { ConflictNotice } from "./conflict-notice";
 import { pretty, type DraftBlock } from "./studio-draft";
 import { sameValue } from "./draft-merge";
 import { pollWhileVisible } from "./visible-poll";
+import { stagesHistoryReader } from "./stages-history";
 import { useStudioDraft } from "./use-studio-draft";
 import { ActivityList } from "./activity-list";
 import { ProjectMediaView } from "./project-media-view";
@@ -669,32 +670,35 @@ function ActivityEditor({
   useEffect(() => {
     if (!available) return;
     let cancelled = false;
+    const stagesHistory = stagesHistoryReader(api.pipeline.history);
     async function refresh(): Promise<number> {
       const revisionAtStart = draft.revision;
       let active = false;
       try {
+        // Following a run is a courtesy over the history, which stands without it. So is the
+        // stages' history, read only when it can have changed.
+        const current = api.pipeline.current().catch(() => null);
         const [value, history, sandbox, stages, sequences] = await Promise.all([
           api.detail(),
           api.runs.list.load(),
           // A module this project never assembled -- one Loom generated -- still has a
           // Module section; only the sandbox knows it is there.
           api.sandbox.status().catch(() => null),
-          // Following a run is a courtesy over the history, which stands without it.
-          api.pipeline.current().catch(() => null),
-          // So is the stages' history.
-          api.pipeline.history().catch(() => null),
+          current,
+          stagesHistory(current),
         ]);
         // The poll has stopped, so no next read waits on the delay.
         if (cancelled) return 0;
         setLoadError("");
-        // An answer the same as the one held changes nothing on screen, so it is not set.
+        // An answer the same as the one held changes nothing on screen, so it is not set. That
+        // also keeps a read of the runs in flight, which a put drops: it lands, with an answer
+        // at least as new as this one.
         const held = cache.peek(api.runs.list);
         if (held.error !== null || !sameValue(held.data, history))
           cache.put(api.runs.list, history);
         setSandboxModule(sandboxHasModule(sandbox));
         if (stages) setPipeline(unlessSame(pipelineOrNull(stages.pipeline)));
-        if (sequences && Array.isArray(sequences.pipelines))
-          setPipelineHistory(unlessSame(sequences.pipelines));
+        if (sequences) setPipelineHistory(unlessSame(sequences));
         active = indexRuns(history).busy || stages?.pipeline?.status === "running";
         draft.receive(value, revisionAtStart);
       } catch (e) {
