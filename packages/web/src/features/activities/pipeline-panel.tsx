@@ -4,7 +4,7 @@
  * answered where it is shown rather than in a separate chat; once a stage is done, its
  * session stays readable there.
  */
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { Link } from "react-router";
 import type {
   ActivityRunSummary,
@@ -69,15 +69,38 @@ function choiceLabel(choice: PipelineSelection) {
 /**
  * The stage a sequence that did not finish can be taken up at: the one it failed or stopped
  * at, when it was running every stage from some stage on. A sequence of one stage, or of the
- * narration or assets, ran only what the author picked, and taking it up would run more.
+ * narration or assets, ran only what the author picked, and taking it up would run more. One
+ * stopped before its first stage started a run did nothing there is to take up.
  */
 export function continueStep(pipeline: PipelineState | null): PipelineStep | null {
   if (pipeline?.status !== "failed" && pipeline?.status !== "cancelled") return null;
   if (pipeline.selection !== "all" && typeof pipeline.selection !== "object") return null;
-  const stopped = pipeline.steps.find(
+  const at = pipeline.steps.findIndex(
     (entry) => entry.status === "failed" || entry.status === "cancelled",
   );
-  return stopped?.step ?? null;
+  const stopped = pipeline.steps[at];
+  if (!stopped) return null;
+  if (at === 0 && stopped.status === "cancelled" && !stopped.runIds.length) return null;
+  return stopped.step;
+}
+
+/**
+ * What Continue asks for: the sequence's stages from `from` on, in its scope, run with the
+ * agents, voice, sound provider and book mode it was started with. A sequence recorded before
+ * those were kept is run with `current`, what the controls hold now.
+ */
+export function continueRequest(
+  pipeline: PipelineState,
+  from: PipelineStep,
+  current: Record<string, string>,
+): Record<string, unknown> {
+  let inputs: Record<string, string> = current;
+  if (pipeline.inputs) {
+    // A coding agent's sequence may have had no Penguin agent to own its Session.
+    const { agentId, ...rest } = pipeline.inputs;
+    inputs = { ...(agentId ? { agentId } : {}), ...rest };
+  }
+  return { ...inputs, stage: { from }, ...pipeline.scope };
 }
 
 /** What the run is doing, or how it ended, in one line. */
@@ -497,6 +520,7 @@ export function PipelinePanel({
   blocked?: string | null;
 }) {
   const words = S.activities.studioRun;
+  const blockedId = useId();
   // An earlier run the author opened from the list; the latest shows otherwise.
   const [earlierId, setEarlierId] = useState<string | null>(null);
   const earlier =
@@ -602,9 +626,21 @@ export function PipelinePanel({
           ))}
         </div>
         {resume && (
-          <Button size="sm" onClick={() => onContinue?.(resume)} disabled={!!blocked}>
-            {words.continueFrom(words.steps[resume])}
-          </Button>
+          <div className="space-y-1">
+            <Button
+              size="sm"
+              onClick={() => onContinue?.(resume)}
+              disabled={!!blocked}
+              aria-describedby={blocked ? blockedId : undefined}
+            >
+              {words.continueFrom(words.steps[resume])}
+            </Button>
+            {blocked && (
+              <p id={blockedId} className={`text-xs ${toneInk.attention}`}>
+                {blocked}
+              </p>
+            )}
+          </div>
         )}
         <ol>
           {folded ? (

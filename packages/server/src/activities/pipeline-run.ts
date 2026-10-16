@@ -72,6 +72,7 @@ import {
   PIPELINE_STEPS,
   type PipelineInput,
   type PipelineNote,
+  type PipelineRunInputs,
   type PipelineScope,
   type PipelineSelection,
   type PipelineState,
@@ -82,6 +83,7 @@ import {
 export {
   PIPELINE_STEPS,
   type PipelineInput,
+  type PipelineRunInputs,
   type PipelineScope,
   type PipelineSelection,
   type PipelineState,
@@ -95,6 +97,13 @@ function isStep(value: unknown): value is PipelineStep {
   return typeof value === "string" && (PIPELINE_STEPS as readonly string[]).includes(value);
 }
 
+const badSelection = () =>
+  new HttpError(
+    400,
+    "invalid_request",
+    "stage must be all, narration, assets, one of the pipeline steps, or { from: <step> }.",
+  );
+
 export function parseSelection(value: unknown): PipelineSelection {
   if (value === undefined || value === "all") return "all";
   if (value === "narration") return "narration";
@@ -102,18 +111,18 @@ export function parseSelection(value: unknown): PipelineSelection {
   if (isStep(value)) return value;
   const from = value && typeof value === "object" ? (value as { from?: unknown }).from : undefined;
   if (isStep(from)) return { from };
-  throw new HttpError(
-    400,
-    "invalid_request",
-    "stage must be all, narration, assets, one of the pipeline steps, or { from: <step> }.",
-  );
+  throw badSelection();
 }
 
 export function stepsFor(selection: PipelineSelection): PipelineStep[] {
   if (selection === "all") return [...PIPELINE_STEPS];
-  // Every step from one on, in the order "all" runs them.
-  if (typeof selection === "object")
-    return PIPELINE_STEPS.slice(PIPELINE_STEPS.indexOf(selection.from));
+  // Every step from one on, in the order "all" runs them. A selection that did not come through
+  // parseSelection may name no step at all, which leaves nothing to start from.
+  if (typeof selection === "object") {
+    const from = PIPELINE_STEPS.indexOf(selection.from);
+    if (from < 0) throw badSelection();
+    return PIPELINE_STEPS.slice(from);
+  }
   if (selection === "narration") return ["translations", "speech"];
   if (selection === "assets") return ["speech", "images"];
   return [selection];
@@ -363,15 +372,27 @@ const SKIP_NOTES: Record<RunSkip, PipelineNote | null> = {
 /**
  * What a built module's player check leaves to say about it, read as the outcome ledger reads
  * it: a module that only compiled is not one that was seen to play, and one whose check nothing
- * vouches for, or that failed it, was not seen to play well. The run still succeeded; its build
- * is kept and can be tested and repaired.
+ * vouches for, that failed it, or whose checks did not all run, was not seen to play well. The
+ * run still succeeded; its build is kept and can be tested and repaired.
  */
 function playerCheckNote(run: ActivityRun, workspace: string): PipelineNote | null {
   const checks = checkMetrics(run, workspace);
   if (checks["playerCheck.untrusted"]) return "moduleCheckUntrusted";
   if (run.unchecked === "noBrowser") return "moduleNotChecked";
   if (run.unchecked) return "moduleCheckSkipped";
-  return checks["playerCheck.failed"] ? "moduleChecksFailing" : null;
+  if (checks["playerCheck.failed"]) return "moduleChecksFailing";
+  return checks["playerCheck.notRun"] ? "moduleChecksNotRun" : null;
+}
+
+/** What a sequence was started with besides its steps and scope, kept so it can be repeated. */
+function runInputs(input: PipelineInput): PipelineRunInputs {
+  return {
+    agentId: input.agentId,
+    ...(input.codingAgentId ? { codingAgentId: input.codingAgentId } : {}),
+    ...(input.voice ? { voice: input.voice } : {}),
+    ...(input.soundProvider ? { soundProvider: input.soundProvider } : {}),
+    ...(input.bookMode ? { bookMode: input.bookMode } : {}),
+  };
 }
 
 export class PipelineRunner {
@@ -433,6 +454,7 @@ export class PipelineRunner {
       activityId,
       selection: input.selection,
       scope: input.scope ?? null,
+      inputs: runInputs(input),
       status: "running",
       steps: stepsFor(input.selection).map((step) => ({
         step,
@@ -752,8 +774,9 @@ export class PipelineRunner {
   /**
    * After a test run: when checks that ran saw the module do something wrong, one module run
    * repairs the build the tests played, told what they found, and the same tests run again on
-   * what it builds. The step stays succeeded either way; its note says when checks still fail.
-   * A check that never ran is a problem with the tests, which a module run cannot repair.
+   * what it builds. The step stays succeeded either way; its note says when checks still fail,
+   * or, when they pass, what the repaired build's own player check left to say about it. A
+   * check that never ran is a problem with the tests, which a module run cannot repair.
    */
   private async repairRound(
     state: PipelineState,
@@ -805,7 +828,9 @@ export class PipelineRunner {
     const same = handed !== undefined && retested.test?.cachedTestHash === handed;
     if (again.untrusted) step.note = "testsUntrusted";
     else if (again.failing || !again.reused || !same) step.note = "testsStillFailing";
-    else step.note = null;
+    // The tests pass on the repaired build: what is left to say about it is what its own player
+    // check found, as the module step says of the build it makes.
+    else step.note = playerCheckNote(repairedRun, this.deps.stages.workspace(repairedRun.runId));
   }
 
   /**

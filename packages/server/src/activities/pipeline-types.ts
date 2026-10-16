@@ -68,6 +68,8 @@ export type PipelineNote =
   | "moduleCheckUntrusted"
   /** The module was built, but checks in its player check fail. */
   | "moduleChecksFailing"
+  /** The module was built, but checks in its player check did not run. */
+  | "moduleChecksNotRun"
   /** Acceptance checks fail, and the module was not rebuilt with what they found. */
   | "testsFailing"
   /** Acceptance checks still fail after the module was rebuilt once with what they found. */
@@ -100,6 +102,11 @@ export interface PipelineState {
   selection: PipelineSelection;
   /** The media steps' scope, when the sequence was asked for one language or one line. */
   scope: PipelineScope | null;
+  /**
+   * The agents, voice, sound provider and book mode the sequence was started with. Absent on
+   * sequences recorded before they were kept.
+   */
+  inputs?: PipelineRunInputs;
   status: "running" | "succeeded" | "failed" | "cancelled";
   steps: PipelineStepState[];
   /** The run and Session the sequence is waiting on, for following it live. */
@@ -116,9 +123,13 @@ export interface PipelineScope {
   assetKey?: string;
 }
 
-export interface PipelineInput {
+export interface PipelineInput extends PipelineRunInputs {
   selection: PipelineSelection;
   scope?: PipelineScope;
+}
+
+/** What a sequence's steps run with, besides which steps and in which scope. */
+export interface PipelineRunInputs {
   /** The Penguin agent that runs agent steps, or owns the coding agent's Session. */
   agentId: string;
   codingAgentId?: string;

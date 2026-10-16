@@ -72,7 +72,12 @@ import { ConversationPanel } from "./conversation-panel";
 import { conversationThreads, focusFor } from "./conversation";
 import type { ProposalChange } from "./proposal";
 import { ScriptEditor } from "./script-editor";
-import { PipelineControls, PipelinePanel, type StageChoice } from "./pipeline-panel";
+import {
+  PipelineControls,
+  PipelinePanel,
+  continueRequest,
+  type StageChoice,
+} from "./pipeline-panel";
 import { placeholderAssets, storyboardFrames, type StoryboardFrame } from "./storyboard";
 import { mediaPreview } from "./media-preview";
 import { Storyboard } from "./storyboard-view";
@@ -829,28 +834,33 @@ function ActivityEditor({
   // Why Run cannot start the stages now. The server refuses the same cases; saying so
   // here saves the round trip, and says it in the author's terms.
   const pipelineBlocked = runBlockText(draft.can("stages"));
-  const agentLabel = codingAgentId
-    ? (codingAgents.find((agent) => agent.id === codingAgentId)?.title ?? codingAgentId)
-    : (agents.find((agent) => agent.agentId === selectedAgent)?.name ?? selectedAgent);
-  function runStages(
-    stage: PipelineSelection = pipelineChoice,
-    scope?: { language: string; assetKey?: string },
-    soundProvider?: SoundProviderId,
-  ) {
+  /** An agent as the Stages name it: a coding agent by its title, a Penguin agent by its name. */
+  const agentName = (by: { agentId?: string; codingAgentId?: string }) =>
+    by.codingAgentId
+      ? (codingAgents.find((agent) => agent.id === by.codingAgentId)?.title ?? by.codingAgentId)
+      : (agents.find((agent) => agent.agentId === by.agentId)?.name ?? by.agentId ?? "");
+  const agentLabel = agentName(codingAgentId ? { codingAgentId } : { agentId: selectedAgent });
+  // A sequence runs with the agent it was started with, which Continue takes from the sequence
+  // it continues; one recorded before that was kept is named by the picker.
+  const sequenceAgentLabel = pipeline?.inputs ? agentName(pipeline.inputs) : agentLabel;
+  /** Who runs the stages and with which voice, as the controls hold them now. */
+  const runWith = { ...runner, ...(bulkVoice ? { voice: bulkVoice } : {}) };
+  function startStages(body: Record<string, unknown>) {
     void draft.act(async () => {
       if (!detail) return;
-      const started = await api.pipeline.start({
-        ...runner,
-        stage,
-        ...scope,
-        ...(soundProvider ? { soundProvider } : {}),
-        ...(bulkVoice ? { voice: bulkVoice } : {}),
-      });
+      const started = await api.pipeline.start(body);
       if (!alive.current) return;
       setPipeline(pipelineOrNull(started));
       setShowPanel({ key: "run", at: Date.now() });
       cache.invalidate(api.runs.list);
     });
+  }
+  function runStages(
+    stage: PipelineSelection = pipelineChoice,
+    scope?: { language: string; assetKey?: string },
+    soundProvider?: SoundProviderId,
+  ) {
+    startStages({ ...runWith, stage, ...scope, ...(soundProvider ? { soundProvider } : {}) });
   }
   function stopStages() {
     void draft.act(async () => {
@@ -1265,7 +1275,7 @@ function ActivityEditor({
                   <PipelineControls
                     choice={pipelineChoice}
                     pipeline={pipeline}
-                    agentLabel={agentLabel}
+                    agentLabel={sequenceAgentLabel}
                     blocked={pipelineBlocked}
                     onChoose={setPipelineChoice}
                     onRun={() => runStages()}
@@ -1284,8 +1294,8 @@ function ActivityEditor({
                     setShowPanel({ key: "conversation", at: Date.now() });
                   }}
                   onContinue={
-                    editable && available
-                      ? (from) => runStages({ from }, pipeline?.scope ?? undefined)
+                    editable && available && pipeline
+                      ? (from) => startStages(continueRequest(pipeline, from, runWith))
                       : undefined
                   }
                   blocked={pipelineBlocked}

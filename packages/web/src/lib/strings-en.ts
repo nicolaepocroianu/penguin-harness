@@ -1151,6 +1151,8 @@ export const en: Strings = {
           "Built and type-checked, but the player check's files changed while it ran, so its results cannot be trusted. Run the module stage again.",
         moduleChecksFailing:
           "Built and type-checked, but some checks failed when the module was played in the player. Open the stage's session to see which.",
+        moduleChecksNotRun:
+          "Built and type-checked, but some checks did not run when the module was played in the player. Open the stage's session to see which.",
         testsFailing: "Some acceptance checks fail. Open the test report to see which.",
         testsStillFailing:
           "Some acceptance checks still fail after the module was rebuilt once with what they found. Open the test report to see which.",

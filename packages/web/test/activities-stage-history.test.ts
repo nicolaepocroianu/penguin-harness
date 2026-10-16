@@ -12,6 +12,7 @@ import type {
 } from "@prismshadow/penguin-server/api";
 import {
   PipelinePanel,
+  continueRequest,
   continueStep,
   stepSessions,
 } from "../src/features/activities/pipeline-panel";
@@ -195,13 +196,82 @@ describe("taking a sequence up where it stopped", () => {
       expect(continueStep({ ...failedAtImages, selection })).toBeNull();
   });
 
-  it("offers Continue where stages can be run, and holds it while they cannot", () => {
+  it("is not offered for a sequence stopped before its first stage started anything", () => {
+    // Stopped, or cut short by a restart, before the first stage began: every stage reads stopped.
+    const before = sequence("p1", {
+      status: "cancelled",
+      steps: steps(["speech", "cancelled"], ["images", "cancelled"], ["module", "cancelled"]),
+    });
+    expect(continueStep(before)).toBeNull();
+    expect(
+      continueStep({ ...before, steps: steps(["speech", "pending"], ["images", "pending"]) }),
+    ).toBeNull();
+    expect(render(before, [before], { onContinue: () => undefined })).not.toContain(
+      words.continueFrom(words.steps.speech),
+    );
+    // Stopped once its first stage had a run under way, it is taken up at that stage.
+    const [first, ...rest] = before.steps;
+    expect(continueStep({ ...before, steps: [{ ...first!, runIds: ["run_1"] }, ...rest] })).toBe(
+      "speech",
+    );
+  });
+
+  it("offers Continue where stages can be run, and holds it while they cannot, saying why", () => {
     const label = words.continueFrom(words.steps.images);
     const onContinue = () => undefined;
     expect(render(failedAtImages, [failedAtImages], { onContinue })).toContain(label);
     expect(render(failedAtImages, [failedAtImages])).not.toContain(label);
-    expect(render(failedAtImages, [failedAtImages], { onContinue, blocked: "Busy." })).toMatch(
-      new RegExp(`<button[^>]*disabled[^>]*>${label}</button>`),
+    const held = render(failedAtImages, [failedAtImages], { onContinue, blocked: "Busy." });
+    const button = held.match(new RegExp(`<button([^>]*)>${label}</button>`))?.[1] ?? "";
+    expect(button).toContain("disabled");
+    // The held button is described by the reason, which is on screen beside it.
+    const described = button.match(/aria-describedby="([^"]+)"/)?.[1];
+    expect(described).toBeTruthy();
+    expect(held.match(/<p id="([^"]+)"[^>]*>Busy\.<\/p>/)?.[1]).toBe(described);
+    expect(render(failedAtImages, [failedAtImages], { onContinue })).not.toContain(
+      "aria-describedby",
     );
+  });
+
+  it("runs with what the sequence was started with, or with the controls for an older record", () => {
+    const now = { agentId: "picked_now", voice: "Kore" };
+    const scoped = { ...failedAtImages, scope: { language: "es-MX", assetKey: "cat" } };
+    expect(
+      continueRequest(
+        {
+          ...scoped,
+          inputs: {
+            agentId: "started_with",
+            voice: "Puck",
+            soundProvider: "agenthub",
+            bookMode: "decodable",
+          },
+        },
+        "images",
+        now,
+      ),
+    ).toEqual({
+      agentId: "started_with",
+      voice: "Puck",
+      soundProvider: "agenthub",
+      bookMode: "decodable",
+      stage: { from: "images" },
+      language: "es-MX",
+      assetKey: "cat",
+    });
+    // A coding agent's sequence that had no Penguin agent to own it names none.
+    expect(
+      continueRequest(
+        { ...failedAtImages, inputs: { agentId: "", codingAgentId: "codex" } },
+        "images",
+        now,
+      ),
+    ).toEqual({ codingAgentId: "codex", stage: { from: "images" } });
+    // Recorded before the inputs were kept: the agent and voice chosen now.
+    expect(continueRequest(failedAtImages, "images", now)).toEqual({
+      agentId: "picked_now",
+      voice: "Kore",
+      stage: { from: "images" },
+    });
   });
 });

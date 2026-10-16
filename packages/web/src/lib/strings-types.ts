@@ -1033,6 +1033,7 @@ export type Strings = {
         | "moduleCheckSkipped"
         | "moduleCheckUntrusted"
         | "moduleChecksFailing"
+        | "moduleChecksNotRun"
         | "testsFailing"
         | "testsStillFailing"
         | "testsUntrusted",

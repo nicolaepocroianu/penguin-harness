@@ -4958,6 +4958,7 @@ export type {
   PipelineStepState,
   PipelineStepStatus,
   PipelineNote,
+  PipelineRunInputs,
 } from "../activities/pipeline-types.js";
 export type { ReadinessCheck, ReadinessLevel } from "../activities/readiness-types.js";
 export type { VoiceOption } from "../activities/voice-catalogue.js";

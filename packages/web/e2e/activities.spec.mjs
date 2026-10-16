@@ -2767,9 +2767,13 @@ test("runs every stage from Stages and follows the run in its panel", async ({ p
     // The first sequence stops at a failed image; the one that takes it up there finishes.
     if (posts.length === 1)
       return json({
-        pipeline: state("failed", ["succeeded", "succeeded", "succeeded", "failed", "cancelled"], {
-          error: "The image run broke.",
-        }),
+        pipeline: {
+          ...state("failed", ["succeeded", "succeeded", "succeeded", "failed", "cancelled"], {
+            error: "The image run broke.",
+          }),
+          // What it ran with, which may no longer be what the controls hold.
+          inputs: { agentId: "agent_that_ran", voice: "Puck" },
+        },
       });
     return json({
       pipeline:
@@ -2799,10 +2803,11 @@ test("runs every stage from Stages and follows the run in its panel", async ({ p
   await expect(
     panel.getByText("Stopped at a failure: The image run broke.", { exact: true }),
   ).toBeVisible();
-  // A sequence that stopped is taken up at the stage it stopped at, with nothing before it.
+  // A sequence that stopped is taken up at the stage it stopped at, with nothing before it, and
+  // with what it ran with.
   await panel.getByRole("button", { name: "Continue from Generate images", exact: true }).click();
   await expect.poll(() => posts.length).toBe(2);
-  expect(posts[1]).toMatchObject({ stage: { from: "images" }, agentId: "default_agent" });
+  expect(posts[1]).toEqual({ stage: { from: "images" }, agentId: "agent_that_ran", voice: "Puck" });
   await expect(panel.getByText("All chosen stages finished.", { exact: true })).toBeVisible();
   await expect(
     panel.getByRole("button", { name: "Continue from Generate images", exact: true }),

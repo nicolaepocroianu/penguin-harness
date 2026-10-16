@@ -14,6 +14,7 @@ import {
   speechTargets,
   stepsFor,
   translationTargets,
+  type PipelineStep,
 } from "../src/activities/pipeline-run.js";
 import { contentRevision, type ActivityRun } from "../src/activities/domain.js";
 import type { AcceptanceReport } from "../src/activities/acceptance-types.js";
@@ -245,8 +246,13 @@ describe("choosing the work", () => {
     expect(parseSelection({ from: "module", extra: 1 })).toEqual({ from: "module" });
     for (const value of [{ from: "deploy" }, { from: "all" }, {}, null, ["images"]])
       expect(() => parseSelection(value)).toThrow(/stage must be/);
+    // A selection that did not come through parseSelection may name no step: nothing to start from.
+    expect(() => stepsFor({ from: "deploy" as PipelineStep })).toThrow(/stage must be/);
   });
 });
+
+/** A module run's player check: whether its run changed what it rests on, and what it wrote. */
+type PlayerCheck = { untrusted?: boolean; results?: readonly ("passed" | "failed" | "notRun")[] };
 
 /** An activity and the two services, faked closely enough to show what the sequence does. */
 function world(
@@ -258,7 +264,9 @@ function world(
      * A succeeding module run's player check: whether its run changed the files the check
      * rests on, and the results it wrote, if any.
      */
-    playerCheck?: { untrusted?: boolean; results?: ("passed" | "failed")[] };
+    playerCheck?: PlayerCheck;
+    /** The player check of a module run that repairs a tested build, where it differs. */
+    repairPlayerCheck?: PlayerCheck;
     /** The Media Agent has no image provider key: an image run is refused. */
     noImageKey?: boolean;
     description?: string;
@@ -435,15 +443,23 @@ function world(
       }
       run.status = "succeeded";
       if (run.kind === "module" && options.unchecked) run.unchecked = options.unchecked;
-      if (run.kind === "module" && options.playerCheck) {
-        const { untrusted, results } = options.playerCheck;
+      const playerCheck =
+        request.kind === "module" && request.repair && options.repairPlayerCheck
+          ? options.repairPlayerCheck
+          : options.playerCheck;
+      if (run.kind === "module" && playerCheck) {
+        const { untrusted, results } = playerCheck;
         run.playerCheck = { staged: {}, ...(untrusted ? { untrusted: true } : {}) };
         if (results) {
           const dir = path.join(workspace, run.runId, PLAYER_CHECK_DIR);
           fs.mkdirSync(dir, { recursive: true });
           fs.writeFileSync(
             path.join(dir, ACCEPTANCE_RESULTS_FILE),
-            JSON.stringify({ results: results.map((status) => ({ status })) }),
+            JSON.stringify({
+              results: results.map((status) =>
+                status === "notRun" ? { status: "failed", code: "not_run" } : { status },
+              ),
+            }),
           );
         }
       }
@@ -685,6 +701,14 @@ describe("running the stages", () => {
     });
     expect(await note({ playerCheck: { results: ["passed", "failed"] } })).toMatchObject({
       status: "succeeded",
+      note: "moduleChecksFailing",
+    });
+    // Checks that did not run did not see the module play; one that failed is said first.
+    expect(await note({ playerCheck: { results: ["passed", "notRun"] } })).toMatchObject({
+      status: "succeeded",
+      note: "moduleChecksNotRun",
+    });
+    expect(await note({ playerCheck: { results: ["notRun", "failed"] } })).toMatchObject({
       note: "moduleChecksFailing",
     });
     // A run that changed what its check rests on: whatever its results say, nothing vouches for
@@ -983,6 +1007,32 @@ describe("running the stages", () => {
   });
 
   describe("continuing from a stage", () => {
+    it("keeps what the sequence was started with, so it can be taken up the same way", async () => {
+      const w = world();
+      const { state, done } = w.runner.start("proj", "act", {
+        selection: "spec",
+        agentId: "owner",
+        codingAgentId: "codex",
+        voice: "Puck",
+        soundProvider: "agenthub",
+        bookMode: "decodable",
+      });
+      const inputs = {
+        agentId: "owner",
+        codingAgentId: "codex",
+        voice: "Puck",
+        soundProvider: "agenthub",
+        bookMode: "decodable",
+      };
+      expect(state.inputs).toEqual(inputs);
+      await done;
+      expect(w.runner.status("act")!.inputs).toEqual(inputs);
+      // What was not chosen is not recorded as chosen.
+      const plain = w.runner.start("proj", "act", { selection: "spec", agentId: "agent" });
+      expect(plain.state.inputs).toEqual({ agentId: "agent" });
+      await plain.done;
+    });
+
     it("runs the stage a sequence stopped at and every one after it, and none before", async () => {
       const options: NonNullable<Parameters<typeof world>[0]> = { fail: "image" };
       const w = world(options);
@@ -1131,6 +1181,36 @@ describe("running the stages", () => {
         reports: [testReport(["failed"]), untrusted(testReport(["passed"], true))],
       });
       expect((await all(second)).steps.at(-1)).toMatchObject({ note: "testsUntrusted" });
+    });
+
+    it("says what the repaired build's player check found once the tests pass on it", async () => {
+      const repaired = (repairPlayerCheck: PlayerCheck) =>
+        all(
+          world({
+            criteria,
+            playerCheck: { results: ["passed"] },
+            repairPlayerCheck,
+            reports: [testReport(["failed", "passed"]), testReport(["passed", "passed"], true)],
+          }),
+        );
+      for (const [check, note] of [
+        [{ results: ["passed", "failed"] }, "moduleChecksFailing"],
+        [{ results: ["passed", "notRun"] }, "moduleChecksNotRun"],
+        [{ untrusted: true, results: ["passed"] }, "moduleCheckUntrusted"],
+        [{ results: ["passed"] }, null],
+      ] as const) {
+        const final = await repaired(check);
+        // The build the module step made passed its own check.
+        expect(final.steps.find((step) => step.step === "module")).toMatchObject({ note: null });
+        expect(final.steps.at(-1)).toMatchObject({ status: "succeeded", note });
+      }
+      // Tests that still fail are said before anything about the repaired build's check.
+      const still = world({
+        criteria,
+        repairPlayerCheck: { results: ["failed"] },
+        reports: [testReport(["failed", "passed"]), testReport(["failed", "passed"], true)],
+      });
+      expect((await all(still)).steps.at(-1)).toMatchObject({ note: "testsStillFailing" });
     });
 
     it("keeps the first findings when the round cannot finish", async () => {
