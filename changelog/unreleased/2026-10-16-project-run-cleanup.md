@@ -12,10 +12,18 @@ made: its draft copy, prompts, media takes, recordings, renders and module build
 
 ## Details
 
-- The project's run ids were read before its rows were deleted, and their folders were removed
-  once its running Sessions had settled and its project directory was gone.
+- The project's run ids were read before its rows were deleted. Their folders were removed once
+  the project's running work had settled, before the project directory was: a project directory
+  that could not be removed no longer kept the run folders too.
+- Runs the server worked itself, with no Session (media helpers, local audio), were stopped with
+  the project's Sessions. The deletion waited for them to end, within the same 5-second cap,
+  before removing any folder.
+- A preview build of a run's module was counted as the project's work. Deleting the project
+  waited for one already building, and a build asked for during the deletion was refused with
+  `project_deleting`.
 - A link inside a run folder, as a module run links the shared module packages in, was removed
   and what it pointed to was kept: the packages cache other runs link to was not touched.
 - A run folder that could not be removed, for example one a process still held open on Windows,
-  was left in place and did not fail the deletion.
+  was left in place, did not fail the deletion, and was named in the server log with its error
+  code.
 - The preview forgot the module builds it had recorded for the removed runs.

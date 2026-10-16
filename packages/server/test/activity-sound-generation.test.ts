@@ -23,10 +23,10 @@ describe("sound generation without an agent", () => {
     for (const cleanup of cleanups.splice(0)) await cleanup();
   });
 
-  async function fixture() {
+  async function fixture(helperOptions: Parameters<typeof fakeMediaHelper>[0] = {}) {
     // Stands in for generate-sound.mjs, which the server runs itself: it writes what the
     // helper would have, and nothing reaches a provider.
-    const helper = fakeMediaHelper();
+    const helper = fakeMediaHelper(helperOptions);
     const t = await createTestApp({ mediaHelperPorts: helper.ports });
     cleanups.push(t.cleanup);
     const owner = await provisionUser(t.app, "sounder");
@@ -317,5 +317,30 @@ describe("sound generation without an agent", () => {
     const wave = await f.finish(await f.started(), "wav");
     expect(wave.status).toBe("failed");
     expect(wave.hasCandidate).toBe(false);
+  });
+
+  it("stops a sound run when its project is deleted, and removes its folder once it has ended", async () => {
+    // A helper's process takes a moment to exit once stopped, and writes until it has.
+    let lastWrite: string | undefined;
+    const f = await fixture({
+      stopping: async (call) => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        lastWrite = await fs.writeFile(path.join(call.workspace, "sound.mp3.part"), "").then(
+          () => "written",
+          (error: NodeJS.ErrnoException) => error.code,
+        );
+        return { ok: false, error: "The helper was stopped." };
+      },
+    });
+    await f.setVault(["ELEVENLABS_API_KEY"]);
+    const run = await f.started();
+    const workspace = f.helper.waiting(run.runId)!;
+    expect(f.helper.calls.at(-1)!.signal.aborted).toBe(false);
+
+    expect((await f.client.delete(`/api/projects/${PROJECT}`)).status).toBe(204);
+    // Stopped, as a Session would have been, and ended while its folder was still there.
+    expect(f.helper.calls.at(-1)!.signal.aborted).toBe(true);
+    expect(lastWrite).toBe("written");
+    await expect(fs.stat(workspace)).rejects.toMatchObject({ code: "ENOENT" });
   });
 });

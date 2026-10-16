@@ -75,5 +75,7 @@ export function wiredSandbox(deps: {
       confiner: () => (argv: readonly string[]) => argv,
     },
     runs,
+    // No Project is ever deleted here: a run's build is admitted as it is asked for.
+    projectWork: { run: <T>(_projectId: string, operation: () => Promise<T>) => operation() },
   });
 }

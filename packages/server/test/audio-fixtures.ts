@@ -68,19 +68,22 @@ export const fakeMp3Encoding = {
  * Stands in for the speech or sound helper the server runs: records each call, holds it until the test
  * says what the helper wrote, and never starts a process or reaches a provider.
  */
-export function fakeMediaHelper() {
+export function fakeMediaHelper(
+  options: {
+    /** How a call ends once it is stopped: by default at once, as cancelled. */
+    stopping?: (run: MediaHelperRun) => Promise<MediaHelperResult>;
+  } = {},
+) {
   const calls: MediaHelperRun[] = [];
   let pending: { run: MediaHelperRun; resolve: (result: MediaHelperResult) => void } | null = null;
   const ports: MediaHelperPorts = {
     runHelper: (run) => {
       calls.push(run);
+      const stopped = (): Promise<MediaHelperResult> =>
+        options.stopping?.(run) ?? Promise.resolve({ ok: false, error: "Generation cancelled." });
       return new Promise((resolve) => {
         pending = { run, resolve };
-        run.signal.addEventListener(
-          "abort",
-          () => resolve({ ok: false, error: "Generation cancelled." }),
-          { once: true },
-        );
+        run.signal.addEventListener("abort", () => void stopped().then(resolve), { once: true });
       });
     },
   };
