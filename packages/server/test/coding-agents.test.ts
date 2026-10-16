@@ -18,7 +18,7 @@ import type {
   CodingAgentTestResult,
   CodingAgentsResponse,
 } from "../src/api/types.js";
-import { apiClient, createTestApp, loginAdmin, provisionUser } from "./helpers.js";
+import { apiClient, createTestApp, loginAdmin, provisionUser, waitFor } from "./helpers.js";
 import type { TestApp } from "./helpers.js";
 
 const AGENT_MAIN = fileURLToPath(new URL("./coding-agents-agent.mjs", import.meta.url));
@@ -676,6 +676,30 @@ describe("coding agents api", () => {
     // The transcript survives a fresh read (the log, not a live subscription).
     const reread = await admin.get(`/api/coding-agents/sessions/${session.sessionId}`);
     expect(((await reread.json()) as CodingAgentSessionDetailResponse).events).toHaveLength(4);
+  });
+
+  // The hub reclaims a channel nobody has listened to for its idle window, and the next
+  // stream gets a fresh one from channelFor(): the session's events must reach that one.
+  it("streams to the session's current channel after the hub reclaimed an idle one", async () => {
+    const created = await admin.post("/api/coding-agents/sessions", {
+      agentId: "fake",
+      workspaceDir: workspace,
+    });
+    const { session } = (await created.json()) as { session: CodingAgentSessionInfo };
+    const earlier = t.deps.codingAgents.channelFor(session.sessionId)!;
+    t.deps.channels.sweep(Date.now() + 60 * 60 * 1000);
+    expect(t.deps.channels.peek(`coding-agent:${session.sessionId}`)).toBeUndefined();
+
+    const seen: string[] = [];
+    const current = t.deps.codingAgents.channelFor(session.sessionId)!;
+    expect(current).not.toBe(earlier);
+    current.subscribe((evt) => seen.push((JSON.parse(evt.data) as { type: string }).type));
+    expect(
+      (await admin.post(`/api/coding-agents/sessions/${session.sessionId}/prompt`, { text: "hi" }))
+        .status,
+    ).toBe(202);
+    await waitFor(() => seen.includes("turn_end"), 10_000);
+    expect(seen).toEqual(["user_message", "message_chunk", "turn_end"]);
   });
 
   it("reopens an earlier session by id and continues it", async () => {

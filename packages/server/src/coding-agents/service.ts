@@ -706,9 +706,11 @@ export class CodingAgentService implements CodingAgents {
 
   /** Publish a session's kernel events to its channel; replay/resync belong to the hub. */
   private bridge(sessionId: string): void {
-    const channel = this.channels.get(`coding-agent:${sessionId}`);
+    // Looked up on every publish: the hub reclaims a channel left idle with no subscriber,
+    // and channelFor() then hands the next stream a new one; a reference held from here
+    // would keep publishing to the reclaimed channel.
     const unbridge = this.getManager().subscribe(sessionId, (event: AgentSessionEvent) => {
-      channel.publish(event, "coding_agent");
+      this.channels.get(`coding-agent:${sessionId}`).publish(event, "coding_agent");
     });
     this.unbridges.set(sessionId, unbridge);
   }
