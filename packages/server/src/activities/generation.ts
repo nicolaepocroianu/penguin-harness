@@ -142,8 +142,8 @@ interface Observer {
 }
 
 /**
- * A speech or sound run (its media helper, or local audio), or a test run that reruns earlier
- * checks: the server works it under this controller, with no Session to stop it.
+ * An image, speech or sound run (its media helper, or local audio), or a test run that reruns
+ * earlier checks: the server works it under this controller, with no Session to stop it.
  */
 interface LocalRun {
   projectId: string;

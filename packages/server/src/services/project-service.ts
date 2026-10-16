@@ -74,7 +74,7 @@ export class ProjectService implements ProjectLifecycle {
   /** What destroying a Project needs of the session runtime — declared at the consumer. */
   @Use() private readonly manager!: ProjectRuns;
   /**
-   * Activity speech and sound runs, and test runs that rerun earlier checks, which have no
+   * Activity image, speech and sound runs, and test runs that rerun earlier checks, which have no
    * Session for `manager` to abort. Runs `openDeterministic` opened (video recordings, timeline
    * renders, quality checks) are neither stopped nor awaited here.
    */

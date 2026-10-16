@@ -15,9 +15,9 @@ made: its draft copy, prompts, media takes, recordings, renders and module build
 - The project's run ids were read before its rows were deleted. Their folders were removed once
   the project's running work had settled, before the project directory was: a project directory
   that could not be removed no longer kept the run folders too.
-- Speech and sound runs (media helpers, local audio) and test runs that reran earlier checks,
-  which have no Session, were stopped with the project's Sessions. The deletion waited for them
-  to end, within the same 5-second cap, before removing any folder.
+- Image, speech and sound runs (media helpers, local audio) and test runs that reran earlier
+  checks, which have no Session, were stopped with the project's Sessions. The deletion waited for
+  them to end, within the same 5-second cap, before removing any folder.
 - A preview build of a run's module was counted as the project's work. Deleting the project
   waited for one already building, and a build asked for during the deletion was refused with
   `project_deleting`.
