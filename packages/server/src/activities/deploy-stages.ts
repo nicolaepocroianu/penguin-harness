@@ -54,11 +54,22 @@
  * own and must be clean. The git work a stage does on the module or media clone waits for, and
  * holds off, the workspace's own git work on that repository (`serial`); the npm checks, the
  * stylesheet compile and Jenkins run outside it. The clones, that queue, Jenkins, the programs,
- * the stylesheet compiler and the clock are ports, so a test runs every stage with fakes and
- * nothing reaches a remote.
+ * the stylesheet compiler, the sandbox and the clock are ports, so a test runs every stage with
+ * fakes and nothing reaches a remote.
+ *
+ * The npm checks and the stylesheet compile run the module's own code (its package.json
+ * scripts, its webpack config, what `npm ci` installs), which a run's agent may have written.
+ * So they start as a build of a run's module does (`runBuildSpawn`): with none of this server's
+ * environment and, while activity agents are confined, through the session sandbox, writable in
+ * the module clone alone; with nothing able to confine them then, the stage fails before it does
+ * anything. `npm ci` keeps the module's own `.npmrc`, the one the release build installs with,
+ * but none of this server's npm user config. git and Jenkins keep the clone's credentials and
+ * are never confined.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { SpawnConfiner } from "@prismshadow/penguin-core";
+import { HttpError } from "../http/errors.js";
 import {
   CloneError,
   CloneStopped,
@@ -85,6 +96,7 @@ import { runPreflight } from "./deploy-preflight.js";
 import { syncMedia } from "./deploy-media.js";
 import { withinRoot } from "./sandbox-paths.js";
 import { RUN_BUILD_NPM_CACHE } from "./sandbox-source.js";
+import { runBuildEnv, runBuildSpawn, type RunBuildSpawn } from "./sandbox-build-runner.js";
 import {
   DEPLOY_ALL_STAGES,
   DEPLOY_PROD_STAGES,
@@ -240,6 +252,13 @@ export interface DeployStageContext {
   process: DeployProcess;
   /** Compiles a module's stylesheet with the pinned Sass, as the preview does. */
   styles: StyleCompiler;
+  /**
+   * How the module's own programs are to run, asked as a stage that runs them starts: the
+   * session sandbox's confiner, or null once an admin turned confinement off. Throws the
+   * `sandbox_unavailable` refusal when they are to be confined and nothing can
+   * (`runConfinement`).
+   */
+  confinement(): SpawnConfiner | null;
   clock: DeployClock;
   settings: DeploySettings;
   productCode: string;
@@ -362,10 +381,54 @@ function tailOf(text: string): string {
   return text.trim().split(/\r?\n/).slice(-20).join("\n");
 }
 
+/**
+ * How the module clone's own programs start (see the top of this file). Fails the stage when
+ * they are to be confined and nothing can confine them, the refusal's words in the log.
+ */
+function moduleSpawn(ctx: DeployStageContext): RunBuildSpawn {
+  let confiner: SpawnConfiner | null;
+  try {
+    confiner = ctx.confinement();
+  } catch (error) {
+    if (!(error instanceof HttpError) || error.code !== "sandbox_unavailable") throw error;
+    ctx.log(error.message);
+    throw new DeployStageFailure({ code: "sandbox_unavailable" });
+  }
+  return runBuildSpawn(ctx.module.dir, confiner);
+}
+
+/**
+ * How `npm ci` starts in the clone: as its other programs do, and with npm's proxy and
+ * certificate settings, which it needs to reach the registry. npm's user config is an empty
+ * file of the install's own, so the registry the module's `.npmrc` names gets none of the
+ * credentials in this server user's `~/.npmrc`.
+ */
+async function installSpawn(ctx: DeployStageContext, spawn: RunBuildSpawn): Promise<RunBuildSpawn> {
+  const userconfig = path.join(ctx.module.dir, RUN_BUILD_NPM_CACHE, "user.npmrc");
+  await fs.mkdir(path.dirname(userconfig), { recursive: true });
+  await fs.writeFile(userconfig, "");
+  const env: NodeJS.ProcessEnv = {
+    ...runBuildEnv({ install: true }),
+    npm_config_userconfig: userconfig,
+  };
+  if (spawn.env.npm_config_cache) env.npm_config_cache = spawn.env.npm_config_cache;
+  return { ...spawn, env };
+}
+
 /** Runs a program in the clone, streaming its output to the log; a failure ends the stage. */
-function program(ctx: DeployStageContext, command: string, args: readonly string[]) {
+function program(
+  ctx: DeployStageContext,
+  command: string,
+  args: readonly string[],
+  spawn: RunBuildSpawn,
+) {
   return logged(ctx, command, `${command} ${args.join(" ")}`, (onOutput) =>
-    ctx.process.run(command, [...args], { cwd: ctx.module.dir, signal: ctx.signal, onOutput }),
+    ctx.process.run(command, [...args], {
+      cwd: ctx.module.dir,
+      signal: ctx.signal,
+      onOutput,
+      ...spawn,
+    }),
   );
 }
 
@@ -559,8 +622,12 @@ const verifyModule: DeployStageDefinition = {
     // The module is where activities are authored, so what is in its working tree is work:
     // it is carried onto main as origin has it (never reset away), the newest assembled
     // module is copied over it, and all of it is committed on main before the checks run.
+    const spawn = moduleSpawn(ctx);
+    const cache = path.join(ctx.module.dir, RUN_BUILD_NPM_CACHE);
     const clone = cloneOf(ctx, ctx.module.dir);
     await ctx.serial("module", async () => {
+      // npm's folder from checks a stopped server never finished is not the module's.
+      await fs.rm(cache, { recursive: true, force: true });
       try {
         await clone.fetch();
       } catch (error) {
@@ -591,7 +658,13 @@ const verifyModule: DeployStageDefinition = {
     });
     ctx.metadata.moduleContentHash = ctx.module.contentHash ?? null;
     if (ctx.module.source && ctx.module.runId) ctx.metadata.moduleRunId = ctx.module.runId;
-    for (const args of MODULE_VERIFY_COMMANDS) await program(ctx, "npm", args);
+    try {
+      const install = await installSpawn(ctx, spawn);
+      for (const args of MODULE_VERIFY_COMMANDS)
+        await program(ctx, "npm", args, args[0] === "ci" ? install : spawn);
+    } finally {
+      await fs.rm(cache, { recursive: true, force: true });
+    }
   },
 };
 
@@ -649,10 +722,14 @@ const prepareDeploy: DeployStageDefinition = {
     // That content is only there straight after verify_module, which is why this stage runs
     // once per verify (stageBlocker).
     const clone = cloneOf(ctx, ctx.module.dir);
+    // Refused before the branch is made, when the stylesheet cannot be compiled as it must be.
+    const style = (await exists(path.join(ctx.module.dir, "res", "style.scss")))
+      ? moduleSpawn(ctx)
+      : null;
     await ctx.serial("module", () => clone.branchFrom(branch, BASE_BRANCH));
     const { version, written } = await syncPackage(ctx);
     if (version) ctx.metadata.moduleVersion = version;
-    if (await exists(path.join(ctx.module.dir, "res", "style.scss"))) {
+    if (style) {
       await logged(
         ctx,
         "sass",
@@ -664,6 +741,8 @@ const prepareDeploy: DeployStageDefinition = {
             to: "res/style.css",
             signal: ctx.signal,
             onOutput,
+            runModule: true,
+            ...style,
           }),
       );
       written.push("res/style.css");

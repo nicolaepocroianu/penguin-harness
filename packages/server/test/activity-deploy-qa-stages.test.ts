@@ -134,6 +134,7 @@ async function setup(
     jenkins: jenkins.jenkins,
     process: { run: async () => ({ code: 0, tail: "" }) },
     styles: async () => ({ code: 0, tail: "" }),
+    confinement: () => null,
     clock: clock.clock,
     settings,
     productCode: "words",

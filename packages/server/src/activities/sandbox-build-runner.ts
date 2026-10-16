@@ -42,7 +42,7 @@ export interface BuildOutcome {
 }
 
 /** How a run build's programs are started: with this environment, and confined when it says. */
-interface RunBuildSpawn {
+export interface RunBuildSpawn {
   env: NodeJS.ProcessEnv;
   confine?: ProgramConfiner;
 }
@@ -98,8 +98,9 @@ export function runBuildEnv(options: { install?: boolean } = {}): NodeJS.Process
 /**
  * How the programs of a build of the run module at `moduleRoot` start (see the top of this
  * file): `confiner` is the session sandbox's, or null while activity agents are not confined.
+ * A deploy runs the module clone's programs the same way, the clone being `moduleRoot`.
  */
-function runBuildSpawn(moduleRoot: string, confiner: SpawnConfiner | null): RunBuildSpawn {
+export function runBuildSpawn(moduleRoot: string, confiner: SpawnConfiner | null): RunBuildSpawn {
   const env = runBuildEnv();
   if (!confiner) return { env };
   // npm keeps its cache in the user's profile, which a confined build cannot write.

@@ -821,6 +821,7 @@ export type Strings = {
       errors: {
         command_failed: (command: string, exitCode: number | null) => string;
         module_repository_missing: (remote: string) => string;
+        sandbox_unavailable: string;
         command_timed_out: (command: string) => string;
         command_missing: (command: string) => string;
         jenkins_failed: (status: number) => string;

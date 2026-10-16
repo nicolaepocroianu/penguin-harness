@@ -22,6 +22,7 @@ import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-c
 import { HttpError } from "../http/errors.js";
 import type { Config, Db } from "../hmr/capabilities.js";
 import type { Settings } from "../mechanisms/settings.js";
+import { Sandbox, SandboxModule } from "../sandbox/service.js";
 import type { ActivityAuthoring } from "../mechanisms/activities.js";
 import { writeSecretFile } from "../secret-file.js";
 import type { ModuleBuilder } from "./module-builder.js";
@@ -86,6 +87,7 @@ import {
   type StoredStage,
 } from "./deploy-run.js";
 import { ActivityDeployEvents } from "./deploy-events.js";
+import { runConfinement } from "./run-sandbox.js";
 
 /** How long the connection test waits for Jenkins. */
 export const CONNECTION_TEST_TIMEOUT_MS = 10_000;
@@ -182,6 +184,7 @@ export abstract class ActivityDeploys extends Interface<{
 export class ActivityDeployService implements ActivityDeploys {
   @Use() private readonly config!: Config;
   @Use() private readonly serverSettings!: Settings;
+  @Use(SandboxModule) private readonly sandbox!: Sandbox;
   @Use() private readonly activities!: ActivityAuthoring;
   @Use() private readonly moduleSources!: ActivityModuleSource;
   @Use() private readonly moduleBuilder!: ModuleBuilder;
@@ -546,6 +549,7 @@ export class ActivityDeployService implements ActivityDeploys {
         ),
         process: run ? { run } : spawnDeployProcess,
         styles: (job) => this.moduleBuilder.compileStyle(job),
+        confinement: () => runConfinement(this.serverSettings, this.sandbox),
         clock: {
           now: this.ports.now ?? realClock.now,
           sleep: this.ports.sleep ?? realClock.sleep,
@@ -631,6 +635,7 @@ export class ActivityDeployService implements ActivityDeploys {
         ),
         process: run ? { run } : spawnDeployProcess,
         styles: (job) => this.moduleBuilder.compileStyle(job),
+        confinement: () => runConfinement(this.serverSettings, this.sandbox),
         clock: {
           now: this.ports.now ?? realClock.now,
           sleep: this.ports.sleep ?? realClock.sleep,

@@ -104,6 +104,7 @@ function base(dir: string, overrides: Partial<DeployStageBase> = {}): DeployStag
     jenkins,
     process: quickProcess,
     styles: async () => ({ code: 0, tail: "" }),
+    confinement: () => null,
     clock: { now: () => 0, sleep: async () => {} },
     settings,
     productCode: "words",

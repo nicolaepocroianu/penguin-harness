@@ -8,13 +8,18 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import type { SpawnConfiner } from "@prismshadow/penguin-core";
 import { CloneError, CloneStopped, type CloneOptions } from "../src/activities/clone.js";
 import type { DeployGitResult } from "../src/activities/deploy-git.js";
 import type { DeployJenkins, JenkinsBuildStatus } from "../src/activities/deploy-jenkins.js";
 import { JenkinsError } from "../src/activities/deploy-jenkins.js";
-import type { DeployProcessResult } from "../src/activities/deploy-process.js";
+import type {
+  DeployProcessOptions,
+  DeployProcessResult,
+} from "../src/activities/deploy-process.js";
 import type { StyleJob } from "../src/activities/module-builder.js";
 import { defaultDeploySettings } from "../src/activities/deploy-settings.js";
+import { sandboxUnavailable } from "../src/activities/run-sandbox.js";
 import {
   DEPLOY_STAGE_DEFINITIONS,
   DeployStageFailure,
@@ -57,17 +62,25 @@ function asked(clones: FakeClones, op: string): unknown[][] {
 function fakeProcess(
   answer: (line: string) => Partial<DeployProcessResult> & { output?: string } = () => ({}),
 ) {
-  const calls: { line: string; cwd: string }[] = [];
+  const calls: (DeployProcessOptions & { line: string; userconfig?: string | null })[] = [];
   return {
     calls,
     process: {
       async run(
         command: string,
         args: string[],
-        options: { cwd: string; onOutput?: (text: string) => void },
+        options: DeployProcessOptions,
       ): Promise<DeployProcessResult> {
         const line = `${command} ${args.join(" ")}`;
-        calls.push({ line, cwd: options.cwd });
+        const userconfig = options.env?.npm_config_userconfig;
+        calls.push({
+          ...options,
+          line,
+          // What npm would read as its user config, as it starts.
+          ...(userconfig
+            ? { userconfig: await fs.readFile(userconfig, "utf8").catch(() => null) }
+            : {}),
+        });
         const reply = answer(line);
         const output = reply.output ?? `${line} ok\n`;
         options.onOutput?.(output);
@@ -158,6 +171,7 @@ function context(
       jenkins: fakeJenkins().jenkins,
       process: fakeProcess().process,
       styles: fakeStyles().styles,
+      confinement: () => null,
       clock: fakeClock().clock,
       settings: settings(),
       productCode: "words",
@@ -415,6 +429,166 @@ describe("prepare_deploy", () => {
       },
     });
     expect(clones.ops(dir)).not.toContain("commitStaged");
+  });
+});
+
+/** A confiner that wraps what it confines in a runner, recording what it was asked. */
+function fakeConfiner() {
+  const calls: { argv: readonly string[]; opts: Parameters<SpawnConfiner>[1] }[] = [];
+  const confiner: SpawnConfiner = (argv, opts) => {
+    calls.push({ argv, opts });
+    return ["sandbox-runner", ...argv];
+  };
+  return { confiner, calls };
+}
+
+/** A clone holding a stylesheet, as prepare_deploy compiles it. */
+async function styledClone() {
+  const dir = await moduleClone();
+  await fs.mkdir(path.join(dir, "res"));
+  await fs.writeFile(path.join(dir, "res", "style.scss"), "a { b: c }");
+  return dir;
+}
+
+describe("the module's own programs", () => {
+  const SECRET = "PENGUIN_DEPLOY_BUILD_PROBE";
+  const PROXY = "HTTPS_PROXY";
+  const saved = { [SECRET]: process.env[SECRET], [PROXY]: process.env[PROXY] };
+  afterEach(() => {
+    for (const [name, value] of Object.entries(saved))
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+  });
+
+  it("run through the session sandbox while activity agents are confined, writable in the clone alone", async () => {
+    const sandbox = fakeConfiner();
+    const dir = await styledClone();
+    const npm = fakeProcess();
+    const sass = fakeStyles();
+    const { ctx } = context({
+      dir,
+      process: npm.process,
+      styles: sass.styles,
+      confinement: () => sandbox.confiner,
+    });
+    await run("verify_module", ctx);
+    await run("prepare_deploy", ctx);
+    expect(npm.calls.map((call) => call.line)).toEqual([
+      "npm ci",
+      "npm run buildDebug",
+      "npm run lint",
+      "npm run buildRelease",
+    ]);
+    // Each program is started as the sandbox rewrites it.
+    for (const call of npm.calls)
+      expect(call.confine?.(["npm", "run", "x"])).toEqual(["sandbox-runner", "npm", "run", "x"]);
+    expect(sass.jobs[0]!.confine?.(["node", "sass.js"])).toEqual([
+      "sandbox-runner",
+      "node",
+      "sass.js",
+    ]);
+    // Confined to the module clone, as an activity run's agent is to its workspace.
+    expect(sandbox.calls.map((call) => call.opts)).toEqual(
+      Array(5).fill({ cwd: dir, workspaceDir: dir, sessionMode: "workspace-write" }),
+    );
+    // npm keeps its cache in the clone, the one place it may write, and it is gone after.
+    const cache = path.join(dir, ".npm-cache");
+    expect(npm.calls.every((call) => call.env?.npm_config_cache === cache)).toBe(true);
+    await expect(fs.stat(cache)).rejects.toThrow();
+    // The Sass the compile waits for installs with nothing of the module's.
+    expect(sass.jobs[0]).toMatchObject({ runModule: true });
+  });
+
+  it("start with none of this server's environment, the install with npm's network settings and no user config", async () => {
+    process.env[SECRET] = "leaked";
+    process.env[PROXY] = "http://proxy.example:3128";
+    const dir = await styledClone();
+    // npm's folder, left by checks a stopped server never finished.
+    await fs.mkdir(path.join(dir, ".npm-cache", "_cacache"), { recursive: true });
+    const npm = fakeProcess();
+    const sass = fakeStyles();
+    const { ctx } = context({
+      dir,
+      process: npm.process,
+      styles: sass.styles,
+      confinement: () => fakeConfiner().confiner,
+    });
+    await run("verify_module", ctx);
+    await run("prepare_deploy", ctx);
+    for (const env of [...npm.calls.map((call) => call.env), sass.jobs[0]!.env]) {
+      expect(env).toBeDefined();
+      expect(env![SECRET]).toBeUndefined();
+    }
+    const [install, ...rest] = npm.calls;
+    expect(install!.env![PROXY]).toBe("http://proxy.example:3128");
+    for (const call of rest) expect(call.env![PROXY]).toBeUndefined();
+    expect(sass.jobs[0]!.env![PROXY]).toBeUndefined();
+    // npm ci read an empty user config of its own, not this server user's ~/.npmrc.
+    expect(install!.userconfig).toBe("");
+    expect(install!.env!.npm_config_userconfig).toBe(path.join(dir, ".npm-cache", "user.npmrc"));
+    await expect(fs.stat(path.join(dir, ".npm-cache"))).rejects.toThrow();
+  });
+
+  it("run unconfined once an admin turned confinement off, still without the server's environment", async () => {
+    process.env[SECRET] = "leaked";
+    const dir = await styledClone();
+    const npm = fakeProcess();
+    const sass = fakeStyles();
+    const { ctx } = context({ dir, process: npm.process, styles: sass.styles });
+    await run("verify_module", ctx);
+    await run("prepare_deploy", ctx);
+    for (const call of npm.calls) {
+      expect(call.confine).toBeUndefined();
+      expect(call.env![SECRET]).toBeUndefined();
+      // npm keeps its cache in the user's profile, as npm unconfined does.
+      expect(call.env!.npm_config_cache).toBeUndefined();
+    }
+    expect(npm.calls[0]!.userconfig).toBe("");
+    expect(sass.jobs[0]!.confine).toBeUndefined();
+    expect(sass.jobs[0]!.env![SECRET]).toBeUndefined();
+    await expect(fs.stat(path.join(dir, ".npm-cache"))).rejects.toThrow();
+  });
+
+  it("are refused, the stage doing nothing, when they are to be confined and nothing can", async () => {
+    const dir = await styledClone();
+    const clones = fakeClones(dir);
+    const npm = fakeProcess();
+    const sass = fakeStyles();
+    const { ctx, lines } = context({
+      dir,
+      clones,
+      process: npm.process,
+      styles: sass.styles,
+      confinement: () => {
+        throw sandboxUnavailable("no sandbox backend is mounted");
+      },
+    });
+    for (const stage of ["verify_module", "prepare_deploy"] as const) {
+      const failure = await run(stage, ctx).then(
+        () => null,
+        (error: unknown) => error,
+      );
+      expect(failure).toBeInstanceOf(DeployStageFailure);
+      expect((failure as DeployStageFailure).error).toEqual({ code: "sandbox_unavailable" });
+    }
+    expect(clones.calls).toEqual([]);
+    expect(npm.calls).toEqual([]);
+    expect(sass.jobs).toEqual([]);
+    // The log says why, in the words an activity run is refused with.
+    const said = lines.filter((line) => line.includes("Enable a sandbox plugin"));
+    expect(said).toHaveLength(2);
+    for (const line of said) expect(line).toContain("no sandbox backend is mounted");
+  });
+
+  it("ask nothing of the sandbox when prepare_deploy has no stylesheet to compile", async () => {
+    const { ctx } = context({
+      dir: await moduleClone(),
+      confinement: () => {
+        throw sandboxUnavailable("no sandbox backend is mounted");
+      },
+    });
+    await run("prepare_deploy", ctx);
+    expect(ctx.metadata.commit).toBe("0123abcd");
   });
 });
 

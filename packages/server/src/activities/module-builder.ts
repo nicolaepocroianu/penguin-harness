@@ -62,9 +62,10 @@ export interface StyleJob {
   /** The compiler runs confined (see `ProgramSpec.confine`). */
   confine?: ProgramConfiner;
   /**
-   * `cwd` is a run's module, written by its agent. An install of the pinned Sass this compile
-   * waits for then reads none of its files: npm gets the `.npmrc` every run's module is
-   * scaffolded with, and only what it needs of this process's environment.
+   * `cwd` is a module an agent may have written: a run's module, or the deploy's clone that
+   * carries one. An install of the pinned Sass this compile waits for then reads none of its
+   * files: npm gets the `.npmrc` every run's module is scaffolded with, and only what it needs
+   * of this process's environment.
    */
   runModule?: boolean;
 }
@@ -164,9 +165,10 @@ async function installedSass(home: string): Promise<string | null> {
  * npm's project config during the install and is removed before the folder is kept, since it
  * may hold the registry's credentials; without one, npm's user config applies.
  *
- * A run's module is its agent's work, and its `.npmrc` could name a registry of the agent's
- * that serves its own `sass`, kept here for every later compile, or expand this server's
- * variables into credentials sent there. So an install for one (`StyleJob.runModule`) uses the
+ * A run's module is its agent's work, as is a deploy's clone carrying one, and its `.npmrc`
+ * could name a registry of the agent's that serves its own `sass`, kept here for every later
+ * compile, or expand this server's variables into credentials sent there. So an install for
+ * one (`StyleJob.runModule`) uses the
  * `.npmrc` the module was scaffolded with, an empty user config in place of this server's own
  * `~/.npmrc`, and starts with none of this server's secrets. npm's global config, the Node
  * installation's own, still applies.
