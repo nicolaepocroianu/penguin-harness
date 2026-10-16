@@ -1313,6 +1313,9 @@ test("uploads media into the ref's uploads and binds it from the library", async
   await comparison.getByRole("button", { name: "Use new", exact: true }).click();
   await expect(comparison).toHaveCount(0);
   await expect(binding).toHaveValue(/^media\/loom\/words\/words-1\/uploads\/dog-[a-f0-9]{8}\.png$/);
+  // The cat binding may already have saved itself on a slow machine. Once the dog binding has
+  // too, rebinding the cat below is always a change, which saves (and says so) a moment later.
+  await mediaAutosaved(page);
 
   // Clearing and rebinding from the library reaches the same file.
   await page.getByRole("button", { name: "Clear media path", exact: true }).click();
@@ -2718,8 +2721,11 @@ test("runs every stage from Stages and follows the run in its panel", async ({ p
   await create(page);
   const posts = [];
   let reads = 0;
-  const steps = (statuses) =>
-    ["spec", "media", "speech", "images", "module"].map((step, index) => ({
+  const every = ["spec", "media", "speech", "images", "module"];
+  // Taken up at the images, the sequence runs the images and what comes after them.
+  const fromImages = every.slice(every.indexOf("images"));
+  const steps = (names, statuses) =>
+    names.map((step, index) => ({
       step,
       status: statuses[index],
       detail: null,
@@ -2728,19 +2734,22 @@ test("runs every stage from Stages and follows the run in its panel", async ({ p
       total: step === "speech" ? 2 : 0,
       runIds: [],
     }));
-  const state = (status, statuses, error = null) => ({
-    pipelineId: "pipeline_1",
-    projectId,
-    activityId: "act_test",
-    selection: "all",
-    status,
-    steps: steps(statuses),
-    currentRunId: null,
-    currentSessionId: null,
-    error,
-    startedAt: "2026-09-23T12:00:00Z",
-    finishedAt: status === "running" ? null : "2026-09-23T12:05:00Z",
-  });
+  const state = (status, statuses, { selection = "all", error = null } = {}) => {
+    const names = typeof selection === "object" ? fromImages : every;
+    return {
+      pipelineId: `pipeline_${posts.length}`,
+      projectId,
+      activityId: "act_test",
+      selection,
+      status,
+      steps: steps(names, statuses.slice(0, names.length)),
+      currentRunId: null,
+      currentSessionId: null,
+      error,
+      startedAt: "2026-09-23T12:00:00Z",
+      finishedAt: status === "running" ? null : "2026-09-23T12:05:00Z",
+    };
+  };
   await page.route("**/*", async (route) => {
     const request = route.request();
     const p = new URL(request.url()).pathname;
@@ -2749,12 +2758,31 @@ test("runs every stage from Stages and follows the run in its panel", async ({ p
       route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
     if (request.method() === "POST") {
       posts.push(request.postDataJSON());
-      return json(state("running", ["running", "pending", "pending", "pending", "pending"]), 202);
+      return json(
+        state("running", ["running", "pending", "pending", "pending", "pending"], {
+          selection: posts.at(-1).stage,
+        }),
+        202,
+      );
     }
     reads++;
     if (!posts.length) return json({ pipeline: null });
+    // The first sequence stops at a failed image; the one that takes it up there finishes.
+    if (posts.length === 1)
+      return json({
+        pipeline: {
+          ...state("failed", ["succeeded", "succeeded", "succeeded", "failed", "cancelled"], {
+            error: "The image run broke.",
+          }),
+          // What it ran with, which may no longer be what the controls hold.
+          inputs: { agentId: "agent_that_ran", voice: "Puck" },
+        },
+      });
     return json({
-      pipeline: state("succeeded", ["succeeded", "succeeded", "succeeded", "skipped", "succeeded"]),
+      pipeline:
+        posts.length === 2
+          ? state("succeeded", ["skipped", "succeeded"], { selection: posts[1].stage })
+          : state("succeeded", ["succeeded", "succeeded", "succeeded", "skipped", "succeeded"]),
     });
   });
   await page.reload();
@@ -2775,7 +2803,25 @@ test("runs every stage from Stages and follows the run in its panel", async ({ p
   const panel = page.getByRole("complementary", { name: "Stages", exact: true });
   await expect(panel).toBeVisible();
   // The page keeps reading the run while it is in flight, and shows how it ended.
+  await expect(
+    panel.getByText("Stopped at a failure: The image run broke.", { exact: true }),
+  ).toBeVisible();
+  // A sequence that stopped is taken up at the stage it stopped at, with nothing before it, and
+  // with what it ran with.
+  await panel.getByRole("button", { name: "Continue from Generate images", exact: true }).click();
+  await expect.poll(() => posts.length).toBe(2);
+  expect(posts[1]).toEqual({ stage: { from: "images" }, agentId: "agent_that_ran", voice: "Puck" });
   await expect(panel.getByText("All chosen stages finished.", { exact: true })).toBeVisible();
+  await expect(
+    panel.getByRole("button", { name: "Continue from Generate images", exact: true }),
+  ).toHaveCount(0);
+  await expect(panel.getByText("Assemble module", { exact: true })).toBeVisible();
+  await expect(panel.getByText("Generate speech", { exact: true })).toHaveCount(0);
+
+  // A sequence of every stage finishes the same way.
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect.poll(() => posts.length).toBe(3);
+  expect(posts[2]).toMatchObject({ stage: "all" });
   await expect(panel.getByText("Generate speech", { exact: true })).toBeVisible();
   // A stage with nothing to do folds into one line, which says why when opened.
   await panel.getByText("1 skipped: Generate images", { exact: true }).click();
@@ -2789,8 +2835,8 @@ test("runs every stage from Stages and follows the run in its panel", async ({ p
   await page.getByRole("option", { name: "Generate images", exact: true }).click();
   await openPanel(page, "Stages");
   await page.getByRole("button", { name: "Run", exact: true }).click();
-  await expect.poll(() => posts.length).toBe(2);
-  expect(posts[1]).toMatchObject({ stage: "images" });
+  await expect.poll(() => posts.length).toBe(4);
+  expect(posts[3]).toMatchObject({ stage: "images" });
   expect(f.errors).toEqual([]);
 });
 

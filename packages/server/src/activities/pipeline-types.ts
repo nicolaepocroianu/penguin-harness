@@ -21,10 +21,12 @@ export const PIPELINE_STEPS = [
 export type PipelineStep = (typeof PIPELINE_STEPS)[number];
 /**
  * Every step, one step, "narration": translating what a language lacks and then speaking
- * it, so a language with empty scripts is voiced in one go, or "assets": speaking and drawing
- * every unbound narration and image, as a ref made from its template does next.
+ * it, so a language with empty scripts is voiced in one go, "assets": speaking and drawing
+ * every unbound narration and image, as a ref made from its template does next, or every step
+ * from one on, which takes up a sequence that stopped at that step.
  */
-export type PipelineSelection = "all" | "narration" | "assets" | PipelineStep;
+export type PipelineSelection =
+  "all" | "narration" | "assets" | PipelineStep | { from: PipelineStep };
 
 export type PipelineStepStatus =
   "pending" | "running" | "succeeded" | "skipped" | "failed" | "cancelled";
@@ -59,6 +61,15 @@ export type PipelineNote =
   | "moduleNotChecked"
   /** The module was built, but its agent never ran the player check it was given. */
   | "moduleCheckSkipped"
+  /**
+   * The module was built, but its run changed the files its player check rests on, so what
+   * the check found cannot be trusted.
+   */
+  | "moduleCheckUntrusted"
+  /** The module was built, but checks in its player check fail. */
+  | "moduleChecksFailing"
+  /** The module was built, but checks in its player check did not run. */
+  | "moduleChecksNotRun"
   /** Acceptance checks fail, and the module was not rebuilt with what they found. */
   | "testsFailing"
   /** Acceptance checks still fail after the module was rebuilt once with what they found. */
@@ -91,6 +102,11 @@ export interface PipelineState {
   selection: PipelineSelection;
   /** The media steps' scope, when the sequence was asked for one language or one line. */
   scope: PipelineScope | null;
+  /**
+   * The agents, voice, sound provider and book mode the sequence was started with. Absent on
+   * sequences recorded before they were kept.
+   */
+  inputs?: PipelineRunInputs;
   status: "running" | "succeeded" | "failed" | "cancelled";
   steps: PipelineStepState[];
   /** The run and Session the sequence is waiting on, for following it live. */
@@ -107,9 +123,13 @@ export interface PipelineScope {
   assetKey?: string;
 }
 
-export interface PipelineInput {
+export interface PipelineInput extends PipelineRunInputs {
   selection: PipelineSelection;
   scope?: PipelineScope;
+}
+
+/** What a sequence's steps run with, besides which steps and in which scope. */
+export interface PipelineRunInputs {
   /** The Penguin agent that runs agent steps, or owns the coding agent's Session. */
   agentId: string;
   codingAgentId?: string;
