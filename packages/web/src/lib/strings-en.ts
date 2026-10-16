@@ -910,6 +910,8 @@ export const en: Strings = {
         module_repository_missing: (remote) =>
           `The module's repository ${remote} does not exist yet. Create it empty, then deploy again.`,
         command_missing: (command) => `${command} is not installed on this server.`,
+        sandbox_unavailable:
+          "This stage runs the module's own install, builds and lint, which need a sandbox while Confine activity agents is on, and none is available. Enable a sandbox plugin for this project on the Plugins page (sandbox-dsh works on Windows, macOS and Linux), then try again. The log names the reason.",
         jenkins_failed: (status) =>
           status ? `Jenkins refused the request (HTTP ${status}).` : "Jenkins did not answer.",
         build_failed: (result) => `The Jenkins build ended as ${result}.`,
@@ -3014,13 +3016,13 @@ export const en: Strings = {
         "The checkouts activities are authored, played and deployed from: the framework, the navigation bar, media and activity data, plus one repository per product's module. Penguin clones them into its own data folder and installs what the framework and navigation bar build with, by itself when the server starts and they are not there yet; Prepare does it again, for instance after a failure. Media is cloned partially, and a product's media is fetched only when it is needed. git uses this server's own SSH keys. To use a checkout you already have instead, enter its folder below; Penguin then only reads it.",
       confineAgents: "Confine activity agents",
       confineAgentsInfo:
-        "While this is on, a Penguin agent in an activity run can change files only in that run's own folder: its commands and its file tools both. It cannot change the WAF checkout or anything else on this machine. Only writing is confined: the agent can still read every file this server can, Penguin's data folder and the secrets in it included, and it can still reach the network. A run on a coding agent is not confined: the coding agent runs its own commands, outside Penguin's sandbox. Previewing a module a run built runs that module's own build script; while this is on, that build can change files only in the module's folder, whichever agent the run had. Turn it off only if you trust what your activity agents do. Runs already going keep the setting they started with.",
+        "While this is on, a Penguin agent in an activity run can change files only in that run's own folder: its commands and its file tools both. It cannot change the WAF checkout or anything else on this machine. Only writing is confined: the agent can still read every file this server can, Penguin's data folder and the secrets in it included, and it can still reach the network. A run on a coding agent is not confined: the coding agent runs its own commands, outside Penguin's sandbox. Previewing a module a run built runs that module's own build script, and releasing a module runs its install, builds, lint and stylesheet compile in a folder of their own, outside the module's clone; while this is on, those can change files only in that folder or the module's, whichever agent wrote it. Like the agent, they can still read every file this server can and reach the network. Turn it off only if you trust what your activity agents do. Runs already going keep the setting they started with.",
       confineAgentsReady:
         "Penguin agents in activity runs are confined: they can change files only in their run's folder.",
       confineAgentsOff:
         "Activity agents are not confined. They can change any file this server can.",
       confineAgentsUnavailable:
-        "No sandbox is available, so activity runs on a Penguin agent and module runs on any agent will not start, and previews of a module a run built will not build. Install the sandbox plugin, or turn this off.",
+        "No sandbox is available, so activity runs on a Penguin agent and module runs on any agent will not start, previews of a module a run built will not build, and module releases will not start their checks. Install the sandbox plugin, or turn this off.",
       confineAgentsSaved: (on) =>
         on
           ? "Penguin agents in activity runs will be confined."

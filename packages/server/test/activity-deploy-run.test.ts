@@ -44,20 +44,18 @@ async function home() {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-deploy-run-"));
   cleanups.push(() => fs.rm(dir, { recursive: true, force: true }));
   await fs.mkdir(path.join(dir, "module"));
-  await fs.writeFile(
-    path.join(dir, "module", "package.json"),
-    JSON.stringify({ name: "waf-module-words", version: "1.0.0" }),
-  );
   return dir;
 }
 
 /** The module clone, whose tags gain a newer one after the first fetch. */
 function clonesWithTags(dir: string, before: string[], after: string[]) {
   const clones = new FakeClones();
+  const pkg = JSON.stringify({ name: "waf-module-words", version: "1.0.0" });
   clones.add(path.join(dir, "module"), {
     origin: "git@github.com:org/waf-module-words.git",
     head: "feed",
     tags: [before, after],
+    files: { feed: { "package.json": pkg } },
   });
   return clones;
 }
@@ -104,10 +102,16 @@ function base(dir: string, overrides: Partial<DeployStageBase> = {}): DeployStag
     jenkins,
     process: quickProcess,
     styles: async () => ({ code: 0, tail: "" }),
+    confinement: () => null,
     clock: { now: () => 0, sleep: async () => {} },
     settings,
     productCode: "words",
-    module: { folder: "waf-module-words", dir: path.join(dir, "module"), source: null },
+    module: {
+      folder: "waf-module-words",
+      dir: path.join(dir, "module"),
+      checkDir: path.join(dir, "checks", "waf-module-words"),
+      source: null,
+    },
     moduleVersion: null,
     ...overrides,
   };

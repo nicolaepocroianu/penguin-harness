@@ -303,6 +303,11 @@ export type DeployStageError =
    * whoever owns the organisation creates it (empty), and the deploy then pushes main to it.
    */
   | { code: "module_repository_missing"; remote: string }
+  /**
+   * The stage runs the module's own programs, which are to be confined while activity agents
+   * are, and nothing could confine them: it did nothing. The log names the reason.
+   */
+  | { code: "sandbox_unavailable" }
   /** The server stopped while the stage ran. */
   | { code: "interrupted" }
   /** Something the stage did not expect; the log says what. */

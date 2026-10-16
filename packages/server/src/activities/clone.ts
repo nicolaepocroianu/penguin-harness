@@ -12,6 +12,7 @@
  * that aborts throws `CloneStopped`. Reads that only ask (`state`) never throw. A clone opened
  * with `log` writes each command and what git printed to it, as the deploy log shows them.
  */
+import fs from "node:fs/promises";
 import path from "node:path";
 import { spawnGit, type DeployGit, type DeployGitResult } from "./deploy-git.js";
 
@@ -175,6 +176,12 @@ export interface Clone {
   tagDiffers(tag: string, commit: string): Promise<string[]>;
   /** What `file` holds in release tag `tag` or in `commit`; null when there is no such file. */
   fileAt(at: { tag: string } | { commit: string }, file: string): Promise<string | null>;
+  /**
+   * Writes the files `commit` holds into `dir`, a folder outside the clone, and nothing of the
+   * repository: no `.git`, and a symbolic link as a file holding its target. The clone's index
+   * and working tree stay as they are.
+   */
+  exportTo(commit: string, dir: string): Promise<void>;
 }
 
 /** Every clone, and making them. */
@@ -226,7 +233,10 @@ export function gitClones(git: DeployGit = spawnGit): Clones {
       });
       if (cloned.code !== 0) throw new CloneError(args, cloned);
       if (options.partial) {
-        const lfs = ["lfs", "install", "--local"];
+        // Its hooks go where git-lfs puts them for whoever runs git in the clone by hand. git
+        // run through `DeployGit` runs no hook (`Clone.push` uploads LFS files itself).
+        const hooks = path.join(dir, ".git", "hooks").split(path.sep).join("/");
+        const lfs = ["-c", `core.hooksPath=${hooks}`, "lfs", "install", "--local"];
         const installed = await git.run(lfs, dir, timeout);
         if (installed.code !== 0) throw new CloneError(lfs, installed);
       }
@@ -263,6 +273,8 @@ interface RunOptions {
   timeoutMs?: number;
   /** How many characters of each stream are kept (by default `GIT_OUTPUT_MAX`). */
   outputMax?: number;
+  /** Added to the environment git runs in. */
+  env?: Record<string, string>;
 }
 
 class GitClone implements Clone {
@@ -289,6 +301,7 @@ class GitClone implements Clone {
       ...(timeoutMs ? { timeoutMs } : {}),
       ...(signal ? { signal } : {}),
       ...(options.outputMax ? { outputMax: options.outputMax } : {}),
+      ...(options.env ? { env: options.env } : {}),
     });
     if (log && !options.quiet)
       for (const line of `${result.stdout}\n${result.stderr}`.split(/\r?\n/))
@@ -548,6 +561,10 @@ class GitClone implements Clone {
   }
 
   async push(branch: string, options: { lease?: boolean; track?: boolean } = {}): Promise<void> {
+    // git runs no hook here (`deploy-git.ts`), git-lfs's pre-push hook included, so the LFS
+    // files of a branch that routes files through LFS are uploaded before the push.
+    if (await this.usesLfs(branch))
+      await this.run(["lfs", "push", "origin", branch], { network: true });
     await this.run(
       [
         "push",
@@ -558,6 +575,16 @@ class GitClone implements Clone {
       ],
       { network: true },
     );
+  }
+
+  /** Whether `branch` has a `.gitattributes` that routes files through LFS. */
+  private async usesLfs(branch: string): Promise<boolean> {
+    const args = ["grep", "-q", "-e", "filter=lfs", `refs/heads/${branch}`, "--"];
+    const found = await this.run([...args, ":(glob)**/.gitattributes"], {
+      allowFailure: true,
+      quiet: true,
+    });
+    return found.code === 0;
   }
 
   async inHead(file: string): Promise<boolean> {
@@ -634,6 +661,29 @@ class GitClone implements Clone {
     if (shown.code !== 0 || shown.stdout.length >= FILE_OUTPUT_MAX) return null;
     return shown.stdout;
   }
+
+  async exportTo(commit: string, dir: string): Promise<void> {
+    // Through an index of the export's own, beside the folder, so the clone's is never touched;
+    // one an export cut short left, or its lock, is not this one's.
+    const env = { GIT_INDEX_FILE: `${dir}.index` };
+    const prefix = `${dir.split(path.sep).join("/")}/`;
+    await removeIndex(env.GIT_INDEX_FILE);
+    try {
+      await this.run(["read-tree", commit], { env, quiet: true });
+      await this.run(
+        ["-c", "core.symlinks=false", "checkout-index", "--all", "--force", `--prefix=${prefix}`],
+        { env, quiet: true },
+      );
+    } finally {
+      await removeIndex(env.GIT_INDEX_FILE);
+    }
+  }
+}
+
+/** Removes an index file of git's and its lock. */
+async function removeIndex(index: string): Promise<void> {
+  await fs.rm(index, { force: true });
+  await fs.rm(`${index}.lock`, { force: true });
 }
 
 /** How much of a file, or of a list of files, git's output may carry. */

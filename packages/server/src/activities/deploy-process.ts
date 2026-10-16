@@ -5,7 +5,7 @@
  *
  * Tests replace the port with a fake.
  */
-import { runProgram } from "./run-program.js";
+import { runProgram, type ProgramConfiner } from "./run-program.js";
 
 /** How long one program may run unless the caller says otherwise. */
 export const PROCESS_TIMEOUT_MS = 20 * 60 * 1000;
@@ -24,6 +24,8 @@ export interface DeployProcessOptions {
   shell?: boolean;
   /** The program's whole environment; absent, this process's with git told never to prompt. */
   env?: NodeJS.ProcessEnv;
+  /** The program runs confined (see `ProgramSpec.confine`); one it refuses does not start. */
+  confine?: ProgramConfiner;
 }
 
 export interface DeployProcessResult {
@@ -52,6 +54,7 @@ export const spawnDeployProcess: DeployProcess = {
       cwd: options.cwd,
       env: options.env ?? { ...process.env, GIT_TERMINAL_PROMPT: "0" },
       windowsShell: options.shell ?? true,
+      ...(options.confine ? { confine: options.confine } : {}),
       timeoutMs: options.timeoutMs ?? PROCESS_TIMEOUT_MS,
       signal: options.signal,
       outputMax: PROCESS_TAIL_MAX,

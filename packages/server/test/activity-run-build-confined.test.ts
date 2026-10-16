@@ -8,7 +8,9 @@
  * sandbox, where this host has one, shows what the confinement stops. Installing the pinned
  * Sass, where it is not there yet, is a stand-in for npm that probes what npm would start with.
  * The builder the server wires reads the admin switch and the session sandbox as each build
- * starts.
+ * starts. A deploy's npm checks start the same way, in a check folder outside the module clone;
+ * the real sandbox shows what it stops of them (`activity-deploy-stages.test.ts` has what
+ * reaches the confiner).
  */
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
@@ -20,6 +22,12 @@ import type { SpawnConfiner } from "@prismshadow/penguin-core";
 import { wire } from "@prismshadow/penguin-core/kernel";
 import type { SandboxProvider } from "@prismshadow/penguin-core/plugin";
 import { spawnDeployProcess, type DeployProcess } from "../src/activities/deploy-process.js";
+import { defaultDeploySettings } from "../src/activities/deploy-settings.js";
+import {
+  DEPLOY_STAGE_DEFINITIONS,
+  realClock,
+  type DeployStageContext,
+} from "../src/activities/deploy-stages.js";
 import {
   DefaultModuleBuilder,
   moduleBuilds,
@@ -28,6 +36,7 @@ import {
 } from "../src/activities/module-builder.js";
 import { MODULE_PACKAGES } from "../src/activities/waf-module.js";
 import { SandboxService, type Sandbox } from "../src/sandbox/service.js";
+import { FakeClones } from "./fake-clones.js";
 
 /** A variable of this server's that a build must not see, named as the harness's own are. */
 const SECRET = "PENGUIN_PREVIEW_BUILD_PROBE";
@@ -344,27 +353,101 @@ const OUTSIDE_TMP = path.resolve(
 );
 afterAll(() => fs.rm(OUTSIDE_TMP, { recursive: true, force: true }));
 
-describe.skipIf(sandbox === null)("a run module's build in this host's sandbox", () => {
-  it("writes its module and nothing outside it, the shared packages included", async () => {
-    await fs.mkdir(OUTSIDE_TMP, { recursive: true });
-    let outside = "";
-    const { module, shared, builder } = await runModule({
-      parent: OUTSIDE_TMP,
-      writes: ({ root, shared }) => {
-        // Outside the module, in no folder a confined build may write.
-        outside = path.join(root, "outside.txt");
-        return { outside, shared: path.join(shared, "probe.txt") };
-      },
-    });
-    const outcome = await builder(sandbox!.confiner()).buildRun(module);
-    expect(outcome.ok, outcome.log).toBe(true);
-    for (const who of ["sass", "build"]) {
-      expect(outcome.log).toContain(`${who} outside=refused`);
-      expect(outcome.log).toContain(`${who} shared=refused`);
-      expect(existsSync(path.join(module, `${who}.done`))).toBe(true);
-    }
-    expect(existsSync(outside)).toBe(false);
-    expect(await fs.readdir(shared)).toEqual([]);
-    expect(await fs.readFile(path.join(module, "res", "style.css"), "utf8")).toContain(".a");
-  }, 120_000);
-});
+describe.skipIf(sandbox === null)(
+  "a run module's build, and a deploy's checks, in this host's sandbox",
+  () => {
+    it("writes its module and nothing outside it, the shared packages included", async () => {
+      await fs.mkdir(OUTSIDE_TMP, { recursive: true });
+      let outside = "";
+      const { module, shared, builder } = await runModule({
+        parent: OUTSIDE_TMP,
+        writes: ({ root, shared }) => {
+          // Outside the module, in no folder a confined build may write.
+          outside = path.join(root, "outside.txt");
+          return { outside, shared: path.join(shared, "probe.txt") };
+        },
+      });
+      const outcome = await builder(sandbox!.confiner()).buildRun(module);
+      expect(outcome.ok, outcome.log).toBe(true);
+      for (const who of ["sass", "build"]) {
+        expect(outcome.log).toContain(`${who} outside=refused`);
+        expect(outcome.log).toContain(`${who} shared=refused`);
+        expect(existsSync(path.join(module, `${who}.done`))).toBe(true);
+      }
+      expect(existsSync(outside)).toBe(false);
+      expect(await fs.readdir(shared)).toEqual([]);
+      expect(await fs.readFile(path.join(module, "res", "style.css"), "utf8")).toContain(".a");
+    }, 120_000);
+
+    it("runs a deploy's npm checks writable in their check folder and nowhere else, the clone included", async () => {
+      await fs.mkdir(OUTSIDE_TMP, { recursive: true });
+      process.env[SECRET] = "leaked";
+      const root = await fs.mkdtemp(path.join(OUTSIDE_TMP, "deploy-"));
+      const dir = path.join(root, "waf-module-words");
+      const outside = path.join(root, "outside.txt");
+      const inClone = path.join(dir, "planted.txt");
+      await fs.mkdir(dir);
+      // A module with nothing to install, whose checks are probes; its own npm settings keep npm
+      // from asking a registry for anything. The commit the checks run on holds it.
+      const scripts = {
+        buildDebug: "node check.js",
+        lint: "node check.js",
+        buildRelease: "node check.js",
+      };
+      const module = {
+        "package.json": JSON.stringify({ name: "m", version: "1.0.0", scripts }),
+        "package-lock.json": JSON.stringify({
+          name: "m",
+          version: "1.0.0",
+          lockfileVersion: 3,
+          requires: true,
+          packages: { "": { name: "m", version: "1.0.0" } },
+        }),
+        ".npmrc": "audit=false\nfund=false\nupdate-notifier=false\n",
+        "check.js": probe("check", { outside, clone: inClone, inside: "inside.txt" }),
+      };
+      const clones = new FakeClones();
+      clones.add(dir, {
+        origin: "git@github.com:org/waf-module-words.git",
+        files: { "0123abcd": module },
+      });
+      const checkDir = path.join(root, "checks", "waf-module-words");
+      const lines: string[] = [];
+      const ctx: DeployStageContext = {
+        clones,
+        serial: clones.serial,
+        jenkins: {
+          trigger: async () => ({ queueUrl: null }),
+          status: async () => ({ state: "unknown" }),
+        },
+        process: spawnDeployProcess,
+        styles: async () => ({ code: 1, tail: "No stylesheet is compiled here." }),
+        confinement: () => sandbox!.confiner(),
+        clock: realClock,
+        settings: defaultDeploySettings(),
+        productCode: "words",
+        module: { folder: "waf-module-words", dir, checkDir, source: null },
+        moduleVersion: null,
+        metadata: {},
+        earlier: {},
+        log: (text) => lines.push(text),
+        signal: new AbortController().signal,
+      };
+      await DEPLOY_STAGE_DEFINITIONS.verify_module.run(ctx);
+      const log = lines.join("\n");
+      expect(log).toContain("$ npm ci");
+      expect(log).toContain("$ npm run buildRelease");
+      expect(log).toContain("check secret=none token=none");
+      expect(log).toContain("check outside=refused");
+      expect(log).toContain("check clone=refused");
+      expect(log).toContain("check inside=written");
+      expect(log).not.toContain("check outside=written");
+      expect(log).not.toContain("check clone=written");
+      expect(existsSync(outside)).toBe(false);
+      expect(existsSync(inClone)).toBe(false);
+      // The check folder, npm's cache with it, is gone; the clone has nothing of the checks.
+      expect(await fs.readdir(checkDir)).toEqual([]);
+      expect(await fs.readdir(dir)).toEqual([]);
+    }, 180_000);
+  },
+);

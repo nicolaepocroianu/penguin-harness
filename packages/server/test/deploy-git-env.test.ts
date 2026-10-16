@@ -9,11 +9,12 @@ describe("the environment git runs in", () => {
     expect(env.PATH).toBe("/bin");
   });
 
-  it("keeps the operator's own SSH setup", () => {
+  it("keeps the operator's own SSH setup, always as the command no repository setting outranks", () => {
     const own = "ssh -i /keys/deploy -o BatchMode=yes";
     expect(gitEnv({ GIT_SSH_COMMAND: own }).GIT_SSH_COMMAND).toBe(own);
     const wrapper = gitEnv({ GIT_SSH: "/usr/local/bin/ssh-wrapper" });
     expect(wrapper.GIT_SSH).toBe("/usr/local/bin/ssh-wrapper");
-    expect(wrapper.GIT_SSH_COMMAND).toBeUndefined();
+    expect(wrapper.GIT_SSH_COMMAND).toBe("'/usr/local/bin/ssh-wrapper'");
+    expect(gitEnv({ GIT_SSH: "/opt/it's/ssh" }).GIT_SSH_COMMAND).toBe("'/opt/it'\\''s/ssh'");
   });
 });

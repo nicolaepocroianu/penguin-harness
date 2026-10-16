@@ -357,6 +357,8 @@ export function stageErrorText(error: DeployStageError): string {
       return words.deploy_timed_out(error.minutes, error.target);
     case "module_repository_missing":
       return words.module_repository_missing(error.remote);
+    case "sandbox_unavailable":
+      return words.sandbox_unavailable;
     case "interrupted":
       return words.interrupted;
     case "unexpected":

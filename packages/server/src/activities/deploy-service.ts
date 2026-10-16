@@ -22,6 +22,7 @@ import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-c
 import { HttpError } from "../http/errors.js";
 import type { Config, Db } from "../hmr/capabilities.js";
 import type { Settings } from "../mechanisms/settings.js";
+import { Sandbox, SandboxModule } from "../sandbox/service.js";
 import type { ActivityAuthoring } from "../mechanisms/activities.js";
 import { writeSecretFile } from "../secret-file.js";
 import type { ModuleBuilder } from "./module-builder.js";
@@ -86,6 +87,7 @@ import {
   type StoredStage,
 } from "./deploy-run.js";
 import { ActivityDeployEvents } from "./deploy-events.js";
+import { runConfinement } from "./run-sandbox.js";
 
 /** How long the connection test waits for Jenkins. */
 export const CONNECTION_TEST_TIMEOUT_MS = 10_000;
@@ -182,6 +184,7 @@ export abstract class ActivityDeploys extends Interface<{
 export class ActivityDeployService implements ActivityDeploys {
   @Use() private readonly config!: Config;
   @Use() private readonly serverSettings!: Settings;
+  @Use(SandboxModule) private readonly sandbox!: Sandbox;
   @Use() private readonly activities!: ActivityAuthoring;
   @Use() private readonly moduleSources!: ActivityModuleSource;
   @Use() private readonly moduleBuilder!: ModuleBuilder;
@@ -206,6 +209,11 @@ export class ActivityDeployService implements ActivityDeploys {
     this.store = store;
     this.runner = runner;
     effect(() => runner.dispose());
+  }
+
+  /** Where a release's checks of the module in `folder` run, outside the WAF checkout. */
+  private checkDir(folder: string): string {
+    return path.join(this.config.root, "activity-deploy", "checks", folder);
   }
 
   /** A QA or PROD deploy finished: whoever keeps track of deployed versions is told. */
@@ -546,6 +554,7 @@ export class ActivityDeployService implements ActivityDeploys {
         ),
         process: run ? { run } : spawnDeployProcess,
         styles: (job) => this.moduleBuilder.compileStyle(job),
+        confinement: () => runConfinement(this.serverSettings, this.sandbox),
         clock: {
           now: this.ports.now ?? realClock.now,
           sleep: this.ports.sleep ?? realClock.sleep,
@@ -555,6 +564,7 @@ export class ActivityDeployService implements ActivityDeploys {
         module: {
           folder,
           dir: checkout.module(folder).root,
+          checkDir: this.checkDir(folder),
           source,
           contentHash,
           ...(module.runId ? { runId: module.runId } : {}),
@@ -631,6 +641,7 @@ export class ActivityDeployService implements ActivityDeploys {
         ),
         process: run ? { run } : spawnDeployProcess,
         styles: (job) => this.moduleBuilder.compileStyle(job),
+        confinement: () => runConfinement(this.serverSettings, this.sandbox),
         clock: {
           now: this.ports.now ?? realClock.now,
           sleep: this.ports.sleep ?? realClock.sleep,
@@ -640,6 +651,7 @@ export class ActivityDeployService implements ActivityDeploys {
         module: {
           folder: product.moduleFolder,
           dir: new WafLayout(await this.requireWafRoot()).module(product.moduleFolder).root,
+          checkDir: this.checkDir(product.moduleFolder),
           source: null,
         },
         prod: {

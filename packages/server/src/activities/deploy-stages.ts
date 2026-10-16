@@ -5,13 +5,15 @@
  *   verify_module         put the module clone on main as origin has it, carrying the authored
  *                         work in its working tree, copy the newest assembled module over it,
  *                         commit all of it on main, and run `npm ci`, `npm run buildDebug`,
- *                         `npm run lint` and `npm run buildRelease` in it
- *   prepare_deploy        make the deploy branch from main, carrying that content; write the
- *                         package name and version; compile `res/style.scss` when there is one
- *                         (with the pinned Sass the preview uses too, `module-builder.ts`);
- *                         commit those files as the configured identity (nothing to commit is
- *                         not a failure), and name what else changed since verify_module, which
- *                         stays out
+ *                         `npm run lint` and `npm run buildRelease` on that commit (in its
+ *                         check folder, below)
+ *   prepare_deploy        make the deploy branch from main's commit, carrying the working tree;
+ *                         write the package name and version into that commit's package.json
+ *                         and lock; compile its `res/style.scss` when it has one (in its check
+ *                         folder, with the pinned Sass the preview uses too, `module-builder.ts`)
+ *                         and take the `res/style.css` that made; commit those files as the
+ *                         configured identity (nothing to commit is not a failure), and name what
+ *                         else changed since verify_module, which stays out
  *   trigger_module_build  note the newest release tag, Jenkins build and deploy branch commit,
  *                         push main when the remote lacks it, push the deploy branch, and start
  *                         the module build
@@ -54,11 +56,29 @@
  * own and must be clean. The git work a stage does on the module or media clone waits for, and
  * holds off, the workspace's own git work on that repository (`serial`); the npm checks, the
  * stylesheet compile and Jenkins run outside it. The clones, that queue, Jenkins, the programs,
- * the stylesheet compiler and the clock are ports, so a test runs every stage with fakes and
- * nothing reaches a remote.
+ * the stylesheet compiler, the sandbox and the clock are ports, so a test runs every stage with
+ * fakes and nothing reaches a remote.
+ *
+ * The npm checks and the stylesheet compile run the module's own code (its package.json
+ * scripts, its webpack config, what `npm ci` installs), which a run's agent may have written.
+ * So they run in the module's check folder (`DeployStageContext.module.checkDir`), never in the
+ * clone: a folder of Penguin's own outside every clone, made afresh for each run of them from
+ * the commit they check (`Clone.exportTo`), holding no `.git`, and removed once they end however
+ * they end. There they start as a build of a run's module does (`runBuildSpawn`): with none of
+ * this server's environment and, while activity agents are confined, through the session
+ * sandbox, writable in the check folder alone; with nothing able to confine them then, the stage
+ * fails before it does anything. What they leave there reaches the release only as the
+ * stylesheet compile's `res/style.css`. `npm ci` keeps the module's own `.npmrc`, the one the
+ * release build installs with, but none of this server's npm user config. git and Jenkins keep
+ * the clone's credentials and are never confined; nothing they read was written by the module's
+ * code, and git runs none of the programs a repository's own config could name (`deploy-git.ts`).
  */
+import { randomUUID } from "node:crypto";
+import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { SpawnConfiner } from "@prismshadow/penguin-core";
+import { HttpError } from "../http/errors.js";
 import {
   CloneError,
   CloneStopped,
@@ -85,6 +105,7 @@ import { runPreflight } from "./deploy-preflight.js";
 import { syncMedia } from "./deploy-media.js";
 import { withinRoot } from "./sandbox-paths.js";
 import { RUN_BUILD_NPM_CACHE } from "./sandbox-source.js";
+import { runBuildEnv, runBuildSpawn, type RunBuildSpawn } from "./sandbox-build-runner.js";
 import {
   DEPLOY_ALL_STAGES,
   DEPLOY_PROD_STAGES,
@@ -240,6 +261,13 @@ export interface DeployStageContext {
   process: DeployProcess;
   /** Compiles a module's stylesheet with the pinned Sass, as the preview does. */
   styles: StyleCompiler;
+  /**
+   * How the module's own programs are to run, asked as a stage that runs them starts: the
+   * session sandbox's confiner, or null once an admin turned confinement off. Throws the
+   * `sandbox_unavailable` refusal when they are to be confined and nothing can
+   * (`runConfinement`).
+   */
+  confinement(): SpawnConfiner | null;
   clock: DeployClock;
   settings: DeploySettings;
   productCode: string;
@@ -247,6 +275,12 @@ export interface DeployStageContext {
     folder: string;
     /** The module's deploy clone. */
     dir: string;
+    /**
+     * Where the module's checks run (see the top of this file): a folder outside every clone,
+     * in which each run of them gets a folder of its own; whatever is there when one starts is
+     * a stopped server's.
+     */
+    checkDir: string;
     /** The newest assembled module to copy over the clone; null to deploy the clone as it is. */
     source: string | null;
     /** What that module's content hashes to; null (or absent) when there is none. */
@@ -362,10 +396,112 @@ function tailOf(text: string): string {
   return text.trim().split(/\r?\n/).slice(-20).join("\n");
 }
 
-/** Runs a program in the clone, streaming its output to the log; a failure ends the stage. */
-function program(ctx: DeployStageContext, command: string, args: readonly string[]) {
+/**
+ * What confines the module's own programs (see the top of this file), null while they run
+ * unconfined. Fails the stage when they are to be confined and nothing can confine them, the
+ * refusal's words in the log.
+ */
+function moduleConfiner(ctx: DeployStageContext): SpawnConfiner | null {
+  try {
+    return ctx.confinement();
+  } catch (error) {
+    if (!(error instanceof HttpError) || error.code !== "sandbox_unavailable") throw error;
+    ctx.log(error.message);
+    throw new DeployStageFailure({ code: "sandbox_unavailable" });
+  }
+}
+
+/**
+ * Runs `work` in a check folder holding `commit`'s files (see the top of this file): a folder
+ * of its own under the module's `checkDir`, so nothing an earlier check left running can reach
+ * it, removed once `work` ends, however it ends.
+ */
+async function inCheckFolder<T>(
+  ctx: DeployStageContext,
+  clone: Clone,
+  commit: string,
+  work: (dir: string) => Promise<T>,
+): Promise<T> {
+  const root = ctx.module.checkDir;
+  await fs.mkdir(root, { recursive: true });
+  // Whatever is there was left by checks a stopped server never finished.
+  for (const stale of await fs.readdir(root)) await removeCheckFolder(path.join(root, stale));
+  const dir = await fs.mkdtemp(path.join(root, "check-"));
+  try {
+    await ctx.serial("module", () => clone.exportTo(commit, dir));
+    return await work(dir);
+  } finally {
+    await removeCheckFolder(dir);
+  }
+}
+
+/** Removes a check folder; Windows may still be letting go of a stopped program's files. */
+function removeCheckFolder(dir: string): Promise<void> {
+  return fs.rm(dir, { recursive: true, force: true, maxRetries: 5 });
+}
+
+/** Whether `target` is `root` or inside it. */
+function inside(root: string, target: string): boolean {
+  const rel = path.relative(root, target);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+/**
+ * Writes `data` to `file` in the module clone `root` as a new file renamed into place, so a
+ * link already there (symbolic or hard) is replaced, never written through, and only into a
+ * folder that really is inside the clone.
+ */
+async function writeInClone(root: string, file: string, data: string | Buffer): Promise<void> {
+  const target = path.join(root, file);
+  await fs.mkdir(path.dirname(target), { recursive: true });
+  const [realRoot, realFolder] = await Promise.all([
+    fs.realpath(root),
+    fs.realpath(path.dirname(target)),
+  ]);
+  if (!inside(realRoot, realFolder)) throw new Error(`${file} is not inside the module clone.`);
+  const temp = `${target}.${randomUUID()}.tmp`;
+  await fs.writeFile(temp, data, { flag: "wx" });
+  try {
+    await fs.rename(temp, target);
+  } catch (error) {
+    await fs.rm(temp, { force: true });
+    throw error;
+  }
+}
+
+/**
+ * How `npm ci` starts in the check folder `dir`: as its other programs do (`spawn`), and with
+ * npm's proxy and certificate settings, which it needs to reach the registry. npm's user config
+ * is an empty file of the install's own, so the registry the module's `.npmrc` names gets none
+ * of the credentials in this server user's `~/.npmrc`.
+ */
+async function installSpawn(dir: string, spawn: RunBuildSpawn): Promise<RunBuildSpawn> {
+  const userconfig = path.join(dir, RUN_BUILD_NPM_CACHE, "user.npmrc");
+  await fs.mkdir(path.dirname(userconfig), { recursive: true });
+  await fs.writeFile(userconfig, "");
+  const env: NodeJS.ProcessEnv = {
+    ...runBuildEnv({ install: true }),
+    npm_config_userconfig: userconfig,
+  };
+  if (spawn.env.npm_config_cache) env.npm_config_cache = spawn.env.npm_config_cache;
+  return { ...spawn, env };
+}
+
+/** Runs a program in `cwd`, streaming its output to the log; a failure ends the stage. */
+function program(
+  ctx: DeployStageContext,
+  cwd: string,
+  command: string,
+  args: readonly string[],
+  spawn: RunBuildSpawn,
+) {
   return logged(ctx, command, `${command} ${args.join(" ")}`, (onOutput) =>
-    ctx.process.run(command, [...args], { cwd: ctx.module.dir, signal: ctx.signal, onOutput }),
+    ctx.process.run(command, [...args], {
+      cwd,
+      signal: ctx.signal,
+      onOutput,
+      ...spawn,
+    }),
   );
 }
 
@@ -398,15 +534,11 @@ async function logged(
     });
 }
 
-async function exists(file: string): Promise<boolean> {
-  return fs.stat(file).then(
-    () => true,
-    () => false,
-  );
-}
-
-/** What is never copied from an assembled module into the clone. */
-const NOT_COPIED = new Set([".git", "node_modules", RUN_BUILD_NPM_CACHE]);
+/**
+ * What is never copied from an assembled module into the clone: `.lfsconfig` among it, since it
+ * would tell the push's LFS upload where to send the clone's files.
+ */
+const NOT_COPIED = new Set([".git", "node_modules", RUN_BUILD_NPM_CACHE, ".lfsconfig"]);
 
 /** Copies the assembled module over the clone's working tree (files the module lacks stay). */
 async function syncModule(source: string, target: string): Promise<number> {
@@ -559,8 +691,11 @@ const verifyModule: DeployStageDefinition = {
     // The module is where activities are authored, so what is in its working tree is work:
     // it is carried onto main as origin has it (never reset away), the newest assembled
     // module is copied over it, and all of it is committed on main before the checks run.
+    const confiner = moduleConfiner(ctx);
     const clone = cloneOf(ctx, ctx.module.dir);
-    await ctx.serial("module", async () => {
+    const checked = await ctx.serial("module", async () => {
+      // An npm cache in the clone is never the module's (earlier checks ran there).
+      await fs.rm(path.join(ctx.module.dir, RUN_BUILD_NPM_CACHE), { recursive: true, force: true });
       try {
         await clone.fetch();
       } catch (error) {
@@ -588,10 +723,16 @@ const verifyModule: DeployStageDefinition = {
           ? `Committed the authored module on main: ${authored}.`
           : "Main already had everything authored.",
       );
+      return authored ?? (await clone.commitOf(BASE_BRANCH));
     });
     ctx.metadata.moduleContentHash = ctx.module.contentHash ?? null;
     if (ctx.module.source && ctx.module.runId) ctx.metadata.moduleRunId = ctx.module.runId;
-    for (const args of MODULE_VERIFY_COMMANDS) await program(ctx, "npm", args);
+    await inCheckFolder(ctx, clone, checked, async (dir) => {
+      const spawn = runBuildSpawn(dir, confiner);
+      const install = await installSpawn(dir, spawn);
+      for (const args of MODULE_VERIFY_COMMANDS)
+        await program(ctx, dir, "npm", args, args[0] === "ci" ? install : spawn);
+    });
   },
 };
 
@@ -606,23 +747,27 @@ async function onMainCarryingWork(ctx: DeployStageContext, clone: Clone): Promis
 }
 
 /**
- * Writes the package name, and the version when one is given, into package.json and its lock.
- * Answers the version package.json has, and the files written, relative to the clone.
+ * Writes `commit`'s package.json and lock into the clone with the package name, and the version
+ * when one is given. Answers the version package.json has, and the files written, relative to
+ * the clone.
  */
 async function syncPackage(
   ctx: DeployStageContext,
+  clone: Clone,
+  commit: string,
 ): Promise<{ version: string | undefined; written: string[] }> {
   const name = modulePackageName(ctx.module.folder);
-  const file = path.join(ctx.module.dir, "package.json");
-  const pkg = JSON.parse(await fs.readFile(file, "utf8")) as Record<string, unknown>;
+  const text = await clone.fileAt({ commit }, "package.json");
+  if (text === null) throw new Error(`The module has no package.json in ${commit}.`);
+  const pkg = JSON.parse(text) as Record<string, unknown>;
   pkg.name = name;
   if (ctx.moduleVersion) pkg.version = ctx.moduleVersion;
-  await fs.writeFile(file, `${JSON.stringify(pkg, null, 2)}\n`);
+  await writeInClone(ctx.module.dir, "package.json", `${JSON.stringify(pkg, null, 2)}\n`);
   const written = ["package.json"];
-  const lockFile = path.join(ctx.module.dir, "package-lock.json");
-  if (await exists(lockFile)) {
+  const lockText = await clone.fileAt({ commit }, "package-lock.json");
+  if (lockText !== null) {
     written.push("package-lock.json");
-    const lock = JSON.parse(await fs.readFile(lockFile, "utf8")) as Record<string, unknown>;
+    const lock = JSON.parse(lockText) as Record<string, unknown>;
     lock.name = name;
     if (ctx.moduleVersion) lock.version = ctx.moduleVersion;
     const root = (lock.packages as Record<string, Record<string, unknown>> | undefined)?.[""];
@@ -630,7 +775,7 @@ async function syncPackage(
       root.name = name;
       if (ctx.moduleVersion) root.version = ctx.moduleVersion;
     }
-    await fs.writeFile(lockFile, `${JSON.stringify(lock, null, 2)}\n`);
+    await writeInClone(ctx.module.dir, "package-lock.json", `${JSON.stringify(lock, null, 2)}\n`);
   }
   return { version: typeof pkg.version === "string" ? pkg.version : undefined, written };
 }
@@ -641,33 +786,93 @@ function someOf(paths: readonly string[]): string {
   return `${paths.slice(0, PATHS_SHOWN).join(", ")}${more > 0 ? ` and ${more} more` : ""}`;
 }
 
+/** The stylesheet a module's release compiles, when it has one, and what that makes. */
+const STYLE_SOURCE = "res/style.scss";
+const STYLE_OUTPUT = "res/style.css";
+
+/**
+ * Compiles the stylesheet in check folder `dir`, through `confiner` when there is one, and
+ * answers what it made: the one file of the folder the release takes (`readOutput`).
+ */
+async function compileStyle(
+  ctx: DeployStageContext,
+  dir: string,
+  confiner: SpawnConfiner | null,
+): Promise<Buffer> {
+  const line = `${SASS_PACKAGE} ${STYLE_SOURCE} ${STYLE_OUTPUT} --no-source-map`;
+  await logged(ctx, "sass", line, (onOutput) =>
+    ctx.styles({
+      cwd: dir,
+      from: STYLE_SOURCE,
+      to: STYLE_OUTPUT,
+      signal: ctx.signal,
+      onOutput,
+      runModule: true,
+      ...runBuildSpawn(dir, confiner),
+    }),
+  );
+  const made = await readOutput(dir, STYLE_OUTPUT);
+  if (made === null)
+    throw new DeployStageFailure({
+      code: "command_failed",
+      command: line,
+      exitCode: 0,
+      output: `The compile left no ${STYLE_OUTPUT}.`,
+    });
+  return made;
+}
+
+/**
+ * What `file` in check folder `dir` holds, when it is a plain file of the folder's own: in a
+ * folder that really is inside it, not a link (opened without following one where the system
+ * can, looked at first where it cannot), and with no other name. Null otherwise.
+ */
+async function readOutput(dir: string, file: string): Promise<Buffer | null> {
+  const output = path.join(dir, file);
+  const [realDir, realFolder] = await Promise.all([
+    fs.realpath(dir),
+    fs.realpath(path.dirname(output)).catch(() => null),
+  ]);
+  if (realFolder === null || !inside(realDir, realFolder)) return null;
+  if (!(await fs.lstat(output).catch(() => null))?.isFile()) return null;
+  const noFollow = fsConstants.O_NOFOLLOW ?? 0;
+  const handle = await fs.open(output, fsConstants.O_RDONLY | noFollow).catch(() => null);
+  if (!handle) return null;
+  try {
+    const opened = await handle.stat();
+    if (!opened.isFile() || opened.nlink !== 1) return null;
+    return await handle.readFile();
+  } finally {
+    await handle.close();
+  }
+}
+
 const prepareDeploy: DeployStageDefinition = {
   id: "prepare_deploy",
   async run(ctx) {
     const branch = deployBranchName(ctx.module.folder);
-    // From main, carrying the verified content in the working tree onto the deploy branch.
-    // That content is only there straight after verify_module, which is why this stage runs
-    // once per verify (stageBlocker).
+    // From main's commit, the one verify_module committed and checked, carrying the working
+    // tree onto the deploy branch. The files this stage writes are made from that commit's.
+    // It runs once per verify (stageBlocker).
     const clone = cloneOf(ctx, ctx.module.dir);
-    await ctx.serial("module", () => clone.branchFrom(branch, BASE_BRANCH));
-    const { version, written } = await syncPackage(ctx);
+    const { checked, style, version, written } = await ctx.serial("module", async () => {
+      const commit = await clone.commitOf(BASE_BRANCH);
+      // Refused before the branch is made, when the stylesheet cannot be compiled as it must be.
+      const style =
+        (await clone.fileAt({ commit }, STYLE_SOURCE)) !== null
+          ? { confiner: moduleConfiner(ctx) }
+          : null;
+      await clone.branchFrom(branch, commit);
+      return { checked: commit, style, ...(await syncPackage(ctx, clone, commit)) };
+    });
     if (version) ctx.metadata.moduleVersion = version;
-    if (await exists(path.join(ctx.module.dir, "res", "style.scss"))) {
-      await logged(
-        ctx,
-        "sass",
-        `${SASS_PACKAGE} res/style.scss res/style.css --no-source-map`,
-        (onOutput) =>
-          ctx.styles({
-            cwd: ctx.module.dir,
-            from: "res/style.scss",
-            to: "res/style.css",
-            signal: ctx.signal,
-            onOutput,
-          }),
+    if (style) {
+      const css = await inCheckFolder(ctx, clone, checked, (dir) =>
+        compileStyle(ctx, dir, style.confiner),
       );
-      written.push("res/style.css");
-    } else ctx.log("No res/style.scss: no stylesheet to compile.");
+      await writeInClone(ctx.module.dir, STYLE_OUTPUT, css);
+      written.push(STYLE_OUTPUT);
+    } else ctx.log(`No ${STYLE_SOURCE}: no stylesheet to compile.`);
     // Only what this stage wrote joins what verify_module committed and checked: a file saved
     // in the clone while the checks ran was never checked, so it stays out of the release.
     const { commit, left } = await ctx.serial("module", async () => {

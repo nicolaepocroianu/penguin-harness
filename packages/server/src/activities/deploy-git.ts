@@ -5,7 +5,18 @@
  * git authenticates with the host's own SSH keys; Penguin stores no git credential. So that
  * a missing key fails rather than waits on a prompt nobody sees, the child runs with
  * `GIT_TERMINAL_PROMPT=0` and SSH in batch mode. No shell, a time limit, bounded output.
+ *
+ * A module clone holds work a run's agent wrote, and a release's checks run that work's code.
+ * Those checks never run where a clone's `.git` is (`deploy-stages.ts`), so nothing untrusted
+ * writes one any more; that is what keeps git, which runs unconfined with this server's
+ * environment, from starting a program a clone's own settings name. As a second guard on the
+ * programs a deploy's own commands would reach, every call runs no hook (`core.hooksPath` is
+ * the null device, where no hook can ever be), no file-system monitor, never the `ext::`
+ * transport, never a signing program, and the SSH program `gitEnv` names, which no
+ * repository setting outranks. Filter drivers and credential helpers are left as the
+ * operator's own config sets them.
  */
+import os from "node:os";
 import { runProgram } from "./run-program.js";
 import { moduleShortName } from "./waf-layout.js";
 
@@ -44,24 +55,41 @@ export interface DeployGit {
 
 /**
  * The environment git runs in: never prompts, SSH in batch mode. An operator's own
- * `GIT_SSH_COMMAND` or `GIT_SSH` (a particular key, a proxy) is kept as it is: replacing it
- * would break a server whose remotes only answer to that setup.
+ * `GIT_SSH_COMMAND` or `GIT_SSH` (a particular key, a proxy) is kept: replacing it would break
+ * a server whose remotes only answer to that setup. `GIT_SSH_COMMAND` is always set, as it
+ * outranks a repository's `core.sshCommand` and `GIT_SSH` does not, so an operator's
+ * `GIT_SSH` program is named there too.
  */
 export function gitEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  const ownSsh = !!base.GIT_SSH_COMMAND || !!base.GIT_SSH;
-  return {
-    ...base,
-    GIT_TERMINAL_PROMPT: "0",
-    ...(ownSsh ? {} : { GIT_SSH_COMMAND: "ssh -o BatchMode=yes" }),
-  };
+  let ssh = base.GIT_SSH_COMMAND || "ssh -o BatchMode=yes";
+  // Quoted for the shell git starts it with.
+  if (!base.GIT_SSH_COMMAND && base.GIT_SSH) ssh = `'${base.GIT_SSH.replace(/'/g, "'\\''")}'`;
+  return { ...base, GIT_TERMINAL_PROMPT: "0", GIT_SSH_COMMAND: ssh };
 }
+
+/**
+ * What every git call is told before its command, whatever the clone's own config says: run
+ * no hook and no file-system monitor (both are programs a repository's config or `.git/hooks`
+ * names), never the `ext::` transport, which runs a command as a remote, and sign no commit,
+ * which would run the program `gpg.program` names (a deploy's commits are its bot's, unsigned).
+ */
+export const GIT_GUARDS: readonly string[] = [
+  "-c",
+  `core.hooksPath=${os.devNull}`,
+  "-c",
+  "core.fsmonitor=false",
+  "-c",
+  "protocol.ext.allow=never",
+  "-c",
+  "commit.gpgSign=false",
+];
 
 /** The real port: `git` on this server's PATH. Never throws. */
 export const spawnGit: DeployGit = {
   async run(args, cwd, opts = {}) {
     const result = await runProgram({
       command: "git",
-      args,
+      args: [...GIT_GUARDS, ...args],
       cwd,
       env: gitEnv({ ...process.env, ...opts.env }),
       timeoutMs: opts.timeoutMs ?? GIT_TIMEOUT_MS,

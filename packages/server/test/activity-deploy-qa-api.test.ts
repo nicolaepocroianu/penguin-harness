@@ -36,7 +36,10 @@ function moduleRepos(clones: FakeClones, root: string, tracked: string[] = []) {
   ];
   clones.repo(path.join(root, "media"))!.inHead = tracked;
   for (const dir of ["modules/waf-module-words", "waf-activity-data", "media"])
-    clones.repo(path.join(root, dir))!.head = "c0ffee";
+    clones.repo(path.join(root, dir))!.head = "c0ffee"; // The module's commit holds the package.json the release writes its name and version into.
+  clones.repo(path.join(root, "modules", "waf-module-words"))!.files = {
+    c0ffee: { "package.json": JSON.stringify({ name: "waf-module-words", version: "1.0.0" }) },
+  };
 }
 
 /** Jenkins: each job has no build until it is started, then one that succeeded. */
