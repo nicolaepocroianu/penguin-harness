@@ -1,7 +1,7 @@
 /**
  * A clone, in the terms the WAF workspace and deploys speak of it: what it looks like, which
  * branch it is on and whether origin has it, putting it on a branch as origin has it, staging,
- * committing, pushing, tags, and the sparse folders a media clone checks out.
+ * committing, pushing, tags and what they hold, and the sparse folders a media clone checks out.
  *
  * It hides the git command lines, the batching of long path lists, the parsing of what git
  * prints, and the three ways a clone is put on a branch as origin has it (see
@@ -160,6 +160,21 @@ export interface Clone {
   inHead(file: string): Promise<boolean>;
   /** Whether `file` is new or changed since HEAD (true when git cannot say). */
   changed(file: string): Promise<boolean>;
+  /**
+   * The paths new, changed or deleted since HEAD, as git names them; a new folder is one path.
+   * Past what git's output keeps, the ones at its end, and maybe part of the first of those.
+   */
+  changes(): Promise<string[]>;
+  /** The commit the clone's `branch` is at. */
+  commitOf(branch: string): Promise<string>;
+  /** Whether two commits hold the same files (false when git does not know one of them). */
+  sameContent(a: string, b: string): Promise<boolean>;
+  /** Whether release tag `tag` holds `commit`: it is that commit, or one made on top of it. */
+  tagHolds(tag: string, commit: string): Promise<boolean>;
+  /** The files `commit` has that release tag `tag` does not, or has otherwise. */
+  tagDiffers(tag: string, commit: string): Promise<string[]>;
+  /** What `file` holds in release tag `tag` or in `commit`; null when there is no such file. */
+  fileAt(at: { tag: string } | { commit: string }, file: string): Promise<string | null>;
 }
 
 /** Every clone, and making them. */
@@ -246,6 +261,8 @@ interface RunOptions {
   /** Runs, and runs to its end, even once the signal has aborted: putting work back. */
   unstoppable?: boolean;
   timeoutMs?: number;
+  /** How many characters of each stream are kept (by default `GIT_OUTPUT_MAX`). */
+  outputMax?: number;
 }
 
 class GitClone implements Clone {
@@ -271,6 +288,7 @@ class GitClone implements Clone {
     const result = await this.git.run(args, this.dir, {
       ...(timeoutMs ? { timeoutMs } : {}),
       ...(signal ? { signal } : {}),
+      ...(options.outputMax ? { outputMax: options.outputMax } : {}),
     });
     if (log && !options.quiet)
       for (const line of `${result.stdout}\n${result.stderr}`.split(/\r?\n/))
@@ -557,7 +575,72 @@ class GitClone implements Clone {
     });
     return status.code !== 0 || status.stdout.trim() !== "";
   }
+
+  async changes(): Promise<string[]> {
+    const listed = await this.run(["status", "--porcelain", "-z"], { quiet: true });
+    const entries = listed.stdout.split("\0");
+    const paths: string[] = [];
+    for (let index = 0; index < entries.length; index++) {
+      // Output past its bound keeps its end: a first entry cut short is skipped when it no
+      // longer reads as one, and names what is left of its path when it still does.
+      const entry = STATUS_ENTRY.exec(entries[index]!);
+      if (!entry) continue;
+      paths.push(entry[3]!);
+      // A rename or copy names the path it came from in the entry after it.
+      if (/[RC]/.test(entry[1]! + entry[2]!)) index++;
+    }
+    return paths;
+  }
+
+  async commitOf(branch: string): Promise<string> {
+    const args = ["rev-parse", "--verify", `refs/heads/${branch}`];
+    return (await this.run(args, { quiet: true })).stdout.trim();
+  }
+
+  async sameContent(a: string, b: string): Promise<boolean> {
+    const trees = await this.run(["rev-parse", `${a}^{tree}`, `${b}^{tree}`], {
+      allowFailure: true,
+      quiet: true,
+    });
+    if (trees.code !== 0) return false;
+    const [left, right] = trees.stdout.trim().split(/\r?\n/);
+    return !!left && left === right;
+  }
+
+  async tagHolds(tag: string, commit: string): Promise<boolean> {
+    const args = ["merge-base", "--is-ancestor", commit, `refs/tags/${tag}`];
+    const result = await this.run(args, { allowFailure: true, quiet: true });
+    if (result.code === 0) return true;
+    if (result.code === 1) return false;
+    throw new CloneError(args, result);
+  }
+
+  async tagDiffers(tag: string, commit: string): Promise<string[]> {
+    // Files the tag adds are not the commit's, so they are not asked about.
+    const args = ["diff", "--name-only", "-z", "--no-renames", "--diff-filter=DMT"];
+    args.push(commit, `refs/tags/${tag}`, "--");
+    const listed = await this.run(args, { quiet: true, outputMax: FILE_OUTPUT_MAX });
+    return listed.stdout.split("\0").filter((file) => file !== "");
+  }
+
+  async fileAt(at: { tag: string } | { commit: string }, file: string): Promise<string | null> {
+    const revision = "tag" in at ? `refs/tags/${at.tag}` : at.commit;
+    const shown = await this.run(["show", `${revision}:${file}`], {
+      allowFailure: true,
+      quiet: true,
+      outputMax: FILE_OUTPUT_MAX,
+    });
+    // A file past the bound is cut, so it reads as none rather than as what is left of it.
+    if (shown.code !== 0 || shown.stdout.length >= FILE_OUTPUT_MAX) return null;
+    return shown.stdout;
+  }
 }
+
+/** How much of a file, or of a list of files, git's output may carry. */
+const FILE_OUTPUT_MAX = 16 * 1024 * 1024;
+
+/** One `git status --porcelain -z` entry: the index's and the working tree's state, and the path. */
+const STATUS_ENTRY = /^([ MTADRCU?!])([ MTADRCU?!]) (.+)$/s;
 
 /** Whether sparse folder `have` checks out `folder`: it is that folder or holds it. */
 function covers(have: string, folder: string): boolean {

@@ -72,11 +72,8 @@ export interface DeployJenkins {
   status(
     job: string,
     params: Record<string, string>,
-    /**
-     * `after`: only builds numbered above it. `skipQueue`: report the newest build even when a
-     * matching item waits in the queue, as the floor a trigger's build is looked for above.
-     */
-    options?: { after?: number | null; skipQueue?: boolean },
+    /** `after`: only builds numbered above it. */
+    options?: { after?: number | null },
   ): Promise<JenkinsBuildStatus>;
 }
 
@@ -199,16 +196,14 @@ export function createDeployJenkins(
     },
 
     async status(job, params, options = {}) {
-      if (!options.skipQueue) {
-        const queue = await getJson(
-          `${base}/queue/api/json?tree=items[url,why,actions[parameters[name,value]]]`,
-        );
-        const items = Array.isArray(queue.items) ? (queue.items as Record<string, unknown>[]) : [];
-        const queued = items.find((item) => item && carriesParameters(item.actions, params));
-        if (queued) {
-          const url = absolute(queued.url);
-          return { state: "queued", ...(url ? { url } : {}) };
-        }
+      const queue = await getJson(
+        `${base}/queue/api/json?tree=items[url,why,actions[parameters[name,value]]]`,
+      );
+      const items = Array.isArray(queue.items) ? (queue.items as Record<string, unknown>[]) : [];
+      const queued = items.find((item) => item && carriesParameters(item.actions, params));
+      if (queued) {
+        const url = absolute(queued.url);
+        return { state: "queued", ...(url ? { url } : {}) };
       }
       const jobInfo = await getJson(
         `${jobPath(job)}/api/json?tree=builds[number,url,building,result,actions[parameters[name,value]]]`,

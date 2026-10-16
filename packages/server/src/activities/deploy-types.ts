@@ -86,6 +86,7 @@ export type DeploySettingReason =
   | "not_remote"
   | "remote_scheme"
   | "password_in_remote"
+  | "user_in_remote"
   | "not_version"
   | "not_email"
   | "minutes_range"
@@ -271,6 +272,16 @@ export type DeployStageError =
   | { code: "build_failed"; result: string; url: string | null }
   /** The build finished and no newer release tag appeared. */
   | { code: "no_newer_tag"; before: string | null; after: string | null }
+  /**
+   * The build succeeded, and no release tag newer than the one noted holds the commit it was
+   * started for: `tag` is the newest of them, which another build made.
+   */
+  | { code: "tag_without_commit"; tag: string; commit: string }
+  /**
+   * A Jenkins build with the same parameters is still queued or going, and is not one this
+   * stage's last start began for what it would start now: a second would run beside it.
+   */
+  | { code: "build_in_flight"; url: string | null }
   /** Waited the configured minutes and the build had made no new tag. */
   | { code: "build_timed_out"; minutes: number }
   /** A stage run on its own needs what an earlier stage records, and it is not there. */
@@ -307,6 +318,11 @@ export interface DeployRunMetadata {
   preBuildTag?: string | null;
   /** The newest Jenkins build for this module before the trigger; null when there was none. */
   preBuildNumber?: number | null;
+  /**
+   * The deploy branch's commit the module build was started for, which its release tag holds;
+   * absent on runs recorded before it was noted.
+   */
+  buildCommit?: string;
   /** The Jenkins build's page, once Jenkins has one. */
   moduleBuildUrl?: string;
   /** The release tag the build made. */
@@ -460,6 +476,12 @@ export interface DeployStageState {
   status: DeployStageStatus;
   finishedAt: string | null;
   metadata: DeployRunMetadata;
+  /**
+   * Why the stage failed when it last ran. Absent when it did not fail, and when that was not
+   * recorded: a stage stored before it was, or one a server that did not shut down cleanly cut
+   * short.
+   */
+  error?: DeployStageError;
   /** Null when the stage may be run now. */
   blocker: DeployBlocker | null;
 }

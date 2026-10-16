@@ -33,6 +33,8 @@ export interface DeployGitOptions {
   signal?: AbortSignal;
   /** Added to the environment git runs in (never replaces the no-prompt settings). */
   env?: Record<string, string>;
+  /** How many characters of each stream are kept (by default `GIT_OUTPUT_MAX`). */
+  outputMax?: number;
 }
 
 /** Every git call a deploy makes. */
@@ -64,7 +66,7 @@ export const spawnGit: DeployGit = {
       env: gitEnv({ ...process.env, ...opts.env }),
       timeoutMs: opts.timeoutMs ?? GIT_TIMEOUT_MS,
       signal: opts.signal,
-      outputMax: GIT_OUTPUT_MAX,
+      outputMax: opts.outputMax ?? GIT_OUTPUT_MAX,
     });
     const { code, stdout, stderr } = result;
     switch (result.outcome) {

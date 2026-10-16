@@ -814,6 +814,16 @@ export const en: Strings = {
       deployQa: "Deploy to QA",
       deployingQa: "Deploying to QA…",
       deployQaStarted: "The QA deploy started.",
+      waitFirst: {
+        await_module_build:
+          "The last module build started, and the wait for its release tag did not finish. It may still be running in Jenkins, or already done: wait for it rather than deploying again.",
+        await_activity_deploy:
+          "The last QA deploy started, and the wait for it did not finish. It may still be running in Jenkins, or already done: wait for it rather than deploying again.",
+      },
+      waitStarted: {
+        await_module_build: "Waiting for the module build's release tag.",
+        await_activity_deploy: "Waiting for the QA deploy.",
+      },
       deployQaConfirmTitle: "Deploy to QA",
       deployQaConfirm: (productCode) => `This deploys ${productCode} to QA. It:`,
       deployQaConfirmItems: {
@@ -905,8 +915,12 @@ export const en: Strings = {
         build_failed: (result) => `The Jenkins build ended as ${result}.`,
         no_newer_tag: (before, after) =>
           `The build finished but made no newer release tag (before: ${before ?? "none"}, now: ${after ?? "none"}).`,
+        tag_without_commit: (tag, commit) =>
+          `The build succeeded, but the newest release tag, ${tag}, does not hold the deploy commit ${commit.slice(0, 8)}: another build made it. Start the build again.`,
+        build_in_flight: (url) =>
+          `A Jenkins build with the same settings is still queued or running${url ? ` (${url})` : ""}. Let it finish, or stop it in Jenkins, then start again.`,
         build_timed_out: (minutes) =>
-          `The build made no release tag within ${minutes} ${minutes === 1 ? "minute" : "minutes"}.`,
+          `The build had not succeeded within ${minutes} ${minutes === 1 ? "minute" : "minutes"}.`,
         missing_input: (stage) => `Run ${stage} first: this stage works from what it records.`,
         preflight_failed: (errors) =>
           `The activity data failed its check: ${errors} ${errors === 1 ? "problem" : "problems"}. The activity data and media were not pushed.`,
@@ -925,6 +939,10 @@ export const en: Strings = {
         deploy: "Deploy to PROD",
         deploying: "Deploying to PROD…",
         started: "The PROD deploy started.",
+        wait: "Wait for the PROD deploy",
+        waitStarted: "Waiting for the PROD deploy.",
+        waitFirst:
+          "The last PROD deploy started, and the wait for it did not finish. It may still be running in Jenkins, or already done: wait for it rather than deploying again.",
         adminOnly: "Only an admin who owns the project can deploy to PROD.",
         ready: "Ready to deploy what QA has to PROD.",
         never: "Not deployed to PROD yet.",
@@ -2945,6 +2963,8 @@ export const en: Strings = {
         not_remote: "Enter a git remote, like git@github.com:owner/repo.git.",
         remote_scheme: "Use an ssh:// or https:// remote, or git@host:owner/repo.git.",
         password_in_remote: "Leave the password out of the remote.",
+        user_in_remote:
+          "Leave the user out of an https remote: a token given as the user would be stored in the clear.",
         not_version: "Enter a version number, like 4.2.1.",
         not_email: "Enter an email address.",
         minutes_range: "Enter a whole number of minutes from 1 to 240.",

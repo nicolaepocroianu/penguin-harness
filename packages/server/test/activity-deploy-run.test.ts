@@ -100,6 +100,7 @@ function base(dir: string, overrides: Partial<DeployStageBase> = {}): DeployStag
   settings.git = { userName: "Deploy", userEmail: "deploy@example.org" };
   return {
     clones: clonesWithTags(dir, ["1.0.0"], ["1.0.0", "1.1.0"]),
+    serial: (_repo, work) => work(),
     jenkins,
     process: quickProcess,
     styles: async () => ({ code: 0, tail: "" }),
@@ -250,9 +251,11 @@ describe("deploy runner", () => {
     const page = runner.log(PROJECT, ACTIVITY, started.runId, 0)!.log;
     expect(page.lines.map((line) => line.text)).toContain("a.js: error no-undef");
     expect(page.done).toBe(true);
-    expect(dbDeployStore(db as unknown as Db).stages(ACTIVITY).verify_module!.status).toBe(
-      "failed",
-    );
+    // The stored stage says why it failed, beside metadata that does not carry it.
+    const stored = dbDeployStore(db as unknown as Db).stages(ACTIVITY).verify_module!;
+    expect(stored.status).toBe("failed");
+    expect(stored.error).toEqual(run.stages[0]!.error);
+    expect(stored.metadata).not.toHaveProperty("stageError");
     // The file keeps it too, for a reader after a restart.
     const file = await fs.readFile(path.join(dir, "logs", `${started.runId}.log`), "utf8");
     expect(file).toContain("a.js: error no-undef");
@@ -345,6 +348,10 @@ describe("deploy runner", () => {
     expect(hang.state.killed).toBe(1);
     const run = dbDeployStore(db as unknown as Db).latestRun(PROJECT, ACTIVITY)!;
     expect(run.status).toBe("interrupted");
+    expect(dbDeployStore(db as unknown as Db).stages(ACTIVITY).verify_module).toMatchObject({
+      status: "failed",
+      error: { code: "interrupted" },
+    });
     await new Promise((resolve) => setTimeout(resolve, 10));
     // Nothing written after the stop overwrites it.
     expect(dbDeployStore(db as unknown as Db).latestRun(PROJECT, ACTIVITY)!.status).toBe(

@@ -3,7 +3,8 @@
  * file URL, and real git. What it proves: the state a clone reports; putting a clone on a
  * branch as origin has it, carrying work, discarding it, or refusing a branch that diverged
  * with the work put back as it was, even when stopped; a stash that cannot be put back, and
- * counting it; staging in batches, committing, pushing with a lease; tags; a partial clone's
+ * counting it; staging in batches, committing, pushing with a lease; what changed, a branch's
+ * commit, whether two commits hold the same files; tags and what they hold; a partial clone's
  * sparse folders; and the deploy log a clone writes.
  */
 import { spawnSync } from "node:child_process";
@@ -408,6 +409,59 @@ describe("committing and publishing", () => {
     );
     expect((refused as CloneError).reason).toMatch(/stale info|rejected/);
   }, 60_000);
+
+  it("lists every path changed since HEAD: a changed file, a moved one, a new folder", async () => {
+    const remote = await origin({ "a.txt": "1", "r.txt": "r" });
+    const dir = await remote.cloneOf("clone");
+    const clone = clones.open(dir);
+    expect(await clone.changes()).toEqual([]);
+    await write(dir, "a.txt", "2");
+    await write(dir, "new folder/b.txt", "b");
+    git(dir, "mv", "r.txt", "moved.txt");
+    expect((await clone.changes()).sort()).toEqual(["a.txt", "moved.txt", "new folder/"]);
+  }, 30_000);
+
+  it("names a branch's commit, compares two commits' files, and says whether a tag holds a commit or its files", async () => {
+    const remote = await origin({ "a.txt": "1" });
+    const dir = await remote.cloneOf("clone");
+    const clone = clones.open(dir);
+    const base = await clone.commitOf("main");
+    expect(base).toBe(git(dir, "rev-parse", "HEAD"));
+    await clone.branchFrom("loom/words-deploy", "main");
+    await write(dir, "a.txt", "2");
+    await clone.stage(["a.txt"]);
+    const first = (await clone.commitStaged(WHO, "first"))!;
+    // The same files committed anew from main, as a deploy run again does.
+    await clone.branchFrom("loom/words-deploy", "main");
+    await write(dir, "a.txt", "2");
+    await clone.stage(["a.txt"]);
+    const again = (await clone.commitStaged(WHO, "again"))!;
+    expect(again).not.toBe(first);
+    expect(await clone.commitOf("loom/words-deploy")).toBe(again);
+    expect(await clone.sameContent(first, again)).toBe(true);
+    expect(await clone.sameContent(base, again)).toBe(false);
+    expect(await clone.sameContent("0".repeat(40), again)).toBe(false);
+    // A build tags a commit it made on top of the one it built, or that one itself.
+    await write(dir, "package.json", '{"version":"1.1.0"}');
+    await clone.stage(["package.json"]);
+    const bumped = (await clone.commitStaged(WHO, "1.1.0"))!;
+    git(dir, "tag", "-a", "v1.1.0", "-m", "release", bumped);
+    git(dir, "tag", "1.0.0", base);
+    expect(await clone.tagHolds("v1.1.0", again)).toBe(true);
+    expect(await clone.tagHolds("v1.1.0", bumped)).toBe(true);
+    expect(await clone.tagHolds("v1.1.0", first)).toBe(false);
+    expect(await clone.tagHolds("1.0.0", again)).toBe(false);
+    await expect(clone.tagHolds("2.0.0", again)).rejects.toBeInstanceOf(CloneError);
+    // What a tag has otherwise than a commit, a file it adds aside, and what a file holds.
+    expect(await clone.tagDiffers("v1.1.0", first)).toEqual([]);
+    expect(await clone.tagDiffers("v1.1.0", base)).toEqual(["a.txt"]);
+    expect(await clone.tagDiffers("1.0.0", bumped)).toEqual(["a.txt", "package.json"]);
+    await expect(clone.tagDiffers("2.0.0", again)).rejects.toBeInstanceOf(CloneError);
+    expect(await clone.fileAt({ tag: "v1.1.0" }, "package.json")).toBe('{"version":"1.1.0"}');
+    expect(await clone.fileAt({ commit: first }, "a.txt")).toBe("2");
+    expect(await clone.fileAt({ commit: base }, "package.json")).toBeNull();
+    expect(await clone.fileAt({ tag: "2.0.0" }, "a.txt")).toBeNull();
+  }, 30_000);
 
   it("fetches origin's tags", async () => {
     const remote = await origin();

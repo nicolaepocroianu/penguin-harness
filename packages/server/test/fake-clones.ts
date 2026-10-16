@@ -4,7 +4,8 @@
  *
  * Each repository is a `FakeRepo` keyed by its folder. A clone made through the fake (or
  * registered with `onDisk`) also gets a `.git` folder on disk, so code that looks at the disk
- * sees it. Every call is recorded in domain terms: `{ dir, op, args }`.
+ * sees it. Every call is recorded in domain terms: `{ dir, op, args }`, with the queue it was
+ * made in when it was made inside `serial`.
  */
 import { existsSync, realpathSync } from "node:fs";
 import fs from "node:fs/promises";
@@ -42,12 +43,21 @@ export interface FakeRepo {
   tags?: string[][] | (() => string[]);
   /** Files HEAD has; true for every file. */
   inHead?: string[] | true;
-  /** Files new or changed since HEAD. */
+  /** Files new or changed since HEAD; a commit takes out the ones staged. */
   changed?: string[];
   /** Nothing is staged when a commit is asked for. */
   nothingStaged?: boolean;
-  /** The commit a commit makes; "0123abcd" unless named. */
+  /** The commit a commit makes, and the one every branch is at; "0123abcd" unless named. */
   head?: string;
+  /** The files each commit holds, one name per set; a commit holds files of its own unless named. */
+  trees?: Record<string, string>;
+  /** The commits each release tag holds; every tag holds every commit unless named. */
+  tagCommits?: Record<string, string[]>;
+  /**
+   * The files each commit and each release tag has, by name, with what each holds; a commit
+   * not named here has files no tag has.
+   */
+  files?: Record<string, Record<string, string>>;
   /** Branches that have diverged from origin's. */
   diverged?: string[];
   /** No commit yet: carried work stays in place. */
@@ -62,6 +72,8 @@ export interface FakeCall {
   dir: string;
   op: string;
   args: unknown[];
+  /** The queue the call was made in (`serial`); absent outside one. */
+  queue?: string;
 }
 
 /**
@@ -93,6 +105,26 @@ export class FakeClones implements Clones {
   failClone: { remote: string; stderr: string } | null = null;
   /** What every clone made through the fake starts with besides its origin and branch. */
   cloned: Partial<FakeRepo> = {};
+  /** The queue the work running now was given (`serial`); null outside one. */
+  private queue: string | null = null;
+
+  get inQueue(): string | null {
+    return this.queue;
+  }
+
+  /**
+   * A deploy's queue for git work on a repository: runs `work` at once and notes the queue on
+   * every call made inside it. Queueing again inside it fails, as it would wait for itself.
+   */
+  readonly serial = async <T>(repo: string, work: () => Promise<T>): Promise<T> => {
+    if (this.queue !== null) throw new Error(`Queued on ${repo} inside ${this.queue}.`);
+    this.queue = repo;
+    try {
+      return await work();
+    } finally {
+      this.queue = null;
+    }
+  };
 
   /** Registers a repository at `dir` without touching the disk. */
   add(dir: string, repo: FakeRepo): FakeRepo {
@@ -118,7 +150,14 @@ export class FakeClones implements Clones {
   }
 
   record(dir: string, op: string, args: unknown[]) {
-    this.calls.push({ dir, op, args });
+    this.calls.push({ dir, op, args, ...(this.queue !== null ? { queue: this.queue } : {}) });
+  }
+
+  /** The operations asked of the clone at `dir` outside `serial`, in order. */
+  unqueued(dir: string): string[] {
+    return this.calls
+      .filter((call) => key(call.dir) === key(dir) && call.queue === undefined)
+      .map((call) => call.op);
   }
 
   async available(cwd: string): Promise<boolean> {
@@ -271,12 +310,17 @@ class FakeClone implements Clone {
   }
 
   async stage(paths?: readonly string[], options: { sparse?: boolean } = {}): Promise<void> {
-    this.call("stage", paths ? [...paths] : "all", options);
+    const repo = this.call("stage", paths ? [...paths] : "all", options);
+    const staged = stagedOf(repo);
+    for (const file of paths ?? repo.changed ?? []) staged.add(file);
   }
 
   async commitStaged(identity: CloneIdentity, message: string): Promise<string | null> {
     const repo = this.call("commitStaged", message, identity);
     if (repo.nothingStaged) return null;
+    const staged = stagedOf(repo);
+    if (repo.changed) repo.changed = repo.changed.filter((file) => !staged.has(file));
+    staged.clear();
     repo.dirty = false;
     repo.unborn = false;
     return repo.head ?? "0123abcd";
@@ -295,7 +339,47 @@ class FakeClone implements Clone {
   async changed(file: string): Promise<boolean> {
     return (this.call("changed", file).changed ?? []).includes(file);
   }
+
+  async changes(): Promise<string[]> {
+    return [...(this.call("changes").changed ?? [])];
+  }
+
+  async commitOf(branch: string): Promise<string> {
+    return this.call("commitOf", branch).head ?? "0123abcd";
+  }
+
+  async sameContent(a: string, b: string): Promise<boolean> {
+    const { trees = {} } = this.call("sameContent", a, b);
+    return (trees[a] ?? a) === (trees[b] ?? b);
+  }
+
+  async tagHolds(tag: string, commit: string): Promise<boolean> {
+    const held = this.call("tagHolds", tag, commit).tagCommits?.[tag];
+    return held === undefined || held.includes(commit);
+  }
+
+  async tagDiffers(tag: string, commit: string): Promise<string[]> {
+    const { files = {} } = this.call("tagDiffers", tag, commit);
+    const committed = files[commit];
+    // A commit whose files are not named differs from every tag.
+    if (!committed) return ["(files not named)"];
+    return Object.keys(committed).filter((file) => files[tag]?.[file] !== committed[file]);
+  }
+
+  async fileAt(at: { tag: string } | { commit: string }, file: string): Promise<string | null> {
+    const { files = {} } = this.call("fileAt", at, file);
+    return files["tag" in at ? at.tag : at.commit]?.[file] ?? null;
+  }
 }
 
 /** How often each repository's tag lists were read, across every clone opened on it. */
 const fetchedTags = new WeakMap<string[][], number>();
+
+/** What each repository has staged and not committed yet. */
+const stagedFiles = new WeakMap<FakeRepo, Set<string>>();
+
+function stagedOf(repo: FakeRepo): Set<string> {
+  let staged = stagedFiles.get(repo);
+  if (!staged) stagedFiles.set(repo, (staged = new Set()));
+  return staged;
+}
