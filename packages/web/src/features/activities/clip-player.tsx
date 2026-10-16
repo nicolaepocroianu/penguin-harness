@@ -29,10 +29,14 @@ export interface ClipPlayer {
   run: string | null;
   /** The clip that could not be played, until another one is. */
   failed: string | null;
+  /** How far through the clip sounding now playback is, 0 to 1. */
+  progress: number;
   /** Play one clip, or stop it when it is the one sounding. */
   toggle: (clip: Clip) => void;
   /** Play clips one after another from the first, or stop when this run is playing. */
   toggleRun: (run: string, clips: readonly Clip[]) => void;
+  /** Stop whatever is playing. */
+  stop: () => void;
   /** The shared element, rendered once beside the list. */
   element: ReactNode;
 }
@@ -41,6 +45,7 @@ export function useClipPlayer(): ClipPlayer {
   const audio = useRef<HTMLAudioElement>(null);
   const [now, setNow] = useState<Playing | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
   const sounding = now ? (now.clips[now.index] ?? null) : null;
 
   function start(next: Playing) {
@@ -52,6 +57,7 @@ export function useClipPlayer(): ClipPlayer {
     }
     setNow(next);
     setFailed(null);
+    setProgress(0);
     element.src = clip.src;
     // Starting another clip interrupts this one's load, which is no failure of its file.
     element.play().catch((error: unknown) => {
@@ -70,6 +76,7 @@ export function useClipPlayer(): ClipPlayer {
     playing: sounding?.key ?? null,
     run: now?.run ?? null,
     failed,
+    progress,
     toggle: (clip) => {
       if (sounding?.key === clip.key && now?.run === null) stop();
       else start({ run: null, clips: [clip], index: 0 });
@@ -78,11 +85,16 @@ export function useClipPlayer(): ClipPlayer {
       if (now?.run === run) stop();
       else start({ run, clips, index: 0 });
     },
+    stop,
     element: (
       <audio
         ref={audio}
         preload="none"
         hidden
+        onTimeUpdate={(event) => {
+          const element = event.currentTarget;
+          setProgress(element.duration > 0 ? element.currentTime / element.duration : 0);
+        }}
         onEnded={() => {
           if (now && now.index + 1 < now.clips.length) start({ ...now, index: now.index + 1 });
           else setNow(null);

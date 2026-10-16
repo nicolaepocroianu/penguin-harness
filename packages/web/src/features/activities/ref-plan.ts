@@ -266,7 +266,10 @@ export function needsGeneration(rows: readonly RefPlanRow[]): boolean {
  * picture from its run, an upload from the uploads, anything else from the checkout. Null
  * when unbound.
  */
-export function boundSource(asset: MediaAsset, endpoint: string): string | null {
+export function boundSource(
+  asset: Pick<MediaAsset, "path" | "generatedAudio" | "generatedVideo" | "generatedImage">,
+  endpoint: string,
+): string | null {
   if (!asset.path) return null;
   if (asset.generatedAudio)
     return `${endpoint}/runs/${encodeURIComponent(asset.generatedAudio.runId)}/audio`;

@@ -45,6 +45,10 @@ describe("the behavior map", () => {
   it("reads a module's machine, including the older key, and nothing that is not one", () => {
     expect(machineOf(configuration)?.initial).toBe("intro");
     expect(machineOf({ activityMachine: configuration.stateMachine })?.initial).toBe("intro");
+    // A generated module keeps its configuration under its product code.
+    expect(
+      machineOf({ resolution: "640x480", test21: { telemetry: false, ...configuration } })?.initial,
+    ).toBe("intro");
     expect(machineOf({})).toBeNull();
     expect(machineOf({ stateMachine: { states: [] } })).toBeNull();
     expect(machineOf("nope")).toBeNull();

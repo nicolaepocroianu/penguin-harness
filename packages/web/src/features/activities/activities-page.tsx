@@ -114,7 +114,7 @@ import { pretty, type DraftBlock } from "./studio-draft";
 import { useStudioDraft } from "./use-studio-draft";
 import { ActivityList } from "./activity-list";
 import { ProjectMediaView } from "./project-media-view";
-import type { GroupSort } from "./activity-groups";
+import type { GroupSort, ListLens } from "./activity-groups";
 import { UnsavedWorkProvider, useUnsavedWork, useUnsavedWorkGuard } from "./unsaved-work-context";
 import type { ShownAsset } from "./unsaved-work";
 import { playerCheckVersion, useChecks } from "./use-checks";
@@ -127,6 +127,8 @@ import {
   speechChoice,
   wordCatalogue,
 } from "./speech-provider";
+import { playScenes, type LinePick, type Sounding } from "./play-model";
+import { boundSource } from "./ref-plan";
 
 /** No run read yet: one array, so the runs index is built once for it. */
 const NO_RUNS: ActivityRunSummary[] = [];
@@ -196,6 +198,7 @@ function ActivityWorkspace({
   // Kept here rather than in the list, so opening an activity and coming back keeps them.
   const [search, setSearch] = useState("");
   const [tag, setTag] = useState<string | null>(null);
+  const [lens, setLens] = useState<ListLens>("all");
   const [sort, setSort] = useState<GroupSort>("recent");
   const [openModules, setOpenModules] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -380,6 +383,8 @@ function ActivityWorkspace({
         onSearch={setSearch}
         tag={tag}
         onTag={setTag}
+        lens={lens}
+        onLens={setLens}
         onRefresh={() => void reload()}
         onOpenFromModules={() => setOpenModules(true)}
         onCreate={() => setCreateOpen(true)}
@@ -500,6 +505,13 @@ function ActivityEditor({
   const [board, setBoard] = useState(true);
   /** A scene the rail asked the script to show; `at` tells a second ask from the first. */
   const [revealScene, setRevealScene] = useState<{ scene: number; at: number } | null>(null);
+  /**
+   * The Script and the player in step: the line an author chose in either (lit in both, and
+   * shown in the Script when chosen in the player), and the line the player is saying now.
+   */
+  const [linePick, setLinePick] = useState<LinePick | null>(null);
+  const [revealLine, setRevealLine] = useState<LinePick | null>(null);
+  const [sounding, setSounding] = useState<Sounding | null>(null);
   /** A request to review the agent's proposed script, from the header or the chat. */
   const [reviewRequest, setReviewRequest] = useState<{ scene?: number; at: number } | null>(null);
   /** A request to compare the script with the saved one, from the conflict notice. */
@@ -1006,10 +1018,19 @@ function ActivityEditor({
             fullTree,
             sceneRanges(description),
             placeholders,
+            endpoint,
           )
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [detail?.draft.mediaPlan, detail?.draft.spec, media, language, description, placeholders],
+    [
+      detail?.draft.mediaPlan,
+      detail?.draft.spec,
+      media,
+      language,
+      description,
+      placeholders,
+      endpoint,
+    ],
   );
   // What each clip of the shown language is bound to, for the spec read as scenes.
   const mediaBindings = useMemo(
@@ -1068,6 +1089,21 @@ function ActivityEditor({
       endpoint,
       placeholders,
     );
+  // The scenes the player walks, each with its picture and its lines, from the saved plan the
+  // played module was built with.
+  const scenesPlayed = playScenes({
+    tree: fullTree,
+    script: { text: description, scenes: scriptScenes },
+    assets: savedAssets ?? [],
+    sourceOf: (asset) => boundSource(asset, endpoint),
+    previewOf: (sceneId) => {
+      const poster = frames.find((frame) => frame.sceneId === sceneId)?.poster;
+      return poster ? previewOf(poster.key) : { kind: "none" };
+    },
+  });
+  // The line lit in the Script: the one being said, or the one chosen, whichever came last.
+  const scriptLit =
+    sounding && (!linePick || sounding.at >= linePick.at) ? sounding.key : (linePick?.key ?? null);
   const selection =
     selected && treeSelections(tree).some((entry) => sameSelection(entry, selected))
       ? selected
@@ -1136,6 +1172,16 @@ function ActivityEditor({
                 spec={detail.draft.spec}
                 languages={languages}
                 hasMedia={!!editedManifest?.assets[language]?.length}
+                play={{
+                  scenes: scenesPlayed,
+                  pick: linePick,
+                  onLine: (key) => {
+                    const pick = { key, at: Date.now() };
+                    setLinePick(pick);
+                    setRevealLine(pick);
+                  },
+                  onSounding: setSounding,
+                }}
                 onPick={(pick, sceneId) => {
                   // Matched against every kind of media, whatever the tree shows.
                   const found = assetForPick(
@@ -1668,6 +1714,9 @@ function ActivityEditor({
               saveDisabled={busy || !edited.description}
               acceptBlocked={dirty ? S.activities.studioProposal.saveFirst : null}
               reveal={revealScene}
+              revealClip={revealLine}
+              lit={scriptLit}
+              onClipLine={(key) => setLinePick({ key, at: Date.now() })}
               review={reviewRequest}
               compare={compareScript}
               media={scriptMedia}

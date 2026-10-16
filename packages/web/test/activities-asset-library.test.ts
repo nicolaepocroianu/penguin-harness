@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { AssetManifest, UploadedMedia } from "@prismshadow/penguin-server/api";
 import {
+  LIBRARY_LAYOUT_KEY,
   filterPlanned,
   filterUploads,
+  needsAttention,
   plannedEntries,
+  readLibraryLayout,
   uploadEntries,
+  writeLibraryLayout,
 } from "../src/features/activities/asset-library";
 
 type MediaAsset = AssetManifest["assets"][string][number];
@@ -101,5 +105,32 @@ describe("the asset library", () => {
     expect(filterPlanned(entries, "audio", "any", "").map((e) => e.key)).toEqual(["hello", "say"]);
     expect(filterPlanned(entries, "all", "unbound", "").map((e) => e.key)).toEqual(["hello"]);
     expect(filterPlanned(entries, "all", "bound", "END").map((e) => e.key)).toEqual(["dog"]);
+  });
+
+  it("puts first what still needs a file: nothing bound, or only the stand-in clip", () => {
+    const stand = "media/loom/words/words-1/videos/english/empty.mp4";
+    const entries = plannedEntries(
+      [...assets, { key: "intro", type: "video", description: "", path: stand, usages: [] }],
+      new Set([stand]),
+    );
+    expect(entries.filter(needsAttention).map((entry) => entry.key)).toEqual(["hello", "intro"]);
+  });
+
+  it("remembers a viewer's grid or table, and starts on the grid", () => {
+    const stored = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => void stored.set(key, value),
+    };
+    expect(readLibraryLayout(storage)).toBe("grid");
+    writeLibraryLayout("table", storage);
+    expect(stored.get(LIBRARY_LAYOUT_KEY)).toBe("table");
+    expect(readLibraryLayout(storage)).toBe("table");
+    const broken = {
+      getItem: () => {
+        throw new Error("blocked");
+      },
+    };
+    expect(readLibraryLayout(broken)).toBe("grid");
   });
 });

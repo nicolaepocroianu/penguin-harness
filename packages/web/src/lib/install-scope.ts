@@ -193,6 +193,12 @@ export const KEY_RULES: readonly KeyRule[] = [
   },
   {
     kind: "exact",
+    key: "penguin.activityLibraryLayout",
+    scope: "browser",
+    why: "Whether an activity's Library shows its assets as a grid or a table; a view preference, holds no entity.",
+  },
+  {
+    kind: "exact",
     key: "penguin.activityLayouts",
     scope: "browser",
     why: "An author's named activity workspace layouts and whether their Alt+number shortcuts are on; chrome layout, holds no entity.",

@@ -6,8 +6,9 @@
  * opening tag shows as a small mark ("Says", "Video") and the closing one is hidden, so the
  * script reads as narration and footage rather than source. The line the cursor is on, and
  * every line of a selection, shows its tags as written. A line tied to a clip (see
- * script-media.ts) ends with that clip's state, which opens it; a scene heading ends with
- * how much media the scene asks for and how much still has no file.
+ * script-media.ts) ends with that clip's state, which opens it, led by a play button when the
+ * clip has a real file; a scene heading ends with how much media the scene asks for and how
+ * much still has no file. The line the player is saying, or one an author chose, is lit.
  */
 import { Facet, type Range, type Text } from "@codemirror/state";
 import {
@@ -20,7 +21,7 @@ import {
 } from "@codemirror/view";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
-import { formatClipLength } from "./script-media";
+import { elementText, formatClipLength } from "./script-media";
 import type { ScriptClip, ScriptMedia, SceneMedia } from "./script-media";
 import {
   mediaElementSpans,
@@ -51,10 +52,18 @@ export const proposedScenes = Facet.define<number[], ReadonlySet<number>>({
   combine: (values) => new Set(values.flat()),
 });
 
-/** What the editor knows about the script's media, and how to open one clip. */
+/** What the editor knows about the script's media, how to open one clip and how to play it. */
 export interface MediaContext {
   media: ScriptMedia | null;
   open: ((key: string) => void) | null;
+  /** Play a clip where it is written, or stop it when it is the one playing. */
+  play?: ((clip: ScriptClip, words: string) => void) | null;
+  /** The clip playing in place now, by key. */
+  playing?: string | null;
+  /** The clip whose line is lit: the one the player is saying, or one an author chose. */
+  lit?: string | null;
+  /** Told the clip of a narration line an author put the cursor on with a click. */
+  line?: ((key: string) => void) | null;
 }
 export const mediaContext = Facet.define<MediaContext, MediaContext>({
   combine: (values) => values[0] ?? { media: null, open: null },
@@ -106,11 +115,30 @@ function clipLabel({ bound, placeholder, durationMs }: ScriptClip): string {
   return durationMs !== undefined ? formatClipLength(durationMs) : words.clipBound;
 }
 
-/** The clip a line became: its length when it has a file, a call to make one when not. */
+/** A press the editor must not take as a cursor move: mouse down, and Enter or Space. */
+function pressable(button: HTMLElement, act: () => void) {
+  // Mouse down, not click: the editor would otherwise take the press as a cursor move.
+  // Enter and Space arrive as a click with no pointer behind it (detail 0).
+  button.onmousedown = (event) => {
+    event.preventDefault();
+    act();
+  };
+  button.onclick = (event) => {
+    if (event.detail === 0) act();
+  };
+}
+
+/**
+ * The clip a line became: its length when it has a file, a call to make one when not, and a
+ * play button before it when there is a real file to play.
+ */
 class ClipChip extends WidgetType {
   constructor(
     readonly clip: ScriptClip,
     readonly open: ((key: string) => void) | null,
+    readonly words: string,
+    readonly play: ((clip: ScriptClip, words: string) => void) | null,
+    readonly playing: boolean,
   ) {
     super();
   }
@@ -120,10 +148,35 @@ class ClipChip extends WidgetType {
       other.clip.bound === this.clip.bound &&
       other.clip.placeholder === this.clip.placeholder &&
       other.clip.durationMs === this.clip.durationMs &&
-      other.open === this.open
+      other.clip.src === this.clip.src &&
+      other.open === this.open &&
+      other.words === this.words &&
+      other.play === this.play &&
+      other.playing === this.playing
     );
   }
   toDOM() {
+    const label = this.label();
+    const { play, clip, words: said } = this;
+    const playable =
+      play && clip.src && (clip.type === "audio" || clip.type === "video") ? play : null;
+    if (!playable) return label;
+    const words = S.activities.studioScript;
+    const group = document.createElement("span");
+    group.className = "cm-clip-group";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `cm-clip-play${this.playing ? " cm-clip-playing" : ""}`;
+    const name = this.playing ? words.stopClip(said) : words.playClip(said);
+    button.setAttribute("aria-label", name);
+    button.title = name;
+    button.setAttribute("aria-pressed", String(this.playing));
+    // The glyph is drawn by CSS: a triangle to play, two bars to stop.
+    pressable(button, () => playable(clip, said));
+    group.append(button, label);
+    return group;
+  }
+  label() {
     const words = S.activities.studioScript;
     const chip = document.createElement(this.open ? "button" : "span");
     const { bound, placeholder, key } = this.clip;
@@ -135,15 +188,7 @@ class ClipChip extends WidgetType {
       chip.type = "button";
       chip.setAttribute("aria-label", `${chip.textContent}: ${words.openClip(key)}`);
       const open = this.open;
-      // Mouse down, not click: the editor would otherwise take the press as a cursor move.
-      // Enter and Space arrive as a click with no pointer behind it (detail 0).
-      chip.onmousedown = (event) => {
-        event.preventDefault();
-        open(key);
-      };
-      chip.onclick = (event) => {
-        if (event.detail === 0) open(key);
-      };
+      pressable(chip, () => open(key));
     }
     return chip;
   }
@@ -184,6 +229,8 @@ class SceneFacts extends WidgetType {
 }
 
 const headingLine = Decoration.line({ class: "cm-scene-heading" });
+/** The line being said in the player, or one an author chose there or here. */
+const litLine = Decoration.line({ class: "cm-line-lit" });
 const headingNumber = Decoration.mark({ class: "cm-scene-number" });
 const hiddenTag = Decoration.replace({});
 /**
@@ -221,7 +268,7 @@ function decorate(view: EditorView): DecorationSet {
   const { doc } = view.state;
   const scenes = scenesOf(doc).byHeading;
   const proposed = view.state.facet(proposedScenes);
-  const { media, open } = view.state.facet(mediaContext);
+  const { media, open, play = null, playing = null, lit = null } = view.state.facet(mediaContext);
   const revealed = revealedLines(view);
   let done = 0;
   for (const { from, to } of view.visibleRanges) {
@@ -264,15 +311,25 @@ function decorate(view: EditorView): DecorationSet {
             ranges.push(spanMarks[span.element].range(at + inner.from, at + inner.to));
         }
       }
-      if (media)
+      if (media) {
+        let lighted = false;
         for (const span of spans) {
           const raw = line.text.slice(span.from, span.to);
-          const clip = media.clipFor(span.element, raw.replace(/^<[^<>]*>|<[^<>]*>$/g, ""));
-          if (clip)
-            ranges.push(
-              Decoration.widget({ widget: new ClipChip(clip, open), side: 1 }).range(at + span.to),
-            );
+          const said = elementText(raw);
+          const clip = media.clipFor(span.element, said);
+          if (!clip) continue;
+          if (lit && clip.key === lit && !lighted) {
+            ranges.push(litLine.range(at));
+            lighted = true;
+          }
+          ranges.push(
+            Decoration.widget({
+              widget: new ClipChip(clip, open, said.trim(), play, playing === clip.key),
+              side: 1,
+            }).range(at + span.to),
+          );
         }
+      }
       if (scene) {
         const facts = media?.scene(scene.number);
         if (facts && (facts.heard || facts.seen))

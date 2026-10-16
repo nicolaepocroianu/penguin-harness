@@ -9,6 +9,38 @@ import { filterActivities } from "./preview";
 
 export type GroupSort = "recent" | "code";
 
+/**
+ * The list's lenses, by what an activity needs: work under way (a run, or a milestone next),
+ * the author (a media plan the specification has moved on from), or nothing (built). An
+ * activity with no summary yet is in progress until the server says otherwise.
+ */
+export type ListLens = "all" | "progress" | "attention" | "built";
+export const LIST_LENSES: readonly ListLens[] = ["all", "progress", "attention", "built"];
+
+export function lensOf(summary: ActivitySummary | undefined): Exclude<ListLens, "all"> {
+  const kind = summary?.status?.kind;
+  if (kind === "stale") return "attention";
+  if (kind === "built") return "built";
+  return "progress";
+}
+
+/** How many activities each lens holds, among those the search and tag leave. */
+export function lensCounts(
+  items: readonly ActivityRecord[],
+  summaries: Readonly<Record<string, ActivitySummary>>,
+  options: { search: string; tag: string | null },
+): Record<ListLens, number> {
+  const visible = filterActivities(filterByTag(items, options.tag), options.search);
+  const counts: Record<ListLens, number> = {
+    all: visible.length,
+    progress: 0,
+    attention: 0,
+    built: 0,
+  };
+  for (const entry of visible) counts[lensOf(summaries[entry.id])] += 1;
+  return counts;
+}
+
 export interface ActivityGroup {
   /** Collection and product code together: two collections may reuse one code. */
   key: string;
@@ -25,7 +57,7 @@ export interface ActivityGroup {
 export function groupByProduct(
   items: readonly ActivityRecord[],
   summaries: Readonly<Record<string, ActivitySummary>>,
-  options: { sort: GroupSort; search: string; tag: string | null },
+  options: { sort: GroupSort; search: string; tag: string | null; lens?: ListLens },
 ): ActivityGroup[] {
   // The canonical ref is found across ALL of a product's refs, before search or tag
   // filtering: the New-ref gate follows it even when the filter hides it.
@@ -36,7 +68,10 @@ export function groupByProduct(
       canonicalByKey.set(key, entry);
     }
   }
-  const visible = filterActivities(filterByTag(items, options.tag), options.search);
+  const lens = options.lens ?? "all";
+  const visible = filterActivities(filterByTag(items, options.tag), options.search).filter(
+    (entry) => lens === "all" || lensOf(summaries[entry.id]) === lens,
+  );
   const byKey = new Map<string, ActivityRecord[]>();
   for (const entry of visible) {
     const key = groupKey(entry);

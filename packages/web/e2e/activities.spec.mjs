@@ -833,8 +833,12 @@ async function create(page, { activityType = "standard", readingMode = "Decodabl
   await page.goto(`${origin}/activities`);
   // Creation lives behind the landing's action, not inline on the page.
   await page.getByRole("button", { name: "New activity", exact: true }).click();
-  await page.getByRole("textbox", { name: "Product code", exact: true }).fill("words");
-  await page.getByRole("spinbutton", { name: "Reference number", exact: true }).fill("12");
+  // It starts from what the learner does; each field's hint is part of its name.
+  await page
+    .getByRole("textbox", { name: /^What should the learner do\?/ })
+    .fill("Learners read common sight words.");
+  await page.getByRole("textbox", { name: /^Product code/ }).fill("words");
+  await page.getByRole("spinbutton", { name: /^Reference number/ }).fill("12");
   await page.getByRole("textbox", { name: "Title", exact: true }).fill("Sight words");
   if (activityType === "book") {
     await page.getByRole("button", { name: "Activity type", exact: true }).click();
@@ -849,6 +853,7 @@ async function create(page, { activityType = "standard", readingMode = "Decodabl
   );
   await page.getByRole("button", { name: "Create activity", exact: true }).click();
   const body = (await created).postDataJSON();
+  expect(body.description).toBe("Learners read common sight words.");
   if (activityType === "book")
     expect(body.bookMode).toBe(readingMode === "Decodable" ? "decodable" : "readAlong");
   else expect(body).not.toHaveProperty("bookMode");
@@ -1321,10 +1326,16 @@ test("uploads media into the ref's uploads and binds it from the library", async
   await openSection(page, "Library");
   await expect(page.getByText(/1 assets, 1 paths assigned, 0 unbound/)).toBeVisible();
 
-  // The library lists the plan and the uploads together, and what connects them.
+  // The library lists the plan and the uploads together, and what connects them: the plan
+  // as tiles first, and as a table on asking.
   await openSection(page, "Library");
   const planned = page.getByRole("region", { name: "In the media plan", exact: true });
   const uploaded = page.getByRole("region", { name: "Uploaded files", exact: true });
+  await expect(planned.getByRole("region", { name: "Ready", exact: true })).toBeVisible();
+  await page
+    .getByRole("group", { name: "Show as", exact: true })
+    .getByRole("button", { name: "Table", exact: true })
+    .click();
   await expect(planned.getByRole("row")).toHaveCount(2);
   await expect(planned).toContainText("Uploaded");
   const dog = uploaded.getByRole("row", { name: /dog\.png/ }).first();
@@ -2928,9 +2939,11 @@ test("media shows and plays where it is listed: by scene in Audio, on the storyb
 }) => {
   const f = await fixture(page);
   const blank = "media/loom/words/words-12/videos/english/empty.mp4";
-  // Each clip asked for, once per run of requests, in the order the page asked; and every
-  // other file asked for, which pictures are.
+  // Each clip played, once per run of requests, in the order the page asked; each clip read
+  // to draw its waveform (a fetch, where playing is a media request); and every other file
+  // asked for, which pictures are.
   const heard = [];
+  const drawn = new Set();
   const seen = new Set();
   await page.route("**/*", (route) => {
     const p = new URL(route.request().url()).pathname;
@@ -2942,6 +2955,7 @@ test("media shows and plays where it is listed: by scene in Audio, on the storyb
     if (p.startsWith(`${base}/act_test/sandbox/media/`)) {
       const file = p.split("/").pop();
       if (!file.endsWith(".wav")) seen.add(file);
+      else if (route.request().resourceType() === "fetch") drawn.add(file);
       else if (heard.at(-1) !== file) heard.push(file);
       if (file.endsWith(".wav"))
         return route.fulfill({ contentType: "audio/wav", body: toneWav(0.2) });
@@ -3034,12 +3048,26 @@ test("media shows and plays where it is listed: by scene in Audio, on the storyb
   expect(
     await plays.evaluateAll((buttons) => buttons.map((b) => b.getAttribute("aria-label"))),
   ).toEqual(["Play “Welcome along”", "Play “Here are the stones”", "Play “Find the letter d”"]);
+  // Each line's waveform is drawn from its own file.
+  await expect.poll(() => [...drawn].sort()).toEqual(["find_d.wav", "stones.wav", "welcome.wav"]);
   await page.getByRole("button", { name: "Play “Welcome along”", exact: true }).click();
   await expect.poll(() => heard).toEqual(["welcome.wav"]);
   // Play scene plays the scene's lines one after another, then offers itself again.
   await page.getByRole("button", { name: "Play scene: Rocks", exact: true }).click();
   await expect.poll(() => heard).toEqual(["welcome.wav", "stones.wav", "find_d.wav"]);
   await expect(page.getByRole("button", { name: "Play scene: Rocks", exact: true })).toBeVisible();
+  // Play all plays every line, scene by scene.
+  await page.getByRole("button", { name: "Play all 3 lines, scene by scene", exact: true }).click();
+  await expect
+    .poll(() => heard)
+    .toEqual([
+      "welcome.wav",
+      "stones.wav",
+      "find_d.wav",
+      "welcome.wav",
+      "stones.wav",
+      "find_d.wav",
+    ]);
 
   // The storyboard: scene titles, the script's beats with no markup, and the poster's file.
   await page.getByRole("treeitem", { name: "Storyboard", exact: true, level: 1 }).click();
@@ -3290,7 +3318,10 @@ test("lists the live tap targets on the current state and keeps the map under th
 
   // The player is a rail panel, too narrow for the map beside it: the map sits under the
   // player, with no divider between them.
-  const divider = page.getByRole("separator", { name: "Resize the behavior map", exact: true });
+  const divider = page.getByRole("separator", {
+    name: "Resize the column beside the player",
+    exact: true,
+  });
   await expect(divider).toHaveCount(0);
   await expect(map).toBeVisible();
 
@@ -3303,6 +3334,148 @@ test("lists the live tap targets on the current state and keeps the map under th
   await play();
   await expect(toggle).toHaveAttribute("aria-pressed", "false");
   await expect(map).toHaveCount(0);
+  expect(f.errors).toEqual([]);
+});
+
+test("Play mode lights the line the player is saying, and the script follows both ways", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1800, height: 1000 });
+  const f = await fixture(page);
+  await create(page);
+  // A stand-in for the played module: in scene 1 it reports the narrator starting one line,
+  // and on a message from the test, that the line ended and a tap target is live.
+  const playerPage = `<!doctype html><body><script>
+    const say = (message) => parent.postMessage(message, "*");
+    const state = (interactables) => say({
+      type: "penguin-sandbox:activity-state",
+      detail: { index: 1, phase: "presenting", sceneId: "scene-1", state: "scene-1.presenting" },
+      interactables,
+    });
+    state([]);
+    setTimeout(() => say({
+      type: "penguin-sandbox:activity-media",
+      detail: { index: 1, kind: "audio", key: "hello", status: "started" },
+    }), 300);
+    addEventListener("message", (event) => {
+      if (event.data !== "end") return;
+      say({
+        type: "penguin-sandbox:activity-media",
+        detail: { index: 2, kind: "audio", key: "hello", status: "completed" },
+      });
+      state([{ id: "rock-d", inputType: "CLICK", description: "Rock d" }]);
+    });
+  </script></body>`;
+  await page.route("**/*", (route) => {
+    const p = new URL(route.request().url()).pathname;
+    const json = (value) =>
+      route.fulfill({ contentType: "application/json", body: JSON.stringify(value) });
+    if (p === `${base}/act_test/sandbox/status`)
+      return json({
+        state: "ready",
+        playable: true,
+        buildable: true,
+        message: "Ready.",
+        buildLog: null,
+      });
+    if (p === `${base}/act_test/sandbox/payload`) return json({ configuration: {} });
+    if (p === `${base}/act_test/sandbox/play`)
+      return route.fulfill({ contentType: "text/html", body: playerPage });
+    if (p.startsWith(`${base}/act_test/sandbox/media/`))
+      return route.fulfill({ contentType: "audio/wav", body: toneWav(0.2) });
+    return route.fallback();
+  });
+  await openSection(page, "Script");
+  await replaceText(
+    page.getByRole("textbox", { name: "Script", exact: true }),
+    ["Scene 1: Rocks", "<audio>Hello there</audio>", "<audio>Find the letter d</audio>"].join("\n"),
+  );
+  await page.getByRole("button", { name: "Save script", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Save script", exact: true })).toBeDisabled();
+  await openSection(page, "Specification");
+  await replaceText(
+    page.getByRole("textbox", { name: "Specification JSON", exact: true }),
+    JSON.stringify({ ...spec, scenes: [{ id: "scene-1", description: "Find d" }] }),
+  );
+  await page.getByRole("button", { name: "Save specification", exact: true }).click();
+  await openSection(page, "Storyboard");
+  await planMedia(page);
+  const line = (key, script, extra = {}) => ({
+    key,
+    type: "audio",
+    description: `${key} line`,
+    script,
+    path: `media/audio/${key}.wav`,
+    usages: [{ sceneId: "scene-1", sourceKey: key, occurrence: 1, sceneOccurrenceCount: 1 }],
+    ...extra,
+  });
+  await openManifest(page);
+  await page.getByRole("textbox", { name: /^Asset manifest/ }).fill(
+    JSON.stringify({
+      productCode: "words",
+      refNum: 12,
+      assets: {
+        "en-US": [
+          line("hello", "Hello there", {
+            durationMs: 60_000,
+            wordTimings: [
+              { word: "Hello", startMs: 0, endMs: 30_000 },
+              { word: "there", startMs: 30_000, endMs: 60_000 },
+            ],
+          }),
+          line("find_d", "Find the letter d"),
+        ],
+      },
+    }),
+  );
+  await openSection(page, "Storyboard");
+  await page.getByRole("button", { name: "Validate and save media", exact: true }).click();
+
+  // Filling the workspace, Preview is the stage: the scene's lines beside the player, the line
+  // being said lit with its word, and what can be tapped said in words.
+  await openSection(page, "Script");
+  const panel = await openPanel(page, "Preview");
+  await panel.getByRole("button", { name: "Fill the workspace", exact: true }).click();
+  const lines = panel.getByRole("list", { name: "Lines in Scene 1 · Rocks", exact: true });
+  const hello = lines.getByRole("button", {
+    name: "Show “Hello there” in the script",
+    exact: true,
+  });
+  await expect(hello).toHaveAttribute("aria-current", "true");
+  await expect(hello).toContainText("being said now");
+  await expect(hello.locator(".bg-brand-100")).toHaveText("Hello");
+  await expect(panel.getByText("Nothing to tap while the narrator speaks.")).toBeVisible();
+  await expect(
+    panel.getByRole("button", { name: "Play from Scene 1 · Rocks", exact: true }),
+  ).toHaveAttribute("aria-current", "step");
+  // The machine's own name for the state is there for whoever reads it, under the words.
+  await expect(panel.getByText("scene-1.presenting", { exact: true })).toBeVisible();
+
+  // The line ends: nothing is lit, and the tap target is named.
+  const player = () => page.frames().find((frame) => frame.url().includes("/sandbox/play"));
+  await player().evaluate(() => window.postMessage("end", "*"));
+  await expect(hello).not.toHaveAttribute("aria-current", "true");
+  await expect(panel.getByText("Tap Rock d", { exact: true })).toBeVisible();
+
+  // Beside the script, a line chosen in the player is lit in the script, and the other way.
+  await panel
+    .getByRole("button", { name: "Put the panel back beside the work", exact: true })
+    .click();
+  await lines
+    .getByRole("button", { name: "Show “Find the letter d” in the script", exact: true })
+    .click();
+  await expect(page.locator(".cm-line-lit")).toContainText("Find the letter d");
+  await page.locator(".cm-content").getByText("Hello there", { exact: true }).click();
+  await expect(hello).toHaveAttribute("aria-current", "true");
+  await expect(hello).toContainText("chosen");
+  await expect(page.locator(".cm-line-lit")).toContainText("Hello there");
+
+  // A narration chip with a file plays where it is written.
+  const chip = page.getByRole("button", { name: "Play “Find the letter d”", exact: true });
+  await chip.click();
+  await expect(
+    page.getByRole("button", { name: "Stop “Find the letter d”", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   expect(f.errors).toEqual([]);
 });
 
@@ -5267,10 +5440,24 @@ test("the home page groups refs under their product code", async ({ page }) => {
   });
   await page.goto(`${origin}/activities`);
   const group = page.getByRole("region", { name: /ants/ });
-  const toggle = group.getByRole("button", { name: /ants/ });
+  const toggle = group.getByRole("button", { name: /^ants Standard/ });
   await expect(group.getByRole("link", { name: /ants 1/ })).toBeVisible();
   await expect(group.getByText("Specification next").first()).toBeVisible();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  // The lenses count what each activity needs; both refs are still in progress.
+  const lenses = page.getByRole("group", { name: "Show", exact: true });
+  await expect(lenses.getByRole("button", { name: /^In progress/ })).toContainText("2");
+  await expect(lenses.getByRole("button", { name: /^Built/ })).toContainText("0");
+  // New ref is in each row's menu, and says why it cannot be made while there is no plan.
+  await group.getByRole("button", { name: "More for ants 2", exact: true }).click();
+  const menu = page.getByRole("menu", { name: "More for ants 2", exact: true });
+  await expect(menu.getByRole("menuitem", { name: /^New ref of ants/ })).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await expect(menu).toContainText("Plan the canonical ref's media first");
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
   await toggle.click();
   await expect(group.getByRole("link", { name: /ants 1/ })).toBeHidden();
   await expect(toggle).toHaveAttribute("aria-expanded", "false");

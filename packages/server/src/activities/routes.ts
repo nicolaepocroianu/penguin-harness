@@ -21,6 +21,7 @@ import { IMAGE_MODEL } from "./generated-image.js";
 import { audioMimeType } from "./sound.js";
 import { UPLOAD_MAX_BYTES } from "./upload.js";
 import type { ClaimModuleProductResponse, ModuleProductsResponse } from "./module-product-types.js";
+import type { ProductRefNumber } from "./ref-template-types.js";
 import { BUNDLE_FILE_NAME, BUNDLE_MAX_ITEMS } from "./media-bundle.js";
 import { placeholderPaths } from "./media.js";
 import type { BundleItem } from "./media-library-types.js";
@@ -159,6 +160,15 @@ export class ActivityRoutes {
         })) satisfies ClaimModuleProductResponse,
       );
     });
+    // The number a new activity of a product code would take, as the create dialog fills it.
+    app.get("/ref-number", async (c) =>
+      c.json(
+        (await this.activities.productRefNumber(
+          requireValidId(c, "projectId"),
+          c.req.query("productCode") ?? "",
+        )) satisfies ProductRefNumber,
+      ),
+    );
     // The project's media library: every activity's uploads, read across the project.
     app.get("/media-library", async (c) =>
       c.json(await this.activities.projectMedia(requireValidId(c, "projectId"))),
@@ -1034,6 +1044,8 @@ export class ActivityRoutes {
           title: requireString(body, "title", { minLen: 1, maxLen: 200 }),
           activityType: body.activityType as "standard" | "book" | undefined,
           ...(bookMode ? { bookMode: bookMode as "decodable" | "readAlong" } : {}),
+          // The same limit a saved script has.
+          description: optionalString(body, "description", { maxLen: 100_000 }),
         }),
         201,
       );

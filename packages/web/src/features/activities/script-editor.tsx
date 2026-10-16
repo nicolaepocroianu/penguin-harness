@@ -12,8 +12,13 @@
  *
  * CodeMirror owns the document while the author types; `value` is pushed in only when it
  * changes from outside, as after a reload or an accepted proposal.
+ *
+ * A narration or video chip with a real file plays where it is written: narration through one
+ * shared audio element, a video in a small player over the script's corner. The line the
+ * preview's player is saying is lit, and so is one an author chose there; a click on a
+ * narration line lights it in the player's list in turn.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
@@ -37,6 +42,7 @@ import {
 import { search, searchKeymap } from "@codemirror/search";
 import { Button } from "../../components/ui/button";
 import { ChipGroup } from "../../components/ui/chip-group";
+import { CloseIcon } from "../../components/ui/icons";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneStrip } from "../../lib/tone";
 import {
@@ -46,11 +52,28 @@ import {
   scenesOf,
   scriptDecorations,
 } from "./script-decorations";
-import { scriptFigures, type ScriptMedia } from "./script-media";
-import { diffMarkers, sceneRanges, scenesTouched } from "./script-model";
+import { useClipPlayer } from "./clip-player";
+import { elementText, scriptFigures, type ScriptClip, type ScriptMedia } from "./script-media";
+import { diffMarkers, mediaElementSpans, sceneRanges, scenesTouched } from "./script-model";
 import { diffLines, diffStats } from "./spec-diff";
 
 export type ScriptDiffBase = "off" | "saved" | "proposal";
+
+/** The clips a line's media elements became, in the order the line writes them. */
+function lineClips(media: ScriptMedia, text: string): ScriptClip[] {
+  return mediaElementSpans(text).flatMap(
+    (span) => media.clipFor(span.element, elementText(text.slice(span.from, span.to))) ?? [],
+  );
+}
+
+/** The narration clip of the line the cursor is on, told to whoever follows clicks into lines. */
+function clipOnLine(state: EditorState) {
+  const { media, line } = state.facet(mediaContext);
+  if (!media || !line) return;
+  const text = state.doc.lineAt(state.selection.main.head).text;
+  const narration = lineClips(media, text).find((clip) => clip.type === "audio");
+  if (narration) line(narration.key);
+}
 
 /**
  * "read" keeps the text focusable and selectable, so an author can still copy out of a
@@ -204,6 +227,9 @@ export function ScriptEditor({
   status = null,
   acceptBlocked,
   reveal = null,
+  revealClip = null,
+  lit = null,
+  onClipLine,
   review: reviewRequest = null,
   compare = null,
   media = null,
@@ -231,6 +257,12 @@ export function ScriptEditor({
   acceptBlocked: string | null;
   /** A scene to bring into view, by its number in the script; `at` repeats a request. */
   reveal?: { scene: number; at: number } | null;
+  /** A clip whose line to show, chosen in the player; `at` tells a second ask from the first. */
+  revealClip?: { key: string; at: number } | null;
+  /** The clip whose line is lit: the one the player is saying, or one an author chose. */
+  lit?: string | null;
+  /** An author clicked into a narration line with a clip: light it in the player's list. */
+  onClipLine?: (key: string) => void;
   /** Open the proposal for review, at a scene when one is given; `at` repeats a request. */
   review?: { scene?: number; at: number } | null;
   /** Compare the script with the saved one; `at` repeats a request. */
@@ -334,6 +366,12 @@ export function ScriptEditor({
           EditorView.updateListener.of((update) => {
             if (update.selectionSet || update.docChanged)
               setCursorLine(update.state.doc.lineAt(update.state.selection.main.head).number);
+            if (
+              update.selectionSet &&
+              update.state.selection.main.empty &&
+              update.transactions.some((tr) => tr.isUserEvent("select.pointer"))
+            )
+              clipOnLine(update.state);
             if (!update.docChanged) return;
             const text = update.state.doc.toString();
             if (text !== latest.current.value) latest.current.onChange(text);
@@ -352,9 +390,30 @@ export function ScriptEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compartments]);
 
+  // Narration plays through one shared element; a video in a small player over the script.
+  const audio = useClipPlayer();
+  const audioRef = useRef(audio);
+  audioRef.current = audio;
+  const [video, setVideo] = useState<{ key: string; src: string; words: string } | null>(null);
+  const play = useCallback((clip: ScriptClip, said: string) => {
+    if (!clip.src) return;
+    if (clip.type === "video") {
+      audioRef.current.stop();
+      setVideo((current) =>
+        current?.key === clip.key ? null : { key: clip.key, src: clip.src!, words: said },
+      );
+      return;
+    }
+    setVideo(null);
+    audioRef.current.toggle({ key: clip.key, src: clip.src });
+  }, []);
+  const playing = video?.key ?? audio.playing;
+  const clipLine = useRef(onClipLine);
+  clipLine.current = onClipLine;
+  const line = useCallback((key: string) => clipLine.current?.(key), []);
   const mediaExtension = useMemo(
-    () => mediaContext.of({ media, open: onOpenClip ?? null }),
-    [media, onOpenClip],
+    () => mediaContext.of({ media, open: onOpenClip ?? null, play, playing, lit, line }),
+    [media, onOpenClip, play, playing, lit, line],
   );
 
   useEffect(() => {
@@ -466,6 +525,20 @@ export function ScriptEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reveal]);
 
+  // A line chosen in the player: shown and lit here, without taking the keyboard from it.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!revealClip || !view || !media) return;
+    const { doc } = view.state;
+    for (let number = 1; number <= doc.lines; number += 1)
+      if (lineClips(media, doc.line(number).text).some((clip) => clip.key === revealClip.key)) {
+        goTo(number, false);
+        break;
+      }
+    // goTo reads only the view, which the ref holds; media is read as it is now.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealClip]);
+
   useEffect(() => {
     if (!reviewRequest || proposal === null) return;
     if (base === "proposal") {
@@ -487,7 +560,7 @@ export function ScriptEditor({
     if (compare) setChoice("saved");
   }, [compare]);
 
-  function goTo(line: number) {
+  function goTo(line: number, focus = true) {
     const view = viewRef.current;
     if (!view || line < 1) return;
     const pos = view.state.doc.line(Math.min(line, view.state.doc.lines)).from;
@@ -496,10 +569,10 @@ export function ScriptEditor({
       effects.push(unfoldEffect.of({ from, to }));
     });
     view.dispatch({
-      selection: { anchor: pos },
+      ...(focus ? { selection: { anchor: pos } } : {}),
       effects: [...effects, EditorView.scrollIntoView(pos, { y: "center" })],
     });
-    view.focus();
+    if (focus) view.focus();
   }
 
   function toggleScenes() {
@@ -683,8 +756,37 @@ export function ScriptEditor({
           ))}
         </div>
       )}
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
+        {audio.element}
         <div ref={host} className="script-editor activity-script min-h-0 min-w-0 flex-1" />
+        {video && (
+          <figure
+            aria-label={words.videoOf(video.words)}
+            className="absolute right-4 bottom-3 z-10 w-72 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-950"
+          >
+            <video
+              key={video.src}
+              src={video.src}
+              autoPlay
+              controls
+              playsInline
+              onEnded={() => setVideo(null)}
+              className="block aspect-video w-full bg-black"
+            />
+            <figcaption className="flex items-center gap-2 px-2 py-1 text-xs text-gray-600 dark:text-gray-300">
+              <span className="min-w-0 flex-1 truncate">{video.words}</span>
+              <button
+                type="button"
+                aria-label={words.closeVideo}
+                title={words.closeVideo}
+                onClick={() => setVideo(null)}
+                className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+              >
+                <CloseIcon />
+              </button>
+            </figcaption>
+          </figure>
+        )}
         {markers.length > 0 && (
           <div
             role="group"

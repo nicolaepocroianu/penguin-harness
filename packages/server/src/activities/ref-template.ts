@@ -16,6 +16,7 @@ import { badRequest } from "../http/validate.js";
 import type { RefAssetAction, RefAssetDecision } from "./ref-template-types.js";
 
 export type {
+  ProductRefNumber,
   RefAssetAction,
   RefAssetDecision,
   RefNumberSuggestion,

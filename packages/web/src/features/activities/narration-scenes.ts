@@ -36,13 +36,16 @@ function spokenLines(lines: readonly string[]): string[] {
 
 /**
  * Group rows by scene. A line several scenes use is listed once, under the first of them,
- * so a scene's count and a run through every scene each say it once.
+ * so a scene's count and a run through every scene each say it once. With `every`, it is
+ * listed under each scene that says it instead, for a view of one scene at a time (the
+ * player's), where a line missing from its scene would never light up there.
  */
 export function narrationScenes<T extends { key: string; sceneIds: readonly string[] }>(
   rows: readonly T[],
   tree: SceneAssetTree,
   script: { text: string; scenes: readonly ScriptScene[] },
   wordsOf: (key: string) => string | undefined,
+  { every = false }: { every?: boolean } = {},
 ): NarrationScene<T>[] {
   const lines = script.text.replace(/\r\n/g, "\n").split("\n");
   const place = new Map(tree.scenes.map((scene, index) => [scene.sceneId, index]));
@@ -58,12 +61,15 @@ export function narrationScenes<T extends { key: string; sceneIds: readonly stri
   });
   const unplaced: T[] = [];
   for (const row of rows) {
-    const home = row.sceneIds
-      .map((sceneId) => place.get(sceneId))
-      .filter((index): index is number => index !== undefined)
-      .sort((left, right) => left - right)[0];
-    if (home === undefined) unplaced.push(row);
-    else groups[home]!.rows.push(row);
+    const homes = [
+      ...new Set(
+        row.sceneIds
+          .map((sceneId) => place.get(sceneId))
+          .filter((index): index is number => index !== undefined),
+      ),
+    ].sort((left, right) => left - right);
+    if (!homes.length) unplaced.push(row);
+    else for (const home of every ? homes : homes.slice(0, 1)) groups[home]!.rows.push(row);
   }
   for (const group of groups) {
     const named = scriptSceneFor(group.sceneId, script.scenes);

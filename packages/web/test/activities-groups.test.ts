@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { ActivityRecord, ActivitySummary } from "@prismshadow/penguin-server/api";
 import {
   groupByProduct,
+  lensCounts,
+  lensOf,
   readCollapsed,
   writeCollapsed,
 } from "../src/features/activities/activity-groups";
@@ -36,6 +38,7 @@ const summary = (canonical: boolean, stale = false): ActivitySummary => ({
   done: 1,
   total: 3,
   status: stale ? { kind: "stale", what: "mediaPlan" } : { kind: "next", milestone: "mediaPlan" },
+  poster: null,
 });
 
 const items = [
@@ -157,5 +160,35 @@ describe("collapsed groups", () => {
     // In Node.js test environment, localStorage does not exist and accessing it throws.
     // writeCollapsed should not throw; it should catch the error silently.
     expect(() => writeCollapsed("p1", new Set(["ants"]))).not.toThrow();
+  });
+});
+
+describe("the list's lenses", () => {
+  it("files each activity by what it needs", () => {
+    expect(lensOf(summary(true))).toBe("progress");
+    expect(lensOf(summary(true, true))).toBe("attention");
+    expect(lensOf({ ...summary(true), status: { kind: "built" } })).toBe("built");
+    expect(lensOf({ ...summary(true), status: { kind: "running", runKind: "audio" } })).toBe(
+      "progress",
+    );
+    // Before its summary arrives, an activity counts as in progress.
+    expect(lensOf(undefined)).toBe("progress");
+  });
+
+  it("counts each lens within the search and tag, and narrows the groups to one", () => {
+    expect(lensCounts(items, summaries, all)).toEqual({
+      all: 3,
+      progress: 2,
+      attention: 1,
+      built: 0,
+    });
+    expect(lensCounts(items, summaries, { ...all, tag: "Reading" })).toMatchObject({
+      all: 1,
+      attention: 0,
+    });
+    const needs = groupByProduct(items, summaries, { ...all, lens: "attention" });
+    expect(needs.map((group) => group.items.map((entry) => entry.id))).toEqual([["a5"]]);
+    // The product's canonical ref still decides New ref while the lens hides it.
+    expect(needs[0]!.canonicalId).toBe("a3");
   });
 });

@@ -17,7 +17,7 @@ import { SCENE_ASSET_ICON } from "./scene-asset-icons";
 import type { SceneAssetType } from "./scene-assets";
 
 /** Whether a box has come within a screen's reach of the viewport; once true it stays true. */
-function useInView(box: RefObject<HTMLElement | null>, wanted: boolean): boolean {
+export function useInView(box: RefObject<HTMLElement | null>, wanted: boolean): boolean {
   const [seen, setSeen] = useState(false);
   useEffect(() => {
     if (!wanted || seen) return;

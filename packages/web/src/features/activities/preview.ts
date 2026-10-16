@@ -27,10 +27,17 @@ export const PREVIEW_RESOLUTIONS: readonly string[] = [
   "768x1024",
 ];
 
-/** Uniform scale fitting the viewport into the box, never upscaled past 1. */
-export function fitScale(viewport: ModuleViewport, box: { width: number; height: number }): number {
+/**
+ * Uniform scale fitting the viewport into the box, never past `most`: 1 beside the work, where
+ * the activity shows at its own size or smaller, more on the stage Play mode gives it.
+ */
+export function fitScale(
+  viewport: ModuleViewport,
+  box: { width: number; height: number },
+  most = 1,
+): number {
   if (viewport.width <= 0 || viewport.height <= 0 || box.width <= 0 || box.height <= 0) return 1;
-  return Math.min(1, box.width / viewport.width, box.height / viewport.height);
+  return Math.min(most, box.width / viewport.width, box.height / viewport.height);
 }
 
 /**

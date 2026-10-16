@@ -28,7 +28,9 @@ const NONE: MediaPreview = { kind: "none" };
 const FIRST_FRAME = "#t=0.1";
 
 export function mediaPreview(
-  asset: MediaAsset | undefined,
+  asset:
+    | Pick<MediaAsset, "type" | "path" | "generatedAudio" | "generatedVideo" | "generatedImage">
+    | undefined,
   endpoint: string,
   placeholders: PlaceholderPaths,
 ): MediaPreview {

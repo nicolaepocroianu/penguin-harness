@@ -22,9 +22,20 @@ export interface StateMachine {
   states: Json;
 }
 
-/** The module's machine, or null when its configuration carries none worth drawing. */
+/**
+ * The module's machine, or null when its configuration carries none worth drawing. A generated
+ * module keeps its configuration under its product code (`{ test21: { stateMachine } }`), so
+ * a configuration without a machine of its own is looked into one level down.
+ */
 export function machineOf(configuration: unknown): StateMachine | null {
-  const config = object(configuration);
+  const outer = object(configuration);
+  const holds = (value: Json | null) =>
+    !!(object(value?.stateMachine) ?? object(value?.activityMachine));
+  const config = holds(outer)
+    ? outer
+    : (Object.values(outer ?? {})
+        .map(object)
+        .find(holds) ?? null);
   const machine = object(config?.stateMachine) ?? object(config?.activityMachine);
   const states = object(machine?.states);
   if (!machine || !states || typeof machine.initial !== "string") return null;
