@@ -3,6 +3,7 @@
 - **Date:** 2026-10-16
 - **Type:** fix
 - **Scope:** `server`, `web`, `docs`
+- **PR:** [#161](https://github.com/nicolaepocroianu/penguin-harness/pull/161)
 
 A module release had run the module's own code in its clone unconfined and with the server's whole environment: verify_module's `npm ci`, `npm run buildDebug`, `npm run lint` and `npm run buildRelease`, and prepare_deploy's stylesheet compile. While **Confine activity agents** is on, these programs started through the session sandbox in workspace-write mode, writable only in the module clone, as a run module's preview build did since [the preview build change](2026-10-16-preview-build-confined.md). Confined or not, they started with only what Windows, Node and npm need.
 
