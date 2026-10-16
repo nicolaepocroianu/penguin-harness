@@ -9,6 +9,7 @@
  * and the deploy log a clone writes.
  */
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -24,6 +25,9 @@ import {
 import { spawnGit, type DeployGit } from "../src/activities/deploy-git.js";
 
 const clones = gitClones();
+
+/** Whether git-lfs is installed here: the CI runners have it; a host without it skips its test. */
+const HAS_LFS = spawnSync("git", ["lfs", "version"]).status === 0;
 const WHO = { name: "Deploy Bot", email: "deploy@example.org" };
 const dirs: string[] = [];
 
@@ -490,6 +494,8 @@ describe("committing and publishing", () => {
     await write(dir, "loose.txt", "not committed");
     const out = path.join(remote.root, "export", "words");
     await fs.mkdir(out, { recursive: true });
+    // What an export cut short left of its index does not stop the next.
+    await write(remote.root, "export/words.index.lock", "");
     await clones.open(dir).exportTo(commit, out);
     expect((await fs.readdir(out)).sort()).toEqual(["link", "package.json", "src"]);
     expect(await read(out, "src/index.js")).toBe("export {};");
@@ -527,32 +533,60 @@ describe("a partial clone's sparse folders", () => {
     expect(await clones.open(full).includes("loom/other")).toBe(true);
   }, 60_000);
 
-  it("uploads LFS files before a push from a clone git-lfs set up, as its hook would have", async () => {
-    const remote = await origin({ "loom/words/a.mp3": "a" });
-    const asked: string[][] = [];
-    // Real git, but for the upload, which is only noted: this origin has no LFS server.
-    const noting: DeployGit = {
-      run: (args, cwd, opts) => {
-        asked.push(args);
-        if (args[0] === "lfs" && args[1] === "push")
-          return Promise.resolve({ code: 0, stdout: "", stderr: "" });
-        return spawnGit.run(args, cwd, opts);
-      },
-    };
-    const dir = path.join(remote.root, "media");
-    await gitClones(noting).cloneFrom(remote.url, dir, { branch: "main", partial: true });
-    // git-lfs put its hooks in the clone, for git run there by hand.
-    expect(await read(dir, ".git/hooks/pre-push")).toContain("git lfs pre-push");
-    const full = await remote.cloneOf("full");
-    for (const where of [dir, full]) {
-      git(where, "checkout", "-b", "loom/words-media");
-      asked.length = 0;
-      await gitClones(noting).open(where).push("loom/words-media");
-      expect(asked.map((args) => args.slice(0, 2).join(" "))).toEqual(
-        where === dir ? ["lfs push", "push origin"] : ["push origin"],
-      );
-    }
-  }, 60_000);
+  it.skipIf(!HAS_LFS)(
+    "uploads a branch's LFS files before pushing it, from a clone git-lfs installed no hook in",
+    async () => {
+      // git-lfs's filters as `git lfs install` sets them, for every git here: no hook anywhere.
+      vi.stubEnv("GIT_CONFIG_COUNT", "4");
+      vi.stubEnv("GIT_CONFIG_KEY_1", "filter.lfs.process");
+      vi.stubEnv("GIT_CONFIG_VALUE_1", "git-lfs filter-process");
+      vi.stubEnv("GIT_CONFIG_KEY_2", "filter.lfs.required");
+      vi.stubEnv("GIT_CONFIG_VALUE_2", "true");
+      vi.stubEnv("GIT_CONFIG_KEY_3", "filter.lfs.clean");
+      vi.stubEnv("GIT_CONFIG_VALUE_3", "git-lfs clean -- %f");
+      try {
+        const remote = await origin({
+          ".gitattributes": "*.bin filter=lfs diff=lfs merge=lfs -text\n",
+          "README.md": "media\n",
+        });
+        const asked: string[][] = [];
+        const noting: DeployGit = {
+          run: (args, cwd, opts) => {
+            asked.push(args);
+            return spawnGit.run(args, cwd, opts);
+          },
+        };
+        const dir = path.join(remote.root, "media");
+        await gitClones(noting).cloneFrom(remote.url, dir, { branch: "main" });
+        await expect(fs.stat(path.join(dir, ".git", "hooks", "pre-push"))).rejects.toThrow();
+        const content = "an LFS file's bytes\n";
+        await write(dir, "loom/words/a.bin", content);
+        const clone = gitClones(noting).open(dir);
+        await clone.stage();
+        await clone.commitStaged(WHO, "media");
+        asked.length = 0;
+        await clone.push("main");
+        expect(asked.filter((args) => args[0] !== "grep").map((args) => args.slice(0, 2))).toEqual([
+          ["lfs", "push"],
+          ["push", "origin"],
+        ]);
+        // The file itself reached origin's LFS store, not only its pointer.
+        const oid = createHash("sha256").update(content).digest("hex");
+        const stored = path.join(remote.root, "origin.git", "lfs", "objects", oid.slice(0, 2));
+        expect(await fs.readFile(path.join(stored, oid.slice(2, 4), oid), "utf8")).toBe(content);
+        // A branch that routes nothing through LFS is pushed alone.
+        const plain = await remote.cloneOf("plain");
+        await write(plain, ".gitattributes", "");
+        git(plain, "commit", "-am", "no LFS");
+        asked.length = 0;
+        await gitClones(noting).open(plain).push("main");
+        expect(asked.filter((args) => args[0] === "lfs")).toEqual([]);
+      } finally {
+        vi.stubEnv("GIT_CONFIG_COUNT", "1");
+      }
+    },
+    60_000,
+  );
 });
 
 describe("speaking for a deploy", () => {

@@ -73,6 +73,8 @@
  * the clone's credentials and are never confined; nothing they read was written by the module's
  * code, and git runs none of the programs a repository's own config could name (`deploy-git.ts`).
  */
+import { randomUUID } from "node:crypto";
+import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { SpawnConfiner } from "@prismshadow/penguin-core";
@@ -275,7 +277,8 @@ export interface DeployStageContext {
     dir: string;
     /**
      * Where the module's checks run (see the top of this file): a folder outside every clone,
-     * which a stage makes and removes; whatever is there when it starts is a stopped server's.
+     * in which each run of them gets a folder of its own; whatever is there when one starts is
+     * a stopped server's.
      */
     checkDir: string;
     /** The newest assembled module to copy over the clone; null to deploy the clone as it is. */
@@ -409,8 +412,9 @@ function moduleConfiner(ctx: DeployStageContext): SpawnConfiner | null {
 }
 
 /**
- * Runs `work` in the module's check folder holding `commit`'s files (see the top of this
- * file): made afresh, and removed once `work` ends, however it ends.
+ * Runs `work` in a check folder holding `commit`'s files (see the top of this file): a folder
+ * of its own under the module's `checkDir`, so nothing an earlier check left running can reach
+ * it, removed once `work` ends, however it ends.
  */
 async function inCheckFolder<T>(
   ctx: DeployStageContext,
@@ -418,11 +422,12 @@ async function inCheckFolder<T>(
   commit: string,
   work: (dir: string) => Promise<T>,
 ): Promise<T> {
-  const dir = ctx.module.checkDir;
+  const root = ctx.module.checkDir;
+  await fs.mkdir(root, { recursive: true });
   // Whatever is there was left by checks a stopped server never finished.
-  await removeCheckFolder(dir);
+  for (const stale of await fs.readdir(root)) await removeCheckFolder(path.join(root, stale));
+  const dir = await fs.mkdtemp(path.join(root, "check-"));
   try {
-    await fs.mkdir(dir, { recursive: true });
     await ctx.serial("module", () => clone.exportTo(commit, dir));
     return await work(dir);
   } finally {
@@ -433,6 +438,35 @@ async function inCheckFolder<T>(
 /** Removes a check folder; Windows may still be letting go of a stopped program's files. */
 function removeCheckFolder(dir: string): Promise<void> {
   return fs.rm(dir, { recursive: true, force: true, maxRetries: 5 });
+}
+
+/** Whether `target` is `root` or inside it. */
+function inside(root: string, target: string): boolean {
+  const rel = path.relative(root, target);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+/**
+ * Writes `data` to `file` in the module clone `root` as a new file renamed into place, so a
+ * link already there (symbolic or hard) is replaced, never written through, and only into a
+ * folder that really is inside the clone.
+ */
+async function writeInClone(root: string, file: string, data: string | Buffer): Promise<void> {
+  const target = path.join(root, file);
+  await fs.mkdir(path.dirname(target), { recursive: true });
+  const [realRoot, realFolder] = await Promise.all([
+    fs.realpath(root),
+    fs.realpath(path.dirname(target)),
+  ]);
+  if (!inside(realRoot, realFolder)) throw new Error(`${file} is not inside the module clone.`);
+  const temp = `${target}.${randomUUID()}.tmp`;
+  await fs.writeFile(temp, data, { flag: "wx" });
+  try {
+    await fs.rename(temp, target);
+  } catch (error) {
+    await fs.rm(temp, { force: true });
+    throw error;
+  }
 }
 
 /**
@@ -500,8 +534,11 @@ async function logged(
     });
 }
 
-/** What is never copied from an assembled module into the clone. */
-const NOT_COPIED = new Set([".git", "node_modules", RUN_BUILD_NPM_CACHE]);
+/**
+ * What is never copied from an assembled module into the clone: `.lfsconfig` among it, since it
+ * would tell the push's LFS upload where to send the clone's files.
+ */
+const NOT_COPIED = new Set([".git", "node_modules", RUN_BUILD_NPM_CACHE, ".lfsconfig"]);
 
 /** Copies the assembled module over the clone's working tree (files the module lacks stay). */
 async function syncModule(source: string, target: string): Promise<number> {
@@ -725,10 +762,7 @@ async function syncPackage(
   const pkg = JSON.parse(text) as Record<string, unknown>;
   pkg.name = name;
   if (ctx.moduleVersion) pkg.version = ctx.moduleVersion;
-  await fs.writeFile(
-    path.join(ctx.module.dir, "package.json"),
-    `${JSON.stringify(pkg, null, 2)}\n`,
-  );
+  await writeInClone(ctx.module.dir, "package.json", `${JSON.stringify(pkg, null, 2)}\n`);
   const written = ["package.json"];
   const lockText = await clone.fileAt({ commit }, "package-lock.json");
   if (lockText !== null) {
@@ -741,10 +775,7 @@ async function syncPackage(
       root.name = name;
       if (ctx.moduleVersion) root.version = ctx.moduleVersion;
     }
-    await fs.writeFile(
-      path.join(ctx.module.dir, "package-lock.json"),
-      `${JSON.stringify(lock, null, 2)}\n`,
-    );
+    await writeInClone(ctx.module.dir, "package-lock.json", `${JSON.stringify(lock, null, 2)}\n`);
   }
   return { version: typeof pkg.version === "string" ? pkg.version : undefined, written };
 }
@@ -761,8 +792,7 @@ const STYLE_OUTPUT = "res/style.css";
 
 /**
  * Compiles the stylesheet in check folder `dir`, through `confiner` when there is one, and
- * answers what it made: the one file of the folder the release takes, read only when it is a
- * plain file.
+ * answers what it made: the one file of the folder the release takes (`readOutput`).
  */
 async function compileStyle(
   ctx: DeployStageContext,
@@ -781,16 +811,40 @@ async function compileStyle(
       ...runBuildSpawn(dir, confiner),
     }),
   );
-  const output = path.join(dir, STYLE_OUTPUT);
-  const made = await fs.lstat(output).catch(() => null);
-  if (!made?.isFile())
+  const made = await readOutput(dir, STYLE_OUTPUT);
+  if (made === null)
     throw new DeployStageFailure({
       code: "command_failed",
       command: line,
       exitCode: 0,
       output: `The compile left no ${STYLE_OUTPUT}.`,
     });
-  return fs.readFile(output);
+  return made;
+}
+
+/**
+ * What `file` in check folder `dir` holds, when it is a plain file of the folder's own: in a
+ * folder that really is inside it, not a link (opened without following one where the system
+ * can, looked at first where it cannot), and with no other name. Null otherwise.
+ */
+async function readOutput(dir: string, file: string): Promise<Buffer | null> {
+  const output = path.join(dir, file);
+  const [realDir, realFolder] = await Promise.all([
+    fs.realpath(dir),
+    fs.realpath(path.dirname(output)).catch(() => null),
+  ]);
+  if (realFolder === null || !inside(realDir, realFolder)) return null;
+  if (!(await fs.lstat(output).catch(() => null))?.isFile()) return null;
+  const noFollow = fsConstants.O_NOFOLLOW ?? 0;
+  const handle = await fs.open(output, fsConstants.O_RDONLY | noFollow).catch(() => null);
+  if (!handle) return null;
+  try {
+    const opened = await handle.stat();
+    if (!opened.isFile() || opened.nlink !== 1) return null;
+    return await handle.readFile();
+  } finally {
+    await handle.close();
+  }
 }
 
 const prepareDeploy: DeployStageDefinition = {
@@ -816,8 +870,7 @@ const prepareDeploy: DeployStageDefinition = {
       const css = await inCheckFolder(ctx, clone, checked, (dir) =>
         compileStyle(ctx, dir, style.confiner),
       );
-      await fs.mkdir(path.join(ctx.module.dir, "res"), { recursive: true });
-      await fs.writeFile(path.join(ctx.module.dir, STYLE_OUTPUT), css);
+      await writeInClone(ctx.module.dir, STYLE_OUTPUT, css);
       written.push(STYLE_OUTPUT);
     } else ctx.log(`No ${STYLE_SOURCE}: no stylesheet to compile.`);
     // Only what this stage wrote joins what verify_module committed and checked: a file saved

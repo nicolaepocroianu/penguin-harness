@@ -446,7 +446,7 @@ describe.skipIf(sandbox === null)(
       expect(existsSync(outside)).toBe(false);
       expect(existsSync(inClone)).toBe(false);
       // The check folder, npm's cache with it, is gone; the clone has nothing of the checks.
-      expect(existsSync(checkDir)).toBe(false);
+      expect(await fs.readdir(checkDir)).toEqual([]);
       expect(await fs.readdir(dir)).toEqual([]);
     }, 180_000);
   },

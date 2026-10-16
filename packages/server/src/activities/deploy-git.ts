@@ -6,11 +6,15 @@
  * a missing key fails rather than waits on a prompt nobody sees, the child runs with
  * `GIT_TERMINAL_PROMPT=0` and SSH in batch mode. No shell, a time limit, bounded output.
  *
- * A module clone holds work a run's agent wrote, and its checks run that work's code. git
- * itself runs unconfined, with this server's environment, so nothing a clone's own `.git`
- * says may choose a program git starts: every call runs no hook (`core.hooksPath` is the
- * null device, where no hook can ever be), no file-system monitor, never the `ext::`
- * transport, and the SSH program `gitEnv` names, which no repository setting outranks.
+ * A module clone holds work a run's agent wrote, and a release's checks run that work's code.
+ * Those checks never run where a clone's `.git` is (`deploy-stages.ts`), so nothing untrusted
+ * writes one any more; that is what keeps git, which runs unconfined with this server's
+ * environment, from starting a program a clone's own settings name. As a second guard on the
+ * programs a deploy's own commands would reach, every call runs no hook (`core.hooksPath` is
+ * the null device, where no hook can ever be), no file-system monitor, never the `ext::`
+ * transport, never a signing program, and the SSH program `gitEnv` names, which no
+ * repository setting outranks. Filter drivers and credential helpers are left as the
+ * operator's own config sets them.
  */
 import os from "node:os";
 import { runProgram } from "./run-program.js";
@@ -66,7 +70,8 @@ export function gitEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv
 /**
  * What every git call is told before its command, whatever the clone's own config says: run
  * no hook and no file-system monitor (both are programs a repository's config or `.git/hooks`
- * names), and never the `ext::` transport, which runs a command as a remote.
+ * names), never the `ext::` transport, which runs a command as a remote, and sign no commit,
+ * which would run the program `gpg.program` names (a deploy's commits are its bot's, unsigned).
  */
 export const GIT_GUARDS: readonly string[] = [
   "-c",
@@ -75,6 +80,8 @@ export const GIT_GUARDS: readonly string[] = [
   "core.fsmonitor=false",
   "-c",
   "protocol.ext.allow=never",
+  "-c",
+  "commit.gpgSign=false",
 ];
 
 /** The real port: `git` on this server's PATH. Never throws. */

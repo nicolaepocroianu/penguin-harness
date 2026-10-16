@@ -561,9 +561,9 @@ class GitClone implements Clone {
   }
 
   async push(branch: string, options: { lease?: boolean; track?: boolean } = {}): Promise<void> {
-    // git runs no hook here (`deploy-git.ts`), so the upload git-lfs's pre-push hook makes for a
-    // clone it is installed in is made before the push.
-    if (await this.lfsHooked())
+    // git runs no hook here (`deploy-git.ts`), git-lfs's pre-push hook included, so the LFS
+    // files of a branch that routes files through LFS are uploaded before the push.
+    if (await this.usesLfs(branch))
       await this.run(["lfs", "push", "origin", branch], { network: true });
     await this.run(
       [
@@ -577,12 +577,14 @@ class GitClone implements Clone {
     );
   }
 
-  /** Whether git-lfs's pre-push hook is installed in the clone, as git-lfs installs it. */
-  private async lfsHooked(): Promise<boolean> {
-    const hook = await fs
-      .readFile(path.join(this.dir, ".git", "hooks", "pre-push"), "utf8")
-      .catch(() => "");
-    return /\bgit lfs pre-push\b/.test(hook);
+  /** Whether `branch` has a `.gitattributes` that routes files through LFS. */
+  private async usesLfs(branch: string): Promise<boolean> {
+    const args = ["grep", "-q", "-e", "filter=lfs", `refs/heads/${branch}`, "--"];
+    const found = await this.run([...args, ":(glob)**/.gitattributes"], {
+      allowFailure: true,
+      quiet: true,
+    });
+    return found.code === 0;
   }
 
   async inHead(file: string): Promise<boolean> {
@@ -661,9 +663,11 @@ class GitClone implements Clone {
   }
 
   async exportTo(commit: string, dir: string): Promise<void> {
-    // Through an index of the export's own, beside the folder, so the clone's is never touched.
+    // Through an index of the export's own, beside the folder, so the clone's is never touched;
+    // one an export cut short left, or its lock, is not this one's.
     const env = { GIT_INDEX_FILE: `${dir}.index` };
     const prefix = `${dir.split(path.sep).join("/")}/`;
+    await removeIndex(env.GIT_INDEX_FILE);
     try {
       await this.run(["read-tree", commit], { env, quiet: true });
       await this.run(
@@ -671,9 +675,15 @@ class GitClone implements Clone {
         { env, quiet: true },
       );
     } finally {
-      await fs.rm(env.GIT_INDEX_FILE, { force: true });
+      await removeIndex(env.GIT_INDEX_FILE);
     }
   }
+}
+
+/** Removes an index file of git's and its lock. */
+async function removeIndex(index: string): Promise<void> {
+  await fs.rm(index, { force: true });
+  await fs.rm(`${index}.lock`, { force: true });
 }
 
 /** How much of a file, or of a list of files, git's output may carry. */

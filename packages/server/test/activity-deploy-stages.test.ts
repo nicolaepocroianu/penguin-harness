@@ -225,6 +225,13 @@ function context(
 const run = (stage: DeployStage, ctx: DeployStageContext) =>
   DEPLOY_STAGE_DEFINITIONS[stage].run(ctx);
 
+/** The check folders left under the module's `checkDir`: none once a stage has ended. */
+const checkFolders = (ctx: DeployStageContext) => fs.readdir(ctx.module.checkDir).catch(() => []);
+
+/** A check folder of the module's own, as a stage makes one for each run of the checks. */
+const aCheckFolder = (ctx: DeployStageContext) =>
+  expect.stringContaining(path.join(ctx.module.checkDir, "check-"));
+
 describe("deploy names and versions", () => {
   it("names the package, the build line and the newest plain release tag", () => {
     expect(modulePackageName("waf-module-Words")).toBe("wafmodule-words");
@@ -246,6 +253,8 @@ describe("verify_module", () => {
     await fs.writeFile(path.join(source, "package.json"), '{"name":"built"}');
     await fs.mkdir(path.join(source, "node_modules", "left"), { recursive: true });
     await fs.writeFile(path.join(source, "node_modules", "left", "x.js"), "");
+    // It would send the push's LFS upload elsewhere.
+    await fs.writeFile(path.join(source, ".lfsconfig"), '[lfs]\n\turl = "https://elsewhere"\n');
     const clones = fakeClones(dir);
     const npm = fakeProcess();
     const { ctx, lines } = context({ dir, source, clones, process: npm.process });
@@ -253,6 +262,7 @@ describe("verify_module", () => {
     expect(await fs.readFile(path.join(dir, "src", "index.js"), "utf8")).toBe("export {};");
     expect(await fs.readFile(path.join(dir, "package.json"), "utf8")).toBe('{"name":"built"}');
     await expect(fs.stat(path.join(dir, "node_modules"))).rejects.toThrow();
+    await expect(fs.stat(path.join(dir, ".lfsconfig"))).rejects.toThrow();
     expect(npm.calls.map((call) => call.line)).toEqual([
       "npm ci",
       "npm run buildDebug",
@@ -260,8 +270,10 @@ describe("verify_module", () => {
       "npm run buildRelease",
     ]);
     // The checks run on the commit just made, in the check folder, which is gone after.
-    expect(npm.calls.every((call) => call.cwd === ctx.module.checkDir)).toBe(true);
-    await expect(fs.stat(ctx.module.checkDir)).rejects.toThrow();
+    const folder = npm.calls[0]!.cwd!;
+    expect(path.dirname(folder)).toBe(ctx.module.checkDir);
+    expect(npm.calls.every((call) => call.cwd === folder)).toBe(true);
+    expect(await checkFolders(ctx)).toEqual([]);
     // Main is brought up to origin carrying the work, never reset, and the copied module is
     // committed on it.
     expect(clones.ops(dir)).toEqual([
@@ -271,7 +283,7 @@ describe("verify_module", () => {
       "commitStaged",
       "exportTo",
     ]);
-    expect(asked(clones, "exportTo")).toEqual([[HEAD, ctx.module.checkDir]]);
+    expect(asked(clones, "exportTo")).toEqual([[HEAD, folder]]);
     expect(asked(clones, "onBranchFromOrigin")).toEqual([["main", { work: "carry" }]]);
     expect(asked(clones, "stage")).toEqual([["all", {}]]);
     expect(asked(clones, "commitStaged")).toEqual([
@@ -301,7 +313,7 @@ describe("verify_module", () => {
     expect(lines).toContain("Main already had everything authored.");
     // What is checked is main's commit.
     expect(asked(clones, "commitOf")).toEqual([["main"]]);
-    expect(asked(clones, "exportTo")).toEqual([["4567cdef", ctx.module.checkDir]]);
+    expect(asked(clones, "exportTo")).toEqual([["4567cdef", aCheckFolder(ctx)]]);
   });
 
   it("commits a new module's first work, which stays in place on main", async () => {
@@ -417,7 +429,7 @@ describe("prepare_deploy", () => {
     expect(npx.calls).toEqual([]);
     expect(sass.jobs).toEqual([
       expect.objectContaining({
-        cwd: ctx.module.checkDir,
+        cwd: aCheckFolder(ctx),
         from: "res/style.scss",
         to: "res/style.css",
       }),
@@ -425,7 +437,7 @@ describe("prepare_deploy", () => {
     expect(await fs.readFile(path.join(dir, "res", "style.css"), "utf8")).toBe(
       "compiled(a { b: c })",
     );
-    await expect(fs.stat(ctx.module.checkDir)).rejects.toThrow();
+    expect(await checkFolders(ctx)).toEqual([]);
     expect(lines).toContain("$ sass@1.54.0 res/style.scss res/style.css --no-source-map");
     expect(lines).toContain("compiled");
     expect(asked(clones, "stage")).toEqual([
@@ -472,6 +484,55 @@ describe("prepare_deploy", () => {
     await expect(fs.stat(path.join(dir, "res", "extra.js"))).rejects.toThrow();
   });
 
+  it("takes no stylesheet that is a link: another name of an outside file, or a symbolic one", async () => {
+    const outside = path.join(await tempDir("penguin-deploy-outside-"), "secret.txt");
+    await fs.writeFile(outside, "outside");
+    const linkers: Array<(to: string) => Promise<void>> = [(to) => fs.link(outside, to)];
+    // Making a symbolic link needs a privilege Windows does not give everyone.
+    const probe = path.join(path.dirname(outside), "probe");
+    if (
+      await fs.symlink(outside, probe).then(
+        () => true,
+        () => false,
+      )
+    )
+      linkers.push((to) => fs.symlink(outside, to));
+    for (const link of linkers) {
+      const dir = await moduleClone();
+      const clones = committed(dir, { "res/style.scss": "a { b: c }" });
+      const { ctx } = context({
+        dir,
+        clones,
+        styles: async (job) => {
+          await link(path.join(job.cwd, job.to));
+          return { code: 0, tail: "" };
+        },
+      });
+      await expect(run("prepare_deploy", ctx)).rejects.toMatchObject({
+        error: { code: "command_failed", output: "The compile left no res/style.css." },
+      });
+      await expect(fs.stat(path.join(dir, "res", "style.css"))).rejects.toThrow();
+    }
+    expect(await fs.readFile(outside, "utf8")).toBe("outside");
+  });
+
+  it("writes the package files and the stylesheet as new files, never through a link in the clone", async () => {
+    const dir = await moduleClone();
+    const outside = path.join(await tempDir("penguin-deploy-outside-"), "linked.json");
+    await fs.writeFile(outside, "outside");
+    // package.json in the clone is another name of a file outside it.
+    await fs.rm(path.join(dir, "package.json"));
+    await fs.link(outside, path.join(dir, "package.json"));
+    const clones = committed(dir, { "res/style.scss": "a { b: c }" });
+    const { ctx } = context({ dir, clones, styles: fakeStyles().styles });
+    await run("prepare_deploy", ctx);
+    expect(await fs.readFile(outside, "utf8")).toBe("outside");
+    expect(JSON.parse(await fs.readFile(path.join(dir, "package.json"), "utf8"))).toMatchObject({
+      name: "wafmodule-words",
+    });
+    expect((await fs.readdir(dir)).filter((file) => file.endsWith(".tmp"))).toEqual([]);
+  });
+
   it("fails when the compile left no stylesheet, taking nothing from the check folder", async () => {
     const dir = await moduleClone();
     const clones = committed(dir, { "res/style.scss": "a { b: c }" });
@@ -488,7 +549,7 @@ describe("prepare_deploy", () => {
     });
     await expect(fs.stat(path.join(dir, "res", "style.css"))).rejects.toThrow();
     expect(clones.ops(dir)).not.toContain("commitStaged");
-    await expect(fs.stat(ctx.module.checkDir)).rejects.toThrow();
+    expect(await checkFolders(ctx)).toEqual([]);
   });
 
   it("commits only the files it wrote: what was saved while verify_module's checks ran stays out", async () => {
@@ -532,7 +593,7 @@ describe("prepare_deploy", () => {
       },
     });
     expect(clones.ops(dir)).not.toContain("commitStaged");
-    await expect(fs.stat(ctx.module.checkDir)).rejects.toThrow();
+    expect(await checkFolders(ctx)).toEqual([]);
   });
 });
 
@@ -566,7 +627,7 @@ describe("the check folder", () => {
     ]);
     // npm's own folder joins the commit's files; nothing else is there.
     expect(seen[0]!.files.sort()).toEqual([".npm-cache", "package.json", "src"]);
-    await expect(fs.stat(ctx.module.checkDir)).rejects.toThrow();
+    expect(await checkFolders(ctx)).toEqual([]);
     // Outside the clone: nothing the checks write can be committed.
     expect(path.relative(dir, ctx.module.checkDir).startsWith("..")).toBe(true);
   });
@@ -578,7 +639,7 @@ describe("the check folder", () => {
       process: fakeProcess((line) => (line === "npm run lint" ? { code: 2 } : {})).process,
     });
     await expect(run("verify_module", failing.ctx)).rejects.toBeInstanceOf(DeployStageFailure);
-    await expect(fs.stat(failing.ctx.module.checkDir)).rejects.toThrow();
+    expect(await checkFolders(failing.ctx)).toEqual([]);
 
     const stopped = context({ dir });
     stopped.ctx.process = fakeProcess((line) => {
@@ -587,7 +648,24 @@ describe("the check folder", () => {
       return { code: null, error: "stopped" };
     }).process;
     await expect(run("verify_module", stopped.ctx)).rejects.toBeInstanceOf(DeployStopped);
-    await expect(fs.stat(stopped.ctx.module.checkDir)).rejects.toThrow();
+    expect(await checkFolders(stopped.ctx)).toEqual([]);
+  });
+
+  it("is never one an earlier check had: every run of the checks gets a new folder", async () => {
+    const dir = await moduleClone();
+    const { seen, npm } = noting();
+    const clones = committed(dir, { "res/style.scss": "a { b: c }" });
+    const sass = fakeStyles();
+    const { ctx } = context({ dir, clones, process: npm.process, styles: sass.styles });
+    // A folder an earlier check ran in, which something it started may still be writing.
+    const earlier = path.join(ctx.module.checkDir, "check-earlier");
+    await fs.mkdir(earlier, { recursive: true });
+    await run("verify_module", ctx);
+    await run("prepare_deploy", ctx);
+    const folders = [npm.calls[0]!.cwd!, sass.jobs[0]!.cwd];
+    expect(new Set([...folders, earlier]).size).toBe(3);
+    expect(seen).toHaveLength(4);
+    expect(await checkFolders(ctx)).toEqual([]);
   });
 
   it("is removed when Stop ends the stylesheet compile", async () => {
@@ -599,7 +677,7 @@ describe("the check folder", () => {
       return { code: null, tail: "", error: "stopped" };
     };
     await expect(run("prepare_deploy", made.ctx)).rejects.toBeInstanceOf(DeployStopped);
-    await expect(fs.stat(made.ctx.module.checkDir)).rejects.toThrow();
+    expect(await checkFolders(made.ctx)).toEqual([]);
     expect(clones.ops(dir)).not.toContain("commitStaged");
   });
 });
@@ -659,14 +737,19 @@ describe("the module's own programs", () => {
       "sass.js",
     ]);
     // Confined to the check folder, as an activity run's agent is to its workspace.
-    const checks = ctx.module.checkDir;
-    expect(sandbox.calls.map((call) => call.opts)).toEqual(
-      Array(5).fill({ cwd: checks, workspaceDir: checks, sessionMode: "workspace-write" }),
-    );
+    // Each run of the checks has a folder of its own.
+    const checks = npm.calls[0]!.cwd!;
+    const compile = sass.jobs[0]!.cwd;
+    expect(compile).not.toBe(checks);
+    const confined = (cwd: string) => ({ cwd, workspaceDir: cwd, sessionMode: "workspace-write" });
+    expect(sandbox.calls.map((call) => call.opts)).toEqual([
+      ...Array(4).fill(confined(checks)),
+      confined(compile),
+    ]);
     // npm keeps its cache in the check folder, the one place it may write, gone after.
     const cache = path.join(checks, ".npm-cache");
     expect(npm.calls.every((call) => call.env?.npm_config_cache === cache)).toBe(true);
-    await expect(fs.stat(checks)).rejects.toThrow();
+    expect(await checkFolders(ctx)).toEqual([]);
     // The Sass the compile waits for installs with nothing of the module's.
     expect(sass.jobs[0]).toMatchObject({ runModule: true });
   });
@@ -699,7 +782,7 @@ describe("the module's own programs", () => {
     // npm ci read an empty user config of its own, not this server user's ~/.npmrc.
     expect(install!.userconfig).toBe("");
     expect(install!.env!.npm_config_userconfig).toBe(
-      path.join(ctx.module.checkDir, ".npm-cache", "user.npmrc"),
+      path.join(install!.cwd!, ".npm-cache", "user.npmrc"),
     );
     // Removed before the authored module was staged, so it never reaches a commit.
     await expect(fs.stat(path.join(dir, ".npm-cache"))).rejects.toThrow();

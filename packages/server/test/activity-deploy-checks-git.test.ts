@@ -153,10 +153,11 @@ it("runs the checks where no repository is, and none of what they planted in the
   // The checks ran in the check folder, with no repository there or above it.
   expect(checks).toHaveLength(4);
   for (const check of checks) {
-    expect(check.cwd).toBe(ctx.module.checkDir);
+    expect(check.cwd).toBe(checks[0]!.cwd);
+    expect(path.dirname(check.cwd)).toBe(ctx.module.checkDir);
     expect(check.repositories).toEqual([]);
   }
-  expect(existsSync(ctx.module.checkDir)).toBe(false);
+  expect(await fs.readdir(ctx.module.checkDir)).toEqual([]);
 
   await DEPLOY_STAGE_DEFINITIONS.prepare_deploy.run(ctx);
   const clone = clones.open(dir);
