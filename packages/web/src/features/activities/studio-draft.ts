@@ -704,6 +704,8 @@ export class StudioDraft {
         if (this.state.mediaSave !== "pending") this.set({ mediaSave: "pending" });
       }
     }
+    // Edits that end back on the saved manifest leave nothing to save: it is saved.
+    if (!this.mediaArmed && this.state.mediaSave === "pending") this.set({ mediaSave: "saved" });
   }
 
   private clearScript(): void {

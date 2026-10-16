@@ -121,6 +121,19 @@ describe("the studio draft's autosaves", () => {
     await settle();
     expect(draft.state).toMatchObject({ mediaSave: "saved", dirty: false });
   });
+
+  it("reads saved again when the asset editor's edits end back on the saved manifest", () => {
+    const { draft, calls } = studio();
+    const changed = structuredClone(manifest);
+    changed.assets["en-US"]![0]!.description = "Hello";
+    draft.editManifest(changed);
+    expect(draft.state.mediaSave).toBe("pending");
+    vi.advanceTimersByTime(MEDIA_AUTOSAVE_MS - 1);
+    draft.editManifest(manifest);
+    vi.advanceTimersByTime(MEDIA_AUTOSAVE_MS * 3);
+    expect(calls).toEqual([]);
+    expect(draft.state).toMatchObject({ mediaSave: "saved", dirty: false });
+  });
 });
 
 describe("drafts from the server", () => {
