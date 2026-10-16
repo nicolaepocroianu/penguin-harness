@@ -100,6 +100,12 @@ export abstract class ActivityOutcomes extends Interface<{
   tallyRuns(query: OutcomeRunsQuery): Promise<OutcomeRun[]>;
   /** The projects the ledger holds runs of, by id, in order. */
   projects(): Promise<string[]>;
+  /**
+   * The runs whose work the ledger still points at: those the drafts' parts came from as they
+   * are now, and those credited with a deploy. Unlike the rest, it throws when the ledger cannot
+   * be read, so a run it holds is never taken for one it does not.
+   */
+  heldRuns(): Promise<string[]>;
 }>() {}
 
 /** The most runs one tally lists. */
@@ -248,6 +254,18 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
       this.log.line(`[activity-outcomes] could not list ${query.kind} runs: ${messageOf(error)}`);
       return [];
     }
+  }
+
+  async heldRuns(): Promise<string[]> {
+    return (
+      this.db
+        .prepare(
+          `SELECT run_id FROM activity_draft_parts WHERE run_id IS NOT NULL
+           UNION
+           SELECT run_id FROM activity_outcome_facts WHERE fact = 'deployed' AND run_id IS NOT NULL`,
+        )
+        .all() as { run_id: string }[]
+    ).map((row) => row.run_id);
   }
 
   async projects(): Promise<string[]> {

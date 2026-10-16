@@ -2799,6 +2799,33 @@ export type Strings = {
     deleteUserTitle: (u: string) => string;
     deleteUserConfirm: (u: string) => string;
     /** The Activity outcomes page (admin): the outcome ledger, read. */
+    runCleanup: {
+      title: string;
+      about: string;
+      storage: string;
+      storageInfo: string;
+      storageLine: (bytes: string, folders: number) => string;
+      keepNewest: string;
+      keepNewestInfo: string;
+      keepNewestHint: (min: number, max: number) => string;
+      orphanTakes: string;
+      orphanTakesInfo: string;
+      check: string;
+      cleanUp: string;
+      planHeading: string;
+      categories: Record<"stagedCopies" | "olderRuns" | "orphanTakes", string>;
+      folders: (count: number) => string;
+      files: (count: number) => string;
+      nothing: string;
+      unread: (count: number) => string;
+      takesUnavailable: string;
+      confirmTitle: string;
+      confirmBody: string;
+      confirmNote: string;
+      confirmLabel: string;
+      removed: (bytes: string) => string;
+      leftInPlace: (count: number) => string;
+    };
     activityOutcomes: {
       title: string;
       about: string;

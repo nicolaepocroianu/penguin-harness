@@ -229,6 +229,9 @@ import type {
   OutcomeTallyResponse,
   ActivityBenchResponse,
   ActivityBenchUpdateRequest,
+  RunCleanupOptions,
+  RunCleanupReportResponse,
+  RunStorageResponse,
 } from "@prismshadow/penguin-server/api";
 import type { MCPServerConfig } from "@prismshadow/penguin-core/interfaces";
 import { ApiError, apiFetch, apiFetchWithMeta } from "./client";
@@ -312,6 +315,25 @@ export const adminOutcomeHistory = (projectId: string, activityId: string, runId
 
 export const adminOutcomeProjects = () =>
   apiFetch<OutcomeProjectsResponse>("/api/admin/activity-outcomes/projects");
+
+// Cleaning up activity runs (admin only) -------------------------------------------------
+
+/** The disk every activity run folder takes together. */
+export const adminRunStorage = () =>
+  apiFetch<RunStorageResponse>("/api/admin/activity-run-cleanup/storage");
+
+/** What a cleanup with these options would remove; nothing is removed. */
+export const adminRunCleanupPlan = (options: RunCleanupOptions) =>
+  apiFetch<RunCleanupReportResponse>("/api/admin/activity-run-cleanup/plan", {
+    query: { keepNewest: options.keepNewest, orphanTakes: options.orphanTakes ? 1 : 0 },
+  });
+
+/** Removes what the plan answers now, and says what was removed. */
+export const adminRunCleanupApply = (options: RunCleanupOptions) =>
+  apiFetch<RunCleanupReportResponse>("/api/admin/activity-run-cleanup/apply", {
+    method: "POST",
+    body: options,
+  });
 
 // The activity bench's scores, read in the Evaluation Center (admin only) ----------------
 

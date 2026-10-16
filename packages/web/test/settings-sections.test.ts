@@ -63,6 +63,7 @@ describe("visibleSettingsSections", () => {
       "wafWorkspace",
       "deploy",
       "activityOutcomes",
+      "runCleanup",
       "users",
     ]);
   });
@@ -90,6 +91,7 @@ describe("visibleSettingsSections", () => {
       "wafWorkspace",
       "deploy",
       "activityOutcomes",
+      "runCleanup",
     ]);
   });
 
@@ -108,6 +110,7 @@ describe("visibleSettingsSections", () => {
       "wafWorkspace",
       "deploy",
       "activityOutcomes",
+      "runCleanup",
     ]);
   });
 });

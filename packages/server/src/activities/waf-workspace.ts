@@ -211,6 +211,12 @@ export abstract class WafWorkspace extends Interface<{
   ensureModule(moduleFolder: string): Promise<string>;
   /** Adds media folders to the sparse checkout and fetches their LFS objects. */
   ensureMedia(folders: readonly string[]): Promise<void>;
+  /**
+   * Runs `work` on the media repository's folder once no git work on it runs, and holds the
+   * repository until it ends. Null, with nothing run, unless the managed workspace is ready: an
+   * existing checkout's media is its owner's, and may hold other servers' files.
+   */
+  withMedia<T>(work: (mediaDir: string) => Promise<T>): Promise<T | null>;
   /** The remote a product's module repository is cloned from and pushed to. */
   moduleRemote(moduleFolder: string): string;
   /**
@@ -565,6 +571,14 @@ export class WafWorkspaceService implements WafWorkspace {
       });
       return dir;
     });
+  }
+
+  async withMedia<T>(work: (mediaDir: string) => Promise<T>): Promise<T | null> {
+    if (this.external()) return null;
+    const root = await this.root();
+    if (!root) return null;
+    const dir = new WafLayout(root).repo("media");
+    return this.serial("media", () => work(dir));
   }
 
   async ensureMedia(folders: readonly string[]): Promise<void> {

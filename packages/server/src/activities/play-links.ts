@@ -61,12 +61,16 @@ export abstract class ActivityPlayLinks extends Interface<{
   sign(grant: PlayGrant): { token: string; expiresAt: number };
   /** What a play token grants, or null when it is forged, expired or for another host. */
   verify(token: string, host: string): PlayTarget | null;
+  /** The module runs a link signed for one of them still plays (see `PlayTarget.runId`). */
+  liveRunIds(): string[];
 }>() {}
 
 @Component()
 export class ActivityPlayLinksService implements ActivityPlayLinks {
   /** Per process: a restart ends every open preview, which is fine. */
   private readonly secret = randomBytes(32);
+  /** When the last link signed for each module run stops working; per process, as the secret is. */
+  private readonly runLinks = new Map<string, number>();
 
   sign(grant: PlayGrant): { token: string; expiresAt: number } {
     const target: PlayTarget = {
@@ -78,11 +82,23 @@ export class ActivityPlayLinksService implements ActivityPlayLinks {
       ...(grant.parentOrigin ? { parentOrigin: grant.parentOrigin } : {}),
       ...(grant.runId ? { runId: grant.runId } : {}),
     };
+    if (target.runId)
+      this.runLinks.set(
+        target.runId,
+        Math.max(this.runLinks.get(target.runId) ?? 0, target.expiresAt),
+      );
     const body = Buffer.from(JSON.stringify(target), "utf8").toString("base64url");
     return {
       token: `${body}.${this.mac(body).toString("base64url")}`,
       expiresAt: target.expiresAt,
     };
+  }
+
+  liveRunIds(): string[] {
+    const now = Date.now();
+    for (const [runId, expiresAt] of this.runLinks)
+      if (now >= expiresAt) this.runLinks.delete(runId);
+    return [...this.runLinks.keys()];
   }
 
   private mac(body: string): Buffer {

@@ -7,6 +7,22 @@ import type { ActivityRun, ActivityRunSummary } from "./domain.js";
 /** Where every run's folder lives, under the server root. */
 const RUNS_DIR = "activity-runs";
 
+/** `entry` (forward slashes) inside `folder` when every step to it is a real folder, else null. */
+export async function realFolder(folder: string, entry: string): Promise<string | null> {
+  let at = folder;
+  for (const part of [null, ...entry.split("/")]) {
+    if (part !== null) at = path.join(at, part);
+    const stat = await fs.lstat(at).catch(() => null);
+    if (!stat || stat.isSymbolicLink() || !stat.isDirectory()) return null;
+  }
+  return at;
+}
+
+/** The folder every run's folder is in. */
+export function runsRoot(root: string): string {
+  return path.join(root, RUNS_DIR);
+}
+
 /**
  * Whether `workspace` is inside an activity run's folder (the run's own Session works there,
  * and so do its subagents).
@@ -43,6 +59,8 @@ export abstract class ActivityRuns extends Interface<{
   ): ActivityRunSummary[];
   /** Every run still running, of every activity, without its candidate. */
   running(): ActivityRun[];
+  /** Every run of every project and activity, as lists show it, newest first. */
+  everyRun(): ActivityRunSummary[];
   /** Whether a run is still working on the activity. */
   hasActive(activityId: string): boolean;
   /** The run's folder, where its agent or the server does its work. */
@@ -50,11 +68,18 @@ export abstract class ActivityRuns extends Interface<{
   /** Every run of a project, of every activity, by id. */
   projectRunIds(projectId: string): string[];
   /**
-   * Removes these runs' folders. A link inside one (a module run's linked packages) is
-   * removed, never what it points to. A folder that cannot be removed is left as it is, and
-   * the server log names it.
+   * Removes these runs' folders, and answers the ids of those left in place. A link inside one
+   * (a module run's linked packages) is removed, never what it points to. A folder that cannot
+   * be removed is left as it is, and the server log names it.
    */
-  removeWorkspaces(runIds: string[]): Promise<void>;
+  removeWorkspaces(runIds: string[]): Promise<string[]>;
+  /**
+   * Removes one folder inside a run's folder (`entry`, relative with forward slashes) when it
+   * is a real folder there: a link, and what it points to, stay as they are, and so does a
+   * folder reached through one. True when it was removed; false when it was absent, a link, or
+   * could not be removed, which the server log names.
+   */
+  removeFromWorkspace(runId: string, entry: string): Promise<boolean>;
   /** The activity whose run the Session is, if it is one. */
   activityOfSession(sessionId: string): string | undefined;
   /** Every run Session of a project, session id to activity id, in one read. */
@@ -160,6 +185,16 @@ export class ActivityRunStore implements ActivityRuns {
     ).map((row) => ({ ...summaryOf(row), candidate: null }) as ActivityRun);
   }
 
+  everyRun(): ActivityRunSummary[] {
+    return (
+      this.db
+        .prepare(
+          "SELECT kind, record_json FROM activity_runs ORDER BY created_at DESC, run_id DESC",
+        )
+        .all() as RunRow[]
+    ).map(summaryOf);
+  }
+
   hasActive(activityId: string): boolean {
     return !!this.db
       .prepare("SELECT 1 FROM activity_runs WHERE activity_id = ? AND status = 'running'")
@@ -177,22 +212,39 @@ export class ActivityRunStore implements ActivityRuns {
     return rows.map((row) => row.run_id);
   }
 
-  async removeWorkspaces(runIds: string[]): Promise<void> {
-    await Promise.all(
+  async removeWorkspaces(runIds: string[]): Promise<string[]> {
+    const left = await Promise.all(
       runIds.map(async (runId) => {
         const folder = this.workspace(runId);
         // An id that names no folder below the runs' own (empty, or with `..`) removes nothing.
-        if (!isRunWorkspace(this.config.root, folder)) return;
-        // fs.rm unlinks a symlink or junction it meets rather than descending through it.
-        await fs.rm(folder, { recursive: true, force: true }).catch((error: unknown) => {
-          // Its rows are gone, so nothing will find the folder again but whoever reads this.
-          const code = (error as NodeJS.ErrnoException).code ?? String(error);
-          this.log.line(
-            `[activities] Run ${runId}'s folder was left in place (${code}): ${folder}`,
-          );
-        });
+        if (!isRunWorkspace(this.config.root, folder)) return null;
+        return (await this.remove(runId, folder)) ? null : runId;
       }),
     );
+    return left.filter((runId): runId is string => runId !== null);
+  }
+
+  async removeFromWorkspace(runId: string, entry: string): Promise<boolean> {
+    const workspace = this.workspace(runId);
+    if (!isRunWorkspace(this.config.root, workspace)) return false;
+    if (entry.split("/").some((part) => !part || part === "." || part === "..")) return false;
+    // Every step is looked at, so a folder reached through a link is never the one removed.
+    const folder = await realFolder(workspace, entry);
+    return folder !== null && this.remove(runId, folder);
+  }
+
+  /** Removes a folder; fs.rm unlinks a symlink or junction it meets rather than descending through it. */
+  private async remove(runId: string, folder: string): Promise<boolean> {
+    try {
+      await fs.rm(folder, { recursive: true, force: true });
+      return true;
+    } catch (error) {
+      // A deleted project's rows are gone, so nothing will find the folder again but whoever
+      // reads this.
+      const code = (error as NodeJS.ErrnoException).code ?? String(error);
+      this.log.line(`[activities] Run ${runId}'s folder was left in place (${code}): ${folder}`);
+      return false;
+    }
   }
 
   activityOfSession(sessionId: string): string | undefined {

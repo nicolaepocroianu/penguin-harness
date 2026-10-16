@@ -36,6 +36,7 @@ export type SettingsSectionKey =
   | "wafWorkspace"
   | "deploy"
   | "activityOutcomes"
+  | "runCleanup"
   | "users";
 
 /** Rail heading a page sits under: the viewer's own preferences vs. the whole server's. */
@@ -80,6 +81,8 @@ const SECTION_RULES: ReadonlyArray<SettingsSection & { visible(viewer: SettingsV
     // What became of every project's activity runs: the outcome ledger reads across projects,
     // so only an admin reads it, desktop mode included.
     { key: "activityOutcomes", group: "server", visible: (v) => v.isAdmin },
+    // Every project's activity run folders, and a cleanup that removes from them: the admin's.
+    { key: "runCleanup", group: "server", visible: (v) => v.isAdmin },
     // Single-user under the desktop shell: the server rejects the admin user routes there.
     { key: "users", group: "server", visible: (v) => v.isAdmin && !v.desktopMode },
   ];

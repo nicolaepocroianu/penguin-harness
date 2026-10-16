@@ -3382,6 +3382,44 @@ export const en: Strings = {
     deleteUserTitle: (u: string): string => `Delete user ${u}`,
     deleteUserConfirm: (u: string): string =>
       `This deletes user ${u} and every Project they own (including data directories). This cannot be undone.`,
+    runCleanup: {
+      title: "Activity storage",
+      about:
+        "Each activity run keeps a folder on the server, and the folders of live projects are never removed on their own. A cleanup removes what nothing reads any more, only when you start it: first it lists what would go, then it removes that once you confirm. It removes the media and packages finished module builds were staged with, and the folders of finished runs older than the newest you keep of each kind. It never removes a running run, the build a preview plays, pins, deploys or a play link plays, what a repair round starts from, what the outcomes still point at, tests' and quality checks' reports, compositions, recordings or timeline renders, or the shared module packages.",
+      storage: "Storage",
+      storageInfo: "How much disk every activity run folder takes together, on this server.",
+      storageLine: (bytes, folders) =>
+        `${bytes} in ${folders} run ${folders === 1 ? "folder" : "folders"}`,
+      keepNewest: "Runs kept of each kind",
+      keepNewestInfo:
+        "How many of each activity's newest runs of one kind keep their folders. The newest run of each kind that succeeded is kept as well.",
+      keepNewestHint: (min, max) => `A whole number from ${min} to ${max}.`,
+      orphanTakes: "Takes of deleted projects",
+      orphanTakesInfo:
+        "Also removes the media takes nobody accepted that belong to runs this server no longer has, because their project or activity was deleted. They are in the WAF checkout's media, which is held while they go. Only in the WAF workspace this server prepares: an existing checkout is its owner's.",
+      check: "Find what can be removed",
+      cleanUp: "Clean up",
+      planHeading: "Would be removed",
+      categories: {
+        stagedCopies: "Staged media and installed packages of finished builds",
+        olderRuns: "Older finished runs",
+        orphanTakes: "Takes of deleted projects",
+      },
+      folders: (count) => `${count} ${count === 1 ? "folder" : "folders"}`,
+      files: (count) => `${count} ${count === 1 ? "file" : "files"}`,
+      nothing: "Nothing to remove.",
+      unread: (count) =>
+        `The runs of ${count} ${count === 1 ? "activity were" : "activities were"} left alone: archived, or a draft that could not be read.`,
+      takesUnavailable:
+        "Takes were not looked at: this server uses an existing WAF checkout, or the one it prepares is not ready.",
+      confirmTitle: "Clean up activity runs",
+      confirmBody: "This removes, as things stand when it runs:",
+      confirmNote: "What is removed cannot be restored.",
+      confirmLabel: "Remove",
+      removed: (bytes) => `Removed ${bytes}.`,
+      leftInPlace: (count) =>
+        `${count} ${count === 1 ? "item" : "items"} could not be removed and stayed in place; the server log names them.`,
+    },
     activityOutcomes: {
       title: "Activity outcomes",
       about:
