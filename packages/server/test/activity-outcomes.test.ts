@@ -733,6 +733,9 @@ describe("the outcome ledger", () => {
     expect(renumbered.status, await renumbered.clone().text()).toBe(200);
     // Pinning a build changes which build plays, not the draft's content.
     const build = f.settle(f.open("module"));
+    await fs.mkdir(path.join(f.t.root, "activity-runs", build.runId, "module"), {
+      recursive: true,
+    });
     const pinned = await f.client.post(`${endpoint}/module-builds/${build.runId}/pin`, {
       expectedRevision: await revision(),
     });

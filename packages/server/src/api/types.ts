@@ -5027,6 +5027,17 @@ export type {
   RunStory,
 } from "../activities/outcome-types.js";
 export type {
+  RunCleanupCategory,
+  RunCleanupOptions,
+  RunCleanupPlan,
+  RunCleanupPlanResponse,
+  RunCleanupReport,
+  RunCleanupReportResponse,
+  RunCleanupTally,
+  RunStorage,
+  RunStorageResponse,
+} from "../activities/run-cleanup-types.js";
+export type {
   VersionDiff,
   VersionFileDiff,
   VersionFileName,

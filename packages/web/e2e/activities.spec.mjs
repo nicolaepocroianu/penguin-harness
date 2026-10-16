@@ -6731,6 +6731,113 @@ test("an admin reads what became of activity runs in System settings", async ({ 
   expect(f.errors).toEqual([]);
 });
 
+test("an admin cleans up activity runs from System settings after a dry run", async ({ page }) => {
+  const f = await fixture(page);
+  const asked = [];
+  let applied = null;
+  let plans = 0;
+  let bytes = 5 * 1024 * 1024;
+  const report = (keepNewest, orphanTakes) => ({
+    keepNewest,
+    orphanTakes,
+    categories: [
+      { category: "stagedCopies", items: 2, bytes: 2 * 1024 * 1024 },
+      { category: "olderRuns", items: 3, bytes: 1024 * 1024 },
+      ...(orphanTakes ? [{ category: "orphanTakes", items: 0, bytes: 0 }] : []),
+    ],
+    unreadActivities: 0,
+    ...(orphanTakes ? { takesUnavailable: true } : {}),
+    failed: 0,
+    keptSincePlan: 0,
+  });
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const p = url.pathname;
+    const json = (value, status = 200) =>
+      route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
+    if (p === "/api/me")
+      return json({
+        user: { userId: "author", isAdmin: true, passwordIsInitial: false },
+        previewIsolated: true,
+        desktopMode: false,
+        companyMode: false,
+        sessionVia: "password",
+        uploadLimits: {
+          attachmentMaxMb: 100,
+          attachmentTotalMb: 120,
+          attachmentMaxCount: 20,
+          imageMaxMb: 20,
+          attachmentLimitMinMb: 1,
+          attachmentLimitMaxMb: 200,
+        },
+      });
+    if (p.startsWith("/api/admin/activity-run-cleanup/"))
+      asked.push(`${request.method()} ${p.slice("/api/admin/activity-run-cleanup/".length)}`);
+    if (p === "/api/admin/activity-run-cleanup/storage")
+      return json({ storage: { bytes, folders: 12 } });
+    if (p === "/api/admin/activity-run-cleanup/plan") {
+      plans += 1;
+      return json({
+        plan: {
+          ...report(
+            Number(url.searchParams.get("keepNewest")),
+            url.searchParams.get("orphanTakes") === "1",
+          ),
+          planId: `plan-${plans}`,
+          expiresAt: Date.now() + 10 * 60 * 1000,
+        },
+      });
+    }
+    if (p === "/api/admin/activity-run-cleanup/apply") {
+      applied = request.postDataJSON();
+      bytes = 2 * 1024 * 1024;
+      return json({ report: { ...report(3, true), keptSincePlan: 1 } });
+    }
+    return route.fallback();
+  });
+  await page.goto(`${origin}/activities`);
+  await page.locator('button[aria-haspopup="menu"]').filter({ hasText: "author" }).click();
+  await page.getByRole("button", { name: "System settings", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "System settings" });
+  await dialog.getByRole("button", { name: "Activity storage" }).click();
+  await expect(dialog.getByTestId("run-storage")).toHaveText("5MB in 12 run folders");
+
+  // Nothing can be removed before a dry run, and nothing was asked to be.
+  const cleanUp = dialog.getByRole("button", { name: "Clean up", exact: true });
+  await expect(cleanUp).toBeDisabled();
+  await dialog.getByRole("spinbutton", { name: "Runs kept of each kind" }).fill("3");
+  await dialog.getByRole("button", { name: "Find what can be removed" }).click();
+  const listed = dialog.getByTestId("run-cleanup-report");
+  await expect(listed).toContainText("Staged media and installed packages of finished builds");
+  await expect(listed).toContainText("2 folders, 2MB");
+  await expect(listed).toContainText("Older finished runs");
+  await expect(listed).toContainText("3 folders, 1MB");
+
+  // A changed choice drops the dry run; asking again lists the takes too.
+  await dialog.getByRole("switch", { name: "Takes without a run" }).click();
+  await expect(listed).toHaveCount(0);
+  await expect(cleanUp).toBeDisabled();
+  await dialog.getByRole("button", { name: "Find what can be removed" }).click();
+  await expect(listed).toContainText("Takes without a run");
+  await expect(dialog).toContainText("Takes were not looked at");
+
+  // Confirming shows the dry run's numbers, and confirms that dry run by its id.
+  await cleanUp.click();
+  const confirm = page.getByRole("dialog", { name: "Clean up activity runs" });
+  await expect(confirm).toContainText("3 folders, 1MB");
+  expect(applied).toBeNull();
+  await confirm.getByRole("button", { name: "Remove" }).click();
+  await expect(confirm).toHaveCount(0);
+  expect(applied).toEqual({ planId: "plan-2" });
+  await expect(
+    page.getByText("1 listed item was kept, since something needs it now."),
+  ).toBeVisible();
+  await expect(dialog.getByTestId("run-storage")).toHaveText("2MB in 12 run folders");
+  expect(asked).toEqual(["GET storage", "GET plan", "GET plan", "POST apply", "GET storage"]);
+  expect(f.errors).toEqual([]);
+});
+
 test("an admin reads the activity bench's scores in the Evaluation Center", async ({ page }) => {
   const f = await fixture(page);
   const requests = [];

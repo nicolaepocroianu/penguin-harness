@@ -3390,6 +3390,47 @@ export const en: Strings = {
     deleteUserTitle: (u: string): string => `Delete user ${u}`,
     deleteUserConfirm: (u: string): string =>
       `This deletes user ${u} and every Project they own (including data directories). This cannot be undone.`,
+    runCleanup: {
+      title: "Activity storage",
+      about:
+        "Each activity run keeps a folder on the server, and the folders of live projects are never removed on their own. A cleanup removes what nothing reads any more, only when you start it: first it lists what would go, then it removes what it listed once you confirm, never more. It removes the media and packages finished module builds were staged with, and the folders of finished runs older than the newest you keep of each kind. It never removes a running run, a run whose session is still working, the build a preview plays, pins, deploys or a play link plays, any build while the activity deploys, what a repair round starts from, what the outcomes still point at, tests' and quality checks' reports, compositions, recordings, timeline renders, conversations, or the shared module packages.",
+      storage: "Storage",
+      storageInfo: "How much disk every activity run folder takes together, on this server.",
+      storageLine: (bytes, folders) =>
+        `${bytes} in ${folders} run ${folders === 1 ? "folder" : "folders"}`,
+      keepNewest: "Runs kept of each kind",
+      keepNewestInfo:
+        "How many of each activity's newest runs of one kind keep their folders. The newest run of each kind that succeeded is kept as well.",
+      keepNewestHint: (min, max) => `A whole number from ${min} to ${max}.`,
+      orphanTakes: "Takes without a run",
+      orphanTakesInfo:
+        "Also removes the media takes nobody accepted whose run this server does not have: their project or activity was deleted, or the take came from elsewhere, with a git pull or from Loom, and this server never had its run. They are in the WAF checkout's media; no git work runs on it while they go. Only in the WAF workspace this server prepares: an existing checkout is its owner's.",
+      check: "Find what can be removed",
+      cleanUp: "Clean up",
+      planHeading: "Would be removed",
+      categories: {
+        stagedCopies: "Staged media and installed packages of finished builds",
+        olderRuns: "Older finished runs",
+        orphanTakes: "Takes without a run",
+      },
+      folders: (count) => `${count} ${count === 1 ? "folder" : "folders"}`,
+      files: (count) => `${count} ${count === 1 ? "file" : "files"}`,
+      nothing: "Nothing to remove.",
+      unread: (count) =>
+        `The runs of ${count} ${count === 1 ? "activity were" : "activities were"} left alone: archived, or a draft that could not be read.`,
+      takesUnavailable:
+        "Takes were not looked at: this server uses an existing WAF checkout, or the one it prepares is not ready.",
+      confirmTitle: "Clean up activity runs",
+      confirmBody:
+        "This removes what the dry run listed, except what something has come to need since:",
+      confirmNote: "What is removed cannot be restored.",
+      confirmLabel: "Remove",
+      removed: (bytes) => `Removed ${bytes}.`,
+      keptSincePlan: (count) =>
+        `${count} listed ${count === 1 ? "item was" : "items were"} kept, since something needs ${count === 1 ? "it" : "them"} now.`,
+      leftInPlace: (count) =>
+        `${count} ${count === 1 ? "item" : "items"} could not be removed and stayed in place; the server log names them.`,
+    },
     activityOutcomes: {
       title: "Activity outcomes",
       about:
@@ -7260,6 +7301,10 @@ Scenarios:
     /** Localized text for the common server error codes (server error messages are English-only); looked up by ApiError.code in apiErrorText, falling back to the raw message for unmapped codes. */
     byCode: {
       experiment_off: "Scene videos are an experiment an admin has not turned on.",
+      run_cleanup_plan_expired:
+        "That dry run can no longer be confirmed. Find what can be removed again.",
+      module_build_removed:
+        "That build's files were removed by a cleanup, so it can no longer be played.",
       video_composition_missing:
         "There is no composed scene to record. Compose the scene first, then record it.",
       video_asset_changed:

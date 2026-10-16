@@ -290,12 +290,18 @@ describe("module builds", () => {
     expect(await status()).toMatchObject({ qa: "changed", prod: "changed" });
   });
 
-  it("refuses to pin a run that is not a succeeded build, and a member may not pin", async () => {
+  it("refuses to pin a run that is not a succeeded build or whose files are gone, and a member may not pin", async () => {
     const { s, pin } = await setup();
     const revision = (await s.read()).draft.contentRevision;
     expect((await pin(RUN_FAILED, revision)).status).toBe(404);
     expect((await pin(`run_${"9".repeat(32)}`, revision)).status).toBe(404);
     expect((await pin("nope", revision)).status).toBe(400);
+    // A build whose folder a cleanup removed is still listed, but can no longer be played.
+    await fs.rm(path.join(s.t.root, "activity-runs", RUN_A), { recursive: true });
+    const removed = await pin(RUN_A, revision);
+    expect(removed.status).toBe(409);
+    expect(await removed.json()).toMatchObject({ error: { code: "module_build_removed" } });
+    expect((await s.read()).draft.pinnedModuleRunId).toBeUndefined();
 
     const member = await provisionUser(s.t.app, "builds_reader");
     expect(

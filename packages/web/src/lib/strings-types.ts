@@ -2805,6 +2805,35 @@ export type Strings = {
     resetPasswordNote: string;
     deleteUserTitle: (u: string) => string;
     deleteUserConfirm: (u: string) => string;
+    /** The Activity storage page (admin): run folders' disk, and cleaning them up by hand. */
+    runCleanup: {
+      title: string;
+      about: string;
+      storage: string;
+      storageInfo: string;
+      storageLine: (bytes: string, folders: number) => string;
+      keepNewest: string;
+      keepNewestInfo: string;
+      keepNewestHint: (min: number, max: number) => string;
+      orphanTakes: string;
+      orphanTakesInfo: string;
+      check: string;
+      cleanUp: string;
+      planHeading: string;
+      categories: Record<"stagedCopies" | "olderRuns" | "orphanTakes", string>;
+      folders: (count: number) => string;
+      files: (count: number) => string;
+      nothing: string;
+      unread: (count: number) => string;
+      takesUnavailable: string;
+      confirmTitle: string;
+      confirmBody: string;
+      confirmNote: string;
+      confirmLabel: string;
+      removed: (bytes: string) => string;
+      keptSincePlan: (count: number) => string;
+      leftInPlace: (count: number) => string;
+    };
     /** The Activity outcomes page (admin): the outcome ledger, read. */
     activityOutcomes: {
       title: string;
@@ -5165,6 +5194,8 @@ export type Strings = {
     noDefaultModel: string;
     byCode: {
       experiment_off: string;
+      run_cleanup_plan_expired: string;
+      module_build_removed: string;
       video_composition_missing: string;
       video_asset_changed: string;
       video_invalid: string;

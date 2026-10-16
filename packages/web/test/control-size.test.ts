@@ -145,6 +145,7 @@ const DIALOG_BODY_MODULES = new Set([
   "features/settings/trace-import-row.tsx",
   "features/settings/uploads-section.tsx",
   "features/admin/admin-users-page.tsx",
+  "features/admin/run-cleanup-section.tsx",
 ]);
 
 /**

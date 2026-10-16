@@ -101,6 +101,7 @@ import {
   type ActivityOutcomePorts,
 } from "../src/activities/outcomes.js";
 import { DefaultDeployPorts, type DeployPorts } from "../src/activities/deploy-service.js";
+import { DefaultRunCleanupPorts, type RunCleanupPorts } from "../src/activities/run-cleanup.js";
 import { DefaultAudioEncodePorts, type AudioEncodePorts } from "../src/activities/ref-media.js";
 import {
   DefaultModuleBuilder,
@@ -322,6 +323,8 @@ export interface TestAppOptions {
   espeakPorts?: EspeakPorts;
   /** Test double: the bundled library and build the outcome ledger reads. */
   activityOutcomePorts?: ActivityOutcomePorts;
+  /** Test double: which Sessions are working and which activities deploy, for the run cleanup. */
+  runCleanupPorts?: RunCleanupPorts;
   /** Test double: git and Jenkins for deploys, so a test never reaches a remote. */
   deployPorts?: DeployPorts;
   /** Test double: git and npm for the WAF workspace, so a test never clones or installs. */
@@ -450,6 +453,7 @@ export function replacementsFor(o: TestAppOptions): Replacements {
   ]);
   if (o.espeakPorts) out.push([DefaultEspeakPorts, o.espeakPorts]);
   if (o.activityOutcomePorts) out.push([DefaultActivityOutcomePorts, o.activityOutcomePorts]);
+  if (o.runCleanupPorts) out.push([DefaultRunCleanupPorts, o.runCleanupPorts]);
   if (o.deployPorts) out.push([DefaultDeployPorts, o.deployPorts]);
   // Nothing clones at boot in a test: a test that wants preparing asks for it.
   out.push([DefaultWafWorkspacePorts, { autoPrepare: false, ...o.wafWorkspacePorts }]);

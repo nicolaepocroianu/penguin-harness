@@ -132,7 +132,7 @@ import {
   TestBrowserService,
 } from "./activities/test-browser.js";
 import { TestBrowserRoutes } from "./activities/test-browser-routes.js";
-import { ActivityPlayLinksService } from "./activities/play-links.js";
+import { ActivityPlayLinks, ActivityPlayLinksService } from "./activities/play-links.js";
 import { DefaultSoundModelPorts } from "./activities/sound-models.js";
 import { LocalAudioService } from "./activities/local-audio.js";
 import { DefaultMediaHelperPorts } from "./activities/media-helper-runner.js";
@@ -173,6 +173,12 @@ import {
   DefaultActivityOutcomePorts,
 } from "./activities/outcomes.js";
 import { ActivityOutcomeRoutes } from "./activities/outcome-routes.js";
+import {
+  ActivityRunCleanup,
+  ActivityRunCleanupService,
+  DefaultRunCleanupPorts,
+} from "./activities/run-cleanup.js";
+import { ActivityRunCleanupRoutes } from "./activities/run-cleanup-routes.js";
 import { ActivityBenchRoutes } from "./activities/bench-boards.js";
 import { ActivityLockService } from "./activities/activity-lock.js";
 import { ActivityAuthoring, ActivityGeneration } from "./mechanisms/activities.js";
@@ -465,6 +471,9 @@ export class CodingAgentsModule {}
     ActivityQualityService,
     QualityAdminRoutes,
     ActivityOutcomeRoutes,
+    DefaultRunCleanupPorts,
+    ActivityRunCleanupService,
+    ActivityRunCleanupRoutes,
     ActivityBenchRoutes,
     DefaultEspeakPorts,
     ActivityPhonemesService,
@@ -497,6 +506,8 @@ export class CodingAgentsModule {}
     ProjectActivityRuns,
     ProjectServerRuns,
     ProjectPreviews,
+    ActivityRunCleanup,
+    ActivityPlayLinks,
   ],
 })
 export class ActivitiesModule {}

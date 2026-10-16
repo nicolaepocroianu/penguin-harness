@@ -10,7 +10,7 @@
 import { Component, Interface, Use } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
-import type { ActivityRuns } from "./run-store.js";
+import { realFolder, type ActivityRuns } from "./run-store.js";
 import type { ActivityDraft } from "./domain.js";
 import type { ModuleBuild, ModuleBuildDiff, ModuleBuildList } from "./module-build-types.js";
 import { compareModuleBuilds, moduleBuildFileCount, playingBuild } from "./module-builds.js";
@@ -23,7 +23,10 @@ export abstract class ActivityModuleBuilds extends Interface<{
   list(projectId: string, activityId: string): Promise<ModuleBuildList>;
   /** What differs going from build `from` to build `to`, file by file. */
   diff(projectId: string, activityId: string, from: string, to: string): Promise<ModuleBuildDiff>;
-  /** Make the preview play build `runId` until it is unpinned. Returns the draft. */
+  /**
+   * Make the preview play build `runId` until it is unpinned. Returns the draft. 409
+   * `module_build_removed` when the build's files are gone (a cleanup removed its folder).
+   */
   pin(
     projectId: string,
     activityId: string,
@@ -84,6 +87,12 @@ export class ActivityModuleBuildService implements ActivityModuleBuilds {
   ): Promise<ActivityDraft> {
     const builds = await this.generation.moduleBuilds(projectId, activityId);
     if (!builds.some((run) => run.runId === runId)) throw notFound();
+    if (!(await realFolder(this.runs.workspace(runId), "module")))
+      throw new HttpError(
+        409,
+        "module_build_removed",
+        "That build's files were removed, so it can no longer be played.",
+      );
     return this.authoring.pinModuleRun(projectId, activityId, runId, expectedRevision);
   }
 
