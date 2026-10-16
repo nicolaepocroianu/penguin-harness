@@ -647,6 +647,7 @@ describe("activity generation through Harness sessions", () => {
         createdAt,
         JSON.stringify({ runId: build, status: "succeeded", kind: "module", createdAt }),
       );
+    await fs.mkdir(path.join(f.t.root, "activity-runs", build, "module"), { recursive: true });
     // Play this build: only the preview changes, so the candidate is still for this draft.
     const pinned = await f.client.post(`${f.endpoint}/module-builds/${build}/pin`, {
       expectedRevision: run.inputRevision,

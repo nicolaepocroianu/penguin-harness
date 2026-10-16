@@ -2249,6 +2249,7 @@ export abstract class Sessions extends Interface<
   Pick<
     SessionManager,
     | "statusOf"
+    | "backgroundTasksOf"
     | "pendingApprovalCount"
     | "pendingApprovals"
     | "pendingFollowUpCount"

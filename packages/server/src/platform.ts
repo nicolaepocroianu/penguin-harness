@@ -173,7 +173,11 @@ import {
   DefaultActivityOutcomePorts,
 } from "./activities/outcomes.js";
 import { ActivityOutcomeRoutes } from "./activities/outcome-routes.js";
-import { ActivityRunCleanup, ActivityRunCleanupService } from "./activities/run-cleanup.js";
+import {
+  ActivityRunCleanup,
+  ActivityRunCleanupService,
+  DefaultRunCleanupPorts,
+} from "./activities/run-cleanup.js";
 import { ActivityRunCleanupRoutes } from "./activities/run-cleanup-routes.js";
 import { ActivityBenchRoutes } from "./activities/bench-boards.js";
 import { ActivityLockService } from "./activities/activity-lock.js";
@@ -467,6 +471,7 @@ export class CodingAgentsModule {}
     ActivityQualityService,
     QualityAdminRoutes,
     ActivityOutcomeRoutes,
+    DefaultRunCleanupPorts,
     ActivityRunCleanupService,
     ActivityRunCleanupRoutes,
     ActivityBenchRoutes,

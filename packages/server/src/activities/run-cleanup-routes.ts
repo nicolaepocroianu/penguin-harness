@@ -4,11 +4,11 @@
  *   GET  /api/admin/activity-run-cleanup/storage
  *     → { storage }: the disk every run folder takes together.
  *   GET  /api/admin/activity-run-cleanup/plan?keepNewest=<n>[&orphanTakes=1]
- *     → { report }: what a cleanup would remove, per category; nothing is removed.
- *   POST /api/admin/activity-run-cleanup/apply  { keepNewest, orphanTakes }
- *     → { report }: what it removed, worked out again as things stand now.
- *
- * keepNewest defaults to RUN_CLEANUP_KEEP_DEFAULT and orphanTakes to false.
+ *     → { plan }: what a cleanup would remove, per category, and the id that confirms it;
+ *       nothing is removed. keepNewest defaults to RUN_CLEANUP_KEEP_DEFAULT, orphanTakes to 0.
+ *   POST /api/admin/activity-run-cleanup/apply  { planId }
+ *     → { report }: what it removed of what the dry run listed, as things stand now; 409
+ *       `run_cleanup_plan_expired` when that dry run can no longer be confirmed.
  */
 import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
 import { Hono } from "hono";
@@ -18,6 +18,7 @@ import { badRequest, readJson } from "../http/validate.js";
 import type { ActivityRunCleanup } from "./run-cleanup.js";
 import {
   RUN_CLEANUP_KEEP_DEFAULT,
+  type RunCleanupPlanResponse,
   type RunCleanupReportResponse,
   type RunStorageResponse,
 } from "./run-cleanup-types.js";
@@ -62,18 +63,16 @@ export class ActivityRunCleanupRoutes {
       c.json({ storage: await this.cleanup.storage() } satisfies RunStorageResponse),
     );
     app.get("/plan", async (c) => {
-      const report = await this.cleanup.plan({
+      const plan = await this.cleanup.plan({
         keepNewest: queryCount(c.req.query("keepNewest")),
         orphanTakes: queryFlag(c.req.query("orphanTakes")),
       });
-      return c.json({ report } satisfies RunCleanupReportResponse);
+      return c.json({ plan } satisfies RunCleanupPlanResponse);
     });
     app.post("/apply", async (c) => {
-      const body = await readJson(c);
-      const report = await this.cleanup.apply({
-        keepNewest: (body.keepNewest ?? RUN_CLEANUP_KEEP_DEFAULT) as number,
-        orphanTakes: (body.orphanTakes ?? false) as boolean,
-      });
+      const { planId } = await readJson(c);
+      if (typeof planId !== "string" || !planId) throw badRequest("planId must name a dry run.");
+      const report = await this.cleanup.apply(planId);
       return c.json({ report } satisfies RunCleanupReportResponse);
     });
     this.routes = app;

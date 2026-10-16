@@ -5028,6 +5028,8 @@ export type {
 export type {
   RunCleanupCategory,
   RunCleanupOptions,
+  RunCleanupPlan,
+  RunCleanupPlanResponse,
   RunCleanupReport,
   RunCleanupReportResponse,
   RunCleanupTally,

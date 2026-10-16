@@ -1,12 +1,14 @@
 /**
  * Activity storage (admin only, server-global): how much disk activity run folders take, and a
  * cleanup the admin starts by hand. "Find what can be removed" asks for a dry run and lists it per
- * category; "Clean up" confirms those numbers, and the server works the same choice out again and
- * removes only what is still eligible. Changing the choice drops the dry run, so what is confirmed
- * is always what was listed. Rendered as a page of the System settings dialog.
+ * category; "Clean up" confirms that dry run by its id, and the server removes only what it listed
+ * that is still eligible. Changing the choice drops the dry run, and one a few minutes old is made
+ * again before the confirmation opens, so what is confirmed is always what is listed. Rendered as
+ * a page of the System settings dialog.
  */
 import { useCallback, useEffect, useState } from "react";
-import type { RunCleanupReport, RunStorage } from "@prismshadow/penguin-server/api";
+import type { RunCleanupPlan, RunCleanupReport, RunStorage } from "@prismshadow/penguin-server/api";
+import { ApiError } from "../../api/client";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
@@ -25,6 +27,7 @@ import {
   KEEP_MIN,
   answers,
   parseKeep,
+  planIsStale,
   reportTotal,
 } from "./run-cleanup-model";
 
@@ -51,14 +54,14 @@ export function RunCleanupSection() {
   const [storage, setStorage] = useState<RunStorage | null>(null);
   const [keepText, setKeepText] = useState(String(KEEP_DEFAULT));
   const [orphanTakes, setOrphanTakes] = useState(false);
-  const [plan, setPlan] = useState<RunCleanupReport | null>(null);
+  const [plan, setPlan] = useState<{ plan: RunCleanupPlan; madeAt: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
   const keepNewest = parseKeep(keepText);
   const options = keepNewest === null ? null : { keepNewest, orphanTakes };
   // A dry run made for another choice no longer says what Clean up would remove.
-  const shown = plan !== null && options !== null && answers(plan, options) ? plan : null;
+  const shown = plan !== null && options !== null && answers(plan.plan, options) ? plan.plan : null;
   const total = shown ? reportTotal(shown) : null;
 
   const loadStorage = useCallback(async () => {
@@ -73,30 +76,48 @@ export function RunCleanupSection() {
     void loadStorage();
   }, [loadStorage]);
 
-  const check = async () => {
-    if (options === null) return;
+  /** A dry run for the choice on screen; null when it could not be made. */
+  const check = async (): Promise<RunCleanupPlan | null> => {
+    if (options === null) return null;
     setBusy(true);
     try {
-      setPlan((await api.adminRunCleanupPlan(options)).report);
+      const made = (await api.adminRunCleanupPlan(options)).plan;
+      setPlan({ plan: made, madeAt: Date.now() });
+      return made;
     } catch (e) {
       toastError(apiErrorText(e));
+      return null;
     } finally {
       setBusy(false);
     }
   };
 
+  /** Opens the confirmation on a dry run fresh enough to confirm as it is listed. */
+  const confirm = async () => {
+    const fresh = plan !== null && !planIsStale(plan.madeAt, Date.now()) ? shown : await check();
+    if (fresh && reportTotal(fresh).items > 0) setConfirming(true);
+  };
+
   const cleanUp = async () => {
-    if (options === null) return;
+    if (shown === null) return;
     setBusy(true);
     try {
-      const { report } = await api.adminRunCleanupApply(options);
+      const { report } = await api.adminRunCleanupApply(shown.planId);
       setConfirming(false);
       setPlan(null);
-      const removed = strings.removed(formatBytes(reportTotal(report).bytes));
-      if (report.failed > 0) toastError(`${removed} ${strings.leftInPlace(report.failed)}`);
-      else toastSuccess(removed);
+      const parts = [strings.removed(formatBytes(reportTotal(report).bytes))];
+      if (report.keptSincePlan > 0) parts.push(strings.keptSincePlan(report.keptSincePlan));
+      if (report.failed > 0) parts.push(strings.leftInPlace(report.failed));
+      const text = parts.join(" ");
+      if (report.failed > 0) toastError(text);
+      else toastSuccess(text);
       await loadStorage();
     } catch (e) {
+      // A dry run the server can no longer confirm is dropped, so the next one is made anew.
+      if (e instanceof ApiError && e.code === "run_cleanup_plan_expired") {
+        setConfirming(false);
+        setPlan(null);
+      }
       toastError(apiErrorText(e));
     } finally {
       setBusy(false);
@@ -114,7 +135,7 @@ export function RunCleanupSection() {
             size="sm"
             variant="danger"
             disabled={total === null || total.items === 0 || busy}
-            onClick={() => setConfirming(true)}
+            onClick={() => void confirm()}
           >
             {strings.cleanUp}
           </Button>

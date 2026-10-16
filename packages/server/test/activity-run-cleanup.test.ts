@@ -1,17 +1,19 @@
 /**
  * Cleaning up activity runs, through its interface and its admin route, against a real database
  * and real run folders: what each category removes, what is never removed, that links are never
- * followed, that a dry run answers what the cleanup then removes, and that the media takes are
- * only looked at when asked for.
+ * followed, that confirming a dry run removes what it listed and never more, and that the media
+ * takes are only looked at when asked for.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { newId, type ActivityDetail, type ActivityRun } from "../src/activities/domain.js";
 import type { ActivityPlayLinks } from "../src/activities/play-links.js";
+import type { ActivityOutcomes } from "../src/activities/outcomes.js";
 import type { ActivityRunCleanup } from "../src/activities/run-cleanup.js";
 import type {
   RunCleanupOptions,
+  RunCleanupPlanResponse,
   RunCleanupReport,
   RunCleanupReportResponse,
   RunStorageResponse,
@@ -95,10 +97,11 @@ describe("cleaning up activity runs", () => {
         () => true,
         () => false,
       );
-    /** The dry run, then the cleanup; both answer the same while nothing changes between them. */
+    /** The dry run, then its confirmation; both answer the same while nothing changes between. */
     const cleanUp = async (options: RunCleanupOptions): Promise<RunCleanupReport> => {
-      const plan = await cleanup.plan(options);
-      const applied = await cleanup.apply(options);
+      const { planId, expiresAt, ...plan } = await cleanup.plan(options);
+      expect(expiresAt).toBeGreaterThan(Date.now());
+      const applied = await cleanup.apply(planId);
       expect(applied).toEqual(plan);
       return applied;
     };
@@ -163,31 +166,30 @@ describe("cleaning up activity runs", () => {
 
   it("removes finished runs beyond the newest of their activity and kind", async () => {
     const { run, files, present, cleanUp } = await setup();
+    // A run whose Session is idle is kept for nothing.
+    const idleSession = run({ kind: "spec", status: "failed", sessionId: "ses_idle" });
     const succeeded = run({ kind: "spec" });
     const failed = [1, 2, 3].map(() => run({ kind: "spec", status: "failed" }));
-    const assists = [run({ kind: "assist" }), run({ kind: "assist" })];
-    // Their folders are what they made: reports, a composition's page, a recording.
-    const keptWhole = (["test", "quality", "composition", "video", "timeline"] as const).flatMap(
-      (kind) => [run({ kind }), run({ kind })],
-    );
-    // An activity has one running run at most.
-    const running = run({ kind: "assist", status: "running" });
-    for (const runId of [succeeded, ...failed, running, ...assists, ...keptWhole])
+    // Their folders are what they made, or what goes on: reports, a composition's page, a
+    // recording, a conversation's proposal and thread, which can be resumed whenever.
+    const keptWhole = (
+      ["test", "quality", "composition", "video", "timeline", "assist"] as const
+    ).flatMap((kind) => [run({ kind }), run({ kind })]);
+    for (const runId of [succeeded, ...failed, idleSession, ...keptWhole])
       await files(runId, { "input.json": "12" });
+    for (const runId of keptWhole.filter((_, index) => index >= 10))
+      await files(runId, { "proposal.json": "{}", "proposal.discarded.json": "{}" });
 
     const report = await cleanUp({ keepNewest: 1, orphanTakes: false });
     // The newest spec run (failed) stays, and so does the newest that succeeded.
     expect(tallyOf(report).olderRuns).toEqual({ items: 3, bytes: 6 });
+    expect(await present(idleSession)).toBe(false);
     expect(await present(failed[0]!)).toBe(false);
     expect(await present(failed[1]!)).toBe(false);
     expect(await present(failed[2]!)).toBe(true);
     expect(await present(succeeded)).toBe(true);
-    // A running run counts among the newest, so the assist after it is past them; the newest
-    // that succeeded stays.
-    expect(await present(running)).toBe(true);
-    expect(await present(assists[0]!)).toBe(false);
-    expect(await present(assists[1]!)).toBe(true);
     for (const runId of keptWhole) expect(await present(runId)).toBe(true);
+    expect(await present(keptWhole[10]!, "proposal.json")).toBe(true);
 
     expect(tallyOf(await cleanUp({ keepNewest: 1, orphanTakes: false })).olderRuns).toMatchObject({
       items: 0,
@@ -259,6 +261,124 @@ describe("cleaning up activity runs", () => {
     expect(await present(testRun, "reports/test.json")).toBe(true);
   });
 
+  it("never touches a run whose Session is still working, nor the builds of an activity deploying", async () => {
+    const busy = new Set(["ses_turn", "ses_background"]);
+    let deploying = false;
+    const { run, files, present, cleanUp } = await setup({
+      runCleanupPorts: {
+        sessionBusy: (sessionId) => busy.has(sessionId),
+        deploying: async () => deploying,
+      },
+    });
+    // A user went on talking to these runs' Sessions from the chat after they finished.
+    const talking = run({ kind: "spec", sessionId: "ses_turn" });
+    const building = run({ kind: "module", sessionId: "ses_background" });
+    const done = run({ kind: "module" });
+    run({ kind: "spec" });
+    run({ kind: "module" });
+    for (const runId of [talking, building, done])
+      await files(runId, { "input.json": "1", "media/a.mp3": "1" });
+
+    // While the activity deploys, none of its module runs loses anything.
+    deploying = true;
+    expect(tallyOf(await cleanUp({ keepNewest: 1, orphanTakes: false }))).toEqual({
+      stagedCopies: { items: 0, bytes: 0 },
+      olderRuns: { items: 0, bytes: 0 },
+    });
+    deploying = false;
+
+    const report = await cleanUp({ keepNewest: 1, orphanTakes: false });
+    expect(tallyOf(report).olderRuns).toEqual({ items: 1, bytes: 2 });
+    expect(await present(done)).toBe(false);
+    expect(await present(talking, "input.json")).toBe(true);
+    expect(await present(building, "media/a.mp3")).toBe(true);
+  });
+
+  it("never touches a running run, however old, nor its staged copies", async () => {
+    const { create, run, files, present, cleanUp } = await setup();
+    const builds = [1, 2].map(() => run({ kind: "module" }));
+    const runningBuild = run({ kind: "module", status: "running" });
+    // Of another activity (each has one running run at most): older than every other spec run
+    // of it, and still running.
+    const other = await create("letters");
+    const specs = [1, 2, 3].map(() => run({ kind: "spec" }, other));
+    const runningSpec = run(
+      { kind: "spec", status: "running", createdAt: "2026-10-16T00:00:00.000Z" },
+      other,
+    );
+    for (const runId of [runningSpec, ...specs]) await files(runId, { "input.json": "1" });
+    for (const runId of [...builds, runningBuild])
+      await files(runId, { "media/a.mp3": "1", "module/node_modules/p/index.js": "1" });
+
+    const report = await cleanUp({ keepNewest: 1, orphanTakes: false });
+    // Two older specs and the older build go; the newest succeeded build keeps everything.
+    expect(tallyOf(report)).toEqual({
+      stagedCopies: { items: 0, bytes: 0 },
+      olderRuns: { items: 3, bytes: 4 },
+    });
+    expect(await present(runningSpec, "input.json")).toBe(true);
+    expect(await present(specs[0]!)).toBe(false);
+    expect(await present(builds[0]!)).toBe(false);
+    expect(await present(builds[1]!, "media/a.mp3")).toBe(true);
+    expect(await present(runningBuild, "media/a.mp3")).toBe(true);
+    expect(await present(runningBuild, "module/node_modules/p/index.js")).toBe(true);
+  });
+
+  it("removes only what the confirmed dry run listed and is still eligible, once", async () => {
+    const { activity, api, run, files, present, cleanup } = await setup();
+    const [first, second] = [run({ kind: "module" }), run({ kind: "module" })];
+    run({ kind: "module" });
+    const failed = [
+      run({ kind: "spec", status: "failed" }),
+      run({ kind: "spec", status: "failed" }),
+    ];
+    for (const runId of [first!, second!, ...failed])
+      await files(runId, { "module/a.txt": "1", "input.json": "1" });
+
+    const plan = await cleanup.plan({ keepNewest: 1, orphanTakes: false });
+    expect(tallyOf(plan).olderRuns).toEqual({ items: 3, bytes: 6 });
+    // Since: a listed build was pinned, and a newer run made a run eligible the dry run never
+    // listed.
+    await api<ActivityAuthoring>("ActivityAuthoring").pinModuleRun(
+      PROJECT,
+      activity.id,
+      first!,
+      activity.draft.contentRevision,
+    );
+    run({ kind: "spec", status: "failed" });
+
+    const report = await cleanup.apply(plan.planId);
+    expect(tallyOf(report).olderRuns).toEqual({ items: 2, bytes: 4 });
+    expect(report).toMatchObject({ keptSincePlan: 1, failed: 0 });
+    expect(await present(first!)).toBe(true);
+    expect(await present(second!)).toBe(false);
+    expect(await present(failed[0]!)).toBe(false);
+    expect(await present(failed[1]!)).toBe(true);
+    // A dry run is confirmed once.
+    await expect(cleanup.apply(plan.planId)).rejects.toMatchObject({
+      status: 409,
+      code: "run_cleanup_plan_expired",
+    });
+    expect(await present(failed[1]!)).toBe(true);
+  });
+
+  it("removes nothing when the ledger cannot be read as it starts", async () => {
+    const { api, create, run, files, present, cleanup } = await setup();
+    const other = await create("letters");
+    const old = [run(), run({}, other)];
+    run();
+    run({}, other);
+    for (const runId of old) await files(runId, { "input.json": "1" });
+    const plan = await cleanup.plan({ keepNewest: 1, orphanTakes: false });
+    expect(tallyOf(plan).olderRuns).toMatchObject({ items: 2 });
+
+    vi.spyOn(api<ActivityOutcomes>("ActivityOutcomes"), "heldRuns").mockRejectedValue(
+      new Error("SQLITE_BUSY"),
+    );
+    await expect(cleanup.apply(plan.planId)).rejects.toThrow("SQLITE_BUSY");
+    for (const runId of old) expect(await present(runId)).toBe(true);
+  });
+
   it("keeps every run of an activity whose draft cannot be read", async () => {
     const { admin, create, run, files, present, cleanUp } = await setup();
     const archived = await create("letters");
@@ -287,7 +407,8 @@ describe("cleaning up activity runs", () => {
       return rm(target, options);
     });
 
-    const report = await cleanup.apply({ keepNewest: 1, orphanTakes: false });
+    const plan = await cleanup.plan({ keepNewest: 1, orphanTakes: false });
+    const report = await cleanup.apply(plan.planId);
     expect(tallyOf(report).olderRuns).toEqual({ items: 1, bytes: 1 });
     expect(report.failed).toBe(1);
     expect(await present(busy!)).toBe(true);
@@ -347,6 +468,18 @@ describe("cleaning up activity runs", () => {
     expect(tallyOf(report).orphanTakes).toEqual({ items: 1, bytes: 4 });
     expect((await fs.readdir(candidates)).sort()).toEqual([`${kept}.mp3`, "notes.txt"].sort());
     expect(await fs.readdir(elsewhere)).toEqual([theirs]);
+
+    // Nor is a `loom` folder reached through a link.
+    const loom = path.join(managed, "media", "loom");
+    const away = path.join(t.root, "away");
+    await fs.rename(loom, away);
+    await fs.writeFile(path.join(away, "words", "words-1", "candidates", orphan), "1234");
+    await fs.symlink(away, loom, "junction");
+    expect(tallyOf(await cleanUp({ keepNewest: 5, orphanTakes: true })).orphanTakes).toEqual({
+      items: 0,
+      bytes: 0,
+    });
+    expect(await fs.readdir(path.join(away, "words", "words-1", "candidates"))).toContain(orphan);
   });
 
   it("reads the disk run folders take, never through a link", async () => {
@@ -376,33 +509,35 @@ describe("cleaning up activity runs", () => {
     for (const response of [
       await user.get(`${ROUTE}/storage`),
       await user.get(`${ROUTE}/plan`),
-      await user.post(`${ROUTE}/apply`, { keepNewest: 1 }),
+      await user.post(`${ROUTE}/apply`, { planId: "x" }),
     ])
       expect(response.status).toBe(403);
     expect(await present(old)).toBe(true);
 
     for (const query of ["keepNewest=0", "keepNewest=101", "keepNewest=two", "orphanTakes=maybe"])
       expect((await admin.get(`${ROUTE}/plan?${query}`)).status).toBe(400);
-    expect((await admin.post(`${ROUTE}/apply`, { keepNewest: 1.5 })).status).toBe(400);
-    expect((await admin.post(`${ROUTE}/apply`, { keepNewest: 1, orphanTakes: "yes" })).status).toBe(
-      400,
-    );
+    // Only a dry run is confirmed: never options, nor a dry run this server does not have.
+    for (const body of [{}, { planId: null }, { planId: "" }, { keepNewest: 1 }])
+      expect((await admin.post(`${ROUTE}/apply`, body)).status).toBe(400);
+    const unknown = await admin.post(`${ROUTE}/apply`, { planId: "f".repeat(32) });
+    expect(unknown.status).toBe(409);
+    expect(await unknown.json()).toMatchObject({ error: { code: "run_cleanup_plan_expired" } });
     expect(await present(old)).toBe(true);
 
-    const plan = (await (
+    const { plan } = (await (
       await admin.get(`${ROUTE}/plan?keepNewest=1`)
-    ).json()) as RunCleanupReportResponse;
-    expect(plan.report).toMatchObject({ keepNewest: 1, orphanTakes: false });
-    expect(tallyOf(plan.report).olderRuns).toEqual({ items: 1, bytes: 1 });
+    ).json()) as RunCleanupPlanResponse;
+    expect(plan).toMatchObject({ keepNewest: 1, orphanTakes: false });
+    expect(tallyOf(plan).olderRuns).toEqual({ items: 1, bytes: 1 });
     expect(await present(old)).toBe(true);
     // Without a choice, five of each kind are kept.
     expect(
-      ((await (await admin.get(`${ROUTE}/plan`)).json()) as RunCleanupReportResponse).report
-        .keepNewest,
+      ((await (await admin.get(`${ROUTE}/plan`)).json()) as RunCleanupPlanResponse).plan.keepNewest,
     ).toBe(5);
-    const applied = await admin.post(`${ROUTE}/apply`, { keepNewest: 1 });
+    const applied = await admin.post(`${ROUTE}/apply`, { planId: plan.planId });
     expect(applied.status).toBe(200);
-    expect(((await applied.json()) as RunCleanupReportResponse).report).toEqual(plan.report);
+    const { planId: _planId, expiresAt: _expiresAt, ...listed } = plan;
+    expect(((await applied.json()) as RunCleanupReportResponse).report).toEqual(listed);
     expect(await present(old)).toBe(false);
   });
 });

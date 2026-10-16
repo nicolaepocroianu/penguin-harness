@@ -77,7 +77,7 @@ export abstract class ActivityRuns extends Interface<{
    * Removes one folder inside a run's folder (`entry`, relative with forward slashes) when it
    * is a real folder there: a link, and what it points to, stay as they are, and so does a
    * folder reached through one. True when it was removed; false when it was absent, a link, or
-   * could not be removed, which the server log names.
+   * could not be removed, and the server log names it.
    */
   removeFromWorkspace(runId: string, entry: string): Promise<boolean>;
   /** The activity whose run the Session is, if it is one. */
@@ -230,7 +230,11 @@ export class ActivityRunStore implements ActivityRuns {
     if (entry.split("/").some((part) => !part || part === "." || part === "..")) return false;
     // Every step is looked at, so a folder reached through a link is never the one removed.
     const folder = await realFolder(workspace, entry);
-    return folder !== null && this.remove(runId, folder);
+    if (folder !== null) return this.remove(runId, folder);
+    this.log.line(
+      `[activities] Run ${runId}'s ${entry} was left in place: it is not a folder there, or is reached through a link`,
+    );
+    return false;
   }
 
   /** Removes a folder; fs.rm unlinks a symlink or junction it meets rather than descending through it. */

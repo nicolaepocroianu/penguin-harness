@@ -1,7 +1,7 @@
 /**
  * The Activity storage page's logic: which number of kept runs it asks the server for, when a
- * dry run still answers the choice on screen (only then may it be confirmed), and what a report
- * adds up to.
+ * dry run still answers the choice on screen (only then may it be confirmed), when it is too old
+ * to confirm without making it again, and what a report adds up to.
  */
 import { describe, expect, it } from "vitest";
 import type { RunCleanupReport } from "@prismshadow/penguin-server/api";
@@ -9,8 +9,10 @@ import {
   KEEP_DEFAULT,
   KEEP_MAX,
   KEEP_MIN,
+  PLAN_FRESH_MS,
   answers,
   parseKeep,
+  planIsStale,
   reportTotal,
 } from "../src/features/admin/run-cleanup-model";
 
@@ -24,6 +26,7 @@ const report: RunCleanupReport = {
   ],
   unreadActivities: 0,
   failed: 0,
+  keptSincePlan: 0,
 };
 
 describe("the Activity storage page", () => {
@@ -39,6 +42,15 @@ describe("the Activity storage page", () => {
     expect(answers(report, { keepNewest: 5, orphanTakes: true })).toBe(true);
     expect(answers(report, { keepNewest: 4, orphanTakes: true })).toBe(false);
     expect(answers(report, { keepNewest: 5, orphanTakes: false })).toBe(false);
+  });
+
+  it("makes a dry run again before confirming it once it is a few minutes old", () => {
+    const madeAt = 1_000_000;
+    expect(planIsStale(madeAt, madeAt)).toBe(false);
+    expect(planIsStale(madeAt, madeAt + PLAN_FRESH_MS - 1)).toBe(false);
+    expect(planIsStale(madeAt, madeAt + PLAN_FRESH_MS)).toBe(true);
+    // Well before the server stops taking it (ten minutes).
+    expect(PLAN_FRESH_MS).toBeLessThan(10 * 60 * 1000);
   });
 
   it("adds up every category of a report", () => {

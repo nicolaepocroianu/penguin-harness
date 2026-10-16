@@ -230,6 +230,7 @@ import type {
   ActivityBenchResponse,
   ActivityBenchUpdateRequest,
   RunCleanupOptions,
+  RunCleanupPlanResponse,
   RunCleanupReportResponse,
   RunStorageResponse,
 } from "@prismshadow/penguin-server/api";
@@ -322,17 +323,17 @@ export const adminOutcomeProjects = () =>
 export const adminRunStorage = () =>
   apiFetch<RunStorageResponse>("/api/admin/activity-run-cleanup/storage");
 
-/** What a cleanup with these options would remove; nothing is removed. */
+/** What a cleanup with these options would remove, and the id that confirms it; nothing is removed. */
 export const adminRunCleanupPlan = (options: RunCleanupOptions) =>
-  apiFetch<RunCleanupReportResponse>("/api/admin/activity-run-cleanup/plan", {
+  apiFetch<RunCleanupPlanResponse>("/api/admin/activity-run-cleanup/plan", {
     query: { keepNewest: options.keepNewest, orphanTakes: options.orphanTakes ? 1 : 0 },
   });
 
-/** Removes what the plan answers now, and says what was removed. */
-export const adminRunCleanupApply = (options: RunCleanupOptions) =>
+/** Confirms a dry run: removes what it listed that is still eligible, and says what was removed. */
+export const adminRunCleanupApply = (planId: string) =>
   apiFetch<RunCleanupReportResponse>("/api/admin/activity-run-cleanup/apply", {
     method: "POST",
-    body: options,
+    body: { planId },
   });
 
 // The activity bench's scores, read in the Evaluation Center (admin only) ----------------

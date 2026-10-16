@@ -6689,6 +6689,7 @@ test("an admin cleans up activity runs from System settings after a dry run", as
   const f = await fixture(page);
   const asked = [];
   let applied = null;
+  let plans = 0;
   let bytes = 5 * 1024 * 1024;
   const report = (keepNewest, orphanTakes) => ({
     keepNewest,
@@ -6701,6 +6702,7 @@ test("an admin cleans up activity runs from System settings after a dry run", as
     unreadActivities: 0,
     ...(orphanTakes ? { takesUnavailable: true } : {}),
     failed: 0,
+    keptSincePlan: 0,
   });
   await page.route("**/*", async (route) => {
     const request = route.request();
@@ -6728,17 +6730,23 @@ test("an admin cleans up activity runs from System settings after a dry run", as
       asked.push(`${request.method()} ${p.slice("/api/admin/activity-run-cleanup/".length)}`);
     if (p === "/api/admin/activity-run-cleanup/storage")
       return json({ storage: { bytes, folders: 12 } });
-    if (p === "/api/admin/activity-run-cleanup/plan")
+    if (p === "/api/admin/activity-run-cleanup/plan") {
+      plans += 1;
       return json({
-        report: report(
-          Number(url.searchParams.get("keepNewest")),
-          url.searchParams.get("orphanTakes") === "1",
-        ),
+        plan: {
+          ...report(
+            Number(url.searchParams.get("keepNewest")),
+            url.searchParams.get("orphanTakes") === "1",
+          ),
+          planId: `plan-${plans}`,
+          expiresAt: Date.now() + 10 * 60 * 1000,
+        },
       });
+    }
     if (p === "/api/admin/activity-run-cleanup/apply") {
       applied = request.postDataJSON();
       bytes = 2 * 1024 * 1024;
-      return json({ report: report(applied.keepNewest, applied.orphanTakes) });
+      return json({ report: { ...report(3, true), keptSincePlan: 1 } });
     }
     return route.fallback();
   });
@@ -6761,21 +6769,24 @@ test("an admin cleans up activity runs from System settings after a dry run", as
   await expect(listed).toContainText("3 folders, 1MB");
 
   // A changed choice drops the dry run; asking again lists the takes too.
-  await dialog.getByRole("switch", { name: "Takes of deleted projects" }).click();
+  await dialog.getByRole("switch", { name: "Takes without a run" }).click();
   await expect(listed).toHaveCount(0);
   await expect(cleanUp).toBeDisabled();
   await dialog.getByRole("button", { name: "Find what can be removed" }).click();
-  await expect(listed).toContainText("Takes of deleted projects");
+  await expect(listed).toContainText("Takes without a run");
   await expect(dialog).toContainText("Takes were not looked at");
 
-  // Confirming shows the dry run's numbers, and removes that choice.
+  // Confirming shows the dry run's numbers, and confirms that dry run by its id.
   await cleanUp.click();
   const confirm = page.getByRole("dialog", { name: "Clean up activity runs" });
   await expect(confirm).toContainText("3 folders, 1MB");
   expect(applied).toBeNull();
   await confirm.getByRole("button", { name: "Remove" }).click();
   await expect(confirm).toHaveCount(0);
-  expect(applied).toEqual({ keepNewest: 3, orphanTakes: true });
+  expect(applied).toEqual({ planId: "plan-2" });
+  await expect(
+    page.getByText("1 listed item was kept, since something needs it now."),
+  ).toBeVisible();
   await expect(dialog.getByTestId("run-storage")).toHaveText("2MB in 12 run folders");
   expect(asked).toEqual(["GET storage", "GET plan", "GET plan", "POST apply", "GET storage"]);
   expect(f.errors).toEqual([]);

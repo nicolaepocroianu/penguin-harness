@@ -9,10 +9,14 @@
  *   stagedCopies   the media copies an assembly was staged with, and packages its agent
  *                  installed itself (not the linked shared ones), in finished module runs
  *   olderRuns      the folders of finished runs beyond the newest of their activity and kind
- *   orphanTakes    takes nobody accepted, of runs this server no longer has (their project or
- *                  activity was deleted), in the WAF checkout's media; only when asked for
+ *   orphanTakes    takes nobody accepted, of runs this server does not have (their project or
+ *                  activity was deleted), in the WAF checkout's media; only when asked for. A take
+ *                  whose run this server never had (one a git pull or Loom brought) counts too
  */
 export type RunCleanupCategory = "stagedCopies" | "olderRuns" | "orphanTakes";
+
+/** How long a dry run can be confirmed after it was made. */
+export const RUN_CLEANUP_PLAN_TTL_MS = 10 * 60 * 1000;
 
 /** How many runs of each activity and kind are kept when nothing is chosen. */
 export const RUN_CLEANUP_KEEP_DEFAULT = 5;
@@ -49,6 +53,21 @@ export interface RunCleanupReport {
   takesUnavailable?: true;
   /** Folders and files that could not be removed and were left in place; 0 on a dry run. */
   failed: number;
+  /**
+   * Folders and files the confirmed dry run listed that were kept, because something came to
+   * need them since (a run started, a build was pinned or played); 0 on a dry run.
+   */
+  keptSincePlan: number;
+}
+
+/**
+ * A dry run, which a cleanup confirms by its id: the cleanup removes only what it listed that is
+ * still eligible then, never more. It can be confirmed once, until `expiresAt`.
+ */
+export interface RunCleanupPlan extends RunCleanupReport {
+  planId: string;
+  /** Milliseconds since the epoch. */
+  expiresAt: number;
 }
 
 /** The disk activity runs take: every run folder together. */
@@ -56,6 +75,10 @@ export interface RunStorage {
   bytes: number;
   /** How many run folders there are. */
   folders: number;
+}
+
+export interface RunCleanupPlanResponse {
+  plan: RunCleanupPlan;
 }
 
 export interface RunCleanupReportResponse {
