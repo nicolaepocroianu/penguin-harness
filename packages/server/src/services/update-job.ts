@@ -131,10 +131,19 @@ export type UpdateRunner = (
 export const spawnUpdateRunner: UpdateRunner = (cliEntry, onOutput) =>
   new Promise((resolve) => {
     // PENGUIN_LANG=en pins the CLI's output language so classifyUpdateRun's markers match
-    // regardless of the deployment's configured CLI language.
+    // regardless of the deployment's configured CLI language. Under the desktop app
+    // process.execPath is the Electron binary, which runs the script only with
+    // ELECTRON_RUN_AS_NODE; without it a second copy of the app starts, window and all.
     const child = spawn(process.execPath, [cliEntry, "update", "--yes"], {
-      env: { ...process.env, PENGUIN_LANG: "en" },
+      env: {
+        ...process.env,
+        PENGUIN_LANG: "en",
+        ...(process.versions.electron !== undefined ? { ELECTRON_RUN_AS_NODE: "1" } : {}),
+      },
       stdio: ["ignore", "pipe", "pipe"],
+      // A server with no console (the desktop app's, or one `penguin` started in the
+      // background) would otherwise open a console window for the run on Windows.
+      windowsHide: true,
     });
     const forward = (chunk: Buffer) => onOutput(chunk.toString("utf8"));
     child.stdout.on("data", forward);

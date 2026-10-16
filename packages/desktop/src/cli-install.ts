@@ -104,7 +104,9 @@ async function attemptDarwin(force: boolean): Promise<Attempt> {
     // does not exist and creating it needs root. The command's quoting is the generator's
     // job (launcher.ts): the bundle path comes off disk and may hold an apostrophe.
     try {
-      await execFileAsync("osascript", ["-e", adminSymlinkAppleScript(desired, link)]);
+      await execFileAsync("osascript", ["-e", adminSymlinkAppleScript(desired, link)], {
+        windowsHide: true,
+      });
     } catch (escalated) {
       return {
         ok: false,
@@ -126,7 +128,11 @@ async function attemptWindows(): Promise<Attempt> {
   const dir = binDir();
   let current: string | null = null;
   try {
-    const { stdout } = await execFileAsync("reg", ["query", "HKCU\\Environment", "/v", "Path"]);
+    // reg.exe is a console program and this GUI process has no console: unhidden, each call
+    // opens a console window over the app.
+    const { stdout } = await execFileAsync("reg", ["query", "HKCU\\Environment", "/v", "Path"], {
+      windowsHide: true,
+    });
     // Output line: "    Path    REG_EXPAND_SZ    C:\foo;C:\bar"
     const m = /^\s*Path\s+REG(?:_EXPAND)?_SZ\s+(.*)$/im.exec(stdout);
     if (m === null) {
@@ -144,17 +150,11 @@ async function attemptWindows(): Promise<Attempt> {
   }
   try {
     // REG_EXPAND_SZ keeps any %VAR% entries of the existing value expandable.
-    await execFileAsync("reg", [
-      "add",
-      "HKCU\\Environment",
-      "/v",
-      "Path",
-      "/t",
-      "REG_EXPAND_SZ",
-      "/d",
-      merged,
-      "/f",
-    ]);
+    await execFileAsync(
+      "reg",
+      ["add", "HKCU\\Environment", "/v", "Path", "/t", "REG_EXPAND_SZ", "/d", merged, "/f"],
+      { windowsHide: true },
+    );
   } catch (err) {
     return { ok: false, result: "failed", detail: String(err) };
   }

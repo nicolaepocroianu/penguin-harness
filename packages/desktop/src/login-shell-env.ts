@@ -168,6 +168,7 @@ export function resolveLoginShellEnv(opts: {
       child = spawn(opts.shell, ["-i", "-l", "-c", PROBE_COMMAND], {
         env: opts.env,
         stdio: ["ignore", "pipe", "ignore"],
+        windowsHide: true,
       });
     } catch {
       resolve(null);

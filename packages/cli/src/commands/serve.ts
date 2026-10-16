@@ -144,6 +144,7 @@ function supervise(cliEntry: string, host: string, port: number, t: Messages): v
     child = spawn(process.execPath, [cliEntry, "server", "--port", String(port), "--host", host], {
       stdio: "inherit",
       env: { ...process.env, [SERVE_CHILD_ENV]: "1", PENGUIN_SUPERVISED: "1" },
+      windowsHide: true,
     });
     child.on("exit", (code, signal) => {
       const decision = supervisorDecision({ code, signal }, stopping);

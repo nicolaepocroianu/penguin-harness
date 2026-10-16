@@ -115,7 +115,7 @@ function defaultProbe(timeoutMs: number, runner: string): boolean {
   const probe = spawnSync(
     runner,
     [...seatbeltArgs({ mode: "read-only", workspaceRoot: "/" }), "--", "true"],
-    { timeout: timeoutMs, stdio: "ignore" },
+    { timeout: timeoutMs, stdio: "ignore", windowsHide: true },
   );
   return probe.status === 0;
 }
