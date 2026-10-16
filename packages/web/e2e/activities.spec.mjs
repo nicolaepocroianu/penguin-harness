@@ -2186,6 +2186,8 @@ test("polling errors recover without clearing a save conflict or unsaved edits",
   const f = await fixture(page);
   await create(page);
   await page.clock.install();
+  const sent = sentRequests(page);
+  const stagesHistory = `${base}/act_test/pipelines`;
   f.failHistory();
   await page.reload();
   await expect(page.getByRole("alert")).toContainText("The server hit an internal error");
@@ -2194,6 +2196,10 @@ test("polling errors recover without clearing a save conflict or unsaved edits",
   await openSection(page, "Script");
   await expect(description).toHaveText("Practice common sight words");
   await expect(page.getByRole("alert")).toHaveCount(0);
+  // The first read's stages' history went unused with its failed runs read, so the read that
+  // recovered read it again.
+  await sent.settled();
+  expect(sent.count(stagesHistory)).toBe(2);
   await openSection(page, "Storyboard");
   await openSection(page, "Script");
   await replaceText(description, "Keep this unsaved edit");
@@ -2207,6 +2213,9 @@ test("polling errors recover without clearing a save conflict or unsaved edits",
   await expect(page.getByRole("alert")).toHaveCount(1);
   await expect(page.getByRole("alert")).toContainText("Draft changed");
   await expect(description).toHaveText("Keep this unsaved edit");
+  // Once it landed, a failing read and the one after it left it as it was.
+  await sent.settled();
+  expect(sent.count(stagesHistory)).toBe(2);
   expect(f.errors).toEqual([]);
 });
 

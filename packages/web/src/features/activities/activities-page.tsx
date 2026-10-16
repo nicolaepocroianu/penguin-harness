@@ -698,7 +698,11 @@ function ActivityEditor({
           cache.put(api.runs.list, history);
         setSandboxModule(sandboxHasModule(sandbox));
         if (stages) setPipeline(unlessSame(pipelineOrNull(stages.pipeline)));
-        if (sequences) setPipelineHistory(unlessSame(sequences));
+        // Only a history set here counts as read; a tick that failed reads it again.
+        if (sequences) {
+          setPipelineHistory(unlessSame(sequences.pipelines));
+          sequences.landed();
+        }
         active = indexRuns(history).busy || stages?.pipeline?.status === "running";
         draft.receive(value, revisionAtStart);
       } catch (e) {
