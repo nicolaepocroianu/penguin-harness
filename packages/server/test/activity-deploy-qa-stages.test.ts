@@ -138,7 +138,12 @@ async function setup(
     clock: clock.clock,
     settings,
     productCode: "words",
-    module: { folder: "waf-module-words", dir: await tempDir("penguin-qa-module-"), source: null },
+    module: {
+      folder: "waf-module-words",
+      dir: await tempDir("penguin-qa-module-"),
+      checkDir: path.join(await tempDir("penguin-qa-checks-"), "waf-module-words"),
+      source: null,
+    },
     moduleVersion: null,
     metadata: {},
     earlier: { await_module_build: { resolvedModuleVersion: "1.5.0" } },

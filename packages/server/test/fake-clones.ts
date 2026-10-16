@@ -55,7 +55,7 @@ export interface FakeRepo {
   tagCommits?: Record<string, string[]>;
   /**
    * The files each commit and each release tag has, by name, with what each holds; a commit
-   * not named here has files no tag has.
+   * not named here has files no tag has. Exporting a commit writes the files named for it.
    */
   files?: Record<string, Record<string, string>>;
   /** Branches that have diverged from origin's. */
@@ -369,6 +369,14 @@ class FakeClone implements Clone {
   async fileAt(at: { tag: string } | { commit: string }, file: string): Promise<string | null> {
     const { files = {} } = this.call("fileAt", at, file);
     return files["tag" in at ? at.tag : at.commit]?.[file] ?? null;
+  }
+
+  async exportTo(commit: string, dir: string): Promise<void> {
+    const { files = {} } = this.call("exportTo", commit, dir);
+    for (const [file, content] of Object.entries(files[commit] ?? {})) {
+      await fs.mkdir(path.dirname(path.join(dir, file)), { recursive: true });
+      await fs.writeFile(path.join(dir, file), content);
+    }
   }
 }
 

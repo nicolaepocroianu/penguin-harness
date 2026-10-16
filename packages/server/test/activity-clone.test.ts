@@ -4,8 +4,9 @@
  * branch as origin has it, carrying work, discarding it, or refusing a branch that diverged
  * with the work put back as it was, even when stopped; a stash that cannot be put back, and
  * counting it; staging in batches, committing, pushing with a lease; what changed, a branch's
- * commit, whether two commits hold the same files; tags and what they hold; a partial clone's
- * sparse folders; and the deploy log a clone writes.
+ * commit, whether two commits hold the same files; tags and what they hold; exporting a
+ * commit's files; a partial clone's sparse folders, and its LFS files uploaded before a push;
+ * and the deploy log a clone writes.
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs/promises";
@@ -473,6 +474,33 @@ describe("committing and publishing", () => {
     const tags = await clones.open(dir).fetchTags();
     expect(tags).toEqual(expect.arrayContaining(["1.0.0", "v1.2.0"]));
   }, 30_000);
+
+  it("exports a commit's files, and nothing of the repository, leaving the clone as it was", async () => {
+    const remote = await origin({ "package.json": "{}", "src/index.js": "export {};" });
+    const dir = await remote.cloneOf("clone");
+    // A link in the commit, made without asking the file system for one.
+    await write(remote.root, "target", "../..");
+    const blob = git(dir, "hash-object", "-w", "--no-filters", path.join(remote.root, "target"));
+    git(dir, "update-index", "--add", "--cacheinfo", `120000,${blob},link`);
+    git(dir, "commit", "-m", "link");
+    const commit = git(dir, "rev-parse", "HEAD");
+    // Work in the clone's index and working tree, which the export must not touch.
+    await write(dir, "src/index.js", "export const changed = 1;");
+    git(dir, "add", "src/index.js");
+    await write(dir, "loose.txt", "not committed");
+    const out = path.join(remote.root, "export", "words");
+    await fs.mkdir(out, { recursive: true });
+    await clones.open(dir).exportTo(commit, out);
+    expect((await fs.readdir(out)).sort()).toEqual(["link", "package.json", "src"]);
+    expect(await read(out, "src/index.js")).toBe("export {};");
+    // A link arrives as a file naming its target, so nothing written through it leaves the folder.
+    expect((await fs.lstat(path.join(out, "link"))).isFile()).toBe(true);
+    expect(await read(out, "link")).toBe("../..");
+    expect(git(dir, "diff", "--cached", "--name-only")).toBe("src/index.js");
+    expect(await read(dir, "src/index.js")).toBe("export const changed = 1;");
+    // The export's own index is gone.
+    expect(await fs.readdir(path.dirname(out))).toEqual(["words"]);
+  }, 30_000);
 });
 
 describe("a partial clone's sparse folders", () => {
@@ -497,6 +525,33 @@ describe("a partial clone's sparse folders", () => {
     // A clone that is not sparse checks out every folder.
     const full = await remote.cloneOf("full");
     expect(await clones.open(full).includes("loom/other")).toBe(true);
+  }, 60_000);
+
+  it("uploads LFS files before a push from a clone git-lfs set up, as its hook would have", async () => {
+    const remote = await origin({ "loom/words/a.mp3": "a" });
+    const asked: string[][] = [];
+    // Real git, but for the upload, which is only noted: this origin has no LFS server.
+    const noting: DeployGit = {
+      run: (args, cwd, opts) => {
+        asked.push(args);
+        if (args[0] === "lfs" && args[1] === "push")
+          return Promise.resolve({ code: 0, stdout: "", stderr: "" });
+        return spawnGit.run(args, cwd, opts);
+      },
+    };
+    const dir = path.join(remote.root, "media");
+    await gitClones(noting).cloneFrom(remote.url, dir, { branch: "main", partial: true });
+    // git-lfs put its hooks in the clone, for git run there by hand.
+    expect(await read(dir, ".git/hooks/pre-push")).toContain("git lfs pre-push");
+    const full = await remote.cloneOf("full");
+    for (const where of [dir, full]) {
+      git(where, "checkout", "-b", "loom/words-media");
+      asked.length = 0;
+      await gitClones(noting).open(where).push("loom/words-media");
+      expect(asked.map((args) => args.slice(0, 2).join(" "))).toEqual(
+        where === dir ? ["lfs push", "push origin"] : ["push origin"],
+      );
+    }
   }, 60_000);
 });
 

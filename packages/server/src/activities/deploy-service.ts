@@ -211,6 +211,11 @@ export class ActivityDeployService implements ActivityDeploys {
     effect(() => runner.dispose());
   }
 
+  /** Where a release's checks of the module in `folder` run, outside the WAF checkout. */
+  private checkDir(folder: string): string {
+    return path.join(this.config.root, "activity-deploy", "checks", folder);
+  }
+
   /** A QA or PROD deploy finished: whoever keeps track of deployed versions is told. */
   private deployed({ projectId, run, stage, metadata }: DeployStageDone) {
     const at =
@@ -559,6 +564,7 @@ export class ActivityDeployService implements ActivityDeploys {
         module: {
           folder,
           dir: checkout.module(folder).root,
+          checkDir: this.checkDir(folder),
           source,
           contentHash,
           ...(module.runId ? { runId: module.runId } : {}),
@@ -645,6 +651,7 @@ export class ActivityDeployService implements ActivityDeploys {
         module: {
           folder: product.moduleFolder,
           dir: new WafLayout(await this.requireWafRoot()).module(product.moduleFolder).root,
+          checkDir: this.checkDir(product.moduleFolder),
           source: null,
         },
         prod: {
