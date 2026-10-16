@@ -14,6 +14,7 @@ import {
   type ImageResult,
   type ImageTarget,
 } from "../generated-image.js";
+import { MEDIA_HELPER_TIMEOUT_MS } from "../media-helper-runner.js";
 import { IMAGE_STYLE } from "../media-style.js";
 import type { RunRequestOf } from "../run-request.js";
 import { atomicJson } from "../service.js";
@@ -28,6 +29,9 @@ export const imageKind: ServerRunKind<RunRequestOf<"image">, ImageTarget, ImageR
   runner: "server",
   mediaAgent: true,
   needsScript: true,
+  // The helper's install and the helper itself each stop at MEDIA_HELPER_TIMEOUT_MS: the limit
+  // leaves them that and as long again, so a slow provider meets the helper's own words first.
+  limits: { wallClockMs: 4 * MEDIA_HELPER_TIMEOUT_MS },
   check: async (_services, request, activity) => imageTarget(activity, request.image),
   async authorize(services, _image, { projectId, agentId }) {
     if (!(await services.vaultKeys(projectId, agentId)).includes("GEMINI_API_KEY"))

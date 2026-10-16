@@ -37,6 +37,7 @@ import {
 } from "../src/activities/waf-module.js";
 import { IMAGE_STYLE, NARRATION_DELIVERY } from "../src/activities/media-style.js";
 import { DOCUMENT_RUN_MS, MINUTE_MS } from "../src/activities/run-kinds/contract.js";
+import { MEDIA_HELPER_TIMEOUT_MS } from "../src/activities/media-helper-runner.js";
 
 function deferred() {
   let resolve!: () => void;
@@ -1791,6 +1792,52 @@ describe("activity generation through Harness sessions", () => {
         error: "The spec run was stopped after 60 minutes, its time limit.",
       });
       await waitFor(() => f.aborted.has(run.sessionId!));
+    });
+
+    it("stops a media helper past its kind's limit, fails the run and records it", async () => {
+      const f = await fixture();
+      const run = (await (await f.startImage()).json()) as ActivityRun;
+      const call = f.helper.calls.at(-1)!;
+      // An image may work twenty minutes: its helper's install and the helper, and as long again.
+      f.elapse(4 * MEDIA_HELPER_TIMEOUT_MS - MINUTE_MS);
+      await f.service.reconcile();
+      expect(await f.service.isRunning(project, f.activity.id, run.runId)).toBe(true);
+      expect(call.signal.aborted).toBe(false);
+      f.elapse(2 * MINUTE_MS);
+      await f.service.reconcile();
+      expect(await f.service.run(project, f.activity.id, run.runId)).toMatchObject({
+        status: "failed",
+        error: "The image run was stopped after 20 minutes, its time limit.",
+        candidate: null,
+      });
+      // Stopped the way Stop stops it: the helper's signal aborts, and its answer changes nothing.
+      expect(call.signal.aborted).toBe(true);
+      expect(await f.helperSettled(run)).toMatchObject({ status: "failed" });
+      const outcomes = f.t.deps.tree.api<ActivityOutcomes>("ActivitiesModule", "ActivityOutcomes");
+      const [story] = await outcomes.history(project, f.activity.id, run.runId);
+      expect(story!.facts.find((fact) => fact.fact === "settled")?.detail).toEqual({
+        status: "failed",
+        limit: "time",
+      });
+    });
+
+    it("stops a media helper at an admin's limit in place of its kind's own", async () => {
+      const f = await fixture();
+      const admin = apiClient(f.t.app, (await loginAdmin(f.t.app)).cookie);
+      const set = await admin.put("/api/admin/settings", { activityRunLimitMinutes: 5 });
+      expect(set.status, await set.clone().text()).toBe(200);
+      const run = (await (await f.startAudio()).json()) as ActivityRun;
+      const call = f.helper.calls.at(-1)!;
+      f.elapse(4 * MINUTE_MS);
+      await f.service.reconcile();
+      expect(await f.service.isRunning(project, f.activity.id, run.runId)).toBe(true);
+      f.elapse(2 * MINUTE_MS);
+      await f.service.reconcile();
+      expect(await f.service.run(project, f.activity.id, run.runId)).toMatchObject({
+        status: "failed",
+        error: "The audio run was stopped after 5 minutes, its time limit.",
+      });
+      expect(call.signal.aborted).toBe(true);
     });
 
     it("ends the Stages there, starting nothing after the run it stopped", async () => {

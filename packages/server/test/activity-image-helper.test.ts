@@ -23,6 +23,7 @@ async function runHelper({
   terminal = "stop",
   usage = true,
   providerError = false,
+  providerStatus,
   existing,
   credential = "fake-test-only",
 }: {
@@ -31,6 +32,8 @@ async function runHelper({
   terminal?: string;
   usage?: boolean;
   providerError?: boolean;
+  /** The HTTP status of the error the provider client throws, as Gemini's client carries it. */
+  providerStatus?: number;
   existing?: Buffer;
   credential?: string;
 } = {}) {
@@ -64,6 +67,7 @@ export class AutoLLMClient {
   async *streamingResponse(options) {
     await fs.writeFile("request.json", JSON.stringify({client:this.options, request:options}));
     ${providerError ? 'throw new Error("secret-test-provider-header");' : ""}
+    ${providerStatus ? `throw Object.assign(new Error("secret-test-provider-header"), { status: ${providerStatus} });` : ""}
     yield {content_items:[${outputSource}]};
     ${terminal === "missing" ? "" : `yield {content_items:[],finish_reason:${JSON.stringify(terminal)},usage_metadata:${usage ? "{}" : "null"}};`}
   }
@@ -240,6 +244,53 @@ describe("image generation helper", () => {
       await expect(fs.stat(path.join(root, "request.json"))).rejects.toMatchObject({
         code: "ENOENT",
       });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it.each<[string, Parameters<typeof runHelper>[0], string]>([
+    [
+      "bad input",
+      { input: { model: "other-model" } },
+      "image-input.json is not a valid image request.",
+    ],
+    ["a missing key", { credential: "" }, "GEMINI_API_KEY is not set."],
+    [
+      "a refused key",
+      { providerStatus: 403 },
+      "Gemini refused the Agent Vault GEMINI_API_KEY (HTTP 403).",
+    ],
+    [
+      "a spent quota",
+      { providerStatus: 429 },
+      "Gemini refused the request (HTTP 429): the key's quota",
+    ],
+    ["a refused request", { providerStatus: 400 }, "Gemini refused the request (HTTP 400)."],
+    ["a provider failure", { providerStatus: 503 }, "Gemini failed to answer (HTTP 503)."],
+    ["an unfinished request", { providerError: true }, "The request to Gemini did not complete."],
+    ["no picture", { outputs: [] }, "Gemini answered without a picture"],
+    [
+      "an unfinished answer",
+      { terminal: "length" },
+      "Gemini's answer ended before it was complete.",
+    ],
+    [
+      "a picture that is no PNG",
+      { outputs: [{ mime: "image/jpeg" }] },
+      "Gemini's answer was not one PNG",
+    ],
+  ])("ends a failure for %s with a line of its own", async (_label, options, says) => {
+    const { root, processResult } = await runHelper(options);
+    try {
+      expect(processResult.status).toBe(1);
+      // The line the server shows as the run's error: what failed, never the provider's words.
+      const last = processResult.stderr.trim().split(/\r?\n/).at(-1)!;
+      expect(last.startsWith(`Image generation failed. ${says}`), last).toBe(true);
+      expect(last).toMatch(/No candidate was accepted\.$/);
+      expect(processResult.stdout + processResult.stderr).not.toContain(
+        "secret-test-provider-header",
+      );
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
