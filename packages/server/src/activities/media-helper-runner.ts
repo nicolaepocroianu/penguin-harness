@@ -1,19 +1,19 @@
 /**
- * Making one narration, word recording, music or sound-effect clip without an agent, Loom's
- * way.
+ * Making one image, narration, word recording, music or sound-effect clip without an agent,
+ * Loom's way.
  *
- * Speech and sound runs used to be Media Agent Sessions told to run a staged helper
- * (`generate-speech.mjs` or `generate-sound.mjs`) once; the Session added a model request, a
- * transcript and a wait per clip and decided nothing. The server now runs the same helper
- * itself, in the run's workspace, with the Media Agent's Vault as its environment, and
- * collects what it wrote exactly as before.
+ * Image, speech and sound runs used to be Media Agent Sessions told to run a staged helper
+ * (`generate-image.mjs`, `generate-speech.mjs` or `generate-sound.mjs`) once; the Session added
+ * a model request, a transcript and a wait per asset and decided nothing. The server now runs
+ * the same helper itself, in the run's workspace, with the Media Agent's Vault as its
+ * environment, and collects what it wrote exactly as before.
  *
  * The helpers stay the one place the providers are called, so their own suites still cover
  * what is sent and what is written.
  *
- * A helper that needs agenthub (Gemini speech, a hub sound model) does not install it per run:
- * one install per dependency set is kept under the cache folder and linked into each run's
- * workspace as its node_modules.
+ * A helper that needs agenthub (an image, Gemini speech, a hub sound model) does not install
+ * it per run: one install per dependency set is kept under the cache folder and linked into
+ * each run's workspace as its node_modules.
  */
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
@@ -33,7 +33,7 @@ const PROVIDER_KEYS = ["GEMINI_API_KEY", "ELEVENLABS_API_KEY", "ELEVENLABS_VOICE
 /** How much of a child's output is kept for the reason it failed. */
 const OUTPUT_MAX = 64 * 1024;
 
-export type MediaHelperScript = "generate-speech.mjs" | "generate-sound.mjs";
+export type MediaHelperScript = "generate-image.mjs" | "generate-speech.mjs" | "generate-sound.mjs";
 
 export interface MediaHelperRun {
   /** The run's workspace, holding the helper, its input file and package.json. */
@@ -41,7 +41,10 @@ export interface MediaHelperRun {
   script: MediaHelperScript;
   /** The Media Agent's Vault. */
   vault: Record<string, string>;
-  /** Whether package.json names dependencies to install first (agenthub, for Gemini or a hub model). */
+  /**
+   * Whether package.json names dependencies to install first (agenthub, for an image, Gemini
+   * speech or a hub model).
+   */
   install: boolean;
   /** Where installed dependencies are kept between runs. */
   cacheDir: string;
@@ -52,7 +55,8 @@ export interface MediaHelperRun {
 export type MediaHelperResult = { ok: true } | { ok: false; error: string };
 
 /**
- * Where a speech or sound run reaches its helper, and a module scaffold its cached packages.
+ * Where an image, speech or sound run reaches its helper, and a module scaffold its cached
+ * packages.
  * Absent, the real child processes below.
  */
 export abstract class MediaHelperPorts extends Interface<{

@@ -18,7 +18,7 @@ import {
 } from "../audio.js";
 import { soundProviderFor, speechProviderFor } from "../audio-providers.js";
 import type { AudioRun } from "../domain.js";
-import type { LocalAudioRequest } from "../local-audio.js";
+import { LOCAL_AUDIO_TIMEOUT_MS, type LocalAudioRequest } from "../local-audio.js";
 import { isLocalAudioProvider } from "../local-audio-models.js";
 import { NARRATION_DELIVERY } from "../media-style.js";
 import { soundPromptOf } from "../playback.js";
@@ -33,11 +33,19 @@ import {
   bundledMediaHelper,
   type Acceptance,
   type RunKindServices,
+  type RunLimits,
   type ServerRunKind,
 } from "./contract.js";
 
 /** Word timings are small; a sidecar past this is not one. */
 const SPEECH_TIMINGS_MAX_BYTES = 2 * 1024 * 1024;
+
+/**
+ * A clip may be made by a model on this machine, which works on it up to
+ * LOCAL_AUDIO_TIMEOUT_MS, its first download included, after waiting as long again for its turn
+ * behind another model. A provider's helper stops itself well before that.
+ */
+const CLIP_LIMITS: RunLimits = { wallClockMs: 2 * LOCAL_AUDIO_TIMEOUT_MS };
 
 /**
  * The file a sound run must collect: the format its request named (a hub model's catalogued
@@ -203,6 +211,7 @@ export const speechKind: ServerRunKind<RunRequestOf<"speech">, AudioTarget, Audi
   runner: "server",
   mediaAgent: true,
   needsScript: true,
+  limits: CLIP_LIMITS,
   check: async (_services, request, activity) => audioTarget(activity, request.speech),
   async authorize(services, audio, { projectId, agentId }) {
     const keys = await services.vaultKeys(projectId, agentId);
@@ -294,6 +303,7 @@ export const soundKind: ServerRunKind<RunRequestOf<"sound">, SoundPrepared, Audi
   runner: "server",
   mediaAgent: true,
   needsScript: true,
+  limits: CLIP_LIMITS,
   check: async (services, request, activity) => ({
     sound: soundTarget(activity, request.sound, services.soundModels.agenthubModels),
     model: request.sound.model,

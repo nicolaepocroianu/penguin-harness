@@ -1164,7 +1164,8 @@ export const en: Strings = {
       skipped: (count: number) => `${count} skipped`,
       showLog: (step: string) => `Show the ${step} session`,
       waitingForSession: "Waiting for the stage's session to start…",
-      runByServer: "The server makes each clip itself, so this stage has no session to show.",
+      runByServer:
+        "The server makes each clip or image itself, so this stage has no session to show.",
       openInChat: "Open in chat",
       noRun: "No stages have run in this session of the server.",
       earlier: (count: number) => `Earlier runs (${count})`,
@@ -2261,7 +2262,7 @@ export const en: Strings = {
     invalidTextCandidate: "This text suggestion does not match the selected asset.",
     textRun: "Media text",
     imageHelp:
-      "Images use Gemini through a Session of the Media Agent. Add GEMINI_API_KEY to the Media Agent's Vault. Preview a candidate before accepting it; regeneration keeps your accepted image.",
+      "The server makes images with Gemini, using GEMINI_API_KEY from the Media Agent's Vault, and starts no Session. Preview a candidate before accepting it; regeneration keeps your accepted image.",
     generateImage: "Generate image",
     regenerateImage: "Regenerate image",
     imageCandidates: "Image candidates",
@@ -2273,7 +2274,7 @@ export const en: Strings = {
     imageRun: "Image",
     speechReady: "Ready to review",
     speechHelp:
-      "Speech uses Gemini TTS through a Session of the Media Agent. Add GEMINI_API_KEY to the Media Agent’s Vault. Listen to a candidate before accepting it; regeneration keeps your accepted audio.",
+      "The server makes speech with Gemini or ElevenLabs, using GEMINI_API_KEY or ELEVENLABS_API_KEY from the Media Agent's Vault, or with Kokoro on this server, and starts no Session. Listen to a candidate before accepting it; regeneration keeps your accepted audio.",
     invalidMediaEditor: "Fix or reload the manifest JSON before using the asset editor.",
     mediaTypes: {
       all: "All media",
@@ -3019,7 +3020,7 @@ export const en: Strings = {
       confineAgentsLoadFailed: (reason) => `Could not read this setting: ${reason}`,
       runLimit: "Run time limit",
       runLimitInfo:
-        "How long an activity run may work before Penguin stops it and marks it failed, so a run that loops or hangs does not hold its activity, or the Stages, until someone presses Stop. Each kind of run has its own limit, the longest for module builds, which build what they make and check it in the player. A limit picked here replaces them all, for runs already working too.",
+        "How long an activity run may work before Penguin stops it and marks it failed, so a run that loops or hangs does not hold its activity, or the Stages, until someone presses Stop. Each kind of run has its own limit, the longest for module builds, which build what they make and check it in the player; images, speech and sounds, which the server makes without an agent, have theirs too. A limit picked here replaces them all, for runs already working too.",
       runLimitDefault: "Each kind's own",
       runLimitMinutes: (minutes) =>
         minutes % 60 === 0

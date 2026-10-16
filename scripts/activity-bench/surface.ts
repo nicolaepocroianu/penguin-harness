@@ -36,7 +36,6 @@ export const PROMPT_SOURCES: readonly string[] = [
   "assist",
   "composition",
   "critique",
-  "image",
   "media-text",
   "module",
   "phonemes",

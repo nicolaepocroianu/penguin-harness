@@ -3,8 +3,9 @@
  * read-only to its commands by enforcement, not by the prompt's word. Where nothing can
  * confine them the run is refused before it starts. A coding agent runs its commands
  * itself, outside Penguin's sandbox, so it is not confined, and refused only for a module run,
- * whose module the server builds confined. Confined or not, a run's agent is not handed the
- * API token or the `penguin` CLI.
+ * whose module the server builds confined. A media run, which no agent works on, is neither
+ * confined nor refused. Confined or not, a run's agent is not handed the API token or the
+ * `penguin` CLI.
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +15,7 @@ import type { ActivityRuns } from "../src/activities/run-store.js";
 import type { SessionEnv } from "../src/runtime/session-manager.js";
 import { SandboxService } from "../src/sandbox/service.js";
 import { activitySpec } from "./activity-fixtures.js";
+import { fakeMediaHelper } from "./audio-fixtures.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser, type TestApp } from "./helpers.js";
 
 const STAGE_AGENT = fileURLToPath(new URL("./coding-agents-stage-agent.mjs", import.meta.url));
@@ -26,7 +28,9 @@ describe("activity runs and the sandbox", () => {
   });
 
   async function fixture(sandbox?: SandboxService) {
-    t = await createTestApp(sandbox ? { sandbox } : {});
+    // Media runs have no Session: the server runs their helper, which this fake stands in for.
+    const helper = fakeMediaHelper();
+    t = await createTestApp({ ...(sandbox ? { sandbox } : {}), mediaHelperPorts: helper.ports });
     const admin = apiClient(t.app, (await loginAdmin(t.app)).cookie);
     expect((await admin.post("/api/projects", { projectId: "confined" })).status).toBe(201);
     const base = "/api/projects/confined/activities";
@@ -46,7 +50,7 @@ describe("activity runs and the sandbox", () => {
       .mockRejectedValue(new Error("not under test"));
     const runs = async () =>
       ((await (await admin.get(`${endpoint}/runs`)).json()) as { runs: unknown[] }).runs;
-    return { admin, endpoint, revision: draft.contentRevision, createSession, runs };
+    return { admin, endpoint, revision: draft.contentRevision, createSession, runs, helper };
   }
 
   it("creates the run's Session confined to its workspace", async () => {
@@ -72,6 +76,45 @@ describe("activity runs and the sandbox", () => {
     expect(body.error.message).toMatch(/Enable a sandbox plugin for this project/);
     expect(f.createSession).not.toHaveBeenCalled();
     expect(await f.runs()).toEqual([]);
+  });
+
+  it("starts an image run nothing can confine, since no agent works on it", async () => {
+    const f = await fixture(new SandboxService([]));
+    // One image to make, its media planned, and the Media Agent's key.
+    const applied = await f.admin.post(`${f.endpoint}/apply-generated-spec`, {
+      spec: {
+        ...activitySpec,
+        scenes: [
+          {
+            id: "intro",
+            description: "Look",
+            media: { images: [{ key: "cover", description: "A blue penguin" }] },
+          },
+        ],
+      },
+      expectedRevision: f.revision,
+    });
+    expect(applied.status, await applied.clone().text()).toBe(200);
+    const planned = await f.admin.post(`${f.endpoint}/plan-media`, {
+      expectedRevision: ((await applied.json()) as ActivityDraft).contentRevision,
+    });
+    expect(planned.status, await planned.clone().text()).toBe(200);
+    const vault = await f.admin.put("/api/projects/confined/agents/media_agent/vault", {
+      entries: [{ key: "GEMINI_API_KEY", value: "fake-test-only" }],
+    });
+    expect(vault.status).toBe(200);
+    const current = (await (await f.admin.get(f.endpoint)).json()) as ActivityDetail;
+    const response = await f.admin.post(`${f.endpoint}/generate-image`, {
+      agentId: "default_agent",
+      expectedRevision: current.draft.contentRevision,
+      language: "en-US",
+      assetKey: "cover",
+    });
+    expect(response.status, await response.clone().text()).toBe(202);
+    // The server runs the bundled helper itself: no Session, and nothing an agent wrote.
+    await vi.waitFor(() => expect(f.helper.calls).toHaveLength(1));
+    expect(f.helper.calls[0]).toMatchObject({ script: "generate-image.mjs" });
+    expect(f.createSession).not.toHaveBeenCalled();
   });
 
   it("gives a confined Session's commands an npm cache inside its workspace", async () => {

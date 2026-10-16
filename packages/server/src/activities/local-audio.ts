@@ -74,6 +74,9 @@ export function localAudioModuleUrl(
   return null;
 }
 
+/** How long one local model may work on one clip, its first download included. */
+export const LOCAL_AUDIO_TIMEOUT_MS = 30 * 60_000;
+
 function waitForAudioTurn(previous: Promise<void>, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const abort = () => reject(new Error("Local audio generation cancelled."));
@@ -123,7 +126,7 @@ export function runLocalAudioWorker(
     const abort = () => finish(new Error("Local audio generation cancelled."));
     const timeout = setTimeout(
       () => finish(new Error("Local audio generation exceeded 30 minutes.")),
-      30 * 60_000,
+      LOCAL_AUDIO_TIMEOUT_MS,
     );
     signal.addEventListener("abort", abort, { once: true });
     worker.once("error", () => finish(new Error("The local audio worker could not start.")));

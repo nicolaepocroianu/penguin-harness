@@ -115,7 +115,6 @@ describe("the stage prompts' own modules", () => {
       "assist.ts",
       "composition.ts",
       "critique.ts",
-      "image.ts",
       "media-text.ts",
       "module.ts",
       "phonemes.ts",

@@ -1047,7 +1047,7 @@ export type Strings = {
       skipped: (count: number) => string;
       showLog: (step: string) => string;
       waitingForSession: string;
-      /** A speech or sound stage while it runs: no agent, so no transcript. */
+      /** A speech, image or sound stage while it runs: no agent, so no transcript. */
       runByServer: string;
       openInChat: string;
       noRun: string;

@@ -1,4 +1,8 @@
-/** An image for one asset of the media plan, drawn by the Media Agent with the image helper. */
+/**
+ * An image for one asset of the media plan, made with no agent: the server runs the image
+ * helper in the run's workspace, with the Media Agent's Vault, as it runs speech's and sound's,
+ * and keeps the picture it wrote.
+ */
 import fs from "node:fs/promises";
 import path from "node:path";
 import { HttpError } from "../../http/errors.js";
@@ -10,30 +14,23 @@ import {
   type ImageResult,
   type ImageTarget,
 } from "../generated-image.js";
-import { IMAGE_STYLE } from "../media-style.js";
 import { MEDIA_HELPER_TIMEOUT_MS } from "../media-helper-runner.js";
+import { IMAGE_STYLE } from "../media-style.js";
 import type { RunRequestOf } from "../run-request.js";
 import { atomicJson } from "../service.js";
 import { AGENTHUB_VERSION } from "../sound-models.js";
-import {
-  RunRefusal,
-  bundledMediaHelper,
-  requireCompleted,
-  type SessionRunKind,
-} from "./contract.js";
-import { IMAGE_PROMPT } from "../prompts/image.js";
+import { RunRefusal, bundledMediaHelper, type ServerRunKind } from "./contract.js";
 
 /** What an image run writes. */
 export const IMAGE_OUTPUT = "image.png";
 
-export const imageKind: SessionRunKind<RunRequestOf<"image">, ImageTarget, ImageRun> = {
+export const imageKind: ServerRunKind<RunRequestOf<"image">, ImageTarget, ImageRun> = {
   run: "image",
-  runner: "session",
+  runner: "server",
   mediaAgent: true,
   needsScript: true,
-  // It installs the helper's packages and runs the helper once: the two programs the server
-  // allows MEDIA_HELPER_TIMEOUT_MS each when it runs a speech or sound helper itself, with as
-  // long again for the agent's own turns.
+  // The helper's install and the helper itself each stop at MEDIA_HELPER_TIMEOUT_MS: the limit
+  // leaves them that and as long again, so a slow provider meets the helper's own words first.
   limits: { wallClockMs: 4 * MEDIA_HELPER_TIMEOUT_MS },
   check: async (_services, request, activity) => imageTarget(activity, request.image),
   async authorize(services, _image, { projectId, agentId }) {
@@ -50,6 +47,7 @@ export const imageKind: SessionRunKind<RunRequestOf<"image">, ImageTarget, Image
     const helper = bundledMediaHelper("generate-image.mjs", "image_helper_missing");
     // The house style travels with the request, not the run: an image is drawn in it.
     await atomicJson(path.join(workspace, "image-input.json"), { ...image, style: IMAGE_STYLE });
+    // The same agenthub a Gemini narration installs, so both link the one cached install.
     await atomicJson(path.join(workspace, "package.json"), {
       private: true,
       type: "module",
@@ -57,10 +55,9 @@ export const imageKind: SessionRunKind<RunRequestOf<"image">, ImageTarget, Image
     });
     await fs.writeFile(path.join(workspace, "generate-image.mjs"), helper, { flag: "wx" });
   },
-  prompt: () => IMAGE_PROMPT,
-  outputs: [IMAGE_OUTPUT],
-  async collect({ services, run, workspace, observed, save }) {
-    requireCompleted(observed, "Image Session did not complete.");
+  helper: () => ({ script: "generate-image.mjs", install: true }),
+  missing: () => IMAGE_OUTPUT,
+  async collect({ services, run, workspace, save }) {
     const bytes = await readArtifactBytes(
       path.join(workspace, IMAGE_OUTPUT),
       GENERATED_IMAGE_MAX_BYTES,
@@ -73,7 +70,7 @@ export const imageKind: SessionRunKind<RunRequestOf<"image">, ImageTarget, Image
     );
     run.candidate = JSON.stringify(result);
     save(run);
-    return { kept: true, draftChanged: "The draft changed during image generation." };
+    return { draftChanged: "The draft changed during image generation." };
   },
   accept: {
     changed: {

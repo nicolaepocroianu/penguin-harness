@@ -1,7 +1,7 @@
 /**
- * The server running a speech or sound run's helper itself: the Vault as the helper's only
- * source of provider keys, the helper's own words when it fails, and a cancel that stops it.
- * Stand-in helpers run in place of the real ones, so nothing reaches a provider.
+ * The server running an image, speech or sound run's helper itself: the Vault as the helper's
+ * only source of provider keys, the helper's own words when it fails, and a cancel that stops
+ * it. Stand-in helpers run in place of the real ones, so nothing reaches a provider.
  */
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -56,23 +56,25 @@ describe("running a media helper without an agent", () => {
     });
   });
 
-  it("runs the sound helper for a sound run", async () => {
-    const root = await workspace(
-      `import fs from "node:fs";
-      fs.writeFileSync("ran.txt", "sound");`,
-      "generate-sound.mjs",
-    );
-    expect(
-      await runMediaHelper({
-        workspace: root,
-        script: "generate-sound.mjs",
-        vault: {},
-        install: false,
-        cacheDir: os.tmpdir(),
-        signal: new AbortController().signal,
-      }),
-    ).toEqual({ ok: true });
-    expect(await fs.readFile(path.join(root, "ran.txt"), "utf8")).toBe("sound");
+  it("runs the sound helper for a sound run, and the image helper for an image run", async () => {
+    for (const script of ["generate-sound.mjs", "generate-image.mjs"] as const) {
+      const root = await workspace(
+        `import fs from "node:fs";
+        fs.writeFileSync("ran.txt", ${JSON.stringify(script)});`,
+        script,
+      );
+      expect(
+        await runMediaHelper({
+          workspace: root,
+          script,
+          vault: {},
+          install: false,
+          cacheDir: os.tmpdir(),
+          signal: new AbortController().signal,
+        }),
+      ).toEqual({ ok: true });
+      expect(await fs.readFile(path.join(root, "ran.txt"), "utf8")).toBe(script);
+    }
   });
 
   it("fails with the helper's last line", async () => {

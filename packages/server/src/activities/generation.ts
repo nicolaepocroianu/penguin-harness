@@ -96,7 +96,6 @@ import {
   type ActivityRun,
   type ActivityRunKind,
   type ActivityRunSummary,
-  type AudioRun,
   type DeterministicRunKind,
 } from "./domain.js";
 import { normalizeMediaTags } from "./spec-normalization.js";
@@ -159,7 +158,14 @@ export class ActivityGenerationService implements ActivityGeneration {
   @Use() private readonly soundModels!: SoundModelPorts;
   @Use() private readonly localAudio!: LocalAudio;
   @Use() private readonly mediaHelper!: MediaHelperPorts;
-  private readonly localRuns = new Map<string, AbortController>();
+  /**
+   * The work the server does itself on a running run, by run id: what stops it, and for a kind
+   * the server runs itself, that kind, whose limit the work answers to.
+   */
+  private readonly localRuns = new Map<
+    string,
+    { controller: AbortController; kind?: LimitedKind }
+  >();
   @Use() private readonly settings!: Settings;
   @Use() private readonly wafWorkspace!: WafWorkspace;
   @Use() private readonly browser!: TestBrowser;
@@ -202,7 +208,7 @@ export class ActivityGenerationService implements ActivityGeneration {
   private stop() {
     if (this.stopped) return;
     this.stopped = true;
-    for (const controller of this.localRuns.values()) controller.abort();
+    for (const { controller } of this.localRuns.values()) controller.abort();
     if (this.timer) clearInterval(this.timer);
     for (const observer of this.observers.values()) observer.unsubscribe();
     this.observers.clear();
@@ -552,17 +558,20 @@ export class ActivityGenerationService implements ActivityGeneration {
             error: null,
             candidate: null,
           } as ActivityRun;
-          // A model on this machine runs no agent, and a coding agent runs its commands itself,
-          // outside Penguin's sandbox.
-          const local = kind.runner === "server" ? kind.local(prepared) : null;
+          // A kind the server runs itself runs a model on this machine, else the helper it
+          // staged.
+          const local = kind.runner === "server" ? (kind.local?.(prepared) ?? null) : null;
           // Penguin's own agent runs a stage's commands confined to the run's workspace, so
           // the WAF checkout is read-only to them by enforcement, not by the prompt's word —
           // unless an admin turned confinement off for this server (System settings > WAF
           // workspace). A coding agent's commands are not, but a module its agent writes is
           // built here, confined, for the run's player check. With nothing able to confine, the
-          // run is refused here rather than left to fail at its first command or that check.
+          // run is refused here rather than left to fail at its first command or that check. A
+          // run no agent works on runs no code an agent wrote (the server's own work, a bundled
+          // media helper, a model on this machine): it is neither confined, nor refused for want
+          // of a sandbox.
           const confinement =
-            !work && !local && (!codingAgentId || kind.writesModule)
+            kind.runner === "session" && !work && (!codingAgentId || kind.writesModule)
               ? runConfinement(this.settings, this.sandbox)
               : null;
           const confined = confinement !== null && !codingAgentId;
@@ -576,7 +585,7 @@ export class ActivityGenerationService implements ActivityGeneration {
               if (this.stopped)
                 throw new HttpError(503, "activity_stopping", "Server is stopping.");
               const controller = new AbortController();
-              this.localRuns.set(run.runId, controller);
+              this.localRuns.set(run.runId, { controller, kind });
               this.outcomes.witness({ run, server: `local:${local.provider}/${local.model}` });
               void this.track(this.generateLocal(run, local, controller)).catch(
                 (error: unknown) => {
@@ -619,7 +628,7 @@ export class ActivityGenerationService implements ActivityGeneration {
               // starts, as it is before a Session's.
               this.runs.save(run);
               const controller = new AbortController();
-              this.localRuns.set(run.runId, controller);
+              this.localRuns.set(run.runId, { controller });
               void this.track(
                 this.workOnServer(run, kind, () => work(stage, controller.signal), controller),
               ).catch((error: unknown) => {
@@ -628,18 +637,19 @@ export class ActivityGenerationService implements ActivityGeneration {
               return run;
             }
             if (kind.runner === "server") {
-              // Speech and sound need no agent: the server runs the staged helper itself, as
-              // Loom's audio stage calls its provider, and collects the clip as a Session's
-              // would be. agenthub is installed first for Gemini speech and hub models.
+              // Images, speech and sound need no agent: the server runs the staged helper
+              // itself, as Loom's media stages call their provider, and collects what it wrote
+              // as a Session's would be. agenthub is installed first for images, Gemini speech
+              // and hub models.
               if (this.stopped)
                 throw new HttpError(503, "activity_stopping", "Server is stopping.");
               const controller = new AbortController();
-              this.localRuns.set(run.runId, controller);
+              this.localRuns.set(run.runId, { controller, kind });
               const helper = kind.helper(prepared);
               this.outcomes.witness({ run, server: `helper:${helper.script}` });
-              void this.track(this.generateAudio(run as AudioRun, kind, helper, controller)).catch(
+              void this.track(this.generateWithHelper(run, kind, helper, controller)).catch(
                 (error: unknown) => {
-                  this.log.line(`[activities] Audio settlement failed: ${String(error)}`);
+                  this.log.line(`[activities] Media helper settlement failed: ${String(error)}`);
                 },
               );
               return run;
@@ -726,7 +736,7 @@ export class ActivityGenerationService implements ActivityGeneration {
         if (this.stopped) throw new HttpError(503, "activity_stopping", "Server is stopping.");
         if (run.status === "running") {
           this.finish(run, "cancelled", "Generation cancelled.");
-          this.localRuns.get(runId)?.abort();
+          this.localRuns.get(runId)?.controller.abort();
           if (run.sessionId) this.sessions.abortTask(run.sessionId);
         }
         return run;
@@ -776,12 +786,12 @@ export class ActivityGenerationService implements ActivityGeneration {
   }
 
   /**
-   * A speech or sound run's helper, run by the server: no Session, no model request. What it
-   * wrote is collected as a Session's would be; a failure is the helper's own words.
+   * An image, speech or sound run's helper, run by the server: no Session, no model request.
+   * What it wrote is collected as a Session's would be; a failure is the helper's own words.
    */
-  private async generateAudio(
-    run: AudioRun,
-    kind: ServerRunKind<RunRequest, unknown, AudioRun>,
+  private async generateWithHelper(
+    run: ActivityRun,
+    kind: ServerRunKind<RunRequest, unknown, ActivityRun>,
     helper: { script: MediaHelperScript; install: boolean },
     controller: AbortController,
   ): Promise<void> {
@@ -792,7 +802,7 @@ export class ActivityGenerationService implements ActivityGeneration {
         this.finish(
           current,
           this.stopped ? "interrupted" : "failed",
-          error instanceof Error ? error.message : "Audio generation failed.",
+          error instanceof Error ? error.message : "Generation failed.",
         );
       });
     };
@@ -812,7 +822,7 @@ export class ActivityGenerationService implements ActivityGeneration {
         return;
       }
       await this.lock.run(run.activityId, async () => {
-        const current = (await this.getRun(run.projectId, run.activityId, run.runId)) as AudioRun;
+        const current = await this.getRun(run.projectId, run.activityId, run.runId);
         if (current.status !== "running" || this.stopped || controller.signal.aborted) return;
         try {
           const { draftChanged } = await kind.collect({
@@ -833,7 +843,7 @@ export class ActivityGenerationService implements ActivityGeneration {
               ? `The ${helper.script} helper ended without ${kind.missing(current)}.`
               : error instanceof Error
                 ? error.message
-                : "Could not collect the clip.",
+                : "Could not collect what the helper wrote.",
           );
         }
       });
@@ -1433,7 +1443,13 @@ export class ActivityGenerationService implements ActivityGeneration {
         const run = this.runs.running().find((item) => item.runId === initial.runId);
         if (!run) return;
         const kind = SESSION_KINDS.get(run.kind);
-        if (!kind) return;
+        if (!kind) {
+          // A kind the server runs itself: its helper, or the model on this machine, answers
+          // to the kind's limit as a Session does.
+          const server = this.localRuns.get(run.runId)?.kind;
+          if (server) this.stopAtTimeLimit(run, server, adminLimit);
+          return;
+        }
         // A Session that went idle has finished its work, and is settled whenever it is looked
         // at; one still working, or the server's work in its place, answers to its limit.
         if (!run.sessionId || this.sessions.statusOf(run.sessionId) !== "idle") {
@@ -1462,22 +1478,25 @@ export class ActivityGenerationService implements ActivityGeneration {
   /**
    * Fails a run that has worked longer than it may, its limit named, and then stops what is
    * still working on it in the order Stop does: so the Stages waiting on it move on at once, and
-   * a Session that answers late finds its run already ended.
+   * a Session or helper that answers late finds its run already ended.
    */
-  private stopAtTimeLimit(run: ActivityRun, kind: SessionKind, adminLimit: number | null): void {
+  private stopAtTimeLimit(run: ActivityRun, kind: LimitedKind, adminLimit: number | null): void {
     const limitMs = wallClockLimitMs(kind.limits, adminLimit);
     if (limitMs === undefined) return;
     if (this.clock.now().getTime() - Date.parse(run.createdAt) <= limitMs) return;
     const error = new Error(timeLimitMessage(run.kind, limitMs));
     kind.failed?.(run, error);
     this.finish(run, "failed", error.message, "time");
-    this.localRuns.get(run.runId)?.abort();
+    this.localRuns.get(run.runId)?.controller.abort();
     if (run.sessionId) this.sessions.abortTask(run.sessionId);
   }
 }
 
 /** A kind whose agent works in a Session, of any request. */
 type SessionKind = SessionRunKind<RunRequest, unknown, ActivityRun, unknown>;
+
+/** What a run's time limit needs of its kind, whichever runs it. */
+type LimitedKind = Pick<AnyRunKind, "limits" | "failed">;
 
 /** The kinds whose agent works in a Session, by the kind of run they record. */
 const SESSION_KINDS = new Map<ActivityRunKind, SessionKind>(
