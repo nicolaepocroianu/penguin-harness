@@ -142,6 +142,30 @@ describe("drafts from the server", () => {
     expect(draft.state.description).toBe("Theirs");
   });
 
+  it("takes nothing from a poll that read what it holds, and tells no one", () => {
+    const { draft } = studio();
+    const held = draft.state;
+    const told = vi.fn();
+    draft.subscribe(told);
+    // Each poll's answer is a new object, read from JSON.
+    draft.receive(structuredClone(detailAt("r1")), "r1");
+    expect(told).not.toHaveBeenCalled();
+    expect(draft.state).toBe(held);
+  });
+
+  it("takes a poll's detail when only the record or the draft's bookkeeping moved", () => {
+    const { draft } = studio();
+    const told = vi.fn();
+    draft.subscribe(told);
+    // A product's tags change on the product, and the ref's own row keeps its updatedAt.
+    draft.receive({ ...detailAt("r1"), tags: ["phonics"] }, "r1");
+    expect(draft.state.detail?.tags).toEqual(["phonics"]);
+    // A pin leaves the revision as it was.
+    draft.receive({ ...detailAt("r1", { pinnedModuleRunId: "run_1" }), tags: ["phonics"] }, "r1");
+    expect(draft.state.detail?.draft.pinnedModuleRunId).toBe("run_1");
+    expect(told).toHaveBeenCalledTimes(2);
+  });
+
   it("applies a draft keeping the author's unsaved text, or replacing it, as asked", () => {
     const { draft } = studio();
     draft.edit("description", "Mine");
@@ -379,6 +403,34 @@ describe("the field-level merge", () => {
     expect(draft.timeline("en-US", "intro-video")).toBeNull();
     expect(draft.state.changed).toBe(false);
     expect(toasts).toEqual([S.activities.saved]);
+  });
+
+  it("keeps a timeline's edit equal to the saved one through polls of the same draft, until it is saved or dropped", async () => {
+    const { draft, calls } = studio();
+    const saved = planAt("r1", { timeline: cut(4000) });
+    draft.replace(saved);
+    // Each poll's answer is a new object, read from JSON.
+    const poll = () => draft.receive(structuredClone(saved), "r1");
+    draft.editTimeline("en-US", "intro-video", cut(4000));
+    poll();
+    poll();
+    expect(draft.timeline("en-US", "intro-video")).toEqual(cut(4000));
+    draft.dropTimeline("en-US", "intro-video");
+    expect(draft.timeline("en-US", "intro-video")).toBeNull();
+
+    draft.editTimeline("en-US", "intro-video", cut(4000));
+    poll();
+    expect(draft.timeline("en-US", "intro-video")).toEqual(cut(4000));
+    const saving = draft.saveTimeline("en-US", "intro-video", cut(4000));
+    calls[0]!.answer(planAt("r2", { timeline: cut(4000) }).draft);
+    expect(await saving).toBe(true);
+    expect(draft.timeline("en-US", "intro-video")).toBeNull();
+
+    // A draft that moved on the server is merged: the edit is what it holds, so it has landed.
+    draft.editTimeline("en-US", "intro-video", cut(4000));
+    draft.receive(planAt("r3", { timeline: cut(4000) }, { path: "media/hello.mp3" }), "r2");
+    expect(draft.timeline("en-US", "intro-video")).toBeNull();
+    expect(draft.state.changed).toBe(false);
   });
 
   it("keeps an edit to a field changed on both sides, and marks it in conflict", () => {

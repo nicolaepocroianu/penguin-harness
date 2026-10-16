@@ -295,6 +295,7 @@ async function fixture(page) {
     }
     if (p === `${base}/act_test/pipeline` && request.method() === "GET")
       return json({ pipeline: null });
+    if (p === `${base}/act_test/pipelines`) return json({ pipelines: [] });
     if (
       p === `${base}/act_test/generate-spec` ||
       p === `${base}/act_test/assemble-module` ||
@@ -1052,9 +1053,11 @@ test("reads the specification as scenes, checks narration against the script, an
   expect(f.errors).toEqual([]);
 });
 
-test("reports speech coverage and generates every missing narration at once", async ({ page }) => {
-  const f = await fixture(page);
-  await create(page);
+/**
+ * Save the specification and a media plan whose en-US narrations are the ones named, each with
+ * what it holds beyond its key: Gemini's, which this fixture's speech setup lists voices for.
+ */
+async function saveNarrations(page, narrations) {
   await openSection(page, "Specification");
   await replaceText(
     page.getByRole("textbox", { name: "Specification JSON", exact: true }),
@@ -1063,34 +1066,37 @@ test("reports speech coverage and generates every missing narration at once", as
   await page.getByRole("button", { name: "Save specification", exact: true }).click();
   await openSection(page, "Storyboard");
   await planMedia(page);
-
-  // Three narrations: one already bound, one ready to generate, one still without a script.
-  // Gemini's, which this fixture's speech setup lists voices for.
-  const narration = (key, extra) => ({
-    key,
-    type: "audio",
-    speechProvider: "gemini",
-    description: `${key} line`,
-    usages: [{ sceneId: "intro", sourceKey: key, occurrence: 1, sceneOccurrenceCount: 1 }],
-    ...extra,
-  });
   await openManifest(page);
   await page.getByRole("textbox", { name: /^Asset manifest/ }).fill(
     JSON.stringify({
       productCode: "words",
       refNum: 12,
       assets: {
-        "en-US": [
-          narration("greeting", { script: "Hello there", path: "media/audio/greeting.wav" }),
-          narration("welcome", { script: "Welcome along" }),
-          narration("prompt", { script: "Pick a word" }),
-          narration("silent", {}),
-        ],
+        "en-US": Object.entries(narrations).map(([key, extra]) => ({
+          key,
+          type: "audio",
+          speechProvider: "gemini",
+          description: `${key} line`,
+          usages: [{ sceneId: "intro", sourceKey: key, occurrence: 1, sceneOccurrenceCount: 1 }],
+          ...extra,
+        })),
       },
     }),
   );
   await openSection(page, "Storyboard");
   await page.getByRole("button", { name: "Validate and save media", exact: true }).click();
+}
+
+test("reports speech coverage and generates every missing narration at once", async ({ page }) => {
+  const f = await fixture(page);
+  await create(page);
+  // Three narrations: one already bound, one ready to generate, one still without a script.
+  await saveNarrations(page, {
+    greeting: { script: "Hello there", path: "media/audio/greeting.wav" },
+    welcome: { script: "Welcome along" },
+    prompt: { script: "Pick a word" },
+    silent: {},
+  });
 
   await openSection(page, "Audio");
   await expect(page.getByText("1 of 4 lines have audio")).toBeVisible();
@@ -2180,6 +2186,8 @@ test("polling errors recover without clearing a save conflict or unsaved edits",
   const f = await fixture(page);
   await create(page);
   await page.clock.install();
+  const sent = sentRequests(page);
+  const stagesHistory = `${base}/act_test/pipelines`;
   f.failHistory();
   await page.reload();
   await expect(page.getByRole("alert")).toContainText("The server hit an internal error");
@@ -2188,6 +2196,10 @@ test("polling errors recover without clearing a save conflict or unsaved edits",
   await openSection(page, "Script");
   await expect(description).toHaveText("Practice common sight words");
   await expect(page.getByRole("alert")).toHaveCount(0);
+  // The first read's stages' history went unused with its failed runs read, so the read that
+  // recovered read it again.
+  await sent.settled();
+  expect(sent.count(stagesHistory)).toBe(2);
   await openSection(page, "Storyboard");
   await openSection(page, "Script");
   await replaceText(description, "Keep this unsaved edit");
@@ -2201,6 +2213,134 @@ test("polling errors recover without clearing a save conflict or unsaved edits",
   await expect(page.getByRole("alert")).toHaveCount(1);
   await expect(page.getByRole("alert")).toContainText("Draft changed");
   await expect(description).toHaveText("Keep this unsaved edit");
+  // Once it landed, a failing read and the one after it left it as it was.
+  await sent.settled();
+  expect(sent.count(stagesHistory)).toBe(2);
+  expect(f.errors).toEqual([]);
+});
+
+/** Send the tab to the back, or bring it forward, as the browser tells a page it did. */
+async function setTabHidden(page, hidden) {
+  await page.evaluate((value) => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => (value ? "hidden" : "visible"),
+    });
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => value });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, hidden);
+}
+
+/**
+ * The requests the page sends, counted as the browser issues them rather than as the fixture
+ * answers them. `settled()` returns once every request sent so far is counted: the page sends
+ * one more, and the browser reports requests in the order they went out.
+ */
+function sentRequests(page) {
+  const sent = [];
+  let marks = 0;
+  const pathOf = (request) => new URL(request.url()).pathname;
+  page.on("request", (request) => sent.push(request));
+  return {
+    /** How many requests went to `path`, of those after the first `from`. */
+    count: (path, from = 0) =>
+      sent.slice(from).filter((request) => pathOf(request) === path).length,
+    /** Where the first request `matches` picks out stands among those sent, or -1. */
+    indexOf: (matches) => sent.findIndex(matches),
+    async settled() {
+      const mark = `/e2e-sent-${++marks}`;
+      const seen = page.waitForRequest((request) => pathOf(request) === mark);
+      await page.evaluate((url) => void fetch(url).catch(() => undefined), mark);
+      await seen;
+    },
+  };
+}
+
+const runsPath = `${base}/act_test/runs`;
+
+test("a hidden tab stops polling the activity and reads it again on coming back", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  await page.clock.install();
+  const sent = sentRequests(page);
+  await page.reload();
+  const description = page.getByRole("textbox", { name: "Script", exact: true });
+  await openSection(page, "Script");
+  await expect(description).toHaveText("Practice common sight words");
+  await sent.settled();
+  const stagesHistory = sent.count(`${base}/act_test/pipelines`);
+  expect(stagesHistory).toBeGreaterThan(0);
+  // On screen, a settled activity is read again every 30 seconds.
+  const shown = sent.count(runsPath);
+  await page.clock.fastForward(30_000);
+  await expect.poll(() => sent.count(runsPath)).toBeGreaterThan(shown);
+  await setTabHidden(page, true);
+  await sent.settled();
+  const hidden = sent.count(runsPath);
+  f.changeSavedDescription();
+  await page.clock.fastForward(120_000);
+  await sent.settled();
+  expect(sent.count(runsPath)).toBe(hidden);
+  await expect(description).toHaveText("Practice common sight words");
+  // Shown again, it reads at once, takes what changed meanwhile, and polls as before.
+  await setTabHidden(page, false);
+  await expect.poll(() => sent.count(runsPath)).toBe(hidden + 1);
+  await expect(description).toHaveText("Remote description");
+  await page.clock.fastForward(30_000);
+  await expect.poll(() => sent.count(runsPath)).toBe(hidden + 2);
+  // No sequence started or settled, so only the first read read the stages' history.
+  await sent.settled();
+  expect(sent.count(`${base}/act_test/pipelines`)).toBe(stagesHistory);
+  expect(f.errors).toEqual([]);
+});
+
+test("a hidden tab goes on reading while narrations wait in the queue, and stops once it empties", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await create(page);
+  await saveNarrations(page, {
+    welcome: { script: "Welcome along" },
+    prompt: { script: "Pick a word" },
+    goodbye: { script: "See you soon" },
+  });
+  await page.clock.install();
+  await page.reload();
+  const sent = sentRequests(page);
+  await openSection(page, "Audio");
+  await page.getByRole("button", { name: "Generate 3 missing", exact: true }).click();
+  await page.getByRole("button", { name: "Generate 3 missing", exact: true }).last().click();
+  await expect(page.getByText(/2 narrations queued/)).toBeVisible();
+  await setTabHidden(page, true);
+  // Each run that finishes while the author is in another tab is read, and the next narration
+  // is asked for: the first was started on screen, the second hidden.
+  f.finishAudio();
+  await expect
+    .poll(() => f.audioRequests.map((request) => request.assetKey))
+    .toEqual(["welcome", "prompt"]);
+  f.finishAudio();
+  await expect
+    .poll(() => f.audioRequests.map((request) => request.assetKey))
+    .toEqual(["welcome", "prompt", "goodbye"]);
+  // Asking for the last narration restarts the poll, and its first read is the last while
+  // hidden, though the last run goes on.
+  const last = () =>
+    sent.indexOf(
+      (request) =>
+        new URL(request.url()).pathname === `${base}/act_test/generate-audio` &&
+        request.postDataJSON()?.assetKey === "goodbye",
+    );
+  await expect.poll(() => (last() < 0 ? 0 : sent.count(runsPath, last() + 1))).toBeGreaterThan(0);
+  await sent.settled();
+  const drained = sent.count(runsPath);
+  await page.clock.fastForward(60_000);
+  await sent.settled();
+  expect(sent.count(runsPath)).toBe(drained);
+  await setTabHidden(page, false);
+  await expect.poll(() => sent.count(runsPath)).toBeGreaterThan(drained);
+  await expect(page.getByRole("button", { name: "Stop queue", exact: true })).toHaveCount(0);
   expect(f.errors).toEqual([]);
 });
 

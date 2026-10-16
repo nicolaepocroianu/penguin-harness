@@ -111,6 +111,9 @@ import { NO_PLACEHOLDERS, bindingOf, type PlaceholderPaths } from "./placeholder
 import { StudioSkeleton } from "./studio-skeleton";
 import { ConflictNotice } from "./conflict-notice";
 import { pretty, type DraftBlock } from "./studio-draft";
+import { sameValue } from "./draft-merge";
+import { pollWhileVisible } from "./visible-poll";
+import { stagesHistoryReader } from "./stages-history";
 import { useStudioDraft } from "./use-studio-draft";
 import { ActivityList } from "./activity-list";
 import { ProjectMediaView } from "./project-media-view";
@@ -146,6 +149,11 @@ const BACK_ICON = "M15 18l-6-6 6-6M9 12h12";
 function pipelineOrNull(value: unknown): PipelineState | null {
   const state = value as PipelineState | null;
   return state && Array.isArray(state.steps) && typeof state.status === "string" ? state : null;
+}
+
+/** `next`, or the value held when it is the same, which React then leaves unrendered. */
+function unlessSame<T>(next: T): (held: T) => T {
+  return (held) => (sameValue(held, next) ? held : next);
 }
 
 function announce({ kind, text }: Announcement) {
@@ -575,6 +583,10 @@ function ActivityEditor({
     voice: string;
     keys: string[];
   } | null>(null);
+  // The queue moves on only when a poll reads that the last run finished, so while narrations
+  // wait the poll goes on reading in a hidden tab.
+  const speechQueued = useRef(false);
+  speechQueued.current = !!speechQueue?.keys.length;
   const [uploadsLoading, setUploadsLoading] = useState(false);
   const alive = useRef(true);
   const loadUploads = useCallback(async () => {
@@ -653,44 +665,55 @@ function ActivityEditor({
       alive.current = false;
     };
   }, []); // The editor is keyed by activity and the workspace by project.
+  // A hidden tab reads nothing while no narration waits in the queue; it reads once on coming
+  // back, then at the usual pace.
   useEffect(() => {
     if (!available) return;
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-    async function refresh() {
+    const stagesHistory = stagesHistoryReader(api.pipeline.history);
+    async function refresh(): Promise<number> {
       const revisionAtStart = draft.revision;
       let active = false;
       try {
+        // Following a run is a courtesy over the history, which stands without it. So is the
+        // stages' history, read only when it can have changed.
+        const current = api.pipeline.current().catch(() => null);
         const [value, history, sandbox, stages, sequences] = await Promise.all([
           api.detail(),
           api.runs.list.load(),
           // A module this project never assembled -- one Loom generated -- still has a
           // Module section; only the sandbox knows it is there.
           api.sandbox.status().catch(() => null),
-          // Following a run is a courtesy over the history, which stands without it.
-          api.pipeline.current().catch(() => null),
-          // So is the stages' history.
-          api.pipeline.history().catch(() => null),
+          current,
+          stagesHistory(current),
         ]);
-        if (cancelled) return;
+        // The poll has stopped, so no next read waits on the delay.
+        if (cancelled) return 0;
         setLoadError("");
-        cache.put(api.runs.list, history);
+        // An answer the same as the one held changes nothing on screen, so it is not set. That
+        // also keeps a read of the runs in flight, which a put drops: it lands, with an answer
+        // at least as new as this one.
+        const held = cache.peek(api.runs.list);
+        if (held.error !== null || !sameValue(held.data, history))
+          cache.put(api.runs.list, history);
         setSandboxModule(sandboxHasModule(sandbox));
-        if (stages) setPipeline(pipelineOrNull(stages.pipeline));
-        if (sequences && Array.isArray(sequences.pipelines))
-          setPipelineHistory(sequences.pipelines);
+        if (stages) setPipeline(unlessSame(pipelineOrNull(stages.pipeline)));
+        // Only a history set here counts as read; a tick that failed reads it again.
+        if (sequences) {
+          setPipelineHistory(unlessSame(sequences.pipelines));
+          sequences.landed();
+        }
         active = indexRuns(history).busy || stages?.pipeline?.status === "running";
         draft.receive(value, revisionAtStart);
       } catch (e) {
         if (!cancelled) setLoadError(apiErrorText(e));
-      } finally {
-        if (!cancelled) timer = setTimeout(() => void refresh(), active ? 2000 : 30_000);
       }
+      return active ? 2000 : 30_000;
     }
-    void refresh();
+    const stop = pollWhileVisible(refresh, document, () => speechQueued.current);
     return () => {
       cancelled = true;
-      clearTimeout(timer);
+      stop();
     };
   }, [api, cache, refreshVersion, available]);
   // Background work announces itself when it settles, wherever the author has gone in
