@@ -284,4 +284,26 @@ describe("WAF workspace settings", () => {
     ).toThrow();
     expect(normalizeWafWorkspaceSettings(base, {})).toEqual(base);
   });
+
+  it("refuses a user in a web remote, where a token is often put, and keeps an SSH remote's", () => {
+    const base = defaultWafWorkspaceSettings();
+    let refused: unknown = null;
+    try {
+      normalizeWafWorkspaceSettings(base, {
+        repos: { media: { remote: "https://ghp_secret@github.com/org/media.git" } },
+      });
+    } catch (error) {
+      refused = error;
+    }
+    expect(refused).toMatchObject({
+      status: 400,
+      code: "invalid_deploy_setting",
+      detail: { field: "repos.media.remote", reason: "user_in_remote" },
+    });
+    expect((refused as Error).message).not.toContain("ghp_secret");
+    const ssh = "ssh://git@github.com/org/media.git";
+    expect(
+      normalizeWafWorkspaceSettings(base, { repos: { media: { remote: ssh } } }).repos.media.remote,
+    ).toBe(ssh);
+  });
 });

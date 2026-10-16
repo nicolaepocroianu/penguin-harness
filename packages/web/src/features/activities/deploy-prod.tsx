@@ -75,13 +75,6 @@ export function DeployProd({
   const running = run?.status === "running";
   const prodRunning = running && run?.target === "prod";
   const confirmed = prodConfirmed(typed, productCode);
-  // The line under the buttons: why the first action cannot start, why waiting comes first, or
-  // that a deploy can start.
-  const blockedBy = bar.wait ? bar.wait.blocker : bar.blocker;
-  let note: { text: string; ink: string };
-  if (blockedBy) note = { text: blockedBy, ink: "text-gray-600 dark:text-gray-300" };
-  else if (bar.wait) note = { text: words.prod.waitFirst, ink: toneInk.attention };
-  else note = { text: words.prod.ready, ink: toneInk.success };
 
   function close() {
     setOpen(false);
@@ -165,7 +158,7 @@ export function DeployProd({
                   size="sm"
                   variant="primary"
                   disabled={busy || bar.wait.blocker !== null}
-                  aria-describedby="deploy-prod-blocker"
+                  aria-describedby="deploy-prod-wait"
                   aria-busy={busy}
                   onClick={wait}
                 >
@@ -180,13 +173,23 @@ export function DeployProd({
           ))}
       </div>
       <div className="space-y-3 px-4 py-3">
-        {!running && (
+        {!running && bar.wait && (
+          <p
+            id="deploy-prod-wait"
+            className={`text-xs ${bar.wait.blocker ? "text-gray-600 dark:text-gray-300" : toneInk.attention}`}
+            data-testid="deploy-prod-wait"
+          >
+            {bar.wait.blocker ?? words.prod.waitFirst}
+          </p>
+        )}
+        {/* Deploy to PROD's own reason; while waiting comes first, being ready goes unsaid. */}
+        {!running && (bar.blocker || !bar.wait) && (
           <p
             id="deploy-prod-blocker"
-            className={`text-xs ${note.ink}`}
+            className={`text-xs ${bar.blocker ? "text-gray-600 dark:text-gray-300" : toneInk.success}`}
             data-testid="deploy-prod-blocker"
           >
-            {note.text}
+            {bar.blocker ?? words.prod.ready}
           </p>
         )}
         {bar.line && (

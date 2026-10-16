@@ -192,6 +192,20 @@ describe("the PROD deploy's words", () => {
     // Jenkins said the deploy failed: that one is started again.
     const failed = ended({ code: "build_failed", result: "FAILURE", url: null });
     expect(prodWaitFirst(started("failed"), failed)).toBe(false);
+    // With no PROD run in hand, the stored wait says how it ended.
+    const stored = (error: DeployStageError) =>
+      production({
+        stages: [
+          state("trigger_production_deploy", "done"),
+          { ...state("await_production_deploy", "failed"), error },
+        ],
+      });
+    const buildFailed = { code: "build_failed", result: "FAILURE", url: null } as const;
+    expect(prodWaitFirst(stored(buildFailed), null)).toBe(false);
+    expect(prodWaitFirst(stored(buildFailed), run({ target: "qa", status: "failed" }))).toBe(false);
+    expect(
+      prodWaitFirst(stored({ code: "deploy_timed_out", minutes: 30, target: "prod" }), null),
+    ).toBe(true);
     // Nothing started, a wait that finished, or a run still going: deploying stays first.
     expect(prodWaitFirst(production(), null)).toBe(false);
     expect(prodWaitFirst(started("done"), null)).toBe(false);

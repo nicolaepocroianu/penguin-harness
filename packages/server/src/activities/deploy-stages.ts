@@ -51,8 +51,11 @@
  *
  * Everything runs in the WAF workspace's clones. The module and media clones hold authored
  * work, which the stages commit rather than discard; the activity-data clone is the deploy's
- * own and must be clean. The clones, Jenkins, the programs, the stylesheet compiler and the
- * clock are ports, so a test runs every stage with fakes and nothing reaches a remote.
+ * own and must be clean. The git work a stage does on the module or media clone waits for, and
+ * holds off, the workspace's own git work on that repository (`serial`); the npm checks, the
+ * stylesheet compile and Jenkins run outside it. The clones, that queue, Jenkins, the programs,
+ * the stylesheet compiler and the clock are ports, so a test runs every stage with fakes and
+ * nothing reaches a remote.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -115,6 +118,12 @@ export const PUSH_TIMEOUT_MS = 5 * 60 * 1000;
 
 /** How many paths a failure, the metadata or a log line names at most. */
 const PATHS_SHOWN = 20;
+
+/**
+ * How long a retried trigger waits to read Jenkins again when the build its last start began is
+ * neither queued nor listed: Jenkins lists a build a moment after it leaves the queue.
+ */
+export const RECHECK_MS = 5_000;
 
 /** A release version: plain semver, as the module's tags are. */
 const SEMVER = /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
@@ -222,6 +231,11 @@ export interface DeployProdContext {
 export interface DeployStageContext {
   /** The clones the stages work in. */
   clones: Clones;
+  /**
+   * Runs git work on the module clone or the media clone once no other git work on that
+   * repository is going on this server, and holds it off until `work` settles.
+   */
+  serial<T>(repo: "module" | "media", work: () => Promise<T>): Promise<T>;
   jenkins: DeployJenkins;
   process: DeployProcess;
   /** Compiles a module's stylesheet with the pinned Sass, as the preview does. */
@@ -465,7 +479,8 @@ function going(status: JenkinsBuildStatus): boolean {
  * would start the same thing again (its wait did not finish, and nothing it starts from has
  * changed). When Jenkins has that start's build, numbered above its floor, queued or going, or
  * succeeded and `good` (absent: any success), it is followed instead of started again: the
- * answer carries that start's floor. Otherwise a build of these parameters still queued or
+ * answer carries that start's floor. Jenkins is read once more, RECHECK_MS later, when it has
+ * that build neither queued nor listed. Otherwise a build of these parameters still queued or
  * going fails the stage, as a second would run beside it, and the newest build is the floor the
  * new one is looked for above.
  */
@@ -476,7 +491,15 @@ async function startOrFollow(
   last: { floor: number | null; good?: () => Promise<boolean> } | null,
 ): Promise<{ follow: boolean; floor: number | null }> {
   if (last) {
-    const status = await jenkinsCall(() => ctx.jenkins.status(job, match, { after: last.floor }));
+    const read = () => jenkinsCall(() => ctx.jenkins.status(job, match, { after: last.floor }));
+    let status = await read();
+    if (status.state === "unknown") {
+      // Between leaving the queue and being listed, the build is neither: look once more
+      // before starting a second.
+      await ctx.clock.sleep(RECHECK_MS, ctx.signal);
+      checkStopped(ctx);
+      status = await read();
+    }
     const finishedWell = status.state === "succeeded" && (!last.good || (await last.good()));
     if (going(status) || finishedWell) {
       ctx.log(
@@ -498,33 +521,35 @@ const verifyModule: DeployStageDefinition = {
     // it is carried onto main as origin has it (never reset away), the newest assembled
     // module is copied over it, and all of it is committed on main before the checks run.
     const clone = cloneOf(ctx, ctx.module.dir);
-    try {
-      await clone.fetch();
-    } catch (error) {
-      if (!(error instanceof CloneError)) throw error;
-      // A new product's module starts locally; its repository has to exist before a deploy.
-      if (repositoryMissing(error.result.stderr))
-        throw new DeployStageFailure({
-          code: "module_repository_missing",
-          remote: await clone.origin(),
-        });
-      await clone.fetch();
-    }
-    await onMainCarryingWork(ctx, clone);
-    if (ctx.module.source) {
-      const copied = await syncModule(ctx.module.source, ctx.module.dir);
-      ctx.log(`Copied ${copied} files from the newest assembled module.`);
-    } else ctx.log("No assembled module: verifying the module as its repository holds it.");
-    await clone.stage();
-    const authored = await clone.commitStaged(
-      identityOf(ctx),
-      `Penguin Harness: ${ctx.productCode} as authored`,
-    );
-    ctx.log(
-      authored
-        ? `Committed the authored module on main: ${authored}.`
-        : "Main already had everything authored.",
-    );
+    await ctx.serial("module", async () => {
+      try {
+        await clone.fetch();
+      } catch (error) {
+        if (!(error instanceof CloneError)) throw error;
+        // A new product's module starts locally; its repository has to exist before a deploy.
+        if (repositoryMissing(error.result.stderr))
+          throw new DeployStageFailure({
+            code: "module_repository_missing",
+            remote: await clone.origin(),
+          });
+        await clone.fetch();
+      }
+      await onMainCarryingWork(ctx, clone);
+      if (ctx.module.source) {
+        const copied = await syncModule(ctx.module.source, ctx.module.dir);
+        ctx.log(`Copied ${copied} files from the newest assembled module.`);
+      } else ctx.log("No assembled module: verifying the module as its repository holds it.");
+      await clone.stage();
+      const authored = await clone.commitStaged(
+        identityOf(ctx),
+        `Penguin Harness: ${ctx.productCode} as authored`,
+      );
+      ctx.log(
+        authored
+          ? `Committed the authored module on main: ${authored}.`
+          : "Main already had everything authored.",
+      );
+    });
     ctx.metadata.moduleContentHash = ctx.module.contentHash ?? null;
     if (ctx.module.source && ctx.module.runId) ctx.metadata.moduleRunId = ctx.module.runId;
     for (const args of MODULE_VERIFY_COMMANDS) await program(ctx, "npm", args);
@@ -585,7 +610,7 @@ const prepareDeploy: DeployStageDefinition = {
     // That content is only there straight after verify_module, which is why this stage runs
     // once per verify (stageBlocker).
     const clone = cloneOf(ctx, ctx.module.dir);
-    await clone.branchFrom(branch, BASE_BRANCH);
+    await ctx.serial("module", () => clone.branchFrom(branch, BASE_BRANCH));
     const { version, written } = await syncPackage(ctx);
     if (version) ctx.metadata.moduleVersion = version;
     if (await exists(path.join(ctx.module.dir, "res", "style.scss"))) {
@@ -606,14 +631,16 @@ const prepareDeploy: DeployStageDefinition = {
     } else ctx.log("No res/style.scss: no stylesheet to compile.");
     // Only what this stage wrote joins what verify_module committed and checked: a file saved
     // in the clone while the checks ran was never checked, so it stays out of the release.
-    const staged: string[] = [];
-    for (const file of written) if (await clone.changed(file)) staged.push(file);
-    if (staged.length) await clone.stage(staged);
-    const commit = await clone.commitStaged(
-      identityOf(ctx),
-      `Prepare module deploy for ${ctx.productCode}`,
-    );
-    const left = await clone.changes();
+    const { commit, left } = await ctx.serial("module", async () => {
+      const staged: string[] = [];
+      for (const file of written) if (await clone.changed(file)) staged.push(file);
+      if (staged.length) await clone.stage(staged);
+      const made = await clone.commitStaged(
+        identityOf(ctx),
+        `Prepare module deploy for ${ctx.productCode}`,
+      );
+      return { commit: made, left: await clone.changes() };
+    });
     if (left.length)
       ctx.log(
         `Left out of the deploy commit, changed since verify_module checked the module: ${someOf(left)}.`,
@@ -650,9 +677,11 @@ const triggerModuleBuild: DeployStageDefinition = {
     const job = ctx.settings.jobs.moduleBuild;
     const params = { Modules: moduleBuildLine(ctx.module.folder) };
     const clone = cloneOf(ctx, ctx.module.dir);
-    const tags = await clone.fetchTags();
-    const commit = await clone.commitOf(branch);
-    const last = await lastModuleBuild(ctx, clone, commit);
+    const { tags, commit, last } = await ctx.serial("module", async () => {
+      const fetched = await clone.fetchTags();
+      const head = await clone.commitOf(branch);
+      return { tags: fetched, commit: head, last: await lastModuleBuild(ctx, clone, head) };
+    });
     const start = await startOrFollow(
       ctx,
       job,
@@ -660,7 +689,11 @@ const triggerModuleBuild: DeployStageDefinition = {
       last && {
         floor: last.floor,
         // One that succeeded is followed only when it released what it was started for.
-        good: async () => (await releaseOf(clone, tags, last.tag, last.commit)) !== null,
+        good: () =>
+          ctx.serial(
+            "module",
+            async () => (await releaseOf(clone, tags, last.tag, last.commit)) !== null,
+          ),
       },
     );
     if (start.follow && last) {
@@ -673,8 +706,10 @@ const triggerModuleBuild: DeployStageDefinition = {
     ctx.log(`Newest release tag before the build: ${ctx.metadata.preBuildTag ?? "none"}.`);
     ctx.metadata.preBuildNumber = start.floor;
     ctx.metadata.buildCommit = commit;
-    if (!(await clone.remoteHasBranch(BASE_BRANCH))) await clone.push(BASE_BRANCH);
-    await clone.push(branch, { lease: true, track: true });
+    await ctx.serial("module", async () => {
+      if (!(await clone.remoteHasBranch(BASE_BRANCH))) await clone.push(BASE_BRANCH);
+      await clone.push(branch, { lease: true, track: true });
+    });
     checkStopped(ctx);
     ctx.log(`Starting Jenkins job "${job}" with Modules=${params.Modules}.`);
     const { queueUrl } = await jenkinsCall(() => ctx.jenkins.trigger(job, params));
@@ -724,8 +759,10 @@ const awaitModuleBuild: DeployStageDefinition = {
       if (status.state === "succeeded") {
         // Only this build, once it succeeded, releases the module, and only as a tag that
         // holds what it built: a tag a leftover or a manual build made is never taken for it.
-        const tags = await clone.fetchTags();
-        const version = await releaseOf(clone, tags, before, commit);
+        const { tags, version } = await ctx.serial("module", async () => {
+          const fetched = await clone.fetchTags();
+          return { tags: fetched, version: await releaseOf(clone, fetched, before, commit) };
+        });
         if (version) {
           ctx.metadata.resolvedModuleVersion = version;
           ctx.log(`Released as ${version}.`);
@@ -859,31 +896,36 @@ const verifyMediaAssets: DeployStageDefinition = {
     // Authored media (accepted takes, uploads, candidates) is in the clone's working tree:
     // main is brought up to origin around it, and only what the data names is published.
     const clone = cloneOf(ctx, cwd);
-    await clone.fetch();
-    await onMainCarryingWork(ctx, clone);
-    const result = await syncMedia({ dir: cwd, references: report.media }, { clone, log: ctx.log });
-    for (const missing of result.missing.slice(0, PATHS_SHOWN)) ctx.log(`Missing: ${missing}`);
-    if (result.missing.length)
-      throw new DeployStageFailure({
-        code: "media_missing",
-        paths: result.missing.slice(0, PATHS_SHOWN),
-        count: result.missing.length,
-      });
-    ctx.metadata.mediaCopied = result.copied.slice(0, PATHS_SHOWN);
-    ctx.metadata.mediaCopiedCount = result.copied.length;
-    if (!result.copied.length) {
-      ctx.log("The media repository already has every file: nothing to publish.");
-      return;
-    }
-    // --sparse: an authored file may sit in a folder the partial clone has not checked out.
-    await clone.stage(result.copied, { sparse: true });
-    const commit = await clone.commitStaged(
-      identityOf(ctx),
-      `Publish media for ${ctx.productCode}`,
-    );
-    if (!commit) return;
-    ctx.metadata.mediaCommit = commit;
-    await clone.push(BASE_BRANCH);
+    await ctx.serial("media", async () => {
+      await clone.fetch();
+      await onMainCarryingWork(ctx, clone);
+      const result = await syncMedia(
+        { dir: cwd, references: report.media },
+        { clone, log: ctx.log },
+      );
+      for (const missing of result.missing.slice(0, PATHS_SHOWN)) ctx.log(`Missing: ${missing}`);
+      if (result.missing.length)
+        throw new DeployStageFailure({
+          code: "media_missing",
+          paths: result.missing.slice(0, PATHS_SHOWN),
+          count: result.missing.length,
+        });
+      ctx.metadata.mediaCopied = result.copied.slice(0, PATHS_SHOWN);
+      ctx.metadata.mediaCopiedCount = result.copied.length;
+      if (!result.copied.length) {
+        ctx.log("The media repository already has every file: nothing to publish.");
+        return;
+      }
+      // --sparse: an authored file may sit in a folder the partial clone has not checked out.
+      await clone.stage(result.copied, { sparse: true });
+      const commit = await clone.commitStaged(
+        identityOf(ctx),
+        `Publish media for ${ctx.productCode}`,
+      );
+      if (!commit) return;
+      ctx.metadata.mediaCommit = commit;
+      await clone.push(BASE_BRANCH);
+    });
   },
 };
 
@@ -955,14 +997,15 @@ const triggerActivityDeploy: DeployStageDefinition = {
     const qa = qaOf(ctx);
     const job = ctx.settings.jobs.activityDeploy;
     const params = activityDeployParams(ctx.productCode, qa.target);
-    // Run again after its wait did not finish, with no new activity data published since and
-    // the same framework version, the deploy deploys what the last one did.
+    // Run again after its wait did not finish, with no new activity data or media published
+    // since and the same framework version, the deploy deploys what the last one did.
     const last = ctx.earlier.trigger_activity_deploy;
     const repeat =
       last?.preDeployNumber !== undefined &&
       !ctx.earlier.await_activity_deploy &&
       last.qaFrameworkVersion === qa.target.frameworkVersion &&
-      ctx.metadata.activityDataCommit === undefined;
+      ctx.metadata.activityDataCommit === undefined &&
+      ctx.metadata.mediaCommit === undefined;
     const start = await startOrFollow(
       ctx,
       job,

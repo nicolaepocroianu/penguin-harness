@@ -160,7 +160,10 @@ export interface Clone {
   inHead(file: string): Promise<boolean>;
   /** Whether `file` is new or changed since HEAD (true when git cannot say). */
   changed(file: string): Promise<boolean>;
-  /** Every path new, changed or deleted since HEAD, as git names it; a new folder is one path. */
+  /**
+   * The paths new, changed or deleted since HEAD, as git names them; a new folder is one path.
+   * Past what git's output keeps, the ones at its end, and maybe part of the first of those.
+   */
   changes(): Promise<string[]>;
   /** The commit the clone's `branch` is at. */
   commitOf(branch: string): Promise<string>;
@@ -571,7 +574,8 @@ class GitClone implements Clone {
     const entries = listed.stdout.split("\0");
     const paths: string[] = [];
     for (let index = 0; index < entries.length; index++) {
-      // Output past its bound keeps its end, so a first entry cut short is not one.
+      // Output past its bound keeps its end: a first entry cut short is skipped when it no
+      // longer reads as one, and names what is left of its path when it still does.
       const entry = STATUS_ENTRY.exec(entries[index]!);
       if (!entry) continue;
       paths.push(entry[3]!);

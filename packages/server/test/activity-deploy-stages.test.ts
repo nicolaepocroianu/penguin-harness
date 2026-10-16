@@ -19,6 +19,7 @@ import {
   DEPLOY_STAGE_DEFINITIONS,
   DeployStageFailure,
   DeployStopped,
+  RECHECK_MS,
   isModuleVersion,
   latestSemver,
   moduleBuildLine,
@@ -147,11 +148,13 @@ function context(
   const lines: string[] = [];
   const controller = new AbortController();
   const { dir, source, ...rest } = overrides;
+  const clones = rest.clones ?? fakeClones(dir);
   return {
     lines,
     controller,
     ctx: {
-      clones: fakeClones(dir),
+      clones,
+      serial: clones instanceof FakeClones ? clones.serial : (_repo, work) => work(),
       jenkins: fakeJenkins().jenkins,
       process: fakeProcess().process,
       styles: fakeStyles().styles,
@@ -546,6 +549,43 @@ describe("trigger_module_build", () => {
     }
   });
 
+  it("looks once more for the build its last start began when Jenkins lists it nowhere yet", async () => {
+    const dir = await moduleClone();
+    const building: JenkinsBuildStatus = {
+      state: "building",
+      number: 42,
+      url: "https://jenkins.example.org/job/x/42/",
+    };
+    // Out of the queue and not listed yet, then listed: it is followed.
+    const listed = fakeClock();
+    const late = fakeJenkins([{ state: "unknown" }, building]);
+    const followed = context({
+      dir,
+      clones: fakeClones(dir, { ...sameFiles, tags: [["1.2.0"]] }),
+      jenkins: late.jenkins,
+      clock: listed.clock,
+      earlier: again,
+    });
+    await run("trigger_module_build", followed.ctx);
+    expect(late.polls).toEqual([{ after: 41 }, { after: 41 }]);
+    expect(listed.sleeps).toEqual([RECHECK_MS]);
+    expect(late.triggers).toEqual([]);
+    // Listed nowhere the second time either: the build is started again.
+    const unlisted = fakeClock();
+    const gone = fakeJenkins([{ state: "unknown" }]);
+    const started = context({
+      dir,
+      clones: fakeClones(dir, { ...sameFiles, tags: [["1.2.0"]] }),
+      jenkins: gone.jenkins,
+      clock: unlisted.clock,
+      earlier: again,
+    });
+    await run("trigger_module_build", started.ctx);
+    expect(gone.polls).toEqual([{ after: 41 }, { after: 41 }, { after: undefined }]);
+    expect(unlisted.sleeps).toEqual([RECHECK_MS]);
+    expect(gone.triggers).toHaveLength(1);
+  });
+
   it("follows nothing once the files changed or the last wait finished", async () => {
     const dir = await moduleClone();
     const building: JenkinsBuildStatus = {
@@ -573,6 +613,35 @@ describe("trigger_module_build", () => {
     await run("trigger_module_build", waited.ctx);
     expect(jenkins.polls).toEqual([{ after: undefined }]);
     expect(jenkins.triggers).toHaveLength(1);
+  });
+});
+
+describe("the module clone's queue", () => {
+  it("runs every git command of the release in the module clone's queue, and npm outside it", async () => {
+    const dir = await moduleClone();
+    const clones = fakeClones(dir, { tags: [["1.2.0"], ["1.2.0", "1.3.0"]] });
+    const jenkins = fakeJenkins([{ state: "unknown" }, { state: "succeeded", number: 42 }]);
+    const { ctx } = context({ dir, clones, jenkins: jenkins.jenkins });
+    // The checks take minutes: run in the queue, they would hold the workspace off as long.
+    const npmIn: Array<string | null> = [];
+    ctx.process = {
+      run: async () => {
+        npmIn.push(clones.inQueue);
+        return { code: 0, tail: "" };
+      },
+    };
+    for (const stage of [
+      "verify_module",
+      "prepare_deploy",
+      "trigger_module_build",
+      "await_module_build",
+    ] as const)
+      await run(stage, ctx);
+    expect(ctx.metadata.resolvedModuleVersion).toBe("1.3.0");
+    expect(clones.ops(dir).length).toBeGreaterThan(10);
+    expect(clones.unqueued(dir)).toEqual([]);
+    expect(new Set(clones.calls.map((call) => call.queue))).toEqual(new Set(["module"]));
+    expect(npmIn).toEqual([null, null, null, null]);
   });
 });
 

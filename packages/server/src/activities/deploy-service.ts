@@ -28,7 +28,7 @@ import type { ModuleBuilder } from "./module-builder.js";
 import type { ActivityModuleSource } from "./module-source.js";
 import { exportRevision, manifestAssetList, type ExportRef } from "./deploy-export.js";
 import type { ActivityDetail, ActivityProduct } from "./domain.js";
-import type { WafWorkspace } from "./waf-workspace.js";
+import { moduleRepoKey, type WafWorkspace } from "./waf-workspace.js";
 import { mediaSparsePath, WafLayout } from "./waf-layout.js";
 import { buildDeployContext } from "./deploy-context.js";
 import { gitClones, type Clones } from "./clone.js";
@@ -58,6 +58,7 @@ import {
   type DeploySettingsView,
   type DeployStage,
   type DeployStageSelection,
+  type DeployStageState,
   type DeployStageStatus,
   type DeployStateResponse,
   type DeployTarget,
@@ -75,12 +76,14 @@ import {
   startProblems,
   type DeployActivitySnapshot,
   type DeployClock,
+  type DeployStageContext,
 } from "./deploy-stages.js";
 import {
   DeployRunner,
   dbDeployStore,
   type DeployRunStore,
   type DeployStageDone,
+  type StoredStage,
 } from "./deploy-run.js";
 import { ActivityDeployEvents } from "./deploy-events.js";
 
@@ -241,6 +244,12 @@ export class ActivityDeployService implements ActivityDeploys {
     return this.ports.clones ?? gitClones();
   }
 
+  /** A deploy's git work on the module or media clone, queued with the workspace's own. */
+  private serial(moduleFolder: string): DeployStageContext["serial"] {
+    return (repo, work) =>
+      this.wafWorkspace.serial(repo === "module" ? moduleRepoKey(moduleFolder) : "media", work);
+  }
+
   private secretsPath(): string {
     return path.join(this.config.root, DEPLOY_SECRETS_FILE);
   }
@@ -398,10 +407,7 @@ export class ActivityDeployService implements ActivityDeploys {
   ): DeployProductionState {
     const stored = this.active().store.stages(activityId);
     const stages = DEPLOY_PROD_STAGES.map((stage) => ({
-      stage,
-      status: stored[stage]?.status ?? "pending",
-      finishedAt: stored[stage]?.finishedAt ?? null,
-      metadata: stored[stage]?.metadata ?? {},
+      ...stageState(stage, stored[stage]),
       blocker: this.prodBlocker(stage, activityId, context, currentProductRevision),
     }));
     const run = this.active().store.lastProduction(projectId, activityId);
@@ -429,10 +435,7 @@ export class ActivityDeployService implements ActivityDeploys {
       blocking: startProblems(context),
       run: runner.latest(projectId, activityId),
       stages: DEPLOY_STAGES.map((stage) => ({
-        stage,
-        status: stored[stage]?.status ?? "pending",
-        finishedAt: stored[stage]?.finishedAt ?? null,
-        metadata: stored[stage]?.metadata ?? {},
+        ...stageState(stage, stored[stage]),
         blocker: stageBlocker(stage, context, statuses, running),
       })),
       production: this.production(
@@ -532,6 +535,7 @@ export class ActivityDeployService implements ActivityDeploys {
       stages,
       base: {
         clones: this.clones(),
+        serial: this.serial(folder),
         jenkins: createDeployJenkins(
           {
             url: settings.qa.jenkinsUrl,
@@ -616,6 +620,7 @@ export class ActivityDeployService implements ActivityDeploys {
       stages,
       base: {
         clones: this.clones(),
+        serial: this.serial(product.moduleFolder),
         jenkins: createDeployJenkins(
           {
             url: settings.prod.jenkinsUrl,
@@ -739,6 +744,20 @@ export class ActivityDeployService implements ActivityDeploys {
     await this.activities.getActivity(projectId, activityId);
     return this.active().runner.stop(projectId, activityId);
   }
+}
+
+/** A stage as stored, without its blocker: pending when it has never run. */
+function stageState(
+  stage: DeployStage,
+  stored: StoredStage | undefined,
+): Omit<DeployStageState, "blocker"> {
+  return {
+    stage,
+    status: stored?.status ?? "pending",
+    finishedAt: stored?.finishedAt ?? null,
+    metadata: stored?.metadata ?? {},
+    ...(stored?.error ? { error: stored.error } : {}),
+  };
 }
 
 /** A blocker as the refusal's detail: its code and the facts it names. */

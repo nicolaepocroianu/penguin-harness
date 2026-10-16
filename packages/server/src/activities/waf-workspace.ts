@@ -63,6 +63,11 @@ const INSTALLED: ReadonlySet<WafRepoId> = new Set(["framework", "navbar"]);
 /** The placeholder a module remote template names the module folder with. */
 export const MODULE_PLACEHOLDER = "{module}";
 
+/** What git work on a product module's clone queues under (`WafWorkspace.serial`). */
+export function moduleRepoKey(moduleFolder: string): string {
+  return `module:${moduleFolder}`;
+}
+
 export function defaultWafWorkspaceSettings(): WafWorkspaceSettings {
   const github = (name: string) => `git@github.com:waterfordresearchinstitute/${name}.git`;
   return {
@@ -214,6 +219,13 @@ export abstract class WafWorkspace extends Interface<{
    * cloned, since that checkout's repositories are its owner's.
    */
   authoringModule(moduleFolder: string): Promise<string>;
+  /**
+   * Runs `work` once the git work queued before it on the same repository has settled, and holds
+   * later work off until it does: `key` is a shared repository's id (`media`) or a product
+   * module's `moduleRepoKey`. Preparing, cloning a module, adding media folders and a deploy's git
+   * work on those clones all queue here. `work` must not queue on the same key again.
+   */
+  serial<T>(key: string, work: () => Promise<T>): Promise<T>;
   settings(): WafWorkspaceSettings;
   saveSettings(input: unknown): WafWorkspaceSettings;
 }>() {}
@@ -281,7 +293,7 @@ export class WafWorkspaceService implements WafWorkspace {
     if (this.log.length > WAF_LOG_LINES) this.log.splice(0, this.log.length - WAF_LOG_LINES);
   }
 
-  private serial<T>(key: string, work: () => Promise<T>): Promise<T> {
+  serial<T>(key: string, work: () => Promise<T>): Promise<T> {
     const prior = this.queues.get(key) ?? Promise.resolve();
     const next = prior.catch(() => {}).then(work);
     this.queues.set(key, next);
@@ -496,7 +508,7 @@ export class WafWorkspaceService implements WafWorkspace {
     const folder = checkModuleFolder(moduleFolder);
     const root = await this.requireRoot();
     const dir = new WafLayout(root).module(folder).root;
-    return this.serial(`module:${folder}`, async () => {
+    return this.serial(moduleRepoKey(folder), async () => {
       if (fs.existsSync(path.join(dir, ".git"))) return dir;
       if (fs.existsSync(dir) && (await fsp.readdir(dir)).length > 0)
         throw new HttpError(
@@ -542,7 +554,7 @@ export class WafWorkspaceService implements WafWorkspace {
     const folder = checkModuleFolder(moduleFolder);
     if (!this.external()) return this.ensureModule(folder);
     const dir = new WafLayout(await this.requireRoot()).module(folder).root;
-    return this.serial(`module:${folder}`, async () => {
+    return this.serial(moduleRepoKey(folder), async () => {
       // A module the checkout already has is its owner's, repository and all.
       if (fs.existsSync(dir)) return dir;
       // A new one starts as Loom started one: an empty repository on main with origin set,

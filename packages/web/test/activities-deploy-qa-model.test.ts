@@ -1,7 +1,8 @@
 /**
  * The QA deploy's words in the Deploy section: every new stage, failure and check finding the
  * server can send says something, the run line says QA for a QA run, the link to QA comes
- * from the stored stages, and the stages that push ask first.
+ * from the stored stages, the stages that push ask first, and waiting comes first once a started
+ * build's wait did not finish.
  */
 import { describe, expect, it } from "vitest";
 import type {
@@ -17,6 +18,7 @@ import {
   preflightFindings,
   preflightText,
   qaResult,
+  qaWait,
   refusalText,
   runLine,
   stageConfirmText,
@@ -139,6 +141,68 @@ describe("the QA deploy's words", () => {
       "await_activity_deploy",
     ] as const)
       expect(stageConfirmText(stage, branches)).toBeNull();
+  });
+
+  it("offers waiting first once the module build or the QA deploy was started and its wait did not finish", () => {
+    const done = (stage: DeployStage) => state(stage, "done");
+    const stopped = (stage: DeployStage, error?: DeployStageError): DeployStageState => ({
+      ...state(stage, error ? "failed" : "cancelled"),
+      ...(error ? { error } : {}),
+    });
+    const release = ["verify_module", "prepare_deploy", "trigger_module_build"] as const;
+    const module = (wait: DeployStageState) => [...release.map(done), wait];
+    const timedOut = { code: "build_timed_out", minutes: 30 } as const;
+    // Timed out, stopped, or cut short by a restart: the build may still be going in Jenkins.
+    for (const wait of [
+      stopped("await_module_build", timedOut),
+      stopped("await_module_build"),
+      stopped("await_module_build", { code: "interrupted" }),
+    ])
+      expect(qaWait(module(wait), null)).toEqual({ stage: "await_module_build", blocker: null });
+    const qa = [
+      ...[...release, ...QA_STAGES.slice(0, -1)].map(done),
+      done("await_module_build"),
+      stopped("await_activity_deploy", { code: "deploy_timed_out", minutes: 30 }),
+    ];
+    expect(qaWait(qa, run({ status: "failed" }))?.stage).toBe("await_activity_deploy");
+    // How it ended is the stored stage's, whichever run is in hand.
+    expect(qaWait(qa, run({ target: "prod", selection: "prod", status: "failed" }))?.stage).toBe(
+      "await_activity_deploy",
+    );
+    // The build had finished: waiting again finds the same, so deploying is offered.
+    for (const error of [
+      { code: "build_failed", result: "FAILURE", url: null },
+      { code: "no_newer_tag", before: "1.2.0", after: "1.2.0" },
+      { code: "tag_without_commit", tag: "1.3.0", commit: "c1" },
+    ] as const)
+      expect(qaWait(module(stopped("await_module_build", error)), null)).toBeNull();
+    // A stage stored before its error was: the run that waited says.
+    const unrecorded = module(stopped("await_module_build"));
+    unrecorded[3] = state("await_module_build", "failed");
+    const failedRun = run({
+      selection: "release",
+      status: "failed",
+      stages: [
+        { stage: "trigger_module_build", status: "done", error: null },
+        {
+          stage: "await_module_build",
+          status: "failed",
+          error: { code: "build_failed", result: "FAILURE", url: null },
+        },
+      ],
+    });
+    expect(qaWait(unrecorded, failedRun)).toBeNull();
+    expect(qaWait(unrecorded, null)?.stage).toBe("await_module_build");
+    // Why the wait cannot run now, said in the stage list's words.
+    const blocked = module({
+      ...stopped("await_module_build", timedOut),
+      blocker: { code: "settings_missing", field: "qa.token" },
+    });
+    expect(qaWait(blocked, null)?.blocker).toBe("QA Jenkins token is empty.");
+    // Nothing started, a wait that finished, or a run still going: Deploy to QA stays first.
+    expect(qaWait([], null)).toBeNull();
+    expect(qaWait(module(done("await_module_build")), null)).toBeNull();
+    expect(qaWait(module(stopped("await_module_build", timedOut)), run())).toBeNull();
   });
 
   it("words a refusal that names a QA stage", () => {

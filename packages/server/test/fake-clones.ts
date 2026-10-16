@@ -4,7 +4,8 @@
  *
  * Each repository is a `FakeRepo` keyed by its folder. A clone made through the fake (or
  * registered with `onDisk`) also gets a `.git` folder on disk, so code that looks at the disk
- * sees it. Every call is recorded in domain terms: `{ dir, op, args }`.
+ * sees it. Every call is recorded in domain terms: `{ dir, op, args }`, with the queue it was
+ * made in when it was made inside `serial`.
  */
 import { existsSync, realpathSync } from "node:fs";
 import fs from "node:fs/promises";
@@ -66,6 +67,8 @@ export interface FakeCall {
   dir: string;
   op: string;
   args: unknown[];
+  /** The queue the call was made in (`serial`); absent outside one. */
+  queue?: string;
 }
 
 /**
@@ -97,6 +100,26 @@ export class FakeClones implements Clones {
   failClone: { remote: string; stderr: string } | null = null;
   /** What every clone made through the fake starts with besides its origin and branch. */
   cloned: Partial<FakeRepo> = {};
+  /** The queue the work running now was given (`serial`); null outside one. */
+  private queue: string | null = null;
+
+  get inQueue(): string | null {
+    return this.queue;
+  }
+
+  /**
+   * A deploy's queue for git work on a repository: runs `work` at once and notes the queue on
+   * every call made inside it. Queueing again inside it fails, as it would wait for itself.
+   */
+  readonly serial = async <T>(repo: string, work: () => Promise<T>): Promise<T> => {
+    if (this.queue !== null) throw new Error(`Queued on ${repo} inside ${this.queue}.`);
+    this.queue = repo;
+    try {
+      return await work();
+    } finally {
+      this.queue = null;
+    }
+  };
 
   /** Registers a repository at `dir` without touching the disk. */
   add(dir: string, repo: FakeRepo): FakeRepo {
@@ -122,7 +145,14 @@ export class FakeClones implements Clones {
   }
 
   record(dir: string, op: string, args: unknown[]) {
-    this.calls.push({ dir, op, args });
+    this.calls.push({ dir, op, args, ...(this.queue !== null ? { queue: this.queue } : {}) });
+  }
+
+  /** The operations asked of the clone at `dir` outside `serial`, in order. */
+  unqueued(dir: string): string[] {
+    return this.calls
+      .filter((call) => key(call.dir) === key(dir) && call.queue === undefined)
+      .map((call) => call.op);
   }
 
   async available(cwd: string): Promise<boolean> {

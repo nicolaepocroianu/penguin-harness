@@ -3,7 +3,9 @@
  * confirmation, since it pushes branches and starts Jenkins jobs) and the stages it runs in
  * their three phases. Releasing the module on its own, and running one stage at a time, sit in
  * the lane's More menu. Deploy to QA waits while readiness problems block it, and says so beside
- * it; the problems themselves are said once, above the lanes, next to their fixes.
+ * it; the problems themselves are said once, above the lanes, next to their fixes. Once the module
+ * build or the QA deploy was started and the wait for it did not finish, waiting for it comes
+ * first, beside Deploy to QA: the build may still be going in Jenkins, or already done.
  */
 import { useEffect, useRef, useState } from "react";
 import type {
@@ -36,6 +38,7 @@ import {
   preflightFindings,
   qaResult,
   qaStatus,
+  qaWait,
   refusalText,
   runLine,
   stageConfirmText,
@@ -98,7 +101,7 @@ export function DeployQa({
 
   const running = run?.status === "running";
 
-  async function start(selection: QaSelection) {
+  async function start(selection: QaSelection, announce?: string) {
     const problem = selection === "release" ? versionProblem(version) : null;
     if (problem) return;
     setBusy("start");
@@ -114,11 +117,12 @@ export function DeployQa({
       onAnnounce({
         kind: "info",
         text:
-          selection === "release"
+          announce ??
+          (selection === "release"
             ? words.releaseStarted
             : selection === "qa"
               ? words.deployQaStarted
-              : words.stageStarted(stageName(selection)),
+              : words.stageStarted(stageName(selection))),
       });
     } catch (cause) {
       if (alive.current) {
@@ -172,6 +176,7 @@ export function DeployQa({
   const findings = preflightFindings(run, stages);
   const status = qaStatus(run, stages);
   const onQa = qaResult(stages);
+  const wait = qaWait(stages, run);
   const confirmText =
     confirm === null || confirm === "release" || confirm === "qa"
       ? null
@@ -253,7 +258,7 @@ export function DeployQa({
             </Dropdown>
             <Button
               size="sm"
-              variant="primary"
+              variant={wait ? "secondary" : "primary"}
               disabled={!canDeployQa}
               aria-describedby={!canDeployQa && startBlocker ? "deploy-start-blocker" : undefined}
               aria-busy={busy === "start" && confirm === "qa"}
@@ -261,10 +266,31 @@ export function DeployQa({
             >
               {running && run?.selection === "qa" ? words.deployingQa : words.deployQa}
             </Button>
+            {wait && (
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={busy !== null || wait.blocker !== null}
+                aria-describedby="deploy-qa-wait"
+                aria-busy={busy === "start" && confirm === null}
+                onClick={() => void start(wait.stage, words.waitStarted[wait.stage])}
+              >
+                {stageName(wait.stage)}
+              </Button>
+            )}
           </div>
         )}
       </div>
       <div className="space-y-4 px-4 py-3">
+        {wait && (
+          <p
+            id="deploy-qa-wait"
+            className={`text-xs ${wait.blocker ? "text-gray-600 dark:text-gray-300" : toneInk.attention}`}
+            data-testid="deploy-qa-wait"
+          >
+            {wait.blocker ?? words.waitFirst[wait.stage]}
+          </p>
+        )}
         {startBlocker && (
           <p id="deploy-start-blocker" className="text-xs text-gray-600 dark:text-gray-300">
             {startBlocker}

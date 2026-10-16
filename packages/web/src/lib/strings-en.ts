@@ -764,6 +764,16 @@ export const en: Strings = {
       deployQa: "Deploy to QA",
       deployingQa: "Deploying to QA…",
       deployQaStarted: "The QA deploy started.",
+      waitFirst: {
+        await_module_build:
+          "The last module build started, and the wait for its release tag did not finish. It may still be running in Jenkins, or already done: wait for it rather than deploying again.",
+        await_activity_deploy:
+          "The last QA deploy started, and the wait for it did not finish. It may still be running in Jenkins, or already done: wait for it rather than deploying again.",
+      },
+      waitStarted: {
+        await_module_build: "Waiting for the module build's release tag.",
+        await_activity_deploy: "Waiting for the QA deploy.",
+      },
       deployQaConfirmTitle: "Deploy to QA",
       deployQaConfirm: (productCode) => `This deploys ${productCode} to QA. It:`,
       deployQaConfirmItems: {
@@ -2882,6 +2892,8 @@ export const en: Strings = {
         not_remote: "Enter a git remote, like git@github.com:owner/repo.git.",
         remote_scheme: "Use an ssh:// or https:// remote, or git@host:owner/repo.git.",
         password_in_remote: "Leave the password out of the remote.",
+        user_in_remote:
+          "Leave the user out of an https remote: a token given as the user would be stored in the clear.",
         not_version: "Enter a version number, like 4.2.1.",
         not_email: "Enter an email address.",
         minutes_range: "Enter a whole number of minutes from 1 to 240.",

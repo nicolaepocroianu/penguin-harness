@@ -32,6 +32,7 @@ import {
   type DeployRun,
   type DeployRunMetadata,
   type DeployStage,
+  type DeployStageError,
   type DeployStageSelection,
   type DeployStageStatus,
   type DeployTarget,
@@ -53,7 +54,16 @@ export interface StoredStage {
   status: DeployStageStatus;
   finishedAt: string | null;
   metadata: DeployRunMetadata;
+  /** Why the stage failed, when a run recorded it. */
+  error?: DeployStageError;
 }
+
+/**
+ * The key a failed stage's error is kept under in its `metadata_json`, beside the metadata: one
+ * column, so whoever rewrites the row rewrites the error with it, and a reader that does not know
+ * the key reads the metadata as before.
+ */
+const STAGE_ERROR_KEY = "stageError";
 
 /** Where runs and stage states are kept. */
 export interface DeployRunStore {
@@ -142,16 +152,18 @@ export function dbDeployStore(db: Db): DeployRunStore {
       const out: Partial<Record<DeployStage, StoredStage>> = {};
       for (const row of rows) {
         if (!(DEPLOY_ALL_STAGES as readonly string[]).includes(row.stage)) continue;
-        let metadata: DeployRunMetadata = {};
+        let stored: Record<string, unknown> = {};
         try {
-          metadata = JSON.parse(row.metadata_json) as DeployRunMetadata;
+          stored = JSON.parse(row.metadata_json) as Record<string, unknown>;
         } catch {
-          metadata = {};
+          stored = {};
         }
+        const { [STAGE_ERROR_KEY]: error, ...metadata } = stored;
         out[row.stage as DeployStage] = {
           status: row.status as DeployStageStatus,
           finishedAt: row.finished_at,
-          metadata,
+          metadata: metadata as DeployRunMetadata,
+          ...(error && typeof error === "object" ? { error: error as DeployStageError } : {}),
         };
       }
       return out;
@@ -161,7 +173,15 @@ export function dbDeployStore(db: Db): DeployRunStore {
         `INSERT INTO activity_deploy_stages (activity_id, stage, status, finished_at, metadata_json)
          VALUES (?, ?, ?, ?, ?)
          ON CONFLICT(activity_id, stage) DO UPDATE SET status = excluded.status, finished_at = excluded.finished_at, metadata_json = excluded.metadata_json`,
-      ).run(activityId, stage, state.status, state.finishedAt, JSON.stringify(state.metadata));
+      ).run(
+        activityId,
+        stage,
+        state.status,
+        state.finishedAt,
+        JSON.stringify(
+          state.error ? { ...state.metadata, [STAGE_ERROR_KEY]: state.error } : state.metadata,
+        ),
+      );
     },
     lastProduction(projectId, activityId) {
       const rows = db
@@ -430,6 +450,7 @@ export class DeployRunner {
           status: entry.status,
           finishedAt: this.now().toISOString(),
           metadata: { ...run.metadata },
+          ...(entry.error ? { error: entry.error } : {}),
         });
       }
       this.persist(active);
@@ -512,6 +533,7 @@ export class DeployRunner {
             status: "failed",
             finishedAt: at,
             metadata: { ...active.run.metadata },
+            error: { code: "interrupted" },
           });
     }
     this.disposed = true;

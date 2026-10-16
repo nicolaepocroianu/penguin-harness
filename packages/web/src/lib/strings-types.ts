@@ -683,6 +683,13 @@ export type Strings = {
       deployQa: string;
       deployingQa: string;
       deployQaStarted: string;
+      /**
+       * Once the module build or the QA deploy was started and the wait for it did not finish,
+       * waiting for it comes before Deploy to QA: why, and the line said once it started. The
+       * button is the wait stage's name.
+       */
+      waitFirst: { await_module_build: string; await_activity_deploy: string };
+      waitStarted: { await_module_build: string; await_activity_deploy: string };
       /** The QA confirm dialog: what it pushes and starts, for this product code. */
       deployQaConfirmTitle: string;
       deployQaConfirm: (productCode: string) => string;

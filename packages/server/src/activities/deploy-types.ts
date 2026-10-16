@@ -86,6 +86,7 @@ export type DeploySettingReason =
   | "not_remote"
   | "remote_scheme"
   | "password_in_remote"
+  | "user_in_remote"
   | "not_version"
   | "not_email"
   | "minutes_range"
@@ -475,6 +476,12 @@ export interface DeployStageState {
   status: DeployStageStatus;
   finishedAt: string | null;
   metadata: DeployRunMetadata;
+  /**
+   * Why the stage failed when it last ran. Absent when it did not fail, and when that was not
+   * recorded: a stage stored before it was, or one a server that did not shut down cleanly cut
+   * short.
+   */
+  error?: DeployStageError;
   /** Null when the stage may be run now. */
   blocker: DeployBlocker | null;
 }

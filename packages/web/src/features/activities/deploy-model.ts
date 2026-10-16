@@ -723,6 +723,65 @@ export function qaResult(
   };
 }
 
+/** How a wait ends once the build it followed had finished: waiting again finds the same. */
+const BUILD_ENDED: ReadonlySet<DeployStageError["code"]> = new Set<DeployStageError["code"]>([
+  "build_failed",
+  "tag_without_commit",
+  "no_newer_tag",
+]);
+
+/**
+ * Whether waiting is the action to offer first, for the wait stage `wait` after its trigger:
+ * nothing runs, the trigger started a build, and the wait for it did not finish (it failed, was
+ * stopped, or the server stopped under it). The build Jenkins has may still be going or already
+ * done, and starting again would only come back to it. A wait that ended on how the build ended
+ * (Jenkins said it failed, or it released nothing of its commit) is not: that build is started
+ * again. Why the wait ended is the stored stage's, or `run`'s when it is the run that waited
+ * (`waited`) and the stage was stored before its error was.
+ */
+function waitComesFirst(
+  stages: readonly DeployStageState[],
+  run: DeployRun | null,
+  waited: boolean,
+  trigger: DeployStage,
+  wait: DeployStage,
+): boolean {
+  if (run?.status === "running") return false;
+  const state = (stage: DeployStage) => stages.find((entry) => entry.stage === stage);
+  if (state(trigger)?.status !== "done") return false;
+  const stored = state(wait);
+  if (!stored || stored.status === "done") return false;
+  const ended =
+    stored.error ?? (waited ? run?.stages.find((entry) => entry.stage === wait)?.error : null);
+  return !ended || !BUILD_ENDED.has(ended.code);
+}
+
+/** A wait the QA lane offers first (`qaWait`). */
+export interface QaWait {
+  stage: "await_module_build" | "await_activity_deploy";
+  /** Why the wait cannot run now; null when it can. */
+  blocker: string | null;
+}
+
+/**
+ * The wait the QA lane offers before Deploy to QA, once the QA deploy's or the module build's
+ * trigger started a build and the wait for it did not finish (`waitComesFirst`); null when
+ * neither did. `run` is the activity's latest run, QA's or PROD's.
+ */
+export function qaWait(stages: readonly DeployStageState[], run: DeployRun | null): QaWait | null {
+  const waited = run !== null && !isProdRun(run);
+  const waits = [
+    ["trigger_activity_deploy", "await_activity_deploy"],
+    ["trigger_module_build", "await_module_build"],
+  ] as const;
+  for (const [trigger, wait] of waits) {
+    if (!waitComesFirst(stages, run, waited, trigger, wait)) continue;
+    const blocker = stages.find((state) => state.stage === wait)?.blocker;
+    return { stage: wait, blocker: blocker ? blockerText(blocker) : null };
+  }
+  return null;
+}
+
 /**
  * What a stage run on its own asks before it starts, when it pushes or starts a Jenkins job;
  * null for a stage that only works on this server's clones or waits.
@@ -769,24 +828,19 @@ export interface ProdBar {
 }
 
 /**
- * Whether waiting for the PROD deploy is the action to offer first: nothing runs, the PROD
- * deploy was started, and the wait for it did not finish (it failed, was stopped, or the server
- * stopped under it). The deploy Jenkins has may still be going or already done, and deploying
- * again would start a second one. A wait that ended because Jenkins said the deploy failed is
- * not: that deploy is started again.
+ * Whether waiting for the PROD deploy is the action to offer first: the PROD deploy was started
+ * and the wait for it did not finish (`waitComesFirst`). Deploying again would start a second
+ * one. A wait that ended because Jenkins said the deploy failed is not: that deploy is started
+ * again.
  */
 export function prodWaitFirst(production: DeployProductionState, run: DeployRun | null): boolean {
-  if (run?.status === "running") return false;
-  const status = (stage: DeployStage) =>
-    production.stages.find((state) => state.stage === stage)?.status;
-  if (status("trigger_production_deploy") !== "done") return false;
-  const wait = status("await_production_deploy");
-  if (wait === undefined || wait === "done") return false;
-  const ended =
-    run && isProdRun(run)
-      ? run.stages.find((entry) => entry.stage === "await_production_deploy")?.error
-      : null;
-  return ended?.code !== "build_failed";
+  return waitComesFirst(
+    production.stages,
+    run,
+    run !== null && isProdRun(run),
+    "trigger_production_deploy",
+    "await_production_deploy",
+  );
 }
 
 /**

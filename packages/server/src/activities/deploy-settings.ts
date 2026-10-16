@@ -198,8 +198,9 @@ const SCP_REMOTE = /^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[A-Za-z0-9._~/-]+$/;
 
 /**
  * A git remote a clone is made from: the scp-like SSH form, ssh://, or https:// (http:// on
- * localhost). The host's SSH keys authenticate; a remote carrying a password is refused, as
- * it would be stored in the clear.
+ * localhost). The host's SSH keys or git's own credential helper authenticate. A remote carrying
+ * a password is refused, and so is a web remote naming a user, where a token is often put: either
+ * would be stored, and named in a failed stage's git command, in the clear.
  */
 export function normalizeRemote(value: unknown, field: string): string {
   const raw = text(value, field, URL_MAX);
@@ -219,6 +220,12 @@ export function normalizeRemote(value: unknown, field: string): string {
       "must be an ssh:// or https:// remote, or git@host:owner/repo.git.",
     );
   if (url.password) throw invalid(field, "password_in_remote", "must not contain a password.");
+  if (url.username && url.protocol !== "ssh:")
+    throw invalid(
+      field,
+      "user_in_remote",
+      "must not name a user: a token given as the user would be stored in the clear.",
+    );
   if (url.search || url.hash)
     throw invalid(field, "query_in_address", "must not have a query or fragment.");
   return raw;

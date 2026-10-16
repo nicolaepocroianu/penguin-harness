@@ -465,6 +465,12 @@ describe("activity deploy to PROD", () => {
         "deploy_timed_out",
       ]);
       expect(timedOut.production.stages.map((stage) => stage.status)).toEqual(["done", "failed"]);
+      // The stored wait says why it ended, whichever run is in hand.
+      expect(timedOut.production.stages[1]!.error).toEqual({
+        code: "deploy_timed_out",
+        minutes: 1,
+        target: "prod",
+      });
       expect(prodStarts()).toBe(1);
     }
     // It finished in Jenkins meanwhile: started again, the deploy is recorded, and nothing new runs.

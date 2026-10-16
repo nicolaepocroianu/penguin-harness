@@ -130,6 +130,7 @@ async function setup(
   settings.timeouts.deployMinutes = 1;
   const ctx: DeployStageContext = {
     clones,
+    serial: clones.serial,
     jenkins: jenkins.jenkins,
     process: { run: async () => ({ code: 0, tail: "" }) },
     styles: async () => ({ code: 0, tail: "" }),
@@ -315,6 +316,11 @@ describe("verify_activity_data and verify_media_assets", () => {
       mediaCopiedCount: 1,
       mediaCommit: "feedface",
     });
+    // All of it waits for, and holds off, the workspace's own git work on the media clone.
+    expect(clones.unqueued(media)).toEqual([]);
+    expect(
+      clones.calls.filter((call) => call.dir === media).every((c) => c.queue === "media"),
+    ).toBe(true);
   });
 
   it("stages every copied file, reaching folders the partial clone has not checked out", async () => {
@@ -527,13 +533,16 @@ describe("trigger_activity_deploy and await_activity_deploy", () => {
       expect(jenkins.polls.map((poll) => poll.after)).toEqual([6]);
       expect(again.ctx.metadata.preDeployNumber).toBe(6);
     }
-    // This run published new activity data: a new deploy, which never runs beside one going.
-    const published = await setup({ earlier, metadata: { activityDataCommit: "d1" } });
-    published.ctx.jenkins = fakeJenkins([going]).jenkins;
-    expect(await failure(run("trigger_activity_deploy", published.ctx))).toEqual({
-      code: "build_in_flight",
-      url: "https://j/d/7/",
-    });
+    // This run published new activity data or new media: a new deploy, which never runs beside
+    // one going.
+    for (const metadata of [{ activityDataCommit: "d1" }, { mediaCommit: "m1" }]) {
+      const published = await setup({ earlier, metadata });
+      published.ctx.jenkins = fakeJenkins([going]).jenkins;
+      expect(await failure(run("trigger_activity_deploy", published.ctx))).toEqual({
+        code: "build_in_flight",
+        url: "https://j/d/7/",
+      });
+    }
     // A last start whose wait finished, or one with another framework version, is not followed.
     for (const other of [
       { ...earlier, await_activity_deploy: { qaDeployedAt: "2026-09-28T12:00:00.000Z" } },
