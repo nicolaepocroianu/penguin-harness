@@ -141,7 +141,10 @@ interface Observer {
   error: string | null;
 }
 
-/** A run the server works itself, with no Session to stop it. */
+/**
+ * A speech or sound run (its media helper, or local audio), or a test run that reruns earlier
+ * checks: the server works it under this controller, with no Session to stop it.
+ */
 interface LocalRun {
   projectId: string;
   controller: AbortController;
@@ -746,9 +749,10 @@ export class ActivityGenerationService implements ActivityGeneration {
   }
 
   /**
-   * Stops the Project's runs the server works itself, which have no Session to abort, and
-   * returns each one's settling: until it has settled, its work can still hold its folder open
-   * or write into it.
+   * Stops the Project's runs worked under a controller here (see `LocalRun`), which have no
+   * Session to abort, and returns each one's settling: until it has settled, its work can still
+   * hold its folder open or write into it. Runs `openDeterministic` opened (video recordings,
+   * timeline renders, quality checks) are worked by their callers and are not among them.
    */
   abortProject(projectId: string): Promise<void>[] {
     const settling: Promise<void>[] = [];

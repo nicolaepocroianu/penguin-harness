@@ -73,7 +73,11 @@ export class ProjectService implements ProjectLifecycle {
   @Use() private readonly projectConfig!: ProjectConfigStore;
   /** What destroying a Project needs of the session runtime — declared at the consumer. */
   @Use() private readonly manager!: ProjectRuns;
-  /** Activity runs the server works itself, which have no Session for `manager` to abort. */
+  /**
+   * Activity speech and sound runs, and test runs that rerun earlier checks, which have no
+   * Session for `manager` to abort. Runs `openDeterministic` opened (video recordings, timeline
+   * renders, quality checks) are neither stopped nor awaited here.
+   */
   @Use() private readonly serverRuns!: ProjectServerRuns;
   /** Trace-index cleanup on Project destruction (rows describe files removed with the Project dir). */
   @Use() private readonly traceIndex!: TraceIndex;
@@ -390,8 +394,9 @@ export abstract class ProjectRuns extends Interface<{
 }>() {}
 
 /**
- * What destroying a Project needs of the activity runs the server works itself (media helpers,
- * local audio), which have no Session to abort — declared at the consumer.
+ * What destroying a Project needs of the activity runs worked under the server's own controller
+ * (media helpers, local audio, test reruns), which have no Session to abort — declared at the
+ * consumer.
  */
 export abstract class ProjectServerRuns extends Interface<{
   abortProject(projectId: string): Promise<void>[];
