@@ -56,8 +56,8 @@ test.beforeAll(async ({ browser }) => {
   expect(created.ok(), await created.text()).toBeTruthy();
   sessionId = (await created.json()).session.sessionId;
   await page.goto(`${BASE}/chat/${sessionId}`);
-  await page.getByPlaceholder(/输入消息/).fill("sticky rows test");
-  await page.getByRole("button", { name: "发送", exact: true }).click();
+  await page.getByPlaceholder(/Type a message/).fill("sticky rows test");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect(page.getByText(REPLY)).toBeVisible({ timeout: 60_000 });
   await page.close();
 });
@@ -70,7 +70,7 @@ async function openOutput(page, theme) {
   const head = page.locator("[data-group-header]");
   await head.click();
   await expect(head).toHaveAttribute("aria-expanded", "true");
-  const toolRow = page.locator("button[aria-expanded]").filter({ hasText: "执行命令" }).nth(1);
+  const toolRow = page.locator("button[aria-expanded]").filter({ hasText: "exec" }).nth(1);
   await toolRow.click();
   await expect(toolRow).toHaveAttribute("aria-expanded", "true");
   // Both folds have finished opening: nothing moves between the readings below.

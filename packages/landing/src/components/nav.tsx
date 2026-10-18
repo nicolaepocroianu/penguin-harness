@@ -1,12 +1,7 @@
 /** Landing routes and preferences rendered through the shared public-site header. */
 import { useState } from "react";
 import { Link, useLocation } from "react-router";
-import {
-  Fold,
-  SiteGitHubLink,
-  SiteHeader,
-  SiteNavLinks,
-} from "@prismshadow/penguin-ui/site";
+import { Fold, SiteGitHubLink, SiteHeader, SiteNavLinks } from "@prismshadow/penguin-ui/site";
 import type { SiteLink, SiteLinkProps } from "@prismshadow/penguin-ui/site";
 import { S } from "../lib/strings";
 import { DOCS_URL, galleryUrl, REPO_API_URL, REPO_URL } from "../lib/links";

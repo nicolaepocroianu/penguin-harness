@@ -12,7 +12,7 @@
  *   seed) and a conversation of an A-only Agent open, when the user switches A→B→A→B with clicks
  *   landing mid-load, several times over, each Project settles on its own conversation and
  *   Agents, no request pairs a Project with an Agent of the other, and no `agent_not_found`
- *   (「该 Agent 已不存在。」) comes back. A new chat in B whose remembered draft names A's Agent
+ *   ("This agent no longer exists.") comes back. A new chat in B whose remembered draft names A's Agent
  *   (written while A's Agents were on screen) asks nothing about it either, and neither does the
  *   cost center opened on A's Agent (`/usage?agentId=`) once the user switches to B.
  *
@@ -248,19 +248,19 @@ test("clicking the current Project in the dropdown: Agent and Session lists must
   await byName.first().click();
   await page.getByRole("button", { name: U }).first().click();
   await expect(generalAgent).toBeVisible();
-  await page.getByRole("link", { name: "插件市场" }).click();
+  await page.getByRole("link", { name: "Plugins" }).click();
   await expect(page).toHaveURL(/\/plugins$/);
   // The category sections are open on entry. agent-optimization is the Default RSI Toolkit's
   // only skill.
-  await page.getByRole("button", { name: "管理安装 default-rsi-toolkit" }).click();
-  await expect(page.getByRole("button", { name: "卸载 default_agent" })).toBeVisible();
+  await page.getByRole("button", { name: "Manage installs default-rsi-toolkit" }).click();
+  await expect(page.getByRole("button", { name: "Uninstall default_agent" })).toBeVisible();
   await page.keyboard.press("Escape");
 
   // Staying on the plugin library page while switching to target: the same-named default_agent's state must flip to "Install" (not installed).
   await page.getByRole("button", { name: U }).first().click();
   await byName.first().click();
-  await page.getByRole("button", { name: "管理安装 default-rsi-toolkit" }).click();
-  await expect(page.getByRole("button", { name: "安装 default_agent" })).toBeVisible();
+  await page.getByRole("button", { name: "Manage installs default-rsi-toolkit" }).click();
+  await expect(page.getByRole("button", { name: "Install default_agent" })).toBeVisible();
   await page.keyboard.press("Escape");
 });
 
@@ -354,7 +354,7 @@ test("on a slow machine, quick Project switches keep each Project's Agents and c
   }
 
   // The Agents page of each Project lists its own Agent and never the other's.
-  await page.getByRole("link", { name: "智能体" }).click();
+  await page.getByRole("link", { name: "Agents" }).click();
   const main = page.getByRole("main");
   await expect(main.getByText("Alpha Agent", { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(main.getByText("Beta Agent", { exact: true })).toHaveCount(0);
@@ -367,7 +367,7 @@ test("on a slow machine, quick Project switches keep each Project's Agents and c
   await expect(main.getByText("Alpha Agent", { exact: true })).toHaveCount(0);
 
   // A new chat in B starts from its remembered draft, which names A's Agent.
-  await page.getByRole("button", { name: "新建对话" }).first().click();
+  await page.getByRole("button", { name: "New chat" }).first().click();
   await expect(page).toHaveURL(/\/chat\/new$/);
   await expect(page.getByRole("heading", { name: "PenguinHarness" })).toBeVisible({
     timeout: 30_000,

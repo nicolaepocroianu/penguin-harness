@@ -72,6 +72,10 @@ const NATIVE_DEPENDENCIES = new Map([
     "@deepseek-ai/node-addon-landlock-run",
     "resolves its per-platform launcher binary package at run time (sandbox-dsh)",
   ],
+  [
+    "@agentclientprotocol/codex-acp",
+    "spawned by its resolved path as its own process, and pulls the per-platform Codex binary through @openai/codex (use-codex)",
+  ],
 ]);
 
 /**

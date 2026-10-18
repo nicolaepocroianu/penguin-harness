@@ -462,7 +462,7 @@ const server = http.createServer((req, res) => {
     }
 
     // Background process that EXITS on its own (processes.spec: the exited row keeps its
-    // "已退出" label and gains a remove button that deletes the entry from the list). The
+    // "exited" label and gains a remove button that deletes the entry from the list). The
     // command outlives the 300ms yield window — so it is promoted to background — and
     // exits ~200ms later, leaving an exited entry behind.
     if (flat.includes("background exit test") && !hasToolResult) {

@@ -1269,8 +1269,7 @@ const en: Messages = {
       "Remove a model from the Project (clears the default / vision pointers naming it); without --model-id, remove the group's connection",
     removeModelId:
       "Upstream model id of the entry to remove; omit it to remove the group's connection instead (its models stay)",
-    langDesc:
-      "Set the interface language (en); persists PENGUIN_LANG to your shell startup file",
+    langDesc: "Set the interface language (en); persists PENGUIN_LANG to your shell startup file",
     langArg: "Language: en",
     vaultDesc: "Manage an Agent's vault (environment variables injected into its shell commands)",
     vaultSetDesc: "Set a vault environment variable (added or overwritten)",

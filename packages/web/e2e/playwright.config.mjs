@@ -11,7 +11,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.BASE_URL,
     headless: true,
-    locale: "zh-CN",
+    locale: "en-US",
     permissions: ["clipboard-read", "clipboard-write"],
     // A failure on a runner cannot be re-run by hand there: keep its trace, which CI uploads.
     trace: process.env.CI ? "retain-on-failure" : "off",

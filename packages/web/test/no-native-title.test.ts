@@ -196,7 +196,9 @@ describe("native title tooltips", () => {
       "Use data-tooltip (read by TooltipLayer) or <Tooltip>, and an aria-label where the title " +
         "was the element's only name.",
     ).toEqual([]);
-  });
+    // The first case parses every .tsx that mentions "title": well under a second alone, but
+    // past vitest's 5 s default on a CI runner busy with coverage and the rest of the suite.
+  }, 30_000);
 
   it("leave no element whose hint was its only name without an aria-label", () => {
     const hits = scan.files
