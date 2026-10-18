@@ -77,11 +77,7 @@ describe("thirdPartyNotices", () => {
       version: "0.154.0-linux-x64",
       license: "Apache-2.0",
       kept: {
-        text: "Apache License
-
-OpenAI Codex
-Copyright 2025 OpenAI
-",
+        text: "Apache License\n\nOpenAI Codex\nCopyright 2025 OpenAI\n",
         source: "the LICENSE and NOTICE files of https://github.com/openai/codex",
       },
     };
@@ -89,8 +85,7 @@ Copyright 2025 OpenAI
     expect(notices).toContain(
       "This package ships no license file. License text from the LICENSE and NOTICE files of https://github.com/openai/codex:",
     );
-    expect(notices).toContain("OpenAI Codex
-Copyright 2025 OpenAI");
+    expect(notices).toContain("OpenAI Codex\nCopyright 2025 OpenAI");
   });
 
   it("fails rather than ship a package without license text", () => {
