@@ -71,6 +71,28 @@ describe("thirdPartyNotices", () => {
     expect(section).toContain("```text\nMIT License\n\nCopyright (C) 2026  Niels Martignène\n```");
   });
 
+  it("uses the text this repository keeps for a package that ships none, and says where from", () => {
+    const codex = {
+      name: "@openai/codex",
+      version: "0.154.0-linux-x64",
+      license: "Apache-2.0",
+      kept: {
+        text: "Apache License
+
+OpenAI Codex
+Copyright 2025 OpenAI
+",
+        source: "the LICENSE and NOTICE files of https://github.com/openai/codex",
+      },
+    };
+    const notices = thirdPartyNotices([codex], where);
+    expect(notices).toContain(
+      "This package ships no license file. License text from the LICENSE and NOTICE files of https://github.com/openai/codex:",
+    );
+    expect(notices).toContain("OpenAI Codex
+Copyright 2025 OpenAI");
+  });
+
   it("fails rather than ship a package without license text", () => {
     const stray = { name: "left-pad", version: "1.0.0", license: "MIT" };
     expect(() => thirdPartyNotices([koffi, stray], where)).toThrow(

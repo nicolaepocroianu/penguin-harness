@@ -9,6 +9,8 @@ export interface VendoredPackage {
   optionalDependencies?: Record<string, string>;
   licenseFile?: string;
   licenseText?: string;
+  /** Text this repository keeps for a package that ships none: `license-texts/<name>/`. */
+  kept?: { text: string; source: string };
 }
 export declare function readVendoredPackages(
   dir: string,

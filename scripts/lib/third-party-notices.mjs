@@ -8,12 +8,30 @@
  * A package that ships no license file may borrow the text of the package it is a platform build
  * of — the one that lists it in `optionalDependencies` at the same version, same author and same
  * license id (koffi's `@koromix/koffi-<os>-<cpu>` packages). Any other package without license
- * text fails the build: an incomplete notice is not shipped.
+ * text fails the build, unless this repository keeps the text its own repository publishes
+ * (`license-texts/<name>/`, for the Codex CLI): an incomplete notice is not shipped.
  */
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const LICENSE_FILE = /^(licen[cs]e|copying)(\.(md|txt|markdown))?$/i;
+
+/**
+ * License text kept in this repository for a package that ships none and is not a platform
+ * build of one that does: `license-texts/<name>/` holds the files its own repository publishes
+ * (LICENSE, and NOTICE where there is one) and SOURCE, saying where they were taken from.
+ */
+const KEPT_TEXTS = path.join(path.dirname(fileURLToPath(import.meta.url)), "license-texts");
+
+/** The kept text for package `name`, if this repository keeps one. */
+function keptText(name) {
+  const dir = path.join(KEPT_TEXTS, ...name.split("/"));
+  if (!fs.existsSync(path.join(dir, "LICENSE"))) return undefined;
+  const read = (file) => fs.readFileSync(path.join(dir, file), "utf8").trimEnd();
+  const notice = fs.existsSync(path.join(dir, "NOTICE")) ? `\n\n${read("NOTICE")}` : "";
+  return { text: `${read("LICENSE")}${notice}\n`, source: read("SOURCE") };
+}
 
 /**
  * Every package under the `node_modules` directory `dir`, nested ones included, as the plain
@@ -41,6 +59,7 @@ export function readVendoredPackages(dir, into = []) {
         optionalDependencies: manifest.optionalDependencies,
         licenseFile,
         licenseText: licenseFile ? fs.readFileSync(path.join(pkg, licenseFile), "utf8") : undefined,
+        kept: licenseFile ? undefined : keptText(manifest.name),
       });
       readVendoredPackages(path.join(pkg, "node_modules"), into);
     }
@@ -109,15 +128,19 @@ export function thirdPartyNotices(packages, { carrier, location }) {
       lines.push(`License text from its \`${pkg.licenseFile}\`:`);
     } else {
       const parent = platformParent(pkg, sorted);
-      if (!parent) {
+      if (parent) {
+        text = parent.licenseText;
+        lines.push(
+          `This package ships no license file. License text from ${parent.name}@${parent.version}, ` +
+            "of which this is the prebuilt binary package (same author, same license):",
+        );
+      } else if (pkg.kept) {
+        text = pkg.kept.text;
+        lines.push(`This package ships no license file. License text from ${pkg.kept.source}:`);
+      } else {
         missing.push(id);
         return "";
       }
-      text = parent.licenseText;
-      lines.push(
-        `This package ships no license file. License text from ${parent.name}@${parent.version}, ` +
-          "of which this is the prebuilt binary package (same author, same license):",
-      );
     }
     const body = text.replace(/\r\n?/g, "\n").trimEnd();
     const fence = fenceFor(body);

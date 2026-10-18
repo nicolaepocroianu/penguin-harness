@@ -86,6 +86,14 @@ const NATIVE_DEPENDENCIES = new Map([
  * entry are installed for each of these as well; they are small next to the plugins themselves,
  * and one prefix then serves every target a push can reach.
  */
+/**
+ * Packages whose per-platform builds are installed for the building machine only, not for every
+ * TARGET_PLATFORMS entry: the Codex CLI binary use-codex's adapter runs is about 380 MB per
+ * platform, so each desktop build carries its own platform's, as it did before builds served
+ * every target.
+ */
+const HOST_ONLY_PLATFORM_PACKAGES = new Set(["@openai/codex"]);
+
 const TARGET_PLATFORMS = [
   { os: "linux", cpu: "x64" },
   { os: "linux", cpu: "arm64" },
@@ -211,7 +219,13 @@ export async function buildBuiltinPlugins({ log = () => {} } = {}) {
   // ones for TARGET_PLATFORMS and this build never hardcodes a platform triple.
   const lock = readPnpmLock(ROOT);
   const importers = plugins.map((p) => path.relative(ROOT, p.dir).split(path.sep).join("/"));
-  const closure = lockedClosure(lock, importers, NATIVE_DEPENDENCIES, TARGET_PLATFORMS);
+  const closure = lockedClosure(
+    lock,
+    importers,
+    NATIVE_DEPENDENCIES,
+    TARGET_PLATFORMS,
+    HOST_ONLY_PLATFORM_PACKAGES,
+  );
   const builtinNames = new Set(plugins.map((p) => p.name));
   const h = createHash("sha256").update(`pack ${PACK_FORMAT}\0`);
   h.update(lockCacheInput(lock, closure)).update("\0");

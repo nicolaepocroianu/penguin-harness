@@ -41,6 +41,54 @@ describe("lockedClosure", () => {
     const targets = [{ os: "linux", cpu: "x64" }];
     expect(lockedClosure(lock, ["plugins/sandbox-dsh"], natives, targets)).toEqual(closure);
   });
+
+  it("follows npm aliases to their real package, and keeps a host-only package's build for the host", () => {
+    const aliased = {
+      importers: {
+        "plugins/use-codex": {
+          dependencies: { "@agentclientprotocol/codex-acp": { version: "1.12.0" } },
+        },
+      },
+      packages: {
+        "@agentclientprotocol/codex-acp@1.12.0": {},
+        "@openai/codex@0.154.0": {},
+        "@openai/codex@0.154.0-linux-x64": { os: ["linux"], cpu: ["x64"] },
+        "@openai/codex@0.154.0-win32-x64": { os: ["win32"], cpu: ["x64"] },
+      },
+      snapshots: {
+        "@agentclientprotocol/codex-acp@1.12.0": { dependencies: { "@openai/codex": "0.154.0" } },
+        "@openai/codex@0.154.0": {
+          optionalDependencies: {
+            "@openai/codex-linux-x64": "@openai/codex@0.154.0-linux-x64",
+            "@openai/codex-win32-x64": "@openai/codex@0.154.0-win32-x64",
+          },
+        },
+      },
+    };
+    const natives = new Set(["@agentclientprotocol/codex-acp"]);
+    const targets = [
+      { os: "linux", cpu: "x64" },
+      { os: "win32", cpu: "x64" },
+    ];
+    const importers = ["plugins/use-codex"];
+    expect(lockedClosure(aliased, importers, natives, targets)).toEqual(
+      new Map([
+        ["@agentclientprotocol/codex-acp", "1.12.0"],
+        ["@openai/codex", "0.154.0"],
+        ["@openai/codex-linux-x64", "npm:@openai/codex@0.154.0-linux-x64"],
+        ["@openai/codex-win32-x64", "npm:@openai/codex@0.154.0-win32-x64"],
+      ]),
+    );
+    const host = { os: "win32", cpu: "x64" };
+    const hostOnly = new Set(["@openai/codex"]);
+    expect(lockedClosure(aliased, importers, natives, targets, hostOnly, host)).toEqual(
+      new Map([
+        ["@agentclientprotocol/codex-acp", "1.12.0"],
+        ["@openai/codex", "0.154.0"],
+        ["@openai/codex-win32-x64", "npm:@openai/codex@0.154.0-win32-x64"],
+      ]),
+    );
+  });
 });
 
 describe("integrityMismatches", () => {
@@ -66,6 +114,30 @@ describe("integrityMismatches", () => {
     ],
   ])("npm's integrity %s against the lockfile's: %j", (integrity, mismatches) => {
     expect(integrityMismatches(lock, closure, npmLock(integrity), builtins)).toEqual(mismatches);
+  });
+
+  it("checks an aliased package by the real package npm records beside its install name", () => {
+    const aliasLock = {
+      packages: {
+        "@openai/codex@0.154.0-linux-x64": { resolution: { integrity: "sha512-codex" } },
+      },
+    };
+    const aliasClosure = new Map([
+      ["@openai/codex-linux-x64", "npm:@openai/codex@0.154.0-linux-x64"],
+    ]);
+    const entry = (integrity: string) => ({
+      packages: {
+        "node_modules/@openai/codex-linux-x64": {
+          name: "@openai/codex",
+          version: "0.154.0-linux-x64",
+          integrity,
+        },
+      },
+    });
+    expect(integrityMismatches(aliasLock, aliasClosure, entry("sha512-codex"))).toEqual([]);
+    expect(integrityMismatches(aliasLock, aliasClosure, entry("sha512-other"))).toEqual([
+      "@openai/codex-linux-x64@npm:@openai/codex@0.154.0-linux-x64: npm installed sha512-other, locked sha512-codex",
+    ]);
   });
 
   it("names a drifted version and a locked package npm did not install", () => {

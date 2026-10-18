@@ -13,6 +13,8 @@ export declare function lockedClosure(
   importers: string[],
   natives: { has(name: string): boolean },
   targets: { os: string; cpu: string }[],
+  hostOnly?: Set<string>,
+  host?: { os: string; cpu: string },
 ): Map<string, string>;
 export declare function lockCacheInput(lock: PnpmLock, closure: Map<string, string>): string;
 export declare function platformSpecs(lock: PnpmLock, closure: Map<string, string>): string[];

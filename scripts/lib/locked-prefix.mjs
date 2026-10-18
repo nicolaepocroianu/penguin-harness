@@ -29,33 +29,48 @@ function admits(list, value) {
 }
 
 /**
- * `name` → `version` of every package the `natives` declared by the lockfile importers
- * `importers` (`plugins/<dir>`) need, as pnpm-lock.yaml resolves them: their snapshots'
- * dependencies and optional dependencies, transitively, minus the platform packages for none of
- * the `targets` (`[{ os, cpu }]`). Throws when one name resolves to two versions — an override
- * holds one.
+ * The lockfile key of `name` installed at `spec`. A spec is a version, or `npm:<real>@<version>`
+ * for an npm alias (`@openai/codex-linux-x64` installs `@openai/codex@0.154.0-linux-x64`).
  */
-export function lockedClosure(lock, importers, natives, targets) {
+function lockKey(name, spec) {
+  return spec.startsWith("npm:") ? spec.slice(4) : `${name}@${spec}`;
+}
+
+/**
+ * `name` → spec (a version, or `npm:<real>@<version>` for an alias) of every package the
+ * `natives` declared by the lockfile importers `importers` (`plugins/<dir>`) need, as
+ * pnpm-lock.yaml resolves them: their snapshots' dependencies and optional dependencies,
+ * transitively, minus the platform packages for none of the `targets` (`[{ os, cpu }]`). A
+ * platform package of a package named in `hostOnly` is kept for `host` alone: one too large to
+ * ship for every target. Throws when one name resolves to two specs — an override holds one.
+ */
+export function lockedClosure(lock, importers, natives, targets, hostOnly = new Set(), host) {
   const queue = [];
   for (const key of importers) {
     for (const [name, { version }] of Object.entries(lock.importers?.[key]?.dependencies ?? {})) {
       if (natives.has(name)) queue.push([name, version]);
     }
   }
+  const here = host ?? { os: process.platform, cpu: process.arch };
   const closure = new Map();
   for (const [name, ref] of queue) {
-    const version = ref.replace(/\(.*$/, ""); // `0.1.0-rc.7(<peers>)` → `0.1.0-rc.7`
-    const pkg = lock.packages?.[`${name}@${version}`];
-    if (pkg === undefined) throw new Error(`pnpm-lock.yaml has no package ${name}@${version}`);
-    if (!targets.some((t) => admits(pkg.os, t.os) && admits(pkg.cpu, t.cpu))) continue;
+    const bare = ref.replace(/\(.*$/, ""); // `0.1.0-rc.7(<peers>)` → `0.1.0-rc.7`
+    // An alias's ref names the real package: `@openai/codex@0.154.0-linux-x64`.
+    const alias = /.@/.test(bare);
+    const spec = alias ? `npm:${bare}` : bare;
+    const pkg = lock.packages?.[lockKey(name, spec)];
+    if (pkg === undefined) throw new Error(`pnpm-lock.yaml has no package ${lockKey(name, spec)}`);
+    const real = alias ? bare.slice(0, bare.lastIndexOf("@")) : name;
+    const wanted = hostOnly.has(real) && (pkg.os || pkg.cpu) ? [here] : targets;
+    if (!wanted.some((t) => admits(pkg.os, t.os) && admits(pkg.cpu, t.cpu))) continue;
     if (closure.has(name)) {
-      if (closure.get(name) !== version) {
-        throw new Error(`${name}: pnpm-lock.yaml resolves ${closure.get(name)} and ${version}`);
+      if (closure.get(name) !== spec) {
+        throw new Error(`${name}: pnpm-lock.yaml resolves ${closure.get(name)} and ${spec}`);
       }
       continue;
     }
-    closure.set(name, version);
-    const snapshot = lock.snapshots?.[`${name}@${ref}`] ?? {};
+    closure.set(name, spec);
+    const snapshot = lock.snapshots?.[alias ? ref : `${name}@${ref}`] ?? {};
     for (const next of [snapshot.dependencies, snapshot.optionalDependencies]) {
       queue.push(...Object.entries(next ?? {}));
     }
@@ -63,9 +78,9 @@ export function lockedClosure(lock, importers, natives, targets) {
   return new Map([...closure].sort(([a], [b]) => (a < b ? -1 : 1)));
 }
 
-/** The `resolution.integrity` pnpm-lock.yaml pins for `name@version`, if any. */
-function lockedIntegrity(lock, name, version) {
-  return lock.packages?.[`${name}@${version}`]?.resolution?.integrity;
+/** The `resolution.integrity` pnpm-lock.yaml pins for `name` at `spec`, if any. */
+function lockedIntegrity(lock, name, spec) {
+  return lock.packages?.[lockKey(name, spec)]?.resolution?.integrity;
 }
 
 /** The lockfile entries the closure was read from, for build-plugins' cache key. */
@@ -82,7 +97,7 @@ export function lockCacheInput(lock, closure) {
 export function platformSpecs(lock, closure) {
   return [...closure]
     .filter(([name, version]) => {
-      const pkg = lock.packages[`${name}@${version}`];
+      const pkg = lock.packages[lockKey(name, version)];
       return pkg.os !== undefined || pkg.cpu !== undefined;
     })
     .map(([name, version]) => `${name}@${version}`);
@@ -99,15 +114,20 @@ export function integrityMismatches(lock, closure, npmLock, ignored = new Set())
   const seen = new Set();
   for (const [key, entry] of Object.entries(npmLock.packages ?? {})) {
     if (key === "") continue; // the prefix's own manifest
-    const name = entry.name ?? key.slice(key.lastIndexOf("node_modules/") + "node_modules/".length);
+    // The name it is installed under; an alias's entry names the real package beside it.
+    const name = key.slice(key.lastIndexOf("node_modules/") + "node_modules/".length);
     if (ignored.has(name)) continue;
-    const id = `${name}@${entry.version}`;
+    const spec =
+      entry.name !== undefined && entry.name !== name
+        ? `npm:${entry.name}@${entry.version}`
+        : entry.version;
+    const id = `${name}@${spec}`;
     seen.add(name);
-    if (closure.get(name) !== entry.version) {
+    if (closure.get(name) !== spec) {
       problems.push(`${id}: not in the locked closure`);
       continue;
     }
-    const want = lockedIntegrity(lock, name, entry.version);
+    const want = lockedIntegrity(lock, name, spec);
     if (want === undefined) problems.push(`${id}: pnpm-lock.yaml records no integrity`);
     else if (entry.integrity !== want) {
       problems.push(`${id}: npm installed ${entry.integrity ?? "(no integrity)"}, locked ${want}`);
