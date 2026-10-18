@@ -9042,8 +9042,7 @@ Scenarios:
         "The video or animation this scene was composed for is no longer in the media plan.",
       video_invalid: "The recording is not a WebM video, so it was not kept.",
       video_changed: "The recorded video changed or is gone. Record it again.",
-      test_browser_missing:
-        "The test browser is not installed. An admin installs it in Settings.",
+      test_browser_missing: "The test browser is not installed. An admin installs it in Settings.",
       composition_no_images:
         "Bind an image to this scene first: the composition is made from the scene's images.",
       composition_asset_invalid:
