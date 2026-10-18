@@ -3,7 +3,7 @@
 - **Date:** 2026-10-18
 - **Type:** feat
 - **Scope:** `core`, `server`, `web`, `ui`, `cli`, `desktop`, `docs`, `landing`, `plugins`, `ci`
-- **PR:** pending
+- **PR:** [#163](https://github.com/nicolaepocroianu/penguin-harness/pull/163)
 
 The fork took in all 257 changes the parent project (Prism-Shadow/penguin-harness) made after 2026-09-18, through its releases 0.2.14, 0.2.15 and 0.2.16, and kept everything built here: activities and the Activity Studio, coding agents, the session sandbox, module releases and the bench. The app stays English only, as before.
 
