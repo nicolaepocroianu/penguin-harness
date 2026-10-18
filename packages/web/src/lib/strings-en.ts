@@ -617,7 +617,7 @@ export const en: Strings = {
       loadFailed: (reason) => `Could not read what a deploy needs: ${reason}`,
       ready: "Ready to deploy.",
       notReady: (n) => `Not ready to deploy: ${n} ${n === 1 ? "thing is" : "things are"} missing.`,
-      settingsHint: "An admin fills in the deploy settings under System settings, Deploy.",
+      settingsHint: "An admin fills in the deploy settings under Settings, Deploy.",
       openSettings: "Open deploy settings",
       pinnedBuild:
         "The preview plays a pinned module build. A release ships the newest build, not the pinned one. Unpin it under History, Module builds, to preview what ships.",
@@ -988,7 +988,7 @@ export const en: Strings = {
       check: "Check quality",
       checking: "Checking quality…",
       browserMissing:
-        "The test browser is not installed. An admin installs it in System settings, under Test browser.",
+        "The test browser is not installed. An admin installs it in Settings, under Test browser.",
       loadFailed: "Could not load the quality checks.",
       lastChecked: (when: string) => `Last checked ${when}`,
       notChecked: "Not checked yet.",
@@ -1061,7 +1061,7 @@ export const en: Strings = {
       run: "Run tests",
       running: "Running tests…",
       browserMissing:
-        "The test browser is not installed. An admin installs it in System settings, under Test browser.",
+        "The test browser is not installed. An admin installs it in Settings, under Test browser.",
       noCriteria:
         "The specification has no acceptance criteria, so there is nothing to test. Add them to acceptance_criterias.",
       stale:
@@ -1146,7 +1146,7 @@ export const en: Strings = {
         noCriteria: "The specification has no acceptance criteria to test.",
         noBrowser: "The test browser is not installed.",
         moduleNotChecked:
-          "Built and type-checked, but not checked in the player: an admin has not installed the test browser in System settings.",
+          "Built and type-checked, but not checked in the player: an admin has not installed the test browser in Settings.",
         moduleCheckSkipped:
           "Built and type-checked, but the agent did not run the player check. Run the module stage again.",
         moduleCheckUntrusted:
@@ -2458,7 +2458,7 @@ export const en: Strings = {
           "When a module is assembled, its agent plays it in Penguin's real player and checks each scenario: every scene starting, each interaction's feedback, pause and resume, and completion. This is what that check found for the build the preview plays.",
         none: "There is no module build yet.",
         noBrowser:
-          "This build was assembled without the test browser, so it never played. An admin installs the test browser in System settings; assembling again checks it.",
+          "This build was assembled without the test browser, so it never played. An admin installs the test browser in Settings; assembling again checks it.",
         notRun: "This build's player check never ran to the end.",
         loadFailed: "Could not read the player check:",
         checkedAt: (when: string) => `During assembly, ${when}`,
@@ -9043,7 +9043,7 @@ Scenarios:
       video_invalid: "The recording is not a WebM video, so it was not kept.",
       video_changed: "The recorded video changed or is gone. Record it again.",
       test_browser_missing:
-        "The test browser is not installed. An admin installs it in System settings.",
+        "The test browser is not installed. An admin installs it in Settings.",
       composition_no_images:
         "Bind an image to this scene first: the composition is made from the scene's images.",
       composition_asset_invalid:

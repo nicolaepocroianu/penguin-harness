@@ -242,7 +242,7 @@ export class ActivityVideoRenderService implements ActivityVideoRenders {
       throw new HttpError(
         409,
         "test_browser_missing",
-        "The test browser is not installed. An admin installs it in System settings.",
+        "The test browser is not installed. An admin installs it in Settings.",
       );
     if (this.config.port === 0)
       throw new HttpError(503, "server_not_listening", "The server has not started listening yet.");

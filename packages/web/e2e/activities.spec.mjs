@@ -522,6 +522,8 @@ async function fixture(page) {
         });
       if (p.endsWith("/organizations")) return json({ organizations: [] });
       if (p.endsWith("/models")) return json({ models: [] });
+      if (p.endsWith("/machines"))
+        return json({ machines: [], imageVersion: null, job: null, jobs: [] });
       if (p.endsWith("/events"))
         return route.fulfill({
           contentType: "text/event-stream",
@@ -950,7 +952,7 @@ test("reviews specification edits against the saved specification before saving"
   };
   await replaceText(editor, JSON.stringify(edited, null, 2));
   await expect(save).toBeEnabled();
-  await expect(diff).toHaveAttribute("title", /^Unsaved changes/);
+  await expect(diff).toHaveAttribute("data-tooltip", /^Unsaved changes/);
 
   // Loom's diff toolbar: counts with regions, previous and next, and an overview.
   await diff.click();
@@ -2404,7 +2406,7 @@ test("canceling the dirty-editor guard prevents Project deletion and remount", a
   const deleteDialog = page.getByRole("dialog", { name: "Delete Project", exact: true });
   const settings = await projectSettings(page);
   await settings.getByRole("button", { name: "Delete", exact: true }).click();
-  await deleteDialog.getByRole("button", { name: "Confirm", exact: true }).click();
+  await deleteDialog.getByRole("button", { name: "Delete", exact: true }).click();
   // deleteProject awaits the guard's dialog before settling, so the Delete Project dialog
   // stays open (stacked behind the discard one) until that answer comes back.
   await expect(dialog).toBeVisible();
@@ -2416,7 +2418,7 @@ test("canceling the dirty-editor guard prevents Project deletion and remount", a
   expect(await description.evaluate((element, before) => element === before, original)).toBe(true);
   // Discarding this time lets the same deleteProject call finish, and the delete goes through.
   await settings.getByRole("button", { name: "Delete", exact: true }).click();
-  await deleteDialog.getByRole("button", { name: "Confirm", exact: true }).click();
+  await deleteDialog.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Discard" }).click();
   await expect.poll(() => f.deletedProjects).toBe(1);
@@ -3012,7 +3014,8 @@ test("hides reasoning in the run log and expands a long tool output", async ({ p
   await expect(again.getByText("Thinking", { exact: true })).toHaveCount(0);
 
   // A long output offers Copy and Show all; a short one only Copy.
-  const tools = again.getByRole("button", { name: /^Done exec/ });
+  // The default theme draws no status mark on a settled step, so its name is the tool's own.
+  const tools = again.getByRole("button", { name: /^(Done )?exec/ });
   await tools.first().click();
   const copy = again.getByRole("button", { name: "Copy output", exact: true });
   await expect(copy).toHaveCount(1);
@@ -3492,7 +3495,7 @@ test("lists the live tap targets on the current state and keeps the map under th
   await expect(live.getByRole("button")).toHaveCount(3);
   await expect(live).toContainText("+2 more");
   const first = live.getByRole("button", { name: "First rock", exact: true });
-  await expect(first).toHaveAttribute("title", "rock-a, tap");
+  await expect(first).toHaveAttribute("data-tooltip", "rock-a, tap");
 
   // Pointing at one outlines it in the player; leaving clears the outline.
   const player = () => page.frames().find((frame) => frame.url().includes("/sandbox/play"));
@@ -4316,7 +4319,7 @@ test("speech coverage says what failed, filters the list, and tries one again", 
   await filters.getByRole("button", { name: /^Failed/ }).click();
   const failed = audioRow(page, "hello");
   await expect(failed).toContainText("Failed");
-  await expect(failed).toHaveAttribute("title", "The voice timed out.");
+  await expect(failed).toHaveAttribute("data-tooltip", "The voice timed out.");
   await expect(audioRow(page, "bye")).toHaveCount(0);
   await page.getByRole("button", { name: "Try again", exact: true }).click();
   await expect.poll(() => generated.length).toBe(1);
@@ -5637,10 +5640,7 @@ test("the home page groups refs under their product code", async ({ page }) => {
   // New ref is in each row's menu, and says why it cannot be made while there is no plan.
   await group.getByRole("button", { name: "More for ants 2", exact: true }).click();
   const menu = page.getByRole("menu", { name: "More for ants 2", exact: true });
-  await expect(menu.getByRole("menuitem", { name: /^New ref of ants/ })).toHaveAttribute(
-    "aria-disabled",
-    "true",
-  );
+  await expect(menu.getByRole("menuitem", { name: /^New ref of ants/ })).toBeDisabled();
   await expect(menu).toContainText("Plan the canonical ref's media first");
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);
@@ -6586,8 +6586,8 @@ test("an admin installs the test browser from System settings", async ({ page })
   });
   await page.goto(`${origin}/activities`);
   await page.locator('button[aria-haspopup="menu"]').filter({ hasText: "author" }).click();
-  await page.getByRole("button", { name: "System settings", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "System settings" });
+  await page.getByRole("menuitem", { name: "Settings", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Settings", exact: true });
   await dialog.getByRole("button", { name: "Test browser" }).click();
   const status = dialog.getByTestId("test-browser-status");
   await expect(status).toHaveText("Not installed");
@@ -6689,8 +6689,8 @@ test("an admin reads what became of activity runs in System settings", async ({ 
   });
   await page.goto(`${origin}/activities`);
   await page.locator('button[aria-haspopup="menu"]').filter({ hasText: "author" }).click();
-  await page.getByRole("button", { name: "System settings", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "System settings" });
+  await page.getByRole("menuitem", { name: "Settings", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Settings", exact: true });
   await dialog.getByRole("button", { name: "Activity outcomes" }).click();
 
   // Module runs of the last 30 days, per recipe, in every project.
@@ -6798,8 +6798,8 @@ test("an admin cleans up activity runs from System settings after a dry run", as
   });
   await page.goto(`${origin}/activities`);
   await page.locator('button[aria-haspopup="menu"]').filter({ hasText: "author" }).click();
-  await page.getByRole("button", { name: "System settings", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "System settings" });
+  await page.getByRole("menuitem", { name: "Settings", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Settings", exact: true });
   await dialog.getByRole("button", { name: "Activity storage" }).click();
   await expect(dialog.getByTestId("run-storage")).toHaveText("5MB in 12 run folders");
 
@@ -6931,7 +6931,7 @@ test("an admin reads the activity bench's scores in the Evaluation Center", asyn
   // The bench home is chosen once, with the server's folder browser.
   await section.getByRole("button", { name: "Bench home" }).click();
   await page.getByRole("button", { name: "bench-home" }).click();
-  await page.getByRole("button", { name: "Use this dir" }).click();
+  await page.getByRole("button", { name: "Choose", exact: true }).click();
   const shown = section.getByTestId("bench-board");
   await expect(shown).toHaveCount(1);
   await expect(shown).toContainText("Activity authoring, revision 2");
@@ -7068,7 +7068,7 @@ test("checks quality and lists what must be fixed", async ({ page }) => {
   await expect(check).toBeDisabled();
   await expect(
     page.getByText(
-      "The test browser is not installed. An admin installs it in System settings, under Test browser.",
+      "The test browser is not installed. An admin installs it in Settings, under Test browser.",
       { exact: true },
     ),
   ).toBeVisible();
@@ -7215,7 +7215,7 @@ test("runs the tests and lists each criterion's result", async ({ page }) => {
   await expect(
     page
       .getByText(
-        "The test browser is not installed. An admin installs it in System settings, under Test browser.",
+        "The test browser is not installed. An admin installs it in Settings, under Test browser.",
         { exact: true },
       )
       .first(),
@@ -8666,7 +8666,7 @@ test("shows what a deploy still needs", async ({ page }) => {
     ),
   ).toBeVisible();
   await expect(
-    page.getByText("An admin fills in the deploy settings under System settings, Deploy.", {
+    page.getByText("An admin fills in the deploy settings under Settings, Deploy.", {
       exact: true,
     }),
   ).toBeVisible();
@@ -8784,7 +8784,7 @@ test("the next step lists what stands before QA, blockers first, and goes where 
   // The journey says the deploy is blocked, in its mark and in words.
   const journey = page.getByRole("list", { name: "Activity journey", exact: true });
   await expect(journey.getByRole("button", { name: /^Deploy/ })).toHaveAttribute(
-    "title",
+    "data-tooltip",
     "Deploy: Blocked",
   );
   // The one next-step button never offers QA while the deploy would refuse it.
@@ -8919,7 +8919,7 @@ test("an admin opens the deploy settings from what a deploy still needs", async 
 
   await page.getByRole("button", { name: "Open deploy settings", exact: true }).click();
   // Exactly one settings dialog, and it opens on the Deploy page.
-  const dialogs = page.getByRole("dialog", { name: "System settings" });
+  const dialogs = page.getByRole("dialog", { name: "Settings", exact: true });
   await expect(dialogs).toHaveCount(1);
   const qa = dialogs.getByRole("group", { name: "QA" });
   await expect(qa.getByRole("textbox", { name: "Tier" })).toHaveValue("qa");
@@ -8942,8 +8942,8 @@ test("on a phone, System settings from the drawer's account menu opens one dialo
     .click();
   // Only the drawer's user row is on screen; the desktop pane's is hidden at this width.
   await page.getByRole("button", { name: "author", exact: true }).click();
-  await page.getByRole("button", { name: "System settings", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "System settings" })).toHaveCount(1);
+  await page.getByRole("menuitem", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Settings", exact: true })).toHaveCount(1);
   expect(f.errors).toEqual([]);
 });
 
@@ -9005,7 +9005,7 @@ test("an admin fills in the deploy settings and tests the QA connection", async 
             error: {
               code: "invalid_deploy_setting",
               message: "qa.jenkinsUrl: must start with https://",
-              detail: { field: "qa.jenkinsUrl", reason: "https_required" },
+              details: { field: "qa.jenkinsUrl", reason: "https_required" },
             },
           },
           400,
@@ -9026,8 +9026,8 @@ test("an admin fills in the deploy settings and tests the QA connection", async 
   });
   await page.goto(`${origin}/activities`);
   await page.locator('button[aria-haspopup="menu"]').filter({ hasText: "author" }).click();
-  await page.getByRole("button", { name: "System settings", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "System settings" });
+  await page.getByRole("menuitem", { name: "Settings", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Settings", exact: true });
   await dialog.getByRole("button", { name: "Deploy" }).click();
   const qa = dialog.getByRole("group", { name: "QA" });
   await expect(qa.getByRole("textbox", { name: "Tier" })).toHaveValue("qa");
@@ -10317,7 +10317,7 @@ test("records a composed scene and keeps it as the scene's video", async ({ page
   // A refusal the server reports by code is worded by the App.
   await record.click();
   await expect(
-    page.getByText("The test browser is not installed. An admin installs it in System settings.", {
+    page.getByText("The test browser is not installed. An admin installs it in Settings.", {
       exact: true,
     }),
   ).toBeVisible();

@@ -213,7 +213,7 @@ export class ActivityAcceptanceService implements ActivityAcceptance {
       throw new HttpError(
         409,
         "test_browser_missing",
-        "The test browser is not installed. An admin installs it in System settings.",
+        "The test browser is not installed. An admin installs it in Settings.",
       );
     const version =
       this.ports.playwrightVersion !== undefined
