@@ -10,9 +10,8 @@
  * missing, which is said rather than left blank.
  */
 import { useEffect, useRef, useState } from "react";
-import { Button } from "../../components/ui/button";
+import { Button, usePrefersReducedMotion } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
-import { usePrefersReducedMotion } from "../../components/ui/use-reduced-motion";
 import {
   clipTime,
   encodeWav,

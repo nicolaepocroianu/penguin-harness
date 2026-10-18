@@ -1,6 +1,7 @@
 ---
 name: waf-sequence-from-prose
 description: Use when implementing WAF module behavior from natural-language prose in an existing module where `definition.json` and any needed configuration files already exist. Focus on authoring `src/sequence.js` and optional helper files for scene flow, media timing, interactivity, hints, and cleanup, while explicitly avoiding assessment-driven APIs and response-submission logic.
+version: 2026.10.10.1
 ---
 
 # WAF Sequence From Prose

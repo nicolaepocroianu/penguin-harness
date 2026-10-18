@@ -1,6 +1,7 @@
 ---
 name: waf-asset-usage-patterns
 description: Use when implementing or reviewing pipeline-generated WAF HTML modules that should render scene artwork from declared configuration-backed image, animation, and video assets instead of recreating those visuals with HTML or CSS.
+version: 2026.10.10.1
 ---
 
 # WAF Asset Usage Patterns

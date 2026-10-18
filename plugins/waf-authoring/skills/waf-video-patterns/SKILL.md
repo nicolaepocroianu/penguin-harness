@@ -1,6 +1,7 @@
 ---
 name: waf-video-patterns
 description: Use when implementing or reviewing pipeline-generated WAF HTML modules that include video assets. Covers playback wiring, last-frame persistence, and cleanup rules for video elements in sequence flow.
+version: 2026.10.10.1
 ---
 
 # WAF Video Patterns

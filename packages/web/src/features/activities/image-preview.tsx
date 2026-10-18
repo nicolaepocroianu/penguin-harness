@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Button } from "../../components/ui/button";
-import { ZoomableImage } from "../../components/ui/image-zoom";
+import { Button, ZoomableImage } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 

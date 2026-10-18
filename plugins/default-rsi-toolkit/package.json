@@ -1,0 +1,37 @@
+{
+  "name": "@penguinharness/default-rsi-toolkit",
+  "version": "0.2.16",
+  "description": "The Default RSI Toolkit: the trial → reflect → improve loop as one Skill — improve an agent from its measured Benchmark results, round after round, with a snapshot before every round. It measures through the agent-evaluation Skill of the Agent Evaluation plugin.",
+  "keywords": [
+    "penguin-plugin",
+    "penguinharness",
+    "skills"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Prism-Shadow/penguin-harness.git",
+    "directory": "plugins/default-rsi-toolkit"
+  },
+  "files": [
+    "icon.svg",
+    "skills",
+    "hooks",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "penguin": {
+    "short_description": "Default RSI Toolkit: trial, reflect, improve.",
+    "category": "rsi",
+    "icon": "icon.svg",
+    "quick_start": {
+      "prompt": "List this Project's Benchmarks with their latest scores, then propose which agent to optimize on which Benchmark and for how many rounds. Wait for my go-ahead before starting.",
+      "skills": [
+        "agent-optimization"
+      ]
+    },
+    "title": "Default RSI Toolkit"
+  }
+}

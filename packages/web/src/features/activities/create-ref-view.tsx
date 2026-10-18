@@ -20,12 +20,16 @@ import type {
   VoiceOption,
 } from "@prismshadow/penguin-server/api";
 import { ApiError } from "../../api/client";
-import { Button, labelButtonClass } from "../../components/ui/button";
+import {
+  Button,
+  buttonClass,
+  HiddenFileInput,
+  InfoPopover,
+  Input,
+  Textarea,
+  Select,
+} from "@prismshadow/penguin-ui";
 import { ChipGroup } from "../../components/ui/chip-group";
-import { HiddenFileInput } from "../../components/ui/hidden-file-input";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { Input, Textarea } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
 import {
   TABLE,
   TABLE_HEAD_ROW,
@@ -300,7 +304,7 @@ export function CreateRefView({
       <>
         <span className="line-clamp-2 block font-medium">{said ?? row.key}</span>
         {said && (
-          <span className="block truncate font-mono text-xs text-gray-500" title={row.key}>
+          <span className="block truncate font-mono text-xs text-gray-500" data-tooltip={row.key}>
             {row.key}
           </span>
         )}
@@ -346,9 +350,7 @@ export function CreateRefView({
       const kind = uploadKindFor(row.type);
       return (
         <div className="space-y-1">
-          <label
-            className={`relative inline-flex items-center ${labelButtonClass("secondary", "sm")}`}
-          >
+          <label className={`relative inline-flex items-center ${buttonClass("secondary", "sm")}`}>
             <HiddenFileInput
               aria-label={`${words.chooseFile}: ${row.key}`}
               accept={UPLOAD_ACCEPT[kind]}
@@ -552,7 +554,7 @@ export function CreateRefView({
       {found.length > 0 && (
         <div role="status" className={`rounded-md border p-3 text-xs ${toneStrip.danger}`}>
           <p className="font-medium">{words.blockersTitle}</p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-4">
+          <ul className="mt-1 list-disc space-y-1 pl-4">
             {found.map((blocker) => (
               <li key={`${blocker.code}:${"key" in blocker ? blocker.key : ""}`}>
                 {blockerText(blocker)}

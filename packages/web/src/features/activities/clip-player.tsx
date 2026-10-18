@@ -5,9 +5,7 @@
  * row, never passed over in silence.
  */
 import { useRef, useState, type ReactNode } from "react";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { PAUSE_ICON, PLAY_ICON } from "../../components/ui/icons";
-import { ICON_SIZE } from "../../lib/icon-scale";
+import { GlyphIcon, ICON_SIZE, ICONS } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 
 export interface Clip {
@@ -144,7 +142,7 @@ export function ClipButton({
       }`}
     >
       <GlyphIcon
-        d={playing ? PAUSE_ICON : PLAY_ICON}
+        d={playing ? ICONS.pause : ICONS.play}
         size={ICON_SIZE.iconButton}
         filled={!playing}
       />

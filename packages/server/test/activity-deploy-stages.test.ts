@@ -687,7 +687,7 @@ function fakeConfiner() {
   const calls: { argv: readonly string[]; opts: Parameters<SpawnConfiner>[1] }[] = [];
   const confiner: SpawnConfiner = (argv, opts) => {
     calls.push({ argv, opts });
-    return ["sandbox-runner", ...argv];
+    return { argv: ["sandbox-runner", ...argv] };
   };
   return { confiner, calls };
 }
@@ -730,8 +730,13 @@ describe("the module's own programs", () => {
     ]);
     // Each program is started as the sandbox rewrites it.
     for (const call of npm.calls)
-      expect(call.confine?.(["npm", "run", "x"])).toEqual(["sandbox-runner", "npm", "run", "x"]);
-    expect(sass.jobs[0]!.confine?.(["node", "sass.js"])).toEqual([
+      expect(call.confine?.(["npm", "run", "x"]).argv).toEqual([
+        "sandbox-runner",
+        "npm",
+        "run",
+        "x",
+      ]);
+    expect(sass.jobs[0]!.confine?.(["node", "sass.js"]).argv).toEqual([
       "sandbox-runner",
       "node",
       "sass.js",

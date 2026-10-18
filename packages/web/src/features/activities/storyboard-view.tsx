@@ -6,12 +6,9 @@
  * Choosing a card makes it the scene the conversation is about; opening it opens its media.
  */
 import type { SceneAssetLeaf } from "./scene-assets";
-import { Button } from "../../components/ui/button";
-import { EmptyState } from "../../components/ui/empty-state";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { ICON_GAP, ICON_SIZE } from "../../lib/icon-scale";
+import { Button, Dot, EmptyState, GlyphIcon, ICON_GAP, ICON_SIZE } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
-import { toneDot, toneInk, toneStrip, toneSurface } from "../../lib/tone";
+import { toneDot, toneInk, toneName, toneStrip, toneSurface } from "../../lib/tone";
 import type { MediaPreview } from "./media-preview";
 import { MediaThumb } from "./media-thumb";
 import { SCENE_ASSET_ICON } from "./scene-asset-icons";
@@ -230,12 +227,7 @@ export function Storyboard({
                             className={`size-1.5 shrink-0 rounded-full ${toneDot.attention}`}
                           />
                         )}
-                        {frame.working && (
-                          <span
-                            aria-hidden
-                            className={`size-1.5 shrink-0 animate-pulse rounded-full ${toneDot.busy}`}
-                          />
-                        )}
+                        {frame.working && <Dot tone={toneName.busy} pulse />}
                         {frame.unbound > 0 && (
                           <span
                             aria-hidden

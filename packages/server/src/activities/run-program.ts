@@ -42,18 +42,31 @@ export type ProgramOutcome = "exited" | "not_found" | "timed_out" | "stopped" | 
 
 /**
  * Puts a program in a sandbox: given the argv it would be spawned with, answers the argv to
- * spawn instead (a sandbox runner wrapping it). Throws when it cannot confine it.
+ * spawn instead (a sandbox runner wrapping it) and the variables the runner needs laid over
+ * the program's environment. Throws when it cannot confine it.
  */
-export type ProgramConfiner = (argv: readonly string[]) => readonly string[];
+export type ProgramConfiner = (argv: readonly string[]) => {
+  argv: readonly string[];
+  env?: Readonly<Record<string, string>>;
+};
 
-/** `argv` as `confine` rewrote it. Throws when it refuses, or leaves nothing to start. */
-export function confinedArgv(
+/**
+ * `argv` as `confine` rewrote it, with the environment the runner needs (`env` with the
+ * runner's variables over it; undefined when neither has any). Throws when it refuses, or
+ * leaves nothing to start.
+ */
+export function confinedSpawn(
   confine: ProgramConfiner,
   argv: readonly string[],
-): [string, ...string[]] {
-  const [program, ...rest] = confine(argv);
+  env: NodeJS.ProcessEnv | undefined,
+): { argv: [string, ...string[]]; env: NodeJS.ProcessEnv | undefined } {
+  const confined = confine(argv);
+  const [program, ...rest] = confined.argv;
   if (program === undefined) throw new Error("The sandbox gave no program to start.");
-  return [program, ...rest];
+  return {
+    argv: [program, ...rest],
+    env: confined.env === undefined ? env : { ...(env ?? process.env), ...confined.env },
+  };
 }
 
 export interface ProgramSpec {
@@ -239,8 +252,9 @@ export function startProgram(spec: ProgramSpec): RunningProgram {
   let file: string;
   let args: string[];
   let verbatim: boolean;
+  let env: NodeJS.ProcessEnv | undefined;
   try {
-    [file, args, verbatim] = commandLine(spec);
+    [file, args, verbatim, env] = commandLine(spec);
   } catch (error) {
     finish("failed_to_start", null, (error as Error).message);
     return handle;
@@ -250,7 +264,7 @@ export function startProgram(spec: ProgramSpec): RunningProgram {
   try {
     proc = spawn(file, args, {
       cwd: spec.cwd,
-      env: spec.env,
+      env,
       stdio: [piped ? "pipe" : "ignore", "pipe", "pipe", ...(spec.ipc ? ["ipc" as const] : [])],
       shell: false,
       windowsHide: true,
@@ -324,12 +338,15 @@ function startFailure(spec: ProgramSpec, error: NodeJS.ErrnoException): ProgramO
  * The file to spawn and its arguments, through cmd.exe for a Windows `.cmd` wrapper and
  * through the confiner when there is one. Throws when the program cannot be confined.
  */
-function commandLine(spec: ProgramSpec): [string, string[], boolean] {
+function commandLine(
+  spec: ProgramSpec,
+): [string, string[], boolean, NodeJS.ProcessEnv | undefined] {
   const [file, args, verbatim] = shellLine(spec);
-  if (!spec.confine) return [file, args, verbatim];
-  const [program, ...rest] = confinedArgv(spec.confine, [file, ...args]);
+  if (!spec.confine) return [file, args, verbatim, spec.env];
+  const confined = confinedSpawn(spec.confine, [file, ...args], spec.env);
+  const [program, ...rest] = confined.argv;
   // A sandbox runner is an ordinary program, which quotes what it starts itself.
-  return [program, rest, false];
+  return [program, rest, false, confined.env];
 }
 
 /** The file to spawn and its arguments, through cmd.exe for a Windows `.cmd` wrapper. */

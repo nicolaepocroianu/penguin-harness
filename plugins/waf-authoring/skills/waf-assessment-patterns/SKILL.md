@@ -1,6 +1,7 @@
 ---
 name: waf-assessment-patterns
 description: Use when generating or implementing WAF assessment-driven activity behavior, authoring module-local assessment JSON, or wiring SIMPLE_CHOICE and MULTIPLE_RESPONSE_CHOICE response submission for generated WAF modules.
+version: 2026.10.10.1
 ---
 
 # WAF Assessment Patterns

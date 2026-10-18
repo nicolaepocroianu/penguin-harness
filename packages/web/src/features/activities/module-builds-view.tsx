@@ -9,10 +9,7 @@ import type {
   ModuleBuildDiff,
   ModuleBuildList,
 } from "@prismshadow/penguin-server/api";
-import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { Select } from "../../components/ui/select";
+import { Badge, Button, InfoPopover, Select } from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, toneStrip } from "../../lib/tone";
@@ -250,8 +247,8 @@ export function ModuleBuildsView({
                     <td className={`${TD} whitespace-nowrap text-xs`}>{row.files}</td>
                     <td className={`${TD} whitespace-nowrap`}>
                       <div className="flex flex-wrap gap-1">
-                        {row.newest && <Badge tone="gray">{words.newest}</Badge>}
-                        {row.playing && <Badge tone="brand">{words.playing}</Badge>}
+                        {row.newest && <Badge tone="neutral">{words.newest}</Badge>}
+                        {row.playing && <Badge tone="info">{words.playing}</Badge>}
                       </div>
                     </td>
                     <td className={`${TD} whitespace-nowrap`}>

@@ -14,12 +14,15 @@
  *     new api_key / base_url. Agent State changes (vault, AGENTS.md, tools, …) take no
  *     such shortcut: core assembles them into the next model context — at the Session's
  *     next compaction — exactly as the CLI does, so a running context never changes;
- *   - Per-Session mutual exclusion: only one Task/compaction may be in progress at a
- *     time;
- *   - run/compact drive: consumes the output stream in the background, publishing each
- *     message to the SSE channel and handing it to usage-recorder for persistence;
+ *   - Per-Session mutual exclusion: only one Task/compaction/model switch may be in
+ *     progress at a time;
+ *   - run/compact/switch drive: consumes the output stream in the background, publishing
+ *     each message to the SSE channel and handing it to usage-recorder for persistence;
  *     on completion (including errors) resets to idle and pushes a `task_state` server
- *     event;
+ *     event. A model switch (startSwitch) is a compaction whose next context opens on
+ *     another model: the entry's (provider, modelId) — the pair usage is attributed to —
+ *     and the index row follow the runtime, moving as the new context's session_meta passes
+ *     through the drive;
  *   - Approval registration and interrupt convergence: each approval decision re-reads
  *     approval_mode from the DB (takes effect immediately); an interrupt first
  *     converges pending approvals to deny, then aborts. An organization's sessions have
@@ -38,8 +41,11 @@ import path from "node:path";
 import {
   createAgent,
   findLatestTraceFile,
+  isHookContinue,
   isHookInput,
   isSessionMeta,
+  ModelSwitchRefusedError,
+  normalizeSessionSource,
   parseUserSteeringText,
   tracesDir,
   userText,
@@ -50,12 +56,14 @@ import type {
   BackgroundSubagentInfo,
   CompactAvailability,
   ControlEnvContext,
+  AgentAssembly,
   OmniMessage,
   ProxyEnvPolicy,
   SessionSandboxMode,
   SpawnConfiner,
   SessionMetaPayload,
   SessionTitleResult,
+  StopReason,
   SubagentMessageOptions,
   SubagentMessageOutcome,
   TextPayload,
@@ -63,6 +71,7 @@ import type {
   ToolDetachResult,
 } from "@prismshadow/penguin-core";
 import type {
+  ModelRefDto,
   PendingFollowUpInfo,
   PendingSteeringInfo,
   ServerEvent,
@@ -75,27 +84,31 @@ import { HttpError, isMissingCredential, modelCredentialMissing } from "../http/
 import type { SessionRow } from "../db/repos/sessions.js";
 import { ApprovalRegistry, makeApprove } from "./approvals.js";
 import { goalOutcomeOf, goalProgressOf } from "./goal-events.js";
-import type { PendingApproval } from "./approvals.js";
+import type { Approvals, PendingApproval } from "./approvals.js";
 import type { ChannelHub } from "./channel.js";
 import type { ErrorSink } from "./error-recorder.js";
-import { LiveTailTracker } from "./live-tail.js";
-import { asSessionSource } from "./session-sources.js";
+import { AgentStateStore } from "./agent-state.js";
+import type { LiveTail } from "./live-tail.js";
+import { unrunSource } from "./session-sources.js";
 import { StreamErrorWatcher } from "./stream-error-watcher.js";
 import type { TitleNotifier } from "./title-generator.js";
 import type { UsageContext } from "./usage-recorder.js";
 import { Component, Interface, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
 import type { SessionService as SessionServiceImpl } from "../services/session-service.js";
-import type { ClassCtx, Opaque } from "@prismshadow/penguin-core/kernel";
+import type { ClassCtx, Json, Opaque } from "@prismshadow/penguin-core/kernel";
 import { Sandbox, SandboxModule } from "../sandbox/service.js";
+import { SANDBOX_GROUP } from "../sandbox/settings-store.js";
+import { sandboxEnabledOf, sandboxPresetsOf, sandboxStartOf } from "../sandbox/settings-policy.js";
+import { PluginConfig } from "../plugin/config.js";
 import { SessionService } from "../services/session-service.js";
+import { ModelScopeAuth } from "../services/modelscope-auth-service.js";
 import { TitleGenerator } from "./title-generator.js";
 import { loopbackHostRoles } from "../services/preview-token.js";
-import { mergedNoProxy } from "../net/proxy.js";
-import { publishToProjectUsers } from "../http/routes/events.js";
+import { agentNoProxy } from "../net/proxy.js";
 import type { SandboxService } from "../sandbox/service.js";
 import type { AuthState, Channels, Clock, Config, Log } from "../hmr/capabilities.js";
-import type { Members, ProjectConfigStore, Projects } from "../mechanisms/projects.js";
-import type { SessionIndex, SessionOrigins } from "../mechanisms/sessions.js";
+import type { ProjectConfigStore, ProjectEvents } from "../mechanisms/projects.js";
+import type { AgentState, SessionIndex, SessionOrigins } from "../mechanisms/sessions.js";
 import { isRunWorkspace, type ActivityRuns } from "../activities/run-store.js";
 import type { Errors, UsageRecording } from "../mechanisms/observability.js";
 import type { TraceIndex, TraceIndexStore } from "../mechanisms/traces.js";
@@ -103,6 +116,7 @@ import type { Settings } from "../mechanisms/settings.js";
 import type { MessagingBindings } from "../mechanisms/messaging.js";
 import type { OrgCache } from "../mechanisms/organization.js";
 import { enabledMessagingChannel } from "./messaging/enabled-channel.js";
+import { MODELSCOPE_PROVIDER_ID } from "@prismshadow/penguin-core/model-catalog";
 
 /**
  * 409 for when there's nothing to compact: give the specific reason rather than a
@@ -135,17 +149,69 @@ function compactUnavailable(why: Exclude<CompactAvailability, "ok">): HttpError 
   return new HttpError(409, code, message);
 }
 
+/**
+ * Core's refusal of a model switch — a typed `ModelSwitchRefusedError`, thrown before its
+ * first event (see `Session.switchModel`) — as the 409 the HTTP contract names for it: each
+ * reason is its own code (see `SessionSwitchModelRequest`). A missing credential reads as the
+ * remedy the Web App can act on rather than the loader's own wording. Anything else core
+ * throws is not a refusal but a failure — an Agent State that no longer parses, a bootstrap
+ * that broke — and is rethrown, so it reaches the 500 path and its logging instead of being
+ * dressed up as a target problem.
+ */
+function switchRefusal(err: unknown, ref: ModelRefDto): HttpError {
+  if (!(err instanceof ModelSwitchRefusedError)) throw err;
+  const message =
+    err.reason === "model_unavailable" && isMissingCredential(err)
+      ? `Model ${ref.modelId} has no API key yet. Configure it on the Models page first.`
+      : err.message;
+  return new HttpError(409, err.reason, message);
+}
+
+/** A stream whose head was already pulled, whole again: `head`, then the rest of `rest`. */
+async function* resumeFrom<T>(head: T, rest: AsyncGenerator<T, unknown>): AsyncGenerator<T> {
+  yield head;
+  yield* rest;
+}
+
+/** The model a runtime Session reports itself on, or null for one that reports none (test fakes). */
+function runtimeModelOf(session: RuntimeSession): ModelRefDto | null {
+  const { provider, modelId } = session;
+  if (provider === undefined || modelId === undefined) return null;
+  return { provider, modelId };
+}
+
 /** Minimal interface for a runtime Session (satisfied by core Session; tests may inject a fake implementation). */
+/** What one run is started with: the approval callback and the interrupt signal. */
+export type RunOpts = {
+  approve: ApproveFn;
+  signal: AbortSignal;
+};
+
 export interface RuntimeSession {
   readonly sessionId: string;
-  run(
-    newMessages: OmniMessage[],
-    opts: {
-      approve: ApproveFn;
-      signal: AbortSignal;
-    },
-  ): AsyncGenerator<OmniMessage>;
+  run(newMessages: OmniMessage[], opts: RunOpts): AsyncGenerator<OmniMessage>;
   compact(opts: { signal: AbortSignal }): AsyncGenerator<OmniMessage>;
+  /**
+   * The running context's model (core `Session.provider` / `Session.modelId`, getters over
+   * the context's session_meta): the row's pair at creation, moved by each in-session switch
+   * — and, after a restart, whatever the Trace resumed on. Optional: test fakes may omit them,
+   * in which case the entry keeps the row's pair.
+   */
+  readonly provider?: string;
+  readonly modelId?: string;
+  /**
+   * Switches the Session's model in place (core `Session.switchModel`): closes the running
+   * context on the model it ran on, then opens the next one on the target. A completed switch
+   * streams the new context's main-session `session_meta` last, and the getters above answer
+   * the target by then; a refusal is thrown before the first event; a Session that never ran
+   * switches without streaming anything. Optional: test fakes may omit it, reading as
+   * "switching is not available".
+   */
+  switchModel?(opts: {
+    provider: string;
+    modelId: string;
+    signal: AbortSignal;
+  }): AsyncGenerator<OmniMessage, StopReason>;
   /**
    * The Session's thinking level (core `Session.thinkingLevel`, plain state): soft-limited —
    * an assignment applies from the Session's very next LLM request. Optional: test fakes may
@@ -165,6 +231,13 @@ export interface RuntimeSession {
   unsteer?(input: OmniMessage[]): boolean;
   /** Skips the in-progress reconnect backoff, firing the next retry immediately (core `Session.skipReconnectWait`); false when no wait is in progress. */
   skipReconnectWait(): boolean;
+  /**
+   * Whether a run with empty input would send anything (core `Session.hasPendingInput`): the
+   * input of a turn that failed or was stopped, held as carry-over — in process, or rebuilt
+   * from the Trace after a restart — or a compaction summary waiting for the next run.
+   * Optional: test fakes may omit it, reading as nothing held.
+   */
+  hasPendingInput?(): boolean;
   /**
    * Runs the named package's `user_prompt` hook (core `Session.runUserPromptHook` — hooks
    * run in core and nowhere else); null = the package is not installed or names no such
@@ -262,7 +335,8 @@ export function createCoreSessionLoader(
     proxyEnv?: () => ProxyEnvPolicy | null;
     controlEnv?: (ctx: ControlEnvContext) => Record<string, string>;
     pathPrepend?: (ctx: ControlEnvContext) => string[];
-    confineSpawn?: () => SpawnConfiner | null;
+    confineSpawn?: (ctx: ControlEnvContext) => SpawnConfiner | null;
+    assembly?: AgentAssembly;
     /**
      * A Session's confinement floor, asked again whenever it is rebuilt because core does not
      * persist it (see core's CreateSessionOptions.sandboxMode). Without it, an activity
@@ -283,6 +357,7 @@ export function createCoreSessionLoader(
         ...(opts.controlEnv ? { controlEnv: opts.controlEnv } : {}),
         ...(opts.pathPrepend ? { pathPrepend: opts.pathPrepend } : {}),
         ...(opts.confineSpawn ? { confineSpawn: opts.confineSpawn } : {}),
+        ...(opts.assembly ? { assembly: opts.assembly } : {}),
       });
       const located = await findLatestTraceFile(
         tracesDir(root, row.projectId, row.agentId),
@@ -322,7 +397,10 @@ export function createCoreSessionLoader(
           `This Session's Workspace no longer exists: ${row.workspace}, so it cannot continue. Create a new Session.`,
         );
       }
-      const knownSource = sources?.get(row.sessionId);
+      // The source this process recorded at creation, else the one the row stands for: the
+      // organization runtime's are `company`, the Agent API's `api` (unrunSource), the list's
+      // reading of the same row.
+      const knownSource = sources?.get(row.sessionId) ?? unrunSource(row.client);
       try {
         return await agent.createSession({
           // Rebuilt under its own id: everything that names the Session keeps finding it.
@@ -331,9 +409,9 @@ export function createCoreSessionLoader(
           modelId: row.modelId,
           provider: row.provider,
           ...(sandboxMode !== undefined ? { sandboxMode } : {}),
-          // The rebuilt Session re-records a known origin in its fresh session_meta, and
-          // starts its first context at the row's pinned level.
-          ...(knownSource != null ? { source: knownSource } : {}),
+          // The rebuilt Session records that source in its fresh session_meta (an unknown one
+          // is core's default, `user`), and starts its first context at the row's pinned level.
+          ...(knownSource !== undefined ? { source: knownSource } : {}),
           ...(row.thinkingLevel ? { thinkingLevel: row.thinkingLevel } : {}),
         });
       } catch (err) {
@@ -359,6 +437,8 @@ export interface UsageRecorderLike {
 }
 
 export interface SessionManagerDeps {
+  /** The in-memory state this manager works on (see agent-state.ts). Optional: a manager built without one — unit tests — gets an empty state of its own. */
+  state?: AgentState;
   sessions: SessionIndex;
   channels: ChannelHub;
   loader: SessionLoader;
@@ -369,6 +449,8 @@ export interface SessionManagerDeps {
   titles?: TitleNotifier;
   /** Error persistence (optional: without it, only logs — same as before this was wired up). */
   errors?: ErrorSink;
+  /** Provider auth refresh (optional for tests that do not exercise external model credentials). */
+  modelScopeAuth?: ModelScopeAuth;
   log?: (line: string) => void;
   /** Goal run-state persistence (optional like `titles`: without it, goals run but leave no restorable record). */
   /**
@@ -443,16 +525,20 @@ interface PendingSteeringEntry {
 }
 
 /** Active-table entry: a loaded runtime Session plus its running state. */
-interface RuntimeEntry {
+export interface RuntimeEntry {
   sessionId: string;
   projectId: string;
   agentId: string;
-  /** Vendor grouping for the Session's model (paired with modelId to form a model reference). */
+  /**
+   * The Session's current model (provider group paired with modelId): what the next drive
+   * attributes usage to. The row's pair, kept in step with the runtime's own answer (see
+   * `syncEntryModel`) — at load, and whenever a model switch moves it.
+   */
   provider: string;
   modelId: string;
   session: RuntimeSession;
   status: SessionStatus;
-  approvals: ApprovalRegistry;
+  approvals: Approvals;
   abort: AbortController | null;
   /** The in-flight drive Promise (awaited during graceful shutdown). */
   running: Promise<void> | null;
@@ -524,6 +610,16 @@ interface RuntimeEntry {
 /** Active-table idle eviction: same convention as the SSE channel (an idle entry with no activity for 30 minutes releases its memory). */
 const ENTRY_IDLE_MS = 30 * 60 * 1000;
 const ENTRY_SWEEP_INTERVAL_MS = 60 * 1000;
+
+/**
+ * Queue depth cap per session. Every queued follow-up is a full model run waiting to
+ * happen, and the queue has no other brake: org triggers always ask to queue
+ * (queueIfBusy), so a mention storm or an @all fan-out against a busy desk would grow it
+ * without bound and then replay every entry as a model call. The cap refuses the overflow
+ * loudly instead (429 queue_full): the org trigger path records org_dispatch_failed, and
+ * the HTTP caller sees the refusal directly.
+ */
+export const FOLLOW_UP_QUEUE_LIMIT = 16;
 
 /** Composite Agent key (used as a Set key, avoiding projectId/agentId concatenation ambiguity). */
 function agentKey(projectId: string, agentId: string): string {
@@ -649,25 +745,56 @@ function isPlainText(role: "user" | "assistant") {
 }
 
 export class SessionManager {
-  private readonly entries = new Map<string, RuntimeEntry>();
+  // The state fields below are the AgentState component's (see agent-state.ts): this
+  // class keeps its logic and its names, the component keeps the memory.
+  private readonly state: AgentState;
+  private readonly entries: Map<string, RuntimeEntry>;
+  /**
+   * Each registered subagent Session's ROOT Session: a subagent runs under its root's
+   * sandbox policy, as it runs under its root's approval mode, so a change the person makes
+   * in the composer reaches the children already running.
+   */
+  private readonly childRoots: Map<string, string>;
+
+  /** The Session whose policy governs `sessionId`: its root for a subagent, else itself. */
+  rootSessionOf(sessionId: string): string {
+    return this.childRoots.get(sessionId) ?? sessionId;
+  }
   /** Per-Session mutex (serializes get-or-load and status flips); auto-cleaned once the chain drains. */
-  private readonly locks = new Map<string, Promise<unknown>>();
+  private readonly locks: Map<string, Promise<unknown>>;
   private readonly log: (line: string) => void;
   /** Graceful-shutdown flag: once set, new Tasks/compactions are rejected (503). */
   private closed = false;
   /** Agents currently being deleted (key = agentKey): new Tasks/compactions are always rejected with 409 during this window. */
-  private readonly deletingAgents = new Set<string>();
+  private readonly deletingAgents: Set<string>;
   /** Sessions currently being deleted (guards against the entry/Trace file being rebuilt and reviving it inside the deletion race window). */
-  private readonly deletingSessions = new Set<string>();
+  private readonly deletingSessions: Set<string>;
+  /** Sessions whose runtime entry idle eviction leaves alone (see keepLoaded). */
+  private readonly keptLoaded = new Set<string>();
   /** Per-Agent config generation (key = agentKey), bumped by invalidateAgentRuntimes when a Project's credentials change. */
-  private readonly agentGenerations = new Map<string, number>();
+  private readonly agentGenerations: Map<string, number>;
   /** Open streaming fragments of running sessions (fed by drive, served to GET /messages; see live-tail.ts). */
-  private readonly liveTail = new LiveTailTracker();
+  private readonly liveTail: LiveTail;
   private readonly sweepTimer: NodeJS.Timeout;
   /** Clock for persisted timestamps (see SessionManagerDeps.now); wall clock unless injected. */
   private readonly now: () => Date;
 
   constructor(private readonly deps: SessionManagerDeps) {
+    const state = deps.state ?? new AgentStateStore();
+    this.state = state;
+    // This generation works on the state from here on: whatever a run that is still going
+    // under an earlier generation starts when it ends, it starts through this one.
+    state.current = {
+      startQueuedFollowUp: (sessionId) => this.startQueuedFollowUp(sessionId),
+      startBackgroundNoticeTask: (sessionId) => this.startBackgroundNoticeTask(sessionId),
+    };
+    this.entries = state.entries;
+    this.childRoots = state.childRoots;
+    this.locks = state.locks;
+    this.deletingAgents = state.deletingAgents;
+    this.deletingSessions = state.deletingSessions;
+    this.agentGenerations = state.agentGenerations;
+    this.liveTail = state.liveTail;
     this.log = deps.log ?? ((line) => console.error(line));
     this.now = deps.now ?? (() => new Date());
     this.sweepTimer = setInterval(() => this.sweepIdle(), ENTRY_SWEEP_INTERVAL_MS);
@@ -829,7 +956,7 @@ export class SessionManager {
       session.dispose?.();
       return;
     }
-    this.entries.set(row.sessionId, {
+    const entry: RuntimeEntry = {
       sessionId: row.sessionId,
       projectId: row.projectId,
       agentId: row.agentId,
@@ -837,7 +964,7 @@ export class SessionManager {
       modelId: row.modelId,
       session,
       status: "idle",
-      approvals: new ApprovalRegistry(),
+      approvals: new ApprovalRegistry(() => this.publishApprovals(entry)),
       abort: null,
       running: null,
       generation: this.generationOf(row.projectId, row.agentId),
@@ -848,7 +975,8 @@ export class SessionManager {
       returnedSteering: [],
       lastActivityMs: Date.now(),
       backgroundTasks: backgroundTaskCounts(session),
-    });
+    };
+    this.entries.set(row.sessionId, entry);
     // Same wiring as ensureEntry: adopt IS the entry path for a session created in this
     // process (POST /sessions), and a listener registered only on the loader path left
     // freshly created sessions unable to deliver idle-arrival completion reports.
@@ -870,7 +998,9 @@ export class SessionManager {
    *   channel so every Session list shows which rows still own background work.
    */
   private registerNoticeListener(sessionId: string, session: RuntimeSession): void {
-    session.onBackgroundNotice?.(() => void this.startBackgroundNoticeTask(sessionId));
+    session.onBackgroundNotice?.(
+      () => void this.state.current?.startBackgroundNoticeTask(sessionId),
+    );
     session.onBackgroundMessage?.((msg) => this.forwardBackgroundMessage(sessionId, msg));
     session.onSubagentState?.(() => {
       const entry = this.entries.get(sessionId);
@@ -1029,6 +1159,14 @@ export class SessionManager {
       // Task starts now or waits in the queue (see SessionManagerDeps.onHumanInput).
       if (isHumanInput(input)) this.deps.onHumanInput?.(sessionId);
       if (entry.status !== "idle" && opts?.queueIfBusy) {
+        // The cap refuses the overflow rather than enqueuing it: see FOLLOW_UP_QUEUE_LIMIT.
+        if (entry.followUps.length >= FOLLOW_UP_QUEUE_LIMIT) {
+          throw new HttpError(
+            429,
+            "queue_full",
+            `Session ${entry.sessionId} already has ${entry.followUps.length} queued follow-ups (cap ${FOLLOW_UP_QUEUE_LIMIT}); wait for the session to drain.`,
+          );
+        }
         entry.followUps.push({
           id: randomUUID(),
           input,
@@ -1046,6 +1184,37 @@ export class SessionManager {
       this.assertIdle(entry);
       this.launchTask(entry, input);
       return { sessionId: entry.sessionId, queued: false };
+    });
+  }
+
+  /**
+   * Retry a failed or stopped run (`POST /retry`): a Task started with EMPTY input, so core
+   * sends the input of the turn that did not finish — held as carry-over since the run ended
+   * `fatal`, gave up reconnecting or was stopped by the user, with whatever the model had
+   * already written — and nothing else. No user message is published or recorded, and with no
+   * Prompt there is no user_prompt consult. Gated like startTask (busy is the same 409) but
+   * never queued, and refused with 409 `nothing_to_retry` when nothing is held — the user's
+   * next message already resent that input, or no run was cut short — since the run would end
+   * at once and the client would watch a Task start and stop with nothing sent. Not a person's
+   * input for company mode's hop accounting: the turn it resends was counted, or not, when
+   * it was first sent.
+   */
+  async retryTask(sessionId: string): Promise<{ sessionId: string }> {
+    return this.withLock(sessionId, async () => {
+      this.assertOpen();
+      this.assertAgentNotDeleting(sessionId);
+      this.assertSessionNotDeleting(sessionId);
+      const entry = await this.ensureEntry(sessionId);
+      this.assertIdle(entry);
+      if (!entry.session.hasPendingInput?.()) {
+        throw new HttpError(
+          409,
+          "nothing_to_retry",
+          "There is nothing to retry: the unfinished turn's input has already been sent.",
+        );
+      }
+      this.launchTask(entry, []);
+      return { sessionId: entry.sessionId };
     });
   }
 
@@ -1137,7 +1306,9 @@ export class SessionManager {
    * Taps a goal run's stream for `drive`: round boundaries become goal_round events —
    * round 1 from the seeded input (core never yields a run's initial input, so it is
    * counted here, where startGoal published it), later rounds from the stop-hook continues
-   * core yields — and the goal hook's `stop` event becomes the
+   * core yields, each announced by the hook's `continue` event; a harness-stamped input
+   * nothing announced is another package's user_prompt context riding behind the
+   * objective, not a round — and the goal hook's `stop` event becomes the
    * goal_finished server event. `used` is what the hook last recorded in its event's
    * `output` — the same number its budget check used — so the UI never shows a different
    * figure. A stream that ends without the hook's terminal event (a cut-off run, an
@@ -1172,9 +1343,13 @@ export class SessionManager {
         });
       }
     }
+    // Set by a stop hook's `continue` event, spent by the input that follows it.
+    let continued = false;
     try {
       for await (const msg of gen) {
-        if (isHookInput(msg)) {
+        if (isHookContinue(msg)) continued = true;
+        if (continued && isHookInput(msg)) {
+          continued = false;
           round++;
           this.publishEvent(entry, {
             type: "goal_round",
@@ -1220,7 +1395,12 @@ export class SessionManager {
     });
   }
 
-  /** Shared task launch (fresh tasks and auto-started follow-ups): flips to running, publishes the input, and drives the run. Caller holds the session lock and has verified idle. */
+  /**
+   * Shared task launch (fresh tasks, auto-started follow-ups and retries): flips to running,
+   * publishes the input, and drives the run. Caller holds the session lock and has verified
+   * idle. A retry's input is empty: nothing is published or held, and drive gets no title
+   * material — the turn it resends already offered its text when it was first sent.
+   */
   private launchTask(entry: RuntimeEntry, input: OmniMessage[]): void {
     const channel = this.deps.channels.get(entry.sessionId);
     const ac = new AbortController();
@@ -1306,6 +1486,140 @@ export class SessionManager {
       entry.running = this.drive(entry, gen);
       return { sessionId: entry.sessionId };
     });
+  }
+
+  /**
+   * Switches the Session's model in place (`POST /switch-model`) — core `Session.switchModel`,
+   * gated like a compaction (open, not deleting, idle). Core decides everything before its
+   * first event, so the head of its stream is pulled here, under the lock, and tells the three
+   * outcomes apart:
+   *
+   * - it throws — a refusal, answered 409 with the code of its reason (see `switchRefusal`);
+   * - it is already done — a Session that never ran has no context to close: core re-assembled
+   *   its first context on the target, nothing streams, and the row carries the new pair by
+   *   the time this returns (`switched: true`; the route answers with the fresh DTO);
+   * - it yields — a driven run like a compaction (`switched: false`): status `compacting`,
+   *   idle when it ends. The head is a compaction's begin, the first record of a bootstrap (a
+   *   Session loaded from its Trace opens its context first), or — for a context with no
+   *   completed turn, which streams no pair — the opener's first record.
+   *
+   * The switch is the entry's run from that pull on — it can be stopped, and a deletion or a
+   * shutdown waits for it — while the entry only reads `compacting` once there is something
+   * to stream, so a refusal never flickers a state.
+   *
+   * The entry and the row follow the runtime as the new context's `session_meta` passes
+   * through the drive (see `drive`); a switch that does not complete streams no meta and
+   * leaves them where they were. Usage: a drive bills to the model it started on, so the
+   * switch's compaction request goes to the model that served it and the next run to the new
+   * one.
+   */
+  async startSwitch(
+    sessionId: string,
+    ref: ModelRefDto,
+  ): Promise<{ sessionId: string; switched: boolean }> {
+    return this.withLock(sessionId, async () => {
+      this.assertOpen();
+      this.assertAgentNotDeleting(sessionId);
+      this.assertSessionNotDeleting(sessionId);
+      const entry = await this.ensureEntry(sessionId);
+      this.assertIdle(entry);
+      if (entry.provider === ref.provider && entry.modelId === ref.modelId) {
+        throw new HttpError(
+          409,
+          "same_model",
+          `This Session already runs on ${ref.provider} / ${ref.modelId}.`,
+        );
+      }
+      if (!entry.session.switchModel) {
+        throw new HttpError(
+          409,
+          "model_unavailable",
+          "Switching the model is not available for this Session.",
+        );
+      }
+      const ac = new AbortController();
+      const gen = entry.session.switchModel({ ...ref, signal: ac.signal });
+      const head = gen.next();
+      const settled = (): void => {
+        entry.abort = null;
+        entry.running = null;
+      };
+      // One promise for the whole switch — the pull, then the drive behind it — so whoever
+      // waits for this entry's run to end waits for both.
+      entry.abort = ac;
+      entry.running = head.then((first) => {
+        if (first.done) return settled();
+        entry.status = "compacting";
+        this.publishState(entry, "compacting");
+        return this.drive(entry, resumeFrom(first.value, gen));
+      }, settled);
+      let first: IteratorResult<OmniMessage, StopReason>;
+      try {
+        first = await head;
+      } catch (err) {
+        throw switchRefusal(err, ref);
+      }
+      entry.lastActivityMs = Date.now();
+      if (!first.done) return { sessionId: entry.sessionId, switched: false };
+      this.syncEntryModel(entry);
+      return { sessionId: entry.sessionId, switched: true };
+    });
+  }
+
+  /** Who is told when a Session's model moves (see `onModelChanged`). */
+  private readonly modelListeners = new Set<(sessionId: string, model: ModelRefDto) => void>();
+
+  /**
+   * Subscribes to a Session's model moving: an in-session switch completing, or a row brought
+   * back in step with its Trace when the Session loads. The listener runs once the entry and
+   * the row carry the new pair. Returns the unsubscribe. Company mode listens: an employee's
+   * model is its desk Session's.
+   */
+  onModelChanged(listener: (sessionId: string, model: ModelRefDto) => void): () => void {
+    this.modelListeners.add(listener);
+    return () => void this.modelListeners.delete(listener);
+  }
+
+  /**
+   * Moves the entry — and the row it caches into — to the model the runtime reports itself on,
+   * when that differs: the pair the next drive attributes usage to, and the one
+   * `GET /sessions/:id` describes. A runtime that reports none (test fakes) leaves the entry
+   * alone. The row write is guarded like the other bookkeeping writes (see `touchRow`): a
+   * switch must not be stranded mid-drive by a closed DB handle, and the entry is right either
+   * way. The same holds for whoever listens: a listener that throws is recorded, not rethrown.
+   */
+  private syncEntryModel(entry: RuntimeEntry): void {
+    const model = runtimeModelOf(entry.session);
+    if (!model) return;
+    if (entry.provider === model.provider && entry.modelId === model.modelId) return;
+    entry.provider = model.provider;
+    entry.modelId = model.modelId;
+    const ctx = { projectId: entry.projectId, agentId: entry.agentId, sessionId: entry.sessionId };
+    try {
+      this.deps.sessions.updateModel(entry.sessionId, model.provider, model.modelId);
+    } catch (err) {
+      this.log(
+        `[session] model bookkeeping failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      this.deps.errors?.record({
+        source: "session",
+        err,
+        ctx,
+        code: "session_model_update_failed",
+      });
+    }
+    for (const listener of this.modelListeners) {
+      try {
+        listener(entry.sessionId, model);
+      } catch (err) {
+        this.deps.errors?.record({
+          source: "session",
+          err,
+          ctx,
+          code: "session_model_listener_failed",
+        });
+      }
+    }
   }
 
   /** Submit an approval decision; returns false if the pending approval doesn't exist (already decided/unknown). */
@@ -1606,6 +1920,21 @@ export class SessionManager {
     this.deletingSessions.delete(sessionId);
   }
 
+  /**
+   * The hand-over's half of a swap: this generation stops working on the state and leaves
+   * everything in it as it is — running Tasks keep running, pending approvals keep waiting —
+   * for the next generation to take over (PRFC-0015). Only what is this instance's own stops:
+   * the idle sweep. `shutdown` is the other ending, for a state nobody takes over.
+   */
+  detach(): void {
+    clearInterval(this.sweepTimer);
+  }
+
+  /** The Sessions with a Task in flight right now — what a swap parks, so that a successor that cannot take the state over knows which ones to start again. */
+  runningSessionIds(): string[] {
+    return [...this.entries.values()].filter((e) => e.status === "running").map((e) => e.sessionId);
+  }
+
   /** Graceful shutdown: reject new tasks (503), interrupt all active runs, and wait for them to finish (default ≤5s). */
   async shutdown(timeoutMs = 5000): Promise<void> {
     this.closed = true;
@@ -1657,9 +1986,65 @@ export class SessionManager {
       // Undelivered background completion notices pin the entry too: they live in the core
       // Session object, so evicting it would silently drop them.
       if (entry.session.hasPendingBackgroundNotices?.()) continue;
+      // An enabled messaging connection pins it for latency rather than correctness: the
+      // Session is where a bot lives on this server, and the next chat message after a quiet
+      // half hour would otherwise wait for a resume from the Trace (see keepLoaded).
+      if (this.keptLoaded.has(key)) continue;
       if (now - entry.lastActivityMs <= idleMs) continue;
       this.entries.delete(key);
     }
+  }
+
+  /**
+   * Pins (`on`) or releases a Session's runtime entry against idle eviction (see sweepIdle).
+   * The messaging bridge holds the pin for as long as a binding's connection is enabled: that
+   * Session is where the bot lives on this server, and evicting it after half an hour of quiet
+   * makes the next chat message wait for a resume from the Trace before anything else happens.
+   *
+   * It pins only what is loaded and loads nothing itself (preload does). A stale id pins
+   * nothing: an entry a delete removed is gone from the table whatever this set says, and the
+   * bridge releases the id when its connection goes.
+   */
+  keepLoaded(sessionId: string, on: boolean): void {
+    if (on) this.keptLoaded.add(sessionId);
+    else this.keptLoaded.delete(sessionId);
+  }
+
+  /**
+   * Loads a Session's runtime into the active table ahead of its first Task, through the same
+   * get-or-resume path that Task would take, so the first message after a messaging connection
+   * comes up — an enable, a server restart — does not pay for a resume from the Trace on top of
+   * everything else. Only the load: no run starts, and the core bootstrap (session metadata,
+   * MCP connections) still happens on the first run. Under the Session lock, like startTask, so
+   * a Task arriving mid-load waits for this load instead of starting a second one.
+   *
+   * A Session that is gone or being deleted, alone or with its Agent, resolves quietly: there is
+   * nothing to warm and the caller has nothing to do about it. So does one with no Trace yet,
+   * because loading it is a self-heal REBUILD under a new session id — that would move the
+   * Session out from under the binding that asked, and earlier than any Task would. The row's
+   * `hasTrace` is a cache, so a row that has not caught up only misses the warm-up. Any other
+   * load failure rejects; the first Task meets the same failure and reports it where a person
+   * will see it.
+   */
+  async preload(sessionId: string): Promise<void> {
+    await this.withLock(sessionId, async () => {
+      if (this.closed || this.deletingSessions.has(sessionId)) return;
+      const row = this.deps.sessions.findById(sessionId);
+      if (!row || this.deletingAgents.has(agentKey(row.projectId, row.agentId))) return;
+      if (!this.entries.has(sessionId) && row.hasTrace !== true) return;
+      try {
+        await this.ensureEntry(sessionId);
+      } catch (err) {
+        // A delete that began while the runtime was loading: ensureEntry re-checks after it.
+        if (
+          err instanceof HttpError &&
+          ["session_not_found", "session_deleting", "agent_deleting"].includes(err.code)
+        ) {
+          return;
+        }
+        throw err;
+      }
+    });
   }
 
   // —— Internal ——
@@ -1714,12 +2099,25 @@ export class SessionManager {
     return this.agentGenerations.get(agentKey(projectId, agentId)) ?? 0;
   }
 
+  private async refreshProviderCredentialIfNeeded(row: {
+    projectId: string;
+    agentId: string;
+    provider: string;
+  }): Promise<void> {
+    const refreshed = await this.deps.modelScopeAuth?.ensureFresh({
+      projectId: row.projectId,
+      provider: row.provider,
+    });
+    if (refreshed?.changed) this.invalidateProjectRuntimes(row.projectId);
+  }
+
   /** get-or-resume-or-heal: use directly on an active-table hit; otherwise load via the loader. */
   private async ensureEntry(sessionId: string): Promise<RuntimeEntry> {
     const existing = this.entries.get(sessionId);
     /** Background-task counts the discarded runtime last reported (see the publish below). */
     let discardedBackgroundTasks: SessionBackgroundTasks | undefined;
     if (existing) {
+      await this.refreshProviderCredentialIfNeeded(existing);
       if (existing.generation === this.generationOf(existing.projectId, existing.agentId)) {
         return existing;
       }
@@ -1745,6 +2143,7 @@ export class SessionManager {
         "Session does not exist or you do not have access.",
       );
     }
+    await this.refreshProviderCredentialIfNeeded(row);
     // Captured before the (awaited) load: an invalidation racing with the load leaves
     // this entry stale, so the access after next rebuilds it with the new values.
     const generation = this.generationOf(row.projectId, row.agentId);
@@ -1765,7 +2164,7 @@ export class SessionManager {
       modelId: row.modelId,
       session,
       status: "idle",
-      approvals: new ApprovalRegistry(),
+      approvals: new ApprovalRegistry(() => this.publishApprovals(entry)),
       abort: null,
       running: null,
       generation,
@@ -1782,6 +2181,10 @@ export class SessionManager {
       // discard path produces today.
       backgroundTasks: discardedBackgroundTasks ?? backgroundTaskCounts(session),
     };
+    // The runtime's model is the truth the row caches: a Session that switched models and
+    // crashed between the Trace write and the row update resumes (from the Trace) on the new
+    // model, and the row is brought back in step here.
+    this.syncEntryModel(entry);
     this.entries.set(row.sessionId, entry);
     this.registerNoticeListener(row.sessionId, session);
     if (discardedBackgroundTasks !== undefined) this.publishBackgroundTasks(row.sessionId);
@@ -1913,6 +2316,15 @@ export class SessionManager {
             entry.pendingSteering.shift();
             this.publishState(entry, entry.status);
           }
+          // The main session's own session_meta is streamed when a model switch opens its new
+          // context, and the runtime is on that context's model by then: the entry and the row
+          // follow it here, ahead of the publish below, so a client that re-reads the Session
+          // on this record already finds the new model. The new context's file is open too, its
+          // records on it, and what the context it replaced still held pending went with it.
+          if (isSessionMeta(msg)) {
+            this.syncEntryModel(entry);
+            entry.pendingBootstrap = [];
+          }
         } else if (isSessionMeta(msg)) {
           // Subagent registration is only a "side effect" — it must never interrupt the
           // main run flow on error: wrap the whole thing in a defensive try/catch.
@@ -2037,11 +2449,11 @@ export class SessionManager {
       // Queued follow-ups: whenever a run finishes (Task or compaction, abort included),
       // the next queued input auto-starts as an ordinary task. Fire-and-forget — it
       // revalidates under the session lock.
-      if (entry.followUps.length > 0) void this.startQueuedFollowUp(entry.sessionId);
+      if (entry.followUps.length > 0) void this.state.current?.startQueuedFollowUp(entry.sessionId);
       // Background completion notices that raced this run's exit (arrived after its last
       // input-assembly boundary): start their delivery task now. No-op when a follow-up
       // just launched — that run's engine drains the same queue.
-      else void this.startBackgroundNoticeTask(entry.sessionId);
+      else void this.state.current?.startBackgroundNoticeTask(entry.sessionId);
     }
   }
 
@@ -2066,12 +2478,14 @@ export class SessionManager {
     const p = msg.payload as SessionMetaPayload;
     const agentId = path.basename(path.dirname(p.agent_state));
     if (!agentId || agentId === "." || agentId === "..") return null;
-    // The forwarded session_meta records the origin at the source (core's spawn site); fall
-    // back to inferring "subagent" from the registration path for older metas (narrowed —
-    // a junk value also falls back). It goes into the in-process registry only — the index
-    // row deliberately stores no source column.
-    const source = asSessionSource(p.source) ?? "subagent";
+    // The forwarded session_meta records the source where it is decided (core's spawn site
+    // writes `subagent`); it is narrowed like any meta read back, so the registry holds what
+    // the child's Trace head will answer after a restart. It goes into the in-process registry
+    // only — the index row deliberately stores no source column.
+    const source = normalizeSessionSource(p.source);
     this.deps.sources.set(childSid, source);
+    const root = this.rootSessionOf(entry.sessionId);
+    this.childRoots.set(childSid, root);
     const createdAt = this.now().toISOString();
     // A sub-session of an organization's Session is company mode's own as much as the desk
     // or ticket session that spawned it: it inherits the durable "org" stamp, which is the
@@ -2090,6 +2504,9 @@ export class SessionManager {
       // A subagent's approvals are inherited from the parent Session; the index row is
       // inserted with defaults (matches the convention for Sessions discovered by the CLI).
       approvalMode: "allow-all",
+      // The root's policy at registration, so the child row stands on its own if it is ever
+      // resumed directly; while registered it follows the root (see rootSessionOf).
+      sandbox: this.deps.sessions.findById(root)?.sandbox ?? null,
       title: null,
       ...(parentClient === "org" ? { client: "org" as const } : {}),
       // Its Trace exists by construction.
@@ -2189,6 +2606,7 @@ export class SessionManager {
     notify(entry.projectId, {
       type: "session_state",
       sessionId: entry.sessionId,
+      projectId: entry.projectId,
       state,
       lastActiveAt,
       hasTrace,
@@ -2222,6 +2640,29 @@ export class SessionManager {
       processes: counts.processes,
       subagents: counts.subagents,
     });
+  }
+
+  /**
+   * Publishes `session_approvals` on the user channel: how many tool calls of this Session wait
+   * for a person now. The Session's own stream carries the calls; this is what lets a list, or
+   * a host watching every Session of a Project, see which one waits without subscribing to each.
+   * Sent for an entry that is being disposed too, so a mark it had is cleared.
+   */
+  private publishApprovals(entry: RuntimeEntry): void {
+    try {
+      this.deps.notifyProjectUsers?.(entry.projectId, {
+        type: "session_approvals",
+        sessionId: entry.sessionId,
+        count: entry.approvals.size,
+      });
+    } catch (err) {
+      // The notifier reads the Project's audience from the database, which shutdown can close
+      // while a run outlives its drain window (the failure publishState guards too). A list
+      // mark is never worth throwing out of an approval's wait, answer or interrupt.
+      this.log(
+        `[session] approvals notice failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   /** Serialize (mutually exclude) execution by sessionId; cleans up the lock-table entry once its chain drains (avoids unbounded growth). */
@@ -2266,8 +2707,11 @@ export abstract class Sessions extends Interface<
     | "invalidateProjectRuntimes"
     | "assertCanAcceptTask"
     | "startTask"
+    | "retryTask"
     | "startGoal"
     | "startCompact"
+    | "startSwitch"
+    | "onModelChanged"
     | "decideApproval"
     | "steer"
     | "recallSteering"
@@ -2285,7 +2729,11 @@ export abstract class Sessions extends Interface<
     | "endSessionDeletion"
     | "atIdleBoundary"
     | "shutdown"
+    | "detach"
+    | "runningSessionIds"
     | "sweepIdle"
+    | "keepLoaded"
+    | "preload"
   >
 >() {}
 
@@ -2294,10 +2742,15 @@ export abstract class SessionServiceIface extends Interface<
     SessionServiceImpl,
     | "toInfo"
     | "hasTrace"
+    | "listingOf"
     | "listSessions"
     | "listActivityRunSessions"
+    | "archivedRows"
     | "sessionStats"
     | "createSession"
+    | "defaultSandbox"
+    | "pickSandbox"
+    | "updateSandbox"
     | "latestTracePath"
     | "adoptUnmanagedTraceSessions"
   >
@@ -2308,15 +2761,24 @@ export abstract class SessionServiceIface extends Interface<
  * in an activity run's folder is given no way to drive this server: controlEnv leaves out the
  * API address and token, and pathPrepend the `penguin` shim.
  */
-export abstract class SessionEnv extends Interface<{
-  proxyEnv(): ProxyEnvPolicy | null;
-  controlEnv(ctx: ControlEnvContext): Record<string, string>;
+@Interface()
+export abstract class SessionEnv {
+  abstract proxyEnv(): ProxyEnvPolicy | null;
+  abstract controlEnv(ctx: ControlEnvContext): Record<string, string>;
   /** The directories at the FRONT of every command's PATH: the harness's own CLI shim (see CreateAgentOptions.pathPrepend). */
-  pathPrepend(ctx: ControlEnvContext): string[];
-  confineSpawn(): SpawnConfiner | null;
-}>() {}
+  /** Without `ctx` (a terminal the user opened, not a Session) the shim is always there. */
+  abstract pathPrepend(ctx?: ControlEnvContext): string[];
+  abstract confineSpawn(ctx: ControlEnvContext): SpawnConfiner | null;
+}
 
-@Module()
+@Module({
+  context: {
+    version: 1,
+    schema: {
+      "running?": "string[]",
+    },
+  },
+})
 export class SessionsModule {
   @Use() private readonly config!: Config;
   @Use() private readonly channels!: Channels;
@@ -2329,14 +2791,17 @@ export class SessionsModule {
   @Use() private readonly sessionsRepo!: SessionIndex;
   @Use() private readonly activityRuns!: ActivityRuns;
   @Use() private readonly sources!: SessionOrigins;
+  @Use() private readonly state!: AgentState;
   @Use() private readonly recorder!: UsageRecording;
   @Use() private readonly errors!: Errors;
+  @Use() private readonly modelScopeAuth!: ModelScopeAuth;
   @Use() private readonly projectConfig!: ProjectConfigStore;
   @Use() private readonly traceIndex!: TraceIndex;
   @Use() private readonly traceStore!: TraceIndexStore;
   @Use(SandboxModule) private readonly sandbox!: Sandbox;
-  @Use() private readonly projectsRepo!: Projects;
-  @Use() private readonly membersRepo!: Members;
+  /** The Sandbox card's presets live in the sandbox's settings group. */
+  @Use() private readonly pluginConfig!: PluginConfig;
+  @Use() private readonly projectEvents!: ProjectEvents;
   @Use() private readonly messagingRepo!: MessagingBindings;
   /** Company-mode caches: which organization owns a Session (read at every command spawn). */
   @Use() private readonly orgCache!: OrgCache;
@@ -2355,7 +2820,27 @@ export class SessionsModule {
     const errors = this.errors;
     const projectConfig = this.projectConfig;
     const sandbox = this.sandbox as SandboxService;
+    const pluginConfig = this.pluginConfig;
     const orgCache = this.orgCache;
+    const modelScopeAuth = this.modelScopeAuth;
+
+    const assembly: AgentAssembly = {
+      // ModelScope's group key is an access token the bridge refreshes, so each request reads
+      // it fresh. A model with a key of its own keeps that key (undefined = the credential
+      // the client was built with stands); the rest use the group key, refreshed first, and a
+      // model with neither has nothing to send.
+      resolveModelApiKey: async ({ projectId, provider, modelId }) => {
+        if (provider !== MODELSCOPE_PROVIDER_ID) return undefined;
+        if ((await projectConfig.getModelApiKey(projectId, provider, modelId)) !== undefined) {
+          return undefined;
+        }
+        await modelScopeAuth.ensureFresh({ projectId, provider });
+        const apiKey = await projectConfig.getGroupApiKey(projectId, provider);
+        if (apiKey === undefined) throw modelCredentialMissing(modelId);
+        return apiKey;
+      },
+    };
+    projectConfig.setModelApiKeyResolver(assembly.resolveModelApiKey!);
 
     // Whether a Session's commands are handed the means to drive this server: the API address,
     // the token (the admin's authority) and the `penguin` shim. Not an activity run's: its
@@ -2372,7 +2857,7 @@ export class SessionsModule {
       proxyEnv: (): ProxyEnvPolicy | null => {
         if (!settings.getProxyForAgent()) return { mode: "strip" };
         const url = settings.getProxyUrl();
-        return url === null ? null : { mode: "inject", url, noProxy: mergedNoProxy() };
+        return url === null ? null : { mode: "inject", url, noProxy: agentNoProxy() };
       },
       controlEnv: (ctx: ControlEnvContext): Record<string, string> => {
         const host =
@@ -2407,14 +2892,31 @@ export class SessionsModule {
       // into. Derived from the config rather than passed along, so the platform half needs no
       // new capability — and read for truth rather than for null, because a runtime older than
       // this field publishes a config without it and wrote no shim either: no field, no
-      // directory, feature off, rather than a push declined over a PATH entry.
-      pathPrepend: (ctx: ControlEnvContext): string[] =>
-        config.cliEntry && reachesServer(ctx) ? [cliShimDir(config.root)] : [],
-      confineSpawn: () => sandbox.confiner(),
+      // directory, feature off, rather than a push declined over a PATH entry. A checkout whose
+      // CLI cannot run has a shim too — the stub that says why — and it leads PATH all the same,
+      // so no other installation's `penguin` answers in its place. A Session that may not reach
+      // this server (an activity run's) gets no shim at all.
+      pathPrepend: (ctx?: ControlEnvContext): string[] =>
+        (config.cliEntry || config.cliLaunch?.unavailable) &&
+        (ctx === undefined || reachesServer(ctx))
+          ? [cliShimDir(config.root)]
+          : [],
+      // Each Session confines under its OWN policy — the snapshot on its row, its root's for a
+      // subagent — so a settings change reaches only Sessions created after it. A row from
+      // before snapshots takes the settings at its first command and keeps them from then on.
+      confineSpawn: (ctx: ControlEnvContext) =>
+        sandbox.confinerFor(() => {
+          const root = manager.rootSessionOf(ctx.sessionId);
+          const row = sessionsRepo.findById(root);
+          if (row?.sandbox) return row.sandbox;
+          const snapshot = sandbox.currentSettings();
+          if (row !== null) sessionsRepo.updateSandbox(root, snapshot);
+          return snapshot;
+        }),
     };
 
     const notifyProjectUsers = (projectId: string, event: ServerEvent): void =>
-      publishToProjectUsers(channels, this.projectsRepo, this.membersRepo, projectId, event);
+      this.projectEvents.notifyProjectUsers(projectId, event);
     const titles = this.titleGenerators.create({
       sessions: sessionsRepo,
       channels,
@@ -2424,6 +2926,7 @@ export class SessionsModule {
       notifyProjectUsers,
     });
     const manager = new SessionManager({
+      state: this.state,
       sessions: sessionsRepo,
       channels,
       loader: withCodingAgents(
@@ -2432,6 +2935,7 @@ export class SessionsModule {
           controlEnv: env.controlEnv,
           pathPrepend: env.pathPrepend,
           confineSpawn: env.confineSpawn,
+          assembly,
           // An activity run's Session is created confined (see generation.ts); one reopened
           // later stays confined. Judged by its Workspace, not its id: the run's subagents are
           // Sessions of their own in the same Workspace. Coding-agent Sessions never reach this.
@@ -2445,6 +2949,7 @@ export class SessionsModule {
       sources,
       recorder,
       errors,
+      modelScopeAuth: this.modelScopeAuth,
       titles,
       log,
       notifyProjectUsers,
@@ -2466,6 +2971,7 @@ export class SessionsModule {
       traceStore: this.traceStore,
       proxyEnv: env.proxyEnv,
       controlEnv: env.controlEnv,
+      notifyProjectUsers,
       messagingChannel: (sessionId) => enabledMessagingChannel(this.messagingRepo, sessionId),
       // Company mode: which organization owns a Session, so development mode's list can hide
       // organization sessions and the company sidebar can group its own. The caches are a
@@ -2476,13 +2982,34 @@ export class SessionsModule {
       orgIdsOfProject: (projectId) => orgCache.orgIdsOfProject(projectId),
       activityIdOfSession: (sessionId) => this.activityRuns.activityOfSession(sessionId),
       activityIdsOfProject: (projectId) => this.activityRuns.sessionActivities(projectId),
-      notifyProjectUsers,
       pathPrepend: env.pathPrepend,
       confineSpawn: env.confineSpawn,
+      assembly,
+      sandboxDefaults: () => sandbox.currentSettings(),
+      sandboxDimensions: () => [...new Set(sandbox.backends().flatMap((b) => b.dimensions))],
+      sandboxUnavailable: () => sandbox.failures(),
+      sandboxBackends: () => sandbox.backends().map((b) => b.name),
+      // The Sandbox card's presets, read per view: a rename there reaches the next read.
+      sandboxPresets: () =>
+        sandboxPresetsOf(pluginConfig.schema(SANDBOX_GROUP), pluginConfig.get(SANDBOX_GROUP)),
+      sandboxSwitchOn: () => sandboxEnabledOf(pluginConfig.get(SANDBOX_GROUP)),
+      // The default preset's approval mode, while the switch is on.
+      sandboxDefaultApproval: () =>
+        sandboxStartOf(pluginConfig.schema(SANDBOX_GROUP), pluginConfig.get(SANDBOX_GROUP))
+          .approvalMode,
     });
     this.manager = manager;
     this.sessionService = sessionService;
     this.env = env;
+  }
+
+  /**
+   * The Sessions with a Task in flight. The state itself crosses a swap as a live object
+   * (hmr/platform.ts); this is for the successor that cannot take it over — it never reads
+   * the state, so the ids travel as data.
+   */
+  park(): Json {
+    return { running: this.manager.runningSessionIds() };
   }
 }
 
@@ -2512,13 +3039,14 @@ export function activityRunFloor(root: string, workspace: string): SessionSandbo
 }
 
 /** Builds the loader a manager runs sessions through; a test stands in a fake session. */
-export abstract class SessionLoaders extends Interface<{
-  create(
+@Interface()
+export abstract class SessionLoaders {
+  abstract create(
     root: string,
     sources: Opaque<"SessionOrigins", SessionOrigins>,
     env: Opaque<"SessionLoaderEnv", Parameters<typeof createCoreSessionLoader>[2]>,
   ): Opaque<"SessionLoader", SessionLoader>;
-}>() {}
+}
 @Component()
 export class CoreSessionLoaders implements SessionLoaders {
   create(
@@ -2531,11 +3059,12 @@ export class CoreSessionLoaders implements SessionLoaders {
 }
 
 /** Builds the title generator; a test stands in a notifier that never calls a model. */
-export abstract class TitleGenerators extends Interface<{
-  create(
+@Interface()
+export abstract class TitleGenerators {
+  abstract create(
     deps: Opaque<"TitleGeneratorDeps", ConstructorParameters<typeof TitleGenerator>[0]>,
   ): Opaque<"TitleNotifier", TitleNotifier>;
-}>() {}
+}
 @Component()
 export class DefaultTitleGenerators implements TitleGenerators {
   create(deps: ConstructorParameters<typeof TitleGenerator>[0]): TitleNotifier {

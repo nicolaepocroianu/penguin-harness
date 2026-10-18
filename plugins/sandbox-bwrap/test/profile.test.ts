@@ -4,10 +4,16 @@
  * paths are deterministic on any host (a real-bwrap host also runs sandbox-live).
  */
 import { describe, expect, it } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { bwrapProfileArgs, createPenguinBwrapProvider } from "../src/index.js";
+import {
+  bwrapProfileArgs,
+  bwrapSettingsOf,
+  createPenguinBwrapProvider,
+  loadPenguinBwrapProvider,
+  vendoredRunner,
+} from "../src/index.js";
 
 const ARGV = ["bash", "-lc", "echo hi"] as const;
 const WS = "/work/project";
@@ -35,15 +41,70 @@ describe("penguin-bwrap profile", () => {
   // skipIf(win32): the profile echoes host path resolution, which turns the POSIX
   // workspace literal into a drive path — and bwrap never runs there anyway.
   it.skipIf(process.platform === "win32")(
-    "workspace-write: the workspace and a tmpfs /tmp become writable",
+    "workspace-write: the workspace becomes writable, and /tmp only when temp is",
     () => {
       const args = bwrapProfileArgs({ mode: "workspace-write", workspaceRoot: WS });
-      expect(args).toContain("--tmpfs");
       expect(args.join(" ")).toContain(`--bind ${WS} ${WS}`);
+      expect(args).not.toContain("--tmpfs");
+
+      const withTemp = bwrapProfileArgs({
+        mode: "workspace-write",
+        workspaceRoot: WS,
+        writableTemp: true,
+      });
+      expect(withTemp.join(" ")).toContain("--tmpfs /tmp");
+      expect(withTemp.join(" ")).toContain(`--bind ${WS} ${WS}`);
       // /tmp is the tmpfs, never also a bind of the host's /tmp.
-      expect(args.join(" ")).not.toContain("--bind /tmp /tmp");
+      expect(withTemp.join(" ")).not.toContain("--bind /tmp /tmp");
     },
   );
+
+  // skipIf(win32): as above, host path resolution would rewrite the POSIX literals.
+  it.skipIf(process.platform === "win32")(
+    "workspace-write binds the policy's further roots (the Session's scratchpad) writable; read-only ignores them",
+    () => {
+      const scratchpad = "/data/agent/scratchpad/session-1";
+      const args = bwrapProfileArgs({
+        mode: "workspace-write",
+        workspaceRoot: WS,
+        writableRoots: [scratchpad],
+      });
+      expect(args.join(" ")).toContain(`--bind ${WS} ${WS}`);
+      expect(args.join(" ")).toContain(`--bind ${scratchpad} ${scratchpad}`);
+
+      const readOnly = bwrapProfileArgs({
+        mode: "read-only",
+        workspaceRoot: WS,
+        writableRoots: [scratchpad],
+      });
+      expect(readOnly).toEqual(bwrapProfileArgs({ mode: "read-only", workspaceRoot: WS }));
+    },
+  );
+
+  it("read-only with writable temp: a tmpfs /tmp is the only writable place", () => {
+    const args = bwrapProfileArgs({ mode: "read-only", workspaceRoot: WS, writableTemp: true });
+    expect(args.join(" ")).toContain("--tmpfs /tmp");
+    expect(args.join(" ")).not.toContain(`--bind ${WS}`);
+  });
+
+  it("refuses the local network level rather than reading it as an open network", () => {
+    expect(() =>
+      bwrapProfileArgs({ mode: "read-only", workspaceRoot: WS, network: "local" }),
+    ).toThrow(/local network/);
+  });
+
+  it("full access binds the root read-WRITE, but still cuts the network when asked", () => {
+    const args = bwrapProfileArgs({
+      mode: "danger-full-access",
+      workspaceRoot: WS,
+      network: "none",
+    });
+    // The whole filesystem is writable: --bind / /, never --ro-bind / /.
+    expect(args.slice(0, 3)).toEqual(["--bind", "/", "/"]);
+    expect(args.join(" ")).not.toContain("--ro-bind / /");
+    // The network cut still applies — that is why the policy reached a backend at all.
+    expect(args).toContain("--unshare-net");
+  });
 
   it("network: none adds --unshare-net; absent leaves the network alone", () => {
     expect(bwrapProfileArgs({ mode: "read-only", workspaceRoot: WS, network: "none" })).toContain(
@@ -101,6 +162,7 @@ describe("penguin-bwrap provider", () => {
       "fs-write",
       "network",
       "mask-paths",
+      "closed-temp",
     ]);
   });
 
@@ -130,5 +192,93 @@ describe("penguin-bwrap provider", () => {
     expect(() => provider.confine([...ARGV], policy)).toThrow(/cannot confine on this host/);
     expect(() => provider.confine([...ARGV], policy)).toThrow(/cannot confine on this host/);
     expect(probes).toBe(1);
+  });
+
+  it("reads its settings at each confine, probing each runner once with the timeout set", () => {
+    const probed: Array<[number, string]> = [];
+    let doc: Record<string, unknown> = {};
+    const provider = createPenguinBwrapProvider({
+      probe: (timeoutMs, runner) => {
+        probed.push([timeoutMs, runner]);
+        return runner !== "/missing/bwrap";
+      },
+      // "" for the shipped binary: this is about the settings, not about what the package carries.
+      settings: () => bwrapSettingsOf(doc, ""),
+    });
+    const policy = { mode: "read-only", workspaceRoot: WS } as const;
+    expect(provider.confine([...ARGV], policy).argv[0]).toBe("bwrap");
+    doc = { runner: " /opt/bwrap ", probeTimeoutSeconds: 2 };
+    expect(provider.confine([...ARGV], policy).argv[0]).toBe("/opt/bwrap");
+    expect(provider.confine([...ARGV], policy).argv[0]).toBe("/opt/bwrap");
+    doc = { runner: "/missing/bwrap" };
+    expect(() => provider.confine([...ARGV], policy)).toThrow(/'\/missing\/bwrap' is missing/);
+    expect(probed).toEqual([
+      [5000, "bwrap"],
+      [2000, "/opt/bwrap"],
+      [5000, "/missing/bwrap"],
+    ]);
+  });
+});
+
+describe("bwrap on another platform", () => {
+  it("declines off Linux (not a failure), and fails with a reason on Linux it cannot serve", async () => {
+    const other = "win32" as const;
+    await expect(
+      loadPenguinBwrapProvider({ platform: other, probe: () => true }),
+    ).resolves.toBeNull();
+    await expect(
+      loadPenguinBwrapProvider({ platform: "linux", probe: () => false }),
+    ).rejects.toThrow(/is missing or refuses/);
+    await expect(
+      loadPenguinBwrapProvider({ platform: "linux", probe: () => true }),
+    ).resolves.toBeDefined();
+  });
+
+  it("names the switch of each distribution that gates user namespaces, Ubuntu's included", async () => {
+    const rejection = loadPenguinBwrapProvider({ platform: "linux", probe: () => false });
+    await expect(rejection).rejects.toThrow(/kernel\.unprivileged_userns_clone/);
+    await expect(rejection).rejects.toThrow(/kernel\.apparmor_restrict_unprivileged_userns/);
+    // The root step is optional: sandbox-dsh confines files without it.
+    await expect(rejection).rejects.toThrow(/sandbox-dsh confines file writes without them/);
+    await expect(rejection).rejects.toThrow(/Optional: a one-time root step lets bubblewrap run/);
+  });
+
+  it("carries what the runner said, and that it did not start at all", async () => {
+    await expect(
+      loadPenguinBwrapProvider({
+        platform: "linux",
+        settings: () => ({ runner: "/nonexistent/bwrap", probeTimeoutMs: 5000 }),
+      }),
+    ).rejects.toThrow(/'\/nonexistent\/bwrap' is missing or refuses the base profile \(.*ENOENT/);
+  });
+
+  it("names itself bubblewrap on the settings card", () => {
+    expect(createPenguinBwrapProvider({ probe: () => true }).mechanism).toBe("bubblewrap");
+  });
+});
+
+describe("the bwrap it runs", () => {
+  it("ships its own, so a host without bubblewrap still confines", () => {
+    // The real thing: the package carries a binary for THIS host (scripts/vendor-bwrap.mjs) —
+    // on Linux only, the one platform bubblewrap runs on. Elsewhere there is none to carry.
+    const shipped = vendoredRunner();
+    if (process.platform !== "linux") {
+      expect(shipped).toBe("");
+      return;
+    }
+    expect(shipped).toMatch(/vendor[\\/]linux-(x64|arm64)[\\/]bin[\\/]bwrap$/);
+    expect(existsSync(shipped)).toBe(true);
+  });
+
+  it("carries none for a host it has no binary for, and says so with an empty path", () => {
+    expect(vendoredRunner("win32", "x64", () => false)).toBe("");
+  });
+
+  it("what the deployment names wins; then the shipped one; then a bwrap on PATH", () => {
+    const shipped = "/pkg/vendor/linux-x64/bin/bwrap";
+    expect(bwrapSettingsOf({ runner: "/usr/bin/bwrap" }, shipped).runner).toBe("/usr/bin/bwrap");
+    expect(bwrapSettingsOf({}, shipped).runner).toBe(shipped);
+    expect(bwrapSettingsOf({ runner: "  " }, shipped).runner).toBe(shipped);
+    expect(bwrapSettingsOf({}, "").runner).toBe("bwrap");
   });
 });

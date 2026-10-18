@@ -1,20 +1,27 @@
 /**
- * App root: Locale -> Theme -> LocaleScope -> Router provider composition,
- * mirroring the Web App (LocaleScope remounts the tree keyed by locale so
- * every `S.x` read reflects the active language).
+ * App root: Locale -> Theme -> LocaleScope -> Router, the same composition as the docs. The
+ * shared providers own the preferences; this site supplies its dictionary. The site is English
+ * only, so every locale reads the English dictionary and there is no language menu.
  */
-import { LocaleProvider, LocaleScope } from "./state/locale";
-import { ThemeProvider } from "./state/theme";
+import {
+  SiteLocaleProvider,
+  SiteLocaleScope,
+  SiteThemeProvider,
+} from "@prismshadow/penguin-ui/site";
+import { setActiveStrings } from "./lib/strings";
+import { en } from "./lib/strings-en";
 import { AppRouter } from "./router";
+
+const applyLocale = () => setActiveStrings(en);
 
 export function App() {
   return (
-    <LocaleProvider>
-      <ThemeProvider>
-        <LocaleScope>
+    <SiteLocaleProvider onLocale={applyLocale}>
+      <SiteThemeProvider>
+        <SiteLocaleScope>
           <AppRouter />
-        </LocaleScope>
-      </ThemeProvider>
-    </LocaleProvider>
+        </SiteLocaleScope>
+      </SiteThemeProvider>
+    </SiteLocaleProvider>
   );
 }

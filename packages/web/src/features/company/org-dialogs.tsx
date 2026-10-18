@@ -1,15 +1,16 @@
 /**
  * Organization dialogs, invoked from the sidebar's organization switcher (and the empty
  * landing): create an organization — display name, the id (still required, generated from
- * that name by the field's own button), a one-sentence mission with three examples under it,
- * the Project it belongs to when the user has several, the model its sessions run on (the
- * Project default unless chosen), the company workspace (the organization's own directory
- * unless one is picked) and the CEO's monthly budget, which is the whole company's and is
- * typed in the currency the reader reads money in but stored in USD — and an organization's
+ * that name by the field's own button), a one-sentence mission, the Project it belongs to
+ * when the user has several, the model its sessions run on (the Project default unless
+ * chosen), the company workspace (the organization's own directory unless one is picked) and
+ * the CEO's monthly budget, which is the whole company's and is typed in the currency the
+ * reader reads money in but stored in USD — and an organization's
  * settings: name, mission, model, workspace, timezone, working language, approval mode, and
  * pause / resume — the one lifecycle control there is, since an organization is never deleted
  * through the App. Pause / resume writes its own PATCH the moment it is clicked; everything
- * else is a draft until Save.
+ * else is a draft until Save, which is live once a field differs from what is stored and none
+ * of the required ones is empty. Closing the settings with unsaved edits asks first.
  *
  * What the create dialog holds is kept as a draft (org-draft.ts) per user and Project, so an
  * accidental close, a reload or a switch back to development mode does not cost the mission
@@ -38,6 +39,21 @@ import type {
   OrganizationPatchRequest,
   OrganizationSettings,
 } from "@prismshadow/penguin-server/api";
+import {
+  Button,
+  ConfirmModal,
+  FieldError,
+  ICON_GAP,
+  InfoPopover,
+  Input,
+  Modal,
+  Select,
+  Textarea,
+  toastError,
+  toastSuccess,
+  useFormDraft,
+  useGuardedClose,
+} from "@prismshadow/penguin-ui";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";
@@ -47,21 +63,12 @@ import { useAuth } from "../../state/auth";
 import { useCompany } from "../../state/company";
 import { projectDisplayName, useProject } from "../../state/project";
 import { useTheme } from "../../state/theme";
-import { Button } from "../../components/ui/button";
-import { Input, Textarea } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
-import { FieldError, FieldHint, FieldLabel } from "../../components/ui/field";
-import { Modal } from "../../components/ui/modal";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { toastError, toastSuccess } from "../../components/ui/toast";
-import { ICON_GAP } from "../../lib/icon-scale";
-import { ModelSelect, modelLabel } from "../chat/model-select";
+import { ModelCatalogSelect, modelLabel } from "../chat/model-select";
 import { WorkspaceSelect } from "../chat/workspace-select";
 import { sameModelRef } from "../models/model-grouping";
-import { ErrorLine, MoneyPerMonthInput, OrgStatusPill } from "./shared";
+import { ErrorLine, InfoFieldLabel, MoneyPerMonthInput, OrgStatusPill } from "./shared";
 import { orgCreatedTarget } from "./company-nav";
 import { fromStoredUsd, isBudgetText, toStoredUsd } from "./budget-input";
-import { ORG_EXAMPLES } from "./org-examples";
 import { SemanticIdField } from "../semantic-id/semantic-id-field";
 import {
   EMPTY_ORG_DRAFT,
@@ -118,14 +125,14 @@ function useProjectModels(projectId: string, open: boolean) {
 }
 
 /**
- * The model field: the App's own model picker (ModelSelect in its form shape — the same
- * searchable, grouped, key-configured-first panel the chat composer and the Project's
+ * The model field: the App's own model picker (ModelCatalogSelect in its form shape — the same
+ * searchable, grouped, key-configured-first dialog the chat composer and the Project's
  * default-model setting open), with this field's two extra states around it.
  *
- * Empty is a choice here, not a gap: it means "follow the Project's default", named after
- * that default when the list says which model it is. The panel offers models only, so the
- * way back to empty is the field's own control, which stands where the hint that describes
- * it otherwise stands. A stored model that is no longer configured is kept rather than
+ * Empty is a choice here, not a gap: it means "follow the Project's default", and the trigger
+ * says so itself, naming that default when the list says which model it is. The panel offers
+ * models only, so the way back to empty is the field's own control under the trigger once a
+ * model is picked. A stored model that is no longer configured is kept rather than
  * silently replaced — the trigger names the id as stored, with a line underneath saying the
  * Project no longer lists it.
  */
@@ -157,12 +164,8 @@ function ModelField({
   const loading = models === null && loadError === null;
   return (
     <div>
-      {/* The "?" sits beside the field's own title (the picker carries no info slot). */}
-      <span className="mb-1 flex items-center gap-1">
-        <FieldLabel block={false}>{S.company.modelField}</FieldLabel>
-        <InfoPopover label={S.company.modelField}>{S.company.modelInfo}</InfoPopover>
-      </span>
-      <ModelSelect
+      <InfoFieldLabel label={S.company.modelField} info={S.company.modelInfo} />
+      <ModelCatalogSelect
         models={list}
         value={value}
         {...(models?.defaultModel !== undefined ? { defaultModel: models.defaultModel } : {})}
@@ -173,19 +176,17 @@ function ModelField({
       />
       {loadError !== null ? (
         <FieldError>{S.company.modelsLoadFailed}</FieldError>
-      ) : value === null ? (
-        <FieldHint>{S.company.modelHint}</FieldHint>
-      ) : (
+      ) : value === null ? null : (
         <span className="mt-1 flex flex-wrap items-baseline gap-x-2">
           {stale && (
             <span className="text-xs text-gray-500 dark:text-gray-500">{S.company.modelStale}</span>
           )}
-          {/* The hint's instruction, as the action that carries it out. */}
+          {/* The way back to the Project default, as the action that carries it out. */}
           <button
             type="button"
             disabled={disabled}
             onClick={() => onChange(null)}
-            className="text-xs text-gray-500 underline decoration-gray-300 underline-offset-2 transition-colors duration-150 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-60 dark:text-gray-400 dark:hover:text-gray-200"
+            className="whitespace-nowrap text-xs text-gray-500 underline decoration-gray-300 underline-offset-2 transition-colors duration-150 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-60 dark:text-gray-400 dark:hover:text-gray-200"
           >
             {S.company.modelClear}
           </button>
@@ -207,10 +208,7 @@ function WorkspaceField({
 }) {
   return (
     <div>
-      <span className="mb-1 flex items-center gap-1">
-        <FieldLabel block={false}>{S.company.workspaceField}</FieldLabel>
-        <InfoPopover label={S.company.workspaceField}>{S.company.workspaceInfo}</InfoPopover>
-      </span>
+      <InfoFieldLabel label={S.company.workspaceField} info={S.company.workspaceInfo} />
       <WorkspaceSelect
         projectId={projectId}
         workspace={value}
@@ -218,50 +216,8 @@ function WorkspaceField({
         variant="form"
         fieldLabel={S.company.workspaceField}
         emptyLabel={S.company.workspaceEmpty}
-        menuHint={S.company.workspaceMenuHint}
         clearLabel={S.company.workspaceClear}
       />
-      <FieldHint>{S.company.workspaceHint}</FieldHint>
-    </div>
-  );
-}
-
-/**
- * The three example missions under the mission field. A click takes the mission whole (the
- * click asks for THIS mission) and the display name only while the name is still empty, so
- * an example never overwrites what someone typed; the id is left to the generate button
- * beside it. One line each — the mission is long enough that a card of it would push the
- * rest of the form off the dialog, so the row carries the names and the tooltips carry what
- * each one actually says.
- *
- * The row is rendered inside the mission field and sits against it, not a field's distance
- * below: it fills that field in, and an unlabelled row a whole gap away reads as a field of
- * its own with its title missing.
- */
-function MissionExamples({
-  disabled,
-  onPick,
-}: {
-  disabled: boolean;
-  onPick: (example: { name: string; mission: string }) => void;
-}) {
-  return (
-    <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-      {ORG_EXAMPLES.map((example) => {
-        const copy = S.company.missionExamples[example.id];
-        return (
-          <button
-            key={example.id}
-            type="button"
-            title={`${copy.mission}\n${S.company.missionExampleHint}`}
-            disabled={disabled}
-            onClick={() => onPick(copy)}
-            className="min-w-0 truncate rounded-md border border-gray-200 px-2 py-1 text-left text-[11px] text-gray-600 transition-colors duration-150 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-          >
-            {copy.name}
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -326,6 +282,8 @@ export function CreateOrganizationDialog({
   /** A stored draft was put back into the fields: the notice above them says so and offers to drop it. */
   const [restored, setRestored] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** "Clear draft" awaiting confirmation: it empties every field and the stored draft. */
+  const [confirmClear, setConfirmClear] = useState(false);
   const { models, error: modelsError } = useProjectModels(projectId, open);
 
   // The Project the organization is being created in: the current one on open, changeable
@@ -459,7 +417,12 @@ export function CreateOrganizationDialog({
           {/* Dropping the draft is a form action, not a dialog verdict: it sits away from
               Cancel / Create so a click on it can never be mistaken for either. */}
           {draftContent && (
-            <Button size="sm" onClick={dropDraft} disabled={busy} className="mr-auto">
+            <Button
+              size="sm"
+              onClick={() => setConfirmClear(true)}
+              disabled={busy}
+              className="mr-auto"
+            >
               {S.company.clearDraft}
             </Button>
           )}
@@ -482,6 +445,7 @@ export function CreateOrganizationDialog({
           <Select
             size="sm"
             label={S.project.switcher}
+            required
             value={projectId}
             disabled={busy}
             onChange={(e) => setProjectId(e.target.value)}
@@ -499,7 +463,7 @@ export function CreateOrganizationDialog({
           label={S.company.displayName}
           size="sm"
           value={name}
-          hint={S.company.displayNameHint}
+          info={S.company.displayNameHint}
           autoFocus
           disabled={busy}
           onChange={(e) => setName(e.target.value)}
@@ -509,6 +473,7 @@ export function CreateOrganizationDialog({
           kind="org"
           label={S.company.orgId}
           hint={S.company.orgIdHint}
+          info={S.company.orgIdInfo}
           value={orgId}
           source={name.trim() || mission}
           error={idError}
@@ -518,31 +483,21 @@ export function CreateOrganizationDialog({
             setIdError(undefined);
           }}
         />
-        <div>
-          <Textarea
-            label={S.company.mission}
-            required
-            size="sm"
-            rows={3}
-            value={mission}
-            error={missionError}
-            hint={S.company.missionHint}
-            placeholder={S.company.missionPlaceholder}
-            disabled={busy}
-            onChange={(e) => {
-              setMission(e.target.value);
-              setMissionError(undefined);
-            }}
-          />
-          <MissionExamples
-            disabled={busy}
-            onPick={(example) => {
-              setMission(example.mission);
-              setMissionError(undefined);
-              if (name.trim() === "") setName(example.name);
-            }}
-          />
-        </div>
+        <Textarea
+          label={S.company.mission}
+          required
+          size="sm"
+          rows={3}
+          value={mission}
+          error={missionError}
+          info={S.company.missionHint}
+          placeholder={S.company.missionPlaceholder}
+          disabled={busy}
+          onChange={(e) => {
+            setMission(e.target.value);
+            setMissionError(undefined);
+          }}
+        />
         <ModelField
           models={models}
           loadError={modelsError}
@@ -555,7 +510,7 @@ export function CreateOrganizationDialog({
           label={S.company.ceoBudget}
           currency={currency}
           value={ceoBudget}
-          hint={S.company.ceoBudgetHint}
+          info={S.company.ceoBudgetHint}
           {...(budgetError !== undefined ? { error: budgetError } : {})}
           disabled={busy}
           onChange={(text) => {
@@ -565,46 +520,108 @@ export function CreateOrganizationDialog({
         />
         {formError !== null && <ErrorLine message={formError} onRetry={() => void submit()} />}
       </div>
+      <ConfirmModal
+        open={confirmClear}
+        title={S.company.clearDraft}
+        confirmLabel={S.company.clearDraftConfirmLabel}
+        cancelLabel={S.common.cancel}
+        onClose={() => setConfirmClear(false)}
+        onConfirm={() => {
+          setConfirmClear(false);
+          dropDraft();
+        }}
+      >
+        <p className="text-sm text-gray-600 dark:text-gray-300">{S.company.clearDraftConfirm}</p>
+      </ConfirmModal>
     </Modal>
   );
 }
 
-export function OrganizationSettingsDialog({
-  open,
-  projectId,
-  orgId,
-  onClose,
-  onChanged,
-}: {
+interface OrganizationSettingsProps {
   open: boolean;
   projectId: string;
   orgId: string;
   onClose: () => void;
   /** Settings were written (name, mission, status …): the caller refreshes the list. */
   onChanged: () => void;
-}) {
-  /** Stored settings as loaded on open (null until then) — the no-change baseline. */
+  /** The organization was deleted: the caller refreshes the list and leaves its pages. */
+  onDeleted?: () => void;
+}
+
+/** The settings form's fields, as typed. */
+interface OrgSettingsDraft {
+  name: string;
+  mission: string;
+  timezone: string;
+  language: OrgLanguage;
+  approvalMode: OrgApprovalMode;
+  modelRef: ModelRefDto | null;
+  workspace: string;
+}
+
+/** What the stored settings open the form as (empty fields until they are read). */
+function orgSettingsDraft(settings: OrganizationSettings | null): OrgSettingsDraft {
+  return {
+    name: settings?.name ?? "",
+    mission: settings?.mission ?? "",
+    timezone: settings?.timezone ?? "",
+    language: settings?.language ?? DEFAULT_ORG_LANGUAGE,
+    approvalMode: settings?.approvalMode ?? "allow-all",
+    modelRef: settings?.model ?? null,
+    workspace: settings?.workspace ?? "",
+  };
+}
+
+/** A draft as a save compares it: text trimmed, the model as its paired reference alone. */
+const normalizedOrgDraft = (d: OrgSettingsDraft) => ({
+  ...d,
+  name: d.name.trim(),
+  mission: d.mission.trim(),
+  timezone: d.timezone.trim(),
+  workspace: d.workspace.trim(),
+  modelRef:
+    d.modelRef === null ? null : { provider: d.modelRef.provider, modelId: d.modelRef.modelId },
+});
+
+export function OrganizationSettingsDialog(props: OrganizationSettingsProps) {
+  // Mounted only while open, so every opening reads the stored settings afresh.
+  return props.open ? <OrganizationSettingsForm {...props} /> : null;
+}
+
+function OrganizationSettingsForm({
+  projectId,
+  orgId,
+  onClose,
+  onChanged,
+  onDeleted,
+}: OrganizationSettingsProps) {
+  /** Stored settings as loaded on open (null until then) — the form's baseline. */
   const [settings, setSettings] = useState<OrganizationSettings | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [mission, setMission] = useState("");
-  const [timezone, setTimezone] = useState("");
-  const [language, setLanguage] = useState<OrgLanguage>(DEFAULT_ORG_LANGUAGE);
-  const [approvalMode, setApprovalMode] = useState<OrgApprovalMode>("allow-all");
-  const [modelRef, setModelRef] = useState<ModelRefDto | null>(null);
-  const [workspace, setWorkspace] = useState("");
+  const form = useFormDraft(orgSettingsDraft(settings), { normalize: normalizedOrgDraft });
+  const { name, mission, timezone, language, approvalMode, modelRef, workspace } = form.draft;
   const [busy, setBusy] = useState(false);
-  const { models, error: modelsError } = useProjectModels(projectId, open);
+  /** The delete confirmation, and what has been typed into it (the id, to mean it). */
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [typedId, setTypedId] = useState("");
+  const { models, error: modelsError } = useProjectModels(projectId, true);
+  const requestClose = useGuardedClose(onClose, form.scope, { locked: busy });
+  /** The organization always has a name, a mission and a timezone: an emptied one holds Save. */
+  const valid = name.trim() !== "" && mission.trim() !== "" && timezone.trim() !== "";
 
-  const adopt = (next: OrganizationSettings) => {
-    setSettings(next);
-    setName(next.name);
-    setMission(next.mission);
-    setTimezone(next.timezone);
-    setLanguage(next.language ?? DEFAULT_ORG_LANGUAGE);
-    setApprovalMode(next.approvalMode);
-    setModelRef(next.model ?? null);
-    setWorkspace(next.workspace ?? "");
+  const doDelete = async () => {
+    setBusy(true);
+    try {
+      await api.deleteOrganization(projectId, orgId);
+      setConfirmDelete(false);
+      toastSuccess(S.company.deleted(orgId));
+      onClose();
+      onDeleted?.();
+    } catch (e) {
+      toastError(apiErrorText(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const load = useCallback(() => {
@@ -614,7 +631,7 @@ export function OrganizationSettingsDialog({
     void api
       .getOrganization(projectId, orgId)
       .then((detail) => {
-        if (!cancelled) adopt(detail.settings);
+        if (!cancelled) setSettings(detail.settings);
       })
       .catch((e: unknown) => {
         if (!cancelled) setLoadError(apiErrorText(e));
@@ -624,15 +641,16 @@ export function OrganizationSettingsDialog({
     };
   }, [projectId, orgId]);
 
-  useEffect(() => {
-    if (!open) return;
-    return load();
-  }, [open, load]);
+  useEffect(() => load(), [load]);
 
+  /**
+   * One PATCH; the answer becomes the stored settings. The pause / resume writes through here
+   * alone, and the typed fields beside it keep their edits against the new baseline.
+   */
   const patch = async (body: OrganizationPatchRequest) => {
     setBusy(true);
     try {
-      adopt(await api.patchOrganization(projectId, orgId, body));
+      setSettings(await api.patchOrganization(projectId, orgId, body));
       toastSuccess(S.common.saved);
       onChanged();
       return true;
@@ -645,11 +663,11 @@ export function OrganizationSettingsDialog({
   };
 
   const save = () => {
-    if (settings === null) return;
+    if (settings === null || !form.dirty || !valid) return;
     const body: OrganizationPatchRequest = {};
-    if (name.trim() && name.trim() !== settings.name) body.name = name.trim();
-    if (mission.trim() && mission.trim() !== settings.mission) body.mission = mission.trim();
-    if (timezone.trim() && timezone.trim() !== settings.timezone) body.timezone = timezone.trim();
+    if (name.trim() !== settings.name) body.name = name.trim();
+    if (mission.trim() !== settings.mission) body.mission = mission.trim();
+    if (timezone.trim() !== settings.timezone) body.timezone = timezone.trim();
     if (language !== (settings.language ?? DEFAULT_ORG_LANGUAGE)) body.language = language;
     if (approvalMode !== settings.approvalMode) body.approvalMode = approvalMode;
     // Clearing sends null: the organization returns to the Project default / its own directory.
@@ -661,10 +679,6 @@ export function OrganizationSettingsDialog({
     if (nextWorkspace !== (settings.workspace ?? "")) {
       body.workspace = nextWorkspace === "" ? null : nextWorkspace;
     }
-    if (Object.keys(body).length === 0) {
-      onClose();
-      return;
-    }
     void patch(body).then((ok) => {
       if (ok) onClose();
     });
@@ -674,16 +688,21 @@ export function OrganizationSettingsDialog({
   const paused = settings?.status === "paused";
   return (
     <Modal
-      open={open}
+      open
       title={S.company.settingsTitle}
-      onClose={onClose}
+      onClose={requestClose}
       widthClass="sm:max-w-lg"
       footer={
         <>
-          <Button size="sm" onClick={onClose} disabled={busy}>
+          <Button size="sm" onClick={requestClose} disabled={busy}>
             {S.common.cancel}
           </Button>
-          <Button size="sm" variant="primary" disabled={!hydrated || busy} onClick={save}>
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={!hydrated || busy || !form.dirty || !valid}
+            onClick={save}
+          >
             {S.common.save}
           </Button>
         </>
@@ -716,48 +735,52 @@ export function OrganizationSettingsDialog({
         <Input
           label={S.company.displayName}
           size="sm"
+          required
           value={name}
           disabled={!hydrated || busy}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => form.patch({ name: e.target.value })}
         />
         <Textarea
           label={S.company.mission}
           size="sm"
           rows={3}
+          required
           value={mission}
           disabled={!hydrated || busy}
-          hint={S.company.missionHint}
-          onChange={(e) => setMission(e.target.value)}
+          info={S.company.missionHint}
+          onChange={(e) => form.patch({ mission: e.target.value })}
         />
         <ModelField
           models={models}
           loadError={modelsError}
           value={modelRef}
-          onChange={setModelRef}
+          onChange={(next) => form.patch({ modelRef: next })}
           disabled={!hydrated || busy}
         />
-        <WorkspaceField projectId={projectId} value={workspace} onChange={setWorkspace} />
+        <WorkspaceField
+          projectId={projectId}
+          value={workspace}
+          onChange={(next) => form.patch({ workspace: next })}
+        />
         <Input
           label={S.company.timezone}
           size="sm"
+          required
           value={timezone}
           disabled={!hydrated || busy}
           hint={S.company.timezoneHint}
+          info={S.company.timezoneInfo}
           className="font-mono"
-          onChange={(e) => setTimezone(e.target.value)}
+          onChange={(e) => form.patch({ timezone: e.target.value })}
         />
         <div>
-          {/* The "?" sits beside the field's own title (Select carries no info slot). */}
-          <span className="mb-1 flex items-center gap-1">
-            <FieldLabel block={false}>{S.company.language}</FieldLabel>
-            <InfoPopover label={S.company.language}>{S.company.languageInfo}</InfoPopover>
-          </span>
+          <InfoFieldLabel label={S.company.language} info={S.company.languageInfo} />
           <Select
             size="sm"
             aria-label={S.company.language}
             value={language}
             disabled={!hydrated || busy}
-            onChange={(e) => setLanguage(e.target.value as OrgLanguage)}
+            onChange={(e) => form.patch({ language: e.target.value as OrgLanguage })}
           >
             {ORG_LANGUAGES.map((l) => (
               <option key={l} value={l}>
@@ -767,17 +790,13 @@ export function OrganizationSettingsDialog({
           </Select>
         </div>
         <div>
-          {/* The "?" sits beside the field's own title (Select carries no info slot). */}
-          <span className="mb-1 flex items-center gap-1">
-            <FieldLabel block={false}>{S.company.approvalMode}</FieldLabel>
-            <InfoPopover label={S.company.approvalMode}>{S.company.approvalModeInfo}</InfoPopover>
-          </span>
+          <InfoFieldLabel label={S.company.approvalMode} info={S.company.approvalModeInfo} />
           <Select
             size="sm"
             aria-label={S.company.approvalMode}
             value={approvalMode}
             disabled={!hydrated || busy}
-            onChange={(e) => setApprovalMode(e.target.value as OrgApprovalMode)}
+            onChange={(e) => form.patch({ approvalMode: e.target.value as OrgApprovalMode })}
           >
             {APPROVAL_MODES.map((m) => (
               <option key={m} value={m}>
@@ -786,7 +805,49 @@ export function OrganizationSettingsDialog({
             ))}
           </Select>
         </div>
+        {/* Deleting is its own decision, below everything Save writes: immediate, confirmed by
+              typing the id, and refused by the server for anyone but the Project's owner. */}
+        <div className="flex items-center justify-between gap-3 border-t border-gray-200 pt-3 dark:border-gray-800">
+          <span
+            className={`flex min-w-0 items-center ${ICON_GAP.row} text-xs font-semibold text-gray-600 dark:text-gray-400`}
+          >
+            {S.company.deleteOrg}
+            <InfoPopover label={S.company.deleteOrg}>{S.company.deleteOrgDesc}</InfoPopover>
+          </span>
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={!hydrated || busy}
+            onClick={() => {
+              setTypedId("");
+              setConfirmDelete(true);
+            }}
+          >
+            {S.common.delete}
+          </Button>
+        </div>
       </div>
+      <ConfirmModal
+        open={confirmDelete}
+        title={S.company.deleteOrg}
+        busy={busy}
+        confirmDisabled={typedId.trim() !== orgId}
+        confirmLabel={S.common.delete}
+        cancelLabel={S.common.cancel}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() => void doDelete()}
+      >
+        <p className="text-sm text-gray-600 dark:text-gray-300">{S.company.deleteOrgConfirm}</p>
+        <Input
+          size="sm"
+          className="mt-3 font-mono"
+          aria-label={S.company.deleteOrgTypeId(orgId)}
+          placeholder={orgId}
+          value={typedId}
+          hint={S.company.deleteOrgTypeId(orgId)}
+          onChange={(e) => setTypedId(e.target.value)}
+        />
+      </ConfirmModal>
     </Modal>
   );
 }

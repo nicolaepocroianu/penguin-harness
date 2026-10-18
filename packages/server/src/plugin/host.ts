@@ -4,6 +4,7 @@
  * `@prismshadow/penguin-server/plugin` subpath stays types only.
  */
 import type { IfaceTable, ModuleDef, Resources } from "@prismshadow/penguin-core/kernel";
+import type { UnsatisfiedPlugin } from "../api/types.js";
 
 /** One loaded plugin: the package, its modules and stand-ins with manifests paired to code, and its generated table. */
 export interface LoadedPlugin {
@@ -38,6 +39,8 @@ export class PluginHost {
   private readonly failures = new Map<string, string>();
   /** A second name for a loaded package → the name it was loaded under (see PluginLoadResult). */
   private readonly secondNames = new Map<string, string>();
+  /** specifier → a loaded plugin the generation holding this host could not fully run. */
+  private unmet = new Map<string, UnsatisfiedPlugin>();
 
   /** Registers a plugin; a module name already taken by an earlier plugin is refused. */
   use(plugin: LoadedPlugin): void {
@@ -112,6 +115,20 @@ export class PluginHost {
     return this.failures;
   }
 
+  /**
+   * Records what the booted tree runs without (plugin/unsatisfied.ts). Replaced whole at every
+   * boot: it is a fact about one generation, and a host that outlives its generation (a bare
+   * kernel keeps the one it was handed) must not carry the last one's.
+   */
+  setUnsatisfied(plugins: readonly UnsatisfiedPlugin[]): void {
+    this.unmet = new Map(plugins.map((p) => [p.specifier, p]));
+  }
+
+  /** The loaded plugins this generation could not fully run, each with what became of it. */
+  unsatisfied(): ReadonlyMap<string, UnsatisfiedPlugin> {
+    return this.unmet;
+  }
+
   /** Nothing to release at process exit: modules dispose with the App that created them. */
   dispose(): void {}
 }
@@ -139,5 +156,20 @@ export const PLUGINS_RESOURCE_ID = "platform.plugins";
  * on the first hot push.
  */
 export function pluginHostFrom(resources: Resources): PluginHost {
-  return resources.claim<PluginHost>(PLUGINS_RESOURCE_ID) ?? new PluginHost();
+  const claimed = resources.claim<Partial<PluginHost> | null>(PLUGINS_RESOURCE_ID);
+  // A runtime older than this contract publishes a host of another shape (the activate-era
+  // one, or one without replacements). A pushed platform must still boot on it, so an
+  // unrecognized host reads as "no plugins": what it registered belongs to a generation this
+  // platform cannot honor, and the seam says so rather than crashing.
+  if (claimed === null || claimed === undefined || typeof claimed.modules !== "function") {
+    return new PluginHost();
+  }
+  if (typeof claimed.replacements !== "function") {
+    const host = new PluginHost();
+    for (const m of claimed.modules()) {
+      host.use({ specifier: m.manifest.name, modules: [m], replaces: [] });
+    }
+    return host;
+  }
+  return claimed as PluginHost;
 }

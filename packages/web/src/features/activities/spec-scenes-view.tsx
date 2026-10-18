@@ -9,10 +9,7 @@
  * is edited in JSON.
  */
 import { useMemo, useState } from "react";
-import { Button } from "../../components/ui/button";
-import { Chevron } from "../../components/ui/chevron";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { ICON_SIZE } from "../../lib/icon-scale";
+import { Button, Chevron, InfoPopover, ICON_SIZE } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneStrip, type Tone } from "../../lib/tone";
 import type { Binding } from "./placeholder-media";
@@ -56,7 +53,7 @@ const CHIP =
   "inline-flex items-center rounded-full border border-gray-200 px-2 py-0.5 text-xs text-gray-700 dark:border-gray-800 dark:text-gray-300";
 const HEADING = "flex items-center gap-2 text-sm font-semibold";
 const COUNT = "font-normal text-gray-500 dark:text-gray-400";
-const LABEL = "text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400";
+const LABEL = "text-xs font-medium text-gray-500 dark:text-gray-400";
 
 /** The dot-and-text mark a scene's check shows, named in text so colour is never alone. */
 function StateMark({ tone, text }: { tone: Tone; text: string }) {
@@ -169,7 +166,7 @@ function SceneCard({
                 key={line.key}
                 className={`flex items-start gap-2 rounded-md text-sm ${differs ? `-mx-1.5 p-1.5 ${toneStrip.attention}` : ""}`}
               >
-                <span className="min-w-0 flex-1 space-y-0.5">
+                <span className="min-w-0 flex-1 space-y-1">
                   <span className="block font-mono text-xs text-gray-500 dark:text-gray-400">
                     {line.key}
                   </span>
@@ -286,7 +283,7 @@ export function SpecScenesView({
     : [];
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5 p-4">
+    <div className="mx-auto w-full max-w-5xl space-y-6 p-4">
       {chips.length > 0 && (
         <section className="flex flex-wrap items-center gap-1.5">
           <span className="mr-1 text-xs text-gray-500 dark:text-gray-400">{words.runtime}</span>

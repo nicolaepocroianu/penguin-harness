@@ -3,6 +3,7 @@
  * requests via app.request() + building Trace files.
  * None of these tests listen on a port or make real LLM requests.
  */
+import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -18,6 +19,7 @@ import type { DesktopService } from "../src/services/desktop-service.js";
 import type { AuthService } from "../src/auth/service.js";
 import type { AdminService } from "../src/services/admin-service.js";
 import type { ProjectService } from "../src/services/project-service.js";
+import { ShippedBuiltinBenchmarkSeeds } from "../src/services/project-service.js";
 import type { ProjectAccess } from "../src/services/project-access.js";
 import type { ProjectConfigService } from "../src/services/project-config-service.js";
 import type { ModelOAuthService } from "../src/services/model-oauth-service.js";
@@ -57,6 +59,7 @@ import type { ServerConfig } from "../src/config.js";
 import type { UserInfo } from "../src/api/types.js";
 import { wire } from "@prismshadow/penguin-core/kernel";
 import { SandboxModule, SandboxService } from "../src/sandbox/service.js";
+import { DEFAULT_PLUGINS } from "../src/plugin/loader.js";
 import type { PluginHost } from "../src/plugin/host.js";
 import type { Replacements } from "../src/hmr/capabilities.js";
 import { ConsoleLog, SystemClock } from "../src/hmr/capabilities.js";
@@ -65,6 +68,8 @@ import { CoreSessionLoaders, DefaultTitleGenerators } from "../src/runtime/sessi
 import type { TitleNotifier } from "../src/runtime/title-generator.js";
 import { UpdateCheckService } from "../src/services/update-check-service.js";
 import { RevealService } from "../src/services/reveal-path.js";
+import { NpmPluginPackages } from "../src/plugin/install.js";
+import type { PluginPackages } from "../src/mechanisms/plugins.js";
 import { DefaultMessagingTuning } from "../src/runtime/messaging/bridge.js";
 import { FeishuSdkProvider } from "../src/runtime/messaging/feishu-connector.js";
 import type { FeishuSdk } from "../src/runtime/messaging/feishu-sdk.js";
@@ -120,9 +125,65 @@ import {
 
 // A developer's own WAF checkout must never be written by a test; a test names its own.
 delete process.env.WAF_ROOT_DIR;
+import { ProcessShellPort } from "../src/builtin-browser/module.js";
+import type { BrowserShellPort } from "../src/builtin-browser/shell-link.js";
 
+/** The roots {@link makeTempRoot} handed out that nothing has removed yet. */
+const tempRoots = new Set<string>();
+
+/**
+ * A fresh directory under the OS temp directory. Remove it with {@link removeTempRoot} when the
+ * test is done; whatever a test file leaves is removed when the file ends
+ * (test/setup/temp-roots.ts), and what even that cannot remove is reported by the run's teardown
+ * (test/setup/run-temp-dir.ts).
+ */
 export async function makeTempRoot(): Promise<string> {
-  return fs.mkdtemp(path.join(os.tmpdir(), "penguin-server-test-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-server-test-"));
+  tempRoots.add(root);
+  return root;
+}
+
+/**
+ * Removes a root. maxRetries: Windows can report ENOTEMPTY/EBUSY while handles from the test's
+ * own just-closed files (SQLite, trace writers) are still being released — Node's rm retries
+ * these codes with a delay. A plain rm was the top cause of ci-windows cascades (cleanup throws →
+ * hook timeout → "database is not open" in later files).
+ */
+export async function removeTempRoot(root: string): Promise<void> {
+  await fs.rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  tempRoots.delete(root);
+}
+
+/** Removes every root still handed out; one that cannot be removed is left for the report. */
+export async function removeTempRoots(): Promise<void> {
+  await Promise.all([...tempRoots].map((root) => removeTempRoot(root).catch(() => {})));
+}
+
+let symlinkCapability: boolean | undefined;
+
+/**
+ * Whether this process can create symbolic links at all. Windows denies symlink creation
+ * without a privilege or Developer Mode (EPERM), so tests that need a real symlink skip when
+ * the probe fails — and still run wherever the capability exists (Linux/macOS, elevated or
+ * Developer-Mode Windows) instead of vanishing on every Windows machine. The probe tries once
+ * in a temp directory and caches the answer.
+ */
+export function canCreateSymlink(): boolean {
+  if (symlinkCapability === undefined) {
+    const probeDir = mkdtempSync(path.join(os.tmpdir(), "penguin-symlink-probe-"));
+    try {
+      // A directory link, the variant the guarded cases create; the privilege gate is the
+      // same for file links.
+      symlinkSync(probeDir, path.join(probeDir, "probe"), "dir");
+      symlinkCapability = true;
+    } catch {
+      symlinkCapability = false;
+    } finally {
+      // maxRetries for the same ci-windows cascade reason createTestApp's cleanup documents.
+      rmSync(probeDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    }
+  }
+  return symlinkCapability;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -149,6 +210,9 @@ export function testConfig(root: string): ServerConfig {
     dbPath: ":memory:",
     previewOrigin: null,
     penguinGoOrigin: "https://token.penguin.ooo",
+    // The production bridge address, path prefix included. Nothing reaches it in tests: the
+    // ModelScope cases construct the service themselves with a stubbed fetch.
+    modelscopeBridgeUrl: "https://go.penguin.ooo/modelscope",
     // Points to a nonexistent directory: static hosting is disabled in tests.
     webDist: path.join(root, "__no_web_dist__"),
     // Fixed seed password so loginAdmin needs no seed-time capture.
@@ -158,10 +222,11 @@ export function testConfig(root: string): ServerConfig {
     desktopToken: null,
     portFile: null,
     trustProxy: false,
-    supervised: false,
     // No CLI to offer: nothing is written into the temp root, and no directory is put on
     // the PATH of whatever a test's Agent runs.
     cliEntry: null,
+    // Off by default: no test may reach the network to list plugins.
+    pluginIndexUrl: null,
   };
 }
 
@@ -266,6 +331,8 @@ export function flattenForTests(boot: ServerBoot): TestDeps {
 export interface TestApp {
   app: Hono<AppEnv>;
   deps: TestDeps;
+  /** The boot as the runtime holds it: `boot.tree` follows the App across swaps and re-assemblies, where `deps.tree` is the first generation's. */
+  boot: ServerBoot;
   root: string;
   /** Initial password of the seeded admin (TEST_ADMIN_PASSWORD unless overridden via `config.seedAdminPassword`). */
   adminPassword: string;
@@ -280,9 +347,16 @@ export interface TestAppOptions {
   /**
    * Test double: the sandbox. Defaults to one with a stand-in backend that leaves every
    * command as it is: activity runs refuse to start where nothing can confine them, and a
-   * test is not the place to need a real backend.
+   * test is not the place to need a real backend. `"real"` boots the platform's own sandbox
+   * module over the plugins' backends: the cases about the sandbox itself.
    */
-  sandbox?: SandboxService;
+  sandbox?: SandboxService | "real";
+  /**
+   * False boots without the plugins every deployment runs (DEFAULT_PLUGINS, the DSH sandbox
+   * backend): for a case about the sandbox card over the backends it brings itself, which the
+   * default would otherwise join — mounted on Linux, refused on Windows under Git bash.
+   */
+  defaultPlugins?: boolean;
   /** Test double: session-manager's underlying loader (avoids the real LLM/SDK path). */
   loader?: SessionLoader;
   /** Test double: Session title generator (avoids real LLM requests). */
@@ -351,8 +425,18 @@ export interface TestAppOptions {
   orgService?: OrganizationService;
   /** Test double: the desktop reveal, so a test never opens a file manager. */
   reveal?: (filePath: string) => Promise<void>;
+  /** Test double: how plugin packages reach the data root's prefix, so a test never runs npm. */
+  pluginPackages?: PluginPackages;
+  /** Test double: the desktop shell's port as the built-in browser reaches it (a fake shell). */
+  browserShellPort?: BrowserShellPort;
   /** Test double: the password work factor (scrypt at full strength is seconds per hash). */
   passwordHashCost?: number;
+  /**
+   * Write the shipped built-in Benchmarks into every Project the app creates, as production
+   * does. Off by default: they are several hundred files and directories per Project — most
+   * of what a boot or a provisioned user writes — and only the scenarios about them read them.
+   */
+  builtinBenchmarks?: boolean;
   log?: (line: string) => void;
   now?: () => Date;
   /** The plugins this app boots with (their modules and replacements), as the runtime would have loaded them. */
@@ -374,9 +458,10 @@ function accessDouble(): Access {
 
 export function replacementsFor(o: TestAppOptions): Replacements {
   const out: Array<readonly [ModuleClass, object]> = [];
-  out.push([SandboxModule, { sandbox: o.sandbox ?? standInSandbox() }]);
+  if (o.sandbox !== "real") out.push([SandboxModule, { sandbox: o.sandbox ?? standInSandbox() }]);
   if (o.log) out.push([ConsoleLog, { line: o.log }]);
   if (o.now) out.push([SystemClock, { now: o.now }]);
+  if (!o.builtinBenchmarks) out.push([ShippedBuiltinBenchmarkSeeds, { benchmarks: [] }]);
   if (o.passwordHashCost !== undefined) {
     const cost = o.passwordHashCost;
     out.push([ScryptHasher, { hash: (password: string) => hashPassword(password, cost) }]);
@@ -391,6 +476,11 @@ export function replacementsFor(o: TestAppOptions): Replacements {
   }
   if (o.updateCheck) out.push([UpdateCheckService, o.updateCheck]);
   if (o.reveal) out.push([RevealService, { reveal: o.reveal }]);
+  if (o.pluginPackages) out.push([NpmPluginPackages, o.pluginPackages]);
+  if (o.browserShellPort) {
+    const port = o.browserShellPort;
+    out.push([ProcessShellPort, { current: () => port }]);
+  }
   if (o.feishuSdk) out.push([FeishuSdkProvider, { feishuSdk: { sdk: o.feishuSdk } }]);
   if (o.telegramTransport)
     out.push([
@@ -489,26 +579,45 @@ export function standInSandbox(): SandboxService {
 }
 
 export async function createTestApp(options: TestAppOptions = {}): Promise<TestApp> {
-  const { beforeSeed, config, plugins, wafCheckout = true, ...overrides } = options;
-  const root = await makeTempRoot();
-  if (beforeSeed) await beforeSeed(root);
-  const finalConfig = { ...testConfig(root), ...config };
-  const boot = await bootAppDeps(
-    finalConfig,
-    replacementsFor({
-      log: () => {},
-      passwordHashCost: TEST_PASSWORD_HASH_COST,
-      // The bridge's per-line pace is a real wait in production; every test but the one
-      // about the pacing itself collapses it to nothing.
-      messagingLineDelayMs: 0,
-      ...overrides,
-    }),
-    undefined,
+  const {
+    beforeSeed,
+    config,
     plugins,
-  );
-  // Consistent with the startup entrypoint: seed the built-in admin (owning default_project).
+    wafCheckout = true,
+    defaultPlugins = true,
+    ...overrides
+  } = options;
+  const root = await makeTempRoot();
+  let boot: ServerBoot | undefined;
+  // Read only while the platform boots, so it is put back as soon as the boot is done.
+  const defaults = DEFAULT_PLUGINS as string[];
+  const keptDefaults = defaultPlugins ? null : defaults.splice(0, defaults.length);
+  try {
+    if (beforeSeed) await beforeSeed(root);
+    boot = await bootAppDeps(
+      { ...testConfig(root), ...config },
+      replacementsFor({
+        log: () => {},
+        passwordHashCost: TEST_PASSWORD_HASH_COST,
+        // The bridge's per-line pace is a real wait in production; every test but the one
+        // about the pacing itself collapses it to nothing.
+        messagingLineDelayMs: 0,
+        ...overrides,
+      }),
+      undefined,
+      plugins,
+    );
+    if (keptDefaults !== null) defaults.push(...keptDefaults.splice(0));
+    // Consistent with the startup entrypoint: seed the built-in admin (owning default_project).
+    await flattenForTests(boot).authService.seedAdmin();
+  } catch (error) {
+    if (keptDefaults !== null) defaults.push(...keptDefaults.splice(0));
+    // A boot a scenario expects to be refused still wrote the root it was given.
+    if (boot !== undefined) flattenForTests(boot).db.close();
+    await removeTempRoot(root).catch(() => {});
+    throw error;
+  }
   const deps = flattenForTests(boot);
-  await deps.authService.seedAdmin();
   if (wafCheckout) {
     const checkout = path.join(root, "waf-checkout");
     await fs.mkdir(path.join(checkout, "framework", "src"), { recursive: true });
@@ -517,6 +626,7 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
     await fs.mkdir(path.join(checkout, "media"), { recursive: true });
     deps.serverSettingsRepo.set("wafWorkspace", JSON.stringify({ externalRoot: checkout }));
   }
+  const finalConfig = { ...testConfig(root), ...config };
   // The seed hashes and discards; tests know the password only because the config injects it.
   // With a null override there is nothing to know, and such tests never password-login.
   const adminPassword = finalConfig.seedAdminPassword ?? TEST_ADMIN_PASSWORD;
@@ -524,6 +634,7 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
   return {
     app,
     deps,
+    boot,
     root,
     adminPassword,
     cleanup: async () => {
@@ -532,11 +643,7 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
       deps.hmr.dispose();
       deps.channels.dispose();
       deps.db.close();
-      // maxRetries: Windows can report ENOTEMPTY/EBUSY while handles from the test's own
-      // just-closed files (SQLite, trace writers) are still being released — Node's rm
-      // retries these codes with a delay. A plain rm was the top cause of ci-windows
-      // cascades (cleanup throws → hook timeout → "database is not open" in later files).
-      await fs.rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+      await removeTempRoot(root);
     },
   };
 }
@@ -610,17 +717,37 @@ export async function provisionUser(
 
 /** JSON request client that carries the cookie. */
 export function apiClient(app: Hono<AppEnv>, cookie: string) {
+  return clientWith(app, { cookie });
+}
+
+/**
+ * JSON request client as a Session's tool subprocess calls the server: the boot's local API
+ * token (`t.deps.authService.localApiToken()`) as a Bearer header, and no cookie.
+ */
+export function tokenClient(app: Hono<AppEnv>, token: string) {
+  return clientWith(app, { authorization: `Bearer ${token}` });
+}
+
+/** A browser cookie exchanged from the same API token an Agent's commands receive. */
+export async function remoteSessionCookie(app: Hono<AppEnv>, token: string): Promise<string> {
+  const res = await tokenClient(app, token).post("/api/remote/session", {});
+  if (res.status !== 200) throw new Error(`Remote exchange failed with ${res.status}`);
+  const session = (await res.json()) as { cookieName: string; sessionToken: string };
+  return `${session.cookieName}=${session.sessionToken}`;
+}
+
+function clientWith(app: Hono<AppEnv>, credential: Record<string, string>) {
   const call = (method: string) => (apiPath: string, body?: unknown) =>
     app.request(apiPath, {
       method,
       headers: {
-        cookie,
+        ...credential,
         ...(body !== undefined ? { "content-type": "application/json" } : {}),
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
   return {
-    get: (apiPath: string) => app.request(apiPath, { headers: { cookie } }),
+    get: (apiPath: string) => app.request(apiPath, { headers: credential }),
     post: call("POST"),
     put: call("PUT"),
     patch: call("PATCH"),

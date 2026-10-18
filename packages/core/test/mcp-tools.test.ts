@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/server";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
 import { z } from "zod";
+import { VERSION } from "../src/index.js";
 import { Environment } from "../src/environment/index.js";
 import { rmEventually } from "./rm-eventually.js";
 import { McpToolProvider, renderCallToolResult } from "../src/environment/mcp/provider.js";
@@ -175,6 +176,189 @@ describe("Environment.reconfigure with MCP Servers (a new model context's server
   }, 30_000);
 });
 
+describe("MCP servers whose entry references the Agent's vault", () => {
+  let dir: string;
+
+  beforeAll(async () => {
+    dir = await realpath(await mkdtemp(path.join(tmpdir(), "penguin-mcp-vault-")));
+  });
+
+  afterAll(async () => {
+    await rmEventually(dir);
+  }, 30_000);
+
+  it("reports a server whose vault key is missing without contacting it, and connects it with the value once the vault has the key", async () => {
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const toolConfig = {
+      customTools: [],
+      mcpServers: [fixtureEntry({ env: { FIXTURE_SECRET: "${FIXTURE_SECRET}" } })],
+    };
+    const env = new Environment({ workspaceDir: dir, toolConfig });
+    try {
+      // Needs setup: reported like a failed server, with no time spent on it.
+      expect(env.pendingMcpServerNames()).toEqual(["fx"]);
+      expect(await env.listTools()).toEqual([]);
+      expect(env.mcpConnectResults()).toEqual([
+        {
+          server: "fx",
+          transport: "stdio",
+          status: "fatal",
+          duration_ms: 0,
+          error_code: "mcp_needs_setup",
+          error_message: "needs setup: vault key FIXTURE_SECRET is not set",
+        },
+      ]);
+      const printed = () => stderr.mock.calls.map((call) => String(call[0])).join("");
+      expect(printed()).toContain(
+        'MCP server "fx" skipped: needs setup: vault key FIXTURE_SECRET is not set',
+      );
+
+      // The next context has the key: the server connects, and its process gets the value.
+      env.reconfigure({ toolConfig, vault: { FIXTURE_SECRET: "first-value" } });
+      expect(env.pendingMcpServerNames()).toEqual(["fx"]);
+      let probe = finalPayload(await runTool(env, "mcp__fx__probe", {}));
+      expect(probe.output).toMatch(/^first-value\|/);
+
+      // Same value: the connection is kept. A changed value is a changed server: it reconnects.
+      env.reconfigure({ toolConfig, vault: { FIXTURE_SECRET: "first-value" } });
+      expect(env.pendingMcpServerNames()).toEqual([]);
+      env.reconfigure({ toolConfig, vault: { FIXTURE_SECRET: "second-value" } });
+      expect(env.pendingMcpServerNames()).toEqual(["fx"]);
+      probe = finalPayload(await runTool(env, "mcp__fx__probe", {}));
+      expect(probe.output).toMatch(/^second-value\|/);
+
+      expect(printed()).not.toContain("first-value");
+      expect(printed()).not.toContain("second-value");
+    } finally {
+      env.dispose();
+      stderr.mockRestore();
+    }
+  });
+});
+
+describe("MCP servers whose failures repeat what they were sent", () => {
+  const token = "token-value-never-shown";
+  const team = "team-value-never-shown";
+  const vault = { ECHO_TOKEN: token, TEAM: team };
+  const headers = { Authorization: "Bearer ${ECHO_TOKEN}" };
+  let dir: string;
+  let httpServer: Server;
+  let transport: NodeStreamableHTTPServerTransport;
+  let base: string;
+
+  beforeAll(async () => {
+    dir = await realpath(await mkdtemp(path.join(tmpdir(), "penguin-mcp-echo-")));
+    const mcp = new McpServer({ name: "echo-fixture", version: "1.0.0" });
+    mcp.registerTool(
+      "add",
+      { description: "Adds two numbers.", inputSchema: z.object({ a: z.number(), b: z.number() }) },
+      async ({ a, b }) => ({ content: [{ type: "text", text: String(a + b) }] }),
+    );
+    transport = new NodeStreamableHTTPServerTransport();
+    await mcp.connect(transport);
+    // A refusal repeats the request line and its credentials, as a debugging proxy or a
+    // careless framework does: `/refuse/…` refuses everything, `/mcp` only the tool calls.
+    httpServer = createServer((req, res) => {
+      const refuse = () => {
+        res.writeHead(400, { "content-type": "text/plain" });
+        res.end(`refused ${req.method} ${req.url} for ${req.headers.authorization}`);
+      };
+      if (req.url?.startsWith("/refuse/")) return refuse();
+      if (req.method !== "POST") return void transport.handleRequest(req, res);
+      let raw = "";
+      req.setEncoding("utf8");
+      req.on("data", (chunk: string) => (raw += chunk));
+      req.on("end", () => {
+        const body = JSON.parse(raw) as { method?: string };
+        if (body.method === "tools/call") refuse();
+        else void transport.handleRequest(req, res, body);
+      });
+    });
+    await new Promise<void>((resolve) => httpServer.listen(0, "127.0.0.1", resolve));
+    base = `http://127.0.0.1:${(httpServer.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    await transport.close();
+    await new Promise((resolve) => httpServer.close(resolve));
+    await rmEventually(dir);
+  }, 30_000);
+
+  /** Runs `body` with stderr captured; returns what was printed. */
+  async function printedWhile(body: () => Promise<void>): Promise<string> {
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      await body();
+      return stderr.mock.calls.map((call) => String(call[0])).join("");
+    } finally {
+      stderr.mockRestore();
+    }
+  }
+
+  it("reports a refused connect, and a stdio server's dying words, with the references in place of the vault values", async () => {
+    const env = new Environment({
+      workspaceDir: dir,
+      toolConfig: {
+        customTools: [],
+        mcpServers: [
+          { name: "refused", config: { url: `${base}/refuse/\${TEAM}`, headers } },
+          {
+            name: "dying",
+            config: {
+              command: process.execPath,
+              args: [
+                "-e",
+                "process.stderr.write('started with ' + process.env.LEAK); setTimeout(() => process.exit(1), 50)",
+              ],
+              env: { LEAK: "${ECHO_TOKEN}" },
+            },
+          },
+        ],
+      },
+      vault,
+    });
+    try {
+      const printed = await printedWhile(async () => {
+        expect(await env.listTools()).toEqual([]);
+      });
+      const [refused, dying] = env.mcpConnectResults();
+      expect(refused).toMatchObject({ status: "fatal", error_code: "connect_failed" });
+      expect(dying).toMatchObject({ status: "fatal", error_code: "connect_failed" });
+      // Both did repeat what they were sent: the references stand where the values were.
+      expect(refused!.error_message).toContain("/refuse/${TEAM} for Bearer ${ECHO_TOKEN}");
+      expect(dying!.error_message).toContain("started with ${ECHO_TOKEN}");
+      expect(printed).toContain("started with ${ECHO_TOKEN}");
+      for (const text of [JSON.stringify(env.mcpConnectResults()), printed]) {
+        expect(text).not.toContain(token);
+        expect(text).not.toContain(team);
+      }
+    } finally {
+      env.dispose();
+    }
+  });
+
+  it("fails a call whose refusal repeats the request with the references in place of the vault values", async () => {
+    const env = new Environment({
+      workspaceDir: dir,
+      toolConfig: {
+        customTools: [],
+        mcpServers: [{ name: "web", config: { url: `${base}/mcp?team=\${TEAM}`, headers } }],
+      },
+      vault,
+    });
+    try {
+      expect((await env.listTools()).map((t) => t.name)).toEqual(["mcp__web__add"]);
+      const final = finalPayload(await runTool(env, "mcp__web__add", { a: 2, b: 3 }));
+      expect(final.stop_reason).toBe("fatal");
+      expect(final.output).toContain("/mcp?team=${TEAM} for Bearer ${ECHO_TOKEN}");
+      expect(final.output).not.toContain(token);
+      expect(final.output).not.toContain(team);
+    } finally {
+      env.dispose();
+    }
+  });
+});
+
 describe("MCP over stdio through Environment", () => {
   let tmp: string;
   let env: Environment;
@@ -258,6 +442,86 @@ describe("MCP over stdio through Environment", () => {
     const final = finalPayload(await runTool(env, "mcp__fx__nope", {}));
     expect(final.stop_reason).toBe("fatal");
     expect(final.output).toContain("Unknown tool: mcp__fx__nope");
+  });
+});
+
+describe("MCP over stdio — under the Session's sandbox", () => {
+  const RUNNER = fileURLToPath(new URL("./fixtures/mcp-runner.mjs", import.meta.url));
+  let tmp: string;
+  beforeAll(async () => {
+    tmp = await realpath(await mkdtemp(path.join(tmpdir(), "penguin-mcp-sandbox-")));
+  });
+  afterAll(async () => {
+    await rmEventually(tmp);
+  });
+
+  it("starts a server through the Session's confiner, with the runner's environment laid over the server's", async () => {
+    const scopes: unknown[] = [];
+    const env = new Environment({
+      workspaceDir: tmp,
+      sessionScratchpadDir: path.join(tmp, "scratchpad", "s1"),
+      toolConfig: {
+        customTools: [],
+        mcpServers: [fixtureEntry({ env: { FIXTURE_SECRET: "from-entry" } })],
+      },
+      confineSpawn: () => (argv, opts) => {
+        scopes.push(opts);
+        return {
+          argv: [argv[0]!, RUNNER, ...argv.slice(1)],
+          env: { FIXTURE_SECRET: "from-runner" },
+        };
+      },
+    });
+    try {
+      const final = finalPayload(await runTool(env, "mcp__fx__probe", {}));
+      // The runner's entry lies over the entry's own, and the runner saw it first.
+      expect(final.output).toMatch(/^via-runner:from-runner\|/);
+      // The first spawn the confiner saw is the server's (the file tools' helper is asked
+      // about at every tool call, after the server connected).
+      expect(scopes[0]).toEqual({
+        cwd: tmp,
+        workspaceDir: tmp,
+        scratchpadDir: path.join(tmp, "scratchpad", "s1"),
+      });
+    } finally {
+      env.dispose();
+    }
+  });
+
+  it("fails that server's connect when the confiner cannot enforce the policy, and starts nothing", async () => {
+    const provider = new McpToolProvider([fixtureEntry()], {
+      workspaceDir: tmp,
+      confineSpawn: () => () => {
+        throw new Error("no sandbox backend is mounted");
+      },
+      warn: () => {},
+    });
+    try {
+      expect(await provider.listTools()).toEqual([]);
+      const [result] = provider.connectResults();
+      expect(result).toMatchObject({
+        server: "fx",
+        transport: "stdio",
+        status: "fatal",
+        error_code: "connect_failed",
+      });
+      expect(result!.error_message).toContain("sandbox: no sandbox backend is mounted");
+    } finally {
+      await provider.close();
+    }
+  });
+
+  it("starts a server unconfined while the confiner getter answers null", async () => {
+    const provider = new McpToolProvider([fixtureEntry()], {
+      workspaceDir: tmp,
+      confineSpawn: () => null,
+      warn: () => {},
+    });
+    try {
+      expect((await provider.listTools()).length).toBeGreaterThan(0);
+    } finally {
+      await provider.close();
+    }
   });
 });
 
@@ -463,6 +727,7 @@ describe("Session first-run bootstrap events", () => {
       system_prompt: "sp",
       agent_state: tmp,
       workspace: tmp,
+      source: "user",
     };
     return new Session({
       meta,
@@ -585,6 +850,7 @@ describe("Session first-run bootstrap events", () => {
         system_prompt: "sp",
         agent_state: tmp,
         workspace: tmp,
+        source: "user",
       },
       bootstrap: async ({ emit }) => {
         calls += 1;
@@ -757,16 +1023,20 @@ describe("MCP over Streamable HTTP", () => {
     await new Promise((resolve) => httpServer.close(resolve));
   });
 
-  it("discovers and calls tools over http, sending the configured headers on every request", async () => {
+  it("discovers and calls tools over http, sending the configured headers — vault references filled in — and PenguinHarness's User-Agent on every request", async () => {
     const tmp = await mkdtemp(path.join(tmpdir(), "penguin-mcp-http-"));
     const env = new Environment({
       workspaceDir: tmp,
       toolConfig: {
         customTools: [],
         mcpServers: [
-          { name: "web", config: { transport: "http", url, headers: { "x-penguin-test": "yes" } } },
+          {
+            name: "web",
+            config: { transport: "http", url, headers: { "x-penguin-test": "${WEB_HEADER}" } },
+          },
         ],
       },
+      vault: { WEB_HEADER: "yes" },
     });
     try {
       const tools = await env.listTools();
@@ -776,6 +1046,7 @@ describe("MCP over Streamable HTTP", () => {
       expect(final.output).toBe("5");
       expect(seenHeaders.length).toBeGreaterThan(0);
       expect(seenHeaders.every((h) => h["x-penguin-test"] === "yes")).toBe(true);
+      expect(seenHeaders.every((h) => h["user-agent"] === `penguinharness/${VERSION}`)).toBe(true);
     } finally {
       env.dispose();
       await rmEventually(tmp);

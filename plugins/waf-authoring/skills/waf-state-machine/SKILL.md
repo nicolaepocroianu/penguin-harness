@@ -1,6 +1,7 @@
 ---
 name: waf-state-machine
 description: Implement generated WAF activity behavior with the Nexus-published XState-backed state machine.
+version: 2026.10.10.1
 ---
 
 # WAF state machine

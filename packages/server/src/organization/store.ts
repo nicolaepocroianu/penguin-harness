@@ -6,6 +6,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import { atomicWriteFile } from "@prismshadow/penguin-core";
 import type { OrgChannelMessage, OrgTicketStatus } from "../api/types.js";
 import type {
   CalendarEvent,
@@ -109,8 +110,15 @@ async function readText(p: string): Promise<string | null> {
 
 async function writeText(p: string, text: string): Promise<void> {
   await fs.mkdir(path.dirname(p), { recursive: true });
-  await fs.writeFile(p, text, "utf8");
+  // Atomic whole-file replacement (uniquely-named temp file + rename): a crash mid-write
+  // must not leave a truncated TOML/YAML/MD behind — an unparsable org file drops its
+  // ticket from the board (reconcile's listTickets), so the core's own state-file
+  // discipline applies here too.
+  await atomicWriteFile(p, text);
 }
+
+/** Where deleted organizations go, under a Project's `organizations/`. */
+export const TRASH_DIR = ".trash";
 
 export class OrgStore {
   constructor(readonly root: string) {}
@@ -177,6 +185,20 @@ export class OrgStore {
 
   async remove(dir: string): Promise<void> {
     await fs.rm(dir, { recursive: true, force: true });
+  }
+
+  /**
+   * Takes an organization out of the Project without destroying it: its directory moves to
+   * `organizations/.trash/<orgId>-<stamp>/`, whole. Nothing lists a dot-directory, so the
+   * organization is gone from every surface; moving the directory
+   * back is how it is restored. Returns where it went.
+   */
+  async trash(projectId: string, orgId: string, stamp: string): Promise<string> {
+    const bin = path.join(organizationsDir(this.root, projectId), TRASH_DIR);
+    await fs.mkdir(bin, { recursive: true });
+    const target = path.join(bin, `${orgId}-${stamp.replace(/[^0-9A-Za-z]/g, "")}`);
+    await fs.rename(this.dir(projectId, orgId), target);
+    return target;
   }
 
   // ---- org_config.toml / org_chart.yaml / desks.toml / handbook/ ----
@@ -412,7 +434,15 @@ export class OrgStore {
     doc: TicketDoc,
   ): Promise<void> {
     await this.writeTicket(dir, ticketId, to, doc);
-    if (from !== to) await fs.unlink(ticketPath(dir, ticketId, from)).catch(() => {});
+    if (from !== to) {
+      try {
+        await fs.unlink(ticketPath(dir, ticketId, from));
+      } catch (err) {
+        // Already gone is fine; anything else must not pass in silence — a quietly kept
+        // old column would leave the id in two columns for the reader to resolve.
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+      }
+    }
   }
 
   // ---- channels ----

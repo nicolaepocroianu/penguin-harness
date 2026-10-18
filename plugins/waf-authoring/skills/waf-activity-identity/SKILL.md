@@ -1,6 +1,7 @@
 ---
 name: waf-activity-identity
 description: Use when naming, selecting, generating, previewing, or documenting WAF Loom activities that involve product codes, ref numbers, templates, configurations, assessments, or generated media.
+version: 2026.10.10.1
 ---
 
 # WAF Activity Identity

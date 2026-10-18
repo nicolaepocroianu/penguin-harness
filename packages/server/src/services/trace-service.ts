@@ -54,7 +54,13 @@ import type { SessionRow } from "../db/repos/sessions.js";
 import type { TraceFileRow, TraceSessionRow } from "../db/repos/trace-index.js";
 import { HttpError } from "../http/errors.js";
 import { formatLocalDate } from "../internal/dates.js";
-import { ratesAt, requestCostUsd } from "./usage-service.js";
+import {
+  ratesAt,
+  requestCostParts,
+  requestCostUsd,
+  sumCostParts,
+  ZERO_COST_PARTS,
+} from "./usage-service.js";
 import type { PricingLookup, TieredRates } from "./usage-service.js";
 import type { ProjectConfigStore } from "../mechanisms/projects.js";
 import {
@@ -75,7 +81,10 @@ import type {
 } from "./message-window.js";
 import { buildContextBreakdown, emptyContextBreakdown } from "./context-breakdown.js";
 import { sessionIdCreatedAt } from "./session-service.js";
+import { listCategory, listingMarksOf, readRecordedSource } from "../runtime/session-sources.js";
 import { TraceIndexService, traceFilePath } from "./trace-index.js";
+import { TraceLineIndex } from "./trace-line-index.js";
+import { traceRecordImage, withImagesByReference } from "./trace-images.js";
 import { Component, Use } from "@prismshadow/penguin-core/kernel";
 import type { Paths } from "../hmr/capabilities.js";
 import type { TraceIndex, TraceIndexStore, Traces } from "../mechanisms/traces.js";
@@ -89,6 +98,13 @@ const TRACE_FILE_RE = /^(.+)_(\d{3})\.jsonl$/;
  * checked right next to the path construction — never trust the caller to have validated it.
  */
 const IMPORT_SESSION_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+
+/**
+ * A windowed history page stops adding units once its serialized size (UTF-8, images by
+ * reference) would pass this, but never holds fewer than one unit: the unit count alone does
+ * not bound a page, since one Task can carry hundreds of tool outputs.
+ */
+export const MESSAGES_PAGE_MAX_BYTES = 4 * 1024 * 1024;
 
 /** Recursion depth cap for sub-session expansion (run_subagent depth is already constrained by the SDK; this is just a defensive backstop against cycles). */
 const MAX_SUBAGENT_DEPTH = 4;
@@ -173,16 +189,32 @@ export type MessagesPageRequest =
 
 /** A windowed history read's result (route maps it onto MessagesResponse.page). */
 export interface MessagesPageResult {
+  /** The window's records with their `tracePosition`, images still inline (the route references them). */
   messages: OmniMessage[];
   /** Cursor of the window's first unit; absent = the window reaches the beginning. */
   before?: string;
   /** Cumulative stats before the window (earlierTurns = prior.turns). */
   prior: WindowPriorStats;
+  /**
+   * The model of the context the window starts in: the `session_meta` heading the shard its
+   * first unit lies in. One shard is one model context, and a window that starts partway into
+   * one does not hold that record. Absent for an empty transcript.
+   */
+  contextModel?: { provider: string; modelId: string };
+  /** Agent State directory from the same context's metadata, for memory-change detection. */
+  agentState?: string;
 }
 
 export interface ForkTraceResult {
   sessionId: string;
   createdAt: string;
+  /**
+   * The model the fork resumes on: the `session_meta` of the shard the cut falls in. Each shard
+   * records its own context's model, so a source that switched models mid-way forks onto the
+   * model that was serving the selected reply, not the one the source runs on today.
+   */
+  provider: string;
+  modelId: string;
 }
 
 /**
@@ -279,6 +311,11 @@ export class TraceService implements Traces {
    * newest shard and vice versa). Production wiring leaves it unset.
    */
   observeShardRead?: (path: string) => void;
+  /**
+   * Record offsets per Trace file (trace-line-index.ts): the events endpoint and the image
+   * route read only the records they serve. Tests wire their own to observe the reads.
+   */
+  private lineIndex = new TraceLineIndex();
 
   /**
    * All of this Session's Trace files (sorted by index ascending), served from the
@@ -311,6 +348,52 @@ export class TraceService implements Traces {
   private async readShard(path: string): Promise<OmniMessage[]> {
     this.observeShardRead?.(path);
     return readTraceTolerant(path);
+  }
+
+  /**
+   * The direct subagent children of a Session: the ids its Trace's `subagent` pointer records
+   * name, in Trace order, each with the Agent whose Trace directory holds the child (a child may
+   * run under another Agent of the Project; null when no Trace of it is indexed) and the time
+   * the pointer was recorded. A fork copies its source's records, pointers included, under their
+   * own times, so a pointer older than the Session names a child of the Session it was forked
+   * from (see session-deletion.ts). Only the pointer records matter, so each shard is scanned as
+   * text and only the lines that can hold one are parsed.
+   */
+  async subagentChildren(
+    projectId: string,
+    agentId: string,
+    sessionId: string,
+  ): Promise<Array<{ sessionId: string; agentId: string | null; spawnedAt: string }>> {
+    const files = await this.locateAll(projectId, agentId, sessionId);
+    const ctx = { projectScanned: false };
+    const seen = new Set<string>([sessionId]);
+    const out: Array<{ sessionId: string; agentId: string | null; spawnedAt: string }> = [];
+    for (const file of files) {
+      let text: string;
+      try {
+        text = await fs.readFile(file.path, "utf8");
+      } catch {
+        continue; // Vanished mid-walk: nothing in it can be deleted any more either.
+      }
+      for (const line of text.split("\n")) {
+        if (!line.includes('"subagent"')) continue;
+        let msg: OmniMessage;
+        try {
+          msg = JSON.parse(line) as OmniMessage;
+        } catch {
+          continue; // A torn final line (a crashed writer) holds no complete pointer.
+        }
+        const child = subagentPointer(msg);
+        if (child === null || seen.has(child)) continue;
+        seen.add(child);
+        out.push({
+          sessionId: child,
+          agentId: await this.resolveChildAgent(projectId, child, ctx),
+          spawnedAt: msg.timestamp,
+        });
+      }
+    }
+    return out;
   }
 
   /** Deletes all of this Session's Trace files (called when the Session is deleted); the index rows go with them. */
@@ -532,6 +615,12 @@ export class TraceService implements Traces {
    * (plus, once ever per old shard, the prefix-cache backfill above). Subagent
    * pointers are expanded exactly as the full path expands them, but only within the
    * window: children referenced by older windows load when those windows do.
+   *
+   * Two limits bound a window: at most `limit` units, and at most
+   * MESSAGES_PAGE_MAX_BYTES of serialized messages, measured with images by reference
+   * (the route applies that rewrite after merging the held inputs). The newest unit
+   * always joins, however large; a window the budget cut short carries the cursor of its
+   * first unit like any other. A child's expanded size is not counted.
    */
   async readMessagesPage(
     projectId: string,
@@ -591,38 +680,94 @@ export class TraceService implements Traces {
       boundaries = [...shardBoundaries, ...boundaries];
     }
 
-    // Window start: the last `limit` units, or the very beginning (preamble included)
-    // when the whole remaining history fits — then there is no `before` cursor.
-    let start: { pos: number; ordinal: number };
-    let before: string | undefined;
-    let prior: WindowPriorStats;
-    if (boundaries.length > req.limit) {
-      const wb = boundaries[boundaries.length - req.limit]!;
-      start = { pos: wb.pos, ordinal: wb.ordinal };
-      before = encodeCursor({ fileIndex: files[wb.pos]!.index, ordinal: wb.ordinal });
-      prior = wb.stats;
-    } else {
-      start = { pos: 0, ordinal: 0 };
-      prior = initialScanState().totals;
-    }
+    // The widest window the unit count allows: the last `limit` units, or the very
+    // beginning (preamble included) when the whole remaining history holds no more.
+    type Boundary = (typeof boundaries)[number];
+    const reachesStart = boundaries.length <= req.limit;
+    const units = reachesStart ? boundaries : boundaries.slice(boundaries.length - req.limit);
+    const widest = reachesStart ? { pos: 0, ordinal: 0 } : units[0]!;
 
-    const windowRaw: HistoryMessage[] = [];
-    for (let pos = start.pos; pos <= endPos; pos++) {
+    const spanRaw: HistoryMessage[] = [];
+    /** Where each candidate start lies in spanRaw, oldest first; a null boundary = the beginning. */
+    const starts: Array<{ at: number; boundary: Boundary | null }> = reachesStart
+      ? [{ at: 0, boundary: null }]
+      : [];
+    let nextUnit = 0;
+    for (let pos = widest.pos; pos <= endPos; pos++) {
       const messages = shardMessages.get(pos) ?? (await this.readShard(files[pos]!.path));
-      const from = pos === start.pos ? start.ordinal : 0;
+      const from = pos === widest.pos ? widest.ordinal : 0;
       const to =
         pos === endPos && endOrdinal !== null
           ? Math.min(endOrdinal, messages.length)
           : messages.length;
       for (let i = from; i < to; i++) {
-        windowRaw.push({
+        const unit = units[nextUnit];
+        if (unit !== undefined && unit.pos === pos && unit.ordinal === i) {
+          // A unit opening the very first record IS the beginning: no cursor precedes it.
+          if (starts.at(-1)?.at !== spanRaw.length) {
+            starts.push({ at: spanRaw.length, boundary: unit });
+          }
+          nextUnit += 1;
+        }
+        spanRaw.push({
           ...messages[i]!,
           tracePosition: { fileIndex: files[pos]!.index, ordinal: i },
         });
       }
     }
+
+    // Byte budget: newest first, a unit joins while the page stays within it; the first one
+    // always joins. Sized as the route serves it, images by reference (trace-images.ts).
+    let chosen = starts.length - 1;
+    let pageBytes = 0;
+    for (let k = starts.length - 1; k >= 0; k--) {
+      const unitEnd = k + 1 < starts.length ? starts[k + 1]!.at : spanRaw.length;
+      let unitBytes = 0;
+      for (let i = starts[k]!.at; i < unitEnd; i++) {
+        unitBytes += Buffer.byteLength(
+          JSON.stringify(withImagesByReference(sessionId, spanRaw[i]!)),
+          "utf8",
+        );
+      }
+      if (k < starts.length - 1 && pageBytes + unitBytes > MESSAGES_PAGE_MAX_BYTES) break;
+      pageBytes += unitBytes;
+      chosen = k;
+    }
+
+    // The window starts at the chosen unit; anything before it gets a `before` cursor.
+    let start: { pos: number; ordinal: number };
+    let before: string | undefined;
+    let prior: WindowPriorStats;
+    const startBoundary = starts[chosen]?.boundary ?? null;
+    if (startBoundary !== null) {
+      start = { pos: startBoundary.pos, ordinal: startBoundary.ordinal };
+      before = encodeCursor({
+        fileIndex: files[startBoundary.pos]!.index,
+        ordinal: startBoundary.ordinal,
+      });
+      prior = startBoundary.stats;
+    } else {
+      start = { pos: 0, ordinal: 0 };
+      prior = initialScanState().totals;
+    }
+    const windowRaw = spanRaw.slice(starts[chosen]?.at ?? 0);
     const expanded = await this.expandMessages(projectId, windowRaw, ctx);
-    return { messages: expanded, ...(before !== undefined ? { before } : {}), prior };
+    // The start shard was read for the window above, so its head is on hand.
+    const startMeta = shardMessages.get(start.pos)?.find(isSessionMeta);
+    return {
+      messages: expanded,
+      ...(before !== undefined ? { before } : {}),
+      prior,
+      ...(startMeta
+        ? {
+            contextModel: {
+              provider: startMeta.payload.provider,
+              modelId: startMeta.payload.model_id,
+            },
+            agentState: startMeta.payload.agent_state,
+          }
+        : {}),
+    };
   }
 
   /**
@@ -701,6 +846,10 @@ export class TraceService implements Traces {
 
     const firstMeta = shards.flat().find(isSessionMeta);
     if (!firstMeta) throw invalid("The source Trace has no session metadata.");
+    // The fork's model is the target shard's: one shard is one model context, and a model
+    // switch opens the next context in a new shard headed by its own session_meta.
+    const targetMeta = targetShard.find(isSessionMeta) ?? firstMeta;
+    const model = { provider: targetMeta.payload.provider, modelId: targetMeta.payload.model_id };
 
     const created = new Date();
     const createdAt = created.toISOString();
@@ -715,6 +864,7 @@ export class TraceService implements Traces {
         const sourcePrompt = msg.payload.system_prompt;
         const sourceVisible = modelVisiblePath(sourceScratchpad);
         const forkVisible = modelVisiblePath(forkScratchpad);
+        // A fork is a person's conversation, whatever kind the Session it was cut from was.
         const payload = {
           ...msg.payload,
           session_id: newSessionId,
@@ -723,8 +873,8 @@ export class TraceService implements Traces {
             .join(newSessionId)
             .split(sourceVisible)
             .join(forkVisible),
+          source: "user" as const,
         };
-        delete payload.source;
         return { ...msg, payload };
       }
       const p = msg.payload as { type?: string; role?: string; text?: unknown };
@@ -789,7 +939,7 @@ export class TraceService implements Traces {
           records,
         });
       }
-      return { sessionId: newSessionId, createdAt };
+      return { sessionId: newSessionId, createdAt, ...model };
     } catch (err) {
       await Promise.all(written.map((file) => fs.rm(file, { force: true }).catch(() => undefined)));
       await fs.rm(forkScratchpad, { recursive: true, force: true }).catch(() => undefined);
@@ -838,7 +988,11 @@ export class TraceService implements Traces {
     return out;
   }
 
-  /** Reads events from the Trace file at the given index, paginated by line (for loading large files in pages). */
+  /**
+   * Reads records [offset, offset + limit) of the Trace file at the given index, in the
+   * tolerant reader's ordinals. Served from the file's line index: one ranged read per page,
+   * not a parse of the whole file.
+   */
   async readEvents(
     projectId: string,
     agentId: string,
@@ -847,13 +1001,34 @@ export class TraceService implements Traces {
     offset: number,
     limit: number,
   ): Promise<TraceEventsResponse> {
-    const messages = await this.readFileByIndex(projectId, agentId, sessionId, index);
-    return {
-      events: messages.slice(offset, offset + limit),
-      offset,
-      limit,
-      total: messages.length,
-    };
+    const file = await this.locateByIndex(projectId, agentId, sessionId, index);
+    const { events, total } = await this.lineIndex.readRange(file.path, offset, limit);
+    return { events, offset, limit, total };
+  }
+
+  /**
+   * One image of one Trace record, decoded: the `image_url` of the record at
+   * (`fileIndex`, `ordinal`), or its tool output's `images[slot]`. This is what a windowed
+   * history page's image URL names (trace-images.ts). 404 `trace_image_not_found` when the
+   * file, the record or the slot holds no image the route serves.
+   */
+  async readTraceImage(
+    projectId: string,
+    agentId: string,
+    sessionId: string,
+    fileIndex: number,
+    ordinal: number,
+    slot: number | undefined,
+  ): Promise<{ mime: string; bytes: Buffer }> {
+    const notFound = () =>
+      new HttpError(404, "trace_image_not_found", "This Trace record holds no such image.");
+    const files = await this.locateAll(projectId, agentId, sessionId);
+    const file = files.find((f) => f.index === fileIndex);
+    if (file === undefined) throw notFound();
+    const { events } = await this.lineIndex.readRange(file.path, ordinal, 1);
+    const image = events[0] !== undefined ? traceRecordImage(events[0], slot) : null;
+    if (image === null) throw notFound();
+    return image;
   }
 
   /**
@@ -865,11 +1040,8 @@ export class TraceService implements Traces {
    */
   private async filePricing(
     projectId: string,
-    messages: OmniMessage[],
+    meta: OmniMessage | undefined,
   ): Promise<{ provider: string; modelId: string; rates: TieredRates } | null> {
-    const meta = messages.find(
-      (m) => isSessionMeta(m) && (m.origin === undefined || m.origin.length === 0),
-    );
     if (meta === undefined) return null;
     const { provider, model_id: modelId } = meta.payload as {
       provider?: unknown;
@@ -889,7 +1061,18 @@ export class TraceService implements Traces {
     index: number,
   ): Promise<TraceAnalysisResponse> {
     const messages = await this.readFileByIndex(projectId, agentId, sessionId, index);
-    const pricing = await this.filePricing(projectId, messages);
+    // The file's head: the main session's first `session_meta`.
+    const meta = messages.find(
+      (m) => isSessionMeta(m) && (m.origin === undefined || m.origin.length === 0),
+    );
+    const pricing = await this.filePricing(projectId, meta);
+    const headWindow = (meta?.payload as { model_context_window?: unknown } | undefined)
+      ?.model_context_window;
+    const modelContextWindow =
+      (typeof headWindow === "number" && Number.isFinite(headWindow)) ||
+      (typeof headWindow === "string" && headWindow !== "")
+        ? headWindow
+        : undefined;
 
     const requests: RequestSpan[] = [];
     let openRequest: RequestSpan | null = null;
@@ -964,6 +1147,9 @@ export class TraceService implements Traces {
       }
       return t;
     };
+    // The file's cost split by pricing bucket, summed where each turn's `cost` is, from the same
+    // Request's Tokens and rates: it covers exactly the Requests the file's `cost` does.
+    let costParts = ZERO_COST_PARTS;
 
     /**
      * Which turn each message belongs to: **decided definitively in one
@@ -1239,21 +1425,19 @@ export class TraceService implements Traces {
               // Priced per Request, at the tier this Request's own timestamp fell in — the
               // rule the cost center applies to the usage row this same event produced, so
               // the two figures for one request are the same figure.
-              t.cost =
-                (t.cost ?? 0) +
-                requestCostUsd(
-                  {
-                    cacheRead: request?.cache_read ?? 0,
-                    cacheWrite: request?.cache_write ?? 0,
-                    output: request?.output ?? 0,
-                  },
-                  ratesAt(
-                    pricing.rates,
-                    pricing.provider,
-                    pricing.modelId,
-                    new Date(msg.timestamp),
-                  ),
-                );
+              const counts = {
+                cacheRead: request?.cache_read ?? 0,
+                cacheWrite: request?.cache_write ?? 0,
+                output: request?.output ?? 0,
+              };
+              const rates = ratesAt(
+                pricing.rates,
+                pricing.provider,
+                pricing.modelId,
+                new Date(msg.timestamp),
+              );
+              t.cost = (t.cost ?? 0) + requestCostUsd(counts, rates);
+              costParts = sumCostParts(costParts, requestCostParts(counts, rates));
             }
             if (!compactionActive) {
               // The context snapshot only takes non-compaction Requests: tokens
@@ -1429,7 +1613,8 @@ export class TraceService implements Traces {
       elapsedMs,
       apiMs,
       toolMs,
-      ...(cost !== undefined ? { cost } : {}),
+      ...(cost !== undefined ? { cost, costParts } : {}),
+      ...(modelContextWindow !== undefined ? { modelContextWindow } : {}),
       requests,
       tasks,
       toolCalls,
@@ -1488,26 +1673,25 @@ export class TraceService implements Traces {
   }
 
   /**
-   * Classification (no IO): `archived` comes exactly from the DB row; the origin comes
+   * Classification (no IO): the listing marks come exactly from the DB row; the source comes
    * from the shared sources registry, else from the Session's registration-time facts
    * (trace_sessions — the reconciler head-read its earliest shard once when the file
-   * first appeared, so by listing time every indexed Session is classified exactly).
+   * first appeared, so by listing time every indexed Session is classified exactly), a head
+   * without one read with the row's client. Null for a `subagent` or `company` Session, which
+   * is in no category (listCategory) and so not in this listing.
    */
   private classify(
     sessionId: string,
     row: SessionRow | undefined,
     facts: TraceSessionRow | undefined,
-  ): TraceSessionFacts {
+  ): TraceSessionFacts | null {
+    // The registry's answer wins — it can be fresher (subagent registration happens at spawn,
+    // before any reconcile); else the stored facts, once their head was read.
     const known = this.sources?.get(sessionId);
-    // Registry answer (including null = known user-created) wins — it can be fresher
-    // (subagent registration happens at spawn, before any reconcile); else the stored facts.
-    const source = known !== undefined ? known : (facts?.source ?? undefined);
-    const category: SessionCategory =
-      (row?.archivedAt ?? null) !== null
-        ? "archived"
-        : source === "subagent" || source === "schedule" || source === "benchmark"
-          ? source
-          : "active";
+    const recorded = known !== undefined ? known : facts?.metaRead ? facts.source : undefined;
+    const source = recorded === undefined ? undefined : readRecordedSource(recorded, row?.client);
+    const category = listCategory(source, listingMarksOf(row ?? {}));
+    if (category === null) return null;
     return { category, workspace: row?.workspace ?? facts?.workspace ?? "" };
   }
 
@@ -1536,29 +1720,19 @@ export class TraceService implements Traces {
     const ids = [...bySession.keys()].sort((a, b) => b.localeCompare(a));
     // Classify every group once; the same result drives the category filter, the
     // counts AND the returned fields, so a row can never appear in a bucket its own
-    // `category` denies. Every Session is listed whichever client created it.
-    const counts: SessionCategoryCounts = {
-      active: 0,
-      subagent: 0,
-      schedule: 0,
-      benchmark: 0,
-      archived: 0,
-    };
+    // `category` denies. Every Session is listed whichever client created it, but a subagent
+    // or company Session, which no category holds.
+    const counts: SessionCategoryCounts = { active: 0, archived: 0 };
     const workspaceCounts: Record<string, SessionCategoryCounts> = {};
     const factsById = new Map<string, TraceSessionFacts>();
     const visible: string[] = [];
     for (const id of ids) {
       const facts = this.classify(id, rows.get(id), factsBySession.get(id));
+      if (facts === null) continue;
       factsById.set(id, facts);
       visible.push(id);
       counts[facts.category] += 1;
-      const ws = (workspaceCounts[facts.workspace] ??= {
-        active: 0,
-        subagent: 0,
-        schedule: 0,
-        benchmark: 0,
-        archived: 0,
-      });
+      const ws = (workspaceCounts[facts.workspace] ??= { active: 0, archived: 0 });
       ws[facts.category] += 1;
     }
     const filtered =
@@ -1741,7 +1915,7 @@ export class TraceService implements Traces {
     if (!sessions) return;
     const facts = this.store.getSession(sessionId);
     if (!facts?.metaRead || facts.provider === null || facts.modelId === null) return;
-    if (facts.source !== null) this.sources?.set(sessionId, facts.source);
+    this.sources?.set(sessionId, facts.source);
     const createdAt = sessionIdCreatedAt(sessionId) ?? facts.firstTs ?? new Date().toISOString();
     sessions.insertOrIgnore?.({
       sessionId,

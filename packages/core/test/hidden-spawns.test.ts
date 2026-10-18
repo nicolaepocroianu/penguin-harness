@@ -500,7 +500,7 @@ describe("child processes run out of sight on Windows, macOS and Linux", () => {
       "packages/server/src/machines/transport/exec.ts",
       "packages/core/src/hooks/script-hook.ts",
       "packages/desktop/src/cli-install.ts",
-      "plugins/sandbox-mxc/src/index.ts",
+      "plugins/sandbox-wsl/src/launch.ts",
     ]) {
       expect(withCalls, file).toContain(file);
     }

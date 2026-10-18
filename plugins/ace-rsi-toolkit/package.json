@@ -1,0 +1,37 @@
+{
+  "name": "@penguinharness/ace-rsi-toolkit",
+  "version": "0.2.16",
+  "description": "The ACE RSI Toolkit: Agentic Context Engineering (Zhang et al., 2025, https://arxiv.org/abs/2510.04618), the sequential offline algorithm — a Reflector reads each training Trace, a Curator folds the lessons into a playbook of rules the Target reads before every task, and the final playbook is measured on the frozen Benchmark. Self-contained: it creates the Target's playbook Skill, evaluates its own cells and writes the Evaluation Center's scoreboard.",
+  "keywords": [
+    "penguin-plugin",
+    "penguinharness",
+    "skills"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Prism-Shadow/penguin-harness.git",
+    "directory": "plugins/ace-rsi-toolkit"
+  },
+  "files": [
+    "icon.svg",
+    "skills",
+    "hooks",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "penguin": {
+    "short_description": "ACE RSI Toolkit: evolve a playbook from Traces.",
+    "category": "rsi",
+    "icon": "icon.svg",
+    "quick_start": {
+      "prompt": "Use the `ace-rsi-toolkit` Skill to run ACE on an agent of this Project: ask me for the Test Agent and the published Benchmark to train on, initialize the playbook, run one epoch at the smoke budget, and report the baseline and final scores.",
+      "skills": [
+        "ace-rsi-toolkit"
+      ]
+    },
+    "title": "ACE RSI Toolkit"
+  }
+}

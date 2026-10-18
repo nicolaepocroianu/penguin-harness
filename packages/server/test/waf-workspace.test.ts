@@ -298,7 +298,7 @@ describe("WAF workspace settings", () => {
     expect(refused).toMatchObject({
       status: 400,
       code: "invalid_deploy_setting",
-      detail: { field: "repos.media.remote", reason: "user_in_remote" },
+      details: { field: "repos.media.remote", reason: "user_in_remote" },
     });
     expect((refused as Error).message).not.toContain("ghp_secret");
     const ssh = "ssh://git@github.com/org/media.git";

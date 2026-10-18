@@ -13,6 +13,21 @@ export const LICENSE_URL = `${REPO_URL}/blob/main/LICENSE`;
 export const DOCS_URL = `${import.meta.env.BASE_URL}docs/`;
 
 /**
+ * Component gallery: the real Web App and its components framed against an in-browser demo API,
+ * another sibling SPA deployed under the landing page's base ("/<repo>/gallery/", see
+ * scripts/build-site.mjs). A plain href, as for the docs, and likewise only in the assembled build.
+ */
+export const GALLERY_URL = `${import.meta.env.BASE_URL}gallery/`;
+
+/**
+ * The gallery opened in the site's language. The gallery reads `lang` from its query before the
+ * language it remembers; every public site is English.
+ */
+export function galleryUrl(): string {
+  return `${GALLERY_URL}?lang=en`;
+}
+
+/**
  * One-line installer (Linux / macOS, x64 / arm64, bundled Node runtime).
  * penguin.ooo/install.sh is this site's own public/install.sh — a thin forwarder
  * to the latest GitHub release installer (Pages cannot serve real redirects).
@@ -75,8 +90,8 @@ const COMMUNITY_RAW =
   "https://github.com/Prism-Shadow/penguin-harness-community/raw/refs/heads/main";
 
 /**
- * Demo videos: ~9 MB each, against a whole repo history of ~17 MB — committing them here
- * would triple what every contributor clones. raw.githubusercontent sends
+ * Demo videos: several megabytes each — committing them here would multiply what every
+ * contributor clones. raw.githubusercontent sends
  * `accept-ranges: bytes`, so seeking works. The `application/octet-stream` content type
  * does not block playback — `nosniff` is only enforced for scripts and styles, and
  * `<video>` sniffs the container itself (verified in Chromium).

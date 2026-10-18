@@ -8,22 +8,17 @@ export const en: Strings = {
     label: "Announcements",
     prev: "Previous announcement",
     next: "Next announcement",
-    flashModels: "DeepSeek V4.1 Flash and Gemini 3.8 Flash are now live in PenguinHarness",
+    geminiArgon: "Gemini 4 Argon is now available — see the 0.2.16 release notes",
+    tokenDanceChallenge: "TokenDance Agent Challenge: ¥15,000 in token credits, through October 23",
     penguinGo: "Penguin Go official Token packs are live: 50% off every Gemini model",
   },
 
   nav: {
-    highlights: "Highlights",
-    selfImprove: "Self-evolution",
-    quickstart: "Quick start",
-    cases: "Cases",
-    scenarios: "Scenarios",
-    benchmark: "Benchmark",
-    contract: "CONTRACT.md",
-    features: "Features",
+    home: "Home",
     blog: "Blog",
     download: "Download",
     docs: "Docs",
+    gallery: "Gallery",
     github: "GitHub",
     openMenu: "Open menu",
     closeMenu: "Close menu",
@@ -36,39 +31,39 @@ export const en: Strings = {
     system: "System",
   },
 
-  lang: {
-    label: "Language",
-    en: "English",
-    system: "System",
-  },
-
   hero: {
-    platformLead: "Open-source, local-first multi-agent app ",
-    platformActions: ["auto-dev", "auto-tuning"],
-    platformTail: " platform",
-    automationLead: "Fully automated ",
-    automationActions: ["creation", "optimization", "deployment"],
-    automationTail: "of AI apps",
+    positioning: "Unified and Stable RSI Framework",
+    badge: "for free",
+    automation: "Automatically improve model × agent harness",
     downloadCta: "Download desktop",
     cliInstall: "Command-line install",
     stats: [
-      { value: "1000+ Models", label: "Support for Major Providers" },
-      { value: "Cross-Platform Deployment", label: "Linux · Windows · macOS" },
-      { value: "100% Open Source", label: "Apache 2.0 Licensed" },
-      { value: "First Self-Improving Harness", label: "Native Agent Self-Evolution Engine" },
+      { value: "Cross-platform", label: "Linux · Windows · macOS" },
+      { value: "100% open source", label: "Apache 2.0 licensed" },
+      {
+        value: "First self-improving harness",
+        label: "A native agent self-evolution engine",
+      },
     ],
-    supportedModelsLabel: "Supported models",
-    supportedModels: [
-      "OpenAI",
-      "Anthropic",
-      "Gemini",
-      "DeepSeek",
-      "Zai",
-      "MoonShot",
-      "Qwen",
-      "Openrouter",
+    supportedModelsCount: "1000+",
+    supportedModelsLabel: "Supported Models",
+    supportedModelsMore: "and more",
+    algorithmsLabel: "RSI Algorithms",
+    benchmarksLabel: "Benchmarks",
+    benchmarkKinds: [
+      "Data analysis",
+      "Software engineering",
+      "Business automation",
+      "Scientific research",
+      "Terminal tasks",
+      "Agent self-evolution",
     ],
-    supportedModelsMore: "+992 more",
+    externalLink: {
+      title: "You're about to open an external link",
+      body: "This link goes to a site outside PenguinHarness and opens in a new tab:",
+      cancel: "Cancel",
+      open: "Open link",
+    },
   },
 
   install: {
@@ -152,85 +147,67 @@ export const en: Strings = {
     copied: "Copied",
   },
 
-  pillars: {
-    eyebrow: "Three pillars",
-    title: "Built for building — and evolving — agents",
-    subtitle:
-      "PenguinHarness is the first open-source harness to ship “agents building agents” and recursive self-improvement.",
-    root: "PenguinHarness",
-    concepts: ["Penguin Message", "Penguin SDK", "Penguin Skills"],
-    diagramLabel:
-      "PenguinHarness radiates into Penguin Message, Penguin SDK and Penguin Skills, each extending into one pillar",
-    items: [
-      {
-        title: "Simplest Is the Best",
-        tag: "",
-        desc: "A deliberately minimal toolset over clean low-level interfaces: fewer tool calls, fewer Tokens, complex tasks done efficiently.",
-      },
-      {
-        title: "Harness for building agents",
-        tag: "",
-        desc: "With the PenguinHarness SDK, an agent builds complete agent applications for you — autonomously, from scratch.",
-      },
-      {
-        title: "Harness for Recursive Self-Improvement",
-        tag: "",
-        desc: "With PenguinHarness Skills, an agent evaluates and optimizes itself, improving recursively over time.",
-      },
-    ],
+  live: {
+    open: "Open in the gallery",
+    loading: "Loading the live demo…",
   },
 
-  compare: {
-    eyebrow: "vs. LangChain",
-    title: "Building agents with agents",
-    subtitle: [
-      "With LangChain, you build agents by hand — at 1× speed.",
-      "With PenguinHarness, agents build agents — at 100×.",
-    ],
-    langchain: {
-      name: "LangChain",
-      speed: "1×",
-      mode: "agents built by hand",
-      note: "Chains, tools and prompts written line by line — every app starts from zero.",
+  showcase: {
+    start: "Start page (live demo)",
+    evolve: {
+      title: "Start agent self-evolution with one sentence",
+      text: "Name the agent, the Benchmark and the target score. PenguinHarness edits the agent, evaluates it again, and keeps the version that scores higher.",
+      link: "How self-evolution works",
+      frame: "A self-evolution round in a conversation (live demo)",
     },
-    penguin: {
-      name: "PenguinHarness",
-      speed: "100×",
-      mode: "agents built by agents",
-      note: "One sentence in — an agent delivers scaffold, code and run instructions end to end.",
+    evaluate: {
+      title: "Every version gets a score",
+      text: "Each evaluation on a Benchmark adds a point to its agent and model's line, so the better version is plain to see.",
+      link: "About the Evaluation Center",
+      frame: "A Benchmark in the Evaluation Center (live demo)",
+    },
+    toolkits: {
+      title: "Self-evolution algorithms are added as plugins",
+      text: (names: string) =>
+        `Besides the default loop, ${names} each come as a toolkit that runs the algorithm the way its paper describes.`,
+      link: "Browse the plugin library",
+      frame: "The plugin market (live demo)",
     },
   },
 
   selfImprove: {
-    eyebrow: "The self-improvement loop",
-    title: "Multi-agent collaboration makes evolution automatic",
+    title: "A multi-agent self-evolution framework",
     subtitle:
-      "The Optimizer orchestrates multiple Evaluators to score the target agent in parallel, uses the scores and run traces to find where points were lost, and upgrades the agent from version N to N+1 — with a snapshot before every round.",
-    videoLabel: "Self-improvement demo video",
-    videoCaption:
-      "The self-improvement loop end to end: run the benchmark, find the lost points, ship the next version.",
+      "By default the General Agent runs the optimization Skill. Each round it makes one change to the tested agent. Evaluator subagents running the evaluation Skill score the changed agent on every case of the Benchmark.",
     nodeOptimizer: "Optimizer",
     nodeEvaluator: "Evaluator × N",
-    nodeTarget: "target agent",
-    badgeOld: "vN",
-    badgeNew: "vN+1",
-    edgeSpawn: "spawn parallel evaluations",
-    edgeBench: "run Benchmarks",
-    edgeFeedback: "scores & traces",
-    edgeImprove: "update prompts & Skills",
+    nodeTarget: "Tested agent",
+    edgeSpawn: "dispatch in parallel",
+    edgeFeedback: "scores & Traces",
+    edgeBench: "run & score each case",
+    edgeImprove: "edit AGENTS.md, a Skill or config",
+    noteOld: "snapshot before editing",
+    noteNew: "kept only if the score is higher",
     trends: [
-      { label: "Score", hint: "keeps rising" },
-      { label: "Cost", hint: "keeps falling" },
-      { label: "Time", hint: "keeps shrinking" },
+      { label: "Score", hint: "out of 100" },
+      { label: "Cost", hint: "per run" },
+      { label: "Duration", hint: "per run" },
     ],
+    trendsNote:
+      "The scoreboard records each version's score, cost and duration. The values here are illustrative.",
+    demo: {
+      caption:
+        "Demo: a decision agent is evaluated, revises its working method once and is retested on the same model. Its score goes from 84 to 100.",
+      cost: "Six test-agent runs cost $0.0373, not counting Benchmark creation, scoring or the optimizer.",
+    },
     diagramLabel:
-      "Self-improvement loop: the Optimizer orchestrates Evaluators to score, then upgrades the target agent from vN to vN+1 via scores and traces",
+      "One round of self-evolution: the Optimizer runs agent-optimization and dispatches Evaluator subagents running agent-evaluation. They run the tested agent on each Benchmark case and score it. From the scores and Traces, the Optimizer edits version N into version N+1. Version N+1 is kept only if its score is higher. Version N is saved as a snapshot before it is edited.",
   },
 
   quickstart: {
-    eyebrow: "Quick start",
-    title: "Get started with PenguinHarness in two steps",
-    subtitle: "Choose how to install first. With a CLI install, then choose Web UI or CLI.",
+    title: "Install PenguinHarness, then pick how to start it",
+    subtitle:
+      "The desktop app works as soon as it is installed. After a command-line install, open the Web UI or use it in the terminal.",
     stepOne: "Step one",
     chooseInstall: "Choose an installation method",
     stepTwo: "Step two",
@@ -242,13 +219,13 @@ export const en: Strings = {
       cli: "Start CLI",
     },
     desktop: {
-      title: "Desktop first, ready when it opens",
+      title: "Desktop app: ready when it opens",
       desc: "The local server and full Web UI are built in, with no runtime setup and no terminal process to keep alive.",
       cta: "Choose your system and download",
       steps: [
         "Download the installer for your system",
         "Open PenguinHarness and follow the model setup",
-        "Describe your first agent app in one sentence",
+        "Describe your first AI app in one sentence",
       ],
     },
     install: {
@@ -284,35 +261,64 @@ penguin run --message "Analyze data.csv and summarize quarterly sales"`,
   },
 
   cases: {
-    eyebrow: "Cases",
-    title: "One sentence to an AI app that thinks and runs",
+    title: "One sentence and $0.10 build a legal agent app",
     subtitle:
-      "Hand the requirement to an agent and get a runnable result end to end — more cases are on the way.",
-    tabs: [
+      "Describe what you need in one request. PenguinHarness builds a legal agent app that takes contract uploads, identifies risks and produces review reports to download.",
+    prompt:
+      "Build a legal review agent with a simple workspace where users upload contracts, track the review, and download a report with risky clauses, explanations, and suggested revisions.",
+    caption:
+      "The app it built: upload contracts, follow each file's review and download a report of risky clauses with suggested revisions",
+    cost: "Five sample reviews cost $0.0423 in model calls.",
+  },
+
+  pillars: {
+    title: "A minimal, file-centric agent architecture",
+    subtitle: "When an agent improves, its files change and the model does not.",
+    root: "PenguinHarness",
+    diagramLabel:
+      "PenguinHarness branches into OmniMessage, the Penguin SDK and Agent State, each leading to one card below",
+    items: [
       {
-        label: "RAG app",
-        prompt:
-          "Collect the docs from https://github.com/ericbuess/claude-code-docs and build a RAG app that answers Claude Code questions as a configuration expert, citing its sources.",
-        caption:
-          "The generated RAG app: a Claude Code docs expert answering with cited, clickable sources and example questions",
-        cost: "And generating this entire RAG app burned just $0.02 (¥0.2) of tokens — on DeepSeek V4 Pro.",
+        concept: "OmniMessage",
+        title: "Simplest is the best",
+        desc: "The engine streams OmniMessage, the Trace stores it and the Web App renders it, with no second format in between. Models are reached over MMSP. The Agent API streams each run as AMSP.",
+        link: "The OmniMessage protocol",
       },
       {
-        label: "2D penguin sled game",
-        prompt:
-          "Build a cute Antarctic penguin sledding game: Space to jump the rocks, with speed and difficulty ramping up over time.",
-        caption:
-          "The generated mini game: an Antarctic penguin sleds and jumps rocks, with live scoring and rising difficulty",
-        cost: "",
+        concept: "Penguin SDK",
+        title: "Harness for building agents",
+        desc: "Every Task in PenguinHarness runs on @prismshadow/penguin-core. You can install the same package from npm. With the penguin-sdk Skill, an agent builds a standalone app on it, such as a RAG app that cites its sources.",
+        link: "SDK quick start",
+      },
+      {
+        concept: "Agent State",
+        title: "Harness for recursive self-improvement",
+        desc: "Its prompt, Skills and settings are files in its Agent State. Self-evolution edits these files and snapshots each version before changing it.",
+        link: "Configuration reference",
       },
     ],
   },
 
+  compare: {
+    title: "Build enterprise-grade agents fast",
+    subtitle:
+      "An agent library runs the loop that calls the model and its tools. Around that loop you still need an interface, a record of each run, a way to score the agent and an API to call it.",
+    library: {
+      name: "Agent library",
+      mode: "You build each piece",
+      note: "Write each part yourself, or wire in a separate product for it.",
+    },
+    penguin: {
+      name: "PenguinHarness",
+      mode: "Already built",
+      note: "A Web App, Traces, the Evaluation Center with built-in Benchmarks, self-evolution toolkits, a sandbox and the Agent API.",
+    },
+  },
+
   scenarios: {
-    eyebrow: "Scenarios",
     title: "From screening centers to factory floors",
     subtitle:
-      "Production stories of teams using PenguinHarness to build agents automatically and deploy them to production.",
+      "Two companies had PenguinHarness build their agents. Both now run them in production.",
     items: [
       {
         title: "Screening-report QC",
@@ -327,63 +333,10 @@ penguin run --message "Analyze data.csv and summarize quarterly sales"`,
     ],
   },
 
-  contract: {
-    eyebrow: "A contract for stable evolution",
-    title: "CONTRACT.md",
-    subtitle:
-      "PenguinHarness treats this contract as the boundary and bedrock of evolution: capability may grow, the boundary never drifts.",
-    intro:
-      "Evolution needs boundaries. The contract is the covenant between harness and agent: capability grows within; the boundary holds without.",
-    items: [
-      {
-        term: "Working boundary",
-        text: "Every agent runs on the same harness: Sessions are created under an agent, Tasks run inside a Session; self-improvement happens only inside Workspace and Skills, while the harness kernel and its safety mechanisms never change.",
-      },
-      {
-        term: "Editable files",
-        text: "An agent's prompts, Skills and configuration live as editable files on disk, never as constants baked into code. What you can see, the agent can improve; what you can edit, it can learn.",
-      },
-      {
-        term: "Full tracing",
-        text: "Every model request and every tool call is written to the Trace in full: how many Tokens it spent, how long it took, why it failed — all replayable line by line afterwards.",
-      },
-      {
-        term: "Approvals & audit",
-        text: "Every tool call passes approval before it runs, and every decision leaves an audit record — what the agent did is never a mystery.",
-      },
-      {
-        term: "Version control",
-        text: "Before each optimization, the agent state is snapshotted. If a round fails or regresses, restore any historical version in one step.",
-      },
-      {
-        term: "Progressive loading",
-        text: "Content for the model is indexed first and read on demand — never dumped wholesale into context. The cleaner the context, the steadier the behavior.",
-      },
-      {
-        term: "Error handling",
-        text: "Errors split into retryable and fatal: retryable ones retry automatically, fatal ones converge into messages the model can see and react to. No task dies of a single failure.",
-      },
-      {
-        term: "Credential isolation",
-        text: "API keys and other credentials live in hidden files and move only through system interfaces — never entering model context, never shown in plain text.",
-      },
-      {
-        term: "Model decoupling",
-        text: "Models are not bound to agents: switch to a stronger or cheaper model at any time without rewriting the agent.",
-      },
-      {
-        term: "Recoverable trajectories",
-        text: "Any Session can be fully restored from its Trace: restart the process or move machines without losing context.",
-      },
-    ],
-    outro: "The contract does not cap what an agent can become — only how it gets there.",
-  },
-
   benchmark: {
-    eyebrow: "Benchmark",
-    title: "Outstanding results at tens of times less cost",
+    title: "Accuracy on par with Claude Code and Codex, at a fraction of the cost",
     subtitle:
-      "Every product runs the model it is normally paired with, head-to-head against Claude Code and OpenAI Codex on two suites: comparable accuracy, tens of times the difference in spend.",
+      "Each product runs on the model it is usually paired with, on two task suites. We compare accuracy, Tokens used and cost.",
     higherBetter: "higher is better",
     lowerBetter: "lower is better",
     dimScore: "Accuracy",
@@ -406,148 +359,36 @@ penguin run --message "Analyze data.csv and summarize quarterly sales"`,
     colCost: "Cost ($)",
   },
 
-  features: {
-    eyebrow: "Features",
-    title: "The full capability set, one desktop-grade UI",
-    subtitle: "Every one of them lives in the web interface itself — installed means ready.",
-    more: "and more…",
-    items: [
-      {
-        title: "Multi-session chat",
-        desc: "Any number of sessions per agent — streaming output, tool approvals and image paste out of the box.",
-      },
-      {
-        title: "agent hub",
-        desc: "Create and manage agents in one click; names, descriptions and prompts stay editable.",
-      },
-      {
-        title: "Skill library",
-        desc: "Browse, install and quick-invoke Skills — agents can write and optimize their own.",
-      },
-      {
-        title: "Scheduled tasks",
-        desc: "Cron-style schedules run agents on time, fully traced, unattended.",
-      },
-      {
-        title: "Subagents",
-        desc: "Delegate work to parallel Subagents — independent and isolated from each other.",
-      },
-      {
-        title: "Cost center",
-        desc: "Daily trends for Tokens, requests and cost, with per-model success rates and anomalies.",
-      },
-      {
-        title: "Trace view",
-        desc: "Replay every request and tool call round by round, with Token breakdown and timing.",
-      },
-      {
-        title: "agent evaluation",
-        desc: "Built-in Benchmark suites and scoreboards — scores keep climbing as agents evolve.",
-      },
-      {
-        title: "Multi-user management",
-        desc: "Admins provision users; each gets an independent Project with isolated data.",
-      },
-    ],
-  },
-
-  skills: {
-    eyebrow: "Built-in Skills",
-    title: "The built-in Skill library at a glance",
-    subtitle: "Four Skill groups out of the box — agents can write and optimize their own, too.",
-    groups: [
-      {
-        title: "Office Productivity",
-        skills: ["data-analysis", "firecrawl", "bento-slides", "humanizer"],
-      },
-      {
-        title: "Software Development",
-        skills: ["web-design", "software-engineering", "remote-claude-code"],
-      },
-      {
-        title: "AI App Development",
-        skills: [
-          "penguin-sdk",
-          "penguin-config",
-          "penguin-orchestration",
-          "unified-llm-api",
-          "vllm",
-          "ollama",
-          "llamafactory",
-          "skill-porting",
-          "agent-initialization",
-          "benchmark-design",
-          "agent-evaluation",
-          "agent-optimization",
-        ],
-      },
-      {
-        title: "Agent Company",
-        skills: [
-          "company-setup",
-          "company-employee",
-          "company-ceo",
-          "company-hr",
-          "company-finance",
-          "company-research",
-          "company-mirror",
-        ],
-      },
-    ],
-  },
-
-  security: {
-    eyebrow: "Security",
-    title: "Evolution within bounds, data within walls",
-    subtitle: "A runtime boundary designed for enterprise data security.",
-    items: [
-      {
-        title: "Open source, local deployment",
-        desc: "A fully auditable open-source kernel; data lives in local directories and never passes through third-party services.",
-      },
-      {
-        title: "Bounded evolution",
-        desc: "Self-improvement is strictly confined to Workspace and Skills — the harness core security boundary is never modified.",
-      },
-      {
-        title: "Approvals & audit",
-        desc: "Tool calls require user approval first, and every decision is written to the Trace as an audit event.",
-      },
-      {
-        title: "Credential isolation",
-        desc: "Credentials land as hidden 0600 files, are barred from the system prompt, and stay masked throughout the UI.",
-      },
-    ],
+  updates: {
+    title: "Latest updates",
+    all: "All posts",
   },
 
   community: {
-    eyebrow: "Community",
-    title: "Join the community and build with us",
-    subtitle: "Discuss, ask, contribute — your first Issue is the best way to start.",
+    title: "Join the community",
+    subtitle:
+      "Ask questions on Discord or in the WeChat group, or open an Issue or a PR on GitHub.",
     items: {
-      discord: { name: "Discord", desc: "Chat with us and other developers in real time." },
-      x: { name: "X (Twitter)", desc: "Follow the latest product and team updates." },
-      wechat: { name: "WeChat group", desc: "Chinese community discussions and support." },
-      github: { name: "GitHub", desc: "Stars, Issues, and PRs all welcome." },
+      discord: { name: "Discord", desc: "Talk with the team and other developers." },
+      x: { name: "X (Twitter)", desc: "Product updates and releases." },
+      wechat: { name: "WeChat group", desc: "The Chinese-language group." },
+      github: { name: "GitHub", desc: "Source code, Issues and PRs." },
     },
   },
 
   cta: {
-    title: "Complex AI development, made ever simpler",
-    subtitle:
-      "Through continuous evolution, PenguinHarness gives you a more efficient, more reliable, lower-hallucination and lower-cost agent productivity engine.",
+    title: "Download PenguinHarness and run your first self-evolution round",
+    subtitle: "Every version is scored and snapshotted, so a worse one rolls back in one step.",
     download: "Download the desktop app",
     quickstart: "Get started",
     docs: "Read the docs",
   },
 
   footer: {
-    tagline: "Efficient Self-Improving Harness for Everyone.",
+    tagline: "Unified and Stable RSI Framework.",
     product: "Product",
     resources: "Resources",
     quickstart: "Quick start",
-    features: "Features",
-    selfImprove: "Self-evolution engine",
     cases: "Cases",
     blog: "Blog",
     repo: "GitHub repository",

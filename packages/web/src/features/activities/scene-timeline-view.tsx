@@ -16,13 +16,15 @@ import type {
   VideoTimeline,
   VideoTimelineView,
 } from "@prismshadow/penguin-server/api";
-import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
-import { FieldLabel } from "../../components/ui/field";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { Input } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
-import { Switch } from "../../components/ui/switch";
+import {
+  Badge,
+  Button,
+  FieldLabel,
+  InfoPopover,
+  Input,
+  Select,
+  Switch,
+} from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import {
@@ -176,7 +178,7 @@ export function SceneTimelineView({
       <h5 className="flex items-center gap-2 text-xs font-semibold">
         {words.title}
         <InfoPopover label={words.title}>{words.info}</InfoPopover>
-        <Badge tone={view.saved ? "green" : "gray"}>
+        <Badge tone={view.saved ? "success" : "neutral"}>
           {view.saved ? words.saved : words.unsaved}
         </Badge>
       </h5>

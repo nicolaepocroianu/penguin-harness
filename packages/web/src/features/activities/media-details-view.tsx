@@ -81,7 +81,7 @@ export function MediaDetailsView({
   return (
     <section aria-label={words.title} className="space-y-1">
       <h5 className="text-xs font-semibold">{words.title}</h5>
-      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-0.5 text-xs">
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs">
         {rows.map(([label, value]) => (
           <div key={label} className="contents">
             <dt className="text-gray-500 dark:text-gray-400">{label}</dt>

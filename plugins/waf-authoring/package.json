@@ -2,6 +2,11 @@
   "name": "@penguinharness/waf-authoring",
   "version": "0.2.14",
   "description": "Authoring WAF activities: the activity-state contract, the XState-backed state machine, assessment, audio, video, asset and layout patterns, element ids, style guardrails and the book module contract.",
+  "keywords": [
+    "penguin-plugin",
+    "penguinharness",
+    "skills"
+  ],
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -9,12 +14,24 @@
     "directory": "plugins/waf-authoring"
   },
   "files": [
-    "plugin.json",
     "icon.svg",
     "skills",
     "LICENSE"
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "penguin": {
+    "short_description": "WAF activity contracts, state machine and media patterns.",
+    "category": "software-development",
+    "icon": "icon.svg",
+    "preinstall": false,
+    "quick_start": {
+      "prompt": "Explain the activity-state contract a WAF activity publishes, then sketch the phases a two-scene activity with narration and one multiple-choice question would publish.",
+      "skills": [
+        "waf-activity-states"
+      ]
+    },
+    "title": "WAF Authoring"
   }
 }

@@ -1,0 +1,37 @@
+{
+  "name": "@penguinharness/opro-rsi-toolkit",
+  "version": "0.2.16",
+  "description": "The OPRO RSI Toolkit: Large Language Models as Optimizers (Yang et al., 2023, https://arxiv.org/abs/2309.03409), run the way the paper does — the optimizer proposes new instructions from the history of scored instructions, every candidate is measured on the frozen Benchmark, and the best-scoring instruction is kept. Self-contained: it creates the Target's instruction slot, evaluates its own cells and writes the Evaluation Center's scoreboard.",
+  "keywords": [
+    "penguin-plugin",
+    "penguinharness",
+    "skills"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Prism-Shadow/penguin-harness.git",
+    "directory": "plugins/opro-rsi-toolkit"
+  },
+  "files": [
+    "icon.svg",
+    "skills",
+    "hooks",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "penguin": {
+    "short_description": "OPRO RSI Toolkit: optimize an instruction from scores.",
+    "category": "rsi",
+    "icon": "icon.svg",
+    "quick_start": {
+      "prompt": "Use the `opro-rsi-toolkit` Skill to reproduce OPRO on the precise-summary demo task that ships with it: create the Target agent `summary_writer` and the Benchmark `precise-summary`, measure the seed instruction, run 2 steps × 4 proposals, and report the baseline and best scores.",
+      "skills": [
+        "opro-rsi-toolkit"
+      ]
+    },
+    "title": "OPRO RSI Toolkit"
+  }
+}

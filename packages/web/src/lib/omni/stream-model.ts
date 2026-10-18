@@ -17,9 +17,11 @@
  *     on a sub-session's first message it binds to "the most recent allowed
  *     (decision=allow) and not-yet-complete run_subagent tool card that
  *     hasn't been bound to an origin yet", falling back to a standalone
- *     SubagentItem if none is found; inside the nested model, the same
- *     reducer recurses (with the first origin hop stripped). Sub-session
- *     token_usage counts toward this level's stats (same convention as the CLI).
+ *     SubagentItem if none is found; its opening prompt then moves it onto the
+ *     card of the call that carried that prompt (see moveToSpawningCard).
+ *     Inside the nested model, the same reducer recurses (with the first
+ *     origin hop stripped). Sub-session token_usage counts toward this
+ *     level's stats (same convention as the CLI).
  *   - Events: approval_decision annotates the corresponding tool card
  *     (labeled "manual" if clicked on this end, "automatic" otherwise);
  *     abort → an interruption marker item; request_end ending in any status
@@ -39,7 +41,9 @@
  *     user text prefixed with `[context_summary]` is a compaction-summary
  *     injection, treated as internal input (not rendered, doesn't start a new Task).
  *   - Task segmentation: a complete text/image message on the main
- *     session's user side starts a new Task; a Task ends when the live
+ *     session's user side starts a new Task, and so does the first request
+ *     after a request_end or abort that ended the run (a Retry, which sends no
+ *     new message — see StreamModel.runEnded); a Task ends when the live
  *     stream receives task_state:idle (notifyTaskIdle), or — during history
  *     rebuild — when the next Task starts / the stream ends
  *     (finalizeHistory). Either way the duration comes from Trace timestamps
@@ -52,7 +56,9 @@
  */
 import {
   isEventMessage,
+  isModelMessage,
   isPartialPayload,
+  normalizeSessionSource,
   parseBackgroundTaskDoneMessage,
   parseUserSteeringText,
 } from "@prismshadow/penguin-core/omnimessage";
@@ -65,6 +71,7 @@ import type {
   OmniMessage,
   PartialModelPayload,
   SessionMetaPayload,
+  SessionSource,
   StopReason,
   TokenUsagePayload,
 } from "@prismshadow/penguin-core/omnimessage";
@@ -364,6 +371,22 @@ export interface CompactionItem {
   summaryDurationMs?: number;
 }
 
+/**
+ * The Session moved to another model between two contexts: derived from two consecutive
+ * main-session `session_meta` records naming different (provider, model_id) pairs — an
+ * in-session model switch opens its new context on the model the user picked, and nothing else
+ * on the stream says so. Model ids rather than display names: the marker renders from the Trace
+ * alone, and a model removed from the configuration since must still read.
+ */
+export interface ModelChangeItem {
+  kind: "model_change";
+  id: number;
+  from: { provider: string; modelId: string };
+  to: { provider: string; modelId: string };
+  /** The timestamp of the `session_meta` that named the new model (ms). */
+  tsMs?: number;
+}
+
 /** One MCP tool for the connect row's expandable list (from tool_list_ready, `mcp__` entries only). */
 export interface McpToolSummary {
   name: string;
@@ -381,6 +404,8 @@ export interface McpServerOutcome {
   tools?: number;
   /** Failure detail (present on a failed connect). */
   error?: string;
+  /** The failure's cause (`connect_failed`, or `mcp_needs_setup` / `mcp_sign_in_required` for a server that was not contacted). */
+  errorCode?: string;
 }
 
 export interface McpConnectItem {
@@ -402,6 +427,8 @@ export interface McpConnectItem {
   tools?: McpToolSummary[];
   /** Servers that failed to connect (empty list omitted); reasons live in `results`. */
   failed?: string[];
+  /** Servers not contacted because they wait on the user — a vault key, a sign-in (empty list omitted); reasons live in `results`. */
+  waiting?: string[];
   /** The user aborted the run mid-connect (a fresh connect starts on the next send). */
   aborted?: boolean;
 }
@@ -431,6 +458,14 @@ export interface TaskStatsItem {
   forkable?: boolean;
   /** Memory topic files this Task changed through the structured file tools (merged, one row per file); absent when there were none. */
   memoryChanges?: MemoryChangeRow[];
+  /**
+   * The model this Task ran on — the one its context's `session_meta` names (see
+   * `StreamModel.contextModel`). Absent when nothing had said which by the time the Task
+   * began — the history was read before the Session's Trace existed, and a first context's
+   * meta is never streamed; the cost shown beside the row is then priced on the Session's
+   * current model.
+   */
+  model?: { provider: string; modelId: string };
 }
 
 export type ChatItem =
@@ -446,6 +481,7 @@ export type ChatItem =
   | LlmErrorItem
   | ReconnectItem
   | CompactionItem
+  | ModelChangeItem
   | McpConnectItem
   | TaskStatsItem;
 
@@ -463,8 +499,8 @@ export interface NestedSessionMeta {
   agentId: string | null;
   provider: string;
   modelId: string;
-  /** Session origin as recorded by core (subagent / schedule / benchmark); absent = user-created. */
-  source?: "subagent" | "schedule" | "benchmark";
+  /** What kind of conversation the child is, as its meta records it (narrowed: an old Trace's missing source reads as `user`, `benchmark` as `cli`). */
+  source: SessionSource;
 }
 
 export interface StreamModel {
@@ -473,8 +509,19 @@ export interface StreamModel {
   nested: boolean;
   /** Child-session identity from its session_meta (nested models only; null until it arrives). */
   meta: NestedSessionMeta | null;
-  /** Absolute `agent_state` path from session_meta (null until it arrives); the Memory root `<agent_state>/memory/` for the Task summary's memory-change rows. */
+  /** Absolute `agent_state` path from session_meta or the history page (null until known); the Memory root `<agent_state>/memory/` for the Task summary's memory-change rows. */
   agentState: string | null;
+  /**
+   * The model the running context was opened on, and the Session its `session_meta` names (null
+   * until one arrives, or a history window says which model it starts on). A Session's model
+   * can change between contexts — each context's meta records its own — so this follows
+   * rotations, and a main-session meta naming another model than the one held pushes a
+   * model-change marker. The chat page moves its Session row to this model when the two
+   * disagree (see `sessionRowStale`).
+   */
+  contextModel: { sessionId: string; provider: string; modelId: string } | null;
+  /** `contextModel` as the open Task began: a switch only happens between Tasks, so this is the model the whole Task runs on (see `TaskStatsItem.model`). */
+  taskModel: { provider: string; modelId: string } | null;
   /**
    * Elapsed-time stamps for the subagents panel's topology nodes (nested models only — the main
    * session's timing is covered by task stats). Stamped in routeNested: the `firstSeen` pair when
@@ -512,6 +559,12 @@ export interface StreamModel {
   toolCards: Map<string, ToolCallItem>;
   /** Direct child Session id → nested model. */
   subagents: Map<string, StreamModel>;
+  /**
+   * Direct children bound before their opening prompt arrived, by position alone: the prompt
+   * names the call that spawned them, and may still move them onto its card (see
+   * moveToSpawningCard).
+   */
+  unconfirmedSubagents: Set<string>;
   /** toolCallIds whose approval was clicked on this end (shares the reference with nested models, labeled "manual"). */
   localDecisions: Set<string>;
   /** Approval decisions that arrived before their tool card (backfilled when the card is created). */
@@ -602,6 +655,17 @@ export interface StreamModel {
    * ledger of its own instead of no footer at all.
    */
   reopenTaskAtSteering: boolean;
+  /**
+   * The run ended short of its answer — the last request_end was `fatal` or a `retryable` the
+   * ladder gave up on (no `retry_in_ms`), or an abort event followed (the user stopped it) — and
+   * no Task has opened since. The unfinished turn's input is then held, and a Retry sends it
+   * with no new message: its request_begin is the new run's first record, so it opens a Task of
+   * its own, footer and all (see startsRetryRun). Nothing else in a Trace issues a request after
+   * such an end without a user message first (a stop hook's continue writes a harness user
+   * text), so the rule reads the same live and on a history rebuild — where no task_state:idle
+   * closed the cut-short Task first.
+   */
+  runEnded: boolean;
   nextItemId: number;
 }
 
@@ -611,6 +675,8 @@ function newModel(nested: boolean, localDecisions: Set<string>): StreamModel {
     nested,
     meta: null,
     agentState: null,
+    contextModel: null,
+    taskModel: null,
     stats: createTaskStatsTracker(),
     openText: null,
     openThinking: null,
@@ -619,6 +685,7 @@ function newModel(nested: boolean, localDecisions: Set<string>): StreamModel {
     openSteering: null,
     toolCards: new Map(),
     subagents: new Map(),
+    unconfirmedSubagents: new Set(),
     localDecisions,
     pendingDecisions: new Map(),
     pendingDecisionTs: new Map(),
@@ -632,6 +699,7 @@ function newModel(nested: boolean, localDecisions: Set<string>): StreamModel {
     taskLastReqEndMs: null,
     turnToolOutputs: false,
     reopenTaskAtSteering: false,
+    runEnded: false,
     nextItemId: 1,
   };
 }
@@ -727,31 +795,68 @@ export function pushMessage(
     return;
   }
   if (isEventMessage(msg)) {
+    // A Retry's first request opens its Task here, before anything is timed against the
+    // cut-short one — the same point a Prompt opens its own (see StreamModel.runEnded).
+    if (startsRetryRun(model, msg)) startTask(model, msg.timestamp, nowMs);
     touchTask(model, msg.timestamp);
     handleEvent(model, msg.payload as EventPayload, tsOf(msg.timestamp), nowMs);
     advanceLastTs(model, msg.timestamp);
     return;
   }
-  // session_meta: never rendered as an item, but read at BOTH levels. Both keep the
+  // session_meta: never rendered as an item itself, but read at BOTH levels. Both keep the
   // agent_state path — the main session's Task summary classifies file-tool writes against
-  // `<agent_state>/memory/` for its memory-change rows, so a model built from a window that
-  // never carries a session_meta derives none. A NESTED child session additionally has no DTO
+  // `<agent_state>/memory/` for its memory-change rows. History pages seed it when the meta
+  // falls before their window. A NESTED child session additionally has no DTO
   // loaded here, so it captures the identity the subagents panel needs (which agent runs this
   // child, on which model); the main session takes the rest of its identity/config from the
-  // Session DTO. A rewritten session_meta (file rotation) overwrites with the same values.
+  // Session DTO. A rewritten session_meta (file rotation) overwrites with the same values. On
+  // the main session a meta naming another model than the one held means the Session switched
+  // models: a marker says so — never for a same-model rewrite, a nested child's meta, or the
+  // first meta of a model that was told nothing of the context it starts in.
   if (msg.type === "session_meta") {
-    model.agentState = (msg.payload as SessionMetaPayload).agent_state;
+    const p = msg.payload as SessionMetaPayload;
+    model.agentState = p.agent_state;
+    const next = { provider: p.provider, modelId: p.model_id };
+    const held = model.contextModel;
+    if (
+      !model.nested &&
+      held !== null &&
+      (held.provider !== next.provider || held.modelId !== next.modelId)
+    ) {
+      const tsMs = tsOf(msg.timestamp);
+      model.items.push({
+        kind: "model_change",
+        id: nextId(model),
+        from: { provider: held.provider, modelId: held.modelId },
+        to: next,
+        ...(tsMs !== undefined ? { tsMs } : {}),
+      });
+    }
+    model.contextModel = { sessionId: p.session_id, ...next };
   }
   if (msg.type === "session_meta" && model.nested) {
     const p = msg.payload as SessionMetaPayload;
-    const meta: NestedSessionMeta = {
+    model.meta = {
       agentId: agentIdFromStatePath(p.agent_state),
       provider: p.provider,
       modelId: p.model_id,
+      // Replayed from the child's own Trace, which may predate the required source.
+      source: normalizeSessionSource(p.source),
     };
-    if (p.source !== undefined) meta.source = p.source;
-    model.meta = meta;
   }
+}
+
+/**
+ * Whether the message is a Retry's first request: a `request_begin` after the request_end that
+ * ended the run, with no Task opened since (see StreamModel.runEnded). A compaction's own
+ * requests never count — compaction is housekeeping, not a run.
+ */
+function startsRetryRun(model: StreamModel, msg: OmniMessage): boolean {
+  return (
+    model.runEnded &&
+    !model.stats.compactionActive &&
+    (msg.payload as { type?: string }).type === "request_begin"
+  );
 }
 
 /** Whether the message is a complete user image — the only kind that can join an open steering chip. */
@@ -923,7 +1028,14 @@ function startTask(model: StreamModel, timestamp: string, nowMs: number): void {
   model.openApprovalWaitMs = 0;
   model.turnToolOutputs = false;
   model.reopenTaskAtSteering = false;
+  // A cut-short run's held input goes out with whatever opened this Task: a Prompt sends it
+  // along, and the Task's own next request belongs to it.
+  model.runEnded = false;
   model.taskOpen = true;
+  model.taskModel = model.contextModel && {
+    provider: model.contextModel.provider,
+    modelId: model.contextModel.modelId,
+  };
   model.taskStartLocalMs = nowMs;
   const ts = Date.parse(timestamp);
   model.taskFirstTsMs = Number.isFinite(ts) ? ts : nowMs;
@@ -977,17 +1089,19 @@ function finalizeOpenTask(model: StreamModel): void {
     ...(reply.atMs !== undefined ? { atMs: reply.atMs } : {}),
     ...(reply.tracePosition !== undefined ? { forkPosition: reply.tracePosition } : {}),
     ...(memoryChanges.length > 0 ? { memoryChanges } : {}),
+    ...(model.taskModel ? { model: model.taskModel } : {}),
   };
-  // The stats row is inserted **before any trailing run of compaction banners**: compaction
-  // is its own round, housekeeping outside this one, so it belongs after this round's ledger
-  // — a banner sandwiched between the reply and the row (assistant_text → compaction →
-  // task_stats) reads as if the row were the compaction's own stats.
+  // The stats row is inserted **before any trailing run of compaction banners** (and the
+  // model-change markers a switch's compaction leaves behind them): compaction is its own
+  // round, housekeeping outside this one, so it belongs after this round's ledger — a banner
+  // sandwiched between the reply and the row (assistant_text → compaction → task_stats) reads
+  // as if the row were the compaction's own stats.
   // A wrap-up compaction normally settles the round on arrival, before its banner exists
   // (see isWrapUpCompaction), so this loop is what still places the row correctly in the
   // cases that test declines to judge — a mid-stream join, or a round whose reply never
   // landed as an item.
   let at = model.items.length;
-  while (at > 0 && model.items[at - 1]!.kind === "compaction") at--;
+  while (at > 0 && ["compaction", "model_change"].includes(model.items[at - 1]!.kind)) at--;
   model.items.splice(at, 0, statsItem);
 }
 
@@ -1611,6 +1725,8 @@ function handleEvent(model: StreamModel, p: EventPayload, tsMs?: number, nowMs?:
       if (typeof p.error_message === "string") item.errorMessage = p.error_message;
       if (p.reason != null) item.reason = p.reason;
       model.items.push(item);
+      // The stop ended the run with its turn held: a Retry's first request opens a new Task.
+      model.runEnded = true;
       return;
     }
     case "token_usage":
@@ -1649,12 +1765,19 @@ function handleEvent(model: StreamModel, p: EventPayload, tsMs?: number, nowMs?:
           durationMs: r.duration_ms,
           ...(r.tools !== undefined ? { tools: r.tools } : {}),
           ...(detail !== undefined ? { error: detail.slice(0, 500) } : {}),
+          ...(r.error_code !== undefined ? { errorCode: r.error_code } : {}),
         };
       });
+      // A server skipped before any contact waits on the user (a vault key, a sign-in): named
+      // apart from the servers that failed to connect, so the row does not read as a failure.
+      const waits = (r: (typeof p.results)[number]) =>
+        r.error_code === "mcp_needs_setup" || r.error_code === "mcp_sign_in_required";
       const failedResults = p.results.filter(
-        (r) => r.status === "fatal" || (r.status as string) === "failed",
+        (r) => (r.status === "fatal" || (r.status as string) === "failed") && !waits(r),
       );
       if (failedResults.length > 0) item.failed = failedResults.map((r) => r.server);
+      const waitingResults = p.results.filter(waits);
+      if (waitingResults.length > 0) item.waiting = waitingResults.map((r) => r.server);
       return;
     }
     case "tool_list_ready": {
@@ -1783,6 +1906,10 @@ function handleEvent(model: StreamModel, p: EventPayload, tsMs?: number, nowMs?:
       // round, so the pending compaction usage never reaches this step and is discarded at finalization (not counted into this round).
       if (tsMs !== undefined) model.taskLastReqEndMs = tsMs;
       commitPendingCompaction(model.stats);
+      // Whether this end ended the run: a fatal, or a retryable the ladder gave up on (no
+      // retry_in_ms; `0` is an immediate retry). A request after it opens a new Task.
+      model.runEnded =
+        p.status === "fatal" || (p.status === "retryable" && p.retry_in_ms === undefined);
       // A fatal end stops the run — no abort event follows; this request_end is the
       // terminal record, rendered as an error banner.
       if (p.status === "fatal") {
@@ -1815,9 +1942,10 @@ function handleEvent(model: StreamModel, p: EventPayload, tsMs?: number, nowMs?:
         if (typeof p.retry_in_ms === "number" && p.retry_in_ms > 0) {
           item.plannedDelayMs = p.retry_in_ms;
           item.arrivedAtMs = nowMs ?? Date.now();
-        } else if (p.status === "retryable") {
-          // A live-protocol retryable without a planned wait is the ladder giving up —
-          // the run ends on it (an abort follows only in legacy Traces). The legacy
+        } else if (p.status === "retryable" && p.retry_in_ms === undefined) {
+          // A live-protocol retryable without `retry_in_ms` is the ladder giving up — the run
+          // ends on it (an abort follows only in legacy Traces). `retry_in_ms: 0` is a retry
+          // with no wait (a rejected image replaced with a note), not a give-up. The legacy
           // spellings never self-settle here: their era stamped no retry_in_ms mid-ladder,
           // and their exhaustion is marked by the abort event instead.
           item.gaveUp = true;
@@ -1997,6 +2125,16 @@ function routeNested(model: StreamModel, msg: OmniMessage, nowMs: number): void 
     sub.firstSeenLocalMs = nowMs;
     model.subagents.set(head, sub);
     bindSubagent(model, head, sub);
+    model.unconfirmedSubagents.add(head);
+  }
+  // The child's first model message is the opening prompt its spawning call handed it — right
+  // behind its session_meta, live and in its spliced Trace alike — and that prompt settles which
+  // card it belongs on. A deeper descendant's message reaching it first means the prompt was
+  // missed, and the binding by position stands.
+  if (model.unconfirmedSubagents.has(head) && isModelMessage(msg)) {
+    model.unconfirmedSubagents.delete(head);
+    const prompt = msg.origin!.length === 1 ? openingPrompt(msg) : null;
+    if (prompt !== null) moveToSpawningCard(model, head, sub, prompt);
   }
   // Elapsed-time stamps (see the StreamModel field docs): every message routed into this child's
   // subtree — its own or a deeper descendant's — counts as its activity; the recursive pushMessage
@@ -2040,15 +2178,150 @@ function bindSubagent(model: StreamModel, sessionId: string, sub: StreamModel): 
   model.items.push({ kind: "subagent", id: nextId(model), sessionId, model: sub });
 }
 
+/**
+ * Moves a child onto the card of the run_subagent call that spawned it. Its first binding goes
+ * by position, which picks the wrong card as soon as several calls run at once; the opening
+ * prompt is exact, because core starts a child with the call's `prompt` argument verbatim as its
+ * first user text. The spawning card is an allowed run_subagent card with that prompt, whose
+ * `agent_id`, `model_id` and `provider` (including inherited parent values) are what the child's
+ * session_meta records, and which holds no child yet or one still unconfirmed. When missing
+ * metadata leaves different selectors ambiguous, its positional binding stands. Otherwise,
+ * calls identical in all of that use the earliest one still running (calls start in
+ * order), else the latest finished one (a background launch returns before its child's prompt
+ * has streamed in). An unconfirmed child already on the spawning card trades places with this
+ * one and moves again on its own prompt. A child bound standalone stays: no open card was left
+ * for it, so its own was not open either.
+ */
+function moveToSpawningCard(
+  model: StreamModel,
+  sessionId: string,
+  sub: StreamModel,
+  prompt: string,
+): void {
+  const from = model.items.find(
+    (item): item is ToolCallItem =>
+      item.kind === "tool_call" && item.subagentSessionId === sessionId,
+  );
+  if (!from) return;
+  const target = spawningCard(model, sessionId, prompt, sub.meta);
+  if (target === null || target === from) return;
+  const displacedId = target.subagentSessionId;
+  const displaced = target.subagent;
+  target.subagent = sub;
+  target.subagentSessionId = sessionId;
+  if (displaced !== undefined && displacedId !== undefined) {
+    from.subagent = displaced;
+    from.subagentSessionId = displacedId;
+  } else {
+    delete from.subagent;
+    delete from.subagentSessionId;
+  }
+}
+
+/** The opening prompt a child's first model message carries: a user text from its parent agent (or, in a Trace older than `sender`, from no one named). */
+function openingPrompt(msg: OmniMessage): string | null {
+  const p = msg.payload as { type?: string; role?: string; text?: unknown; sender?: string };
+  if (p.type !== "text" || p.role !== "user" || typeof p.text !== "string") return null;
+  return p.sender === undefined || p.sender === "parent_agent" ? p.text : null;
+}
+
+/** The card of the call that spawned `sessionId`, judged by its opening prompt (see moveToSpawningCard). */
+function spawningCard(
+  model: StreamModel,
+  sessionId: string,
+  prompt: string,
+  meta: NestedSessionMeta | null,
+): ToolCallItem | null {
+  const inherited = [
+    model.agentState === null ? null : agentIdFromStatePath(model.agentState),
+    model.contextModel?.modelId ?? null,
+    model.contextModel?.provider ?? null,
+  ];
+  const actual = meta === null ? null : [meta.agentId, meta.modelId, meta.provider];
+  let matchedIdentity: (string | null)[] | null = null;
+  let earliestRunning: ToolCallItem | null = null;
+  let latestFinished: ToolCallItem | null = null;
+  for (const item of model.items) {
+    if (item.kind !== "tool_call" || item.name !== "run_subagent" || item.decision !== "allow") {
+      continue;
+    }
+    const holder = item.subagentSessionId;
+    if (holder !== undefined && holder !== sessionId && !model.unconfirmedSubagents.has(holder)) {
+      continue;
+    }
+    const args = callArguments(item.argumentsText);
+    if (args === null || args.prompt !== prompt) continue;
+    const expected = ["agent_id", "model_id", "provider"].map((field, i) =>
+      typeof args[field] === "string" ? args[field] : inherited[i]!,
+    );
+    if (
+      actual !== null &&
+      expected.some((value, i) => value !== null && actual[i] !== null && value !== actual[i])
+    ) {
+      continue;
+    }
+    // A window without parent metadata cannot distinguish inheritance from an override.
+    // Preserve the existing binding instead of confirming an arbitrary same-prompt card.
+    if (matchedIdentity !== null && expected.some((value, i) => value !== matchedIdentity![i])) {
+      return null;
+    }
+    matchedIdentity = expected;
+    if (!item.outputComplete) earliestRunning ??= item;
+    else latestFinished = item;
+  }
+  return earliestRunning ?? latestFinished;
+}
+
+function callArguments(argumentsText: string): Record<string, unknown> | null {
+  try {
+    const args: unknown = JSON.parse(argumentsText);
+    return typeof args === "object" && args !== null ? (args as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Overlap dedup (connect-first + dedup)
 // ---------------------------------------------------------------------------
 
-/** Disk-only transport metadata must not make an otherwise identical SSE envelope look new. */
+/** Stands in for an image's content inside a dedup key (see dedupKey). */
+const IMAGE_IN_KEY = "<image>";
+
+/**
+ * An image slot's value as the dedup key sees it: inline bytes (`data:`) and a history page's
+ * reference to the same Trace record (`/api/sessions/<id>/trace-image?…`) are one image; any
+ * other address (a web URL) is kept, since it is the same string in both copies anyway.
+ */
+function imageInKey(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  return value.startsWith("data:") || /^\/api\/sessions\/[^/?#]+\/trace-image\?/.test(value)
+    ? IMAGE_IN_KEY
+    : value;
+}
+
+/**
+ * The envelope a history copy and its SSE copy share. Disk-only transport metadata
+ * (`tracePosition`) must not make an otherwise identical SSE envelope look new, and neither
+ * may an image's form: a windowed history page carries a user `image_url` and a tool output's
+ * `images` by reference while the stream carries the bytes, and an SSE copy that escaped the
+ * overlap dedup would draw the person's image twice. Two images of one prompt may then share a
+ * key (same timestamp); that is harmless, since a history read holds a prompt whole (the server
+ * appends held inputs the Trace lacks), so each stream copy has its own history copy to match.
+ */
 function dedupKey(msg: OmniMessage): string {
   const { tracePosition: _tracePosition, ...envelope } = msg as OmniMessage & {
     tracePosition?: TracePosition;
   };
+  if (msg.type === "model_msg") {
+    const p = msg.payload as { type?: string; image_url?: unknown; images?: unknown };
+    if (p.type === "image_url") {
+      return JSON.stringify({ ...envelope, payload: { ...p, image_url: imageInKey(p.image_url) } });
+    }
+    if (p.type === "tool_call_output" && Array.isArray(p.images)) {
+      return JSON.stringify({ ...envelope, payload: { ...p, images: p.images.map(imageInKey) } });
+    }
+  }
   return JSON.stringify(envelope);
 }
 

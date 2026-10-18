@@ -12,9 +12,7 @@ import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
 import { toneInk } from "../../lib/tone";
-import { Button } from "../../components/ui/button";
-import { toastError, toastSuccess } from "../../components/ui/toast";
-import { SectionShell } from "./section-shell";
+import { Button, toastError, toastSuccess, SettingsSection } from "@prismshadow/penguin-ui";
 import { TEST_BROWSER_POLL_MS, shouldPollTestBrowser, testBrowserView } from "./test-browser";
 
 export function TestBrowserSection() {
@@ -73,7 +71,7 @@ export function TestBrowserSection() {
   const strings = S.settings.testBrowser;
   const view = status === null ? null : testBrowserView(status);
   return (
-    <SectionShell
+    <SettingsSection
       actions={
         <Button
           size="sm"
@@ -109,6 +107,6 @@ export function TestBrowserSection() {
           </pre>
         </div>
       )}
-    </SectionShell>
+    </SettingsSection>
   );
 }

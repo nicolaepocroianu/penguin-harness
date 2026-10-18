@@ -25,8 +25,7 @@ import { json } from "@codemirror/lang-json";
 import { MergeView, goToNextChunk, goToPreviousChunk } from "@codemirror/merge";
 import { search, searchKeymap } from "@codemirror/search";
 import { tags } from "@lezer/highlight";
-import { Button } from "../../components/ui/button";
-import { InfoPopover } from "../../components/ui/info-popover";
+import { Button, InfoPopover } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk } from "../../lib/tone";
 import { diffMarkers } from "./script-model";
@@ -459,7 +458,7 @@ export function JsonEditor({
                 key={`${marker.line}:${marker.top}`}
                 type="button"
                 aria-label={words.jump(index + 1)}
-                title={words.jump(index + 1)}
+                data-tooltip={words.jump(index + 1)}
                 onClick={() => {
                   setActive(index);
                   goTo(viewRef.current, marker.line);

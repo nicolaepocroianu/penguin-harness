@@ -3,9 +3,7 @@
  * language, in the app's own table style.
  */
 import type { MediaStat } from "@prismshadow/penguin-server/api";
-import { Button } from "../../components/ui/button";
-import { EmptyState } from "../../components/ui/empty-state";
-import { SkeletonList } from "../../components/ui/skeleton";
+import { Button, EmptyState, SkeletonList } from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";

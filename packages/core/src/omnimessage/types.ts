@@ -12,6 +12,13 @@
  * the Human interface communicates using: complete `model_msg`, streaming `partial_*`, and all
  * `event_msg`.
  *
+ * OmniMessage is a closed vocabulary. A new payload field or enum value is a protocol change
+ * every reader — Trace replay, the server, the Web App, the CLI, third-party consumers — has to
+ * learn, forever. Before adding one, show that no existing record carries the fact (the model
+ * lives in `session_meta`; a context's boundaries in the compaction pair and the file split)
+ * and that readers cannot derive it. The PR description says why the existing records could
+ * not carry it. The rule itself is stated in the architecture spec's message-format section.
+ *
  * Docs: packages/docs/content/omni-message.{zh,en}.md (site path /docs/omni-message) documents
  * this protocol payload-for-payload — keep the page in sync when changing types here.
  */
@@ -37,7 +44,10 @@ export type Role = "user" | "assistant";
  *     quota, and the credential failures of `isAuthenticationError`) or a deterministic
  *     client-side rejection (fast mode on a model without a fast tier). The engine stops
  *     the run and surfaces the error; the fix is a config/credential change, then a new
- *     request.
+ *     request. The one exception is a provider 4xx on an input that holds images: the
+ *     engine takes it as a rejection of the images, replaces them with a note quoting the
+ *     provider and retries at once, recording that attempt's `request_end` as `retryable`
+ *     with the code `image_rejected`.
  *
  * The one vocabulary every stop_reason-carrying record shares — model messages, tool
  * results, request and compaction terminals alike. Tool executions rarely have a
@@ -102,20 +112,23 @@ export interface ToolDefinition {
 /**
  * Session metadata: the runtime configuration of one **model context**. One `session_meta`
  * opens every Trace file — the Session's first, and each file a compaction's rotation starts.
- * The model reference, the paths and the origin are fixed for the Session's lifetime; the
- * assembled system prompt is fixed per context — a context is assembled from the Agent State
- * as it is when it opens (the template, `AGENTS.md` and the other placeholders re-read), so
- * each file's meta carries the prompt its context actually ran with; the context's toolset
- * follows as the `tool_list_ready` record. Everything that shapes the request prefix — model,
- * prompt, toolset — holds from a context's open to its close; the thinking level is not part
- * of it (a per-request parameter, deliberately not recorded — see the note in the body).
+ * The paths and the origin are fixed for the Session's lifetime; the model reference and the
+ * assembled system prompt are fixed per context — a context is assembled from the Agent State
+ * as it is when it opens (the template, `AGENTS.md` and the other placeholders re-read), on the
+ * model the Session is running at that point (an in-session model switch opens its new
+ * context on another one — see `Session.switchModel`), so each file's meta carries the prompt
+ * and the model its context actually ran with; the context's toolset follows as the
+ * `tool_list_ready` record. Everything that shapes the request prefix — model, prompt,
+ * toolset — holds from a context's open to its close; the thinking level is not part of it (a
+ * per-request parameter, deliberately not recorded — see the note in the body).
  */
 export interface SessionMetaPayload {
   session_id: string;
-  /** The session model's provider group (paired with `model_id` to form a model reference). */
+  /** This context's model: the provider group (paired with `model_id` to form a model reference). */
   provider: string;
-  /** The session model's upstream model_id (the request id sent to AgentHub; paired with `provider`). */
+  /** This context's model: the upstream model_id (the request id sent to MMSP; paired with `provider`). */
   model_id: string;
+  /** The context window of this context's model, or `"unknown"` when its entry configures none. */
   model_context_window: number | string;
   /** The system prompt this context runs with (the assembled result, placeholders already substituted). */
   system_prompt: string;
@@ -131,9 +144,33 @@ export interface SessionMetaPayload {
   agent_state: string;
   /** Absolute path to the Workspace. */
   workspace: string;
-  /** Session origin: spawned by a subagent / triggered by a scheduled task / created by a Benchmark evaluation or optimization; absent = user-created. */
-  source?: "subagent" | "schedule" | "benchmark";
+  /**
+   * What kind of conversation this is (see {@link SessionSource}), recorded in every context's
+   * meta. A Trace written before the field was required may lack it or carry the retired
+   * `benchmark`; readers narrow what they read through `normalizeSessionSource`.
+   */
+  source: SessionSource;
 }
+
+/**
+ * What kind of conversation a Session is: a person's, or one a program opened for its own
+ * purposes.
+ *
+ * - `user`: a person's conversation, and the default when nothing names a source: the Web App
+ *   composer, `penguin chat`, and forks.
+ * - `api`: an external program opened it through the Agent API.
+ * - `schedule`: a scheduled task opened it for one of its runs.
+ * - `workbench`: an Agent Workbench opened it for a question or job; archived by default.
+ * - `subagent`: a `run_subagent` child, whichever Session spawned it (a company Session's too).
+ * - `cli`: `penguin run` created it, the Test Sessions an evaluation launches included.
+ * - `company`: company mode's organization runtime opened it, as an employee's desk or for a
+ *   ticket. Only company mode's own views list it.
+ *
+ * Which program created the server's index row is a separate fact (the row's `client`); the two
+ * can differ, as `penguin chat` (a `cli` client writing a `user` Session) shows.
+ */
+export type SessionSource =
+  "user" | "api" | "schedule" | "subagent" | "cli" | "company" | "workbench";
 
 // ---------------------------------------------------------------------------
 // model_msg — complete messages
@@ -141,7 +178,7 @@ export interface SessionMetaPayload {
 // Docs: /docs/omni-message § "model_msg: complete payloads"
 
 /**
- * Provider-fidelity payload (mirrors AgentHub's `Fidelity`): an arbitrary JSON-style object of
+ * Provider-fidelity payload (mirrors MMSP's `Fidelity`): an arbitrary JSON-style object of
  * wire-level data the LLM client records to reproduce the original message on replay — thinking
  * signatures, phase labels, encrypted reasoning, the upstream reasoning field name, etc. Opaque
  * to PenguinHarness: written to the Trace as-is and passed back verbatim; some models **require**
@@ -311,14 +348,20 @@ export type ErrorCode =
   // LLM request failures (request_end / compaction_end; the status carries the retry
   // decision, the code carries the classified cause).
   | "timeout" // idle timeout / connection went silent
-  | "network" // transport drops, provider 429/5xx, and anything unclassifiable
+  | "network" // transport drops, provider 4xx/5xx and anything unclassifiable
+  | "rate_limited" // the provider answered 429: its rate limit or an exhausted quota
   | "malformed" // response failed parsing/validation, or the stream was truncated
   | "auth" // the provider rejected the credentials
   | "rejected" // a definitive provider 4xx rejection (params, quota; 408/429/499 excluded)
+  | "image_rejected" // a provider 4xx on an input holding images, retried with them replaced
   | "unsupported" // a deterministic client-side rejection (fast mode without a fast tier)
   | "invalid_input" // the input failed to assemble into a request
-  // MCP connect failures.
-  | "connect_failed";
+  // MCP connect failures: a server that could not connect, and a server that was not
+  // contacted because the Agent's vault lacks a key its entry references or because it needs
+  // an OAuth sign-in (per-server results of mcp_connect_end).
+  | "connect_failed"
+  | "mcp_needs_setup"
+  | "mcp_sign_in_required";
 
 /** The shared error-reporting block (see ErrorCode). */
 export interface ErrorInfo {
@@ -356,7 +399,7 @@ export interface TokenUsagePayload {
 /**
  * Request boundary event: the boundary of one LLM Request, produced **in pairs** by
  * `context_engine` and written to Trace. `request_end`
- * with `status` of `completed` means the turn has been committed by AgentHub — this is the
+ * with `status` of `completed` means the turn has been committed by MMSP — this is the
  * mechanical criterion Trace replay (Session resumption) uses to determine whether a turn was
  * committed, and it also gives performance analysis a basis for Request latency and turn counts.
  * A compaction request produces this same event pair too (written to Trace only, not streamed).
@@ -389,7 +432,8 @@ export interface RetryDetail extends ErrorInfo {
    * Planned in-run retry wait (ms) — present ONLY when the engine will retry this failure
    * within the same run (status `retryable` with attempts remaining under the
    * applicable cap). Computed by the same formula as the actual backoff sleep
-   * (`reconnectDelayMs`), so the announced wait and the real one cannot drift; the Web App
+   * (`reconnectDelayMs`), so the announced wait and the real one cannot drift — except
+   * `image_rejected`, retried at once with the images replaced, which announces 0; the Web App
    * renders it as a live countdown to the next attempt. Absent on completed requests and on
    * final failures — a non-completed request_end without `retry_in_ms` is the run's
    * terminal record (no abort event follows: abort marks a user interruption).
@@ -452,7 +496,9 @@ export type HookDecision = "continue" | "stop" | "allow" | "deny";
 /**
  * Hook result event: one per non-void answer a hook gave at a hook point — `stop`,
  * consulted after every Task of a `run` call (see hooks/stop-hook.ts), or `pre_tool_use`,
- * consulted before each tool call's approval (see hooks/tool-hook.ts). Produced by the
+ * consulted before each tool call's approval (see hooks/tool-hook.ts). The `user_prompt`
+ * point (see hooks/prompt-hook.ts) leaves one only for a hook that failed: what a hook
+ * answered there is the harness-stamped user message itself. Produced by the
  * Session, streamed live and written to the Trace best-effort. `name` is the hook's
  * registered name (`goal`, `continual-learning`, …); `decision` is absent when the hook only
  * left a record; `output` is the hook's own structured record, scalars only — the goal hook
@@ -463,7 +509,7 @@ export type HookDecision = "continue" | "stop" | "allow" | "deny";
 export interface HookPayload {
   type: "hook";
   /** The hook point that fired. */
-  hook: "stop" | "pre_tool_use";
+  hook: "stop" | "pre_tool_use" | "user_prompt";
   name: string;
   decision?: HookDecision;
   /** One line for people, as the hook wrote it. */
@@ -505,7 +551,7 @@ export interface ToolListReadyPayload {
 export interface McpServerConnectResult {
   server: string;
   transport: "stdio" | "http" | "sse";
-  /** `completed` / `fatal` (connect or discovery failed; not retried within the run) / `aborted`. Legacy Traces spell the failure `failed`. */
+  /** `completed` / `fatal` (connect or discovery failed, or the server was skipped — see `error_code`; not retried within the run) / `aborted`. Legacy Traces spell the failure `failed`. */
   status: StopReason;
   duration_ms: number;
   /** Number of tools discovered (present on completed). */
@@ -627,8 +673,8 @@ export function isEventMessage(msg: OmniMessage): msg is EventMessage {
 
 /**
  * Whether this is a main-session user text the harness injected (`sender: "harness"`) — a
- * stop hook's `continue` input, a host-composed companion message such as the goal plugin's
- * round protocol, or a background-task completion notice. Hosts key origin display on this
+ * stop hook's `continue` input, a user_prompt hook's expansion context (the goal plugin's
+ * round-1 protocol included), or a background-task completion notice. Hosts key origin display on this
  * stamp; a consumer that means only the loop-driving injections (round boundaries)
  * additionally excludes the notices by their `[background_task_done]` block.
  */

@@ -32,7 +32,7 @@ The initial account is `admin`, and it starts with no password of its own. Until
 1. Start the server with `penguin web`.
 2. Find the framed notice in the server output. It contains the first-login link.
 3. Open the link in your browser. You are signed in as `admin`.
-4. Set a password: select **Change now** on the banner that appears, or go to **System settings** › **Account**. This first session needs no current password.
+4. Set a password: select **Change now** on the banner that appears, or go to **Settings** › **Account**. This first session needs no current password.
 
 > [!NOTE]
 > The link can be opened again. It lasts 30 days, or until a password is set. A restart prints a new link and the old one stops working. A link that no longer works lands on the login page with an explanation.
@@ -43,7 +43,7 @@ The desktop app does not print the notice. The server also skips it while a pass
 
 The login page asks for a **Username** and a **Password**, and has language and theme switches in its corner.
 
-There is no self-registration. An admin creates accounts on the **Users** page of System settings. Every new user automatically gets an independent initial Project named `<userId>-default_project`.
+There is no self-registration. An admin creates accounts on the **Users** page of Settings. Every new user automatically gets an independent initial Project named `<userId>-default_project`.
 
 While the initial password is still in use, a banner prompts the user to change it, with a **Change now** link. Closing the banner hides it for good.
 
@@ -86,22 +86,34 @@ From top to bottom, the sidebar holds:
 
 - The **Development** / **Company** switch, only when company mode is available: an admin has enabled it for the server, and you have not turned it off for yourself. Company mode swaps the page entries below for an organization's pages, and the conversation list for its channels. See [Company mode](/company-mode).
 - The Project switcher, with the **Collapse sidebar** button beside it. See [Projects and members](#projects-and-members).
-- **New chat**, which opens a new conversation draft. See [Chat](/chat).
-- The page entries. The chevron under the last one folds them away:
+- The nav entries:
 
 | Entry | What it is for | Guide |
 | --- | --- | --- |
+| **New chat** | Open a new conversation draft | [Chat](/chat) |
 | **Agents** | Create agents and edit their prompt, memory, runtime, tools, Skills, hooks, Vault and scheduled tasks | [Agents](/agents) |
-| **Plugins** | Browse plugins, install their Skills and hook packages onto agents, and add server plugins to the Project | [Skills](/skills) |
 | **Models** | Configure the Project's models, providers and credentials | [Models](/models) |
+| **Plugins** | Browse plugins, install their Skills and hook packages onto agents, and add server plugins to the Project | [Skills](/skills) |
+| **Machines** | Install this PenguinHarness build on other hosts over ssh and manage the connections to them (admins only) | [Security Model](/security#manage-remote-machines-over-ssh) |
 | **Cost Center** | Token usage, cost and server errors by agent, model and time range | [Cost Center](/usage) |
 | **Evaluation Center** | Benchmarks: evaluate agents and optimize them against a Benchmark | [Evaluation Center](/evaluation-center) |
 
 - The conversation list, with search and grouping by Workspace, agent or time. See [Chat](/chat).
 - Your user row at the bottom. It opens the account menu:
-  - **System settings**. See [Settings](/settings).
-  - The update row, which names where an update stands and opens the update dialog. See [Updates](/updates).
+  - **Settings**. See [Settings](/settings).
+  - **About**, which shows the running version and opens the About dialog: the homepage and GitHub links, the release notes, the credits, and the software update where this session can update. See [Updates](/updates).
   - **Sign out**.
+
+### Favorite and collapsible entries
+
+**New chat** always shows. **Agents**, **Models** and **Plugins** are favorites by default: they always show. The other entries sit in a collapsible area under them, and the chevron bar at the bottom of that area folds it away or opens it again. The area starts open, and the browser remembers whether you folded it.
+
+To change which entries are favorites:
+
+- Point at an entry and select the star at the end of its row. A filled star means the entry is a favorite; selecting it removes it from favorites and moves it into the collapsible area, and selecting an empty star adds it to favorites. On a touch screen the star is always shown.
+- Or drag an entry into the collapsible area to make it collapsible, or out of it to make it a favorite.
+
+Each area keeps the order of the table above, however its entries got there, and with nothing collapsible the chevron bar is gone. The choices are saved per browser. The collapsed rail shows every entry either way.
 
 ### Notification dots
 
@@ -110,29 +122,25 @@ A dot on a page entry means something is waiting there:
 | Entry | What the dot means |
 | --- | --- |
 | **Agents** | Agents on an outdated kernel |
-| **Plugins** | Plugin updates |
 | **Models** | Preset models to sync (shown to owners) |
+| **Plugins** | Plugin updates |
 | **Cost Center** | Unexpected errors |
 
 A dot on your avatar means a software update. Pointing at an entry names what is waiting.
 
 ### The collapsed rail and narrow windows
 
-**Collapse sidebar** shrinks the sidebar to a narrow rail of icons: **Expand sidebar**, the company mode toggle when available, **Last conversation**, **New chat**, the page entries, and your avatar, which opens the same account menu. Pointing at an icon, or focusing it, shows its name. The choice is remembered in the browser.
+**Collapse sidebar** shrinks the sidebar to a narrow rail of icons: **Expand sidebar**, **Last conversation**, **New chat**, the page entries, and your avatar, which opens the same account menu. In company mode, **Last conversation** gives way to the organization's **All hands** channel, **New chat** is left out, the page entries are the organization's pages, and the other channels and desks follow them. To switch work mode, expand the sidebar first. Pointing at an icon, or focusing it, shows its name. The choice is remembered in the browser.
 
 On a narrow window, the sidebar hides behind a menu button in a top bar and opens as a drawer.
 
-### Trajectories and Machines
+### Trajectories
 
-Two parts of the app have no sidebar entry.
-
-**Trajectories** is a side panel of the chat page, not a page of its own. It shows the open conversation's Trace files, with a summary, per-turn statistics, an execution timeline, and the individual events. **Export** downloads a file. See [Chat](/chat).
-
-**Machines** installs this PenguinHarness build on other hosts over ssh, choosing from the server account's `~/.ssh/config`. It is not offered in the sidebar in this release. An admin can reach it at `/machines`.
+**Trajectories** has no sidebar entry: it is a side panel of the chat page, not a page of its own. It shows the open conversation's Trace files, with a summary, per-turn statistics, an execution timeline, and the individual events. **Export** downloads a file. See [Chat](/chat).
 
 ### Language and theme
 
-The interface language (English / 中文 / System) and the theme (Light / Dark / System) can be switched at any time in [System settings](/settings), and on the login page. Both are saved per browser.
+The interface language (English / System) and the theme (Light / Dark / System) can be switched at any time in [Settings](/settings), and on the login page. Both are saved per browser.
 
 ## Projects and members
 

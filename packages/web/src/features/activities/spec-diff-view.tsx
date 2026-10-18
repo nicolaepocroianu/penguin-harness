@@ -5,10 +5,7 @@
  * the History.
  */
 import { useMemo, useRef, useState } from "react";
-import { Button } from "../../components/ui/button";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { Segmented } from "../../components/ui/segmented";
+import { Button, ConfirmModal, InfoPopover, Segmented } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import {
@@ -177,6 +174,7 @@ export function SpecDiffView({
       </div>
       {onRevert && reverting && (
         <ConfirmModal
+          cancelLabel={S.common.cancel}
           open
           title={S.activities.diffRevert}
           confirmLabel={S.activities.diffRevert}

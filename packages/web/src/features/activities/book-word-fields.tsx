@@ -7,10 +7,7 @@
  */
 import { useState } from "react";
 import type { AssetManifest } from "@prismshadow/penguin-server/api";
-import { Button } from "../../components/ui/button";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { Input, Textarea } from "../../components/ui/input";
-import { ICON_SIZE } from "../../lib/icon-scale";
+import { Button, GlyphIcon, Input, Textarea, ICON_SIZE } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { cleanSounds, sameSounds, soundsProblem } from "./book-words";

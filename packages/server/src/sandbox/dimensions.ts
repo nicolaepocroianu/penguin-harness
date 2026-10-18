@@ -18,7 +18,9 @@ import type {
 export const SANDBOX_DIMENSIONS: readonly SandboxDimension[] = [
   "fs-write",
   "network",
+  "network-local",
   "mask-paths",
+  "closed-temp",
 ];
 
 /** The dimensions a provider implements (absent declaration = filesystem only). */
@@ -29,7 +31,12 @@ export function providerDimensions(provider: SandboxProvider): readonly SandboxD
 /** The dimensions a settings object actually requires. */
 export function requestedDimensions(settings: SandboxSettings): SandboxDimension[] {
   const dims: SandboxDimension[] = ["fs-write"];
-  if (settings.network !== undefined) dims.push("network");
+  if (settings.network === "none") dims.push("network");
+  if (settings.network === "local") dims.push("network-local");
   if (settings.maskPaths !== undefined && settings.maskPaths.length > 0) dims.push("mask-paths");
+  // Temp closed matters only while confining: full access writes everywhere anyway.
+  if (settings.writableTemp === false && settings.mode !== "danger-full-access") {
+    dims.push("closed-temp");
+  }
   return dims;
 }

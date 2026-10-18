@@ -277,7 +277,7 @@ describe("a confined program", () => {
       node("console.log('as given')", {
         confine: (argv) => {
           asked.push(argv);
-          return [process.execPath, "-e", "console.log('as confined')"];
+          return { argv: [process.execPath, "-e", "console.log('as confined')"] };
         },
       }),
     );
@@ -307,7 +307,7 @@ describe("a confined program", () => {
       args,
       windowsShell: true,
       timeoutMs: 60_000,
-      confine: (argv) => (asked.push(argv), argv),
+      confine: (argv) => (asked.push(argv), { argv }),
     });
     const plain = await runProgram(spec(["--version"]));
     expect(plain).toMatchObject({ outcome: "exited", code: 0 });

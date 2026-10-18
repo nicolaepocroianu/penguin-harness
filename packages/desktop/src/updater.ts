@@ -34,6 +34,8 @@ import type {
   DesktopUpdateStatus,
   DesktopUpdaterCommandMessage,
 } from "@prismshadow/penguin-server/api";
+import { resolveProfile } from "./app-identity.js";
+import { logLine } from "./desktop-log.js";
 import { feedUrlOverride, updateSourceConfig, updateSupport } from "./update-support.js";
 import type { UpdateSupport } from "./update-support.js";
 import {
@@ -61,13 +63,18 @@ const GITHUB_FEED = {
 };
 
 function log(line: string): void {
-  process.stdout.write(`[updater] ${line}\n`);
+  logLine(`[updater] ${line}`);
 }
+
+// Pure over argv and isPackaged, so resolving it here again costs nothing and keeps the
+// menu's enabled state (read before initUpdater) in step with the running instance.
+const profile = resolveProfile({ argv: process.argv, isPackaged: app.isPackaged });
 
 /** Whether this running form updates itself (see update-support.ts for the rules). */
 function currentSupport(): UpdateSupport {
   return updateSupport({
     isPackaged: app.isPackaged,
+    profile,
     platform: process.platform,
     env: process.env,
     publishesReleases: RELEASE_IDENTITY.publishesReleases,
@@ -281,7 +288,7 @@ export function handleUpdaterCommand(action: DesktopUpdaterCommandMessage["actio
     return;
   }
   // Same path as the dialog's "Restart now": quitAndInstall goes through the normal
-  // quit sequence, so the shell's before-quit hook still stops the embedded server
+  // quit sequence, so the shell's will-quit hook still stops the embedded server
   // gracefully before the files are replaced.
   autoUpdater.quitAndInstall();
 }
@@ -600,7 +607,7 @@ async function promptRestart(version: string, parent: BrowserWindow | null): Pro
     ? await dialog.showMessageBox(parent, options)
     : await dialog.showMessageBox(options);
   if (result.response !== 0) return;
-  // quitAndInstall triggers the normal quit path first, so the shell's before-quit hook
+  // quitAndInstall triggers the normal quit path first, so the shell's will-quit hook
   // still stops the embedded server gracefully before the files are replaced.
   autoUpdater.quitAndInstall();
 }

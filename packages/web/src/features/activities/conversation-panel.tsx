@@ -12,10 +12,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
 import * as api from "../../api/endpoints";
-import { Button } from "../../components/ui/button";
-import { EmptyState } from "../../components/ui/empty-state";
-import { CloseIcon } from "../../components/ui/icons";
-import { Textarea } from "../../components/ui/input";
+import { Button, EmptyState, CloseIcon, Textarea, Select } from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
@@ -34,7 +31,6 @@ import {
   threadTime,
   type AssistFocus,
 } from "./conversation";
-import { Select } from "../../components/ui/select";
 import type { ProposalBase, ProposalChange } from "./proposal";
 import { ProposalCard } from "./proposal-card";
 import { indexRuns } from "./runs-index";
@@ -381,7 +377,7 @@ function Conversation({
                 <button
                   type="button"
                   aria-label={words.removeContext(focusLabel(focus))}
-                  title={words.removeContext(focusLabel(focus))}
+                  data-tooltip={words.removeContext(focusLabel(focus))}
                   onClick={() => setWithContext(false)}
                   className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
                 >

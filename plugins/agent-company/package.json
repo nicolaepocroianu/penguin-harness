@@ -1,7 +1,12 @@
 {
   "name": "@penguinharness/agent-company",
-  "version": "0.2.13",
-  "description": "Company mode for PenguinHarness agents: creating the organization with the user, the employee protocol every desk and ticket session follows, plus the CEO, HR and finance playbooks for running an organization on calendar events, tickets, channels and budgets.",
+  "version": "0.2.16",
+  "description": "Run a Project's agents as a company: create the organization with the user one question at a time, then the employee protocol every desk and ticket session follows (trigger blocks, the ticket board, channel etiquette, budgets, asking the board before heavy or irreversible work), plus the CEO, HR and finance playbooks — mission to tickets, hiring and calendars, budgets and cost audits — the research protocol (an autoresearch-style experiment loop inside a resource envelope the board approved, and adversarial review between authors and reviewers), and the mirror protocol for a company of digital twins that relays between real people.",
+  "keywords": [
+    "penguin-plugin",
+    "penguinharness",
+    "skills"
+  ],
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -9,7 +14,6 @@
     "directory": "plugins/agent-company"
   },
   "files": [
-    "plugin.json",
     "icon.svg",
     "skills",
     "hooks",
@@ -17,5 +21,18 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "penguin": {
+    "short_description": "Company setup plus the employee, CEO, HR, finance, research and mirror playbooks.",
+    "category": "office-productivity",
+    "icon": "icon.svg",
+    "preinstall": false,
+    "quick_start": {
+      "prompt": "Create a company-mode organization for this Project: ask me for its id, name, mission, shared workspace, model and CEO budget one question at a time, confirm the whole thing with me, then create it.",
+      "skills": [
+        "company-setup"
+      ]
+    },
+    "title": "Agent Company"
   }
 }

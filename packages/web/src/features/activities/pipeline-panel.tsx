@@ -14,17 +14,21 @@ import type {
   PipelineStepState,
   PipelineStepStatus,
 } from "@prismshadow/penguin-server/api";
-import { Button } from "../../components/ui/button";
-import { Chevron } from "../../components/ui/chevron";
-import { Select } from "../../components/ui/select";
-import { StatusIcon, type RunState } from "../../components/ui/status-icon";
+import {
+  Button,
+  Chevron,
+  Dot,
+  Select,
+  StatusIcon,
+  ICON_SIZE,
+  LiveDuration,
+} from "@prismshadow/penguin-ui";
+import type { RunState } from "@prismshadow/penguin-ui";
 import { formatDateTime, humanizeDuration } from "../../lib/format";
-import { ICON_SIZE } from "../../lib/icon-scale";
-import { LiveDuration } from "../chat/live-duration";
 import { ShowReasoningSwitch } from "./show-reasoning-switch";
 import { useShowReasoning } from "./run-log-prefs";
 import { S } from "../../lib/strings";
-import { toneDot, toneInk, type Tone } from "../../lib/tone";
+import { toneDot, toneInk, toneName, type Tone } from "../../lib/tone";
 import { MessageStream } from "../chat/message-stream";
 import { useSessionTranscript } from "./use-session-transcript";
 
@@ -204,7 +208,7 @@ function EarlierRuns({
   return (
     <details className="py-1.5 text-xs text-gray-500">
       <summary className="cursor-pointer select-none">{words.earlier(runs.length)}</summary>
-      <ul className="mt-1 space-y-0.5">
+      <ul className="mt-1 space-y-1">
         {runs.map((run) => {
           const started = Date.parse(run.startedAt);
           const finished = run.finishedAt ? Date.parse(run.finishedAt) : NaN;
@@ -222,7 +226,7 @@ function EarlierRuns({
                   run.pipelineId === viewing ? "bg-gray-100 dark:bg-gray-900" : ""
                 }`}
               >
-                <StatusIcon state={SEQUENCE_ICON[run.status]} size={14} />
+                <StatusIcon state={SEQUENCE_ICON[run.status]} size="md" />
                 <span className="sr-only">{words.status[run.status]}</span>
                 <span className="min-w-0 flex-1 truncate text-gray-700 dark:text-gray-300">
                   {words.earlierRun(choiceLabel(run.selection), formatDateTime(run.startedAt))}
@@ -314,7 +318,7 @@ function StepMark({ status }: { status: PipelineStepStatus }) {
   return (
     <span className="mt-[3px] flex size-3.5 shrink-0 items-center justify-center">
       {state ? (
-        <StatusIcon state={state} size={14} />
+        <StatusIcon state={state} size="md" />
       ) : (
         <span
           aria-hidden
@@ -328,7 +332,7 @@ function StepMark({ status }: { status: PipelineStepStatus }) {
 /** A stage's segment of the progress bar: an empty track until it starts, then its tone. */
 function segmentClass(status: PipelineStepStatus): string {
   if (status === "pending") return "bg-gray-200 dark:bg-gray-800";
-  if (status === "running") return `${toneDot.busy} animate-pulse`;
+  if (status === "running") return toneDot.busy;
   return toneDot[STEP_TONE[status]];
 }
 
@@ -379,7 +383,7 @@ function StepRow({
         {step.detail && (
           <p
             className={`truncate text-xs ${step.status === "failed" ? toneInk.danger : "text-gray-500"}`}
-            title={step.detail}
+            data-tooltip={step.detail}
           >
             {step.detail}
           </p>
@@ -397,16 +401,16 @@ function StepRow({
         <button
           type="button"
           aria-pressed={selected}
-          title={words.showLog(label)}
+          data-tooltip={words.showLog(label)}
           onClick={onSelect}
-          className={`-mx-2 flex w-[calc(100%+1rem)] items-start gap-2.5 rounded px-2 py-1 text-left hover:bg-gray-50 dark:hover:bg-gray-900 ${
+          className={`-mx-2 flex w-[calc(100%+1rem)] items-start gap-2 rounded px-2 py-1 text-left hover:bg-gray-50 dark:hover:bg-gray-900 ${
             selected ? "bg-gray-100 dark:bg-gray-900" : ""
           }`}
         >
           {body}
         </button>
       ) : (
-        <div className="flex items-start gap-2.5 py-1">{body}</div>
+        <div className="flex items-start gap-2 py-1">{body}</div>
       )}
     </li>
   );
@@ -421,7 +425,7 @@ function SkippedSteps({ steps }: { steps: PipelineStepState[] }) {
       <summary className="cursor-pointer select-none">
         {words.skipped(steps.length)}: {steps.map((step) => words.steps[step.step]).join(", ")}
       </summary>
-      <ul className="mt-1 space-y-0.5 pl-3">
+      <ul className="mt-1 space-y-1 pl-3">
         {steps.map((step) => (
           <li key={step.step}>
             {words.steps[step.step]}
@@ -459,12 +463,7 @@ function SessionLog({
   return (
     <div className="flex min-h-0 flex-1 flex-col border-t border-gray-200 dark:border-gray-800">
       <div className="flex items-center gap-3 px-4 py-2 text-sm">
-        {live && (
-          <span
-            aria-hidden
-            className={`size-1.5 shrink-0 animate-pulse rounded-full ${toneDot.busy}`}
-          />
-        )}
+        {live && <Dot tone={toneName.busy} pulse />}
         <span className="min-w-0 flex-1 truncate text-xs font-semibold text-gray-500">{title}</span>
         <ShowReasoningSwitch checked={showReasoning} onChange={setShowReasoning} />
         <Link
@@ -619,7 +618,7 @@ export function PipelinePanel({
           <SpanTime span={total} live={running} />
         </div>
         {/* One segment per stage, so how far the run has come reads before any row does. */}
-        <div aria-hidden className="flex gap-0.5">
+        <div aria-hidden className="flex gap-1">
           {shown.map((step) => (
             <span
               key={step.step}
@@ -652,7 +651,7 @@ export function PipelinePanel({
                   type="button"
                   aria-expanded={false}
                   onClick={() => setShowDone(true)}
-                  className="-mx-2 flex w-[calc(100%+1rem)] items-start gap-2.5 rounded px-2 py-1 text-left text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900"
+                  className="-mx-2 flex w-[calc(100%+1rem)] items-start gap-2 rounded px-2 py-1 text-left text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900"
                 >
                   <StepMark status="succeeded" />
                   <span className="min-w-0 flex-1 truncate">{words.doneFold(done.length)}</span>

@@ -6,18 +6,12 @@
  * Choosing a line lights it here and in the Script, which scrolls to it; it never restarts
  * the activity. The timeline under the player is what plays a scene again.
  */
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { ICON_SIZE } from "../../lib/icon-scale";
+import { Dot, GlyphIcon, ICON_SIZE, ICONS } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
-import { toneDot } from "../../lib/tone";
+import { toneName } from "../../lib/tone";
 import { ClipWave } from "./clip-wave";
 import type { PlayScene, PlayView, TapNow } from "./play-model";
 import { formatClipLength } from "./script-media";
-
-/** A speaker with its sound: the line being said. */
-export const SPEAKING_ICON = "M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13";
-/** A target's crosshair: what can be tapped. */
-const TAP_ICON = "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 3v4M12 17v4M3 12h4M17 12h4";
 
 /** The words of what can be tapped now; null while the activity has said nothing. */
 function tapText(tap: TapNow): string | null {
@@ -58,16 +52,11 @@ export function PlayNow({
   return (
     <section aria-label={words.now} className="space-y-2">
       <div className="flex min-w-0 items-center gap-2">
-        {playing && (
-          <span
-            aria-hidden
-            className={`size-1.5 shrink-0 rounded-full motion-safe:animate-pulse ${toneDot.busy}`}
-          />
-        )}
+        {playing && <Dot tone={toneName.busy} pulse />}
         <h3 className="min-w-0 truncate text-xs font-semibold">{name}</h3>
       </div>
       {scene && scene.lines.length > 0 ? (
-        <ol aria-label={words.lines(name)} className="space-y-0.5">
+        <ol aria-label={words.lines(name)} className="space-y-1">
           {scene.lines.map((line) => {
             const lit = view.lit?.key === line.key && view.lit.sceneId === scene.sceneId;
             const said = lit && view.lit!.by === "player";
@@ -91,7 +80,7 @@ export function PlayNow({
                     className={`mt-0.5 ${lit ? "text-brand-600 dark:text-brand-300" : "text-gray-400"}`}
                   >
                     {said ? (
-                      <GlyphIcon d={SPEAKING_ICON} size={ICON_SIZE.rowLead} />
+                      <GlyphIcon d={ICONS.bubbleLines} size={ICON_SIZE.rowLead} />
                     ) : (
                       <span className="flex size-3.5 items-center justify-center">
                         <span className="size-1.5 rounded-full bg-current" />
@@ -142,12 +131,12 @@ export function PlayNow({
         aria-live="polite"
         className="flex items-start gap-2 px-2 text-xs text-gray-600 dark:text-gray-300"
       >
-        <GlyphIcon d={TAP_ICON} size={ICON_SIZE.inlineGlyph} className="mt-0.5 text-gray-400" />
+        <GlyphIcon d={ICONS.target} size={ICON_SIZE.inlineGlyph} className="mt-0.5 text-gray-400" />
         <span className="min-w-0">{tapping ?? status}</span>
       </p>
       {state && (
         <p
-          title={words.state(state)}
+          data-tooltip={words.state(state)}
           className="truncate px-2 font-mono text-xs text-gray-400 dark:text-gray-500"
         >
           {state}

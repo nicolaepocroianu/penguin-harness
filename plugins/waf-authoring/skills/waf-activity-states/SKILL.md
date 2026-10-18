@@ -1,6 +1,7 @@
 ---
 name: waf-activity-states
 description: Use when implementing or reviewing pipeline-generated WAF activity behavior. Publishes semantic scene behavior phases through the scaffolded zero-dependency activity-state contract so tests can observe readiness and media lifecycle without controlling the sequence.
+version: 2026.10.10.1
 ---
 
 # WAF Activity Behavior States

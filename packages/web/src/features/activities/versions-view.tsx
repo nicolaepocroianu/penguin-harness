@@ -4,7 +4,7 @@
  * PROD, Compare (a version against the current draft, part by part and media file by media
  * file) and Restore. Under the heading, whether QA and PROD hold what the draft holds now.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type {
   ActivityDraft,
   VersionDiff,
@@ -13,13 +13,17 @@ import type {
   VersionSummary,
 } from "@prismshadow/penguin-server/api";
 import { ApiError } from "../../api/client";
-import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { Input } from "../../components/ui/input";
-import { Modal } from "../../components/ui/modal";
-import { Tabs } from "../../components/ui/tabs";
+import {
+  Badge,
+  Button,
+  ConfirmModal,
+  InfoPopover,
+  Input,
+  Modal,
+  Tabs,
+  useGuardedClose,
+  useUnsavedChanges,
+} from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
@@ -86,6 +90,16 @@ export function VersionsView({
   const [restoring, setRestoring] = useState<{ versionId: string; seq: number } | null>(null);
   const [restoreBusy, setRestoreBusy] = useState(false);
   const [restoreError, setRestoreError] = useState("");
+  // A name typed in the Save version dialog is an edit: leaving the dialog with one asks first.
+  const saveScope = `version-save${useId()}`;
+  useUnsavedChanges(open && name.trim() !== "", {
+    scope: saveScope,
+    discard: () => {
+      setName("");
+      setNameError(null);
+    },
+  });
+  const closeSave = useGuardedClose(() => setOpen(false), saveScope, { locked: saving });
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -160,7 +174,7 @@ export function VersionsView({
     } catch (error) {
       if (!alive.current) return;
       setRestoreError(
-        (error instanceof ApiError && restoreProblem(error.code, error.detail)) ||
+        (error instanceof ApiError && restoreProblem(error.code, error.details)) ||
           apiErrorText(error),
       );
     } finally {
@@ -213,7 +227,7 @@ export function VersionsView({
         )}
       </div>
       {status && (
-        <ul aria-label={words.status.label} className="space-y-0.5 text-xs">
+        <ul aria-label={words.status.label} className="space-y-1 text-xs">
           {statusLines(status).map((line) => (
             <li key={line.target}>
               <span
@@ -269,9 +283,9 @@ export function VersionsView({
                           key={badge.target}
                           role="img"
                           aria-label={badge.name}
-                          title={badge.name}
+                          data-tooltip={badge.name}
                         >
-                          <Badge tone="brand">{badge.label}</Badge>
+                          <Badge tone="info">{badge.label}</Badge>
                         </span>
                       ))}
                     </span>
@@ -280,7 +294,7 @@ export function VersionsView({
                     {row.name ?? <span className="text-gray-500">{words.unnamed}</span>}
                   </td>
                   <td className={`${TD} whitespace-nowrap`}>
-                    <Badge tone="gray">{row.kind}</Badge>
+                    <Badge tone="neutral">{row.kind}</Badge>
                   </td>
                   <td className={`${TD} whitespace-nowrap text-xs text-gray-500`}>
                     <time dateTime={row.createdAt}>{new Date(row.createdAt).toLocaleString()}</time>
@@ -333,6 +347,7 @@ export function VersionsView({
       )}
       {restoring && (
         <ConfirmModal
+          cancelLabel={S.common.cancel}
           open
           tone="primary"
           title={words.restoreVersion(restoring.seq)}
@@ -353,7 +368,7 @@ export function VersionsView({
       <Modal
         open={open}
         title={words.saveTitle}
-        onClose={() => !saving && setOpen(false)}
+        onClose={closeSave}
         footer={
           <>
             <Button size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={saving}>

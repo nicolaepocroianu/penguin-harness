@@ -2,13 +2,18 @@
  * The ticket board: five columns in lifecycle order (shaping in ticket-board.ts), each with
  * its colour bar and count, a card per ticket — title, priority, due date (danger once
  * passed), the blocked badge, a muted line naming its parent, and its owner — a search box
- * and a blocked-only switch, drag-and-drop between columns that confirms the move (a move
- * into rejected asks for a one-line reason) before posting it, the create form, and the
- * tickets and files the server could not accept.
- * The whole card is the drag handle, and its title is the one click target: the title is a
- * text button that opens the detail dialog (the shell's one host renders it, so the board
- * stays where it is), the rest of the card is inert, and a drag never fires a click — so
- * dragging anywhere (the title included) moves the ticket while clicking the title opens it.
+ * and a blocked-only switch, moving a card between columns by dragging it, which
+ * confirms the move (a move into rejected asks for a one-line reason) before posting it, the
+ * create form, and the tickets and files the server could not accept.
+ * The whole card is one button — the board's one exception to the company pages' rule against
+ * whole-area click targets, and it holds no control of its own. A click anywhere on it (Enter
+ * and Space too) opens the detail dialog in place (the shell's one host renders it, so the
+ * board stays where it is). Dragging it moves it: a mouse or pen press that travels a few pixels
+ * lifts the card, which follows the pointer and, released over another column, asks to move
+ * there. A finger has to hold the card still for a moment before it lifts, so a finger that moves
+ * scrolls the page as usual (ticket-press.ts, ticket-drag.ts). The dialog's move control is the
+ * way to move a ticket without dragging. The create form's Create is live once a title is typed
+ * and the slug, if any, keeps its rule; closing it with anything typed asks first.
  * The priority rides on the title's line, one size under it. What a card deliberately does
  * not carry is the session count, the cost and any live session status — those are the
  * dialog's, and a ticket is not the place to watch a session run.
@@ -22,8 +27,8 @@
  * shell state, not a route.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DragEvent as ReactDragEvent } from "react";
-import { useSearchParams } from "react-router";
+import { createPortal } from "react-dom";
+import { useLocation, useSearchParams } from "react-router";
 import type {
   OrgChartResponse,
   OrgTicketItem,
@@ -31,25 +36,35 @@ import type {
   OrgTicketStatus,
   OrgTicketsResponse,
 } from "@prismshadow/penguin-server/api";
+import {
+  Button,
+  Count,
+  FieldLabel,
+  GlyphIcon,
+  ICONS,
+  ICON_SIZE,
+  Input,
+  Modal,
+  Notice,
+  SearchInput,
+  Segmented,
+  Select,
+  Skeleton,
+  Switch,
+  Textarea,
+  discardUnsaved,
+  toastError,
+  toastSuccess,
+  useFormDraft,
+  useGuardedClose,
+} from "@prismshadow/penguin-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
 import { useDocumentTitle } from "../../lib/use-document-title";
-import { toneDot, toneInk, toneStrip } from "../../lib/tone";
-import { ICON_SIZE } from "../../lib/icon-scale";
+import { toneDot, toneInk } from "../../lib/tone";
 import { useAuth } from "../../state/auth";
 import { useCompany } from "../../state/company";
-import { Button } from "../../components/ui/button";
-import { Switch } from "../../components/ui/switch";
-import { Segmented } from "../../components/ui/segmented";
-import { Modal } from "../../components/ui/modal";
-import { Input, Textarea } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
-import { FieldLabel } from "../../components/ui/field";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { CloseIcon } from "../../components/ui/icons";
-import { Skeleton } from "../../components/ui/skeleton";
-import { toastError, toastSuccess } from "../../components/ui/toast";
 import { OrgPage, useOrg } from "./org-layout";
 import {
   BlockedBadge,
@@ -58,6 +73,7 @@ import {
   PriorityBadge,
   TitleButton,
   principalLabel,
+  titledHint,
 } from "./shared";
 import {
   TICKET_COLUMNS,
@@ -75,13 +91,9 @@ import { MoveTicketConfirm } from "./ticket-dialog";
 import { dismissHint, hintKey, isHintDismissed } from "./page-hints";
 import { agentPrincipal, splitPrincipalList } from "./principals";
 import { dayKey } from "./calendar-geom";
+import { TICKET_COLUMN_ATTR, useTicketBoardDrag } from "./ticket-drag";
 
-/** Private drag payload type of a card move (never text/plain: a mis-aimed drop must not paste into a text field). */
-const TICKET_DRAG_MIME = "application/x-penguin-ticket-id";
 const PRIORITIES: readonly OrgTicketPriority[] = ["P0", "P1", "P2"];
-
-/** Clock face (lucide): the due-date mark on a card. */
-const DUE_ICON = "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zm0-14v5l3 2";
 
 /**
  * The colour bar atop each column. Proposed is neutral, in-progress takes the accent (it is
@@ -90,7 +102,7 @@ const DUE_ICON = "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zm0-14v5l3 2";
  */
 const COLUMN_BAR: Record<OrgTicketStatus, string> = {
   proposed: "bg-gray-300 dark:bg-gray-600",
-  in_progress: "bg-[var(--accent-bg)]",
+  in_progress: "bg-accent",
   review: toneDot.attention,
   done: toneDot.success,
   rejected: toneDot.danger,
@@ -104,14 +116,13 @@ export function TicketsPage() {
   const company = useCompany();
   const { user } = useAuth();
   const [params, setParams] = useSearchParams();
+  const location = useLocation();
   useDocumentTitle(org ? `${org.name} · ${S.nav.org.tickets}` : S.nav.org.tickets);
   const [board, setBoard] = useState<OrgTicketsResponse | null>(null);
   const [chart, setChart] = useState<OrgChartResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [blockedOnly, setBlockedOnly] = useState(params.get("blocked") === "1");
   const [query, setQuery] = useState("");
-  const [drag, setDrag] = useState<{ ticketId: string; from: OrgTicketStatus } | null>(null);
-  const [dropOver, setDropOver] = useState<OrgTicketStatus | null>(null);
   const [move, setMove] = useState<{ ticket: OrgTicketItem; to: OrgTicketStatus } | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -159,6 +170,11 @@ export function TicketsPage() {
     setParams(next, { replace: true });
   };
   const openTicket = (ticketId: string) => company.openTicket(projectId, orgId, ticketId);
+  const drag = useTicketBoardDrag({
+    onOpen: (ticket) => openTicket(ticket.ticketId),
+    onDrop: (ticket, to) => setMove({ ticket, to }),
+  });
+  const { lifted, dropOver } = drag;
 
   // `?ticket=` and the open dialog, kept in step in both directions: the query opens the
   // dialog on arrival (a deep link, a reload), and the dialog writes itself back into the
@@ -173,7 +189,14 @@ export function TicketsPage() {
       : null;
   const syncedTicket = useRef<string | null>(null);
   const { openTicket: openTicketInShell } = company;
+  const routedPath = location.pathname;
   useEffect(() => {
+    // The browser has already left this page: a click that closes the dialog and navigates
+    // (opening a ticket session) is rendered first with the dialog closed and this page still
+    // mounted, since the router commits its new location in a transition. Writing the query now
+    // would resolve against this page's stale location and replace the new history entry with
+    // the board — the navigation would silently land back here.
+    if (window.location.pathname !== routedPath) return;
     if (urlTicket !== syncedTicket.current) {
       syncedTicket.current = urlTicket;
       if (urlTicket !== null) {
@@ -192,7 +215,7 @@ export function TicketsPage() {
       },
       { replace: true },
     );
-  }, [urlTicket, dialogTicket, projectId, orgId, openTicketInShell, setParams]);
+  }, [urlTicket, dialogTicket, projectId, orgId, openTicketInShell, setParams, routedPath]);
 
   const confirmMove = async (reason: string) => {
     if (move === null) return;
@@ -214,87 +237,40 @@ export function TicketsPage() {
     }
   };
 
-  const columnDrop = (status: OrgTicketStatus) => ({
-    onDragOver: (e: ReactDragEvent) => {
-      if (
-        drag === null ||
-        !e.dataTransfer.types.includes(TICKET_DRAG_MIME) ||
-        !canMove(drag.from, status)
-      )
-        return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      if (dropOver !== status) setDropOver(status);
-    },
-    onDragLeave: (e: ReactDragEvent) => {
-      const to = e.relatedTarget;
-      if (to instanceof Node && e.currentTarget.contains(to)) return;
-      setDropOver((prev) => (prev === status ? null : prev));
-    },
-    onDrop: (e: ReactDragEvent) => {
-      if (drag === null || !canMove(drag.from, status) || board === null) return;
-      e.preventDefault();
-      const ticket = allTickets(board).find((t) => t.ticketId === drag.ticketId);
-      setDrag(null);
-      setDropOver(null);
-      if (ticket === undefined) return;
-      setMove({ ticket, to: status });
-    },
-  });
-
-  /** A card: the title with its priority first (the title is the button that opens it), then what decides its urgency, then where it hangs and who holds it. */
-  const card = (t: OrgTicketItem) => {
+  /** A card's face: the title with its priority first, then what decides its urgency, then where it hangs and who holds it. */
+  const cardBody = (t: OrgTicketItem) => {
     const overdue = isOverdue(t.due, todayKey) && t.status !== "done" && t.status !== "rejected";
     return (
-      <div
-        key={t.ticketId}
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.setData(TICKET_DRAG_MIME, t.ticketId);
-          e.dataTransfer.effectAllowed = "move";
-          setDrag({ ticketId: t.ticketId, from: t.status });
-        }}
-        onDragEnd={() => {
-          setDrag(null);
-          setDropOver(null);
-        }}
-        title={`${t.title} · ${t.ticketId} · ${S.company.tickets.dragHint}`}
-        className={`block w-full cursor-grab rounded-md border bg-white p-2.5 text-left text-xs transition-colors duration-150 hover:border-gray-300 dark:bg-gray-900 dark:hover:border-gray-600 ${
-          t.invalid !== undefined
-            ? "border-red-300 dark:border-red-800"
-            : "border-gray-200 dark:border-gray-800"
-        } ${drag?.ticketId === t.ticketId ? "opacity-50" : ""}`}
-      >
-        <div className="flex items-start gap-1.5">
-          <TitleButton
-            title={S.company.tickets.openTicket}
-            className="line-clamp-2 flex-1 text-[13px] font-medium leading-snug text-gray-900 dark:text-gray-100"
-            onClick={() => openTicket(t.ticketId)}
-          >
+      <>
+        <span className="flex items-start gap-1.5">
+          <span className="line-clamp-2 min-w-0 flex-1 text-sm font-medium leading-snug text-gray-900 dark:text-gray-100">
             {t.title}
-          </TitleButton>
+          </span>
           {/* The priority reads with the title and shares its line, a size under it; the line
               below carries what is time-bound — the due date and the blocked mark. */}
           <span className="mt-px shrink-0">
             <PriorityBadge priority={t.priority} />
           </span>
           {t.invalid !== undefined && (
-            <span className={`mt-0.5 shrink-0 ${toneInk.danger}`} title={t.invalid}>
+            <span className={`mt-0.5 shrink-0 ${toneInk.danger}`} data-tooltip={t.invalid}>
               <GlyphIcon d={INVALID_ICON} size={ICON_SIZE.inlineGlyph} />
               <span className="sr-only">{S.company.tickets.invalid}</span>
             </span>
           )}
-        </div>
+        </span>
         {/* The time-bound line, drawn only when there is something on it: the priority has
             moved up to the title and an empty row would leave a gap under it. */}
         {(t.due !== undefined || isBlocked(t)) && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+          <span className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
             {t.due !== undefined && (
               <span
                 className={`inline-flex items-center gap-1 font-mono tabular-nums ${overdue ? toneInk.danger : ""}`}
-                title={overdue ? `${S.company.tickets.overdue} · ${t.due}` : S.company.tickets.due}
+                data-tooltip={
+                  overdue ? `${S.company.tickets.overdue} · ${t.due}` : S.company.tickets.due
+                }
+                data-tooltip-extra={overdue}
               >
-                <GlyphIcon d={DUE_ICON} size={ICON_SIZE.inlineGlyph} />
+                <GlyphIcon d={ICONS.clockCompact} size={ICON_SIZE.inlineGlyph} />
                 {t.due}
                 {overdue && <span className="sr-only">{S.company.tickets.overdue}</span>}
               </span>
@@ -307,27 +283,56 @@ export function TicketsPage() {
                 />
               </span>
             )}
-          </div>
+          </span>
         )}
         {t.parent !== undefined && (
-          <p
-            className="mt-2 truncate text-[11px] text-gray-400 dark:text-gray-500"
-            title={t.parent}
+          <span
+            className="mt-2 block truncate text-xs text-gray-400 dark:text-gray-500"
+            data-tooltip={titledHint(titles.get(t.parent), t.parent)}
+            data-tooltip-content="text"
           >
             {S.company.tickets.parentLine(titles.get(t.parent) ?? t.parent)}
-          </p>
+          </span>
         )}
-        <div className="mt-2 flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+        <span className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
           <span
             className="flex min-w-0 text-gray-700 dark:text-gray-200"
-            title={`${S.company.tickets.owner} ${principalLabel(t.owner, names)}`}
+            data-tooltip={`${S.company.tickets.owner} ${principalLabel(t.owner, names)}`}
           >
             <PrincipalChip principal={t.owner} names={names} size={ICON_SIZE.rowLead} />
           </span>
-        </div>
-      </div>
+        </span>
+      </>
     );
   };
+
+  /** The card's frame: a hairline box, danger-edged when the server flagged the ticket. */
+  const cardFrame = (t: OrgTicketItem) =>
+    `block w-full rounded-md border bg-white p-3 text-left text-xs dark:bg-gray-900 ${
+      t.invalid !== undefined
+        ? "border-red-300 dark:border-red-800"
+        : "border-gray-200 dark:border-gray-800"
+    }`;
+
+  /**
+   * A card: one button over the whole face. Unselectable and without the platform's long-press
+   * callout, so dragging it never selects its words and holding it on a touch screen never raises
+   * a menu; dimmed in place while its ghost is being carried.
+   */
+  const card = (t: OrgTicketItem) => (
+    <button
+      key={t.ticketId}
+      type="button"
+      data-ticket-card={t.ticketId}
+      data-tooltip={`${t.title} · ${t.ticketId} · ${S.company.tickets.dragHint}`}
+      {...drag.cardProps(t)}
+      className={`${cardFrame(t)} select-none transition-[border-color,opacity] duration-150 [-webkit-touch-callout:none] hover:border-gray-300 dark:hover:border-gray-600 ${
+        lifted?.ticket.ticketId === t.ticketId ? "opacity-40" : ""
+      }`}
+    >
+      {cardBody(t)}
+    </button>
+  );
 
   const columns = board === null ? null : boardColumns(board, { blockedOnly, query, names });
   const narrowed = blockedOnly || query.trim() !== "";
@@ -340,16 +345,14 @@ export function TicketsPage() {
       wide
       actions={
         <>
-          <div className="w-44">
-            <Input
-              size="sm"
-              type="search"
-              aria-label={S.company.tickets.searchPlaceholder}
-              placeholder={S.company.tickets.searchPlaceholder}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
+          <SearchInput
+            size="sm"
+            className="w-44"
+            aria-label={S.company.tickets.searchPlaceholder}
+            placeholder={S.company.tickets.searchPlaceholder}
+            value={query}
+            onChange={setQuery}
+          />
           <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
             {S.company.tickets.blockedOnly}
             <Switch
@@ -367,41 +370,36 @@ export function TicketsPage() {
       }
     >
       {error !== null && (
-        <div
-          className={`mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs ${toneStrip.danger}`}
+        <Notice
+          tone="danger"
+          role="alert"
+          className="mb-3"
+          retry={{ label: S.common.retry, onClick: () => void load() }}
         >
-          <span>{S.company.tickets.loadFailed(error)}</span>
-          <Button size="sm" onClick={() => void load()}>
-            {S.common.retry}
-          </Button>
-        </div>
+          {S.company.tickets.loadFailed(error)}
+        </Notice>
       )}
 
       {board !== null &&
         allTickets(board).length === 0 &&
         board.invalidFiles.length === 0 &&
         !hintDismissed && (
-          <div
-            className={`mb-3 flex items-center gap-2 rounded-md border px-3 py-2 text-xs ${toneStrip.muted}`}
-          >
-            <span className="min-w-0 flex-1">{S.company.tickets.emptyHint}</span>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="shrink-0"
-              title={S.company.tickets.dismissHint}
-              aria-label={S.company.tickets.dismissHint}
-              onClick={() => {
+          <Notice
+            tone="neutral"
+            className="mb-3"
+            dismiss={{
+              ariaLabel: S.company.tickets.dismissHint,
+              onClick: () => {
                 dismissHint(emptyHintKey);
                 setHintDismissed(true);
-              }}
-            >
-              <CloseIcon />
-            </Button>
-          </div>
+              },
+            }}
+          >
+            {S.company.tickets.emptyHint}
+          </Notice>
         )}
 
-      <div className="overflow-x-auto pb-2">
+      <div ref={drag.boardRef} className="overflow-x-auto pb-2">
         <div className="grid min-w-[50rem] grid-cols-5 gap-3">
           {columns === null
             ? TICKET_COLUMNS.map((status) => <ColumnSkeleton key={status} status={status} />)
@@ -410,10 +408,10 @@ export function TicketsPage() {
                   key={col.status}
                   role="group"
                   aria-label={`${S.company.tickets.columns[col.status] ?? col.status} · ${col.tickets.length}`}
-                  {...columnDrop(col.status)}
+                  {...{ [TICKET_COLUMN_ATTR]: col.status }}
                   className={`${columnClass} ${
                     dropOver === col.status
-                      ? "border-[var(--accent-bg)] ring-1 ring-[var(--accent-bg)]"
+                      ? "border-accent ring-1 ring-accent"
                       : highlightColumn === col.status && isTicketStatus(highlightColumn)
                         ? "border-gray-400 dark:border-gray-600"
                         : ""
@@ -424,21 +422,19 @@ export function TicketsPage() {
                     <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
                       {S.company.tickets.columns[col.status] ?? col.status}
                     </span>
-                    <span className="rounded-full bg-gray-200/70 px-1.5 py-px text-[11px] font-medium tabular-nums text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                      {col.tickets.length}
-                    </span>
+                    <Count n={col.tickets.length} />
                   </div>
                   <div className="flex flex-1 flex-col gap-2 px-2 pb-2">
                     {col.tickets.map(card)}
                     {col.tickets.length === 0 && (
                       <div
-                        className={`flex min-h-20 flex-1 items-center justify-center rounded-md border border-dashed px-2 text-center text-[11px] ${
+                        className={`flex min-h-20 flex-1 items-center justify-center rounded-md border border-dashed px-2 text-center text-xs ${
                           dropOver === col.status
-                            ? "border-[var(--accent-bg)] text-gray-600 dark:text-gray-300"
+                            ? "border-accent text-gray-600 dark:text-gray-300"
                             : "border-gray-300 text-gray-400 dark:border-gray-700 dark:text-gray-500"
                         }`}
                       >
-                        {drag !== null && canMove(drag.from, col.status)
+                        {lifted !== null && canMove(lifted.ticket.status, col.status)
                           ? S.company.tickets.dropHere
                           : narrowed
                             ? S.company.tickets.searchNoMatch
@@ -452,18 +448,19 @@ export function TicketsPage() {
       </div>
 
       {(invalids.length > 0 || (board !== null && board.invalidFiles.length > 0)) && (
-        <div className={`mt-2 rounded-md border px-3 py-2 text-xs ${toneStrip.danger}`}>
+        <Notice tone="danger" className="mt-2">
           {invalids.length > 0 && (
             <>
               <p className="mb-1 flex items-center gap-1.5 font-medium">
-                <GlyphIcon d={INVALID_ICON} size={ICON_SIZE.inlineGlyph} />
+                <span data-slot="icon" className="shrink-0">
+                  <GlyphIcon d={INVALID_ICON} size={ICON_SIZE.inlineGlyph} />
+                </span>
                 {S.company.tickets.invalidTickets}
               </p>
-              <ul className="mb-2 space-y-0.5">
+              <ul className="mb-2 space-y-1">
                 {invalids.map((t) => (
                   <li key={t.ticketId} className="flex items-baseline">
                     <TitleButton
-                      title={S.company.tickets.openTicket}
                       className="shrink-0 font-mono"
                       onClick={() => openTicket(t.ticketId)}
                     >
@@ -478,10 +475,12 @@ export function TicketsPage() {
           {board !== null && board.invalidFiles.length > 0 && (
             <>
               <p className="mb-1 flex items-center gap-1.5 font-medium">
-                <GlyphIcon d={INVALID_ICON} size={ICON_SIZE.inlineGlyph} />
+                <span data-slot="icon" className="shrink-0">
+                  <GlyphIcon d={INVALID_ICON} size={ICON_SIZE.inlineGlyph} />
+                </span>
                 {S.company.tickets.invalidFiles}
               </p>
-              <ul className="space-y-0.5 font-mono">
+              <ul className="space-y-1 font-mono">
                 {board.invalidFiles.map((f) => (
                   <li key={f.path}>
                     {f.path}: {f.error}
@@ -490,8 +489,26 @@ export function TicketsPage() {
               </ul>
             </>
           )}
-        </div>
+        </Notice>
       )}
+
+      {/* The lifted card's ghost: the card's own face at its own width, following the
+          pointer above everything else and never under it — the column hit test reads through
+          it. The pointer's moves write its position straight to the element. */}
+      {lifted !== null &&
+        createPortal(
+          <div
+            ref={drag.ghostRef}
+            aria-hidden
+            style={{ width: lifted.width, transform: drag.ghostTransform() }}
+            className="pointer-events-none fixed left-0 top-0 z-[60]"
+          >
+            <div className={`${cardFrame(lifted.ticket)} rotate-1 shadow-lg ring-1 ring-accent`}>
+              {cardBody(lifted.ticket)}
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {/* Move confirmation: the target column, and a reason when the target is rejected —
           the same dialog the detail's own move goes through. */}
@@ -536,7 +553,7 @@ function ColumnSkeleton({ status }: { status: OrgTicketStatus }) {
           (_, i) => (
             <div
               key={i}
-              className="space-y-2 rounded-md border border-gray-200 bg-white p-2.5 dark:border-gray-800 dark:bg-gray-900"
+              className="space-y-2 rounded-md border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900"
             >
               <Skeleton className="h-3.5 w-4/5" />
               <Skeleton className="h-3 w-2/5" />
@@ -549,15 +566,7 @@ function ColumnSkeleton({ status }: { status: OrgTicketStatus }) {
   );
 }
 
-function CreateTicketDialog({
-  open,
-  projectId,
-  orgId,
-  employees,
-  tickets,
-  onClose,
-  onCreated,
-}: {
+interface CreateTicketDialogProps {
   open: boolean;
   projectId: string;
   orgId: string;
@@ -565,44 +574,54 @@ function CreateTicketDialog({
   tickets: readonly OrgTicketItem[];
   onClose: () => void;
   onCreated: (ticketId: string) => void;
-}) {
-  const [title, setTitle] = useState("");
-  const [slug, setSlug] = useState("");
-  const [goal, setGoal] = useState("");
-  const [acceptance, setAcceptance] = useState("");
-  const [owner, setOwner] = useState("");
-  const [parent, setParent] = useState("");
-  const [notify, setNotify] = useState("");
-  const [priority, setPriority] = useState<OrgTicketPriority>("P1");
-  const [due, setDue] = useState("");
-  const [titleError, setTitleError] = useState<string | undefined>(undefined);
-  const [slugError, setSlugError] = useState<string | undefined>(undefined);
-  const [busy, setBusy] = useState(false);
+}
 
-  useEffect(() => {
-    if (!open) return;
-    setTitle("");
-    setSlug("");
-    setGoal("");
-    setAcceptance("");
-    setOwner("");
-    setParent("");
-    setNotify("");
-    setPriority("P1");
-    setDue("");
-    setTitleError(undefined);
-    setSlugError(undefined);
-  }, [open]);
+/** The create form, mounted per opening. Exported for test/company-dialogs-guard.test.ts. */
+export function CreateTicketDialog({ open, ...props }: CreateTicketDialogProps) {
+  // Mounted only while open, so every opening starts blank.
+  return open ? <CreateTicketForm {...props} /> : null;
+}
+
+function CreateTicketForm({
+  projectId,
+  orgId,
+  employees,
+  tickets,
+  onClose,
+  onCreated,
+}: Omit<CreateTicketDialogProps, "open">) {
+  const form = useFormDraft(
+    {
+      title: "",
+      slug: "",
+      goal: "",
+      acceptance: "",
+      owner: "",
+      parent: "",
+      notify: "",
+      priority: "P1" as OrgTicketPriority,
+      due: "",
+    },
+    {
+      normalize: (d) => ({
+        ...d,
+        title: d.title.trim(),
+        slug: d.slug.trim(),
+        goal: d.goal.trim(),
+        acceptance: d.acceptance.trim(),
+        notify: d.notify.trim(),
+      }),
+    },
+  );
+  const { title, slug, goal, acceptance, owner, parent, notify, priority, due } = form.draft;
+  const [busy, setBusy] = useState(false);
+  const requestClose = useGuardedClose(onClose, form.scope, { locked: busy });
+  // The rule sits behind the "?", so a slug that breaks it says so as it is typed.
+  const slugBroken = slug.trim() !== "" && !isTicketSlug(slug.trim());
+  const valid = title.trim() !== "" && !slugBroken;
 
   const submit = async () => {
-    if (!title.trim()) {
-      setTitleError(S.common.requiredField);
-      return;
-    }
-    if (slug.trim() !== "" && !isTicketSlug(slug.trim())) {
-      setSlugError(S.company.tickets.slugInvalid);
-      return;
-    }
+    if (!valid || busy) return;
     setBusy(true);
     try {
       const detail = await api.createOrgTicket(projectId, orgId, {
@@ -617,6 +636,9 @@ function CreateTicketDialog({
         ...(due ? { due } : {}),
       });
       toastSuccess(S.company.tickets.created);
+      // Saved: forget the form now, not at unmount. The board opens the new ticket next, and the
+      // leave guard would hold that over a form with nothing left unsaved.
+      discardUnsaved(form.scope);
       onCreated(detail.ticketId);
     } catch (e) {
       toastError(apiErrorText(e));
@@ -627,16 +649,21 @@ function CreateTicketDialog({
 
   return (
     <Modal
-      open={open}
+      open
       title={S.company.tickets.createTitle}
-      onClose={onClose}
+      onClose={requestClose}
       widthClass="sm:max-w-lg"
       footer={
         <>
-          <Button size="sm" onClick={onClose} disabled={busy}>
+          <Button size="sm" onClick={requestClose} disabled={busy}>
             {S.common.cancel}
           </Button>
-          <Button size="sm" variant="primary" disabled={busy} onClick={() => void submit()}>
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={busy || !valid}
+            onClick={() => void submit()}
+          >
             {S.common.create}
           </Button>
         </>
@@ -648,60 +675,40 @@ function CreateTicketDialog({
           label={S.company.tickets.ticketTitle}
           required
           value={title}
-          error={titleError}
           autoFocus
-          onChange={(e) => {
-            setTitle(e.target.value);
-            setTitleError(undefined);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              void submit();
-            }
-          }}
+          onChange={(e) => form.patch({ title: e.target.value })}
         />
         <Input
           size="sm"
           label={S.company.tickets.slug}
           value={slug}
-          hint={S.company.tickets.slugHint}
-          error={slugError}
+          info={S.company.tickets.slugHint}
+          {...(slugBroken ? { error: S.company.tickets.slugInvalid } : {})}
           className="font-mono"
-          onChange={(e) => {
-            const next = e.target.value;
-            setSlug(next);
-            // The rule is short and the box is small: say so while it is typed, not on submit.
-            setSlugError(
-              next.trim() === "" || isTicketSlug(next.trim())
-                ? undefined
-                : S.company.tickets.slugInvalid,
-            );
-          }}
+          onChange={(e) => form.patch({ slug: e.target.value })}
         />
         <Textarea
           size="sm"
           label={S.company.tickets.goal}
           rows={3}
           value={goal}
-          hint={S.company.tickets.goalHint}
-          onChange={(e) => setGoal(e.target.value)}
+          info={S.company.tickets.goalHint}
+          onChange={(e) => form.patch({ goal: e.target.value })}
         />
         <Textarea
           size="sm"
           label={S.company.tickets.acceptance}
           rows={3}
           value={acceptance}
-          hint={S.company.tickets.acceptanceHint}
-          onChange={(e) => setAcceptance(e.target.value)}
+          info={S.company.tickets.acceptanceHint}
+          onChange={(e) => form.patch({ acceptance: e.target.value })}
         />
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Select
             size="sm"
             label={S.company.tickets.owner}
             value={owner}
-            hint={S.company.tickets.ownerSelfHint}
-            onChange={(e) => setOwner(e.target.value)}
+            onChange={(e) => form.patch({ owner: e.target.value })}
           >
             <option value="">{S.company.tickets.ownerSelf}</option>
             {employees.map((e) => (
@@ -714,7 +721,7 @@ function CreateTicketDialog({
             size="sm"
             label={S.company.tickets.parent}
             value={parent}
-            onChange={(e) => setParent(e.target.value)}
+            onChange={(e) => form.patch({ parent: e.target.value })}
           >
             <option value="">{S.company.tickets.noParent}</option>
             {tickets.map((t) => (
@@ -728,7 +735,7 @@ function CreateTicketDialog({
             <Segmented
               options={PRIORITIES.map((p) => ({ value: p, label: p }))}
               value={priority}
-              onChange={setPriority}
+              onChange={(next) => form.patch({ priority: next })}
               cols={3}
             />
           </div>
@@ -738,7 +745,7 @@ function CreateTicketDialog({
             type="date"
             value={due}
             className="font-mono"
-            onChange={(e) => setDue(e.target.value)}
+            onChange={(e) => form.patch({ due: e.target.value })}
           />
         </div>
         <Input
@@ -746,8 +753,9 @@ function CreateTicketDialog({
           label={S.company.tickets.notify}
           value={notify}
           hint={S.company.tickets.notifyHint}
+          info={S.company.tickets.notifyInfo}
           className="font-mono"
-          onChange={(e) => setNotify(e.target.value)}
+          onChange={(e) => form.patch({ notify: e.target.value })}
         />
       </div>
     </Modal>

@@ -62,13 +62,36 @@ describe("getMessages", () => {
     expect(getMessages("en").chatHints()).toContain("/verbose");
   });
 
+  it("the in-session model switch names its argument pair and says it compacts first", () => {
+    const en = getMessages("en");
+    for (const m of [en]) {
+      // Every surface that teaches the command names it with its argument pair and says a
+      // switch compacts first.
+      for (const text of [m.chatHints(), m.switchModelCurrent("a (p)"), m.resumeNoOverride()]) {
+        expect(text).toContain("/switch-model <provider> <model_id>");
+      }
+      expect(m.chat.resume).toContain("/switch-model");
+      expect(m.switchModelUsage()).toContain("/switch-model <provider> <model_id>");
+      // Interpolations carry their arguments.
+      const done = m.switchModelDone("a (p)", "b (q)");
+      expect(done).toContain("a (p) → b (q)");
+      expect(m.switchModelSame("b (q)")).toContain("b (q)");
+      const notConfigured = m.switchModelNotConfigured("b (q)", "LIST-CMD", "ADD-CMD");
+      for (const part of ["b (q)", "LIST-CMD", "ADD-CMD"]) expect(notConfigured).toContain(part);
+      expect(m.switchModelUnavailable("b (q)", "no key")).toContain("no key");
+      expect(m.switchModelUnavailable("b (q)", "")).not.toMatch(/[:：]$/);
+      expect(m.switchModelBusy().length).toBeGreaterThan(0);
+      expect(m.switchModelNoCompaction().length).toBeGreaterThan(0);
+    }
+  });
+
   it("server-backed command families exist in both languages (spot checks)", () => {
     for (const lang of ["en"] as const) {
       const m = getMessages(lang);
       // Every listing command names its subject in its description.
       expect(m.ls.desc.length).toBeGreaterThan(0);
       expect(m.input.desc.length).toBeGreaterThan(0);
-      expect(m.logs.desc.length).toBeGreaterThan(0);
+      expect(m.log.desc.length).toBeGreaterThan(0);
       expect(m.agent.lsDesc.length).toBeGreaterThan(0);
       expect(m.project.lsDesc.length).toBeGreaterThan(0);
       expect(m.cost.desc.length).toBeGreaterThan(0);
@@ -82,7 +105,7 @@ describe("getMessages", () => {
       expect(m.client.httpError(500, "boom", "detail")).toContain("500");
       expect(m.client.sessionAmbiguous("ab", ["s1", "s2"])).toContain("s1");
       expect(m.client.sessionNotFound("zz", "proj-x")).toContain("zz");
-      expect(m.logs.tailInvalid("x")).toContain("x");
+      expect(m.log.tailInvalid("x")).toContain("x");
       expect(m.cost.byInvalid("bogus")).toContain("bogus");
       expect(m.run.sessionNoOverride()).toContain("--session");
       // The soft-yield / poll / caller-context family.
@@ -91,7 +114,7 @@ describe("getMessages", () => {
       expect(m.client.stillRunning("abcd1234")).toContain("abcd1234");
       expect(m.client.callerDefaultsFailed("session-x")).toContain("session-x");
       expect(m.input.noReplyYet().length).toBeGreaterThan(0);
-      expect(m.logs.timeoutNeedsFollow().length).toBeGreaterThan(0);
+      expect(m.log.timeoutNeedsFollow().length).toBeGreaterThan(0);
       expect(m.run.timeoutWithBackground()).toContain("--background");
       // ls --days and the schedule writer family.
       expect(m.ls.daysInvalid("x")).toContain("x");
@@ -134,21 +157,32 @@ describe("getMessages", () => {
       );
       expect(m.org.ticketHead("2026-09-02-site", "review", false, "waiting")).toContain("waiting");
       expect(m.org.financeTotal("2026-09", "$1.0000")).toContain("2026-09");
+      // The built-in browser family: the error line keeps its code, the hint names the app.
+      expect(m.browser.execDesc.length).toBeGreaterThan(0);
+      expect(m.browser.errorLine("no_such_tab", "gone")).toContain("no_such_tab");
+      expect(m.browser.errorLine("no_such_tab", "gone")).toContain("gone");
+      for (const reason of [undefined, "not_desktop", "shell_unsupported", "no_window"]) {
+        expect(m.browser.unavailableHint(reason)).toContain("PenguinHarness");
+      }
+      expect(m.browser.tabHead(12, "Orders", "https://a.example/", false)).toContain("12");
+      expect(m.browser.sourceNotFound("safari", ["chrome"])).toContain("safari");
+      expect(m.browser.elementsChanged(14)).toContain("14");
     }
-    // Argument errors really are translated, not the English text twice.
-
-    // The dictionaries are genuinely two languages, not one copied twice.
   });
 
-  it("header shows the version and Agent / Workspace / Model on their own lines", () => {
+  it("header shows the build and Agent / Workspace / Model / Server on their own lines", () => {
     for (const lang of ["en"] as const) {
-      const lines = getMessages(lang).header("run", "1.2.3", "ag", "/ws", "mod").split("\n");
-      expect(lines).toHaveLength(4);
+      const lines = getMessages(lang)
+        .header("run", "v1.2.3-4-gabc1234", "ag", "/ws", "mod", "http://localhost:7368 (/dev)")
+        .split("\n");
+      expect(lines).toHaveLength(5);
       expect(lines[0]).toContain("run");
-      expect(lines[0]).toContain("v1.2.3");
+      // The build's own identity, verbatim: a source build names its commit.
+      expect(lines[0]).toContain(" v1.2.3-4-gabc1234");
       expect(lines[1]).toContain("ag");
       expect(lines[2]).toContain("/ws");
       expect(lines[3]).toContain("mod");
+      expect(lines[4]).toContain("http://localhost:7368 (/dev)");
     }
   });
 });

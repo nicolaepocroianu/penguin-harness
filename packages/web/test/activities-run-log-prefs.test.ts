@@ -12,7 +12,7 @@ import {
 } from "../src/features/activities/run-log-prefs";
 import { MessageItems, visibleStreamItems } from "../src/features/chat/message-stream";
 import type { StreamRenderContext } from "../src/features/chat/message-stream";
-import { outputExpandable } from "../src/features/chat/disclosure-row";
+import { outputExpandable } from "@prismshadow/penguin-ui";
 import { ToolOutputActions } from "../src/features/chat/tool-call-card";
 import type { ChatItem } from "../src/lib/omni/stream-model";
 import { S } from "../src/lib/strings";

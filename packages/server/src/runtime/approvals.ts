@@ -34,9 +34,27 @@ interface PendingEntry extends PendingApproval {
   resolve: (decision: ApprovalDecision) => void;
 }
 
+/** A Session runtime's pending approvals, as its holder uses them — what {@link ApprovalRegistry} implements. */
+export interface Approvals {
+  readonly size: number;
+  list(): PendingApproval[];
+  wait(toolCall: OmniMessage<ToolCallPayload>): Promise<ApprovalDecision>;
+  decide(toolCallId: string, decision: ApprovalDecision): boolean;
+  denyAll(): void;
+  denyMain(): void;
+}
+
 /** Pending approval registry (key = tool_call_id), one per Session runtime. */
-export class ApprovalRegistry {
+export class ApprovalRegistry implements Approvals {
   private readonly pending = new Map<string, PendingEntry>();
+  /** Inside a multi-entry change (`wait` replacing an entry, `denyAll`, `denyMain`): reported once, at its end. */
+  private batching = false;
+
+  /**
+   * `onChange` hears every change of `size`, once per call that made it (a `denyAll` over
+   * three entries is one change) and never for a call that left the count where it was.
+   */
+  constructor(private readonly onChange?: () => void) {}
 
   get size(): number {
     return this.pending.size;
@@ -53,18 +71,23 @@ export class ApprovalRegistry {
   /** Register and wait for a decision. Re-registering the same id (defensive) resolves the old entry as deny. */
   wait(toolCall: OmniMessage<ToolCallPayload>): Promise<ApprovalDecision> {
     const id = toolCall.payload.tool_call_id;
-    this.pending.get(id)?.resolve("deny");
-    return new Promise<ApprovalDecision>((resolve) => {
-      const entry: PendingEntry = {
-        toolCall,
-        ...(toolCall.origin !== undefined ? { origin: toolCall.origin } : {}),
-        resolve: (decision) => {
-          this.pending.delete(id);
-          resolve(decision);
-        },
-      };
-      this.pending.set(id, entry);
-    });
+    return this.batch(
+      () =>
+        new Promise<ApprovalDecision>((resolve) => {
+          this.pending.get(id)?.resolve("deny");
+          const entry: PendingEntry = {
+            toolCall,
+            ...(toolCall.origin !== undefined ? { origin: toolCall.origin } : {}),
+            resolve: (decision) => {
+              if (this.pending.get(id) !== entry) return;
+              this.pending.delete(id);
+              this.changed();
+              resolve(decision);
+            },
+          };
+          this.pending.set(id, entry);
+        }),
+    );
   }
 
   /** Submit a decision; returns false if not found (already decided/unknown). */
@@ -77,7 +100,9 @@ export class ApprovalRegistry {
 
   /** Interruption convergence: resolve all pending approvals as deny. */
   denyAll(): void {
-    for (const entry of [...this.pending.values()]) entry.resolve("deny");
+    this.batch(() => {
+      for (const entry of [...this.pending.values()]) entry.resolve("deny");
+    });
   }
 
   /**
@@ -87,8 +112,27 @@ export class ApprovalRegistry {
    * denied only with the child itself (kill/dispose paths use denyAll).
    */
   denyMain(): void {
-    for (const entry of [...this.pending.values()]) {
-      if (entry.origin === undefined || entry.origin.length === 0) entry.resolve("deny");
+    this.batch(() => {
+      for (const entry of [...this.pending.values()]) {
+        if (entry.origin === undefined || entry.origin.length === 0) entry.resolve("deny");
+      }
+    });
+  }
+
+  private changed(): void {
+    if (!this.batching) this.onChange?.();
+  }
+
+  /** Runs `fn` as one change: `onChange` hears it once, and only when the count moved. */
+  private batch<T>(fn: () => T): T {
+    if (this.batching) return fn();
+    const before = this.pending.size;
+    this.batching = true;
+    try {
+      return fn();
+    } finally {
+      this.batching = false;
+      if (this.pending.size !== before) this.onChange?.();
     }
   }
 }
@@ -103,7 +147,7 @@ export function makeApprove(args: {
   getMode: () => ApprovalMode;
   /** A tool's permission level, from the running context's toolset (core Session.toolPermission): strict-tier — a permission edit applies when the next context opens. */
   toolPermission: (name: string) => "r" | "rw" | undefined;
-  registry: ApprovalRegistry;
+  registry: Approvals;
   publishRequest: (pending: PendingApproval) => void;
   /**
    * Whether nobody is watching this Session — an organization's desk, ticket and spawned

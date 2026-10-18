@@ -13,8 +13,7 @@ import type {
   QualityReport,
 } from "@prismshadow/penguin-server/api";
 import { ApiError } from "../../api/client";
-import { Button } from "../../components/ui/button";
-import { InfoPopover } from "../../components/ui/info-popover";
+import { Button, InfoPopover } from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";

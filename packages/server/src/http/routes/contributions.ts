@@ -27,18 +27,27 @@ export function contributionsRoutes(deps: ContributionsRouteDeps): Hono<AppEnv> 
  * crosses this boundary — only data.
  */
 
-export abstract class WebShell extends Interface<{
+@Interface()
+export abstract class WebShell {
   /** Every contribution to the web slots, by slot, in module order. */
-  contributions(): ContributionsResponse;
-}>() {}
+  abstract contributions(): ContributionsResponse;
+}
 
 export interface WebShellSlots {
   /** A page: its route, whether it sits in the main nav, whether it is admin-only. */
   pages: { key: string; path: string; nav: "main" | "none"; admin: boolean; renderer: RendererRef };
   /** A tab on the Agent settings page. */
   agentTabs: { key: string; order: number; renderer: RendererRef };
-  /** A tab beside a Session's chat (a workflow UI lives here). */
-  sessionTabs: { key: string; renderer: RendererRef };
+  /**
+   * A tab beside a Session's chat. A workbench contributes here too, from its own tree, where
+   * the host publishes this slot under this module's name and scopes the tab to its Agent.
+   */
+  sessionTabs: {
+    key: string;
+    title: string;
+    titleZh?: string;
+    renderer: { builtin: string } | { iframe: { src: string } };
+  };
 }
 
 @Module({
@@ -59,7 +68,9 @@ export class WebModule {
   setup({ contributions }: ClassCtx) {
     const collect = (slot: string): WebContribution[] =>
       (contributions[slot] ?? []).map(
-        (c) => ({ id: c.id, from: c.from, ...c.data }) as WebContribution,
+        // The contribution's own fields first: `id` and `from` are the server's attribution,
+        // and a data field of the same name must not replace them.
+        (c) => ({ ...c.data, id: c.id, from: c.from }) as WebContribution,
       );
     const response: ContributionsResponse = {
       pages: collect("pages"),

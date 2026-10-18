@@ -60,6 +60,7 @@ describe("a failed Benchmark's notices", () => {
         benchmark: failed,
         locale: "en",
         nameOf: (agentId: string) => agentId,
+        machineName: null,
         canDelete,
         onOpen: noop,
         onUse: noop,

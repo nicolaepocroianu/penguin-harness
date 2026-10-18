@@ -16,16 +16,19 @@ import type {
   DeployStageState,
 } from "@prismshadow/penguin-server/api";
 import { ApiError } from "../../api/client";
-import { Button } from "../../components/ui/button";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { Dropdown, menuItemClass } from "../../components/ui/dropdown";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { CheckIcon } from "../../components/ui/icons";
-import { ELLIPSIS_ICON } from "../../components/ui/session-row-menu";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { Input } from "../../components/ui/input";
+import {
+  Button,
+  ConfirmModal,
+  Dropdown,
+  GlyphIcon,
+  InfoPopover,
+  Input,
+  ICON_SIZE,
+  ICONS,
+  Menu,
+  MenuItem,
+} from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
-import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { DeployStatePill } from "./deploy-state-pill";
@@ -132,7 +135,7 @@ export function DeployQa({
         const blocked =
           cause instanceof ApiError &&
           (cause.code === "deploy_blocked" || cause.code === "deploy_running");
-        setError((blocked && refusalText((cause as ApiError).detail)) || apiErrorText(cause));
+        setError((blocked && refusalText((cause as ApiError).details)) || apiErrorText(cause));
         if (blocked) onSettled();
       }
     } finally {
@@ -223,38 +226,31 @@ export function DeployQa({
                   title={words.moreActions}
                   onClick={() => setMenuOpen(!menuOpen)}
                 >
-                  <GlyphIcon d={ELLIPSIS_ICON} size={ICON_SIZE.iconButton} filled />
+                  <GlyphIcon d={ICONS.ellipsis} size={ICON_SIZE.iconButton} filled />
                 </Button>
               }
             >
-              <div role="menu" aria-label={words.moreActions} className="py-1">
-                <button
-                  type="button"
-                  role="menuitem"
+              <Menu label={words.moreActions} density="md" className="py-1">
+                <MenuItem
+                  label={
+                    running && run?.selection === "release" ? words.releasing : words.releaseOnly
+                  }
                   disabled={!canRelease}
                   aria-busy={busy === "start" && confirm === "release"}
-                  onClick={() => {
+                  onSelect={() => {
                     setMenuOpen(false);
                     setConfirm("release");
                   }}
-                  className={`${menuItemClass} disabled:cursor-not-allowed disabled:opacity-50`}
-                >
-                  {running && run?.selection === "release" ? words.releasing : words.releaseOnly}
-                </button>
-                <button
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={advanced}
-                  onClick={() => {
+                />
+                <MenuItem
+                  label={words.advanced}
+                  checked={advanced}
+                  onSelect={() => {
                     setMenuOpen(false);
                     setAdvanced(!advanced);
                   }}
-                  className={`${menuItemClass} flex items-center justify-between gap-2`}
-                >
-                  {words.advanced}
-                  {advanced && <CheckIcon />}
-                </button>
-              </div>
+                />
+              </Menu>
             </Dropdown>
             <Button
               size="sm"
@@ -402,6 +398,7 @@ export function DeployQa({
         )}
       </div>
       <ConfirmModal
+        cancelLabel={S.common.cancel}
         open={confirm !== null}
         title={
           confirm === "qa"

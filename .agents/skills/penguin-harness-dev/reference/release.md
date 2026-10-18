@@ -5,13 +5,19 @@ commit rather than written down at the time — so when you deviate, record it h
 
 ## The one rule that costs a version number
 
-**A pushed tag is never moved.** Two numbers have been burned for two different reasons, and both
-are worth knowing because they fail at opposite ends of the run:
+**A pushed tag is never moved.** Three numbers have been burned, for three different reasons, and
+each is worth knowing because they fail at different points of the run:
 
 - **0.2.10** got as far as publishing npm and Docker, then failed the signed macOS build. The tag
   existed, the packages were public, the Release page was not. Shipped again as 0.2.11.
 - **0.2.12** failed in the *first* job, `Publish npm packages`, at its build step — so nothing
   reached npm, Docker or a Release page at all. Shipped again as 0.2.13.
+
+- **0.2.14** failed in `Publish npm packages` at its *test* step. The job stamps the tag's version
+  into every package it publishes, the sandbox backends included (they sit on their own line at
+  0.2.3 in the repo), but not into the server's embedded index of those backends
+  (`packages/server/src/plugin/builtin-index.json`), and `plugin-registry.test.ts` compares the two.
+  CI never stamped, so it was green. Nothing was published; shipped again as 0.2.15.
 
 A `release/**` branch proves the signed matrix before the tag exists, which is what 0.2.10 bought.
 0.2.12 bought the rest: **CI has to walk the publishing path too**, because the release workflow
@@ -36,6 +42,11 @@ Two bugs, and the second is the one to remember:
 The lesson under both: **a green CI that builds differently from the release proves nothing about
 the release.** When the two diverge, the divergence is the defect.
 
+Since 0.2.15 the npm job's stamping and its test suites live in `scripts/release-npm.sh`, and CI's
+`npm packaging` job runs that same script on every pull request — stamp with the repo's version,
+build, run the suites — so the tree the release tests is one CI already tested. A file that copies a
+package's version is stamped there too; add any new one to the script, not to the workflow.
+
 ### A package npm has never seen cannot be published by the release
 
 npm's trusted publishing is configured **per package**. A name that does not exist yet has no
@@ -48,6 +59,25 @@ were reached.
 
 `node scripts/check-publishable.mjs --registry` lists the names that need it; the `npm packaging`
 CI job runs it on every pull request and warns. **Read that warning before tagging.**
+
+### First publish of a new name
+
+Done by a maintainer whose npm account may create packages in the name's scope, on their own
+machine (Node >= 24, pnpm), with a one-off granular token revoked afterwards. CI carries no such
+credential, by design.
+
+1. A clean checkout of `main` at the commit that brings the name: `pnpm install --frozen-lockfile`,
+   then `pnpm -r build` (the bwrap build fetches its binaries from conda-forge).
+2. Copy the root `LICENSE` into the package's directory, as the release does.
+3. `pnpm --filter <name> publish --access public --no-git-checks` — never `npm publish`, which
+   leaves `workspace:*` unrewritten. It publishes the version the manifest carries; the next tag
+   publishes the release's version over it.
+4. On npmjs.com, the package's settings → Trusted Publisher: GitHub Actions,
+   `Prism-Shadow/penguin-harness`, workflow `release.yml`, environment `npm`.
+5. Before the tag: `node scripts/check-publishable.mjs --registry --strict` passes.
+
+A name that is not ready to be public is marked `"private": true` instead. The release skips it,
+and `check-publishable.mjs` fails if a published package depends on it.
 
 ## Order
 
@@ -66,6 +96,7 @@ CI job runs it on every pull request and warns. **Read that warning before taggi
 | `changelog/unreleased/` | `git mv` to `changelog/<version>/`. Nothing else moves; released folders are frozen. |
 | `changelog/<version>/RELEASE.md` | New. The Release body, verbatim. Shape below. |
 | `CHANGELOG.md` | One line at the top, linking `changelog/<version>/`. |
+| `packages/web/src/lib/release-notes-data.ts` | One entry at the top: the version, the release line's date, and 2–5 short user-facing lines in English (App Store "What's New" register, no internal names). The App info dialog renders it; it is edited here and nowhere else. |
 | `README.md` | The Docker example pins the exact version (`hiyouga/penguinharness:<version>`). |
 | `package.json`, `packages/*/package.json`, `plugins/*/package.json` | Version, in lockstep. |
 | `packages/core/src/index.ts` | `export const VERSION`. |
@@ -76,7 +107,8 @@ CI job runs it on every pull request and warns. **Read that warning before taggi
 previous release's number without thinking about it. For the rest, decide and record the decision
 in the PR body:
 
-- `plugins/sandbox-*` track their own line deliberately — leave them.
+- `plugins/sandbox-*` track their own line deliberately — leave them. The release stamps the
+  tag's version on them when it publishes, as on every plugin.
 - A package created mid-cycle at whatever number its author typed is the other case. `packages/hmr`
   arrived from #656 at 0.2.9 and was pulled into lockstep at 0.2.12: it is `private: true` and never
   published, so nothing ships wrong either way, and a package inside `packages/*` sitting three
@@ -125,12 +157,15 @@ must not ship: absolute paths carrying a home directory, API keys, and mock-mode
 
 ## Polishing the prose
 
-Release prose goes through a DeepSeek model on the TokenDance gateway before it ships —
+Release prose goes through a model on the TokenDance gateway before it ships —
 `https://tokendance.space/gateway/v1/chat/completions`, OpenAI Chat Completions protocol, model
-`deepseek-v3.2`. The key is the user's TokenDance key; take it from `TOKENDANCE_API_KEY` or a
-file named by `TOKENDANCE_KEY_FILE`, never from an argument, and never commit it. Not every model
-in the catalog is enabled on a given key — a 403 `model_access_denied` means that key needs the
-model granted on the site, not that the key is bad.
+`glm-5.3-flash` (it was `deepseek-v3.2` until 0.2.14, when the user's key lost access to it). The
+key is the user's TokenDance key; take it from `TOKENDANCE_API_KEY` or a file named by
+`TOKENDANCE_KEY_FILE`, never from an argument, and never commit it. Not every model in the catalog
+is enabled on a given key: a 403 `model_access_denied`, or a 401 `invalid_model` for a model that
+`GET /gateway/v1/models` does list, means that key lacks the model, not that the key is bad. Ask the
+user which model to use rather than picking one. `glm-5.3-flash` reasons before it answers, so its
+reasoning counts against `max_tokens`: a small cap returns `finish_reason: length` with no text.
 
 `scripts/polish-release-prose.mjs` beside this file carries the instruction and does the call:
 

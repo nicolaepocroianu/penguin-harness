@@ -5,7 +5,7 @@
  * will have: an editor's lines, a list's rows, the storyboard's cards, or Deploy's stages.
  */
 import type { ReactNode } from "react";
-import { Skeleton } from "../../components/ui/skeleton";
+import { Skeleton } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import type { WorkspaceSection } from "./workspace-model";
 

@@ -24,6 +24,7 @@ import {
   provisionProjectAgents,
   installPlugin,
   installSkill,
+  McpServerNameTakenError,
   listInstalledHooks,
   isValidId,
   loadAgentVault,
@@ -35,9 +36,12 @@ import {
   libraryPlugin,
   loadLibraryPlugins,
   parseSkillFrontmatter,
+  pluginContentVersion,
+  listInstalledWorkbenches,
 } from "@prismshadow/penguin-core";
 import type { LibraryPlugin } from "@prismshadow/penguin-core";
 import { SEMANTIC_ID_PATTERN, SEMANTIC_ID_RULE } from "./ids.js";
+import { isWorkbenchId, workbenchesDir } from "../workbenches/store.js";
 import { isTopicFileName } from "./memory-service.js";
 import type { PluginUpdateRef } from "../api/types.js";
 import { resolveLibraryPlugins } from "./plugin-library.js";
@@ -84,8 +88,10 @@ export interface AgentListItem {
   kernelOutdated: boolean;
   /** Number of vault keys. */
   vaultKeyCount: number;
-  /** Number of scheduled tasks (count of .toml files under schedule/, including invalid ones). */
+  /** Number of scheduled tasks (count of .toml files directly under schedule/, including invalid ones; archived files under schedule/expired/ are not counted). */
   scheduleCount: number;
+  /** Workbench folders with a manifest, including ones with a load error. */
+  workbenchCount: number;
   /** Number of installed Skills (count of skills/<name>/ directories that contain a SKILL.md). */
   skillCount: number;
   /** Number of installed hook packages (hooks/<name>/ directories with a hooks.json). */
@@ -162,6 +168,7 @@ export class AgentService implements AgentLifecycle {
           ...(updatedAt !== undefined ? { updatedAt } : {}),
           vaultKeyCount,
           scheduleCount,
+          workbenchCount: await this.workbenchCount(projectId, row.agentId),
           skillCount: installed.skillCount,
           hookCount: installed.hookCount,
           pluginUpdates: installed.updates,
@@ -169,6 +176,24 @@ export class AgentService implements AgentLifecycle {
         };
       }),
     );
+  }
+
+  /** Count installed folders without compiling or walking their UI/runtime assets. */
+  private async workbenchCount(projectId: string, agentId: string): Promise<number> {
+    const base = workbenchesDir(this.root, projectId, agentId);
+    const entries = await fs.readdir(base, { withFileTypes: true }).catch(() => []);
+    const present = await Promise.all(
+      entries
+        .filter((entry) => entry.isDirectory() && isWorkbenchId(entry.name))
+        .map(async (entry) => {
+          try {
+            return (await fs.stat(path.join(base, entry.name, "package.json"))).isFile();
+          } catch {
+            return false;
+          }
+        }),
+    );
+    return present.filter(Boolean).length;
   }
 
   /**
@@ -227,7 +252,7 @@ export class AgentService implements AgentLifecycle {
     }
   }
 
-  /** Number of scheduled tasks: count of .toml files under schedule/ (0 if the directory doesn't exist). */
+  /** Number of scheduled tasks: count of .toml files directly under schedule/ (0 if the directory doesn't exist). The expired/ subdirectory of archived files is not a .toml name, so it is never counted. */
   private async scheduleCount(projectId: string, agentId: string): Promise<number> {
     try {
       const names = await fs.readdir(scheduleDir(this.root, projectId, agentId));
@@ -240,7 +265,9 @@ export class AgentService implements AgentLifecycle {
   /**
    * One pass over `skills/` and one over `hooks/`, answering the card's questions: how many
    * skills and hook packages are installed, and which of them the plugin library has moved
-   * past — by plugin, since a plugin is what gets reinstalled to catch up.
+   * past — each part against the library's same part (a skill's dated version against that
+   * skill's, a hook package's against the plugin's `hooks.version`), reported by plugin, since
+   * a plugin is what gets reinstalled to catch up.
    *
    * Only the HEAD of each SKILL.md is read, and that bound is load-bearing rather than a
    * micro-optimization: a preinstalled library is ~180 KB of SKILL.md across seventeen files
@@ -286,20 +313,31 @@ export class AgentService implements AgentLifecycle {
     );
     const hooks = await listInstalledHooks(this.root, projectId, agentId);
     const byPlugin = new Map(library.map((p) => [p.name, p] as const));
-    const bySkill = new Map(library.flatMap((p) => p.skills.map((s) => [s.name, p] as const)));
+    const bySkill = new Map(
+      library.flatMap((p) => p.skills.map((s) => [s.name, { plugin: p, skill: s }] as const)),
+    );
+    // Part by part: an installed skill against the library's same skill, an installed hook
+    // package against the library plugin's hook package. The plugin's own (npm) version says
+    // nothing about what an Agent carries.
     const updates = new Map<string, string>();
     for (const skill of skills) {
       if (skill === null) continue;
-      const plugin = bySkill.get(skill.name);
-      if (plugin && comparePluginVersions(plugin.version, skill.version) > 0) {
-        updates.set(plugin.name, plugin.version);
+      const shipped = bySkill.get(skill.name);
+      if (shipped && comparePluginVersions(shipped.skill.version, skill.version) > 0) {
+        updates.set(shipped.plugin.name, pluginContentVersion(shipped.plugin));
       }
     }
     for (const hook of hooks) {
       const plugin = byPlugin.get(hook.name);
-      if (plugin && comparePluginVersions(plugin.version, hook.version) > 0) {
-        updates.set(plugin.name, plugin.version);
+      if (plugin?.hooks && comparePluginVersions(plugin.hooks.manifest.version, hook.version) > 0) {
+        updates.set(plugin.name, pluginContentVersion(plugin));
       }
+    }
+    for (const installed of await listInstalledWorkbenches(this.root, projectId, agentId)) {
+      const plugin = byPlugin.get(installed.plugin);
+      const workbench = plugin?.workbenches?.find((w) => w.name === installed.name);
+      if (plugin && workbench && comparePluginVersions(workbench.version, installed.version) > 0)
+        updates.set(plugin.name, pluginContentVersion(plugin));
     }
     return {
       skillCount: skills.filter((s) => s !== null).length,
@@ -309,18 +347,20 @@ export class AgentService implements AgentLifecycle {
   }
 
   /**
-   * Where one library plugin stands on one Agent: `installed` is the OLDEST version among the
-   * plugin's installed skills and its installed hook package — the same "any component behind
-   * the library is an update" rule {@link installedPlugins} draws the list cards' hints from —
-   * and null when the Agent carries none of them; `library` is the version the library offers
-   * now, null when the library has no such plugin. Only the head of each SKILL.md is read
-   * (see SKILL_HEAD_BYTES), so the answer costs one small read per skill the plugin ships.
+   * Where one library plugin stands on one Agent, as one pair of dated versions of the same
+   * part — so `library` newer than `installed` is exactly "some part is behind", the rule
+   * {@link installedPlugins} draws the list cards' hints from. Each part the Agent carries (a
+   * skill, the hook package) is paired with the library's same part; among the parts that are
+   * behind — or, when none is, among all of them — the one with the OLDEST installed version
+   * answers. `installed` is null when the Agent carries none of the plugin's parts, with
+   * `library` then the plugin's content version; both are null when the library has no such
+   * plugin. Only the head of each SKILL.md is read (see SKILL_HEAD_BYTES), so the answer costs
+   * one small read per skill the plugin ships.
    *
    * The organization runtime asks this per employee per pass to keep company plugins current.
    * A skill the Agent does not carry — never installed, or removed by hand — counts for
-   * nothing: what is compared is the oldest version the Agent actually has, so a plugin whose
-   * skills are all current reads as current even where one of them is missing. Restoring a
-   * deleted skill is the Agents page's business, not a pass's.
+   * nothing: a plugin whose carried skills are all current reads as current even where one of
+   * them is missing. Restoring a deleted skill is the Agents page's business, not a pass's.
    */
   async pluginVersion(
     projectId: string,
@@ -330,11 +370,14 @@ export class AgentService implements AgentLifecycle {
     const plugin = libraryPlugin(pluginName);
     if (!plugin) return { installed: null, library: null };
     const base = skillsDir(this.root, projectId, agentId);
-    const versions: string[] = [];
+    const parts: { installed: string; library: string }[] = [];
     for (const skill of plugin.skills) {
       try {
         const head = await readHead(path.join(base, skill.name, "SKILL.md"), SKILL_HEAD_BYTES);
-        versions.push(parseSkillFrontmatter(head)?.version ?? "");
+        parts.push({
+          installed: parseSkillFrontmatter(head)?.version ?? "",
+          library: skill.version,
+        });
       } catch {
         // The Agent does not carry this skill: it says nothing about the installed version.
       }
@@ -342,13 +385,25 @@ export class AgentService implements AgentLifecycle {
     if (plugin.hooks !== undefined) {
       const hooks = await listInstalledHooks(this.root, projectId, agentId);
       const installedHook = hooks.find((h) => h.name === pluginName);
-      if (installedHook) versions.push(installedHook.version);
+      if (installedHook) {
+        parts.push({ installed: installedHook.version, library: plugin.hooks.manifest.version });
+      }
     }
-    let installed: string | null = null;
-    for (const version of versions) {
-      if (installed === null || comparePluginVersions(version, installed) < 0) installed = version;
+    for (const installed of await listInstalledWorkbenches(this.root, projectId, agentId)) {
+      const workbench =
+        installed.plugin === pluginName
+          ? plugin.workbenches?.find((w) => w.name === installed.name)
+          : undefined;
+      if (workbench) parts.push({ installed: installed.version, library: workbench.version });
     }
-    return { installed, library: plugin.version };
+    const behind = parts.filter((p) => comparePluginVersions(p.library, p.installed) > 0);
+    let answer: { installed: string; library: string } | null = null;
+    for (const part of behind.length > 0 ? behind : parts) {
+      if (answer === null || comparePluginVersions(part.installed, answer.installed) < 0) {
+        answer = part;
+      }
+    }
+    return answer ?? { installed: null, library: pluginContentVersion(plugin) };
   }
 
   /**
@@ -421,7 +476,7 @@ export class AgentService implements AgentLifecycle {
       throw new HttpError(
         409,
         "cannot_delete_builtin_agent",
-        "Built-in Agents (default_agent) are provisioned with the Project and cannot be deleted from the web.",
+        "Built-in Agents are provisioned with the Project and cannot be deleted from the web.",
       );
     }
     await fs.rm(agentDir(this.root, projectId, agentId), { recursive: true, force: true });
@@ -524,6 +579,11 @@ export class AgentService implements AgentLifecycle {
       await fs
         .rm(agentDir(this.root, projectId, agentId), { recursive: true, force: true })
         .catch(() => {});
+      // Two picked plugins carrying an MCP server of the same name: the creator's choice to
+      // change, answered as the plugin routes answer it — not an internal error.
+      if (err instanceof McpServerNameTakenError) {
+        throw new HttpError(409, "mcp_server_name_taken", err.message);
+      }
       throw err;
     }
     const createdAt = new Date().toISOString();
@@ -548,6 +608,7 @@ export class AgentService implements AgentLifecycle {
       // are real reads because a package may carry any of them.
       vaultKeyCount: 0,
       scheduleCount: await this.scheduleCount(projectId, agentId),
+      workbenchCount: await this.workbenchCount(projectId, agentId),
       skillCount: installed.skillCount,
       hookCount: installed.hookCount,
       pluginUpdates: installed.updates,

@@ -1,6 +1,7 @@
 ---
 name: waf-element-ids
 description: Use when creating DOM elements in pipeline-generated WAF HTML modules so every meaningful element gets a stable, plain, unique id at creation time, making tap/long-press/key telemetry attributable instead of falling back to the activity root id.
+version: 2026.10.10.1
 ---
 
 # WAF Element IDs

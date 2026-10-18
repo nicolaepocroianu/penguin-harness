@@ -7,7 +7,10 @@
  * label, a sparkline of the scoreboard, when it was last evaluated, and its actions; opening one
  * enters the Benchmark's own page (`/benchmark/:benchmarkId`) instead of splitting this one in
  * two, the way an Agent's card enters its settings. `?agentId=` narrows the list to the
- * Benchmarks that tested that Agent.
+ * Benchmarks that tested that Agent. The list is read off this server and every machine it holds
+ * (benchmark-sources.ts): a Benchmark written on a machine is listed too, under its id. Besides
+ * creating one, any member may import one (benchmark-import-modal.tsx): through an Agent from a
+ * repository folder, or from a package zip.
  */
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -16,40 +19,58 @@ import type {
   BenchmarkSummary,
   ModelsResponse,
 } from "@prismshadow/penguin-server/api";
+import {
+  AgentAvatar,
+  AvatarStack,
+  Button,
+  Card,
+  ConfirmModal,
+  EmptyState,
+  GlyphIcon,
+  ICONS,
+  ICON_GAP,
+  ICON_SIZE,
+  Input,
+  PageFrame,
+  PageHeader,
+  Select,
+  Skeleton,
+  SkeletonCard,
+  Sparkline,
+  toastError,
+  toastSuccess,
+} from "@prismshadow/penguin-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
+import { cardBodyClick } from "../../lib/card-open";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import { formatRelativeShort, formatScore, signedDelta } from "../../lib/format";
-import { ICON_GAP, ICON_SIZE } from "../../lib/icon-scale";
 import { STAT_ICONS } from "../../lib/stat-icons";
 import { toneInk } from "../../lib/tone";
 import { agentDisplayName, useProject } from "../../state/project";
+import { useSessions } from "../../state/sessions";
+import type { MergedBenchmark } from "../../lib/benchmark-merge";
+import { nameOnMachine } from "../../lib/workspace-machines";
 import { useLocale } from "../../state/locale";
-import { AgentAvatar } from "../../components/ui/agent-avatar";
-import { Button } from "../../components/ui/button";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { EmptyState } from "../../components/ui/empty-state";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { Input } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
-import { Skeleton, SkeletonCard } from "../../components/ui/skeleton";
-import { toastError, toastSuccess } from "../../components/ui/toast";
-import { AiCreateModal, CreateButtons, pickDefaultAgent } from "../ai-create";
-import { latestWithDelta, matchesBenchmarkQuery, sparklineSeries } from "./benchmark-metrics";
+import { AiCreateModal, pickDefaultAgent } from "../ai-create";
+import { AiCreateButtons } from "../ai-create/ai-create-buttons";
+import {
+  benchmarkDescription,
+  latestWithDelta,
+  matchesBenchmarkQuery,
+  sparklineSeries,
+} from "./benchmark-metrics";
 import { benchmarkCreateExamples, benchmarkCreateTail } from "./benchmark-prompts";
+import { ImportBenchmarkModal } from "./benchmark-import-modal";
 import { benchmarkRoute } from "./benchmark-route";
 import { ActivityBenchSection } from "./activity-bench-section";
+import { fetchBenchmarks } from "./benchmark-sources";
 import { CreateBenchmarkModal } from "./create-benchmark-modal";
-import { ScoreSparkline } from "./score-sparkline";
 import { UseBenchmarkModal } from "./use-benchmark-modal";
 
 /** The Skills a design conversation is opened with (see the create modal below). */
 const BENCHMARK_DESIGN_SKILLS = ["benchmark-design", "agent-evaluation"];
-
-/** Delete (trash can), the same card-row mark the Agents list carries. */
-const TRASH_ICON =
-  "M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m3 0l-1 13a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 7m4 4v6m4-6v6";
 
 /** How many tested Agents a card names before the rest fold into a "+n". */
 const AVATARS_SHOWN = 3;
@@ -64,18 +85,32 @@ function deltaTone(delta: number | null): string {
  * with AI opens a conversation, which any member of the Project may start; creating by hand posts
  * the cases for the server to write under the Project's `benchmarks/`, which only the owner may
  * do (the route answers anyone else with 403). So a member is offered the AI button by itself,
- * the way the scheduled-tasks tab offers it.
+ * the way the scheduled-tasks tab offers it. Given `onImport` (the header), Import benchmark
+ * stands before the pair, for everyone: a Benchmark belongs to the Project, and any member may
+ * bring one in.
  */
 export function BenchmarkCreateButtons({
   isOwner,
   onAi,
   onManual,
+  onImport,
 }: {
   isOwner: boolean;
   onAi: () => void;
   onManual: () => void;
+  onImport?: () => void;
 }) {
-  return <CreateButtons size="sm" onAi={onAi} {...(isOwner ? { onManual } : {})} />;
+  const create = <AiCreateButtons size="sm" onAi={onAi} {...(isOwner ? { onManual } : {})} />;
+  if (onImport === undefined) return create;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button size="sm" variant="secondary" onClick={onImport}>
+        <GlyphIcon d={ICONS.upload} />
+        {S.benchmark.importBenchmark}
+      </Button>
+      {create}
+    </div>
+  );
 }
 
 /**
@@ -121,25 +156,18 @@ function TestedAgents({
   nameOf: (agentId: string) => string;
 }) {
   if (agentIds.length === 0) return null;
-  const shown = agentIds.slice(0, AVATARS_SHOWN);
-  const rest = agentIds.length - shown.length;
   return (
     <div
-      className="hidden shrink-0 items-center gap-1 sm:flex"
-      title={`${S.benchmark.testedAgents}: ${agentIds.map(nameOf).join(", ")}`}
+      className="hidden shrink-0 sm:flex"
+      data-tooltip={`${S.benchmark.testedAgents}: ${agentIds.map(nameOf).join(", ")}`}
+      // The avatars name no one, and past the cap a "+N" stands for the rest.
+      data-tooltip-extra
     >
-      {shown.map((agentId) => (
-        <AgentAvatar
-          key={agentId}
-          id={agentId}
-          name={nameOf(agentId)}
-          size={ICON_SIZE.rowLead}
-          className="shrink-0 rounded"
-        />
-      ))}
-      {rest > 0 && (
-        <span className="text-[11px] tabular-nums text-gray-400 dark:text-gray-500">+{rest}</span>
-      )}
+      <AvatarStack
+        items={agentIds.map((agentId) => ({ id: agentId, name: nameOf(agentId) }))}
+        max={AVATARS_SHOWN}
+        size={ICON_SIZE.rowLead}
+      />
     </div>
   );
 }
@@ -150,13 +178,14 @@ function TestedAgents({
  * previous record of the same label, and the actions. The info column is the card's main button
  * — it enters the Benchmark's page — so everything inside it is phrasing content rather than a
  * nested block. A card that is not published is masked under a notice — still being built for a
- * draft, creation failed for a Benchmark whose calibration never finished — with only the delete
- * icon left live.
+ * draft, creation failed for a Benchmark whose calibration never finished, or a manifest that
+ * cannot be read, with the reason behind an icon — with only the delete icon left live.
  */
 export function BenchmarkCard({
   benchmark,
   locale,
   nameOf,
+  machineName,
   canDelete,
   onOpen,
   onUse,
@@ -165,6 +194,8 @@ export function BenchmarkCard({
   benchmark: BenchmarkSummary;
   locale: "zh" | "en";
   nameOf: (agentId: string) => string;
+  /** The ssh alias of the one machine that holds this Benchmark, or null when this server has it. */
+  machineName: string | null;
   canDelete: boolean;
   onOpen: () => void;
   onUse: () => void;
@@ -177,13 +208,27 @@ export function BenchmarkCard({
   // away. Only the owner's delete stays above the mask, which is how either is cleaned up.
   const masked = benchmark.status !== "published";
   const failed = benchmark.status === "failed";
+  // A Benchmark whose manifest cannot be read lists as failed; its notice says so instead.
+  const broken = benchmark.manifestError;
   // Deleting and creating again is a failed Benchmark's only way out, and the hint names that
   // step only to a viewer who has the delete button beside it.
-  const failedHint = canDelete
-    ? S.benchmark.creationFailedHint
-    : S.benchmark.creationFailedHintMember;
+  const failedHint =
+    broken !== undefined
+      ? canDelete
+        ? S.benchmark.manifestBrokenHint
+        : S.benchmark.manifestBrokenHintMember
+      : canDelete
+        ? S.benchmark.creationFailedHint
+        : S.benchmark.creationFailedHintMember;
   return (
-    <div className="relative flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md border border-gray-200 bg-white px-5 py-4 dark:border-gray-800 dark:bg-gray-900">
+    <Card
+      padding="md"
+      interactive={!masked}
+      className="relative flex flex-wrap items-center gap-x-6 gap-y-2"
+      // A click anywhere else on the body enters the page too (lib/card-open.ts); a masked card
+      // enters nothing.
+      {...(masked ? {} : { onClick: cardBodyClick(onOpen) })}
+    >
       <button
         type="button"
         onClick={onOpen}
@@ -191,14 +236,16 @@ export function BenchmarkCard({
         className="min-w-[14rem] flex-1 text-left"
       >
         <span className="flex items-center gap-2">
-          <span className="min-w-0 truncate text-base font-bold">{benchmark.title}</span>
+          <span className="min-w-0 truncate text-base font-bold">
+            {machineName !== null ? nameOnMachine(benchmark.title, machineName) : benchmark.title}
+          </span>
           <span className="hidden shrink-0 font-mono text-xs text-gray-400 md:inline dark:text-gray-500">
             {benchmark.id}
           </span>
         </span>
         {/* An empty description still takes its line, so the cards keep one height. */}
         <span className="mt-1.5 block min-h-4 truncate text-xs text-gray-500 dark:text-gray-400">
-          {benchmark.description ?? ""}
+          {benchmarkDescription(benchmark, locale) ?? ""}
         </span>
         <span className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
           <span className="shrink-0">{S.benchmark.caseCount(benchmark.caseCount)}</span>
@@ -206,7 +253,7 @@ export function BenchmarkCard({
           {latest && (
             <span
               className={`inline-flex shrink-0 items-center ${ICON_GAP.tight}`}
-              title={S.benchmark.lastEvaluated(formatRelativeShort(latest.time, locale))}
+              data-tooltip={S.benchmark.lastEvaluated(formatRelativeShort(latest.time, locale))}
             >
               <GlyphIcon d={STAT_ICONS.elapsed} size={ICON_SIZE.inlineGlyph} />
               {formatRelativeShort(latest.time, locale)}
@@ -217,7 +264,15 @@ export function BenchmarkCard({
       <TestedAgents agentIds={benchmark.agentIds} nameOf={nameOf} />
       {series.length > 0 && (
         <div className="hidden shrink-0 md:block">
-          <ScoreSparkline values={series} label={S.benchmark.sparklineLabel(series.length)} />
+          {/* The scoreboard's Scores in order, the newest marked, on the observed range (the
+              sparkline's default 72×22 box and five-point floor), so a flat series draws a
+              level line through the middle rather than collapsing onto an edge. */}
+          <Sparkline
+            values={series}
+            label={S.benchmark.sparklineLabel(series.length)}
+            scale="range"
+            marker
+          />
         </div>
       )}
       {/* At least a score's width, and as wide as its label beyond that: the label is a phrase
@@ -228,12 +283,12 @@ export function BenchmarkCard({
           <>
             <span
               className="block font-mono text-sm font-semibold tabular-nums"
-              title={S.benchmark.latestScoreLabel}
+              data-tooltip={S.benchmark.latestScoreLabel}
             >
               {formatScore(latest.score)}
             </span>
             <span
-              className={`block whitespace-nowrap text-[11px] tabular-nums ${deltaTone(latest.delta)}`}
+              className={`block whitespace-nowrap text-xs tabular-nums ${deltaTone(latest.delta)}`}
             >
               {latest.delta === null
                 ? S.benchmark.firstEvaluation
@@ -266,29 +321,37 @@ export function BenchmarkCard({
             onClick={onDelete}
             className={masked ? "relative z-10" : undefined}
           >
-            <GlyphIcon d={TRASH_ICON} size={ICON_SIZE.iconButton} />
+            <GlyphIcon d={ICONS.trash} size={ICON_SIZE.iconButton} />
           </Button>
         )}
       </div>
       {masked && (
         <div
           role="note"
-          title={failed ? failedHint : S.benchmark.buildingHint}
-          className="absolute inset-0 flex cursor-not-allowed flex-col items-center justify-center gap-1 rounded-md bg-white/75 px-4 text-center backdrop-blur-[1px] dark:bg-gray-900/75"
+          className="absolute inset-0 flex cursor-not-allowed flex-col items-center justify-center gap-1 rounded-[inherit] bg-white/75 px-4 text-center dark:bg-gray-900/75"
         >
           {/* A failed creation is the one thing here the user has to act on, so its title takes
               the danger ink; the line under it stays secondary text either way. */}
           <span
-            className={`text-sm font-medium ${failed ? toneInk.danger : "text-gray-700 dark:text-gray-200"}`}
+            className={`inline-flex items-center ${ICON_GAP.row} text-sm font-medium ${failed ? toneInk.danger : "text-gray-700 dark:text-gray-200"}`}
           >
-            {failed ? S.benchmark.creationFailed : S.benchmark.building}
+            {broken !== undefined
+              ? S.benchmark.manifestBroken
+              : failed
+                ? S.benchmark.creationFailed
+                : S.benchmark.building}
+            {broken !== undefined && (
+              <span role="img" data-tooltip={broken.message} aria-label={broken.message}>
+                <GlyphIcon d={ICONS.info} size={ICON_SIZE.inlineGlyph} />
+              </span>
+            )}
           </span>
           <span className="text-xs text-gray-500 dark:text-gray-400">
             {failed ? failedHint : S.benchmark.buildingHint}
           </span>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -297,7 +360,7 @@ function CardSkeletons({ rows }: { rows: number }) {
   return (
     <div className="space-y-3">
       {Array.from({ length: rows }, (_, i) => (
-        <SkeletonCard key={i} className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-4">
+        <SkeletonCard key={i} className="flex flex-wrap items-center gap-x-6 gap-y-2 p-4">
           <div className="min-w-[14rem] flex-1">
             <Skeleton className="h-[18px] w-40" />
             <Skeleton className="mt-1.5 h-4 w-2/3" />
@@ -315,6 +378,7 @@ export function BenchmarkPage() {
   useDocumentTitle(S.benchmark.title);
   const navigate = useNavigate();
   const { currentProject, currentAgent, agents } = useProject();
+  const { machineIds, machineLabels } = useSessions();
   const { locale } = useLocale();
   const projectId = currentProject?.projectId ?? null;
   const isOwner = currentProject?.role === "owner";
@@ -322,29 +386,33 @@ export function BenchmarkPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const filterAgentId = searchParams.get("agentId");
 
-  const [benchmarks, setBenchmarks] = useState<BenchmarkSummary[] | null>(null);
+  const [benchmarks, setBenchmarks] = useState<MergedBenchmark[] | null>(null);
+  /** Bumped to read the list again — after a delete that leaves a machine's copy behind. */
+  const [reload, setReload] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [models, setModels] = useState<ModelsResponse | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
   const [aiTarget, setAiTarget] = useState("");
   const [manualOpen, setManualOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   /** The Benchmark whose Use dialog is open, if any. */
   const [using, setUsing] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  // Benchmarks belong to the Project, so the page reads one list — and a Project change starts
-  // it over rather than showing the previous Project's cards while the next list is in flight.
+  // Benchmarks belong to the Project, so the page reads one list, merged over this server and
+  // the machines it holds — and a Project change starts it over rather than showing the previous
+  // Project's cards while the next list is in flight. A machine that connects re-asks.
+  const machinesKey = machineIds.join(",");
   useEffect(() => {
     if (!projectId) return;
     let cancelled = false;
     setBenchmarks(null);
     setError(null);
-    api
-      .listBenchmarks(projectId)
-      .then((data) => {
-        if (!cancelled) setBenchmarks(data.benchmarks);
+    fetchBenchmarks(projectId, machinesKey === "" ? [] : machinesKey.split(","))
+      .then((merged) => {
+        if (!cancelled) setBenchmarks(merged);
       })
       .catch((e: unknown) => {
         if (!cancelled) setError(apiErrorText(e));
@@ -352,7 +420,7 @@ export function BenchmarkPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, machinesKey, reload]);
 
   // The Project's models, for the Use dialog's conversation-model picker; a failure just
   // leaves the picker at the Project default.
@@ -374,6 +442,9 @@ export function BenchmarkPage() {
 
   const agentOf = (agentId: string): AgentSummary | undefined =>
     agents.find((a) => a.agentId === agentId);
+  /** The ssh alias of a machine, or null for this server. An unlabelled machine falls back to its id. */
+  const machineNameOf = (machineId: string | null): string | null =>
+    machineId === null ? null : (machineLabels.get(machineId) ?? machineId);
   const nameOf = (agentId: string): string => {
     const agent = agentOf(agentId);
     return agent ? agentDisplayName(agent) : agentId;
@@ -395,7 +466,7 @@ export function BenchmarkPage() {
       { replace: true },
     );
 
-  const benchmarkOf = (benchmarkId: string | null): BenchmarkSummary | null =>
+  const benchmarkOf = (benchmarkId: string | null): MergedBenchmark | null =>
     benchmarkId === null ? null : (benchmarks?.find((b) => b.id === benchmarkId) ?? null);
   const usingBenchmark = benchmarkOf(using);
   const deletingBenchmark = benchmarkOf(deleting);
@@ -407,7 +478,12 @@ export function BenchmarkPage() {
     try {
       await api.deleteBenchmark(projectId, benchmarkId);
       toastSuccess(S.benchmark.deleted);
-      setBenchmarks((prev) => (prev ?? []).filter((b) => b.id !== benchmarkId));
+      // Delete removes this server's directory; a copy a machine holds is still a Benchmark.
+      if (deletingBenchmark !== null && deletingBenchmark.machineIds.length > 1) {
+        setReload((n) => n + 1);
+      } else {
+        setBenchmarks((prev) => (prev ?? []).filter((b) => b.id !== benchmarkId));
+      }
       setDeleting(null);
     } catch (e) {
       toastError(apiErrorText(e));
@@ -450,7 +526,9 @@ export function BenchmarkPage() {
             benchmark={b}
             locale={locale}
             nameOf={nameOf}
-            canDelete={isOwner}
+            machineName={b.machineIds.length === 1 ? machineNameOf(b.machineIds[0] ?? null) : null}
+            // Only this server's copy can be deleted from here.
+            canDelete={isOwner && b.machineIds.includes(null)}
             onOpen={() => open(b.id)}
             onUse={() => setUsing(b.id)}
             onDelete={() => setDeleting(b.id)}
@@ -461,17 +539,17 @@ export function BenchmarkPage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto p-4 md:p-6">
-      <div className="mx-auto max-w-5xl">
-        {/* The title row, the intro block and the step cards share one block, so the gap below
-            stays one gap — the Agents and Models headers have the same shape. */}
-        <div className="mb-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h1 className="text-xl font-semibold">{S.benchmark.title}</h1>
-            {/* Search plus the two create entry points. Below sm the search box takes a line of
-                its own and the pair of buttons wraps under it: three controls sharing a phone's
-                width would leave the box too narrow to read what was typed into it. */}
-            <div className="flex min-w-0 max-w-full grow flex-wrap items-center gap-2 sm:grow-0">
+    <>
+      <PageFrame width="lg">
+        {/* The title row and the step cards are one header, so the gap below it stays one gap —
+            the Agents and Models headers have the same shape. Search, then Import benchmark and
+            the two create entry points: below sm the search box takes a line of its own and the
+            buttons wrap under it, since the controls sharing a phone's width would leave the box
+            too narrow to read what was typed into it. */}
+        <PageHeader
+          title={S.benchmark.title}
+          actions={
+            <>
               <div className="w-full min-w-0 sm:w-56 sm:flex-none">
                 <Input
                   size="sm"
@@ -485,11 +563,13 @@ export function BenchmarkPage() {
                 isOwner={isOwner}
                 onAi={openAi}
                 onManual={() => setManualOpen(true)}
+                onImport={() => setImportOpen(true)}
               />
-            </div>
-          </div>
+            </>
+          }
+        >
           <GuideSteps isOwner={isOwner} />
-        </div>
+        </PageHeader>
 
         {/* What the address is filtering by, and the way out of it: the list is narrowed by a
             query parameter, which nothing else on the page would otherwise account for. */}
@@ -501,7 +581,11 @@ export function BenchmarkPage() {
               size={ICON_SIZE.rowLead}
               className="shrink-0 rounded"
             />
-            <span className="min-w-0 truncate" title={nameOf(filterAgentId)}>
+            <span
+              className="min-w-0 truncate"
+              data-tooltip={nameOf(filterAgentId)}
+              data-tooltip-content="text"
+            >
               {S.benchmark.filterByAgent(filterAgentId)}
             </span>
             <Button size="sm" variant="ghost" onClick={clearAgentFilter}>
@@ -514,7 +598,7 @@ export function BenchmarkPage() {
 
         {/* The activity bench's own scores, beside the Project's: admins only, read only. */}
         <ActivityBenchSection projectId={projectId} />
-      </div>
+      </PageFrame>
 
       <AiCreateModal
         open={aiOpen}
@@ -550,6 +634,18 @@ export function BenchmarkPage() {
         projectId={projectId}
         onCreated={(benchmark) => open(benchmark.id)}
       />
+      {importOpen && (
+        <ImportBenchmarkModal
+          projectId={projectId}
+          agents={agents}
+          onClose={() => setImportOpen(false)}
+          // The list is read again whole: an overwrite replaced a card, and machines merge in.
+          onImported={() => {
+            setImportOpen(false);
+            setReload((n) => n + 1);
+          }}
+        />
+      )}
       {usingBenchmark && (
         <UseBenchmarkModal
           key={usingBenchmark.id}
@@ -568,12 +664,13 @@ export function BenchmarkPage() {
         onClose={() => setDeleting(null)}
         onConfirm={() => void confirmDelete()}
         confirmLabel={S.common.delete}
+        cancelLabel={S.common.cancel}
         busy={deleteBusy}
       >
         <p className="text-sm text-gray-700 dark:text-gray-200">
           {S.benchmark.deleteConfirm(deletingBenchmark?.title ?? deleting ?? "")}
         </p>
       </ConfirmModal>
-    </div>
+    </>
   );
 }

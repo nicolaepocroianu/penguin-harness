@@ -15,6 +15,7 @@ export default defineConfig({
     permissions: ["clipboard-read", "clipboard-write"],
     // A failure on a runner cannot be re-run by hand there: keep its trace, which CI uploads.
     trace: process.env.CI ? "retain-on-failure" : "off",
+    screenshot: "only-on-failure",
   },
   projects: [
     {

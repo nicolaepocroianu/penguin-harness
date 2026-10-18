@@ -13,10 +13,7 @@ import type {
   DeployRun,
 } from "@prismshadow/penguin-server/api";
 import { ApiError } from "../../api/client";
-import { Button } from "../../components/ui/button";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { Input } from "../../components/ui/input";
+import { Button, ConfirmModal, InfoPopover, Input } from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { formatDateTime } from "../../lib/format";
 import { S } from "../../lib/strings";
@@ -101,7 +98,7 @@ export function DeployProd({
       const blocked = code === "deploy_blocked" || code === "deploy_running";
       setError(
         prodRefusalText(code) ??
-          (blocked ? refusalText((cause as ApiError).detail) : null) ??
+          (blocked ? refusalText((cause as ApiError).details) : null) ??
           apiErrorText(cause),
       );
       if (blocked) onSettled();
@@ -225,6 +222,7 @@ export function DeployProd({
         </p>
       </div>
       <ConfirmModal
+        cancelLabel={S.common.cancel}
         open={open}
         title={words.prod.confirmTitle}
         tone="primary"

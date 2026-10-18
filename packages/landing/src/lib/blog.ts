@@ -4,8 +4,8 @@
  * a post missing the active language falls back to English, so the list
  * is always complete for every locale.
  */
-import { parseFrontmatter } from "./frontmatter";
-import type { Locale } from "../state/locale";
+import { parseFrontmatter } from "@prismshadow/penguin-ui/site";
+import type { Locale } from "./locale";
 
 export type BlogCategory = "news" | "practice" | "perspectives" | "changelog";
 
@@ -121,6 +121,20 @@ export function postsFor(locale: Locale, category?: BlogCategory): BlogPost[] {
   return [...bySlug.values()]
     .filter((p) => (category ? p.category === category : true))
     .sort(comparePosts);
+}
+
+/** The categories the home page's latest updates draw from: what changed, and how to use it. */
+export const UPDATE_CATEGORIES: readonly BlogCategory[] = ["news", "practice"];
+
+/**
+ * The home page's latest updates: the `count` newest posts of the update categories, by date
+ * alone — a pinned post is pinned on the blog, not news here.
+ */
+export function latestPosts(locale: Locale, count: number): BlogPost[] {
+  return postsFor(locale)
+    .filter((post) => UPDATE_CATEGORIES.includes(post.category))
+    .sort((a, b) => comparePosts({ ...a, pinned: false }, { ...b, pinned: false }))
+    .slice(0, count);
 }
 
 export function getPost(slug: string, locale: Locale): BlogPost | undefined {

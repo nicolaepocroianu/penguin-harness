@@ -4,16 +4,11 @@
  * as long. Choosing a scene plays the activity again from it. The scene playing is marked;
  * one shown for a line chosen elsewhere is ringed.
  */
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { ICON_SIZE } from "../../lib/icon-scale";
+import { Dot, GlyphIcon, ICON_SIZE, ICONS } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
-import { toneDot } from "../../lib/tone";
+import { toneName } from "../../lib/tone";
 import { MediaThumb } from "./media-thumb";
 import { neighbourScene, timelineWeights, type PlayScene } from "./play-model";
-
-const RESTART_ICON = "M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5";
-const PREVIOUS_ICON = "M19 5 9 12l10 7zM5 5v14";
-const NEXT_ICON = "M5 5l10 7-10 7zM19 5v14";
 
 const CONTROL =
   "rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-40 disabled:hover:bg-transparent dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200";
@@ -38,35 +33,35 @@ export function PlayTimeline({
   const next = neighbourScene(scenes, playingSceneId, 1);
   return (
     <div className="flex min-w-0 items-start gap-2">
-      <div className="flex shrink-0 items-center gap-0.5 pt-2">
+      <div className="flex shrink-0 items-center gap-1 pt-2">
         <button
           type="button"
           aria-label={words.restart}
-          title={words.restart}
+          data-tooltip={words.restart}
           onClick={onRestart}
           className={CONTROL}
         >
-          <GlyphIcon d={RESTART_ICON} size={ICON_SIZE.iconButton} />
+          <GlyphIcon d={ICONS.rotateCcw} size={ICON_SIZE.iconButton} />
         </button>
         <button
           type="button"
           aria-label={words.previous}
-          title={words.previous}
+          data-tooltip={words.previous}
           disabled={!previous}
           onClick={() => previous && onJump(previous)}
           className={CONTROL}
         >
-          <GlyphIcon d={PREVIOUS_ICON} size={ICON_SIZE.iconButton} />
+          <GlyphIcon d={ICONS.chevronLeftPipe} size={ICON_SIZE.iconButton} />
         </button>
         <button
           type="button"
           aria-label={words.next}
-          title={words.next}
+          data-tooltip={words.next}
           disabled={!next}
           onClick={() => next && onJump(next)}
           className={CONTROL}
         >
-          <GlyphIcon d={NEXT_ICON} size={ICON_SIZE.iconButton} />
+          <GlyphIcon d={ICONS.chevronRightPipe} size={ICON_SIZE.iconButton} />
         </button>
       </div>
       {scenes.length > 0 && (
@@ -87,7 +82,7 @@ export function PlayTimeline({
                   type="button"
                   aria-current={playing ? "step" : undefined}
                   aria-label={words.jump(name)}
-                  title={name}
+                  data-tooltip={name}
                   onClick={() => onJump(scene.sceneId)}
                   className="group block w-full text-left"
                 >
@@ -102,10 +97,7 @@ export function PlayTimeline({
                   >
                     <MediaThumb preview={scene.preview} type="video" compact />
                     {playing && (
-                      <span
-                        aria-hidden
-                        className={`absolute top-1 left-1 size-1.5 rounded-full motion-safe:animate-pulse ${toneDot.busy}`}
-                      />
+                      <Dot tone={toneName.busy} pulse className="absolute top-1 left-1" />
                     )}
                   </span>
                   <span

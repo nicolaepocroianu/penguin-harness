@@ -14,7 +14,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
+import { ConfirmModal } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import {
   UnsavedWork,
@@ -93,6 +93,7 @@ export function useUnsavedWorkGuard(): { guard: UnsavedWorkGuard; modal: ReactNo
   };
   const modal = (
     <ConfirmModal
+      cancelLabel={S.common.cancel}
       open={asking !== null}
       title={S.activities.discardTitle}
       confirmLabel={S.activities.discardConfirm}

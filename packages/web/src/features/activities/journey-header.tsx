@@ -9,11 +9,14 @@
  * reader hears every step's name and state either way, and a step's title shows them on hover.
  */
 import { useState } from "react";
-import { Button } from "../../components/ui/button";
-import { Dropdown } from "../../components/ui/dropdown";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { ChevronDown } from "../../components/ui/icons";
-import { ICON_SIZE } from "../../lib/icon-scale";
+import {
+  Button,
+  Dropdown,
+  GlyphIcon,
+  ChevronDown,
+  ICON_SIZE,
+  Spinner,
+} from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneInk, type Tone } from "../../lib/tone";
 import type {
@@ -28,12 +31,11 @@ import type {
 const RING = "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z";
 
 /** Each mark's shape: the state reads without its colour. */
-const MARK_PATH: Record<StepMark, string> = {
+const MARK_PATH: Record<Exclude<StepMark, "busy">, string> = {
   done: `${RING} M8.5 12.5l2.5 2.5 4.5-5`,
   attention: `${RING} M12 7.5v5.5 M12 16.5h.01`,
   blocked: "M6.5 11h11v9h-11z M9 11V8.5a3 3 0 0 1 6 0V11",
   failed: `${RING} M9.5 9.5l5 5 M14.5 9.5l-5 5`,
-  busy: "M12 3a9 9 0 1 1-9 9",
   todo: RING,
 };
 
@@ -41,14 +43,10 @@ function inkOf(tone: Tone): string {
   return tone === "muted" ? "text-gray-500 dark:text-gray-400" : toneInk[tone];
 }
 
-export function StepMarkIcon({ mark, tone }: { mark: StepMark; tone: Tone }) {
-  return (
-    <GlyphIcon
-      d={MARK_PATH[mark]}
-      size={ICON_SIZE.rowLead}
-      className={`${toneInk[tone]} ${mark === "busy" ? "motion-safe:animate-spin" : ""}`}
-    />
-  );
+/** A step's mark; a busy one is the shared spinner, announced as `label` (what is running). */
+export function StepMarkIcon({ mark, tone, label }: { mark: StepMark; tone: Tone; label: string }) {
+  if (mark === "busy") return <Spinner size="md" label={label} className={toneInk[tone]} />;
+  return <GlyphIcon d={MARK_PATH[mark]} size={ICON_SIZE.rowLead} className={toneInk[tone]} />;
 }
 
 /**
@@ -88,7 +86,7 @@ export function JourneySteps({
                 type="button"
                 disabled={!canGo(step.go)}
                 aria-current={on ? "step" : undefined}
-                title={`${step.label}: ${step.state}`}
+                data-tooltip={`${step.label}: ${step.state}`}
                 onClick={() => onGo(step.go)}
                 className={`flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left disabled:cursor-default @max-lg:px-0.5 ${
                   on
@@ -96,7 +94,7 @@ export function JourneySteps({
                     : "text-gray-800 enabled:hover:bg-gray-100 dark:text-gray-100 dark:enabled:hover:bg-gray-900"
                 }`}
               >
-                <StepMarkIcon mark={step.mark} tone={step.tone} />
+                <StepMarkIcon mark={step.mark} tone={step.tone} label={step.label} />
                 <span className="grid min-w-0 text-xs leading-tight">
                   <span className="truncate font-medium @max-xl:sr-only">{step.label}</span>
                   <span className={`truncate @max-3xl:sr-only ${inkOf(step.tone)}`}>
@@ -234,6 +232,7 @@ function ReadinessGroup({
               <StepMarkIcon
                 mark={item.kind === "blocker" ? "blocked" : "attention"}
                 tone={item.kind === "blocker" ? "attention" : "muted"}
+                label={item.title}
               />
             </span>
             <div className="min-w-0 flex-1">

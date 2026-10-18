@@ -10,8 +10,8 @@
 #   container — readiness, sign-in, the healthcheck, the unprivileged user, a graceful stop and a
 #   restart onto the same data root. It builds the PR's own checkout, so it proves the Dockerfile
 #   against the code the PR carries.
-# - push to main: `publish` builds that commit and moves `latest`. Every push, no path filter —
-#   `latest` follows main, and it is the only tag a push moves.
+# - push to main touching the image's runtime or build inputs: `publish` builds that commit
+#   and moves `latest`. Docs, site and desktop-only source changes leave the image unchanged.
 # - workflow_call from release.yml's `docker` job: the same build at the tag, published as the
 #   exact version `X.Y.Z` and nothing else.
 # - workflow_dispatch for a manual re-publish, mirroring release.yml's own dispatch input.
@@ -42,6 +42,39 @@ on:
         type: boolean
   push:
     branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - docker/**
+      - .github/workflows/docker.yml
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .npmrc
+      - .pnpmfile.*
+      - pnpmfile.*
+      - .npmignore
+      - .gitattributes
+      - tsconfig*.json
+      - patches/**
+      - scripts/**
+      # The server build copies these installers beside its bundles for remote installs.
+      - install.sh
+      - install.ps1
+      - LICENSE
+      - THIRD-PARTY-NOTICES.md
+      - plugins/**
+      # CLI + web and their dependencies are built; all workspace manifests are installed.
+      # New packages are included by default, so adding an image dependency cannot silently
+      # leave its later source changes out. The excluded packages do not ship in this image.
+      - packages/**
+      - "!packages/desktop/**"
+      - "!packages/docs/**"
+      - "!packages/landing/**"
+      - "!packages/ui-gallery/**"
+      - "!packages/browser-extension/**"
+      # Order matters: even an excluded package's manifest can change the frozen install.
+      - packages/*/package.json
   # Same trigger policy as ci.yml: only a pull request whose base is main, and only when it
   # touches the image.
   pull_request:
@@ -94,6 +127,16 @@ jobs:
           echo "entrypoint ran the command as uid $uid"
           [ "$uid" = "1000" ]
 
+      # Given a data root with the broken shim from #1119, the packaged server must
+      # remove the stub so Agent commands can resolve the installed CLI on PATH.
+      - name: Seed an old CLI error stub
+        run: |
+          docker run --rm -v penguin-data:/data penguin-harness:pr sh -ec '
+            mkdir -p /data/bin
+            printf "#!/bin/sh\necho old-cli-error-stub >&2\nexit 1\n" > /data/bin/penguin
+            chmod +x /data/bin/penguin
+          '
+
       - name: Start the container
         run: |
           docker run -d --name penguin -p 127.0.0.1:7364:7364 \
@@ -113,6 +156,16 @@ jobs:
           echo "error: the server did not answer /api/install within 90s" >&2
           docker logs penguin >&2
           exit 1
+
+      - name: Agent commands reach the installed CLI
+        run: |
+          docker exec penguin test ! -e /opt/penguin/lib/pnpm-workspace.yaml
+          docker exec penguin test ! -e /data/bin/penguin
+          docker exec penguin sh -ec '
+            export PATH="/data/bin:$PATH"
+            penguin --version
+            penguin browser --help
+          '
 
       # The pinned seed password suppresses the first-login notice, so a successful login is
       # what proves the seed ran; /api/version then proves the session cookie is usable.
@@ -208,9 +261,10 @@ jobs:
 
       # Two tag policies, one tag each.
       #
-      # A push to main publishes `latest` and nothing else: `latest` always names the newest build
-      # of main. The image is still stamped with `main-<sha7>` as its version (the app's reported
-      # version and the OCI label), so a running container can say which commit it is.
+      # A main push touching the paths above publishes `latest` and nothing else. The image
+      # is stamped with `main-<sha7>` as its version (the app's reported version and the OCI
+      # label), so a running container can identify its source commit even when main has since
+      # received changes outside the image.
       #
       # A release publishes the exact version, `X.Y.Z`, and nothing else — no moving `X.Y` or
       # `stable` line: a deployment that wants a release pins its version, and `latest` is main.

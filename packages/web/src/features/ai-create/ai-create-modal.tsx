@@ -6,11 +6,8 @@
  * dialog starts from `initialValue` again.
  */
 import { useState } from "react";
+import { Button, GlyphIcon, ICONS, Modal } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
-import { Button } from "../../components/ui/button";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { MAGIC_WAND_ICON } from "../../components/ui/icons";
-import { Modal } from "../../components/ui/modal";
 import { useAiBridge } from "./ai-bridge";
 import { AiCreatePanel } from "./ai-create-panel";
 import type { AiCreatePanelProps } from "./ai-create-panel";
@@ -34,6 +31,8 @@ export interface AiCreateModalProps extends Omit<
   workspace?: string;
   /** Skills to preselect in the new conversation's composer. */
   skills?: string[];
+  /** The machine `agents` live on: the conversation opens there (see AiChatRequest). */
+  machineId?: string | null;
 }
 
 export function AiCreateModal(props: AiCreateModalProps) {
@@ -50,6 +49,7 @@ function AiCreateDialog({
   agentId: initialAgentId,
   workspace,
   skills,
+  machineId,
   tail,
   agents,
   ...panel
@@ -69,6 +69,7 @@ function AiCreateDialog({
       text: composeAiPrompt(value, tail),
       ...(workspace !== undefined ? { workspace } : {}),
       ...(skills !== undefined ? { skills } : {}),
+      ...(machineId !== undefined && machineId !== null ? { machineId } : {}),
     });
     onClose();
   };
@@ -90,7 +91,7 @@ function AiCreateDialog({
             the next screen. Disabled until there is a prompt and an agent to take it.
           */}
           <Button size="sm" variant="primary" disabled={!ready} onClick={go}>
-            <GlyphIcon d={MAGIC_WAND_ICON} />
+            <GlyphIcon d={ICONS.wand} />
             {S.aiCreate.editInChat}
           </Button>
         </>

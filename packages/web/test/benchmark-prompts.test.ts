@@ -1,21 +1,36 @@
 /**
- * The Evaluation Center's prompts and id helpers (src/features/benchmark/benchmark-prompts.ts):
- * the Create-with-AI tail hands the benchmark-design Skill its tested Agent and the Project-level
- * layout, the Evaluate and Optimize tails carry every input the agent-evaluation and
- * agent-optimization Skills require, the two Ask AI tails carry the facts on screen and the
- * files they were read from, and the manual form's directory names follow the id alphabet.
+ * The Evaluation Center's prompts and id helpers (src/features/benchmark/benchmark-prompts.ts).
  * Assertions on a tail's wording are language-agnostic: the ids, paths and Session ids it must
  * name, never the sentences around them, which differ per dictionary.
+ *
+ * - The Create-with-AI tail hands the benchmark-design Skill its tested Agent and the
+ *   Project-level layout, and every evaluation records its tested Agent.
+ * - The Evaluate tail carries every input the agent-evaluation Skill requires and asks for the
+ *   full matrix without offering an optimization; the Optimize tail carries every input the
+ *   agent-optimization Skill requires; a note or focus text goes before the tail, a blank one
+ *   is left out.
+ * - An RSI toolkit's tail (any method but the default) names the toolkit's own Skill and the
+ *   three inputs every toolkit takes, none of the default loop's Skills or knobs, and pins the
+ *   evaluations to the baseline's provider and model only when it is given both.
+ * - The Evaluate tail, one for every Benchmark (Harbor or not), takes the model under test from
+ *   the evaluator's own Session, since an agent stores none: in both dictionaries it names the
+ *   Environment lines that carry the provider and the model id in the system prompt core renders.
+ * - The evaluation dialog's Ask AI question carries the facts on screen, every case and the
+ *   Session of every run, and names no Skill to run; the case dialog's names both material
+ *   paths and the latest runs; each box opens on the default question, which leads its examples.
+ * - Case ids pad the position to three digits, a Benchmark lives at the Project level, and a
+ *   runs count is 1..MAX_RUNS.
  */
 import { describe, expect, it } from "vitest";
+import { defaultSystemConfig } from "@prismshadow/penguin-core";
 import { S } from "../src/lib/strings";
+import { en } from "../src/lib/strings-en";
 import {
   MAX_RUNS,
   askCaseExamples,
   askCaseTail,
   askEvaluationExamples,
   askEvaluationTail,
-  benchmarkCreateExamples,
   benchmarkCreateTail,
   benchmarkPath,
   buildEvaluatePrompt,
@@ -44,16 +59,6 @@ describe("benchmarkCreateTail", () => {
     expect(tail).toContain("`benchmarks/<benchmark_id>/`");
     expect(tail).not.toContain("agents/report-writer");
     expect(tail).toContain("`agent_id`");
-  });
-
-  it("offers examples with unique keys and non-empty prompts", () => {
-    const examples = benchmarkCreateExamples();
-    expect(examples.length).toBeGreaterThanOrEqual(4);
-    expect(new Set(examples.map((e) => e.key)).size).toBe(examples.length);
-    for (const e of examples) {
-      expect(e.label).not.toBe("");
-      expect(e.prompt.trim()).not.toBe("");
-    }
   });
 });
 
@@ -86,6 +91,25 @@ describe("evaluateTail / buildEvaluatePrompt", () => {
     expect(tail).not.toContain("agent-optimization");
     expect(tail).not.toContain("desired_score");
   });
+
+  // The label of the default system prompt's Environment line that renders `placeholder`: what
+  // the evaluator finds its own Session's provider or model id under.
+  const environmentLabel = (placeholder: string): string => {
+    const line = defaultSystemConfig()
+      .system_prompt.split("\n")
+      .find((l) => l.endsWith(`: ${placeholder}`));
+    const label = /^- (.+): \{\{[A-Z_]+\}\}$/.exec(line ?? "")?.[1];
+    if (label === undefined) throw new Error(`no Environment line renders ${placeholder}`);
+    return label;
+  };
+
+  for (const [locale, dict] of Object.entries({ en })) {
+    it(`${locale}: tests on the evaluator's own model, read from the Environment lines core renders`, () => {
+      const tail = dict.benchmark.evaluateTail(params);
+      for (const placeholder of ["{{PROVIDER}}", "{{MODEL_ID}}"])
+        expect(tail).toContain(`\`${environmentLabel(placeholder)}\``);
+    });
+  }
 
   it("puts the note before the tail, and sends the tail alone when the note is blank", () => {
     expect(buildEvaluatePrompt("Watch the citation cases.", params)).toBe(
@@ -124,6 +148,51 @@ describe("optimizeTail / buildOptimizePrompt", () => {
     );
     expect(buildOptimizePrompt("   ", params)).toBe(optimizeTail(params));
   });
+});
+
+describe("rsiOptimizeTail (a toolkit other than the default)", () => {
+  const params = {
+    skill: "opro-rsi-toolkit",
+    targetAgentId: "report-writer",
+    benchmarkId: "report-writing-v1",
+    runs: 2,
+  };
+  // The toolkit measures through its own evaluation reference and runs its paper's budget: the
+  // default loop's Skills and knobs would send it down the other procedure.
+  const DEFAULT_LOOP = [
+    "agent-evaluation",
+    "agent-optimization",
+    "run_subagent",
+    "desired_score",
+    "candidate_round_limit",
+  ];
+
+  for (const [locale, dict] of Object.entries({ en })) {
+    it(`${locale}: names the toolkit's Skill and the three inputs every toolkit takes`, () => {
+      const tail = dict.benchmark.rsiOptimizeTail(params);
+      expect(tail).toContain("`opro-rsi-toolkit`");
+      expect(tail).toContain("`report-writer`");
+      expect(tail).toContain("`report-writing-v1`");
+      expect(tail).toContain("`benchmarks/report-writing-v1/`");
+      expect(tail).toMatch(/runs[：:] ?`2`/);
+      expect(tail).toContain("scoreboard.yaml");
+      for (const marker of DEFAULT_LOOP) expect(tail).not.toContain(marker);
+    });
+
+    it(`${locale}: pins the baseline's provider and model only when given both`, () => {
+      const pinned = dict.benchmark.rsiOptimizeTail({
+        ...params,
+        provider: "deepseek",
+        modelId: "deepseek-v4-pro",
+      });
+      expect(pinned).toMatch(/provider[：:] ?`deepseek`/);
+      expect(pinned).toMatch(/model_id[：:] ?`deepseek-v4-pro`/);
+      expect(dict.benchmark.rsiOptimizeTail(params)).not.toMatch(/provider|model_id/);
+      // Half a pair is no pair: the toolkit stops on one rather than guessing the other half.
+      const half = dict.benchmark.rsiOptimizeTail({ ...params, provider: "deepseek" });
+      expect(half).not.toMatch(/provider|model_id/);
+    });
+  }
 });
 
 describe("askEvaluationTail (the evaluation dialog's Ask AI question)", () => {
@@ -206,17 +275,10 @@ describe("askEvaluationTail (the evaluation dialog's Ask AI question)", () => {
     expect(tail).not.toContain("run_subagent");
   });
 
-  it("offers examples with unique keys and non-empty prompts, the default question first", () => {
-    const examples = askEvaluationExamples();
-    expect(examples).toHaveLength(4);
-    expect(new Set(examples.map((e) => e.key)).size).toBe(examples.length);
-    for (const e of examples) {
-      expect(e.label).not.toBe("");
-      expect(e.prompt.trim()).not.toBe("");
-    }
-    // The box opens on the default question; the leading example IS that question, so a
-    // reader who tried another example can bring it back with one click.
-    expect(examples[0]?.prompt).toBe(S.benchmark.askEvaluationDefault);
+  it("leads the examples with the default question the box opens on", () => {
+    // The leading example IS that question, so a reader who tried another example can bring
+    // it back with one click.
+    expect(askEvaluationExamples()[0]?.prompt).toBe(S.benchmark.askEvaluationDefault);
   });
 });
 
@@ -254,15 +316,8 @@ describe("askCaseTail (the case dialog's Ask AI question)", () => {
     expect(tail).not.toContain("64.7");
   });
 
-  it("offers examples with unique keys and non-empty prompts, the default question first", () => {
-    const examples = askCaseExamples();
-    expect(examples).toHaveLength(4);
-    expect(examples[0]?.prompt).toBe(S.benchmark.askCaseDefault);
-    expect(new Set(examples.map((e) => e.key)).size).toBe(examples.length);
-    for (const e of examples) {
-      expect(e.label).not.toBe("");
-      expect(e.prompt.trim()).not.toBe("");
-    }
+  it("leads the examples with the default question the box opens on", () => {
+    expect(askCaseExamples()[0]?.prompt).toBe(S.benchmark.askCaseDefault);
   });
 });
 

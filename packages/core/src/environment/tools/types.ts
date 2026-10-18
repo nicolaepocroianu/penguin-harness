@@ -10,6 +10,7 @@
 import type { OmniMessage, StopReason } from "../../omnimessage/index.js";
 import type { ApproveFn, ToolDefinitionConfig } from "../../interfaces/index.js";
 import type { ProtectedRoot } from "./path-guard.js";
+import type { ToolFs } from "./fs-port.js";
 
 /**
  * Tool execution context: runtime information needed to execute one tool call.
@@ -45,6 +46,12 @@ export interface ToolExecutionContext {
    * and scratchpad). Absent means no such limit, which is what every tool did before.
    */
   writableRoots?: readonly string[];
+  /**
+   * The file system the file tools work through (see fs-port.ts): the Session's sandboxed
+   * helper for a confined Session, this process for an unconfined one, decided on first
+   * use. Absent = this process.
+   */
+  fs?: ToolFs;
 }
 
 /**

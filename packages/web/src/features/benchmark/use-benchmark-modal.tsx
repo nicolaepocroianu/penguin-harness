@@ -8,14 +8,28 @@
  * Send stays the user's move. A Benchmark can score several agents, so which one is under test
  * is a choice here; the baseline and the default target follow that choice. The model of the
  * conversation that carries the work out is picked with the Project settings' own model picker
- * (ModelSelect in its form variant, the one the new-chat defaults and the schedule form use),
+ * (ModelCatalogSelect in its form variant, the one the new-chat defaults and the schedule form use),
  * preset to the Project's default model. The new conversation opens with the Skills its tab
  * rests on preselected — the evaluator on both tabs, the optimizer on its own — so the
  * `[use_skills]` block names them on send and the model reads them before it acts; a model
  * left to its own devices sometimes scored the runs itself instead of delegating to
- * agent-evaluation. The evaluation runtime is never picked in this dialog —
- * Evaluate takes the tested agent's own configured model and thinking level, and Optimize reuses
- * what that agent's baseline recorded, so scores stay comparable. Mounted fresh per Benchmark.
+ * agent-evaluation. Evaluate tests on that conversation's own model, at the tested agent's
+ * configured thinking level: an agent stores no model of its own. The prompt names no model —
+ * the evaluator reads its Session's model from its Environment — so one changed in the composer
+ * after the prefill is still the one tested, and the text never goes stale. Optimize reuses what
+ * that agent's baseline recorded, so scores stay comparable. Mounted fresh per Benchmark.
+ *
+ * Optimize first picks the method: one RSI toolkit per plugin of the library's `rsi` category,
+ * read from the library each time the dialog opens (rsi-methods.ts), so a toolkit an admin has
+ * just installed is offered. The default toolkit is the form above. Any other toolkit runs its
+ * paper's own loop and budget, so it takes no round limit and no target; its one Skill is the
+ * only one preselected, and its tail hands it the baseline's provider and model when there is a
+ * baseline. Until the library is read — or when the read fails, or it lists no toolkit — the
+ * select is disabled and says why, and the tab is the default loop's form: that loop is the
+ * product's own and needs nothing from the list.
+ *
+ * The conversation is an ordinary Session, listed with the agent's own: only the Test Sessions
+ * it starts through `penguin run` (CLI Sessions) are archived, by the listing rule.
  */
 import { useEffect, useState } from "react";
 import type {
@@ -24,29 +38,37 @@ import type {
   ModelRefDto,
   ModelsResponse,
 } from "@prismshadow/penguin-server/api";
+import {
+  Button,
+  FieldHint,
+  FieldLabel,
+  GlyphIcon,
+  ICONS,
+  Input,
+  Modal,
+  NoticeStrip,
+  Segmented,
+  Select,
+  Textarea,
+} from "@prismshadow/penguin-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { formatScore } from "../../lib/format";
-import { toneStrip } from "../../lib/tone";
+import { useLocale } from "../../state/locale";
 import { agentDisplayName, useProject } from "../../state/project";
-import { Button } from "../../components/ui/button";
-import { FieldHint, FieldLabel } from "../../components/ui/field";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { MAGIC_WAND_ICON } from "../../components/ui/icons";
-import { Input, Textarea } from "../../components/ui/input";
-import { Modal } from "../../components/ui/modal";
-import { Segmented } from "../../components/ui/segmented";
-import { Select } from "../../components/ui/select";
 import { PromptFold, composeAiPrompt, pickDefaultAgent, useAiBridge } from "../ai-create";
-import { ModelSelect } from "../chat/model-select";
+import { ModelCatalogSelect } from "../chat/model-select";
 import { defaultTargetScore, latestScoreOfAgent } from "./benchmark-metrics";
-import { MAX_RUNS, evaluateTail, optimizeTail } from "./benchmark-prompts";
-import type { EvaluateParams, OptimizeParams } from "./benchmark-prompts";
-
-/** The Skill the evaluator agent must carry; the dialog warns when the chosen agent lacks it. */
-const EVALUATION_SKILL = "agent-evaluation";
-/** The Skill the optimizer agent must carry; the dialog warns when the chosen agent lacks it. */
-const OPTIMIZATION_SKILL = "agent-optimization";
+import { MAX_RUNS, evaluateTail, optimizeTail, rsiOptimizeTail } from "./benchmark-prompts";
+import type { EvaluateParams, OptimizeParams, RsiOptimizeParams } from "./benchmark-prompts";
+import {
+  DEFAULT_TOOLKIT_PLUGIN,
+  EVALUATION_SKILL,
+  OPTIMIZATION_SKILL,
+  pickRsiMethod,
+  rsiMethods,
+} from "./rsi-methods";
+import { useRsiToolkits } from "./use-rsi-toolkits";
 
 /** Which half of the dialog is on screen. */
 export type UseTab = "evaluate" | "optimize";
@@ -83,6 +105,8 @@ export function UseBenchmarkModal({
 }) {
   const { openAiChat } = useAiBridge();
   const { currentAgent } = useProject();
+  const { locale } = useLocale();
+  const library = useRsiToolkits();
   const [tab, setTab] = useState<UseTab>(initialTab);
   // Who was tested last here is the likeliest subject of the next round; with no evaluation at
   // all, the Agent the user came from, and failing that the Project's default. Both tabs act on
@@ -93,6 +117,19 @@ export function UseBenchmarkModal({
     lastTested ?? currentAgent?.agentId ?? pickDefaultAgent(agents)?.agentId ?? "",
   );
   const baseline = latestScoreOfAgent(benchmark.evaluations, testAgentId);
+  // The record that baseline is read from — the tested agent's newest scored evaluation, as
+  // latestScoreOfAgent picks it. The default loop keeps the provider and model it was recorded
+  // on; a toolkit other than the default is handed the same pair, so its scores join that series.
+  const baselineRecord =
+    testAgentId === ""
+      ? undefined
+      : [...benchmark.evaluations]
+          .reverse()
+          .find((e) => (e.agentId ?? "") === testAgentId && Number.isFinite(e.score));
+  const baselineRuntime =
+    baselineRecord !== undefined
+      ? { provider: baselineRecord.provider, modelId: baselineRecord.modelId }
+      : null;
   const defaultTarget = defaultTargetScore(baseline?.score ?? null);
   const [evaluatorId, setEvaluatorId] = useState<string | null>(
     pickDefaultAgent(agents)?.agentId ?? null,
@@ -112,6 +149,13 @@ export function UseBenchmarkModal({
   /** The target follows the tested agent's baseline until the field is edited by hand. */
   const [targetTouched, setTargetTouched] = useState(false);
   const [focus, setFocus] = useState("");
+  /** The plugin of the RSI toolkit the Optimize tab hands the work to. */
+  const [methodPlugin, setMethodPlugin] = useState(DEFAULT_TOOLKIT_PLUGIN);
+  const methods = library.value === null ? [] : rsiMethods(library.value, locale);
+  // Null while the select has nothing to offer, which leaves the default loop's form.
+  const toolkit = pickRsiMethod(methods, methodPlugin);
+  const isDefaultMethod = toolkit === null || toolkit.kind === "default";
+  const optimizerSkill = toolkit?.skill ?? OPTIMIZATION_SKILL;
   const [skillsByAgent, setSkillsByAgent] = useState<Record<string, string[]>>({});
 
   // The installed Skills of the agents that could carry the work out, fetched once per agent,
@@ -146,7 +190,8 @@ export function UseBenchmarkModal({
     return installed !== undefined && !installed.includes(skill);
   };
   const evaluatorMissingSkill = lacksSkill(evaluatorId, EVALUATION_SKILL);
-  const optimizerMissingSkill = lacksSkill(optimizerId, OPTIMIZATION_SKILL);
+  // The default toolkit's optimizer is OPTIMIZATION_SKILL; any other toolkit's is its own Skill.
+  const optimizerMissingSkill = lacksSkill(optimizerId, optimizerSkill);
 
   const runsValue = intIn(runs, 1, MAX_RUNS);
   const roundsValue = intIn(roundLimit, 1, MAX_RUNS);
@@ -161,16 +206,24 @@ export function UseBenchmarkModal({
     roundLimit: roundsValue ?? 3,
     targetScore: targetValue ?? defaultTarget,
   };
+  const rsiParams: RsiOptimizeParams = {
+    ...evaluateParams,
+    skill: optimizerSkill,
+    ...(baselineRuntime ?? {}),
+  };
   const text =
     tab === "evaluate"
       ? composeAiPrompt(note, evaluateTail(evaluateParams))
-      : composeAiPrompt(focus, optimizeTail(optimizeParams));
+      : isDefaultMethod
+        ? composeAiPrompt(focus, optimizeTail(optimizeParams))
+        : composeAiPrompt(focus, rsiOptimizeTail(rsiParams));
   const runnerId = tab === "evaluate" ? evaluatorId : optimizerId;
+  // A toolkit other than the default takes no round limit and no target: its budget is its own.
   const ready =
     runnerId !== null &&
     testAgentId !== "" &&
     runsValue !== null &&
-    (tab === "evaluate" || (roundsValue !== null && targetValue !== null));
+    (tab === "evaluate" || !isDefaultMethod || (roundsValue !== null && targetValue !== null));
 
   const go = () => {
     if (runnerId === null) return;
@@ -178,11 +231,13 @@ export function UseBenchmarkModal({
     openAiChat({
       agentId: runnerId,
       text,
-      skills: tab === "evaluate" ? [EVALUATION_SKILL] : [OPTIMIZATION_SKILL, EVALUATION_SKILL],
+      skills:
+        tab === "evaluate"
+          ? [EVALUATION_SKILL]
+          : isDefaultMethod
+            ? [OPTIMIZATION_SKILL, EVALUATION_SKILL]
+            : [optimizerSkill],
       ...(ref !== undefined ? { modelRef: ref } : {}),
-      // An evaluation / optimization run, not a conversation of the user's own: the session
-      // list files it, and the Test Sessions it launches, under the Evaluations folder.
-      source: "benchmark",
     });
     onClose();
   };
@@ -201,7 +256,7 @@ export function UseBenchmarkModal({
       {models !== null && models.models.length === 0 ? (
         <p className="text-xs text-gray-400">{S.models.empty}</p>
       ) : (
-        <ModelSelect
+        <ModelCatalogSelect
           models={models?.models ?? []}
           value={modelRef}
           {...(defaultModel !== undefined ? { defaultModel } : {})}
@@ -215,7 +270,9 @@ export function UseBenchmarkModal({
   );
   const missingSkillStrip = (missing: boolean, message: string) =>
     missing ? (
-      <div className={`rounded-md border px-3 py-2 text-xs ${toneStrip.attention}`}>{message}</div>
+      <NoticeStrip tone="attention" className="rounded-md border px-3 py-2 text-xs">
+        {message}
+      </NoticeStrip>
     ) : null;
   const testedAgentSelect = (hint: string) => (
     <Select
@@ -256,7 +313,7 @@ export function UseBenchmarkModal({
             parameter of the open tab is in range.
           */}
           <Button size="sm" variant="primary" disabled={!ready} onClick={go}>
-            <GlyphIcon d={MAGIC_WAND_ICON} />
+            <GlyphIcon d={ICONS.wand} />
             {S.aiCreate.editInChat}
           </Button>
         </>
@@ -302,52 +359,123 @@ export function UseBenchmarkModal({
           </>
         ) : (
           <>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              {S.benchmark.optimizeDescription}
-            </p>
-            {baseline === null ? (
-              <div className={`rounded-md border px-3 py-2 text-xs ${toneStrip.attention}`}>
-                {S.benchmark.noBaseline}
-              </div>
+            {/*
+              The method comes first, because it decides what the rest of the tab asks for, and
+              it stays put while the fields below it change. The default toolkit keeps the form
+              it has always had. Any other toolkit runs its paper's own loop and measures its own
+              baseline, so the round limit, the target score and the baseline they are read
+              against give way to one line saying so.
+            */}
+            {toolkit !== null ? (
+              <Select
+                label={S.benchmark.methodField}
+                info={S.benchmark.methodHint}
+                {...(toolkit.hint !== "" ? { hint: toolkit.hint } : {})}
+                value={toolkit.plugin}
+                onChange={(e) => setMethodPlugin(e.target.value)}
+              >
+                {methods.map((m) => (
+                  <option key={m.plugin} value={m.plugin}>
+                    {m.label}
+                  </option>
+                ))}
+              </Select>
             ) : (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {S.benchmark.baselineLine(formatScore(baseline.score), optimizeParams.targetScore)}
-              </p>
+              // Nothing to pick from yet: one disabled option says why, and the form below is
+              // the default loop's.
+              <Select
+                label={S.benchmark.methodField}
+                info={S.benchmark.methodHint}
+                value=""
+                disabled
+              >
+                <option value="">
+                  {library.value === null
+                    ? library.failed
+                      ? S.benchmark.methodsFailed
+                      : S.benchmark.methodsLoading
+                    : S.benchmark.methodsNone}
+                </option>
+              </Select>
+            )}
+            {isDefaultMethod && (
+              <>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  {S.benchmark.optimizeDescription}
+                </p>
+                {baseline === null ? (
+                  <NoticeStrip tone="attention" className="rounded-md border px-3 py-2 text-xs">
+                    {S.benchmark.noBaseline}
+                  </NoticeStrip>
+                ) : (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {S.benchmark.baselineLine(
+                      formatScore(baseline.score),
+                      optimizeParams.targetScore,
+                    )}
+                  </p>
+                )}
+              </>
             )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {testedAgentSelect(S.benchmark.testedAgentHint)}
               <Select
                 label={S.benchmark.optimizerAgent}
-                hint={S.benchmark.optimizerAgentHint}
+                hint={
+                  isDefaultMethod
+                    ? S.benchmark.optimizerAgentHint
+                    : S.benchmark.methodOptimizerHint(optimizerSkill)
+                }
                 value={optimizerId ?? ""}
                 onChange={(e) => setOptimizerId(e.target.value)}
               >
                 {agentOptions}
               </Select>
-              {modelField(S.benchmark.sessionModel, S.benchmark.sessionModelHint)}
+              {/* Evaluations run on the model the baseline was recorded on; a toolkit other than
+                  the default with no baseline to follow measures on this conversation's own
+                  model instead, as the Evaluate tab does. */}
+              {modelField(
+                S.benchmark.sessionModel,
+                isDefaultMethod || baselineRuntime !== null
+                  ? S.benchmark.sessionModelHint
+                  : S.benchmark.evaluateSessionModelHint,
+              )}
             </div>
-            {missingSkillStrip(optimizerMissingSkill, S.benchmark.optimizerMissingSkill)}
+            {missingSkillStrip(
+              optimizerMissingSkill,
+              isDefaultMethod
+                ? S.benchmark.optimizerMissingSkill
+                : S.benchmark.methodMissingSkill(toolkit?.plugin ?? "", optimizerSkill),
+            )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {runsInput(S.benchmark.optimizeRunsHint)}
-              <Input
-                label={S.benchmark.roundLimitField}
-                hint={S.benchmark.roundLimitHint}
-                inputMode="numeric"
-                value={roundLimit}
-                onChange={(e) => setRoundLimit(digits(e.target.value))}
-                {...errorProp(roundsValue === null ? S.benchmark.invalidRuns : undefined)}
-              />
-              <Input
-                label={S.benchmark.targetScoreField}
-                hint={S.benchmark.targetScoreHint}
-                inputMode="numeric"
-                value={targetScore}
-                onChange={(e) => {
-                  setTargetTouched(true);
-                  setTargetScore(digits(e.target.value));
-                }}
-                {...errorProp(targetValue === null ? S.benchmark.invalidScore : undefined)}
-              />
+              {isDefaultMethod ? (
+                <>
+                  <Input
+                    label={S.benchmark.roundLimitField}
+                    hint={S.benchmark.roundLimitHint}
+                    inputMode="numeric"
+                    value={roundLimit}
+                    onChange={(e) => setRoundLimit(digits(e.target.value))}
+                    {...errorProp(roundsValue === null ? S.benchmark.invalidRuns : undefined)}
+                  />
+                  <Input
+                    label={S.benchmark.targetScoreField}
+                    hint={S.benchmark.targetScoreHint}
+                    inputMode="numeric"
+                    value={targetScore}
+                    onChange={(e) => {
+                      setTargetTouched(true);
+                      setTargetScore(digits(e.target.value));
+                    }}
+                    {...errorProp(targetValue === null ? S.benchmark.invalidScore : undefined)}
+                  />
+                </>
+              ) : (
+                <p className="text-xs text-gray-500 sm:col-span-2 sm:self-center dark:text-gray-400">
+                  {S.benchmark.methodBudgetHint}
+                </p>
+              )}
             </div>
             <Textarea
               label={S.benchmark.focusField}

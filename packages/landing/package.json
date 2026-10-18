@@ -1,6 +1,6 @@
 {
   "name": "@prismshadow/penguin-landing",
-  "version": "0.2.13",
+  "version": "0.2.16",
   "private": true,
   "type": "module",
   "description": "PenguinHarness landing page (React + Vite + Tailwind CSS): multilingual, light/dark themes, benchmark showcase, and a local Markdown blog, deployed to GitHub Pages via GitHub Actions.",
@@ -15,6 +15,7 @@
     "blog-013-shots": "node scripts/capture-blog-013-shots.mjs"
   },
   "dependencies": {
+    "@prismshadow/penguin-ui": "workspace:*",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",

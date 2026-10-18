@@ -11,7 +11,7 @@
  */
 
 export interface DocsPageDef {
-  /** Page slug; content files are content/<slug>.<zh|en>.md. */
+  /** Page slug; content files are content/<slug>.en.md. */
   slug: string;
   /** Sub-page slugs, in display order — indented under the parent, paginated after it. */
   children?: string[];
@@ -48,6 +48,7 @@ export const DOCS_NAV: DocsSectionDef[] = [
       "web-app",
       "chat",
       "files",
+      "builtin-browser",
       "schedules",
       "remote-control",
       "agents",
@@ -74,7 +75,10 @@ export const DOCS_NAV: DocsSectionDef[] = [
       "sessions-and-traces",
     ),
   },
-  { id: "reference", pages: pages("cli", "server-api", "configuration", "security") },
+  {
+    id: "reference",
+    pages: pages("cli", "server-api", "agent-api", "amsp", "configuration", "security"),
+  },
 ];
 
 /** All slugs in display order — each parent immediately followed by its children. */

@@ -9,8 +9,7 @@ import { useEffect, useState } from "react";
 import type { ModuleDocuments } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneStrip, type Tone } from "../../lib/tone";
-import { Button } from "../../components/ui/button";
-import { InfoPopover } from "../../components/ui/info-popover";
+import { Button, InfoPopover } from "@prismshadow/penguin-ui";
 import {
   TABLE,
   TABLE_HEAD_ROW,
@@ -119,13 +118,13 @@ export function DefinitionSummaryView({
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {unsaved && <p className="text-xs text-gray-500">{words.unsaved}</p>}
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {tiles.map((tile) => (
           <div key={tile.label} className={`min-w-0 px-3 py-2.5 ${CARD}`}>
             <dt className="text-xs text-gray-500">{tile.label}</dt>
-            <dd className="mt-1 truncate text-sm font-semibold" title={tile.value}>
+            <dd className="mt-1 truncate text-sm font-semibold" data-tooltip={tile.value}>
               {tile.value}
             </dd>
           </div>
@@ -247,7 +246,7 @@ function FileRow({
             href={moduleFileUrl(endpoint, file.path)}
             target="_blank"
             rel="noreferrer"
-            title={words.openFile(file.path)}
+            data-tooltip={words.openFile(file.path)}
             className="text-brand-700 hover:underline dark:text-brand-300"
           >
             {file.url}
@@ -280,7 +279,7 @@ function PropertyRow({ name, value }: { name: string; value: string }) {
       <dt className="font-mono text-xs leading-5 text-gray-500">{name}</dt>
       <dd className="min-w-0">
         <p
-          title={long && !open ? value : undefined}
+          data-tooltip={long && !open ? value : undefined}
           className={`break-words whitespace-pre-wrap ${long && !open ? "line-clamp-2" : ""}`}
         >
           {value}

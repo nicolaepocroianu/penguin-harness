@@ -21,8 +21,8 @@ export function apiErrorText(err: unknown, ctx?: { modelId?: string }): string {
   }
   if (err.code === "no_default_model") return S.errors.noDefaultModel;
   // The narration's provider decides which key is missing; the refusal names it as data.
-  if (err.code === "speech_credential_missing" && err.detail?.credential)
-    return S.errors.speechCredentialMissing(err.detail.credential);
+  if (err.code === "speech_credential_missing" && err.details?.credential)
+    return S.errors.speechCredentialMissing(err.details.credential);
   // Code → localized text; the map is a plain object, indexed by the runtime code string.
   const byCode = S.errors.byCode as Record<string, string | undefined>;
   return byCode[err.code] ?? err.message;

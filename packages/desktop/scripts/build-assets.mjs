@@ -21,11 +21,12 @@
  * - `bin/penguin`, `bin/penguin.cmd` — the CLI launchers, whose script text lives in
  *   src/launcher.ts so it is unit-tested with the rest of the shell.
  * - `dist/install.sh`, `dist/install.ps1` — the release installers, which the Machines page
- *   scp's to an SSH host and runs there (packages/server/src/machines/install-server.ts
+ *   feeds to an SSH host and runs there (packages/server/src/machines/install-server.ts
  *   resolves them beside its own module). The server package ships them in its own dist/,
  *   but this app re-bundles the server into a single dist/server.js and a bundle carries no
- *   sibling files, so they are copied in again here. Only the ~4 KB scripts travel: the far
- *   side downloads the release itself.
+ *   sibling files, so they are copied in again here — the set scripts/far-side-scripts.mjs
+ *   names, the one the server build and the hot push take too. Only the ~4 KB scripts
+ *   travel: the far side downloads the release itself.
  *
  * Run from anywhere (after tsup); all paths derive from this file's location.
  */
@@ -63,10 +64,13 @@ const repoRoot = path.resolve(pkgDir, "..", "..");
 for (const { name, from } of [...LOCAL_AUDIO_ASSETS, ...MEDIA_PLACEHOLDER_ASSETS]) {
   fs.copyFileSync(path.join(repoRoot, from), path.join(distDir, name));
 }
-for (const name of ["install.sh", "install.ps1"]) {
-  const src = path.join(repoRoot, name);
+const { FAR_SIDE_SCRIPTS } = await import(
+  pathToFileURL(path.join(repoRoot, "scripts", "far-side-scripts.mjs")).href
+);
+for (const { name, from } of FAR_SIDE_SCRIPTS) {
+  const src = path.join(repoRoot, from);
   if (!fs.existsSync(src)) {
-    console.error(`[build-assets] ${name} is missing from the repository root.`);
+    console.error(`[build-assets] ${from} is missing from the repository.`);
     process.exit(1);
   }
   fs.copyFileSync(src, path.join(distDir, name));
@@ -149,6 +153,19 @@ for (const name of [`${ffmpegBinary}.LICENSE`, `${ffmpegBinary}.README`])
 for (const name of ffmpegFiles)
   fs.copyFileSync(path.join(ffmpegSrc, name), path.join(ffmpegDir, name));
 fs.chmodSync(path.join(ffmpegDir, ffmpegBinary), 0o755);
+
+// The compiler plugin interfaces and workflows are checked with, beside the server bundle for the same reason
+// node-pty is: the bundle has no node_modules of its own, and the server resolves
+// `typescript` from the program that is running.
+const { typescriptPayload } = await import(
+  pathToFileURL(path.resolve(pkgDir, "..", "..", "scripts", "typescript-payload.mjs")).href
+);
+const tsDest = path.join(pkgDir, "dist", "node_modules", "typescript");
+fs.rmSync(tsDest, { recursive: true, force: true });
+for (const { rel, abs } of typescriptPayload(path.resolve(pkgDir, "..", "server"))) {
+  fs.mkdirSync(path.dirname(path.join(tsDest, rel)), { recursive: true });
+  fs.copyFileSync(abs, path.join(tsDest, rel));
+}
 
 const { posixLauncherScript, windowsLauncherScript } = await import(
   pathToFileURL(launcherModule).href

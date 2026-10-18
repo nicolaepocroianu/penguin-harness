@@ -1,6 +1,7 @@
 ---
 name: waf-book-generation
 description: Authoritative contract for independently generated Loom book modules.
+version: 2026.10.10.1
 ---
 
 # WAF book generation

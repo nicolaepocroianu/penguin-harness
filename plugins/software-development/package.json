@@ -1,7 +1,12 @@
 {
   "name": "@penguinharness/software-development",
-  "version": "0.2.13",
+  "version": "0.2.16",
   "description": "Software development end to end — disciplined software-engineering practice for real tasks, plus the Penguin visual language for every generated web page and app UI.",
+  "keywords": [
+    "penguin-plugin",
+    "penguinharness",
+    "skills"
+  ],
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -9,7 +14,6 @@
     "directory": "plugins/software-development"
   },
   "files": [
-    "plugin.json",
     "icon.svg",
     "skills",
     "hooks",
@@ -17,5 +21,17 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "penguin": {
+    "short_description": "Engineering practice and web UI defaults in one plugin.",
+    "category": "software-development",
+    "icon": "icon.svg",
+    "quick_start": {
+      "prompt": "Build a single-file landing page, index.html, in this Workspace for a made-up note-taking app, with a light and a dark theme.",
+      "skills": [
+        "web-design"
+      ]
+    },
+    "title": "Software Development"
   }
 }

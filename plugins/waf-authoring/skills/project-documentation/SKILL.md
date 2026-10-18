@@ -1,6 +1,7 @@
 ---
 name: project-documentation
 description: Use when implementing activities/modules
+version: 2026.10.10.1
 ---
 
 # AGENTS.md — WAF (Waterford Activity Framework)

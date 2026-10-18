@@ -5,34 +5,51 @@
  * thinking-level columns. A row there opens that evaluation in a dialog, a case opens the case
  * browser in another, and either dialog can hand what it shows to an agent as a question. This
  * is the body of the Benchmark's own page (the title lives in that page's header), which mounts
- * it once its Benchmark has been read, so nothing stays open from the Benchmark before it.
+ * it once its Benchmark has been read, so nothing stays open from the Benchmark before it. The
+ * Benchmark is the merge of every machine holding it: a row names the machine its round was read
+ * from when there is more than one, and a case's files come from the machine that listed it.
  */
 import { useEffect, useState } from "react";
-import type {
-  BenchmarkCaseSummary,
-  BenchmarkEvaluation,
-  BenchmarkSummary,
-} from "@prismshadow/penguin-server/api";
-import * as api from "../../api/endpoints";
+import type { BenchmarkCaseSummary, BenchmarkEvaluation } from "@prismshadow/penguin-server/api";
+import {
+  AgentAvatar,
+  Button,
+  Card,
+  ChartFrame,
+  ChartLine,
+  ChartPoint,
+  EmptyState,
+  GlyphIcon,
+  ICONS,
+  ICON_SIZE,
+  Legend,
+  Modal,
+  Pager,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+  makeRangeGeom,
+  segmentPoints,
+  useChartWidth,
+} from "@prismshadow/penguin-ui";
+import type { ChartPaint } from "@prismshadow/penguin-ui";
+import type { MergedBenchmark, MergedCase } from "../../lib/benchmark-merge";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
 import { formatDateTime, formatMoney, formatScore, humanizeDuration } from "../../lib/format";
-import { ICON_SIZE } from "../../lib/icon-scale";
 import { toneInk } from "../../lib/tone";
+import { useLocale } from "../../state/locale";
 import { useTheme } from "../../state/theme";
 import type { Currency } from "../../state/theme";
-import { AgentAvatar } from "../../components/ui/agent-avatar";
-import { Button } from "../../components/ui/button";
-import { EmptyState } from "../../components/ui/empty-state";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { MAGIC_WAND_ICON } from "../../components/ui/icons";
-import { Modal } from "../../components/ui/modal";
-import { NEUTRAL_SERIES, seriesColor } from "../../lib/category-colors";
-import { makeRangeGeom, segmentPath } from "../usage/chart-geom";
-import { ChartFrame, useChartWidth } from "../usage/chart-svg";
+import { NEUTRAL_SERIES } from "../../lib/category-colors";
 import { AskAiModal } from "./ask-ai-modal";
 import { BenchmarkCaseBrowser } from "./benchmark-case-browser";
+import { fetchBenchmarkCases } from "./benchmark-sources";
 import {
+  benchmarkDescription,
   evaluationLabel,
   labelSeries,
   scoreScale,
@@ -43,6 +60,10 @@ import type { EvaluationSeries } from "./benchmark-metrics";
 import { askCaseExamples, askCaseTail } from "./benchmark-prompts";
 import type { AskCaseParams } from "./benchmark-prompts";
 import { EvaluationDetailModal } from "./evaluation-detail-modal";
+
+/** A score series' paint: palette slot i, or the neutral for the evaluations with no label. */
+const scoreSeriesPaint = (s: EvaluationSeries, i: number): ChartPaint =>
+  s.unlabeled ? { ink: NEUTRAL_SERIES.text, swatch: NEUTRAL_SERIES.swatch } : { series: i };
 
 /**
  * Score-over-time line chart: one x slot per evaluation in scoreboard order, labeled with its
@@ -103,27 +124,23 @@ function ScoreTrendChart({
         >
           {series.map((s, si) => {
             const points = seriesPoints(evaluations, s);
+            const paint = scoreSeriesPaint(s, si);
             return (
-              <g
-                key={s.unlabeled ? "unlabeled" : s.key}
-                className={(s.unlabeled ? NEUTRAL_SERIES : seriesColor(si)).text}
-              >
+              <g key={s.unlabeled ? "unlabeled" : s.key}>
                 {points.length > 1 && (
-                  <path
-                    d={segmentPath(geom, points)}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
+                  <ChartLine
+                    points={segmentPoints(geom, points)}
+                    paint={paint}
                     opacity={hover !== null ? 0.35 : 1}
                   />
                 )}
                 {points.map((p) => (
-                  <circle
+                  <ChartPoint
                     key={p.index}
                     cx={geom.x(p.index)}
                     cy={geom.y(p.value)}
-                    r={hover === p.index ? 4 : 2.5}
-                    className="fill-current"
+                    paint={paint}
+                    grow={hover === p.index}
                     opacity={hover !== null && hover !== p.index ? 0.25 : 1}
                   />
                 ))}
@@ -150,43 +167,42 @@ function TrendSection({ evaluations }: { evaluations: BenchmarkEvaluation[] }) {
         {S.benchmark.trendTitle(S.benchmark.colScore)}
       </p>
       {series.length >= 2 && (
-        <div className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-          {series.map((s, i) => (
-            <span
-              key={s.unlabeled ? "unlabeled" : s.key}
-              className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400"
-            >
-              <span
-                className={`inline-block h-2 w-2 shrink-0 rounded-sm ${(s.unlabeled ? NEUTRAL_SERIES : seriesColor(i)).swatch}`}
-              />
-              <span className="font-mono">{labelOf(s)}</span>
-            </span>
-          ))}
-        </div>
+        <Legend
+          items={series.map((s, i) => ({
+            key: s.unlabeled ? "unlabeled" : s.key,
+            label: labelOf(s),
+            paint: scoreSeriesPaint(s, i),
+            shape: "block" as const,
+          }))}
+          mono
+          className="mb-1.5"
+        />
       )}
       <ScoreTrendChart evaluations={evaluations} series={series} />
     </div>
   );
 }
 
-const CELL = "px-3 py-2";
-
 /** One evaluation record: a clickable row; the detail it used to unfold is a dialog of its own. */
 function EvaluationRow({
   evaluation,
+  machineName,
   onOpen,
   currency,
 }: {
   evaluation: BenchmarkEvaluation;
+  /**
+   * The ssh alias of the machine whose scoreboard recorded this round, when the Benchmark is
+   * held in more than one place — otherwise null, and nothing is said. A row read without
+   * knowing where it ran is a row that cannot be reproduced.
+   */
+  machineName: string | null;
   onOpen: () => void;
   currency: Currency;
 }) {
   return (
-    <tr
-      onClick={onOpen}
-      className="cursor-pointer border-b border-gray-100 transition-colors duration-150 last:border-b-0 hover:bg-gray-50 dark:border-gray-800/60 dark:hover:bg-gray-800/40"
-    >
-      <td className={CELL}>
+    <TableRow onClick={onOpen}>
+      <TableCell>
         {/* The row is what a mouse clicks, and this is the same target for a keyboard: a table
             row cannot be a button, so the cell that names the record carries the real one. */}
         <button
@@ -199,8 +215,13 @@ function EvaluationRow({
         >
           {formatDateTime(evaluation.time)}
         </button>
-      </td>
-      <td className={`${CELL} text-xs text-gray-500 dark:text-gray-400`}>
+        {machineName !== null && (
+          <span className="ml-1.5 font-mono text-xs text-gray-400 dark:text-gray-500">
+            {S.chat.machineTag(machineName)}
+          </span>
+        )}
+      </TableCell>
+      <TableCell className="text-xs text-gray-500 dark:text-gray-400">
         {evaluation.agentId ? (
           <span className="flex items-center gap-1.5">
             <AgentAvatar
@@ -213,29 +234,39 @@ function EvaluationRow({
         ) : (
           <span className="text-gray-400">—</span>
         )}
-      </td>
-      <td className={`${CELL} font-mono text-xs text-gray-500 dark:text-gray-400`}>
+      </TableCell>
+      <TableCell className="font-mono text-xs text-gray-500 dark:text-gray-400">
         {evaluation.version !== undefined ? `v${evaluation.version}` : "—"}
-      </td>
-      <td
-        className={`${CELL} max-w-40 truncate font-mono text-xs text-gray-500 dark:text-gray-400`}
-        title={evaluation.provider}
+      </TableCell>
+      <TableCell
+        className="max-w-40 truncate font-mono text-xs text-gray-500 dark:text-gray-400"
+        data-tooltip={`${evaluation.provider}/${evaluation.modelId}`}
+        data-tooltip-content="code"
       >
         {evaluation.modelId}
-      </td>
-      <td className={`${CELL} font-mono text-xs text-gray-500 dark:text-gray-400`}>
+      </TableCell>
+      <TableCell className="font-mono text-xs text-gray-500 dark:text-gray-400">
         {evaluation.thinkingLevel}
-      </td>
-      <td className={`${CELL} font-mono text-xs font-semibold tabular-nums`}>
+      </TableCell>
+      {/* Figures, but left-aligned under their headers like every other column here. */}
+      <TableCell align="left" numeric className="font-mono text-xs font-semibold">
         {formatScore(evaluation.score)}
-      </td>
-      <td className={`${CELL} font-mono text-xs tabular-nums text-gray-500 dark:text-gray-400`}>
+      </TableCell>
+      <TableCell
+        align="left"
+        numeric
+        className="font-mono text-xs text-gray-500 dark:text-gray-400"
+      >
         {formatMoney(evaluation.cost, currency)}
-      </td>
-      <td className={`${CELL} font-mono text-xs tabular-nums text-gray-500 dark:text-gray-400`}>
+      </TableCell>
+      <TableCell
+        align="left"
+        numeric
+        className="font-mono text-xs text-gray-500 dark:text-gray-400"
+      >
         {evaluation.durationMs !== undefined ? humanizeDuration(evaluation.durationMs) : "—"}
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -269,6 +300,12 @@ function caseAskParams(
   };
 }
 
+/**
+ * Cases per page of the list: a Benchmark of many cases pages them rather than lengthening the
+ * page, each case one line.
+ */
+const CASES_PER_PAGE = 5;
+
 function CasesSection({
   cases,
   error,
@@ -278,13 +315,21 @@ function CasesSection({
   error: string | null;
   onOpenCase: (caseId: string) => void;
 }) {
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil((cases?.length ?? 0) / CASES_PER_PAGE));
+  // A list that shrank under the reader (a reload) keeps them on its last page, not a blank one.
+  const current = Math.min(page, pageCount - 1);
+  const shown = cases?.slice(current * CASES_PER_PAGE, (current + 1) * CASES_PER_PAGE);
   return (
     <div>
-      <p className="mb-1 text-xs font-semibold text-gray-500">{S.benchmark.cases}</p>
-      <div className="overflow-hidden rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-gray-500">{S.benchmark.cases}</p>
+        {pageCount > 1 && <Pager page={current} pageCount={pageCount} onChange={setPage} />}
+      </div>
+      <Card padding="none">
         {error && <p className={`px-3 py-2 text-xs ${toneInk.danger}`}>{error}</p>}
         {!cases && !error && <p className="px-3 py-2 text-xs text-gray-400">{S.common.loading}</p>}
-        {cases?.map((item) => {
+        {shown?.map((item) => {
           return (
             <button
               key={item.id}
@@ -292,13 +337,13 @@ function CasesSection({
               onClick={() => onOpenCase(item.id)}
               className="flex w-full items-center gap-3 border-b border-gray-100 px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-gray-50 dark:border-gray-800/70 dark:hover:bg-gray-800/50"
             >
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-                  {item.title}
-                </span>
-                <span className="block truncate font-mono text-[11px] text-gray-400">
-                  {item.id}
-                </span>
+              {/* One line: the case's name, cut short with the whole of it in the tooltip. */}
+              <span
+                className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800 dark:text-gray-200"
+                data-tooltip={item.title}
+                data-tooltip-content="text"
+              >
+                {item.title}
               </span>
               {/* Styled as the quiet gray action the Workspace download link is, not as a
                   link: the row itself is the button, so an accent-colored label here read as
@@ -309,7 +354,7 @@ function CasesSection({
             </button>
           );
         })}
-      </div>
+      </Card>
     </div>
   );
 }
@@ -317,14 +362,20 @@ function CasesSection({
 export function BenchmarkDetail({
   projectId,
   benchmark: bm,
+  machineNameOf,
 }: {
   projectId: string;
-  benchmark: BenchmarkSummary;
+  benchmark: MergedBenchmark;
+  /** The ssh alias of a machine, or null for this server. */
+  machineNameOf: (machineId: string | null) => string | null;
 }) {
   const { currency } = useTheme();
-  const [caseStatements, setCaseStatements] = useState<BenchmarkCaseSummary[] | null>(null);
+  const { locale } = useLocale();
+  const description = benchmarkDescription(bm, locale);
+  const [caseStatements, setCaseStatements] = useState<MergedCase[] | null>(null);
   const [caseError, setCaseError] = useState<string | null>(null);
   const [openCaseId, setOpenCaseId] = useState<string | null>(null);
+  const machinesKey = bm.machineIds.map((machineId) => machineId ?? "").join(",");
   /** Which evaluation's dialog is open, as a position in scoreboard order. */
   const [openEvaluationIndex, setOpenEvaluationIndex] = useState<number | null>(null);
   /** The case whose Ask AI dialog is open; kept as an id so it cannot outlive its case dialog. */
@@ -337,10 +388,9 @@ export function BenchmarkDetail({
     setOpenEvaluationIndex(null);
     setAskingCaseId(null);
     let cancelled = false;
-    api
-      .listBenchmarkCases(projectId, bm.id)
-      .then((data) => {
-        if (!cancelled) setCaseStatements(data.cases);
+    fetchBenchmarkCases(projectId, bm)
+      .then((cases) => {
+        if (!cancelled) setCaseStatements(cases);
       })
       .catch((error: unknown) => {
         if (!cancelled) setCaseError(apiErrorText(error));
@@ -348,7 +398,9 @@ export function BenchmarkDetail({
     return () => {
       cancelled = true;
     };
-  }, [projectId, bm.id]);
+    // The machines are part of what the read asks; the key keeps a re-render from re-asking.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, bm.id, machinesKey]);
 
   // The Scoreboard append order is the evaluation sequence. Preserve it even when a malformed
   // timestamp would otherwise reorder Agent versions; the detail table shows that sequence newest first.
@@ -366,8 +418,8 @@ export function BenchmarkDetail({
         <p className="text-xs text-gray-500">
           {S.benchmark.caseCount(bm.caseCount)} · {S.benchmark.runsPerCase(bm.runs ?? 1)}
         </p>
-        {bm.description && (
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{bm.description}</p>
+        {description && (
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</p>
         )}
       </div>
 
@@ -381,37 +433,34 @@ export function BenchmarkDetail({
 
           <div>
             <p className="mb-1 text-xs font-semibold text-gray-500">{S.benchmark.evaluations}</p>
-            <div className="overflow-x-auto overflow-y-clip rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-              <table className="w-full min-w-[820px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50/80 text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900">
-                    <th className="px-3 py-2.5">{S.common.time}</th>
-                    <th className="px-3 py-2.5">{S.benchmark.agentColumn}</th>
-                    <th className="px-3 py-2.5">{S.benchmark.colVersion}</th>
-                    <th className="px-3 py-2.5">{S.benchmark.colModel}</th>
-                    <th className="px-3 py-2.5">{S.benchmark.colThinkingLevel}</th>
-                    <th className="px-3 py-2.5">{S.benchmark.colScore}</th>
-                    <th className="px-3 py-2.5">{S.common.cost}</th>
-                    <th className="px-3 py-2.5">{S.benchmark.colDuration}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* Newest first on screen, while the index stays the scoreboard position the
-                      dialog is opened by. */}
-                  {evaluations
-                    .map((ev, index) => ({ ev, index }))
-                    .reverse()
-                    .map(({ ev, index }) => (
-                      <EvaluationRow
-                        key={index}
-                        evaluation={ev}
-                        onOpen={() => setOpenEvaluationIndex(index)}
-                        currency={currency}
-                      />
-                    ))}
-                </tbody>
-              </table>
-            </div>
+            <Table tableClassName="min-w-[820px]">
+              <TableHead>
+                <TableHeaderCell>{S.common.time}</TableHeaderCell>
+                <TableHeaderCell>{S.benchmark.agentColumn}</TableHeaderCell>
+                <TableHeaderCell>{S.benchmark.colVersion}</TableHeaderCell>
+                <TableHeaderCell>{S.benchmark.colModel}</TableHeaderCell>
+                <TableHeaderCell>{S.benchmark.colThinkingLevel}</TableHeaderCell>
+                <TableHeaderCell>{S.benchmark.colScore}</TableHeaderCell>
+                <TableHeaderCell>{S.common.cost}</TableHeaderCell>
+                <TableHeaderCell>{S.benchmark.colDuration}</TableHeaderCell>
+              </TableHead>
+              <TableBody>
+                {/* Newest first on screen, while the index stays the scoreboard position the
+                    dialog is opened by. */}
+                {evaluations
+                  .map((ev, index) => ({ ev, index }))
+                  .reverse()
+                  .map(({ ev, index }) => (
+                    <EvaluationRow
+                      key={index}
+                      evaluation={ev}
+                      machineName={bm.machineIds.length > 1 ? machineNameOf(ev.machineId) : null}
+                      onOpen={() => setOpenEvaluationIndex(index)}
+                      currency={currency}
+                    />
+                  ))}
+              </TableBody>
+            </Table>
           </div>
         </>
       )}
@@ -420,7 +469,6 @@ export function BenchmarkDetail({
           benchmarkId={bm.id}
           evaluation={openEvaluation}
           caseTitles={caseTitles}
-          onOpenCase={setOpenCaseId}
           currency={currency}
           onClose={() => setOpenEvaluationIndex(null)}
         />
@@ -436,12 +484,17 @@ export function BenchmarkDetail({
           }}
           footer={
             <Button size="sm" variant="secondary" onClick={() => setAskingCaseId(openCase.id)}>
-              <GlyphIcon d={MAGIC_WAND_ICON} />
+              <GlyphIcon d={ICONS.wand} />
               {S.benchmark.askAi}
             </Button>
           }
         >
-          <BenchmarkCaseBrowser projectId={projectId} benchmarkId={bm.id} caseSummary={openCase} />
+          <BenchmarkCaseBrowser
+            projectId={projectId}
+            benchmarkId={bm.id}
+            caseSummary={openCase}
+            machineId={openCase.machineId}
+          />
         </Modal>
       )}
       {openCase && askingCaseId === openCase.id && (

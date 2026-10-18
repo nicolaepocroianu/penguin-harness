@@ -8,13 +8,10 @@
 import { useLayoutEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import type { AgentSummary } from "@prismshadow/penguin-server/api";
+import { CopyButton, HelpFold, Select, Textarea } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { agentDisplayName } from "../../state/project";
-import { CopyButton } from "../../components/ui/copy-button";
-import { HelpFold } from "../../components/ui/help-fold";
-import { Textarea } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
 import { composeAiPrompt } from "./ai-create-prompt";
 
 export interface AiExample {
@@ -151,40 +148,51 @@ export function AiCreatePanel({
         onChange={(e) => onChange(e.target.value)}
       />
 
-      {examples.length > 0 && (
-        <div>
-          <div className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
-            {S.aiCreate.examplesTitle}
-          </div>
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-            {examples.map((ex) => {
-              // Selected while the draft still IS the example; the first edit unselects it.
-              const selected = value === ex.prompt;
-              return (
-                <button
-                  key={ex.key}
-                  type="button"
-                  aria-pressed={selected}
-                  disabled={disabled}
-                  onClick={() => onChange(ex.prompt)}
-                  className={`${exampleClass} ${selected ? exampleSelectedClass : exampleIdleClass}`}
-                >
-                  <div className="truncate text-xs font-medium text-gray-800 dark:text-gray-100">
-                    {ex.label}
-                  </div>
-                  {ex.description !== undefined && (
-                    <div className="truncate text-[11px] text-gray-500 dark:text-gray-400">
-                      {ex.description}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      <AiExamples examples={examples} value={value} onChange={onChange} disabled={disabled} />
 
       {fullPrompt !== null && <PromptFold text={fullPrompt} />}
+    </div>
+  );
+}
+
+/** The same source choices in create and import dialogs; a click fills the editable draft. */
+export function AiExamples({
+  examples,
+  value,
+  onChange,
+  disabled,
+}: Pick<AiCreatePanelProps, "examples" | "value" | "onChange" | "disabled">) {
+  if (examples.length === 0) return null;
+  return (
+    <div>
+      <div className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+        {S.aiCreate.examplesTitle}
+      </div>
+      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+        {examples.map((ex) => {
+          // Selected while the draft still IS the example; the first edit unselects it.
+          const selected = value === ex.prompt;
+          return (
+            <button
+              key={ex.key}
+              type="button"
+              aria-pressed={selected}
+              disabled={disabled}
+              onClick={() => onChange(ex.prompt)}
+              className={`${exampleClass} ${selected ? exampleSelectedClass : exampleIdleClass}`}
+            >
+              <div className="truncate text-xs font-medium text-gray-800 dark:text-gray-100">
+                {ex.label}
+              </div>
+              {ex.description !== undefined && (
+                <div className="truncate text-xs text-gray-500 dark:text-gray-400">
+                  {ex.description}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

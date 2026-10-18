@@ -26,23 +26,6 @@ import { satisfies, tableOf } from "./sig.js";
 import type { Manifest } from "./manifest.js";
 import { ifaceKey, splitSlotKey } from "./manifest.js";
 
-/**
- * Slot schemas by their inlined definition. arktype registers every parse in a process-wide
- * table it never releases, so parsing the same slots again on every boot (and on every hot
- * push) would grow that table for the life of the process.
- */
-const slotSchemas = new Map<string, (v: unknown) => unknown>();
-
-function slotSchema(def: Json): (v: unknown) => unknown {
-  const key = JSON.stringify(def);
-  let schema = slotSchemas.get(key);
-  if (schema === undefined) {
-    schema = type.raw(def).onUndeclaredKey("reject");
-    slotSchemas.set(key, schema);
-  }
-  return schema;
-}
-
 /** A manifest and its children, as the tree is declared. */
 export interface ManifestNode {
   manifest: Manifest;
@@ -261,6 +244,23 @@ export function checkTree(
     }
   }
   return { problems, provides };
+}
+
+/**
+ * A slot's contribution schema, parsed once per definition. arktype files every parse in a
+ * registry that lives as long as the process and never shrinks, and every boot checks every
+ * contribution: parsed afresh, each boot grew it (see leafExtends in ./data.ts).
+ */
+const slotSchemas = new Map<string, (v: unknown) => unknown>();
+
+function slotSchema(def: Json): (v: unknown) => unknown {
+  const key = JSON.stringify(def);
+  let schema = slotSchemas.get(key);
+  if (schema === undefined) {
+    schema = type.raw(def).onUndeclaredKey("reject");
+    slotSchemas.set(key, schema);
+  }
+  return schema;
 }
 
 /** A definition with its `$ref`s substituted, for arktype (which knows no references); a cycle stays a reference and parses as `unknown`. */

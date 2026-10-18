@@ -38,7 +38,7 @@ describe("session -> activity", () => {
           lastActiveAt: createdAt,
           createdAt,
         });
-        if (archivedAt) t.deps.sessionsRepo.setArchived(sessionId, archivedAt);
+        if (archivedAt) t.deps.sessionsRepo.setListing([sessionId], "archived", archivedAt);
       };
       const insertRun = t.deps.db.prepare(
         "INSERT INTO activity_runs (run_id, project_id, activity_id, status, created_at, kind, record_json) VALUES (?, ?, ?, ?, ?, ?, ?)",

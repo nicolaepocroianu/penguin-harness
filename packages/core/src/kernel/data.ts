@@ -48,27 +48,27 @@ function arrayElem(s: string): string | null {
 }
 
 /**
- * Leaf answers by `a <: b`. A leaf comparison is a pure function of its two expressions, and
- * asking arktype costs more than the answer: every parse registers its nodes in a
- * process-wide table that is never released. One module-tree check compares tens of
- * thousands of leaves, so parsing per comparison grew that table by tens of thousands of
- * entries on every boot, until registering into it took minutes. The expressions come from
- * the interface tables, so the set of pairs is bounded.
+ * Leaf decisions, once per process. arktype files every node a parse builds in a registry
+ * that lives as long as the process and never shrinks (`$ark.nodesByRegisteredId`) — a
+ * definition it has parsed before still adds entries — and every boot's interface check asks
+ * thousands of these. A long-lived server boots a tree on every hot push and plugin load,
+ * and a test worker boots hundreds of apps: the registry grew until each insert took longer
+ * than a boot should. The pairs come from interface tables, so there are only so many.
  */
-const leafAnswers = new Map<string, boolean>();
+const leafDecisions = new Map<string, boolean>();
 
 function leafExtends(a: string, b: string): boolean {
-  const key = `${a}<:${b}`;
-  let answer = leafAnswers.get(key);
-  if (answer === undefined) {
-    try {
-      answer = type.raw(a).extends(type.raw(b));
-    } catch {
-      answer = a === b;
-    }
-    leafAnswers.set(key, answer);
+  const key = `${a}\u0000${b}`;
+  const known = leafDecisions.get(key);
+  if (known !== undefined) return known;
+  let fits: boolean;
+  try {
+    fits = type.raw(a).extends(type.raw(b));
+  } catch {
+    fits = a === b;
   }
-  return answer;
+  leafDecisions.set(key, fits);
+  return fits;
 }
 
 /**

@@ -170,10 +170,10 @@ describe("restoring activity versions", () => {
     const response = await restore(s, v1.versionId, before.contentRevision);
     expect(response.status).toBe(409);
     const body = (await response.json()) as {
-      error: { code: string; message: string; detail?: Record<string, string> };
+      error: { code: string; message: string; details?: Record<string, string> };
     };
     expect(body.error.code).toBe("version_incomplete");
-    expect(body.error.detail).toEqual({ path: HELLO });
+    expect(body.error.details).toEqual({ path: HELLO });
     expect((await s.read()).draft).toEqual(before);
     expect((await s.list()).map((v) => v.seq)).toEqual([1]);
     // The regenerated narration stays in place.

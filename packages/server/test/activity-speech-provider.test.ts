@@ -292,7 +292,7 @@ describe("speech through the provider seam", () => {
     // The key is named as data, so the App words it, not only in the message.
     expect(((await missing.json()) as { error: unknown }).error).toMatchObject({
       code: "speech_credential_missing",
-      detail: { credential: "ELEVENLABS_API_KEY" },
+      details: { credential: "ELEVENLABS_API_KEY" },
     });
     await f.setVault(["ELEVENLABS_API_KEY"]);
     // A Gemini voice is not one ElevenLabs speaks with.

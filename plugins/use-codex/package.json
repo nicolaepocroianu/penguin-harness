@@ -1,7 +1,12 @@
 {
   "name": "@penguinharness/use-codex",
   "version": "0.2.13",
-  "description": "Delegate coding tasks to Codex with project-scoped ChatGPT sign-in.",
+  "description": "Delegate coding tasks through Penguin's MCP tools and the Codex ACP adapter, with project-scoped ChatGPT sign-in, workspace write access, progress, cancellation, and human approval relay.",
+  "keywords": [
+    "penguin-plugin",
+    "penguinharness",
+    "skills"
+  ],
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -27,7 +32,6 @@
     "test": "node --test test/*.test.mjs"
   },
   "files": [
-    "plugin.json",
     "icon.svg",
     "skills",
     "src",
@@ -36,5 +40,18 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "penguin": {
+    "short_description": "Delegate coding tasks using your ChatGPT subscription.",
+    "category": "software-development",
+    "icon": "icon.svg",
+    "preinstall": false,
+    "quick_start": {
+      "prompt": "Check whether Codex is signed in for this Project, then delegate a small task to it: add a README.md to this Workspace that says what the folder is for.",
+      "skills": [
+        "codex"
+      ]
+    },
+    "title": "Use Codex"
   }
 }

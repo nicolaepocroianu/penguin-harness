@@ -9,9 +9,17 @@ import type {
   CodingAgentConfigOption,
   CodingAgentDiscoveryResponse,
   CodingAgentServerInfo,
+  ModelEffectiveConnection,
   ModelInfo,
 } from "../api/types.js";
 import { CODING_AGENT_PROVIDER, codingAgentModelId } from "./session-runtime.js";
+
+/** A coding agent's row has no endpoint, protocol or key of Penguin's: the agent brings its own. */
+const NO_CONNECTION: ModelEffectiveConnection = {
+  baseUrlSource: "none",
+  clientTypeSource: "none",
+  apiKeySource: "none",
+};
 
 /** The option an agent renders as its Model: the `model` category, else the first select. */
 export function modelOptionOf(
@@ -50,12 +58,14 @@ export function codingAgentModelRows(
           provider: CODING_AGENT_PROVIDER,
           modelId: id,
           displayName: agent.title,
+          effective: NO_CONNECTION,
           isDefault: false,
         },
         ...(option?.options ?? []).map((value) => ({
           provider: CODING_AGENT_PROVIDER,
           modelId: codingAgentModelId(id, option!.id, value.value),
           displayName: `${agent.title} · ${value.name}`,
+          effective: NO_CONNECTION,
           isDefault: false,
         })),
       ];

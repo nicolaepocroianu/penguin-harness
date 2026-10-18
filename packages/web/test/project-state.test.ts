@@ -59,7 +59,7 @@ describe("Project selection and local editor guards", () => {
       currentProjectId: null,
       unavailableProjectId: "one",
       projects: [project("two")],
-      agents: [],
+      agents: null,
       currentAgentId: null,
     });
     await f.store.getState().reloadProjects();
@@ -110,7 +110,7 @@ describe("Project selection and local editor guards", () => {
     await pending;
     expect(f.store.getState()).toMatchObject({
       currentProjectId: null,
-      agents: [],
+      agents: null,
       currentAgentId: null,
       agentsLoading: false,
     });

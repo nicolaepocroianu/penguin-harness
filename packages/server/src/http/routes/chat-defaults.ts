@@ -7,19 +7,24 @@
  */
 import { Hono } from "hono";
 import { DEFAULT_CHAT_THINKING_LEVELS, isValidId } from "@prismshadow/penguin-core";
-import type { ChatDefaultsDto } from "../../api/types.js";
+import type { ChatDefaultsDto, SessionSandbox } from "../../api/types.js";
 import type { AppEnv } from "../../auth/middleware.js";
 import { HttpError } from "../errors.js";
 import { optionalEnum, optionalString, readJson, requireValidId } from "../validate.js";
 import { APPROVAL_MODES } from "./sessions.js";
 import type { AgentConfig } from "../../mechanisms/agents.js";
 import type { Access, ProjectConfigStore } from "../../mechanisms/projects.js";
+import type { Machines } from "../../machines/service.js";
 
 /** What this route group reaches — bound by its module (src/modules). */
 export interface ChatDefaultsRouteDeps {
   agentConfigService: AgentConfig;
   projectConfigService: ProjectConfigStore;
   access: Access;
+  /** The sandbox policy a new Session starts with (the server's settings), served beside the block. */
+  sandboxDefaults?: () => SessionSandbox;
+  /** The machines this Project uses read the same defaults (machines/service.ts). */
+  machines: Pick<Machines, "syncConfigEverywhere">;
 }
 
 export function chatDefaultsRoutes(deps: ChatDefaultsRouteDeps): Hono<AppEnv> {
@@ -29,7 +34,12 @@ export function chatDefaultsRoutes(deps: ChatDefaultsRouteDeps): Hono<AppEnv> {
     // Defensive id validation.
     const projectId = requireValidId(c, "projectId");
     deps.access.requireProjectAccess(c.var.user.userId, projectId);
-    return c.json(await deps.projectConfigService.getChatDefaults(projectId));
+    const defaults = await deps.projectConfigService.getChatDefaults(projectId);
+    const sandbox = deps.sandboxDefaults?.();
+    return c.json({
+      ...defaults,
+      ...(sandbox !== undefined ? { sandbox } : {}),
+    } satisfies ChatDefaultsDto);
   });
 
   app.put("/", async (c) => {
@@ -66,7 +76,11 @@ export function chatDefaultsRoutes(deps: ChatDefaultsRouteDeps): Hono<AppEnv> {
     const thinkingLevel = optionalEnum(body, "thinkingLevel", DEFAULT_CHAT_THINKING_LEVELS);
     if (thinkingLevel !== undefined) req.thinkingLevel = thinkingLevel;
 
-    return c.json(await deps.projectConfigService.setChatDefaults(projectId, req));
+    const stored = await deps.projectConfigService.setChatDefaults(projectId, req);
+    // An Agent on one of this Project's machines falls back to that machine's thinking level.
+    // Not awaited: the person saving is not the one who should wait for a set of ssh tunnels.
+    void deps.machines.syncConfigEverywhere(projectId);
+    return c.json(stored);
   });
 
   return app;

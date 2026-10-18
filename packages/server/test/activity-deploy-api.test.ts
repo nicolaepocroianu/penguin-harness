@@ -222,7 +222,7 @@ describe("activity deploy routes", () => {
     expect(await refused.json()).toMatchObject({
       error: {
         code: "invalid_deploy_setting",
-        detail: { field: "qa.jenkinsUrl", reason: "https_required" },
+        details: { field: "qa.jenkinsUrl", reason: "https_required" },
       },
     });
     const after = (await (
@@ -238,7 +238,7 @@ describe("activity deploy routes", () => {
     const missing = await admin.post("/api/admin/activity-deploy/settings/test/qa");
     expect(missing.status).toBe(409);
     expect(await missing.json()).toMatchObject({
-      error: { code: "deploy_settings_missing", detail: { field: "qa.jenkinsUrl" } },
+      error: { code: "deploy_settings_missing", details: { field: "qa.jenkinsUrl" } },
     });
     await fillSettings(admin);
     const res = await admin.post("/api/admin/activity-deploy/settings/test/qa");
@@ -361,7 +361,7 @@ describe("activity deploy routes", () => {
       moduleRemote: "file:///srv/modules/{module}.git",
     });
     expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ error: { detail: { field: "moduleRemote" } } });
+    expect(await res.json()).toMatchObject({ error: { details: { field: "moduleRemote" } } });
     expect(git.ops()).not.toContain("cloneFrom");
     const activity = await createWords(client, base);
     expect((await context(`${base}/${activity.id}`)).module.remote).toBe(MODULE_REMOTE);

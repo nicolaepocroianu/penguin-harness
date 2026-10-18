@@ -27,14 +27,17 @@ import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneStrip, type Tone } from "../../lib/tone";
 import { useAuth } from "../../state/auth";
-import { Button } from "../../components/ui/button";
-import { Chevron } from "../../components/ui/chevron";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { CopyButton, ROW_COPY_CLASS } from "../../components/ui/copy-button";
-import { ProviderLogo } from "../../components/ui/provider-logo";
-import { Select } from "../../components/ui/select";
-import { SkeletonList } from "../../components/ui/skeleton";
-import { toastError } from "../../components/ui/toast";
+import {
+  Button,
+  Chevron,
+  ConfirmModal,
+  CopyButton,
+  ProviderLogo,
+  Select,
+  SkeletonList,
+  Text,
+  toastError,
+} from "@prismshadow/penguin-ui";
 import { AddAgentModal } from "./add-agent-modal";
 import { AgentEnvEditor } from "./agent-env-editor";
 import {
@@ -198,6 +201,7 @@ export function LocalCliPanel() {
 
       <AddAgentModal open={addOpen} onClose={() => setAddOpen(false)} onSaved={load} />
       <ConfirmModal
+        cancelLabel={S.common.cancel}
         open={removing !== null}
         title={S.codingAgents.removeConfirmTitle}
         confirmLabel={S.models.cliRemove}
@@ -371,16 +375,16 @@ function CliCard({
             </p>
           )}
           <div className="space-y-1.5 lg:hidden">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <Text variant="label" as="span">
               {S.models.cliModel}
-            </span>
+            </Text>
             {modelControl}
           </div>
           {effortOption && effortOption.options.length > 0 && (
             <div className="space-y-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              <Text variant="label" as="span">
                 {S.models.cliEffort}
-              </span>
+              </Text>
               <Select
                 size="sm"
                 aria-label={`${card.title} ${S.models.cliEffort}`}
@@ -474,7 +478,7 @@ function AvailableCard({ card }: { card: AgentCardModel }) {
           <CopyButton
             text={card.installCommand}
             label={S.models.cliCopyInstall(card.title)}
-            className={ROW_COPY_CLASS}
+            className="shrink-0"
           />
         </div>
       )}
@@ -502,7 +506,7 @@ function ReadinessMark({ readiness }: { readiness: CardReadiness }) {
   return (
     <span
       className="flex shrink-0 items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300"
-      {...(title !== undefined ? { title } : {})}
+      {...(title !== undefined ? { "data-tooltip": title } : {})}
     >
       <span aria-hidden className={`block h-1.5 w-1.5 rounded-full ${toneDot[tone]}`} />
       {label}

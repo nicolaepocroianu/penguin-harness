@@ -5,9 +5,7 @@
  */
 import { useId } from "react";
 import type { MediaAsset } from "@prismshadow/penguin-server/api";
-import { FieldLabel } from "../../components/ui/field";
-import { Select } from "../../components/ui/select";
-import { Switch } from "../../components/ui/switch";
+import { FieldLabel, Select, Switch } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 
 type Kind = NonNullable<MediaAsset["kind"]>;

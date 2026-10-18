@@ -1,6 +1,7 @@
 ---
 name: waf-style-guardrails
 description: Use when implementing or updating styles for pipeline-generated WAF HTML activities. Keep layouts safe for a parent-provided stage of unknown size and aspect ratio, preserve visible click targets, prevent oversized or stretched compositions, and keep media plus hotspots aligned across any aspect ratio.
+version: 2026.10.10.1
 ---
 
 # WAF Style Guardrails

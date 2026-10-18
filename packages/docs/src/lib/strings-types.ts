@@ -2,23 +2,16 @@
 export type Strings = {
   siteName: string;
   nav: {
-    highlights: string;
-    selfImprove: string;
-    quickstart: string;
-    cases: string;
-    scenarios: string;
-    benchmark: string;
-    contract: string;
-    features: string;
+    home: string;
     blog: string;
     download: string;
     docs: string;
+    gallery: string;
     github: string;
     openMenu: string;
     closeMenu: string;
   };
   theme: { label: string; light: string; dark: string; system: string };
-  lang: { label: string; en: string; system: string };
   sections: Record<string, string>;
   doc: {
     toc: string;

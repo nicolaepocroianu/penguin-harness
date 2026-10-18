@@ -1,9 +1,26 @@
 {
-  "name": "@prismshadow/penguin-plugin-sandbox-bwrap",
-  "version": "0.2.2",
-  "private": true,
+  "name": "@penguinharness/sandbox-bwrap",
+  "version": "0.2.3",
   "type": "module",
   "description": "Bubblewrap sandbox backend for PenguinHarness: filesystem confinement plus network isolation and path masking.",
+  "keywords": [
+    "penguin-plugin",
+    "penguinharness",
+    "sandbox",
+    "linux",
+    "bubblewrap",
+    "network-isolation",
+    "path-masking"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Prism-Shadow/penguin-harness.git",
+    "directory": "plugins/sandbox-bwrap"
+  },
+  "engines": {
+    "node": ">=24"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -12,20 +29,36 @@
       "import": "./dist/index.js"
     }
   },
-  "license": "Apache-2.0",
   "files": [
     "dist",
+    "vendor",
     "README.md",
-    "ifaces.json"
+    "icon.svg",
+    "ifaces.json",
+    "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public",
+    "executableFiles": [
+      "./vendor/linux-x64/bin/bwrap",
+      "./vendor/linux-arm64/bin/bwrap"
+    ]
+  },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
-    "build": "node ../../scripts/gen-ifaces.mjs --project tsconfig.json --out ifaces.json && tsup"
+    "build": "node ../../scripts/vendor-bwrap.mjs && node ../../scripts/gen-ifaces.mjs --project tsconfig.json --out ifaces.json && tsup"
   },
   "devDependencies": {
     "@prismshadow/penguin-core": "workspace:*",
     "tsup": "^8.3.0",
     "vitest": "^3.2.6"
+  },
+  "penguin": {
+    "short_description": "Linux: confine file writes, cut the network, mask paths.",
+    "category": "sandbox",
+    "icon": "icon.svg",
+    "preinstall": false,
+    "title": "Linux Sandbox"
   }
 }

@@ -61,28 +61,6 @@
         }
       },
       {
-        "id": "web.plugins",
-        "key": "plugins",
-        "path": "/plugins",
-        "nav": "main",
-        "admin": false,
-        "released": true,
-        "renderer": {
-          "builtin": "PluginsPage"
-        }
-      },
-      {
-        "id": "web.pages.plugin-detail",
-        "key": "plugin-detail",
-        "path": "/plugins/registry/*",
-        "nav": "none",
-        "admin": false,
-        "released": true,
-        "renderer": {
-          "builtin": "PluginDetailPage"
-        }
-      },
-      {
         "id": "web.models",
         "key": "models",
         "path": "/models",
@@ -94,12 +72,23 @@
         }
       },
       {
+        "id": "web.plugins",
+        "key": "plugins",
+        "path": "/plugins",
+        "nav": "main",
+        "admin": false,
+        "released": true,
+        "renderer": {
+          "builtin": "PluginsPage"
+        }
+      },
+      {
         "id": "web.machines",
         "key": "machines",
         "path": "/machines",
         "nav": "main",
         "admin": true,
-        "released": false,
+        "released": true,
         "renderer": {
           "builtin": "MachinesPage"
         }

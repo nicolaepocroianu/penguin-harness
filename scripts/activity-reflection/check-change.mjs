@@ -8,10 +8,12 @@
  * 1. Every changed file is in the Reflector's write set (decision 15):
  *    - an existing file of an existing skill under plugins/waf-authoring/skills/, changed in
  *      place (no file added, removed or turned into a link), and a SKILL.md keeps its
- *      frontmatter byte for byte: its name and description sit in the agent's system prefix;
+ *      frontmatter byte for byte but its dated `version` line: its name and description sit in
+ *      the agent's system prefix, and a changed skill must raise its own version;
  *    - an existing stage prompt module under packages/server/src/activities/prompts/, changed
  *      in place (the bench refuses anything there but a change of its literals' text);
- *    - the plugin's plugin.json and package.json, in their `version` only.
+ *    - the plugin's package.json (and a plugin.json, which plugins no longer carry), in their
+ *      `version` only.
  * 2. No added line holds a character that is invisible or turns text around (HIDDEN below:
  *    every format, control, private-use and separator character, and the invisible marks and
  *    fillers beyond them). Text that reads one way to a reviewer and another to a model is how
@@ -58,7 +60,9 @@ const visible = (text) =>
     HIDDEN,
     (char) => `<U+${char.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}>`,
   );
-const frontmatter = (text) => /^---\r?\n[\s\S]*?\r?\n---\r?\n/.exec(text)?.[0] ?? "";
+/** A SKILL.md's frontmatter without its `version` line, which a changed skill raises. */
+const frontmatter = (text) =>
+  (/^---\r?\n[\s\S]*?\r?\n---\r?\n/.exec(text)?.[0] ?? "").replace(/^version\s*:.*\r?\n/m, "");
 const withoutVersion = (text) => {
   try {
     const { version: _version, ...rest } = JSON.parse(text);

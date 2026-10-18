@@ -1,235 +1,408 @@
 /**
- * machines-view unit tests: what the Machines page's install control offers, given the
- * server's single install job and whatever is selected in the picker.
+ * machines-view unit tests: the one reading a Machines card gives, whether Use can start a
+ * conversation there and why not, and the machines in use.
  *
- * Two cases worth pinning. The server runs one job at a time, so selecting a second host
- * while the first installs must refuse — without pretending the selection is the thing
- * installing. And "already installed" comes from the machine's own persisted record, never
- * from the job: reading it off the one job slot is what used to make an installed machine
- * stop looking installed as soon as anything else was installed.
+ * The reading's precedence is the point. The server's job for a machine is the freshest
+ * word; then the server bringing back a machine it keeps connected, whatever its connection
+ * says; a held connection settles "ready" over an older failed job, since a re-hold that
+ * brought the machine back must not leave the row saying it failed; and "in use" comes from
+ * the machine's own persisted record, never from the job slot.
+ *
+ * Use starts a conversation on this server always, and on another machine while it is
+ * connected and nothing moves there; otherwise the card says why in a word — coming back (and
+ * for how long, past a minute), stopped, not installed, failed — and says nothing while a job's
+ * stepper already does.
+ *
+ * The image notice:
+ * - Given a server with no image and no checkout, the page says so and stops adding machines.
+ * - Given a source checkout that has not built its image yet, nothing stops the page.
+ * - Given a checkout whose last build failed, the page shows the build's own words, and still
+ *   lets a person try again.
  */
 import { describe, expect, it } from "vitest";
 import type { MachineInfo, MachineJob, MachinesResponse } from "@prismshadow/penguin-server/api";
 import {
-  installButtonState,
-  installedMachines,
-  verdictOf,
+  anyJobPending,
+  behindMachines,
+  imageNotice,
+  machinesInUse,
+  jobFor,
+  localMachine,
+  outOfDate,
+  readMachine,
+  readingTone,
+  canUse,
+  useWaitsBecause,
 } from "../src/features/machines/machines-view";
+import { S } from "../src/lib/strings";
 
 const INSTALLED = { version: "9.9.9", at: "2026-08-24T12:00:00.000Z" };
 
-/** A remote row as the list answers it: no probe taken, no id heard yet. */
-const remote = (alias: string, installed: MachineInfo["installed"]): MachineInfo => ({
+const fresh = (alias: string): MachineInfo => ({
   id: `ssh:${alias}`,
   alias,
   machineId: null,
-  installed,
+  installed: null,
   local: false,
   connection: null,
   api: null,
+  root: "$HOME/.penguin/data",
   status: null,
 });
-
-const fresh = (alias: string): MachineInfo => remote(alias, null);
-const carrying = (alias: string): MachineInfo => remote(alias, INSTALLED);
+const carrying = (alias: string): MachineInfo => ({ ...fresh(alias), installed: INSTALLED });
+/** The entry the server puts first: this very machine. */
+const here = (): MachineInfo => ({
+  id: "local",
+  alias: "workstation",
+  machineId: "LNrJdHAZJ91G58i0",
+  installed: INSTALLED,
+  local: true,
+  connection: null,
+  api: null,
+  root: "/home/someone/.penguin/data",
+  status: { state: "running", checkedAt: INSTALLED.at, port: 7364 },
+});
 
 function response(
-  job: MachineJob | null,
+  jobs: MachineJob[],
   opts: { imageVersion?: string | null; machines?: MachineInfo[] } = {},
 ): MachinesResponse {
   return {
     machines: opts.machines ?? [fresh("build-box"), fresh("nas")],
     imageVersion: opts.imageVersion === undefined ? "9.9.9" : opts.imageVersion,
-    job,
+    job: jobs.find((job) => job.running) ?? jobs.at(-1) ?? null,
+    jobs,
   };
 }
 
 function job(over: Partial<MachineJob> = {}): MachineJob {
   return {
-    kind: "install",
+    kind: "use",
     machineId: "ssh:nas",
     alias: "nas",
+    queued: false,
     running: true,
+    steps: ["check", "install", "handover", "restart", "connect", "sync"],
+    phase: null,
     log: ["Installing 9.9.9 on deploy@nas…"],
     result: null,
     ...over,
   };
 }
 
-const done = job({
+const failed = job({
   running: false,
-  result: { ok: true, installed: "installed", version: "9.9.9" },
+  result: { ok: false, step: "connect", message: "Permission denied.", canReplaceProgram: true },
 });
 
-describe("verdictOf", () => {
-  it("is null while the job runs", () => {
-    expect(verdictOf(job())).toBeNull();
+describe("readMachine", () => {
+  it("a queued job reads as waiting, before anything the machine's own record says", () => {
+    const nas = { ...carrying("nas"), connection: { pid: 1 } };
+    expect(readMachine(nas, job({ queued: true, running: false }), "9.9.9")).toEqual({
+      kind: "queued",
+    });
   });
 
-  it("carries the version on both kinds of success", () => {
-    expect(verdictOf(done)).toEqual({ kind: "installed", version: "9.9.9" });
+  it("a running job reads as working, with its latest line", () => {
+    expect(readMachine(carrying("nas"), job(), "9.9.9")).toEqual({
+      kind: "working",
+      step: "Installing 9.9.9 on deploy@nas…",
+    });
+    expect(readMachine(carrying("nas"), job({ log: [] }), "9.9.9")).toEqual({
+      kind: "working",
+      step: null,
+    });
+  });
+
+  it("a held connection is ready, even over an older failed job", () => {
+    const nas: MachineInfo = {
+      ...carrying("nas"),
+      connection: { pid: 1 },
+      status: { state: "running", checkedAt: INSTALLED.at, port: 7364 },
+    };
+    expect(readMachine(nas, failed, "9.9.9")).toEqual({ kind: "ready", port: 7364 });
+  });
+
+  it("a machine the server is bringing back reads as reconnecting, whatever its connection says", () => {
+    // The ssh session may still be up while the server behind it stopped: that is exactly the
+    // state the server notices and brings back, and the card must not call it connected.
+    const nas: MachineInfo = {
+      ...carrying("nas"),
+      connection: { pid: 1 },
+      keepConnected: true,
+      reconnect: {
+        since: "2026-08-24T12:00:00.000Z",
+        attempts: 2,
+        nextAt: null,
+        lastError: "the connection to this machine ended",
+        diagnosis: null,
+      },
+    };
+    const reading = readMachine(nas, failed, "9.9.9");
+    expect(reading).toEqual({
+      kind: "reconnecting",
+      since: "2026-08-24T12:00:00.000Z",
+      attempts: 2,
+    });
+    expect(readingTone(reading)).toBe("busy");
+    // A job on its way still speaks first.
+    expect(readMachine(nas, job(), "9.9.9").kind).toBe("working");
+  });
+
+  it("a failed job keeps the failing step, the far side's words and the forced-install offer", () => {
+    expect(readMachine(carrying("nas"), failed, "9.9.9")).toEqual({
+      kind: "failed",
+      step: "connect",
+      message: "Permission denied.",
+      canReplaceProgram: true,
+    });
+  });
+
+  it("a job ssh refused reads in the page's language, from the reason the server found", () => {
+    const refused = job({
+      running: false,
+      result: {
+        ok: false,
+        step: "check",
+        message:
+          "This computer cannot find nas's host name. Check its HostName in the ssh config. (ssh: Could not resolve hostname nas.lan)",
+        canReplaceProgram: false,
+        sshReason: "host-not-found",
+      },
+    });
+    expect(readMachine(carrying("nas"), refused, "9.9.9")).toEqual({
+      kind: "failed",
+      step: "check",
+      message: S.machines.check.ssh["host-not-found"]("nas"),
+      canReplaceProgram: false,
+    });
+  });
+
+  it("a machine on another build is behind while its server runs, and stopped once it is stopped", () => {
+    const nas: MachineInfo = {
+      ...carrying("nas"),
+      status: { state: "running", checkedAt: INSTALLED.at, port: 7364 },
+    };
+    expect(readMachine(nas, null, "9.9.10")).toEqual({ kind: "behind", version: "9.9.9" });
+    // Just stopped by a person, it reads as stopped: the build is the pill's to say.
+    const stopped: MachineInfo = { ...nas, status: { state: "stopped", checkedAt: INSTALLED.at } };
+    expect(readMachine(stopped, null, "9.9.10")).toEqual({ kind: "stopped" });
+  });
+
+  it("the last probe speaks when no job and no connection do", () => {
+    const at = INSTALLED.at;
+    expect(readMachine(carrying("nas"), null, "9.9.9")).toEqual({ kind: "unknown" });
     expect(
-      verdictOf(
-        job({
-          running: false,
-          result: { ok: true, installed: "already-installed", version: "9.9.9" },
-        }),
+      readMachine(
+        {
+          ...carrying("nas"),
+          status: { state: "unreachable", checkedAt: at, detail: "timed out" },
+        },
+        null,
+        "9.9.9",
       ),
-    ).toEqual({ kind: "already-installed", version: "9.9.9" });
-  });
-
-  it("keeps the failing step and the far side's own message", () => {
+    ).toEqual({ kind: "unreachable", detail: "timed out" });
     expect(
-      verdictOf(
-        job({
-          running: false,
-          result: { ok: false, step: "connect", message: "Permission denied (publickey)." },
-        }),
+      readMachine(
+        { ...carrying("nas"), status: { state: "stopped", checkedAt: at } },
+        null,
+        "9.9.9",
       ),
-    ).toEqual({ kind: "failed", step: "connect", message: "Permission denied (publickey)." });
-  });
-});
-
-describe("installButtonState", () => {
-  it("nothing selected: the button offers an install it cannot start", () => {
-    expect(installButtonState(null, response(null), false)).toEqual({
-      action: "install",
-      disabled: true,
-    });
+    ).toEqual({ kind: "stopped" });
+    expect(
+      readMachine(
+        { ...carrying("nas"), status: { state: "running", checkedAt: at, port: 7364 } },
+        null,
+        "9.9.9",
+      ),
+    ).toEqual({ kind: "notConnected" });
   });
 
-  it("a never-installed selection with no job running is ready to go", () => {
-    expect(installButtonState(fresh("nas"), response(null), false)).toEqual({
-      action: "install",
-      disabled: false,
-    });
-  });
-
-  it("the selected machine's own running job reads as installing", () => {
-    expect(installButtonState(fresh("nas"), response(job()), false)).toEqual({
-      action: "installing",
-      disabled: true,
-    });
-  });
-
-  it("picking ANOTHER host mid-install refuses without claiming that host is installing", () => {
-    // The job belongs to ssh:nas; the picker moved to ssh:build-box. One job at a time, so
-    // the button is disabled — but it must not say "installing" about a host that is not.
-    expect(installButtonState(fresh("build-box"), response(job()), false)).toEqual({
-      action: "install",
-      disabled: true,
-    });
-  });
-
-  it("a POST still in flight reads as installing before the server reports a job", () => {
-    expect(installButtonState(fresh("nas"), response(null), true)).toEqual({
-      action: "installing",
-      disabled: true,
-    });
-  });
-
-  it("a machine carrying the program offers a reinstall — from its record, not the job", () => {
-    // No job at all: this is the page after a restart, which is exactly the case that used
-    // to read as "never installed".
-    expect(installButtonState(carrying("nas"), response(null), false)).toEqual({
-      action: "reinstall",
-      disabled: false,
-    });
-  });
-
-  it("installing elsewhere leaves an installed machine still reading as installed", () => {
-    const elsewhere = job({
-      machineId: "ssh:build-box",
-      alias: "build-box",
+  it("a use that ended at installed, with nothing held, is as far as it goes", () => {
+    const installedOnly = job({
       running: false,
       result: { ok: true, installed: "installed", version: "9.9.9" },
     });
-    expect(installButtonState(carrying("nas"), response(elsewhere), false)).toEqual({
-      action: "reinstall",
-      disabled: false,
+    expect(readMachine(carrying("nas"), installedOnly, "9.9.9")).toEqual({ kind: "installedOnly" });
+  });
+
+  it("tones follow meaning: moving is busy, connected is a link, a failed job is danger, out of reach and the rest want attention, and what waits on no one recedes", () => {
+    expect(readingTone({ kind: "working", step: null })).toBe("busy");
+    expect(readingTone({ kind: "ready", port: 7364 })).toBe("link");
+    expect(
+      readingTone({ kind: "failed", step: "restart", message: "", canReplaceProgram: false }),
+    ).toBe("danger");
+    expect(readingTone({ kind: "unreachable", detail: null })).toBe("attention");
+    expect(readingTone({ kind: "stopped" })).toBe("attention");
+    // Installed as far as this server can take it, or never checked: nothing to do about it.
+    expect(readingTone({ kind: "installedOnly" })).toBe("muted");
+    expect(readingTone({ kind: "unknown" })).toBe("muted");
+  });
+});
+
+describe("Use", () => {
+  const NOW = Date.parse("2026-08-24T12:10:00.000Z");
+  const connected: MachineInfo = {
+    ...carrying("nas"),
+    connection: { pid: 1 },
+    keepConnected: true,
+  };
+  const waits = (machine: MachineInfo, of: MachineJob | null = null) =>
+    useWaitsBecause(machine, of, readMachine(machine, of, "9.9.9"), "en", NOW);
+
+  it("starts a conversation on this server always, and on a machine while it is connected", () => {
+    expect(canUse(here(), null)).toBe(true);
+    expect(canUse(connected, null)).toBe(true);
+    expect(waits(connected)).toBeNull();
+  });
+
+  it("waits while a job moves on the machine, and says nothing: the stepper does", () => {
+    expect(canUse(connected, job())).toBe(false);
+    expect(waits(connected, job())).toBeNull();
+    expect(waits(connected, job({ queued: true, running: false }))).toBeNull();
+  });
+
+  it("says a machine coming back is reconnecting, and for how long once it has been a minute", () => {
+    const back = (since: string): MachineInfo => ({
+      ...connected,
+      reconnect: { since, attempts: 1, nextAt: null, lastError: null, diagnosis: null },
     });
-    // ...and the machine that job belongs to reads as installed off its own record too.
-    expect(installButtonState(carrying("build-box"), response(elsewhere), false).action).toBe(
-      "reinstall",
+    expect(canUse(back("2026-08-24T12:09:30.000Z"), null)).toBe(false);
+    expect(waits(back("2026-08-24T12:09:30.000Z"))).toBe(S.machines.card.why.reconnecting);
+    expect(waits(back("2026-08-24T12:04:00.000Z"))).toBe(
+      S.machines.card.why.reconnectingFor("6 minutes"),
     );
   });
 
-  it("a failed install leaves the selection on plain install: nothing was recorded", () => {
-    const failed = job({
-      running: false,
-      result: { ok: false, step: "connect", message: "Permission denied (publickey)." },
-    });
-    expect(installButtonState(fresh("nas"), response(failed), false)).toEqual({
-      action: "install",
-      disabled: false,
-    });
-  });
-
-  it("no install image disables the button whatever is selected", () => {
+  it("says why for a stopped server, a machine with nothing installed, and a failed job", () => {
+    const why = S.machines.card.why;
     expect(
-      installButtonState(fresh("nas"), response(null, { imageVersion: null }), false).disabled,
-    ).toBe(true);
-    expect(
-      installButtonState(carrying("nas"), response(null, { imageVersion: null }), false).disabled,
-    ).toBe(true);
+      waits({ ...carrying("nas"), status: { state: "stopped", checkedAt: INSTALLED.at } }),
+    ).toBe(why.stopped);
+    expect(waits({ ...fresh("spare"), member: true })).toBe(why.notInstalled);
+    expect(waits(carrying("nas"), failed)).toBe(why.failed);
   });
 });
 
-describe("installedMachines", () => {
-  const at = (iso: string) => ({ version: "9.9.9", at: iso });
-
-  it("is empty when nothing has been installed", () => {
-    expect(installedMachines(response(null))).toEqual([]);
+describe("jobs and polling", () => {
+  it("finds a machine's job by id", () => {
+    expect(jobFor([failed], "ssh:nas")).toBe(failed);
+    expect(jobFor([failed], "ssh:build-box")).toBeNull();
   });
 
-  it("keeps only the installed ones, most recent first", () => {
-    const machines: MachineInfo[] = [
-      remote("a", at("2026-08-20T00:00:00.000Z")),
-      remote("b", null),
-      remote("c", at("2026-08-24T00:00:00.000Z")),
-      remote("d", at("2026-08-22T00:00:00.000Z")),
-    ];
-    expect(installedMachines(response(null, { machines })).map((m) => m.alias)).toEqual([
-      "c",
-      "d",
-      "a",
+  it("keeps polling while anything is queued or running, and stops once all have finished", () => {
+    expect(anyJobPending(response([job({ queued: true, running: false })]))).toBe(true);
+    expect(anyJobPending(response([job()]))).toBe(true);
+    expect(anyJobPending(response([failed]))).toBe(false);
+    expect(anyJobPending(response([]))).toBe(false);
+  });
+});
+
+describe("machinesInUse", () => {
+  const older = { version: "9.9.8", at: "2026-08-20T00:00:00.000Z" };
+
+  it("is empty when nothing has been installed or added", () => {
+    expect(machinesInUse(response([]))).toEqual([]);
+  });
+
+  it("keeps this Project's machines, by name — never by install time, which an update rewrites", () => {
+    const nas = { ...carrying("nas"), installed: older };
+    const box = carrying("build-box");
+    expect(machinesInUse(response([], { machines: [here(), fresh("spare"), nas, box] }))).toEqual([
+      box,
+      nas,
+    ]);
+    // The same two after nas was just updated: the order does not move.
+    const fresher = { ...nas, installed: { version: "9.9.9", at: "2026-09-01T00:00:00.000Z" } };
+    expect(
+      machinesInUse(response([], { machines: [here(), fresh("spare"), fresher, box] })),
+    ).toEqual([box, fresher]);
+  });
+
+  it("keeps a machine added to this Project that nothing is installed on yet, and it reads as not installed", () => {
+    const added: MachineInfo = { ...fresh("spare"), member: true };
+    expect(machinesInUse(response([], { machines: [here(), added, fresh("other")] }))).toEqual([
+      added,
+    ]);
+    expect(readMachine(added, null, "9.9.9")).toEqual({ kind: "notInstalled" });
+    expect(canUse(added, null)).toBe(false);
+    // Its first enable says how it goes, and how it failed, rather than "not installed".
+    expect(readMachine(added, failed, "9.9.9").kind).toBe("failed");
+    expect(readMachine(added, job(), "9.9.9").kind).toBe("working");
+  });
+
+  it("compares names naturally, so gpu-2 sits before gpu-10", () => {
+    const two = carrying("gpu-2");
+    const ten = carrying("gpu-10");
+    const one = carrying("GPU-1");
+    expect(machinesInUse(response([], { machines: [here(), ten, two, one] }))).toEqual([
+      one,
+      two,
+      ten,
     ]);
   });
 
-  it("keeps the config's order among installs sharing a timestamp, so the list does not shuffle between polls", () => {
-    const same = at("2026-08-24T00:00:00.000Z");
-    const machines: MachineInfo[] = [remote("x", same), remote("y", same), remote("z", same)];
-    const order = () => installedMachines(response(null, { machines })).map((m) => m.alias);
-    expect(order()).toEqual(["x", "y", "z"]);
-    expect(order()).toEqual(order());
-  });
-
-  it("does not mutate the response's own machine order (the picker reads it too)", () => {
-    const machines: MachineInfo[] = [
-      remote("a", at("2026-08-20T00:00:00.000Z")),
-      remote("c", at("2026-08-24T00:00:00.000Z")),
-    ];
-    const state = response(null, { machines });
-    installedMachines(state);
-    expect(state.machines.map((m) => m.alias)).toEqual(["a", "c"]);
+  it("does not mutate the response's own machine order (the add dialog reads it too)", () => {
+    const nas = { ...carrying("nas"), installed: older };
+    const box = carrying("build-box");
+    const state = response([], { machines: [nas, box] });
+    machinesInUse(state);
+    expect(state.machines).toEqual([nas, box]);
   });
 });
 
-describe("this machine in the list", () => {
-  /** The entry the server puts first: the host serving this page. */
-  const here = (): MachineInfo => ({
-    id: "local",
-    alias: "workstation",
-    machineId: "LNrJdHAZJ91G58i0",
-    installed: INSTALLED,
-    local: true,
-    connection: null,
-    api: null,
-    status: { state: "running", checkedAt: INSTALLED.at, port: 7364 },
+describe("behindMachines", () => {
+  it("is the machines in use on another build, in list order, and nothing without a record", () => {
+    const old = { ...carrying("old"), installed: { version: "9.9.8", at: INSTALLED.at } };
+    const state = response([], { machines: [here(), fresh("spare"), carrying("nas"), old] });
+    expect(behindMachines(state).map((machine) => machine.id)).toEqual(["ssh:old"]);
+    expect(behindMachines({ ...state, imageVersion: null })).toEqual([]);
+  });
+});
+
+describe("the local machine", () => {
+  it("is the entry flagged local, wherever the server put it", () => {
+    expect(localMachine(response([], { machines: [fresh("nas"), here()] }))?.id).toBe("local");
+    expect(localMachine(response([]))).toBeNull();
+  });
+});
+
+describe("outOfDate", () => {
+  it("compares the record's build against what this server would install", () => {
+    expect(outOfDate(carrying("nas"), "9.9.9")).toBe(false);
+    expect(outOfDate(carrying("nas"), "9.9.10")).toBe(true);
   });
 
-  it("is never one of the installed remotes: there is nothing to reinstall from here", () => {
-    const listed = installedMachines(response(null, { machines: [here(), carrying("nas")] }));
-    expect(listed.map((m) => m.id)).toEqual(["ssh:nas"]);
+  it("is never true without an image, for a fresh machine, or for this machine", () => {
+    expect(outOfDate(carrying("nas"), null)).toBe(false);
+    expect(outOfDate(fresh("nas"), "9.9.10")).toBe(false);
+    expect(outOfDate(here(), "9.9.10")).toBe(false);
+  });
+});
+
+describe("the image notice", () => {
+  it("a server with no image and nothing to build one from stops the page", () => {
+    expect(imageNotice(response([], { imageVersion: null }))).toEqual({ kind: "noImage" });
+    expect(imageNotice(response([]))).toBeNull();
+  });
+
+  it("a source checkout that has not built its image yet stops nothing", () => {
+    const unbuilt: MachinesResponse = {
+      ...response([], { imageVersion: null }),
+      checkoutImage: { state: "unbuilt" },
+    };
+    expect(imageNotice(unbuilt)).toBeNull();
+    expect(imageNotice({ ...unbuilt, checkoutImage: { state: "building" } })).toBeNull();
+  });
+
+  it("a checkout whose last build failed shows the build's own words, not the no-image refusal", () => {
+    const state: MachinesResponse = {
+      ...response([], { imageVersion: null }),
+      checkoutImage: { state: "failed", detail: "[deploy] spawnSync pnpm ENOENT" },
+    };
+    expect(imageNotice(state)).toEqual({
+      kind: "buildFailed",
+      detail: "[deploy] spawnSync pnpm ENOENT",
+    });
   });
 });

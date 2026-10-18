@@ -29,7 +29,7 @@ The same range and agent filter decide which rows the server error panel lists, 
 
 Three cards show totals: **Today**, **Last 7 days**, and **Total** for the selected date range. All three follow the agent and model filters. Each card lists the Tokens, the number of requests and the cost.
 
-Prices are shown in the display currency you choose under [System settings › General](/settings#general). Only models with configured pricing count toward cost. When some records have no price, an asterisk appears beside **Cost** and a note at the bottom of the page says so.
+Prices are shown in the display currency you choose under [Settings › General](/settings#general). Only models with configured pricing count toward cost. When some records have no price, an asterisk appears beside **Cost** and a note at the bottom of the page says so.
 
 ## Read the charts
 
@@ -61,6 +61,7 @@ The **Errors** panel at the bottom of the page shows the errors the server recor
 
 - Summary figures: **Total**, **Unexpected**, **Expected** and the **Most common** error code.
 - A table of errors with their time, **Source · code**, **Type** and **Message**. Click a message to expand its full text. The table shows 10 rows a page and pages with **Newer** and **Older** instead of scrolling.
+- The same error recorded more than once on one day shares a row. The time is the latest one, hover it for the first, and ×N after the message counts the records. The summary figures count every record.
 
 The model filter does not apply to this panel.
 

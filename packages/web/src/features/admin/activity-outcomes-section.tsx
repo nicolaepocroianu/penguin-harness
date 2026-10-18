@@ -14,10 +14,7 @@ import { apiErrorText } from "../../lib/api-error";
 import { formatDateTime } from "../../lib/format";
 import { toneInk } from "../../lib/tone";
 import { useAuth } from "../../state/auth";
-import { Button } from "../../components/ui/button";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { Segmented } from "../../components/ui/segmented";
-import { Select } from "../../components/ui/select";
+import { Button, InfoPopover, Segmented, Select } from "@prismshadow/penguin-ui";
 import {
   TABLE,
   TABLE_HEAD_ROW,

@@ -351,6 +351,25 @@ describe("StreamRenderer", () => {
     expect(stripAnsi(text())).toContain("[abort]: aborted by user");
   });
 
+  it("an image rejection's retry names its cause", () => {
+    const { stream, text } = collector();
+    const r = new StreamRenderer(stream, t);
+    r.handle(requestBegin());
+    // The engine retries an image rejection at once with the images replaced (retry_in_ms 0).
+    r.handle(
+      requestEnd("retryable", {
+        errorCode: "image_rejected",
+        errorMessage: "400 Could not process image",
+        attempt: 1,
+        retryInMs: 0,
+      }),
+    );
+    r.handle(requestBegin());
+    expect(stripAnsi(text())).toBe(
+      "[retry] the model provider rejected an image in this turn's input (replaced with a note); sending retry #1…\n",
+    );
+  });
+
   it("prints the retry line for legacy-trace spellings too, straight from the stamped ordinal", () => {
     // Traces written before the stop-reason convergence spell retryable ends as
     // failed/timeout/malformed; the CLI keeps printing their retries. The number is the
@@ -417,6 +436,7 @@ describe("StreamRenderer", () => {
         system_prompt: "sp",
         agent_state: "/a",
         workspace: "/w",
+        source: "user",
       }),
     );
     // Two turns: request total 1500, 4000. Per-task token delta = 5500; session cumulative = 12000;
@@ -1315,5 +1335,37 @@ describe("StreamRenderer color wiring (issue #102)", () => {
     );
     r.handle(partialToolCall({ eventType: "stop", name: "", toolCallId: "f1" }));
     expect(text()).toContain("\x1b[36m");
+  });
+});
+
+describe("a2ui blocks (the Web App's components, printed as their text fallback)", () => {
+  /** Streams a reply in five-character deltas, so a fence's opener and its JSON arrive in pieces. */
+  function streamReply(reply: string): string {
+    const { stream, text } = collector();
+    const r = new StreamRenderer(stream, t);
+    r.handle(partialText("start", ""));
+    for (let i = 0; i < reply.length; i += 5) r.handle(partialText("delta", reply.slice(i, i + 5)));
+    r.handle(partialText("stop", "", "completed"));
+    return stripAnsi(text());
+  }
+
+  it("a streamed choice prints as numbered options; text and other fences print as written", () => {
+    const choice = JSON.stringify({
+      type: "choice",
+      question: "Which database should the service use?",
+      options: [{ label: "Postgres", recommended: true }, { label: "SQLite" }],
+    });
+    const lead = "Two databases fit.\n\n```ts\nconst a = 1;\n```\n\n";
+    const shown = streamReply(`${lead}\`\`\`a2ui\n${choice}\n\`\`\``);
+    expect(shown.startsWith(lead)).toBe(true);
+    expect(shown).toMatch(/^1\. .*Postgres/m);
+    expect(shown).toMatch(/^2\. .*SQLite/m);
+    expect(shown).not.toContain("```a2ui");
+    expect(shown).not.toContain('"options"');
+  });
+
+  it("a block shown inside another fence is an example, printed as written", () => {
+    const reply = '````markdown\n```a2ui\n{"type":"callout","tone":"tip","text":"Hi."}\n```\n````';
+    expect(streamReply(reply)).toBe(`${reply}\n`);
   });
 });

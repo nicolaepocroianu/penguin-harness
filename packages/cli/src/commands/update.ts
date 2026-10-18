@@ -69,6 +69,7 @@ import {
   VERSION,
   compareVersions,
   normalizeVersion,
+  userAgent,
 } from "@prismshadow/penguin-core";
 import type { Command } from "commander";
 import type { InstallerSource, Messages } from "../i18n.js";
@@ -331,7 +332,7 @@ export async function fetchLatestVersion(t: Messages, fetcher: FetchLike = fetch
   let res: Response;
   try {
     res = await fetcher(LATEST_RELEASE_API, {
-      headers: { accept: "application/vnd.github+json", "user-agent": "penguin-cli" },
+      headers: { accept: "application/vnd.github+json", "user-agent": userAgent() },
       signal: AbortSignal.timeout(15_000),
     });
   } catch {
@@ -357,6 +358,7 @@ export async function fetchOssLatestRelease(
 ): Promise<ResolvedRelease> {
   try {
     const res = await fetcher(`${OSS_ORIGIN}/latest.json`, {
+      headers: { "user-agent": userAgent() },
       signal: AbortSignal.timeout(8_000),
     });
     if (!res.ok) throw new Error(String(res.status));
@@ -426,7 +428,10 @@ export async function downloadInstaller(
 ): Promise<{ script: string; candidate: InstallerCandidate } | null> {
   for (const candidate of candidates) {
     try {
-      const res = await fetcher(candidate.url, { signal: AbortSignal.timeout(30_000) });
+      const res = await fetcher(candidate.url, {
+        headers: { "user-agent": userAgent() },
+        signal: AbortSignal.timeout(30_000),
+      });
       if (!res.ok) continue;
       return { script: await res.text(), candidate };
     } catch {

@@ -10,10 +10,7 @@ import { ApiError } from "../../api/client";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
-import { Button } from "../../components/ui/button";
-import { Input, Textarea } from "../../components/ui/input";
-import { Modal } from "../../components/ui/modal";
-import { Select } from "../../components/ui/select";
+import { Button, Input, Textarea, Modal, Select } from "@prismshadow/penguin-ui";
 import { projectActivitiesApi } from "./activity-api";
 
 /** How long typing pauses before the next free number is asked for. */

@@ -1,7 +1,12 @@
 {
   "name": "@penguinharness/agent-development",
-  "version": "0.2.13",
-  "description": "Agent development on PenguinHarness: build on the SDK, call any model through one unified LLM API, manage models and secrets, and orchestrate agents, sessions, costs and schedules.",
+  "version": "0.2.16",
+  "description": "Agent development on PenguinHarness: initialize agents from a requirement, build agent apps on the SDK or connect them to an agent over the Agent API, build workbenches (the pages beside the chat an agent keeps for itself), call any model through one unified LLM API, manage models and secrets, and orchestrate agents, sessions, costs and schedules.",
+  "keywords": [
+    "penguin-plugin",
+    "penguinharness",
+    "skills"
+  ],
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -9,7 +14,6 @@
     "directory": "plugins/agent-development"
   },
   "files": [
-    "plugin.json",
     "icon.svg",
     "skills",
     "hooks",
@@ -17,5 +21,17 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "penguin": {
+    "short_description": "Agent setup, SDK, Agent API, workbenches, LLM API, config and orchestration.",
+    "category": "ai-app-development",
+    "icon": "icon.svg",
+    "quick_start": {
+      "prompt": "Use the penguin CLI to list the agents in this Project and the five most recent sessions, then tell me in one line each what every agent is for.",
+      "skills": [
+        "penguin-orchestration"
+      ]
+    },
+    "title": "Agent Development"
   }
 }

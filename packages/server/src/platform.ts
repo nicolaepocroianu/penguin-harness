@@ -7,7 +7,6 @@ import {
   ConsoleLog,
   RuntimeAuthState,
   RuntimeChannels,
-  RuntimeLifecycle,
   RuntimeConfig,
   RuntimeDb,
   RuntimeDesktop,
@@ -23,7 +22,6 @@ import {
   Config,
   Db,
   Desktop,
-  Lifecycle,
   Hmr,
   Reassembly,
   HmrControl,
@@ -33,6 +31,7 @@ import {
   ResourceGroups,
 } from "./hmr/capabilities.js";
 import { ScryptHasher, PasswordHasher } from "./auth/password.js";
+import { LiveStreamRegistry, LiveStreams } from "./auth/live-streams.js";
 import {
   DefaultMessagingTuning,
   Messaging,
@@ -46,6 +45,8 @@ import { QQTransportProvider } from "./runtime/messaging/qq-connector.js";
 import { QQScanTransportProvider } from "./runtime/messaging/qq-scan.js";
 import { WeChatTransportProvider } from "./runtime/messaging/wechat-connector.js";
 import { WeChatScanTransportProvider } from "./runtime/messaging/wechat-scan.js";
+import { PluginConfig, PluginConfigProvider } from "./plugin/config.js";
+import { PluginConfigAdmin, PluginConfigPage } from "./plugin/config-page.js";
 import {
   CoreSessionLoaders,
   DefaultTitleGenerators,
@@ -61,6 +62,7 @@ import {
   UpdateCheck,
 } from "./services/update-check-service.js";
 import { UpdateJobService } from "./services/update-job.js";
+import { HarnessHistoryStore } from "./services/harness-history.js";
 import { UsersRepo } from "./db/repos/users.js";
 import { AuthSessionsRepo } from "./db/repos/auth-sessions.js";
 import { ServerSettingsRepo } from "./db/repos/server-settings.js";
@@ -68,32 +70,39 @@ import { UiPrefsRepo } from "./db/repos/ui-prefs.js";
 import { SessionsRepo } from "./db/repos/sessions.js";
 import { ProjectsRepo } from "./db/repos/projects.js";
 import { ModelPromotionsRepo } from "./db/repos/model-promotions.js";
+import { ModelProviderAuthTokensRepo } from "./db/repos/model-provider-auth-tokens.js";
 import { MembersRepo } from "./db/repos/members.js";
 import { AgentsRepo } from "./db/repos/agents.js";
 import { UsageRepo } from "./db/repos/usage.js";
 import { SchedulesRepo } from "./db/repos/schedules.js";
 import { TraceIndexRepo } from "./db/repos/trace-index.js";
 import { MessagingBindingsRepo } from "./db/repos/messaging-bindings.js";
+import { MessagingConversationsRepo } from "./db/repos/messaging-conversations.js";
 import { OrgCacheRepo } from "./db/repos/organizations.js";
 import { ErrorsRepo } from "./db/repos/errors.js";
+import { AgentStateStore } from "./runtime/agent-state.js";
 import { SessionSources } from "./runtime/session-sources.js";
+import { SessionDriverRegistry } from "./runtime/session-drivers.js";
 import { ErrorRecorder } from "./runtime/error-recorder.js";
 import { UsageRecorder } from "./runtime/usage-recorder.js";
 import { UsageService } from "./services/usage-service.js";
 import { ProjectConfigService } from "./services/project-config-service.js";
 import { ModelOAuthService } from "./services/model-oauth-service.js";
 import { PlatformAuth, PlatformAuthProvider } from "./services/platform-auth-service.js";
+import { ModelScopeAuth, ModelScopeAuthProvider } from "./services/modelscope-auth-service.js";
 import { TraceIndexService } from "./services/trace-index.js";
 import { TraceService } from "./services/trace-service.js";
 import { WorkspaceFilesService } from "./services/workspace-files-service.js";
 import { RevealService } from "./services/reveal-path.js";
 import { ProjectAccess } from "./services/project-access.js";
+import { ProjectNotifier } from "./services/project-events.js";
 import {
   ProjectService,
   ProjectActivityRuns,
   ProjectPreviews,
   ProjectRuns,
   ProjectServerRuns,
+  ShippedBuiltinBenchmarkSeeds,
 } from "./services/project-service.js";
 import { ProjectActivityWorkService } from "./services/project-activity-work.js";
 import { AuthService, InitialProjectProvisioner } from "./auth/service.js";
@@ -184,22 +193,34 @@ import { ActivityLockService } from "./activities/activity-lock.js";
 import { ActivityAuthoring, ActivityGeneration } from "./mechanisms/activities.js";
 import { ProjectsRoutes } from "./http/routes/dirs.js";
 import { SandboxModule } from "./sandbox/service.js";
+import { SandboxSettings } from "./sandbox/settings-store.js";
+import { SandboxSettingsStatus } from "./sandbox/settings-status.js";
 import { SchedulerRoutes } from "./http/routes/schedules.js";
 import { Machines, MachinesModule } from "./machines/service.js";
 import { OrganizationModule, OrgScheduler, OrgService } from "./runtime/organization/service.js";
 import { OrgRoutes } from "./http/routes/organizations.js";
 import { OrgRuns, OrgSessions } from "./runtime/organization/deps.js";
+import { TerminalRelay } from "./machines/terminal-relay.js";
 import { ProjectAdminRoutes } from "./http/routes/projects.js";
 import { AdminRoutes } from "./http/routes/admin.js";
 import { MeRoutes } from "./http/routes/me.js";
 import { AuthRoutes } from "./http/routes/auth.js";
-import { DesktopRoutes, DesktopTrayRoutes, DesktopUpdateRoutes } from "./http/routes/desktop.js";
+import { RemoteRoutes } from "./http/routes/remote.js";
+import {
+  DesktopPrivacySettingsRoutes,
+  DesktopRoutes,
+  DesktopTrayRoutes,
+  DesktopUpdateRoutes,
+} from "./http/routes/desktop.js";
 import { InstallRoutes } from "./http/routes/install.js";
 import { HmrRoutes } from "./hmr/routes.js";
 import { EventsRoutes } from "./http/routes/events.js";
 import { PluginRegistryRoutes, PluginRoutes } from "./http/routes/plugins.js";
 import { InstalledPluginRoutes } from "./http/routes/plugins-installed.js";
+import { NpmPluginPackages } from "./plugin/install.js";
 import { SuggestIdRoutes } from "./http/routes/suggest-id.js";
+import { LanguageRoutes } from "./http/routes/languages.js";
+import { Languages, LanguagesModule } from "./languages/service.js";
 import { TerminalModule } from "./terminal/manager.js";
 import { SessionApiRoutes } from "./http/routes/sessions.js";
 import { Admin, Auth, AuthSessions, Users } from "./mechanisms/identity.js";
@@ -209,11 +230,23 @@ import {
   Members,
   ModelOAuth,
   ProjectActivityWork,
+  ModelProviderAuthTokens,
   ProjectConfigStore,
+  ProjectEvents,
   ProjectLifecycle,
   Projects,
 } from "./mechanisms/projects.js";
-import { Schedules, Scheduling, SessionIndex, SessionOrigins } from "./mechanisms/sessions.js";
+import {
+  AgentState,
+  Schedules,
+  Scheduling,
+  SessionDrivers,
+  SessionIndex,
+  SessionOrigins,
+} from "./mechanisms/sessions.js";
+import { Workbenches } from "./mechanisms/workbenches.js";
+import { WorkbenchService } from "./workbenches/service.js";
+import { WorkbenchRoutes } from "./workbenches/routes.js";
 import {
   ErrorLog,
   Errors,
@@ -235,6 +268,8 @@ import { OrgCache } from "./mechanisms/organization.js";
 import { PreviewModule, PreviewTokens } from "./http/routes/preview.js";
 import { Http, HttpModule } from "./http/app.js";
 import { WebModule, WebShell } from "./http/routes/contributions.js";
+import { BuiltinBrowserModule } from "./builtin-browser/module.js";
+import { AgentApiModule } from "./amsp/module.js";
 
 /**
  * The platform's module tree: the root module and its children, in one place.
@@ -300,7 +335,6 @@ export class Startup {
     AppReassembly,
     RuntimeDesktop,
     RuntimeAuthState,
-    RuntimeLifecycle,
     RuntimeResourceGroups,
     ConsoleLog,
     SystemClock,
@@ -316,7 +350,6 @@ export class Startup {
     Reassembly,
     Desktop,
     AuthState,
-    Lifecycle,
     ResourceGroups,
     Log,
     Clock,
@@ -330,13 +363,15 @@ export class RuntimeModule {}
     UsersRepo,
     AuthSessionsRepo,
     ScryptHasher,
+    LiveStreamRegistry,
     AuthService,
     AdminService,
     AdminRoutes,
     MeRoutes,
     AuthRoutes,
+    RemoteRoutes,
   ],
-  exports: [Users, AuthSessions, Auth, Admin, PasswordHasher],
+  exports: [Users, AuthSessions, Auth, Admin, PasswordHasher, LiveStreams],
 })
 export class IdentityModule {}
 
@@ -344,14 +379,18 @@ export class IdentityModule {}
   children: [
     ProjectsRepo,
     ModelPromotionsRepo,
+    ModelProviderAuthTokensRepo,
     MembersRepo,
     AgentsRepo,
     ProjectAccess,
+    ProjectNotifier,
+    ShippedBuiltinBenchmarkSeeds,
     ProjectService,
     ProjectActivityWorkService,
     ProjectConfigService,
     ModelOAuthService,
     PlatformAuthProvider,
+    ModelScopeAuthProvider,
     ProjectsRoutes,
     ProjectAdminRoutes,
   ],
@@ -363,9 +402,12 @@ export class IdentityModule {}
     ProjectLifecycle,
     ProjectActivityWork,
     ProjectConfigStore,
+    ModelProviderAuthTokens,
     ModelOAuth,
     PlatformAuth,
+    ModelScopeAuth,
     InitialProjectProvisioner,
+    ProjectEvents,
   ],
 })
 export class ProjectsModule {}
@@ -374,6 +416,8 @@ export class ProjectsModule {}
   children: [
     SessionsRepo,
     SessionSources,
+    SessionDriverRegistry,
+    AgentStateStore,
     SchedulesRepo,
     Scheduler,
     CoreSessionLoaders,
@@ -386,6 +430,8 @@ export class ProjectsModule {}
   exports: [
     SessionIndex,
     SessionOrigins,
+    SessionDrivers,
+    AgentState,
     Schedules,
     Scheduling,
     Sessions,
@@ -406,6 +452,28 @@ export class SessionRuntimeModule {}
   exports: [Settings, UiPrefsStore],
 })
 export class SettingsModule {}
+
+/**
+ * Plugin configuration as a group of its own, beside the settings it is stored in: a plugin
+ * that stands in for the settings group replaces the store, not the schema-and-watch layer
+ * over it, and a plugin's manifest names this module as where `PluginConfig` comes from.
+ */
+@Module({
+  children: [PluginConfigProvider, PluginConfigPage],
+  exports: [PluginConfig, PluginConfigAdmin],
+})
+export class PluginConfigModule {}
+
+/**
+ * Sandbox settings as a group of their own: the sandbox service boots on the capability-free
+ * floor, while its settings group and the node applying it need plugin configuration (and
+ * through it the database), so they sit above it.
+ */
+@Module({
+  children: [SandboxSettings, SandboxSettingsStatus],
+  exports: [],
+})
+export class SandboxSettingsModule {}
 
 @Module({
   children: [ErrorsRepo, ErrorRecorder, UsageRepo, UsageRecorder, UsageService],
@@ -528,6 +596,7 @@ export class WorkspaceModule {}
     WeChatScanTransportProvider,
     DefaultMessagingTuning,
     MessagingBindingsRepo,
+    MessagingConversationsRepo,
     MessagingModule,
   ],
   exports: [Messaging, QQScan, MessagingBindings],
@@ -550,6 +619,7 @@ export class CompanyModule {}
     GlobalFetch,
     UpdateCheckService,
     UpdateJobService,
+    HarnessHistoryStore,
     HttpModule,
     WebModule,
     InstallRoutes,
@@ -558,20 +628,31 @@ export class CompanyModule {}
     DesktopRoutes,
     DesktopUpdateRoutes,
     DesktopTrayRoutes,
+    DesktopPrivacySettingsRoutes,
     PluginRoutes,
     PluginRegistryRoutes,
+    NpmPluginPackages,
     InstalledPluginRoutes,
     SuggestIdRoutes,
+    LanguagesModule,
+    LanguageRoutes,
   ],
   exports: [Http, WebShell, UpdateCheck],
 })
 export class ApiModule {}
+
+@Module({
+  children: [WorkbenchService, WorkbenchRoutes],
+  exports: [Workbenches],
+})
+export class WorkbenchesModule {}
 
 /** The root: provides nothing and requires nothing; it exists so the groups have a scope to see each other in. */
 @Module({
   children: [
     RuntimeModule,
     SettingsModule,
+    PluginConfigModule,
     IdentityModule,
     ProjectsModule,
     SessionRuntimeModule,
@@ -585,8 +666,13 @@ export class ApiModule {}
     CompanyModule,
     ApiModule,
     SandboxModule,
+    SandboxSettingsModule,
     TerminalModule,
     MachinesModule,
+    TerminalRelay,
+    WorkbenchesModule,
+    BuiltinBrowserModule,
+    AgentApiModule,
     Startup,
   ],
 })
@@ -607,6 +693,8 @@ export function platformDef(
     await change?.write();
     return false;
   },
+  /** Nodes the previous App hands over, booted as they are in place of fresh ones (hmr/platform.ts: the Agent state). */
+  inherited: ReadonlyMap<ModuleClass, object> = new Map(),
 ): ModuleDef {
   const instances = new Map<ModuleClass, object>([
     [RuntimeConfig, new RuntimeConfig(caps)],
@@ -618,9 +706,9 @@ export function platformDef(
     [AppReassembly, new AppReassembly(reassemble)],
     [RuntimeDesktop, new RuntimeDesktop(caps)],
     [RuntimeAuthState, new RuntimeAuthState(caps)],
-    [RuntimeLifecycle, new RuntimeLifecycle(caps)],
     [RuntimeResourceGroups, new RuntimeResourceGroups(adoptable)],
   ]);
+  for (const [cls, instance] of inherited) instances.set(cls, instance);
   for (const [cls, instance] of caps.replacements) instances.set(cls, instance);
   return moduleDefOf(PlatformModule, {
     manifests: table.modules as ManifestTable,

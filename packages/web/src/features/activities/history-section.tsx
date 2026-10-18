@@ -13,7 +13,7 @@ import type {
   ActivityRun,
   ActivityRunSummary,
 } from "@prismshadow/penguin-server/api";
-import { Button } from "../../components/ui/button";
+import { Button } from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, toneSurface, type Tone } from "../../lib/tone";
@@ -179,7 +179,7 @@ export function GenerationHistory({
               {expanded && (
                 <div
                   id={transcriptId}
-                  className="overflow-hidden rounded-md border border-gray-200 dark:border-gray-800"
+                  className="overflow-hidden rounded-control border border-gray-200 dark:border-gray-800"
                 >
                   <RunTranscript sessionId={run.sessionId!} running={run.status === "running"} />
                 </div>

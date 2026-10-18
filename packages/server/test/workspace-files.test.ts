@@ -1,13 +1,40 @@
 /**
- * Unit tests for the Workspace files service: directory-listing order, read/write,
- * move / delete / search, path confinement (`..` traversal and symlink escape), size-limit
- * protection, batch existence checks (files/stat); the desktop-only files/reveal route; and
- * the Agent delete route (default_agent cannot be deleted, owner-only, directory and index
- * cleanup).
+ * A Session's Workspace files: the service and the routes over it.
+ *
+ * The service:
+ * - Listings put directories first, sorted by name, and drill into subdirectories (a Workspace
+ *   at the filesystem root included); reads carry content and type; writes overwrite and create
+ *   missing parents; `..`, absolute paths and symlink escapes are refused, as are files past the
+ *   size limit.
+ * - A write, move or delete holds to the version marker a read returned: a stale one changes
+ *   nothing, no marker only creates a file that was never there, and a directory has none.
+ * - A move renames, crosses directories and creates the destination parent, refusing an
+ *   occupied destination, a missing source and its own path; a delete refuses a directory and a
+ *   missing file.
+ * - A search finds a file no listing reached, reported as a tree row, by name rather than path,
+ *   shallow matches and directories first, capped and saying so; an empty or oversize query is
+ *   refused.
+ *
+ * The routes:
+ * - files/content serves HTML as text/plain inline, as text/html under a CSP sandbox for a
+ *   preview and with its real type for a download; SVG inline under a sandbox CSP; never cached;
+ *   the read's version is demanded back, so a save over an Agent's rewrite is a 409.
+ * - files/stat answers existing paths in order, deduplicated, counting missing, directory and
+ *   out-of-bounds paths as absent, always 200; malformed bodies are 400.
+ * - files/move, files/search and the files/content delete behave as the service does (409
+ *   target_exists, 409 file_changed); outsiders get 404 everywhere, with no Workspace touched.
+ * - Deleting an Agent removes its directory and list entry; default_agent is a 409; outsiders
+ *   get 404.
+ * - files/reveal opens the canonical path for the desktop shell's own window only (a browser
+ *   session is desktop_shell_only; outside desktop mode the route does not exist), resolves the
+ *   path as a read does, and reports an opener that cannot start as 502 reveal_failed.
+ *
+ * The route describes share one app and one Project, every case working in a Session (and so a
+ * Workspace) of its own; the desktop-mode reveal cases share one desktop app.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   SEARCH_MAX_HITS,
   SEARCH_MAX_QUERY_LEN,
@@ -22,6 +49,7 @@ import type {
 } from "../src/api/types.js";
 import {
   apiClient,
+  canCreateSymlink,
   createDesktopApp,
   createTestApp,
   desktopLoginCookie,
@@ -30,6 +58,10 @@ import {
   provisionUser,
 } from "./helpers.js";
 import type { TestApp } from "./helpers.js";
+
+// Symlink creation needs a privilege or Developer Mode on Windows; canCreateSymlink()
+// probes once and caches, so these cases still run where the capability exists.
+const itWithSymlinks = it.skipIf(!canCreateSymlink());
 
 describe("workspace-files-service", () => {
   let ws: string;
@@ -90,51 +122,60 @@ describe("workspace-files-service", () => {
     expect(sub.entries.map((e) => e.name)).toEqual(["c.md"]);
   });
 
-  it("a symlink to a directory inside the Workspace: kind is dir and it can be drilled into", async () => {
-    await fs.symlink(path.join(ws, "sub"), path.join(ws, "link-sub"));
-    const root = await svc.list(ws, "");
-    expect(root.entries.map((e) => `${e.kind}:${e.name}`)).toEqual([
-      "dir:link-sub",
-      "dir:sub",
-      "file:b.txt",
-    ]);
-    const viaLink = await svc.list(ws, "link-sub");
-    expect(viaLink.entries.map((e) => e.name)).toEqual(["c.md"]);
-  });
+  itWithSymlinks(
+    "a symlink to a directory inside the Workspace: kind is dir and it can be drilled into",
+    async () => {
+      await fs.symlink(path.join(ws, "sub"), path.join(ws, "link-sub"));
+      const root = await svc.list(ws, "");
+      expect(root.entries.map((e) => `${e.kind}:${e.name}`)).toEqual([
+        "dir:link-sub",
+        "dir:sub",
+        "file:b.txt",
+      ]);
+      const viaLink = await svc.list(ws, "link-sub");
+      expect(viaLink.entries.map((e) => e.name)).toEqual(["c.md"]);
+    },
+  );
 
-  it("symlink escape: reads and writes are both rejected when the link points outside the Workspace", async () => {
-    await fs.symlink(outside, path.join(ws, "link-out"));
-    const root = await svc.list(ws, "");
-    expect(root.entries.map((entry) => entry.name)).not.toContain("link-out");
-    await expect(svc.list(ws, "link-out")).rejects.toMatchObject({ status: 400 });
-    await expect(svc.read(ws, "link-out/secret.txt")).rejects.toMatchObject({ status: 400 });
-    // Writing outside via a directory symlink: caught by the parent-directory realpath check.
-    await expect(svc.write(ws, "link-out/evil.txt", Buffer.from("x"))).rejects.toMatchObject({
-      status: 400,
-    });
-    // Auto-creation under a missing path is equally restricted: if the nearest
-    // existing ancestor is a symlink pointing outside, mkdir must not be used to escape.
-    await expect(svc.write(ws, "link-out/new/evil.txt", Buffer.from("x"))).rejects.toMatchObject({
-      status: 400,
-    });
-    expect(
-      await fs
-        .stat(path.join(outside, "new"))
-        .then(() => true)
-        .catch(() => false),
-    ).toBe(false);
-  });
+  itWithSymlinks(
+    "symlink escape: reads and writes are both rejected when the link points outside the Workspace",
+    async () => {
+      await fs.symlink(outside, path.join(ws, "link-out"));
+      const root = await svc.list(ws, "");
+      expect(root.entries.map((entry) => entry.name)).not.toContain("link-out");
+      await expect(svc.list(ws, "link-out")).rejects.toMatchObject({ status: 400 });
+      await expect(svc.read(ws, "link-out/secret.txt")).rejects.toMatchObject({ status: 400 });
+      // Writing outside via a directory symlink: caught by the parent-directory realpath check.
+      await expect(svc.write(ws, "link-out/evil.txt", Buffer.from("x"))).rejects.toMatchObject({
+        status: 400,
+      });
+      // Auto-creation under a missing path is equally restricted: if the nearest
+      // existing ancestor is a symlink pointing outside, mkdir must not be used to escape.
+      await expect(svc.write(ws, "link-out/new/evil.txt", Buffer.from("x"))).rejects.toMatchObject({
+        status: 400,
+      });
+      expect(
+        await fs
+          .stat(path.join(outside, "new"))
+          .then(() => true)
+          .catch(() => false),
+      ).toBe(false);
+    },
+  );
 
-  it("writing through a last-segment symlink: O_NOFOLLOW refuses to overwrite files outside the Workspace by proxy", async () => {
-    // The Agent has a symlink inside the Workspace pointing to an outside file; an upload attempts to overwrite it.
-    const victim = path.join(outside, "secret.txt");
-    await fs.symlink(victim, path.join(ws, "report.pdf"));
-    await expect(svc.write(ws, "report.pdf", Buffer.from("PWNED"))).rejects.toMatchObject({
-      status: 400,
-    });
-    // The outside file's content is unchanged.
-    expect(await fs.readFile(victim, "utf8")).toBe("secret");
-  });
+  itWithSymlinks(
+    "writing through a last-segment symlink: O_NOFOLLOW refuses to overwrite files outside the Workspace by proxy",
+    async () => {
+      // The Agent has a symlink inside the Workspace pointing to an outside file; an upload attempts to overwrite it.
+      const victim = path.join(outside, "secret.txt");
+      await fs.symlink(victim, path.join(ws, "report.pdf"));
+      await expect(svc.write(ws, "report.pdf", Buffer.from("PWNED"))).rejects.toMatchObject({
+        status: 400,
+      });
+      // The outside file's content is unchanged.
+      expect(await fs.readFile(victim, "utf8")).toBe("secret");
+    },
+  );
 
   it("write precondition: a matching version writes, one the file has moved past is refused with nothing written", async () => {
     const { version } = await svc.read(ws, "b.txt");
@@ -230,9 +271,11 @@ describe("workspace-files-service", () => {
       expect.objectContaining({ status: 409, code: "file_changed" }),
     );
 
-    // A directory is refused outright: it carries no single version marker, so no
-    // precondition could protect the tree under it.
-    await expect(svc.move(ws, "sub", "sub2")).rejects.toMatchObject({ status: 400 });
+    // A directory carries no single version marker, so a marker sent for one is refused
+    // rather than taken as a check that never ran.
+    await expect(svc.move(ws, "sub", "sub2", fresh.version)).rejects.toMatchObject({
+      status: 400,
+    });
     expect((await fs.stat(path.join(ws, "sub"))).isDirectory()).toBe(true);
     expect(await fs.stat(path.join(ws, "sub2")).catch(() => null)).toBeNull();
   });
@@ -268,45 +311,52 @@ describe("workspace-files-service", () => {
     });
   });
 
-  it("move and delete confinement: `..` at either end, a symlinked destination directory, and a symlink at the final segment are all refused", async () => {
-    const outsideName = path.basename(outside);
-    await fs.symlink(outside, path.join(ws, "link-out"));
+  itWithSymlinks(
+    "move and delete confinement: `..` at either end, a symlinked destination directory, and a symlink at the final segment are all refused",
+    async () => {
+      const outsideName = path.basename(outside);
+      await fs.symlink(outside, path.join(ws, "link-out"));
 
-    // `..` in the source: the file outside is neither read nor moved in.
-    await expect(svc.move(ws, `../${outsideName}/secret.txt`, "stolen.txt")).rejects.toMatchObject({
-      status: 400,
-    });
-    expect(await fs.stat(path.join(ws, "stolen.txt")).catch(() => null)).toBeNull();
+      // `..` in the source: the file outside is neither read nor moved in.
+      await expect(
+        svc.move(ws, `../${outsideName}/secret.txt`, "stolen.txt"),
+      ).rejects.toMatchObject({
+        status: 400,
+      });
+      expect(await fs.stat(path.join(ws, "stolen.txt")).catch(() => null)).toBeNull();
 
-    // `..` in the destination: nothing lands outside the Workspace.
-    await expect(svc.move(ws, "b.txt", "../escape.txt")).rejects.toMatchObject({ status: 400 });
-    expect(await fs.stat(path.join(path.dirname(ws), "escape.txt")).catch(() => null)).toBeNull();
-    expect(await fs.readFile(path.join(ws, "b.txt"), "utf8")).toBe("hello");
+      // `..` in the destination: nothing lands outside the Workspace.
+      await expect(svc.move(ws, "b.txt", "../escape.txt")).rejects.toMatchObject({ status: 400 });
+      expect(await fs.stat(path.join(path.dirname(ws), "escape.txt")).catch(() => null)).toBeNull();
+      expect(await fs.readFile(path.join(ws, "b.txt"), "utf8")).toBe("hello");
 
-    // A destination parent that is a symlink pointing outside: caught by the same
-    // canonical-parent check an upload runs, including through a directory it would create.
-    await expect(svc.move(ws, "b.txt", "link-out/evil.txt")).rejects.toMatchObject({ status: 400 });
-    await expect(svc.move(ws, "b.txt", "link-out/new/evil.txt")).rejects.toMatchObject({
-      status: 400,
-    });
-    expect(await fs.stat(path.join(outside, "evil.txt")).catch(() => null)).toBeNull();
+      // A destination parent that is a symlink pointing outside: caught by the same
+      // canonical-parent check an upload runs, including through a directory it would create.
+      await expect(svc.move(ws, "b.txt", "link-out/evil.txt")).rejects.toMatchObject({
+        status: 400,
+      });
+      await expect(svc.move(ws, "b.txt", "link-out/new/evil.txt")).rejects.toMatchObject({
+        status: 400,
+      });
+      expect(await fs.stat(path.join(outside, "evil.txt")).catch(() => null)).toBeNull();
 
-    // `..` in a delete: the file outside survives.
-    await expect(svc.remove(ws, `../${outsideName}/secret.txt`)).rejects.toMatchObject({
-      status: 400,
-    });
-    expect(await fs.readFile(path.join(outside, "secret.txt"), "utf8")).toBe("secret");
+      // `..` in a delete: the file outside survives.
+      await expect(svc.remove(ws, `../${outsideName}/secret.txt`)).rejects.toMatchObject({
+        status: 400,
+      });
+      expect(await fs.readFile(path.join(outside, "secret.txt"), "utf8")).toBe("secret");
 
-    // A symlink at the final segment — the Agent's "preset a link, act on it by proxy"
-    // pattern: O_NOFOLLOW refuses it, so neither the link's target nor the link is touched.
-    await fs.symlink(path.join(outside, "secret.txt"), path.join(ws, "report.pdf"));
-    await expect(svc.move(ws, "report.pdf", "sub/report.pdf")).rejects.toMatchObject({
-      status: 400,
-    });
-    await expect(svc.remove(ws, "report.pdf")).rejects.toMatchObject({ status: 400 });
-    expect(await fs.readFile(path.join(outside, "secret.txt"), "utf8")).toBe("secret");
-    expect((await fs.lstat(path.join(ws, "report.pdf"))).isSymbolicLink()).toBe(true);
-  });
+      // A symlink at the final segment — the Agent's "preset a link, act on it by proxy"
+      // pattern: O_NOFOLLOW refuses it, so neither the link's target nor the link is touched.
+      await fs.symlink(path.join(outside, "secret.txt"), path.join(ws, "report.pdf"));
+      await expect(svc.move(ws, "report.pdf", "sub/report.pdf")).rejects.toMatchObject({
+        status: 400,
+      });
+      await expect(svc.remove(ws, "report.pdf")).rejects.toMatchObject({ status: 400 });
+      expect(await fs.readFile(path.join(outside, "secret.txt"), "utf8")).toBe("secret");
+      expect((await fs.lstat(path.join(ws, "report.pdf"))).isSymbolicLink()).toBe(true);
+    },
+  );
 
   it("search: finds a file several directories down that no listing ever reached, reports it as a tree row would, and matches the name rather than the path", async () => {
     await fs.mkdir(path.join(ws, "a", "b", "c"), { recursive: true });
@@ -368,25 +418,28 @@ describe("workspace-files-service", () => {
     ]);
   });
 
-  it("search confinement: an out-of-bounds symlink is never walked into and never appears as a hit, and a link back to the root cannot spin the walk", async () => {
-    await fs.writeFile(path.join(outside, "secret-needle.txt"), "s");
-    await fs.symlink(outside, path.join(ws, "link-out"));
-    // A cycle: the Workspace root reachable from inside itself, twice over.
-    await fs.symlink(ws, path.join(ws, "self"));
-    await fs.symlink(ws, path.join(ws, "sub", "back"));
+  itWithSymlinks(
+    "search confinement: an out-of-bounds symlink is never walked into and never appears as a hit, and a link back to the root cannot spin the walk",
+    async () => {
+      await fs.writeFile(path.join(outside, "secret-needle.txt"), "s");
+      await fs.symlink(outside, path.join(ws, "link-out"));
+      // A cycle: the Workspace root reachable from inside itself, twice over.
+      await fs.symlink(ws, path.join(ws, "self"));
+      await fs.symlink(ws, path.join(ws, "sub", "back"));
 
-    // Nothing outside is reachable, and the link that points there is not itself a hit.
-    expect((await svc.search(ws, "secret")).hits).toEqual([]);
-    expect((await svc.search(ws, "link-out")).hits).toEqual([]);
+      // Nothing outside is reachable, and the link that points there is not itself a hit.
+      expect((await svc.search(ws, "secret")).hits).toEqual([]);
+      expect((await svc.search(ws, "link-out")).hits).toEqual([]);
 
-    // The walk terminates and reports each in-bounds entry once.
-    const all = await svc.search(ws, "b.txt");
-    expect(all.hits.map((h) => h.path)).toEqual(["b.txt"]);
-    expect(all.truncated).toBe(false);
-    // A self-link is an in-bounds directory, so it is a legitimate hit — it is only never
-    // descended into a second time.
-    expect((await svc.search(ws, "self")).hits.map((h) => h.path)).toEqual(["self"]);
-  });
+      // The walk terminates and reports each in-bounds entry once.
+      const all = await svc.search(ws, "b.txt");
+      expect(all.hits.map((h) => h.path)).toEqual(["b.txt"]);
+      expect(all.truncated).toBe(false);
+      // A self-link is an in-bounds directory, so it is a legitimate hit — it is only never
+      // descended into a second time.
+      expect((await svc.search(ws, "self")).hits.map((h) => h.path)).toEqual(["self"]);
+    },
+  );
 
   it("search: the hit cap truncates and says so; an empty or oversize query is a 400", async () => {
     await Promise.all(
@@ -411,38 +464,50 @@ describe("workspace-files-service", () => {
   });
 });
 
+/**
+ * The route describes' app: an owner whose Project has a model configured, and an outsider.
+ * Every case works in a Session of its own, and so in a Workspace of its own.
+ */
+let t: TestApp;
+let owner: ReturnType<typeof apiClient>;
+let outsider: ReturnType<typeof apiClient>;
+let projectId: string;
+
+beforeAll(async () => {
+  t = await createTestApp();
+  owner = apiClient(t.app, (await provisionUser(t.app, "owner")).cookie);
+  outsider = apiClient(t.app, (await provisionUser(t.app, "outsider")).cookie);
+  const created = (await (
+    await owner.post("/api/projects", { projectId: "owner-ws", name: "project" })
+  ).json()) as ProjectCreateResponse;
+  projectId = created.project.projectId;
+  await owner.put(`/api/projects/${projectId}/models`, {
+    defaultModel: { provider: "anthropic", modelId: "claude-sonnet-4-6" },
+    models: [{ provider: "anthropic", modelId: "claude-sonnet-4-6", contextWindow: 128000 }],
+  });
+});
+afterAll(async () => {
+  await t.cleanup();
+});
+
+/** A new Session of the owner's, its Workspace holding a.txt and sub/b.md. */
+async function sessionWithFiles(): Promise<{ sessionId: string; workspace: string }> {
+  const sess = (await (
+    await owner.post(`/api/projects/${projectId}/agents/default_agent/sessions`, {})
+  ).json()) as SessionCreateResponse;
+  const workspace = sess.session.workspace;
+  await fs.mkdir(path.join(workspace, "sub"));
+  await fs.writeFile(path.join(workspace, "a.txt"), "A");
+  await fs.writeFile(path.join(workspace, "sub", "b.md"), "B");
+  return { sessionId: sess.session.sessionId, workspace };
+}
+
 describe("files/stat route (batch existence check)", () => {
-  let t: TestApp;
-  let owner: ReturnType<typeof apiClient>;
-  let outsider: ReturnType<typeof apiClient>;
   let sessionId: string;
   let workspace: string;
 
   beforeEach(async () => {
-    t = await createTestApp();
-    const a = await provisionUser(t.app, "owner");
-    const b = await provisionUser(t.app, "outsider");
-    owner = apiClient(t.app, a.cookie);
-    outsider = apiClient(t.app, b.cookie);
-    const created = (await (
-      await owner.post("/api/projects", { projectId: "owner-stat", name: "project" })
-    ).json()) as ProjectCreateResponse;
-    const projectId = created.project.projectId;
-    await owner.put(`/api/projects/${projectId}/models`, {
-      defaultModel: { provider: "anthropic", modelId: "claude-sonnet-4-6" },
-      models: [{ provider: "anthropic", modelId: "claude-sonnet-4-6", contextWindow: 128000 }],
-    });
-    const sess = (await (
-      await owner.post(`/api/projects/${projectId}/agents/default_agent/sessions`, {})
-    ).json()) as SessionCreateResponse;
-    sessionId = sess.session.sessionId;
-    workspace = sess.session.workspace;
-    await fs.mkdir(path.join(sess.session.workspace, "sub"));
-    await fs.writeFile(path.join(sess.session.workspace, "a.txt"), "A");
-    await fs.writeFile(path.join(sess.session.workspace, "sub", "b.md"), "B");
-  });
-  afterEach(async () => {
-    await t.cleanup();
+    ({ sessionId, workspace } = await sessionWithFiles());
   });
 
   it("files/content on html: inline stays text/plain; preview=1 keeps text/html under a CSP sandbox; download keeps the real type with no CSP", async () => {
@@ -580,40 +645,14 @@ describe("files/stat route (batch existence check)", () => {
 });
 
 describe("files/move, files/search and the files/content delete", () => {
-  let t: TestApp;
-  let owner: ReturnType<typeof apiClient>;
-  let outsider: ReturnType<typeof apiClient>;
   let sessionId: string;
   let workspace: string;
 
   beforeEach(async () => {
-    t = await createTestApp();
-    const a = await provisionUser(t.app, "owner");
-    const b = await provisionUser(t.app, "outsider");
-    owner = apiClient(t.app, a.cookie);
-    outsider = apiClient(t.app, b.cookie);
-    const created = (await (
-      await owner.post("/api/projects", { projectId: "owner-ops", name: "project" })
-    ).json()) as ProjectCreateResponse;
-    const projectId = created.project.projectId;
-    await owner.put(`/api/projects/${projectId}/models`, {
-      defaultModel: { provider: "anthropic", modelId: "claude-sonnet-4-6" },
-      models: [{ provider: "anthropic", modelId: "claude-sonnet-4-6", contextWindow: 128000 }],
-    });
-    const sess = (await (
-      await owner.post(`/api/projects/${projectId}/agents/default_agent/sessions`, {})
-    ).json()) as SessionCreateResponse;
-    sessionId = sess.session.sessionId;
-    workspace = sess.session.workspace;
-    await fs.mkdir(path.join(workspace, "sub"));
-    await fs.writeFile(path.join(workspace, "a.txt"), "A");
-    await fs.writeFile(path.join(workspace, "sub", "b.md"), "B");
-  });
-  afterEach(async () => {
-    await t.cleanup();
+    ({ sessionId, workspace } = await sessionWithFiles());
   });
 
-  it("files/move: 204 and the file is where it was sent; an occupied destination is 409 target_exists; a directory is a 400", async () => {
+  it("files/move: 204 and the file is where it was sent; an occupied destination is 409 target_exists", async () => {
     const url = `/api/sessions/${sessionId}/files/move`;
     const moved = await owner.post(url, { from: "a.txt", to: "archive/notes/a.txt" });
     expect(moved.status).toBe(204);
@@ -633,8 +672,6 @@ describe("files/move, files/search and the files/content delete", () => {
       "path_not_found",
     );
 
-    // A directory carries no version marker, so no precondition could protect the move.
-    expect((await owner.post(url, { from: "sub", to: "sub2" })).status).toBe(400);
     // A missing or non-string field is a 400 before anything touches the filesystem.
     expect((await owner.post(url, { from: "a.txt" })).status).toBe(400);
     expect((await owner.post(url, { from: "a.txt", to: "b.txt", ifVersion: 7 })).status).toBe(400);
@@ -706,29 +743,16 @@ describe("files/move, files/search and the files/content delete", () => {
 });
 
 describe("agent delete route", () => {
-  let t: TestApp;
-  let owner: ReturnType<typeof apiClient>;
-  let outsider: ReturnType<typeof apiClient>;
-  let projectId: string;
-
-  beforeEach(async () => {
-    t = await createTestApp();
-    const a = await provisionUser(t.app, "owner");
-    const b = await provisionUser(t.app, "outsider");
-    owner = apiClient(t.app, a.cookie);
-    outsider = apiClient(t.app, b.cookie);
-    const created = (await (
-      await owner.post("/api/projects", { projectId: "owner-ws", name: "project" })
-    ).json()) as ProjectCreateResponse;
-    projectId = created.project.projectId;
-  });
-  afterEach(async () => {
-    await t.cleanup();
-  });
+  // A name per attempt: the Project is the file's, so a retry must not meet its own Agent.
+  let temps = 0;
 
   it("owner deletes an Agent: 204, the directory and list entry disappear; default_agent 409; outsiders 404", async () => {
+    temps += 1;
     const created = (await (
-      await owner.post(`/api/projects/${projectId}/agents`, { agentId: "temp_agent", name: "temp" })
+      await owner.post(`/api/projects/${projectId}/agents`, {
+        agentId: `temp_agent_${temps}`,
+        name: "temp",
+      })
     ).json()) as AgentCreateResponse;
     const agentId = created.agent.agentId;
     const dir = path.join(t.root, projectId, "agents", agentId);
@@ -771,50 +795,48 @@ describe("files/reveal route (the desktop shell's own window)", () => {
     return { cookie: admin.cookie, sessionId: session.sessionId, workspace: session.workspace };
   }
 
+  // One desktop-mode app for the cases that need one; each case sets what its opener does.
+  let desktop: TestApp;
+  let shell: ReturnType<typeof apiClient>;
+  let revealed: string[];
+  let opener: (filePath: string) => Promise<void>;
+
+  beforeAll(async () => {
+    desktop = await createDesktopApp({ reveal: (filePath) => opener(filePath) });
+    shell = apiClient(desktop.app, await desktopLoginCookie(desktop.app));
+  });
+  afterAll(async () => {
+    await desktop.cleanup();
+  });
+  beforeEach(() => {
+    revealed = [];
+    opener = async (filePath) => {
+      revealed.push(filePath);
+    };
+  });
+
   it("opens the file for the shell's own window: 204, and the opener is handed the canonical path", async () => {
-    const revealed: string[] = [];
-    const t = await createDesktopApp({
-      reveal: async (filePath) => {
-        revealed.push(filePath);
-      },
-    });
-    try {
-      const { sessionId, workspace } = await seedSession(t);
-      const shell = apiClient(t.app, await desktopLoginCookie(t.app));
-      const res = await shell.post(`/api/sessions/${sessionId}/files/reveal?path=a.txt`);
-      expect(res.status).toBe(204);
-      expect(await res.text()).toBe("");
-      // The absolute path the OS can act on, with every symlink already resolved away.
-      expect(revealed).toEqual([await fs.realpath(path.join(workspace, "a.txt"))]);
-    } finally {
-      await t.cleanup();
-    }
+    const { sessionId, workspace } = await seedSession(desktop);
+    const res = await shell.post(`/api/sessions/${sessionId}/files/reveal?path=a.txt`);
+    expect(res.status).toBe(204);
+    expect(await res.text()).toBe("");
+    // The absolute path the OS can act on, with every symlink already resolved away.
+    expect(revealed).toEqual([await fs.realpath(path.join(workspace, "a.txt"))]);
   });
 
   it("refuses a browser session on the same desktop-mode server with desktop_shell_only", async () => {
-    const revealed: string[] = [];
-    const t = await createDesktopApp({
-      reveal: async (filePath) => {
-        revealed.push(filePath);
-      },
-    });
-    try {
-      const { cookie, sessionId } = await seedSession(t);
-      // The seeded admin signed in through the login form: the same user, the same machine
-      // for all the server knows, and still not the window the shell is drawing.
-      const res = await apiClient(t.app, cookie).post(
-        `/api/sessions/${sessionId}/files/reveal?path=a.txt`,
-      );
-      expect(res.status).toBe(403);
-      expect(((await res.json()) as ErrorBody).error.code).toBe("desktop_shell_only");
-      expect(revealed).toEqual([]);
-    } finally {
-      await t.cleanup();
-    }
+    const { cookie, sessionId } = await seedSession(desktop);
+    // The seeded admin signed in through the login form: the same user, the same machine
+    // for all the server knows, and still not the window the shell is drawing.
+    const res = await apiClient(desktop.app, cookie).post(
+      `/api/sessions/${sessionId}/files/reveal?path=a.txt`,
+    );
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as ErrorBody).error.code).toBe("desktop_shell_only");
+    expect(revealed).toEqual([]);
   });
 
   it("does not exist outside desktop mode", async () => {
-    const revealed: string[] = [];
     const t = await createTestApp({
       reveal: async (filePath) => {
         revealed.push(filePath);
@@ -834,42 +856,24 @@ describe("files/reveal route (the desktop shell's own window)", () => {
   });
 
   it("resolves the path as a read does: `..` is a 400 and a missing file a 404, with nothing opened", async () => {
-    const revealed: string[] = [];
-    const t = await createDesktopApp({
-      reveal: async (filePath) => {
-        revealed.push(filePath);
-      },
-    });
-    try {
-      const { sessionId } = await seedSession(t);
-      const shell = apiClient(t.app, await desktopLoginCookie(t.app));
-      const escape = await shell.post(
-        `/api/sessions/${sessionId}/files/reveal?path=${encodeURIComponent("../secret.txt")}`,
-      );
-      expect(escape.status).toBe(400);
-      const missing = await shell.post(`/api/sessions/${sessionId}/files/reveal?path=nope.txt`);
-      expect(missing.status).toBe(404);
-      expect(((await missing.json()) as ErrorBody).error.code).toBe("path_not_found");
-      expect(revealed).toEqual([]);
-    } finally {
-      await t.cleanup();
-    }
+    const { sessionId } = await seedSession(desktop);
+    const escape = await shell.post(
+      `/api/sessions/${sessionId}/files/reveal?path=${encodeURIComponent("../secret.txt")}`,
+    );
+    expect(escape.status).toBe(400);
+    const missing = await shell.post(`/api/sessions/${sessionId}/files/reveal?path=nope.txt`);
+    expect(missing.status).toBe(404);
+    expect(((await missing.json()) as ErrorBody).error.code).toBe("path_not_found");
+    expect(revealed).toEqual([]);
   });
 
   it("reports an opener that cannot start as 502 reveal_failed", async () => {
-    const t = await createDesktopApp({
-      reveal: () => Promise.reject(new Error("spawn xdg-open ENOENT")),
-    });
-    try {
-      const { sessionId } = await seedSession(t);
-      const shell = apiClient(t.app, await desktopLoginCookie(t.app));
-      const res = await shell.post(`/api/sessions/${sessionId}/files/reveal?path=a.txt`);
-      expect(res.status).toBe(502);
-      const body = (await res.json()) as ErrorBody;
-      expect(body.error.code).toBe("reveal_failed");
-      expect(body.error.message).toContain("ENOENT");
-    } finally {
-      await t.cleanup();
-    }
+    opener = () => Promise.reject(new Error("spawn xdg-open ENOENT"));
+    const { sessionId } = await seedSession(desktop);
+    const res = await shell.post(`/api/sessions/${sessionId}/files/reveal?path=a.txt`);
+    expect(res.status).toBe(502);
+    const body = (await res.json()) as ErrorBody;
+    expect(body.error.code).toBe("reveal_failed");
+    expect(body.error.message).toContain("ENOENT");
   });
 });

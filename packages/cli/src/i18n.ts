@@ -44,10 +44,12 @@ export interface Messages {
     json: string;
     /** --server: explicit server URL (overrides PENGUIN_API_URL, the local lock and auto-start). */
     server: string;
-    /** --timeout: soft-yield wait budget on run/input/logs -f (30s / 5m / 2h / bare seconds). */
+    /** --timeout: soft-yield wait budget on run / session input / session log -f (30s / 5m / 2h / bare seconds). */
     timeout: string;
-    /** input/logs' --agent-id: whose most recent session the omitted session argument means. */
+    /** The session group's --agent-id: whose most recent session the omitted session argument means. */
     latestAgentId: string;
+    /** run's --title and session rename's -t/--title: empty or over `max` characters once whitespace is collapsed. */
+    titleInvalid(length: number, max: number): string;
   };
   /** Commander's own parse failures, rebuilt in the user's language (see usage-error.ts). */
   usage: {
@@ -70,11 +72,15 @@ export interface Messages {
     addDesc: string;
     addModelId: string;
     addProvider: string;
+    /** `model add`'s connection flags: the model's own value with --model-id, the group's without. */
     addApiKey: string;
+    addClearApiKey: string;
     addBaseUrl: string;
+    addClearBaseUrl: string;
     addContextWindow: string;
     addMaxTokens: string;
     addClientType: string;
+    addClearClientType: string;
     addVision: string;
     addNoVision: string;
     addFastMode: string;
@@ -92,6 +98,8 @@ export interface Messages {
     refProvider: string;
     listDesc: string;
     removeDesc: string;
+    /** `model remove`'s --model-id: optional there; without it the command removes the group's connection. */
+    removeModelId: string;
     langDesc: string;
     langArg: string;
     vaultDesc: string;
@@ -108,16 +116,31 @@ export interface Messages {
     goal: string;
     /** run's --session: reuse an existing Session (full id or unique fragment). */
     session: string;
-    /** run's --source: mark the NEW Session as created by a Benchmark evaluation. */
-    source: string;
     /** run's --background: POST the task and exit immediately, printing the session id. */
     background: string;
-    /** --session combined with --workspace / the model pair / --source: all fixed at creation. */
+    /** --session combined with --workspace / the model pair: both fixed at creation. */
     sessionNoOverride(): string;
-    /** --source given a value other than `benchmark` (the only origin a client may set). */
+    /** The retired --source given a value other than `benchmark`. Removed at 0.3.0 with the flag. */
     sourceInvalid(value: string): string;
+    /** The retired `--source benchmark`, accepted as a no-op until 0.3.0: why it is ignored. */
+    sourceIgnored(): string;
     /** --background never waits, so a wait budget cannot apply to it. */
     timeoutWithBackground(): string;
+    /** run's --title: name the Session being run (manual rename; the auto-title never overwrites it; with --session it renames the reused Session). */
+    title: string;
+  };
+  /** `penguin session`: the group that lists, reads, messages and renames sessions. */
+  session: {
+    /** Group description. */
+    desc: string;
+    /** `penguin session rename`'s own description. */
+    renameDesc: string;
+    /** rename's optional session_id argument. */
+    renameSessionId: string;
+    /** rename's required -t/--title option. */
+    renameTitle: string;
+    /** The success line (short id form; the full id is what --json prints). */
+    renamed(sessionId: string, title: string): string;
   };
   chat: {
     desc: string;
@@ -125,7 +148,7 @@ export interface Messages {
     /** chat's --verbose: start with full tool output (collapsing off). */
     verbose: string;
   };
-  /** `penguin ls`: session listing. */
+  /** `penguin session ls`: session listing. */
   ls: {
     desc: string;
     /** -a/--all: include archived sessions. */
@@ -143,15 +166,15 @@ export interface Messages {
     stateIdle(): string;
     stateRunning(): string;
   };
-  /** `penguin input`: send a message into an existing session (steer when running, task when idle). */
+  /** `penguin session input`: send a message into an existing session (steer when running, task when idle). */
   input: {
     desc: string;
     message: string;
     /** Poll form on a session that has produced no assistant text yet. */
     noReplyYet(): string;
   };
-  /** `penguin logs`: render a session's history, optionally following the live stream. */
-  logs: {
+  /** `penguin session log`: render a session's history, optionally following the live stream. */
+  log: {
     desc: string;
     tail: string;
     follow: string;
@@ -174,6 +197,58 @@ export interface Messages {
     colName(): string;
     colSessions(): string;
     colDescription(): string;
+    /** `penguin agent api …`: an agent's public API (this server's switches, approval mode and keys). */
+    apiDesc: string;
+    apiStatusDesc: string;
+    apiEnableDesc: string;
+    apiDisableDesc: string;
+    apiSetDesc: string;
+    /** --open / --no-open: keyless access on or off. */
+    apiOpen: string;
+    apiNoOpen: string;
+    /** --approve on enable/set: the mode API conversations are created with. */
+    apiApprove: string;
+    /** `set` given nothing to change. */
+    apiNothingToSet(): string;
+    apiKeysDesc: string;
+    apiKeysLsDesc: string;
+    apiKeysCreateDesc: string;
+    apiKeysRmDesc: string;
+    /** --name of `keys create`. */
+    apiKeyName: string;
+    apiServerDesc: string;
+    /** `server <state>` given something other than on/off. */
+    apiServerStateInvalid(value: string): string;
+    /** The status block: its heading, then one labelled line per fact. */
+    apiStatusTitle(agentRef: string): string;
+    apiFieldEnabled(): string;
+    apiFieldOpen(): string;
+    apiFieldApproval(): string;
+    apiFieldBaseUrl(): string;
+    apiFieldAgentId(): string;
+    apiFieldKeys(): string;
+    apiFieldServer(): string;
+    apiYes(): string;
+    apiNo(): string;
+    apiServerOn(): string;
+    apiServerOff(): string;
+    /** `keys ls` columns, and the line for an agent with none. */
+    apiColKeyId(): string;
+    apiColKeyName(): string;
+    apiColPrefix(): string;
+    apiColCreated(): string;
+    apiColLastUsed(): string;
+    apiKeyNever(): string;
+    apiKeysEmpty(agentRef: string): string;
+    /** stderr beside the bare secret on stdout. */
+    apiKeyCreated(name: string, prefix: string, agentRef: string): string;
+    apiKeyDeleted(keyId: string, agentRef: string): string;
+    /** After `server on|off`. */
+    apiServerSet(on: boolean): string;
+    /** A write refused 403 human_required: it carried the local API token, and no stored sign-in stood in. */
+    apiSignInRequired(): string;
+    /** On stderr after `--open` switched keyless access on. */
+    apiOpenWarning(): string;
   };
   /** `penguin project`: project listing. */
   project: {
@@ -182,6 +257,51 @@ export interface Messages {
     colId(): string;
     colName(): string;
     colRole(): string;
+  };
+  /** `penguin plugin`: the plugins installed on the server (an admin's, via the local API token). */
+  plugin: {
+    desc: string;
+    listDesc: string;
+    installDesc: string;
+    /** `install --overwrite`: replace another version of an uploaded package directory. */
+    overwriteOpt: string;
+    removeDesc: string;
+    colName(): string;
+    colKind(): string;
+    colState(): string;
+    /** What a row is: a package of server modules the Project lists, or a package of Skills, hooks or MCP servers in the library. */
+    kindModules(): string;
+    kindLibrary(): string;
+    active(): string;
+    pending(): string;
+    failed(reason: string): string;
+    /** Listed for other machines of the Project only. */
+    elsewhere(): string;
+    none(): string;
+    installed(name: string, version: string | null): string;
+    /** The server already has this version of an uploaded package directory: nothing was installed. */
+    unchanged(name: string, version: string | null): string;
+    /** A package directory the plugin library would refuse, with the reader's reason; nothing was sent. */
+    dirRefused(dir: string, reason: string): string;
+    /** A package directory with neither skills/, hooks/, MCP servers nor ifaces.json; nothing was sent. */
+    dirNotPlugin(dir: string): string;
+    /** A package directory past the server's upload caps; nothing was sent. */
+    dirTooLarge(dir: string): string;
+    /** On stderr while a package directory goes up as a zip. */
+    uploading(name: string, version: string, files: number): string;
+    /** After the server's 409 `plugin_exists` (its message comes first). */
+    overwriteHint(): string;
+    /** A plugin the build ships: listing it is all an install does. */
+    listedOnly(specifier: string, projectId: string): string;
+    /** After installing a package of Skills, hooks or MCP servers. */
+    libraryNext(): string;
+    /** After installing a package directory: one line per MCP server it carries. */
+    mcpServerLine(name: string, transport: string, target: string): string;
+    /** After installing a package of server modules, applied without a restart. */
+    modulesLoaded(projectId: string): string;
+    /** After installing a package of server modules this server could not apply in place. */
+    restartNext(): string;
+    removed(name: string): string;
   };
   /** `penguin cost`: token/cost aggregates. */
   cost: {
@@ -213,7 +333,7 @@ export interface Messages {
     rmDesc: string;
     /** --prompt: the text the firing sends. */
     prompt: string;
-    /** --start-at: first fire time, ISO 8601 — or the literal `now` for the current instant. */
+    /** --start-at: first fire time, ISO 8601 — or the literal `now` for the current instant (a one-shot needs a future time, so `now` only suits a periodic task). */
     startAt: string;
     /** --period: fixed interval (30m / 12h / 1d / 7d, minimum 5m); omitted = one-shot. */
     period: string;
@@ -259,6 +379,12 @@ export interface Messages {
     hireDesc: string;
     employeeDesc: string;
     employeeSetDesc: string;
+    /** `employee avatar`: set or clear an employee's picture. */
+    employeeAvatarDesc: string;
+    /** `employee avatar --file`. */
+    avatarFile: string;
+    /** `employee avatar --clear`. */
+    avatarClear: string;
     leaveDesc: string;
     deskDesc: string;
     deskShowDesc: string;
@@ -316,6 +442,7 @@ export interface Messages {
     title: string;
     reportsTo: string;
     /** Employee workspace: a sub-directory of the shared workspace (`.` = all of it) or an absolute path, written as given. */
+    employeeName: string;
     employeeWorkspace: string;
     /** hire's --workspace: the same spec, with the default the employee's own sub-directory. */
     hireWorkspace: string;
@@ -405,6 +532,15 @@ export interface Messages {
     created(orgId: string, ceoDeskSessionId: string | undefined): string;
     hired(agentId: string, title: string, reportsTo: string | null): string;
     employeeUpdated(agentId: string): string;
+    /** `employee avatar` takes exactly one of --file and --clear. */
+    avatarNeedsOne(): string;
+    /** `employee avatar` without an id outside a desk or ticket session. */
+    avatarNoAgent(): string;
+    avatarUnreadable(file: string, reason: string): string;
+    avatarFormat(file: string): string;
+    avatarTooLarge(file: string, kib: number, maxKib: number): string;
+    avatarSet(agentId: string): string;
+    avatarCleared(agentId: string): string;
     left(agentId: string): string;
     desk(
       agentId: string,
@@ -521,6 +657,151 @@ export interface Messages {
     colMentions(): string;
     colPrincipal(): string;
   };
+  /** `penguin browser`: the desktop app's built-in browser (commands/browser.ts, browser-output.ts). */
+  browser: {
+    desc: string;
+    statusDesc: string;
+    tabsDesc: string;
+    openDesc: string;
+    switchDesc: string;
+    closeDesc: string;
+    scanDesc: string;
+    execDesc: string;
+    clickDesc: string;
+    typeDesc: string;
+    screenshotDesc: string;
+    cdpDesc: string;
+    importDesc: string;
+    historyDesc: string;
+    /** --tab: which tab the command acts on. */
+    tab: string;
+    urlArg: string;
+    newTab: string;
+    tabIdArg: string;
+    closeTabArg: string;
+    textOnly: string;
+    maxChars: string;
+    scriptArg: string;
+    file: string;
+    save: string;
+    noMonitor: string;
+    timeout: string;
+    selectorArg: string;
+    index: string;
+    at: string;
+    textArg: string;
+    selector: string;
+    submit: string;
+    /** exec / click / type --accept-dialogs: accept every dialog, not only alerts. */
+    acceptDialogs: string;
+    output: string;
+    fullPage: string;
+    methodArg: string;
+    params: string;
+    list: string;
+    from: string;
+    cookies: string;
+    history: string;
+    domain: string;
+    queryArg: string;
+    count: string;
+    /** The labels of the output lines; `line` joins one with its value. */
+    label: {
+      status: string;
+      tab: string;
+      tabs: string;
+      page: string;
+      return: string;
+      error: string;
+      diff: string;
+      transients: string;
+      newTabs: string;
+      note: string;
+      clicked: string;
+      source: string;
+      cookies: string;
+      history: string;
+      warning: string;
+      screenshot: string;
+      dialog: string;
+      memory: string;
+      backend: string;
+    };
+    /** `label: value`, in the language's punctuation. */
+    line(label: string, value: string): string;
+    /** The header naming a tab: `tab 12 · title · url`. */
+    tabHead(id: number, title: string, url: string, loading: boolean): string;
+    /** The value of `tabs:` when none is open. */
+    noTabs(): string;
+    available(): string;
+    unavailable(reason: string): string;
+    /**
+     * The value of `backend:` on the status line: `builtin` or `chrome` as the API names them, then
+     * the user's Chrome when one is paired (its name and the extension's version).
+     */
+    backendValue(backend: string, extension?: { name: string; version: string }): string;
+    /**
+     * Why the browser cannot be driven, and what to do: the built-in browser lives in the desktop
+     * app, which must be open; the user's own Chrome needs the extension paired, connected and
+     * allowed on the server. Undefined: no server could be reached at all.
+     */
+    unavailableHint(reason: string | undefined): string;
+    /** `not_supported`: what only the built-in browser has (import, history), asked of the user's Chrome. */
+    notSupported(): string;
+    /**
+     * The value of `memory:`: what the browser's pages hold together and how many tabs, then this
+     * computer's free and total memory when the server reports them.
+     */
+    memoryLine(total: string, tabs: number, system?: { free: string; total: string }): string;
+    /** The `warning:` a load warning adds (the server's codes): what is wrong, and how an agent eases it. */
+    loadWarning(warnings: readonly string[]): string;
+    closed(tab: string): string;
+    closedActive(): string;
+    /** The value of `page:` when the page navigated or reloaded during the call. */
+    reloaded(): string;
+    elementsChanged(count: number): string;
+    clickedAt(tag: string | undefined, text: string | undefined, x: number, y: number): string;
+    /** The value of `dialog:`: the dialog and how the call answered it (a dismissal says how to accept). */
+    dialogAnswered(type: string, message: string, accepted: boolean): string;
+    /** Appended to a `return:` value cut at the display limit. */
+    truncatedSave(): string;
+    /** Appended to a `cdp` result cut at the display limit. */
+    truncatedJson(): string;
+    /** Appended to the start of a value `--save` wrote to a file. */
+    savedTo(path: string): string;
+    screenshotSaved(path: string, size: string, kilobytes: number): string;
+    importData(cookies: boolean, history: boolean): string;
+    importCookies(c: { found: number; imported: number; skipped: number; failed: number }): string;
+    importHistory(h: { found: number; imported: number }): string;
+    noSources(): string;
+    noHistory(): string;
+    /** A history line's visit count, the order the lines come in. */
+    visits(count: number): string;
+    colId(): string;
+    colTitle(): string;
+    colUrl(): string;
+    colBrowser(): string;
+    colProfile(): string;
+    colData(): string;
+    /** The one error line: `error: <code>: <message>`. */
+    errorLine(code: string, message: string): string;
+    tabInvalid(value: string): string;
+    positiveInt(flag: string, value: string): string;
+    indexInvalid(value: string): string;
+    atInvalid(value: string): string;
+    clickTarget(): string;
+    newTabWithTab(): string;
+    paramsInvalid(): string;
+    methodInvalid(value: string): string;
+    scriptSources(): string;
+    scriptMissing(): string;
+    scriptEmpty(): string;
+    fileUnreadable(path: string, detail: string): string;
+    fileUnwritable(path: string, detail: string): string;
+    importMode(): string;
+    sourceNotFound(from: string, known: string[]): string;
+    sourceAmbiguous(from: string, ids: string[]): string;
+  };
   /** Server-connection layer: resolution, auto-start, tokens, streams. */
   client: {
     invalidServerUrl(value: string): string;
@@ -550,9 +831,9 @@ export interface Messages {
     stillRunning(shortId: string): string;
     /** Caller-context lookup failed (PENGUIN_SESSION_ID names a session this server cannot answer for): plain defaults apply. */
     callerDefaultsFailed(sessionId: string): string;
-    /** Dim stderr note naming the session a bare `logs` / `input` resolved to (the agent's most recent). */
+    /** Dim stderr note naming the session a bare `session log` / `input` / `rename` resolved to (the agent's most recent). */
     latestSession(sessionId: string): string;
-    /** Bare `logs` / `input` when the agent has no session at all: what to run to get one. */
+    /** Bare `session log` / `input` / `rename` when the agent has no session at all: what to run to get one. */
     noSessionsYet(agentId: string, projectId: string): string;
   };
   /** `/thinking` display when the Session pins no level: the Agent's configured default applies. */
@@ -565,6 +846,7 @@ export interface Messages {
     noOpen: string;
     /** Printed by the supervising process as it relaunches the service on a restart request (the web UI's "restart to update"). */
     restarting: string;
+    app: string;
   };
   /** `penguin server reset-admin-password`: help text and every line the command can print. */
   auth: {
@@ -679,13 +961,18 @@ export interface Messages {
   };
 
   // —— Runtime output ——
-  /** Startup banner: product + subcommand + CLI version on the first line, then Agent / Workspace / Model each on its own line. */
+  /**
+   * Startup banner: product + subcommand + the CLI's build identity (`penguin --version`'s
+   * string, which names a source build's commit) on the first line, then Agent / Workspace /
+   * Model / Server each on its own line — the server as client.ts connectionLabel spells it.
+   */
   header(
     kind: "chat" | "run",
     version: string,
     agentId: string,
     workspace: string,
     model: string,
+    server: string,
   ): string;
   chatHints(): string;
   confirmExit(): string;
@@ -751,8 +1038,16 @@ export interface Messages {
   ): string;
   /** Prompt shown when `/compact` has nothing to compact (session just started / two consecutive compactions). */
   compactNothing(): string;
-  /** Feedback after `/clear`: a fresh blank Session is now active; the old Session stays on disk (its resume command is printed right above when it has a Trace record). */
+  /** Feedback after `/clear`: the next message starts a fresh blank Session; the old Session stays on disk (its resume command is printed right above when it has a Trace record). */
   clearDone(): string;
+  /** The chat's line under its banner while it has no Session yet: one is created at the first message. */
+  chatNewConversation(): string;
+  /** A command that needs a conversation (`/compact`, `/clear`) typed before the first message. */
+  chatNoConversation(): string;
+  /** Creating the Session for the first message failed: the message was not sent, and the next Enter sends it again. */
+  chatMessageKept(): string;
+  /** The banner's model when the chat names none and the Project's default model cannot be read. */
+  chatProjectDefaultModel(): string;
   /** Dim line announcing one goal round (printed before the round runs). */
   goalRound(round: number): string;
   /** Dim summary line after a goal ends: how it ended, rounds run, tokens consumed. */
@@ -773,8 +1068,28 @@ export interface Messages {
   thinkingCurrent(level: string): string;
   /** `/thinking <level>` accepted: the Session is pinned to it, effective from the next request; the reply advises compacting first — a mid-context change invalidates the provider's cached context (never written to the Agent config). */
   thinkingSet(level: string): string;
+  /** `/thinking <level>` before the first message: the Session created then is pinned to it. */
+  thinkingHeld(level: string): string;
   /** Invalid `--thinking` / `/thinking` value (lists the selectable levels). */
   thinkingInvalid(value: string): string;
+  /** Bare `/switch-model`: the Session's current model (a formatted label) plus the usage; a switch compacts first. */
+  switchModelCurrent(model: string): string;
+  /** `/switch-model` with anything but exactly `<provider> <model_id>`. */
+  switchModelUsage(): string;
+  /** After `/switch-model` completed: the model the Session was on and the one it is on now (formatted labels). */
+  switchModelDone(previous: string, next: string): string;
+  /** `/switch-model <provider> <model_id>` before the first message: the Session created then runs on it. */
+  switchModelHeld(model: string): string;
+  /** 409 `task_in_progress` / `compacting`: the Session is busy (possibly driven from another surface). */
+  switchModelBusy(): string;
+  /** 409 `same_model`: the Session already runs on the target. */
+  switchModelSame(model: string): string;
+  /** 409 `model_not_configured`: the target is not in the Project config; names the `penguin config model` commands to list and add models. */
+  switchModelNotConfigured(model: string, listCommand: string, addCommand: string): string;
+  /** 409 `model_unavailable`: the target is configured but cannot be constructed (e.g. no credential); `detail` is the server's message, verbatim (may be empty). */
+  switchModelUnavailable(model: string, detail: string): string;
+  /** 409 `compaction_not_configured`: a switch always compacts first, and this Session has no compaction. */
+  switchModelNoCompaction(): string;
   /** `/verbose` toggled on: tool output renders in full from here on. */
   verboseOn(): string;
   /** `/verbose` toggled off: long tool output is collapsed again from here on. */
@@ -787,7 +1102,7 @@ export interface Messages {
   approvalDecision(decision: "allow" | "deny" | "forbidden"): string;
   /** run/chat given only one of --model-id / --provider: a model reference is always an explicit pair, never a lookup. */
   modelRefIncomplete(): string;
-  /** --resume is mutually exclusive with --workspace/--model-id (neither can change once the Session is created). */
+  /** --resume is mutually exclusive with --workspace/--model-id/--provider (the resumed Session keeps its own); points at `/switch-model` for changing the model inside the chat. */
   resumeNoOverride(): string;
   /** --resume given without a session id, and the current Agent has no Session at all. */
   resumeNoSession(): string;
@@ -810,10 +1125,39 @@ export interface Messages {
   modelRemoved(model: string, defaultModel: string | undefined): string;
   /** `model remove` on a pair the Project config doesn't have. */
   modelNotConfigured(model: string): string;
+  /** `model add` refused: a new entry in a first-party vendor group under a model id MMSP cannot route (it begins with no known vendor prefix). */
+  modelNotRoutable(model: string): string;
+  /** A new entry in a built-in group that takes no hand-added models (every one but custom, vLLM, OpenRouter, TokenDance, SiliconFlow and Atlas Cloud). */
+  modelNotAddable(model: string, group: string): string;
   /** Follows modelRemoved when the removed entry was also the vision model. */
   visionModelCleared(): string;
+  /** `model list`: heads the models block. */
   modelListTitle(): string;
   modelListEmpty(): string;
+  /** `model list`: heads the groups' stored connections, printed above the models. */
+  groupListTitle(): string;
+  /** `model add` without --model-id refused: a flag that describes one model (context window, output cap, vision, fast mode, prices, --set-default) was given. */
+  modelGroupOnlyFlags(group: string): string;
+  /** `model add` without --model-id refused: --provider is no built-in group, names no model, and breaks the group-name rule. */
+  providerInvalidGroup(group: string): string;
+  /** `model add` refused: a connection field was both set and cleared. */
+  providerFlagConflict(flag: string, clearFlag: string): string;
+  /** `model add` refused: a connection field was given an empty value (clearing takes its --clear-* flag). */
+  providerBlankValue(flag: string, clearFlag: string): string;
+  /** `model add` without --model-id refused: --base-url is not an absolute http(s) URL. */
+  providerInvalidBaseUrl(baseUrl: string): string;
+  /** `model add` refused: a group whose protocol is fixed (Penguin Go) given another --client-type, or its group's cleared. */
+  protocolFixed(group: string, clientType: string): string;
+  /** `model add` without --model-id refused: no field to set or clear. */
+  providerNothingToSet(group: string): string;
+  /** `model add` without --model-id done; `overriding` = the group's models a changed field passes by (their own value, or a group key that does not reach their base URL). */
+  providerSaved(group: string, overriding: number): string;
+  /** Follows providerSaved for a group of the user's own that has no model yet. */
+  providerNoModels(group: string): string;
+  /** `model remove` without --model-id refused: the group stores no connection. */
+  providerNothingToRemove(group: string): string;
+  /** `model remove` without --model-id done; `models` = the group's models, which all stay. */
+  providerRemoved(group: string, models: number): string;
   vaultSet(key: string): string;
   vaultRemoved(key: string): string;
   vaultKeyMissing(key: string): string;
@@ -835,12 +1179,14 @@ function headerEn(
   agentId: string,
   workspace: string,
   model: string,
+  server: string,
 ): string {
   return [
-    `PenguinHarness ${kind} v${version}`,
+    `PenguinHarness ${kind} ${version}`,
     `Agent: ${agentId}`,
     `Workspace: ${workspace}`,
     `Model: ${model}`,
+    `Server: ${server}`,
   ].join("\n");
 }
 
@@ -865,6 +1211,7 @@ const en: Messages = {
     timeout:
       "Wait at most this long (30s / 5m / 2h, or bare seconds), then detach and leave the task running (exit 0)",
     latestAgentId: "Agent whose most recent session is used when no session id is given",
+    titleInvalid: (length, max) => `--title must be 1–${max} characters (got ${length}).`,
   },
   usage: {
     missingArgument: (name) => `missing required argument <${name}>`,
@@ -878,25 +1225,35 @@ const en: Messages = {
   },
   config: {
     desc: "Manage Project configuration",
-    modelDesc: "Manage model credentials and the default model",
-    addDesc: "Add or update a model, optionally writing a credential",
-    addModelId: "Upstream model id sent to AgentHub as-is (e.g. claude-sonnet-4-6)",
+    modelDesc: "Manage models, their groups' connections and the default model",
+    addDesc:
+      "Add or update a model; without --model-id, set a group's connection (API key, base URL, protocol)",
+    addModelId:
+      "Upstream model id sent to MMSP as-is (e.g. claude-sonnet-4-6); omit it to set the group's connection",
     addProvider:
-      "Provider group stored alongside model_id; required, never inferred (use custom for anything without a vendor group)",
-    addApiKey: "API key, stored inline in the Project's hidden .project_config.toml",
-    addBaseUrl: "Custom base URL",
+      "Provider group: the model's, or the one whose connection to set; required, never inferred (use custom for anything without a vendor group)",
+    addApiKey:
+      "API key, stored in the Project's hidden .project_config.toml: the model's own with --model-id, else the group key (used by the group's models without a key of their own that go to the group's endpoint)",
+    addClearApiKey:
+      "Remove the stored API key: the model's own with --model-id (it then uses the group key), else the group key",
+    addBaseUrl:
+      "Base URL: the model's own with --model-id, else the group's; a model without one follows its group, then the client's default endpoint",
+    addClearBaseUrl:
+      "Remove the stored base URL: the model's own with --model-id, else the group's",
     addContextWindow: "Context window size (tokens)",
     addMaxTokens:
       "Per-model max output tokens (positive integer); when set it overrides the Agent's max_tokens, omit to inherit — lower it for small-context models",
     addClientType:
-      "AgentHub client type (e.g. openai-chat); defaults by provider group when omitted",
+      "MMSP client type (openai-responses, ant-messages, openai-chat, google-genai or mmsp, or a vendor's official client such as google-official): the model's own with --model-id, else the group's; a model without one follows its group, else MMSP routes it by id (a new custom or own-group model gets openai-chat when its group sets none); Penguin Go takes mmsp only",
+    addClearClientType:
+      "Remove the stored client type: the model's own with --model-id, else the group's",
     addVision: "Mark the model as supporting image input (vision)",
     addNoVision: "Mark the model as NOT supporting image input; omit both to keep current",
     addFastMode:
       "Enable fast mode: faster output at premium pricing (models without a fast tier reject requests carrying it)",
     addNoFastMode: "Disable fast mode (the default); omit both to keep current",
     fastModeUnsupported: (ref: string): string =>
-      `Warning: ${ref} cannot serve fast mode — AgentHub's client for it rejects the parameter, so its requests will fail. Re-run with --no-fast-mode to turn it off.`,
+      `Warning: ${ref} cannot serve fast mode — MMSP's client for it rejects the parameter, so its requests will fail. Re-run with --no-fast-mode to turn it off.`,
     addPriceCacheRead: "Price per 1M tokens: cache read (USD)",
     addPriceCacheWrite: "Price per 1M tokens: cache write (USD)",
     addPriceOutput: "Price per 1M tokens: output (USD)",
@@ -906,9 +1263,14 @@ const en: Messages = {
       "Set the vision model that reads images for non-vision session models (read_file hands images to it)",
     refModelId: "Upstream model id; forms the (provider, model_id) pair reference with --provider",
     refProvider: "Provider group of the referenced entry (see `penguin config model list`)",
-    listDesc: "List the Project's models (API keys hidden)",
-    removeDesc: "Remove a model from the Project (clears the default / vision pointers naming it)",
-    langDesc: "Set the interface language (en); persists PENGUIN_LANG to your shell startup file",
+    listDesc:
+      "List the groups' connections, then the Project's models with the connection each one uses: (provider) marks a group value, (env) an environment key (API keys hidden)",
+    removeDesc:
+      "Remove a model from the Project (clears the default / vision pointers naming it); without --model-id, remove the group's connection",
+    removeModelId:
+      "Upstream model id of the entry to remove; omit it to remove the group's connection instead (its models stay)",
+    langDesc:
+      "Set the interface language (en); persists PENGUIN_LANG to your shell startup file",
     langArg: "Language: en",
     vaultDesc: "Manage an Agent's vault (environment variables injected into its shell commands)",
     vaultSetDesc: "Set a vault environment variable (added or overwritten)",
@@ -922,20 +1284,22 @@ const en: Messages = {
     message: "Prompt for this Task",
     goal: "Goal mode: loop until the goal completes; optional token budget (e.g. 500k, 2m)",
     session: "Reuse an existing Session (full id or a unique fragment, e.g. the 8-hex tail)",
-    source:
-      "Mark the new session as created by a Benchmark evaluation (`benchmark`); the Web App files it under the Evaluations folder",
     background: "Post the task and exit immediately, printing the session id",
+    title:
+      "Name the Session (manual rename; the auto-generated title never overwrites it; with --session, renames the reused Session)",
     sessionNoOverride: () =>
-      "--session reuses an existing Session: --workspace, --model-id, --provider and --source cannot be combined with it (none can change after creation).",
+      "--session reuses an existing Session: --workspace, --model-id and --provider cannot be combined with it (the Session keeps its own; /switch-model inside penguin chat --resume changes its model, compacting first).",
     sourceInvalid: (value) =>
-      `Invalid --source value "${value}". The only accepted value is benchmark.`,
+      `Invalid --source value "${value}". penguin run takes no --source: every Session it creates is a CLI Session.`,
+    sourceIgnored: () =>
+      "--source benchmark is no longer needed and is ignored: every Session penguin run creates is a CLI Session, archived until you unarchive it (Web App: Settings › Archived chats).",
     timeoutWithBackground: () =>
       "--timeout bounds the wait, and --background does not wait: drop one of them.",
   },
   chat: {
     desc: "Open the interactive REPL",
     resume:
-      "Resume an existing Session (defaults to the agent's most recent one); workspace and model follow the original Session",
+      "Resume an existing Session (defaults to the agent's most recent one); workspace and model follow the original Session (/switch-model changes the model inside the chat, compacting first)",
     verbose:
       "Show full tool output (by default long tool outputs are collapsed to their first and last lines; /verbose toggles it mid-chat)",
   },
@@ -959,13 +1323,22 @@ const en: Messages = {
     message: "Message text (omit to poll the session's last assistant reply instead)",
     noReplyYet: () => "(no assistant reply yet)",
   },
-  logs: {
+  session: {
+    desc: "Work with the project's sessions: list them, read a session's history, send it a message, rename it",
+    renameDesc:
+      "Set a session's title (the manual rename; the auto-generated title never overwrites it)",
+    renameSessionId:
+      "The session to rename (full id or a unique fragment, e.g. the 8-hex tail; default: PENGUIN_SESSION_ID, else the agent's most recent session)",
+    renameTitle: "The new title",
+    renamed: (sessionId, title) => `Renamed ${sessionId} to \u201c${title}\u201d`,
+  },
+  log: {
     desc: "Render a session's history (defaults to the agent's most recent session)",
     tail: "Show only the last <n> entries",
     follow: "Keep following the live stream after the history",
     tailInvalid: (value) => `Invalid --tail value "${value}": expected a positive integer.`,
     timeoutNeedsFollow: () =>
-      "--timeout only applies to -f/--follow: without it, logs never waits.",
+      "--timeout only applies to -f/--follow: without it, session log never waits.",
   },
   agent: {
     desc: "Manage the project's agents",
@@ -981,6 +1354,53 @@ const en: Messages = {
     colName: () => "NAME",
     colSessions: () => "SESSIONS",
     colDescription: () => "DESCRIPTION",
+    apiDesc: "Manage an agent's public API: the switch, keyless access, approval mode and keys",
+    apiStatusDesc: "Show the agent's API settings, its address and the server-wide switch",
+    apiEnableDesc: "Turn the agent's API on",
+    apiDisableDesc: "Turn the agent's API off (settings and keys are kept)",
+    apiSetDesc: "Change keyless access or the approval mode without turning the API on or off",
+    apiOpen: "Allow keyless access: anything that can reach the server can talk to the agent",
+    apiNoOpen: "Require a key",
+    apiApprove:
+      "Approval mode new API conversations start with: allow-all, deny-all, read-only or always-ask (asks go to the caller)",
+    apiNothingToSet: () => "Nothing to change: pass --open, --no-open or --approve <mode>.",
+    apiKeysDesc: "Manage the agent's API keys",
+    apiKeysLsDesc: "List the agent's API keys",
+    apiKeysCreateDesc: "Create an API key; the key is printed once, alone on stdout",
+    apiKeysRmDesc: "Delete an API key; programs using it are refused from then on",
+    apiKeyName: "Name of the key (1-64 characters)",
+    apiServerDesc: "Turn the Agent API on or off for the whole server (admins only)",
+    apiServerStateInvalid: (value) => `Invalid state "${value}": expected on or off.`,
+    apiStatusTitle: (agentRef) => `Agent API of ${agentRef}`,
+    apiFieldEnabled: () => "Enabled",
+    apiFieldOpen: () => "Keyless access",
+    apiFieldApproval: () => "Approval mode",
+    apiFieldBaseUrl: () => "Base URL",
+    apiFieldAgentId: () => "Agent ID",
+    apiFieldKeys: () => "Keys",
+    apiFieldServer: () => "Server switch",
+    apiYes: () => "yes",
+    apiNo: () => "no",
+    apiServerOn: () => "on",
+    apiServerOff: () => "off (every API request is refused)",
+    apiColKeyId: () => "ID",
+    apiColKeyName: () => "NAME",
+    apiColPrefix: () => "PREFIX",
+    apiColCreated: () => "CREATED",
+    apiColLastUsed: () => "LAST USED",
+    apiKeyNever: () => "never",
+    apiKeysEmpty: (agentRef) => `${agentRef} has no API keys.`,
+    apiKeyCreated: (name, prefix, agentRef) =>
+      `Created key "${name}" (${prefix}…) for ${agentRef}. It is shown once, above; store it now.`,
+    apiKeyDeleted: (keyId, agentRef) => `Deleted key ${keyId} of ${agentRef}.`,
+    apiServerSet: (on) =>
+      on
+        ? "The Agent API is on for this server."
+        : "The Agent API is off for this server: every request is refused; per-agent settings and keys are kept.",
+    apiSignInRequired: () =>
+      "Sign in first: `penguin auth login` (or `penguin auth token` on the server's machine). The local API token may not change an Agent's exposure.",
+    apiOpenWarning: () =>
+      "Warning: keyless access is on. Anything that can reach this server's address can now talk to the agent without a key, on the Project's models and credentials. Keep it on only for a server that listens on loopback; `--no-open` turns it off.",
   },
   project: {
     desc: "Manage projects",
@@ -988,6 +1408,46 @@ const en: Messages = {
     colId: () => "ID",
     colName: () => "NAME",
     colRole: () => "ROLE",
+  },
+  plugin: {
+    desc: "Manage the plugins installed on the server (admin)",
+    listDesc:
+      "List the server modules the Project lists and the plugins of Skills, hooks or MCP servers installed on the server",
+    installDesc:
+      "Install a plugin on the server: an npm package name (@scope/name, name@1.2.3), an https link to a git repository or a tarball, or a local package directory, which is read with the plugin library's reader, zipped without node_modules and uploaded. A plugin of server modules is loaded at once, which stops the agent runs in progress",
+    overwriteOpt:
+      "Replace another version of the package already on the server (a package directory only)",
+    removeDesc: "Remove a plugin from the Project, and from the server once nothing else lists it",
+    colName: () => "PLUGIN",
+    colKind: () => "KIND",
+    colState: () => "STATE",
+    kindModules: () => "server modules",
+    kindLibrary: () => "skills / hooks / MCP",
+    active: () => "running",
+    pending: () => "waits for a restart",
+    failed: (reason) => `failed to load: ${reason}`,
+    elsewhere: () => "on other machines only",
+    none: () => "No plugins installed on the server.",
+    installed: (name, version) =>
+      version === null ? `Installed ${name}.` : `Installed ${name} ${version}.`,
+    unchanged: (name, version) =>
+      `${name}${version === null ? "" : ` ${version}`} is already installed on the server; nothing changed.`,
+    dirRefused: (dir, reason) =>
+      `${dir} is not a package the plugin library can read, so nothing was sent: ${reason}`,
+    dirNotPlugin: (dir) =>
+      `${dir} is not a PenguinHarness plugin: it carries neither skills/ nor hooks/ nor MCP servers (penguin.mcp_servers) nor the ifaces.json of server modules. Nothing was sent.`,
+    dirTooLarge: (dir) =>
+      `${dir} exceeds what a plugin package may hold (2000 files, 5MB per file, 50MB in all, a 14MB zip). Nothing was sent.`,
+    uploading: (name, version, files) => `Uploading ${name} ${version} (${files} files)…`,
+    overwriteHint: () => "Re-run with --overwrite to replace it.",
+    listedOnly: (specifier, projectId) =>
+      `${specifier} ships with this server; listed for Project ${projectId}.`,
+    libraryNext: () =>
+      "It is in the plugin library: install it on an agent from the Plugins page (Manage installs).",
+    mcpServerLine: (name, transport, target) => `MCP server: ${name} (${transport}) ${target}`,
+    modulesLoaded: (projectId) => `Listed for Project ${projectId} on this server and loaded.`,
+    restartNext: () => "Listed; restart the server to load it.",
+    removed: (name) => `Removed ${name}.`,
   },
   cost: {
     desc: "Show token usage and cost (summary card by default; --by prints a grouped table)",
@@ -1017,7 +1477,8 @@ const en: Messages = {
       "Update a scheduled task (read-modify-write: unspecified fields keep their stored values)",
     rmDesc: "Delete a scheduled task (no prompt; the server's owner authorization applies)",
     prompt: "The text each firing sends",
-    startAt: "First fire time (ISO 8601), or the literal `now` for the current instant",
+    startAt:
+      "First fire time (ISO 8601), or the literal `now` for the current instant; a one-shot task needs a future time, so `now` only works with --period",
     period: "Fixed interval, minimum 5m (e.g. 30m, 12h, 1d, 7d); omitted = one-shot",
     endAt: "Stop firing after this instant (ISO 8601)",
     sessionId: "Bind firings to one session (excludes --workspace / the model pair)",
@@ -1056,6 +1517,10 @@ const en: Messages = {
       "Employ an Agent: an existing one (--agent-id) or a new one (--new-agent), under --reports-to",
     employeeDesc: "Manage employees",
     employeeSetDesc: "Update an employee's entry in the tree (only the given fields change)",
+    employeeAvatarDesc:
+      "Set or clear an employee's avatar (the employee defaults to PENGUIN_AGENT_ID, so an employee can set its own)",
+    avatarFile: "Image file to use: PNG, JPEG or WebP, at most about 96 KiB",
+    avatarClear: "Remove the avatar",
     leaveDesc: "Remove an employee from the organization (not the CEO); the Agent itself stays",
     deskDesc: "Desk sessions (one standing session per employee)",
     deskShowDesc: "The employee's desk session id and Workspace (opens the desk if it has none)",
@@ -1118,6 +1583,8 @@ const en: Messages = {
       "Extra library plugins for the new Agent, comma-separated (added to agent-company,agent-development)",
     title: "Job title",
     reportsTo: "Agent id of the manager",
+    employeeName:
+      "What the organization calls the employee — any language, works after @ like the id; an empty value clears it",
     employeeWorkspace:
       "Workspace: a sub-directory of the shared workspace (. = all of it) or an absolute path, written as given",
     hireWorkspace:
@@ -1193,6 +1660,15 @@ const en: Messages = {
     hired: (agentId, title, reportsTo) =>
       `Employee ${agentId} hired as ${title}${reportsTo !== null ? `, reporting to ${reportsTo}` : ""}.`,
     employeeUpdated: (agentId) => `Employee ${agentId} updated.`,
+    avatarNeedsOne: () => "Give exactly one of --file <path> and --clear.",
+    avatarNoAgent: () =>
+      "Name the employee: pass <agent_id>, or run inside a desk or ticket session (PENGUIN_AGENT_ID).",
+    avatarUnreadable: (file, reason) => `Cannot read ${file}: ${reason}`,
+    avatarFormat: (file) => `${file} is not a PNG, JPEG or WebP image.`,
+    avatarTooLarge: (file, kib, maxKib) =>
+      `${file} is ${kib} KiB; an avatar is at most ${maxKib} KiB. Scale it down (256×256 is plenty) and try again.`,
+    avatarSet: (agentId) => `Avatar of ${agentId} set.`,
+    avatarCleared: (agentId) => `Avatar of ${agentId} removed.`,
     left: (agentId) => `Employee ${agentId} left the organization.`,
     desk: (agentId, sessionId, workspace, openedAt, created) =>
       `Desk of ${agentId}: session ${sessionId} (workspace ${workspace}, opened ${openedAt})${created ? " — opened just now" : ""}`,
@@ -1300,6 +1776,166 @@ const en: Messages = {
     colMentions: () => "@ME",
     colPrincipal: () => "PRINCIPAL",
   },
+  browser: {
+    desc: "The agent browser: read pages, run JavaScript, click and type, import sign-ins",
+    statusDesc: "Whether the agent browser is available, which backend it is, and its tabs",
+    tabsDesc: "List the open tabs (* marks the active one)",
+    openDesc:
+      "Open a URL in the active tab (in a new one when none is open), or in a new tab with --new-tab",
+    switchDesc: "Make a tab the active one",
+    closeDesc: "Close a tab (default: the active one)",
+    scanDesc:
+      "Read the page as simplified HTML (or plain text with --text), after the tab list; hidden list items show as a [FAKE ELEMENT] hint",
+    execDesc:
+      "Run JavaScript in the page; prints its return value, the elements that changed, transient messages and new tabs",
+    clickDesc: "Click an element by CSS selector, or a point with --at, with trusted mouse events",
+    typeDesc:
+      "Type text into the focused element (or --selector), optionally pressing Enter afterwards",
+    screenshotDesc: "Save a PNG screenshot of the tab",
+    cdpDesc: "Send a raw Chrome DevTools Protocol command to the tab",
+    importDesc:
+      "Import cookies (sign-ins) and history from a browser installed on this machine (neither flag: both)",
+    historyDesc: "Search the built-in browser's history (most visited first, then most recent)",
+    tab: 'Tab id, or "active" (default)',
+    urlArg: "URL to open; https:// is added to a bare host",
+    newTab: "Open it in a new tab",
+    tabIdArg: "Tab id",
+    closeTabArg: 'Tab id, or "active" (default)',
+    textOnly: "Plain text instead of simplified HTML (fewer tokens)",
+    maxChars: "Longest body to return, in characters (default 35000; a third of it with --text)",
+    scriptArg:
+      'JavaScript, run as the body of an async function: end with `return <value>`. "-" reads it from stdin',
+    file: "Read the script from this file",
+    save: "Write the whole return value to this file and print only its start",
+    noMonitor: "Skip change tracking: faster, for scripts that only read",
+    timeout: "Script time limit: 30s, 2m or bare seconds (default 15s)",
+    selectorArg: "CSS selector of the element to click",
+    index: "Which match of the selector to click, from 0 (default 0)",
+    at: "Click this viewport point instead, as x,y in CSS pixels",
+    textArg: "Text to type",
+    selector: "Focus this element first (CSS selector)",
+    submit: "Press Enter afterwards",
+    acceptDialogs:
+      "Accept the page's confirm, prompt and leave-page dialogs too (alerts always are; without this the others are dismissed)",
+    output: "PNG file to write (default: screenshot-<time>.png in the working directory)",
+    fullPage: "Capture the whole page, not only the viewport",
+    methodArg: "CDP method, e.g. DOM.getDocument",
+    params: "The method's parameters as a JSON object",
+    list: "List the browser profiles on this machine",
+    from: "Profile to import from: a source id from --list, or a browser (chrome, edge, firefox…) for its Default profile",
+    cookies: "Import cookies and sign-ins",
+    history: "Import history",
+    domain: "Only the cookies of this site and its subdomains (repeatable, or comma-separated)",
+    queryArg: "Words to find in titles and URLs",
+    count: "How many entries (default 20)",
+    label: {
+      status: "status",
+      tab: "tab",
+      tabs: "tabs",
+      page: "page",
+      return: "return",
+      error: "error",
+      diff: "diff",
+      transients: "transients",
+      newTabs: "new tabs",
+      note: "note",
+      clicked: "clicked",
+      source: "source",
+      cookies: "cookies",
+      history: "history",
+      warning: "warning",
+      screenshot: "screenshot",
+      dialog: "dialog",
+      memory: "memory",
+      backend: "backend",
+    },
+    line: (label, value) => `${label}: ${value}`,
+    tabHead: (id, title, url, loading) =>
+      `tab ${id} · ${title || "(untitled)"} · ${url}${loading ? " · loading" : ""}`,
+    noTabs: () => "none",
+    available: () => "available",
+    unavailable: (reason) => `unavailable (${reason})`,
+    backendValue: (backend, extension) =>
+      extension === undefined
+        ? backend
+        : `${backend} (${extension.name}, extension ${extension.version})`,
+    unavailableHint: (reason) => {
+      const base =
+        "The built-in browser needs the PenguinHarness desktop app, and the app must be open";
+      if (reason === "shell_unsupported")
+        return `${base}: this desktop app is too old for it, so update the app.`;
+      if (reason === "no_window") return `${base}: it has no open window, so open it.`;
+      if (reason === "not_desktop") return `${base}: this server is not running inside it.`;
+      if (reason === "extension_not_paired")
+        return "No Chrome is paired for this user. Ask the user to install the PenguinHarness Browser extension and pair it: Browser panel → Connect your Chrome.";
+      if (reason === "extension_disconnected")
+        return "The user's Chrome is not connected. Ask the user to open Chrome with the PenguinHarness Browser extension enabled, or to pair it again in the Browser panel.";
+      if (reason === "extension_disabled")
+        return "An admin has turned off Chrome extension connections on this server, so the user's Chrome cannot be driven.";
+      return "The browser is driven through a running PenguinHarness server, and none was reached: open the desktop app, or point --server or PENGUIN_API_URL at the server.";
+    },
+    notSupported: () =>
+      "This belongs to the built-in browser; this user's agents drive their own Chrome, which keeps its own sign-ins and history. Ask the user to sign in in the Penguin tab in Chrome instead.",
+    memoryLine: (total, tabs, system) =>
+      `${total} across ${tabs} ${tabs === 1 ? "tab" : "tabs"}` +
+      (system !== undefined ? ` · this computer: ${system.free} free of ${system.total}` : ""),
+    loadWarning: (warnings) => {
+      const said = [
+        warnings.includes("memory") ? "the browser holds a lot of memory" : "",
+        warnings.includes("low_system_memory") ? "this computer is low on memory" : "",
+        warnings.includes("many_tabs") ? "many tabs are open" : "",
+      ].filter(Boolean);
+      const text = said.join(", and ") || "the browser is heavy";
+      return `${text.charAt(0).toUpperCase()}${text.slice(1)}. Close the tabs you no longer need (penguin browser close <tab-id>).`;
+    },
+    closed: (tab) => `Closed tab ${tab}.`,
+    closedActive: () => "Closed the active tab.",
+    reloaded: () => "reloaded",
+    elementsChanged: (count) => (count === 1 ? "1 element changed" : `${count} elements changed`),
+    clickedAt: (tag, text, x, y) => `${tag ?? "element"}${text ? ` "${text}"` : ""} at ${x},${y}`,
+    dialogAnswered: (type, message, accepted) =>
+      `${type} "${message}" → ${accepted ? "accepted" : "dismissed (rerun with --accept-dialogs to accept)"}`,
+    truncatedSave: () => "[truncated — use --save]",
+    truncatedJson: () => "[truncated — use --json]",
+    savedTo: (path) => `[saved to ${path}]`,
+    screenshotSaved: (path, size, kilobytes) => `${path} (${size}, ${kilobytes} KB)`,
+    importData: (cookies, history) =>
+      [cookies ? "cookies" : "", history ? "history" : ""].filter(Boolean).join(", ") || "-",
+    importCookies: (c) =>
+      `${c.imported} imported, ${c.skipped} skipped, ${c.failed} failed (${c.found} found)`,
+    importHistory: (h) => `${h.imported} imported (${h.found} found)`,
+    noSources: () => "No browser profiles to import from were found on this machine.",
+    noHistory: () => "No history matches.",
+    visits: (count) => (count === 1 ? "1 visit" : `${count} visits`),
+    colId: () => "ID",
+    colTitle: () => "TITLE",
+    colUrl: () => "URL",
+    colBrowser: () => "BROWSER",
+    colProfile: () => "PROFILE",
+    colData: () => "DATA",
+    errorLine: (code, message) => `error: ${code}: ${message}`,
+    tabInvalid: (value) => `A tab is a tab id or "active", not "${value}".`,
+    positiveInt: (flag, value) => `${flag} takes a positive whole number, not "${value}".`,
+    indexInvalid: (value) => `--index takes a whole number from 0, not "${value}".`,
+    atInvalid: (value) => `--at takes x,y in CSS pixels (e.g. --at 120,340), not "${value}".`,
+    clickTarget: () => "Give either a selector (with --index) or --at x,y.",
+    newTabWithTab: () => "--new-tab opens a new tab, so it takes no --tab.",
+    paramsInvalid: () => "--params must be a JSON object.",
+    methodInvalid: (value) =>
+      `"${value}" is not a CDP method: write Domain.method, e.g. DOM.getDocument.`,
+    scriptSources: () => "Give the script one way only: as an argument, with --file, or on stdin.",
+    scriptMissing: () =>
+      "No script: pass it as an argument, with --file, or on stdin (penguin browser exec <<'EOF' … EOF).",
+    scriptEmpty: () => "The script is empty.",
+    fileUnreadable: (path, detail) => `Cannot read ${path}: ${detail}`,
+    fileUnwritable: (path, detail) => `Cannot write ${path}: ${detail}`,
+    importMode: () =>
+      "Use --list to see the browser profiles, or --from <source-id|browser> to import from one.",
+    sourceNotFound: (from, known) =>
+      `No browser profile matches "${from}"${known.length > 0 ? ` (this machine has: ${known.join(", ")})` : ""}; see penguin browser import --list.`,
+    sourceAmbiguous: (from, ids) =>
+      `${from} has several profiles and none is Default: ${ids.join(", ")}. Pass one with --from.`,
+  },
   client: {
     invalidServerUrl: (value) => `Invalid server URL "${value}": expected http(s)://host[:port].`,
     remoteNeedsToken: (url) =>
@@ -1317,16 +1953,16 @@ const en: Messages = {
     httpError: (status, code, message) =>
       `Server error ${status} (${code})${message ? `: ${message}` : ""}`,
     sessionNotFound: (ref, projectId) =>
-      `No session matching "${ref}" in project ${projectId} (try \`penguin ls\`).`,
+      `No session matching "${ref}" in project ${projectId} (try \`penguin session ls\`).`,
     sessionAmbiguous: (ref, candidates) =>
       `"${ref}" matches ${candidates.length} sessions:\n  ${candidates.join("\n  ")}\nUse a longer fragment or the full id.`,
     streamLost: (detail) => `Lost the server stream and reconnecting failed: ${detail}`,
     streamResynced: () =>
-      "[stream] reconnected past the server's replay buffer; some output may be missing here (penguin logs shows the full history)",
+      "[stream] reconnected past the server's replay buffer; some output may be missing here (penguin session log shows the full history)",
     timeoutInvalid: (value) =>
       `Invalid --timeout value "${value}": expected 30s, 5m, 2h, or a bare number of seconds.`,
     stillRunning: (shortId) =>
-      `[still running] session ${shortId} continues on the server — follow with \`penguin logs -f ${shortId}\` or poll with \`penguin input ${shortId}\``,
+      `[still running] session ${shortId} continues on the server — follow with \`penguin session log -f ${shortId}\` or poll with \`penguin session input ${shortId}\``,
     callerDefaultsFailed: (sessionId) =>
       `[caller context] could not read calling session ${sessionId}; using the plain defaults`,
     latestSession: (sessionId) => `[latest] session ${sessionId}`,
@@ -1342,6 +1978,7 @@ const en: Messages = {
     host: "Listen address (falls back to the HOST env var, default 127.0.0.1)",
     noOpen: "Do not open a browser automatically",
     restarting: "Restarting the service to apply the update…",
+    app: "Open one workbench page as the whole app: <project>/<agent>/<workbench>[/<tab>] (Ctrl+P or Ctrl+Shift+P in the page opens the command palette to leave)",
   },
   auth: {
     desc: "Sign in to a PenguinHarness server from the terminal",
@@ -1479,7 +2116,7 @@ const en: Messages = {
 
   header: headerEn,
   chatHints: () =>
-    "Type a message to start a conversation; end a line with \\; typing while a task runs steers the agent; /goal runs a goal to completion; /compact to compact the context; /clear to start a fresh session; /thinking changes the thinking level; /verbose toggles full tool output; /exit to quit; and Ctrl-C interrupts the current conversation.",
+    "Type a message to start a conversation; end a line with \\; typing while a task runs steers the agent; /goal runs a goal to completion; /compact to compact the context; /clear to start a fresh session; /thinking changes the thinking level; /switch-model <provider> <model_id> switches the model (compacting the context first); /verbose toggles full tool output; /exit to quit; and Ctrl-C interrupts the current conversation.",
   confirmExit: () => "Exit penguin? [y/N] ",
   taskInterrupted: () => "[current conversation interrupted]",
   steerQueued: (text) => `» steering queued (delivered with the next turn): ${text}`,
@@ -1514,9 +2151,11 @@ const en: Messages = {
           ? "response incomplete or unparseable"
           : kind === "network"
             ? "network or service temporarily unavailable"
-            : kind === "failed"
-              ? "the model provider returned an error"
-              : "the request failed")(errorCode ?? status)}; sending retry #${attempt}…`,
+            : kind === "image_rejected"
+              ? "the model provider rejected an image in this turn's input (replaced with a note)"
+              : kind === "failed"
+                ? "the model provider returned an error"
+                : "the request failed")(errorCode ?? status)}; sending retry #${attempt}…`,
   compactionStart: (mode, reason) =>
     mode === "discard"
       ? `[compaction] discarding context (${reason})…`
@@ -1545,7 +2184,13 @@ const en: Messages = {
                 : ""
           }`) + (tokens ? ` · tokens ${tokens.total} (${tokens.delta})` : ""),
   compactNothing: () => "[compaction] nothing to compact yet",
-  clearDone: () => "[clear] started a fresh session (the previous one is kept and resumable)",
+  clearDone: () =>
+    "[clear] your next message starts a fresh session (the previous one is kept and resumable)",
+  chatNewConversation: () => "New conversation: it is created when you send your first message.",
+  chatNoConversation: () =>
+    "[chat] no conversation yet: it is created when you send your first message",
+  chatMessageKept: () => "Your message was not sent: press Enter to send it again.",
+  chatProjectDefaultModel: () => "the Project's default model",
   goalRound: (round) => `[goal] round ${round}`,
   goalFinished: (outcome, rounds, tokens) => {
     const label = {
@@ -1566,8 +2211,25 @@ const en: Messages = {
     `[thinking] level: ${level} (this Session's) — change with /thinking <low|medium|high|xhigh|max>`,
   thinkingSet: (level) =>
     `[thinking] level pinned to ${level} for this Session, effective from the next request — changing it invalidates the model's cached context, so /compact first is recommended (the Agent config is unchanged)`,
+  thinkingHeld: (level) =>
+    `[thinking] the new conversation will be pinned to ${level} (the Agent config is unchanged)`,
   thinkingInvalid: (value) =>
     `Invalid thinking level "${value}". Use low, medium, high, xhigh, or max.`,
+  switchModelCurrent: (model) =>
+    `[model switch] current model: ${model} — switch with /switch-model <provider> <model_id> (the context is compacted on the current model first)`,
+  switchModelUsage: () =>
+    "Usage: /switch-model <provider> <model_id>  (e.g. /switch-model deepseek deepseek-v4-pro; penguin config model list shows the configured models)",
+  switchModelDone: (previous, next) => `[model switch] model: ${previous} → ${next}`,
+  switchModelHeld: (model) => `[model switch] the new conversation will use ${model}`,
+  switchModelBusy: () =>
+    "[model switch] the Session is busy (a task or a compaction is running); switch once it finishes",
+  switchModelSame: (model) => `[model switch] already on ${model}; nothing to switch`,
+  switchModelNotConfigured: (model, listCommand, addCommand) =>
+    `[model switch] ${model} is not in the Project config: ${listCommand} lists the configured models, ${addCommand} adds it`,
+  switchModelUnavailable: (model, detail) =>
+    `[model switch] ${model} is configured but cannot be used${detail ? `: ${detail}` : ""}`,
+  switchModelNoCompaction: () =>
+    "[model switch] context compaction is not configured for this Session, and a model switch always compacts first",
   verboseOn: () => "[verbose] on — tool output from here on shows in full",
   verboseOff: () =>
     "[verbose] off — long tool output from here on is collapsed (/verbose to toggle)",
@@ -1583,7 +2245,7 @@ const en: Messages = {
   modelRefIncomplete: () =>
     "--model-id and --provider must be given together: a model reference is always an explicit (provider, model_id) pair. Omit both to use the Project default model.",
   resumeNoOverride: () =>
-    "--resume does not accept --workspace, --model-id or --provider: they follow the original Session and cannot change.",
+    "--resume does not accept --workspace, --model-id or --provider: the resumed Session keeps its own. To change its model, run /switch-model <provider> <model_id> inside the chat (it compacts the context first).",
   resumeNoSession: () => "No session to resume: this agent has no recorded sessions yet.",
   resumedBanner: (sessionId, messageCount) =>
     `[resumed] ${sessionId} · ${messageCount} message${messageCount === 1 ? "" : "s"} in the current context`,
@@ -1602,9 +2264,52 @@ const en: Messages = {
   visionModelSet: (model) => `Vision model set to ${model}.`,
   modelRemoved: (model, def) => `Removed model ${model}. Default model: ${def ?? "(unset)"}`,
   modelNotConfigured: (model) => `Model ${model} is not in the Project config.`,
+  modelNotRoutable: (model) =>
+    `Model ${model} cannot be routed: a vendor group routes a model by the vendor prefix its id ` +
+    `begins with (gpt-, claude-, gemini-, glm-, kimi-, deepseek-, minimax-). ` +
+    `Add it under a custom group (--provider custom) with --client-type and --base-url, ` +
+    `or pass --client-type to pin the protocol this model speaks.`,
+  modelNotAddable: (model, group) =>
+    `Model ${model} cannot be added: the ${group} group carries its built-in models only. ` +
+    `Add it under a custom group (--provider custom, or a group name of your own) ` +
+    `with --client-type and --base-url.`,
   visionModelCleared: () => "It was also the vision model; that setting is now unset.",
-  modelListTitle: () => "Configured models:",
+  modelListTitle: () => "Models:",
   modelListEmpty: () => "No models configured yet. Add one with `penguin config model add`.",
+  groupListTitle: () => "Groups:",
+  modelGroupOnlyFlags: (group) =>
+    `--context-window, --max-tokens, --vision, --fast-mode, the --price-* flags and --set-default ` +
+    `describe one model: add --model-id <upstream id>, or drop them to set the ${group} group's connection.`,
+  providerInvalidGroup: (group) =>
+    `Invalid group "${group}": a group name starts with a lowercase letter or digit and uses ` +
+    `only lowercase letters, digits, - and _ (at most 32 characters).`,
+  providerFlagConflict: (flag, clearFlag) => `${flag} and ${clearFlag} cannot be combined.`,
+  providerBlankValue: (flag, clearFlag) =>
+    `${flag} is empty. Pass a value, or ${clearFlag} to remove the stored one.`,
+  providerInvalidBaseUrl: (baseUrl) =>
+    `Invalid --base-url "${baseUrl}": a group's base URL must be a full URL starting with http:// or https://.`,
+  protocolFixed: (group, clientType) =>
+    `${group}'s protocol is fixed to ${clientType}: --client-type takes ${clientType} only, and the group's protocol cannot be cleared.`,
+  providerNothingToSet: (group) =>
+    `Nothing to change for group ${group}: pass --api-key, --base-url or --client-type, or one of the --clear-* flags.`,
+  providerSaved: (group, overriding) =>
+    `Saved the ${group} group's connection; its models without a value of their own follow it.` +
+    (overriding === 0
+      ? ""
+      : overriding === 1
+        ? " 1 model sets its own value and is unaffected."
+        : ` ${overriding} models set their own value and are unaffected.`),
+  providerNoModels: (group) =>
+    `Group ${group} has no models yet; the models you add to it will follow this connection.`,
+  providerNothingToRemove: (group) =>
+    `Group ${group} has no connection to remove. To remove a model, add --model-id <upstream id>.`,
+  providerRemoved: (group, models) =>
+    `Removed the ${group} group's connection.` +
+    (models === 0
+      ? ""
+      : models === 1
+        ? " Its 1 model stays; where it has no value of its own, it now uses the client defaults."
+        : ` Its ${models} models stay; the ones without a value of their own now use the client defaults.`),
   vaultSet: (key) =>
     `Saved vault entry ${key}. New conversations pick it up right away; running ones after their next compaction.`,
   vaultRemoved: (key) =>

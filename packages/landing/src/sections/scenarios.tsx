@@ -33,12 +33,7 @@ export function Scenarios() {
   }, [paused, items.length]);
 
   return (
-    <Section
-      id="scenarios"
-      eyebrow={S.scenarios.eyebrow}
-      title={S.scenarios.title}
-      subtitle={S.scenarios.subtitle}
-    >
+    <Section id="scenarios" title={S.scenarios.title} subtitle={S.scenarios.subtitle}>
       <div
         className="mx-auto max-w-5xl"
         onMouseEnter={() => setPaused(true)}
@@ -60,7 +55,7 @@ export function Scenarios() {
                 className={`col-start-1 row-start-1 w-[92%] overflow-hidden rounded-2xl border bg-white transition-all duration-500 dark:bg-gray-900 ${
                   front
                     ? "z-10 translate-x-0 border-gray-200 opacity-100 dark:border-gray-800"
-                    : "z-0 translate-x-[8.7%] scale-[0.96] cursor-pointer border-gray-200/70 opacity-60 dark:border-gray-800/70"
+                    : "z-0 translate-x-[8.7%] scale-[0.96] cursor-default border-gray-200/70 opacity-60 dark:border-gray-800/70"
                 }`}
               >
                 <div className="md:flex md:min-h-[340px] md:items-stretch">

@@ -18,11 +18,13 @@ import type {
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, toneStrip } from "../../lib/tone";
-import { Button } from "../../components/ui/button";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { Segmented } from "../../components/ui/segmented";
-import { SkeletonList } from "../../components/ui/skeleton";
+import {
+  Button,
+  ConfirmModal,
+  InfoPopover,
+  Segmented,
+  SkeletonList,
+} from "@prismshadow/penguin-ui";
 import { AssessmentItemsEditor } from "./assessment-items-editor";
 import { assessmentRunState, readItems } from "./assessment-items";
 import {
@@ -287,6 +289,7 @@ export function ModuleDocumentView({
   );
   const discardModal = discarding && (
     <ConfirmModal
+      cancelLabel={S.common.cancel}
       open
       title={words.discard}
       confirmLabel={words.discard}

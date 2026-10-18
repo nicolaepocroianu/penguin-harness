@@ -20,10 +20,11 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { Hono } from "hono";
 import type { Context, MiddlewareHandler } from "hono";
+import type { HttpBindings } from "@hono/node-server";
 import { bodyLimit } from "hono/body-limit";
 import { bodyLimitBytes, toAttachmentLimits } from "./services/attachment-limits.js";
 import type { DatabaseSync } from "node:sqlite";
-import type { ModuleTree } from "@prismshadow/penguin-core/kernel";
+import type { Instance, ModuleTree } from "@prismshadow/penguin-core/kernel";
 import type { ServerConfig } from "./config.js";
 import { applyProxySettings, mergedNoProxy } from "./net/proxy.js";
 import {
@@ -34,7 +35,6 @@ import {
   HMR_CONFIG_RESOURCE_ID,
   HMR_DB_RESOURCE_ID,
   HMR_DESKTOP_RESOURCE_ID,
-  HMR_LIFECYCLE_RESOURCE_ID,
   HMR_HOST_RESOURCE_ID,
   HMR_CONTROL_RESOURCE_ID,
   HMR_OVERRIDES_RESOURCE_ID,
@@ -59,6 +59,7 @@ import { UiPrefsRepo } from "./db/repos/ui-prefs.js";
 import { UsersRepo } from "./db/repos/users.js";
 import type { UserRow } from "./db/repos/users.js";
 import { jsonOnlyWrites } from "./auth/middleware.js";
+import { AMSP_PREFIX, amspAllowOrigin } from "./amsp/cors.js";
 import { mintApiToken, storeApiToken } from "./auth/api-token.js";
 import type { Identity } from "./terminal/identity.js";
 import { terminalRoutes } from "./terminal/routes.js";
@@ -71,6 +72,7 @@ import { AuthSessionsRepo } from "./db/repos/auth-sessions.js";
 import { ensureInstallId } from "./install-id.js";
 import { handleError, HttpError, errorBody } from "./http/errors.js";
 import { attributedProjectId } from "./http/attribution.js";
+import { STREAM_IDLE_MS } from "./http/sse.js";
 import { installRoutes } from "./http/routes/install.js";
 import { ChannelHub } from "./runtime/channel.js";
 import { ErrorRecorder } from "./runtime/error-recorder.js";
@@ -101,7 +103,6 @@ import type { QQScanTransport } from "./runtime/messaging/qq-scan.js";
 import { TitleGenerator, TitleNotifier } from "./runtime/title-generator.js";
 import { AdminService } from "./services/admin-service.js";
 import { DesktopService } from "./services/desktop-service.js";
-import { LifecycleService } from "./services/lifecycle-service.js";
 import { AgentConfigService } from "./services/agent-config-service.js";
 import { MemoryService } from "./services/memory-service.js";
 import { AgentService } from "./services/agent-service.js";
@@ -188,9 +189,33 @@ export interface ServerBoot {
   /** The frozen operations over `hmr` (packages/hmr's main.ts): the seam and the upgrade route drive it, nothing drives the host directly. */
   control: Hmr<PlatformApi>;
   desktop: DesktopService | null;
-  /** Process lifecycle: whether a supervisor relaunches this process, and the restart trigger (the "restart to update" step). */
-  lifecycle: LifecycleService;
-  tree: ModuleTree;
+  /**
+   * The current platform instance: re-pointed by the replace hooks at every push. The
+   * instance outlives an App re-assembly (a plugin change rebuilds the tree INSIDE it, see
+   * hmr/platform.ts), which is why `tree` is derived from it on every read rather than held.
+   */
+  instance: Instance<PlatformApi>;
+  /**
+   * The tree the running App serves — read through `instance` each time, so a plugin
+   * change's re-assembly is seen without any push. A generation that has no tree to answer
+   * with (a bare kernel, a swap mid-flight) keeps the last one resolved, as createApp's
+   * per-node resolvers do.
+   */
+  readonly tree: ModuleTree;
+}
+
+/** The boot's tree accessor: the instance's business tree of the moment, the last known one while it has none. */
+function liveTree(boot: Omit<ServerBoot, "tree">, initial: ModuleTree): ServerBoot {
+  let last = initial;
+  return Object.defineProperty(boot, "tree", {
+    enumerable: true,
+    get(): ModuleTree {
+      const next =
+        typeof boot.instance.api.business === "function" ? boot.instance.api.business() : null;
+      if (next !== null) last = next;
+      return last;
+    },
+  }) as ServerBoot;
 }
 
 /**
@@ -225,14 +250,13 @@ export async function bootAppDeps(
   // against it. index.ts builds both and hands them in (hmrMain owns them there); a test
   // that boots without an entry gets the same pair here.
   const hmr = host ?? new HmrHost<PlatformApi>(config.root, packagedPlatform);
-  // The default replace does what index.ts's does: point the boot's tree at the new
-  // generation, so what createApp resolves from it is the current generation's.
+  // The default replace does what index.ts's does: point the boot at the new generation's
+  // instance, so what createApp resolves from `boot.tree` is the current generation's.
   let booted: ServerBoot | null = null;
   const ctl =
     control ??
     hmrControl(hmr, (instance) => {
-      const next = typeof instance.api.business === "function" ? instance.api.business() : null;
-      if (next !== null && booted !== null) booted.tree = next;
+      if (booted !== null) booted.instance = instance;
     });
 
   // Channel idle reclamation must skip active Sessions, but "is this session busy" is a
@@ -271,9 +295,20 @@ export async function bootAppDeps(
   // test hands the tree) is honoured here too, and the process's own console otherwise.
   const logDouble = replacements.find(([cls]) => cls === ConsoleLog)?.[1] as Log | undefined;
   const shimLog = (line: string): void => (logDouble ?? new ConsoleLog()).line(line);
-  const shim = ensureCliShim(config.root, config.cliEntry);
+  const shim = ensureCliShim(config.root, config.cliEntry ?? null, {
+    execArgs: config.cliLaunch?.execArgs ?? [],
+    unavailable: config.cliLaunch?.unavailable ?? null,
+    dbPath: config.dbPath,
+  });
   if (shim.kind === "written") {
-    shimLog(`Agent CLI: ${path.join(shim.dir, "penguin")} -> ${shim.entry}`);
+    // The whole command the shim runs, loader included: which CLI `penguin` is, said once.
+    const command = [...shim.execArgs, shim.entry].join(" ");
+    shimLog(`Agent CLI: ${path.join(shim.dir, "penguin")} -> ${command}`);
+  } else if (shim.kind === "stub") {
+    shimLog(
+      `Agent CLI: this checkout's CLI cannot run, so ${path.join(shim.dir, "penguin")} says why ` +
+        `instead of running another installation's: ${shim.reason}`,
+    );
   } else if (shim.kind === "absent") {
     shimLog(
       "Agent CLI: no CLI entry found; commands an Agent runs resolve `penguin` on their own PATH.",
@@ -296,8 +331,6 @@ export async function bootAppDeps(
   hmr.resources.register(HMR_OVERRIDES_RESOURCE_ID, replacements);
   const desktop = config.desktopToken !== null ? new DesktopService(config.desktopToken) : null;
   hmr.resources.register(HMR_DESKTOP_RESOURCE_ID, desktop);
-  const lifecycle = new LifecycleService(config.supervised);
-  hmr.resources.register(HMR_LIFECYCLE_RESOURCE_ID, lifecycle);
   // The registry sweep only STARTS plugin disposal (its disposers are sync) — the
   // fallback for exit paths that skip the graceful shutdown. The graceful path awaits
   // host.dispose() itself, bounded (index.ts); dispose is idempotent, so both may fire.
@@ -317,9 +350,10 @@ export async function bootAppDeps(
     throw new Error("the packaged platform built no business surface");
   }
   // Callers that outlive swaps (index.ts, the runtime app) may only touch the swap-stable
-  // members: the runtime singletons published above. The tree is THIS generation's and
-  // goes stale at the next push — per-request business dispatch rides the seam.
-  booted = { config, db, channels, hmr, control: ctl, desktop, lifecycle, tree };
+  // members: the runtime singletons published above, and `tree` — which follows the
+  // instance of the moment, so a re-assembly (a plugin change, no push) is never missed.
+  // Per-request business dispatch rides the seam.
+  booted = liveTree({ config, db, channels, hmr, control: ctl, desktop, instance }, tree);
   return booted;
 }
 
@@ -397,6 +431,20 @@ export function createApp(boot: ServerBoot): Hono<AppEnv> {
     log(`${c.req.method} ${c.req.path} ${c.res.status} ${ms}ms`);
   });
 
+  // An event stream's socket that sends nothing for STREAM_IDLE_MS is destroyed (Node lets the
+  // first expiry pass while a write is pending, so a stuck write is cut within two). A live
+  // stream pings every 20 s; it goes that quiet only when its peer stopped reading and a write
+  // never completes, and then only the socket can end it: the stream's own close queues behind
+  // that write. The abort runs the stream's teardown. Only the host holds the socket (`c.env`,
+  // passed by index.ts), hence here.
+  app.use("*", async (c, next) => {
+    await next();
+    const socket = (c.env as Partial<HttpBindings> | undefined)?.incoming?.socket;
+    if (socket && c.res.headers.get("content-type")?.startsWith("text/event-stream")) {
+      socket.setTimeout(STREAM_IDLE_MS, () => socket.destroy());
+    }
+  });
+
   // Canonical-host guard (loopback binds only): the App is served on one loopback name and
   // previews on its counterpart, but the SAME process answers on both. Without this, Agent-
   // written preview HTML on the preview host could call /api same-origin and — if a session
@@ -438,6 +486,10 @@ export function createApp(boot: ServerBoot): Hono<AppEnv> {
   // 300MB bodies on a server whose limits were left at 10MB. It is re-derived per request, so an
   // admin's change takes effect immediately; the middleware itself is memoized on the resulting
   // size so the steady state allocates nothing.
+  //
+  // The Agent API is called from browsers too: its CORS header (amsp/cors.ts) has to reach these
+  // two refusals, which answer before its group runs, or a caller reads a CORS failure, not the code.
+  app.use(`${AMSP_PREFIX}/*`, amspAllowOrigin);
   let capped: { size: number; mw: MiddlewareHandler } | null = null;
   app.use("/api/*", (c, next) => {
     const size = bodyLimitBytes(settings().getAttachmentLimitsMb());
