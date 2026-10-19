@@ -3,7 +3,7 @@
 - **Date:** 2026-10-20
 - **Type:** feat
 - **Scope:** `server`, `web`
-- **PR:** pending
+- **PR:** [#165](https://github.com/nicolaepocroianu/penguin-harness/pull/165)
 
 Penguin can now open product modules from a monorepo's modules folder, such as `waf-modules/modules`, beside the WAF checkout's own `modules/`, as Loom reads its two module roots. An admin names the folder in Settings → WAF workspace → Monorepo modules, or the server is started with `WAF_MODULES_DIR`. The checkout still provides the framework, media, activity data and navigation bar.
 
