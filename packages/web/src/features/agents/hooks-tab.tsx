@@ -48,6 +48,7 @@ import { downloadArchive } from "./archive-download";
 import { buildHookImportPrompt } from "./hook-import";
 import { usePromptInjection } from "./prompt-injection-controls";
 import { TRASH_ICON, UPLOAD_LABEL_CLASS } from "./skills-tab";
+import { toneText } from "../../lib/tone";
 
 /** Zip pending an overwrite confirmation: the payload to resend with overwrite: true plus the package name for the confirm copy. */
 interface PendingOverwrite {
@@ -268,7 +269,7 @@ export function HooksTab({
                       point names, wrapping onto a second line rather than truncating. */}
                   <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
                     <span
-                      className="max-w-full truncate font-mono text-[13px] font-semibold"
+                      className="max-w-full truncate font-mono text-xs font-semibold"
                       title={hook.name}
                     >
                       {hook.name}
@@ -287,7 +288,7 @@ export function HooksTab({
                 </div>
                 {hook.version !== "" && (
                   <span
-                    className="hidden shrink-0 text-[11px] text-gray-400 sm:block dark:text-gray-500"
+                    className="hidden shrink-0 text-2xs text-gray-500 dark:text-gray-400 sm:block"
                     title={hook.version}
                   >
                     {hook.version}
@@ -387,9 +388,7 @@ export function HooksTab({
               <HiddenFileInput accept=".zip" disabled={uploading} onChange={onPickFile} />
               {uploading ? S.hooks.importUploading : S.hooks.importUploadAction}
             </label>
-            {uploadError && (
-              <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{uploadError}</p>
-            )}
+            {uploadError && <p className={`mt-1.5 text-xs ${toneText.danger}`}>{uploadError}</p>}
           </section>
         </div>
       </Modal>
@@ -423,7 +422,7 @@ export function HooksTab({
         </p>
       </ConfirmModal>
 
-      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className={`text-xs ${toneText.danger}`}>{error}</p>}
     </div>
   );
 }

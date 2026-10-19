@@ -26,7 +26,7 @@ import { ELLIPSIS_ICON } from "../../components/ui/session-row-menu";
 import { SkeletonList } from "../../components/ui/skeleton";
 import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
-import { toneDot, toneInk, toneStrip } from "../../lib/tone";
+import { toneDot, toneInk, toneStrip, toneText } from "../../lib/tone";
 import { useLocale } from "../../state/locale";
 import { formatRelativeShort } from "../../lib/format";
 import { tagCounts } from "./activity-tags";
@@ -47,8 +47,9 @@ import { NO_PLACEHOLDERS } from "./placeholder-media";
 import { runKindLabel } from "./run-toasts";
 
 /** The columns every row shares, from the picture to the menu, once there is room for them. */
+/** Narrow, the status folds under the name (a 9rem column left the name a few pixels at phone width). */
 const ROW =
-  "grid grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,9rem)_2rem] items-center gap-3 @2xl:grid-cols-[3.5rem_minmax(0,1fr)_6rem_minmax(0,11rem)_5rem_2rem]";
+  "grid grid-cols-[3.5rem_minmax(0,1fr)_2rem] items-center gap-3 @md:grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,9rem)_2rem] @2xl:grid-cols-[3.5rem_minmax(0,1fr)_6rem_minmax(0,11rem)_5rem_2rem]";
 
 export function ActivityList({
   items,
@@ -130,7 +131,7 @@ export function ActivityList({
       <div className="@container mx-auto max-w-6xl space-y-4 p-4 md:p-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold">{S.activities.title}</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" disabled={!available} onClick={onRefresh}>
               {S.activities.refresh}
             </Button>
@@ -195,7 +196,7 @@ export function ActivityList({
                         />
                       )}
                       {home.lenses[value]}
-                      <span className="tabular-nums opacity-70">{inLens[value]}</span>
+                      <span className="tabular-nums">{inLens[value]}</span>
                     </span>
                   ),
                 }))}
@@ -401,9 +402,16 @@ function ActivityRow({
           {/* Narrow, the edited column folds into this line. */}
           <span className="@2xl:hidden">{` · ${formatRelativeShort(item.updatedAt, locale)}`}</span>
         </span>
+        {summary && (
+          <span className="mt-0.5 flex min-w-0 @md:hidden">
+            <SummaryStatus status={summary.status} />
+          </span>
+        )}
       </div>
       <span className="@max-2xl:hidden">{summary && <Milestones summary={summary} />}</span>
-      <span className="min-w-0">{summary && <SummaryStatus status={summary.status} />}</span>
+      <span className="min-w-0 @max-md:hidden">
+        {summary && <SummaryStatus status={summary.status} />}
+      </span>
       <span className="text-xs text-gray-500 tabular-nums @max-2xl:hidden dark:text-gray-400">
         {formatRelativeShort(item.updatedAt, locale)}
       </span>
@@ -491,7 +499,7 @@ function RowMenu({
               aria-disabled="true"
               className={`${menuItemClass} cursor-not-allowed`}
             >
-              <span className="block text-gray-400 dark:text-gray-500">{newRef.label}</span>
+              <span className="block text-gray-500 dark:text-gray-400">{newRef.label}</span>
               <span className="block text-xs text-gray-500 dark:text-gray-400">
                 {home.newRefUnavailable}
               </span>
@@ -513,11 +521,7 @@ function SummaryStatus({ status }: { status: ActivitySummary["status"] }) {
           ? (["success", words.built] as const)
           : (["muted", words.next[status.milestone]] as const);
   return (
-    <span
-      className={`inline-flex min-w-0 items-center gap-1.5 text-xs ${
-        tone === "muted" ? "text-gray-500 dark:text-gray-400" : toneInk[tone]
-      }`}
-    >
+    <span className={`inline-flex min-w-0 items-center gap-1.5 text-xs ${toneText[tone]}`}>
       {tone !== "muted" && (
         <span aria-hidden className={`size-1.5 shrink-0 rounded-full ${toneDot[tone]}`} />
       )}

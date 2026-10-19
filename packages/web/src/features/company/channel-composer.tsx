@@ -186,7 +186,7 @@ export function ChannelComposer({
             {rows.map(({ c, i, head }) => (
               <div key={c.principal}>
                 {head && (
-                  <p className="px-2.5 pb-0.5 pt-1.5 text-[11px] font-medium text-gray-400 dark:text-gray-500">
+                  <p className="px-2.5 pb-0.5 pt-1.5 text-2xs font-medium text-gray-500 dark:text-gray-400">
                     {kindTitle(c.kind)}
                   </p>
                 )}
@@ -205,7 +205,7 @@ export function ChannelComposer({
                   <span className="min-w-0 truncate">
                     <PrincipalChip principal={c.principal} names={names} />
                   </span>
-                  <span className="shrink-0 text-[11px] text-gray-400 dark:text-gray-500">
+                  <span className="shrink-0 text-2xs text-gray-500 dark:text-gray-400">
                     {c.kind === "all"
                       ? S.company.channels.mentionAllDesc
                       : c.kind === "employee"

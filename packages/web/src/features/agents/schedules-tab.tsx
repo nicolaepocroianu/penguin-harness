@@ -41,6 +41,7 @@ import { ScheduleSuggestions, scheduleExamples } from "../schedules/schedule-sug
 import { toggleBody } from "../schedules/schedule-upsert";
 import { usePromptInjection } from "./prompt-injection-controls";
 import { HelpFold } from "../../components/ui/help-fold";
+import { toneText } from "../../lib/tone";
 
 /** Display status → badge tone. */
 const STATUS_TONE: Record<ScheduleStatus, BadgeTone> = {
@@ -232,7 +233,7 @@ export function SchedulesTab({
                     <span className="block text-gray-600 dark:text-gray-300">
                       {item.nextFireAt ? formatDateTime(item.nextFireAt) : "—"}
                     </span>
-                    <span className="block text-gray-400 dark:text-gray-500">
+                    <span className="block text-gray-500 dark:text-gray-400">
                       {item.lastFiredAt ? formatDateTime(item.lastFiredAt) : "—"}
                     </span>
                   </td>
@@ -275,7 +276,7 @@ export function SchedulesTab({
       )}
 
       {invalidFiles.length > 0 && (
-        <div className="text-xs text-red-600 dark:text-red-400">
+        <div className={`text-xs ${toneText.danger}`}>
           <p className="font-medium">{S.schedule.invalidFiles}</p>
           <ul className="mt-0.5 space-y-0.5 font-mono">
             {invalidFiles.map((f) => (
@@ -324,7 +325,7 @@ export function SchedulesTab({
         </p>
       </ConfirmModal>
 
-      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className={`text-xs ${toneText.danger}`}>{error}</p>}
     </div>
   );
 }

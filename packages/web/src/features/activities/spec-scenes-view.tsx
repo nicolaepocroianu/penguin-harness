@@ -14,7 +14,7 @@ import { Chevron } from "../../components/ui/chevron";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
-import { toneDot, toneInk, toneStrip, type Tone } from "../../lib/tone";
+import { toneDot, toneInk, toneStrip, toneText, type Tone } from "../../lib/tone";
 import type { Binding } from "./placeholder-media";
 import { sceneRanges } from "./script-model";
 import {
@@ -61,7 +61,7 @@ const LABEL = "text-xs font-medium tracking-wide text-gray-500 uppercase dark:te
 /** The dot-and-text mark a scene's check shows, named in text so colour is never alone. */
 function StateMark({ tone, text }: { tone: Tone; text: string }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 text-xs ${toneInk[tone]}`}>
+    <span className={`inline-flex items-center gap-1.5 text-xs ${toneText[tone]}`}>
       <span aria-hidden className={`size-1.5 shrink-0 rounded-full ${toneDot[tone]}`} />
       {text}
     </span>

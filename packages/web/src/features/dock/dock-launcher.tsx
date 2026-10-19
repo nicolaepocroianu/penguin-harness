@@ -158,7 +158,7 @@ const ENTRY_CLASS =
  * entry is hovered or focused, and the launcher's own caption the rest of the time.
  */
 const CAPTION_CLASS =
-  "pointer-events-none absolute whitespace-nowrap rounded-md border border-gray-200/80 bg-white/85 px-2 py-0.5 text-[13px] font-medium leading-5 shadow-[0_1px_4px_rgba(0,0,0,0.08)] backdrop-blur-md transition-colors duration-150 dark:border-white/10 dark:bg-gray-900/85";
+  "pointer-events-none absolute whitespace-nowrap rounded-md border border-gray-200/80 bg-white/85 px-2 py-0.5 text-xs font-medium leading-5 shadow-[0_1px_4px_rgba(0,0,0,0.08)] backdrop-blur-md transition-colors duration-150 dark:border-white/10 dark:bg-gray-900/85";
 
 const BALL_CLASS =
   "anim-pop relative flex touch-none select-none items-center justify-center rounded-full border border-gray-200/80 text-gray-500 shadow-[0_2px_10px_rgba(0,0,0,0.10)] backdrop-blur-md transition-[background-color,color,opacity,box-shadow] duration-150 hover:bg-white/95 hover:text-gray-800 hover:opacity-100 hover:shadow-[0_4px_16px_rgba(0,0,0,0.14)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-bg)] dark:border-white/10 dark:text-gray-400 dark:hover:bg-gray-800/95 dark:hover:text-gray-100";

@@ -27,7 +27,7 @@ import { Input } from "../../components/ui/input";
 import { apiErrorText } from "../../lib/api-error";
 import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
-import { toneInk } from "../../lib/tone";
+import { toneInk, toneText } from "../../lib/tone";
 import { DeployStatePill } from "./deploy-state-pill";
 import { DeployTimeline } from "./deploy-timeline";
 import {
@@ -318,7 +318,7 @@ export function DeployQa({
             {line && (
               <p
                 role="status"
-                className={`text-sm font-medium ${toneInk[line.tone]}`}
+                className={`text-sm font-medium ${toneText[line.tone]}`}
                 data-testid="deploy-run-status"
               >
                 {line.text}

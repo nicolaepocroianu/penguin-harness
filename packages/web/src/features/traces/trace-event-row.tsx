@@ -181,7 +181,7 @@ function UsageTable({ p }: { p: Record<string, unknown> }) {
   return (
     <table className="text-xs">
       <thead>
-        <tr className="text-gray-400">
+        <tr className="text-gray-500 dark:text-gray-400">
           <th />
           <th className="pr-3 text-right font-normal">cacheRead</th>
           <th className="pr-3 text-right font-normal">cacheWrite</th>
@@ -285,7 +285,7 @@ function ParamsTable({ schema }: { schema: Record<string, unknown> }) {
               {name}
               {required.has(name) && <RequiredMark label={S.traces.requiredParam} />}
             </td>
-            <td className="whitespace-nowrap pr-3 font-mono text-gray-400 dark:text-gray-500">
+            <td className="whitespace-nowrap pr-3 font-mono text-gray-500 dark:text-gray-400">
               {typeOf(s)}
             </td>
             <td className="text-gray-500 dark:text-gray-400">
@@ -307,7 +307,7 @@ function ToolListReadyBody({ p }: { p: Record<string, unknown> }) {
   const tools = Array.isArray(p.tools)
     ? (p.tools as Array<{ name?: string; description?: string; parameters?: unknown }>)
     : [];
-  if (tools.length === 0) return <p className="text-xs text-gray-400">—</p>;
+  if (tools.length === 0) return <p className="text-xs text-gray-500 dark:text-gray-400">—</p>;
   return (
     <ul className="divide-y divide-gray-100 rounded-md border border-gray-200 dark:divide-gray-800/60 dark:border-gray-800">
       {tools.map((t, i) => (
@@ -339,7 +339,7 @@ function EventBody({ msg }: { msg: OmniMessage }) {
     case "text":
     case "thinking": {
       const md = String(p.text ?? p.thinking ?? "");
-      if (!md.trim()) return <p className="text-xs text-gray-400">—</p>;
+      if (!md.trim()) return <p className="text-xs text-gray-500 dark:text-gray-400">—</p>;
       return (
         <div className="md-body text-sm leading-relaxed text-gray-700 dark:text-gray-300">
           <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={REHYPE_PLUGINS}>
@@ -430,7 +430,7 @@ export function EventRow({
             : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
         }`}
       >
-        <span className="shrink-0 font-mono text-[11px] text-gray-400">
+        <span className="shrink-0 font-mono text-2xs text-gray-500 dark:text-gray-400">
           {formatTime(msg.timestamp)}
         </span>
         <TypeIcon type={payloadType} />

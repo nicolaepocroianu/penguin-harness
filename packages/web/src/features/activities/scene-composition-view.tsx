@@ -20,7 +20,7 @@ import { Button } from "../../components/ui/button";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { Select } from "../../components/ui/select";
 import { S } from "../../lib/strings";
-import { toneInk } from "../../lib/tone";
+import { toneInk, toneText } from "../../lib/tone";
 import {
   compositionFailure,
   formatSeconds,
@@ -357,7 +357,7 @@ function VideoCheckNote({ check }: { check: VideoCheck }) {
   const line = checkLine(check);
   return (
     <div className="space-y-0.5">
-      <p className={toneInk[line.tone]}>{line.text}</p>
+      <p className={toneText[line.tone]}>{line.text}</p>
       {check.findings.length > 0 && (
         <ul className="list-disc space-y-0.5 pl-4 text-gray-600 dark:text-gray-400">
           {check.findings.map((finding, index) => (

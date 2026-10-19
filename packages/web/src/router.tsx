@@ -17,27 +17,57 @@ import { CompanyProvider } from "./state/company";
 import { AppLayout } from "./components/layout/app-layout";
 import { LoginPage } from "./pages/login";
 import { ChatPage } from "./features/chat/chat-page";
-import { AgentsPage } from "./features/agents/agents-page";
-import { ActivitiesPage } from "./features/activities/activities-page";
-import { AgentSettingsPage } from "./features/agents/agent-settings-page";
-import { PluginsPage } from "./features/plugins/plugins-page";
-import { ModelsPage } from "./features/models/models-page";
-import { PluginDetailPage } from "./features/plugins/plugin-detail-page";
-import { UsagePage } from "./features/usage/usage-page";
-import { BenchmarkPage } from "./features/benchmark/benchmark-page";
-import { BenchmarkDetailPage } from "./features/benchmark/benchmark-detail-page";
-import { TerminalPage } from "./features/terminal/terminal-page";
 import { OrgIndexRedirect, OrgLayout } from "./features/company/org-layout";
-import { OverviewPage } from "./features/company/overview-page";
-import { OrgChartPage } from "./features/company/org-chart-page";
-import { CalendarPage } from "./features/company/calendar-page";
-import { TicketsPage } from "./features/company/tickets-page";
-import { FinancePage } from "./features/company/finance-page";
-import { ChannelView } from "./features/company/channel-view";
-import { HandbookPage } from "./features/company/handbook-page";
-import { MachinesPage } from "./features/machines/machines-page";
+import { lazy, Suspense } from "react";
 import { PAGES } from "./lib/pages";
 import type { PageEntry } from "./lib/pages";
+
+/**
+ * Every page but chat (where the app opens) loads on first visit, so the first paint downloads
+ * the shell and the chat page only — not the activity studio's editors, the charts, the
+ * terminal. A route's element sits inside the shell's `<Suspense>`, which keeps the sidebar up
+ * while a page's code arrives.
+ */
+function lazyPage<K extends string>(
+  load: () => Promise<Record<K, React.ComponentType>>,
+  name: K,
+): React.LazyExoticComponent<React.ComponentType> {
+  return lazy(() => load().then((module) => ({ default: module[name] })));
+}
+
+const AgentsPage = lazyPage(() => import("./features/agents/agents-page"), "AgentsPage");
+const ActivitiesPage = lazyPage(
+  () => import("./features/activities/activities-page"),
+  "ActivitiesPage",
+);
+const AgentSettingsPage = lazyPage(
+  () => import("./features/agents/agent-settings-page"),
+  "AgentSettingsPage",
+);
+const PluginsPage = lazyPage(() => import("./features/plugins/plugins-page"), "PluginsPage");
+const ModelsPage = lazyPage(() => import("./features/models/models-page"), "ModelsPage");
+const PluginDetailPage = lazyPage(
+  () => import("./features/plugins/plugin-detail-page"),
+  "PluginDetailPage",
+);
+const UsagePage = lazyPage(() => import("./features/usage/usage-page"), "UsagePage");
+const BenchmarkPage = lazyPage(
+  () => import("./features/benchmark/benchmark-page"),
+  "BenchmarkPage",
+);
+const BenchmarkDetailPage = lazyPage(
+  () => import("./features/benchmark/benchmark-detail-page"),
+  "BenchmarkDetailPage",
+);
+const TerminalPage = lazyPage(() => import("./features/terminal/terminal-page"), "TerminalPage");
+const OverviewPage = lazyPage(() => import("./features/company/overview-page"), "OverviewPage");
+const OrgChartPage = lazyPage(() => import("./features/company/org-chart-page"), "OrgChartPage");
+const CalendarPage = lazyPage(() => import("./features/company/calendar-page"), "CalendarPage");
+const TicketsPage = lazyPage(() => import("./features/company/tickets-page"), "TicketsPage");
+const FinancePage = lazyPage(() => import("./features/company/finance-page"), "FinancePage");
+const ChannelView = lazyPage(() => import("./features/company/channel-view"), "ChannelView");
+const HandbookPage = lazyPage(() => import("./features/company/handbook-page"), "HandbookPage");
+const MachinesPage = lazyPage(() => import("./features/machines/machines-page"), "MachinesPage");
 
 /**
  * The renderers the manifest may name. A page is a module.json entry plus one line here;
@@ -110,7 +140,9 @@ const router = createBrowserRouter(
         path="/terminal"
         element={
           <RequireAuthBare>
-            <TerminalPage />
+            <Suspense fallback={null}>
+              <TerminalPage />
+            </Suspense>
           </RequireAuthBare>
         }
       />

@@ -218,7 +218,7 @@ function CreateBenchmarkDialog({ onClose, projectId, onCreated }: CreateBenchmar
                     <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
                       {S.benchmark.caseHeading(i + 1)}
                     </span>
-                    <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-400">
+                    <span className="min-w-0 flex-1 truncate font-mono text-2xs text-gray-500 dark:text-gray-400">
                       {dirName}
                     </span>
                     {cases.length > 1 && (

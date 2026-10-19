@@ -40,7 +40,7 @@ import { formatDateTime, formatMoney, formatPercent } from "../../lib/format";
 import { ICON_GAP, ICON_SIZE } from "../../lib/icon-scale";
 import { STAT_ICONS } from "../../lib/stat-icons";
 import { useDocumentTitle } from "../../lib/use-document-title";
-import { toneDot, toneInk, toneStrip } from "../../lib/tone";
+import { toneDot, toneStrip, toneText } from "../../lib/tone";
 import type { Tone } from "../../lib/tone";
 import { useCompany } from "../../state/company";
 import { useTheme } from "../../state/theme";
@@ -96,7 +96,7 @@ const PERCENT_ICON =
   "M19 5 5 19M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z";
 
 const cellClass = "px-2 py-2 text-right tabular-nums";
-const headClass = "px-2 py-1.5 text-[11px] font-medium text-gray-500 dark:text-gray-400";
+const headClass = "px-2 py-1.5 text-2xs font-medium text-gray-500 dark:text-gray-400";
 const iconButtonClass =
   "inline-flex items-center justify-center rounded p-0.5 text-gray-400 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200";
 
@@ -122,7 +122,7 @@ function TreeElbow() {
 function StateMark({ tone, children }: { tone: Tone; children: string }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center ${ICON_GAP.tight} text-[11px] ${toneInk[tone]}`}
+      className={`inline-flex shrink-0 items-center ${ICON_GAP.tight} text-2xs ${toneText[tone]}`}
     >
       <span className={`block h-1.5 w-1.5 rounded-full ${toneDot[tone]}`} />
       {children}
@@ -256,7 +256,7 @@ function BudgetEditor({
           <CloseIcon />
         </button>
       </span>
-      <span className="text-[10px] text-gray-400 dark:text-gray-500">
+      <span className="text-3xs text-gray-500 dark:text-gray-400">
         {S.company.finance.budgetEmptyHint}
       </span>
       <StoredUsdNote usd={toStoredUsd(text, currency)} currency={currency} />
@@ -498,14 +498,14 @@ export function FinancePage() {
               />
             </div>
             {data.unpriced && (
-              <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
                 {S.company.finance.unpriced}
               </p>
             )}
           </div>
           <FinanceCard title={S.company.finance.trend} info={S.company.finance.trendInfo}>
             {series.length === 0 ? (
-              <p className="py-2 text-xs text-gray-400 dark:text-gray-500">
+              <p className="py-2 text-xs text-gray-500 dark:text-gray-400">
                 {S.company.finance.trendEmpty}
               </p>
             ) : (
@@ -575,7 +575,7 @@ export function FinancePage() {
                               employee.title.trim().toLowerCase() !== "ceo" && (
                                 <Badge tone="gray">{S.company.ceo}</Badge>
                               )}
-                            <span className="truncate text-gray-400 dark:text-gray-500">
+                            <span className="truncate text-gray-500 dark:text-gray-400">
                               {employee.title}
                             </span>
                           </span>
@@ -638,7 +638,7 @@ export function FinancePage() {
                                   <span
                                     className={
                                       employee.budget === undefined
-                                        ? "text-gray-400 dark:text-gray-500"
+                                        ? "text-gray-500 dark:text-gray-400"
                                         : "text-gray-900 dark:text-gray-100"
                                     }
                                   >
@@ -666,7 +666,7 @@ export function FinancePage() {
 
           <FinanceCard title={S.company.finance.ticketsTable} info={S.company.finance.ticketsInfo}>
             {ticketRows.length === 0 ? (
-              <p className="py-2 text-xs text-gray-400 dark:text-gray-500">
+              <p className="py-2 text-xs text-gray-500 dark:text-gray-400">
                 {S.company.finance.ticketsEmpty}
               </p>
             ) : (
@@ -741,7 +741,7 @@ export function FinancePage() {
                                 {ticket.title}
                               </TitleButton>
                               {children > 0 && !open && (
-                                <span className="shrink-0 text-[11px] text-gray-400 dark:text-gray-500">
+                                <span className="shrink-0 text-2xs text-gray-500 dark:text-gray-400">
                                   {S.company.finance.childCount(children)}
                                 </span>
                               )}
@@ -771,7 +771,7 @@ export function FinancePage() {
           className="mt-4"
         >
           {data.alerts.length === 0 ? (
-            <p className="py-2 text-xs text-gray-400 dark:text-gray-500">
+            <p className="py-2 text-xs text-gray-500 dark:text-gray-400">
               {S.company.finance.alertsEmpty}
             </p>
           ) : (
@@ -790,7 +790,7 @@ export function FinancePage() {
               />
             </div>
           )}
-          <p className="mt-3 text-[11px] text-gray-400 dark:text-gray-500">
+          <p className="mt-3 text-2xs text-gray-500 dark:text-gray-400">
             {S.company.finance.alertsHint}
           </p>
         </FinanceCard>
@@ -814,7 +814,7 @@ function AlertGroup({
   if (alerts.length === 0) return null;
   return (
     <div>
-      <p className={`text-[11px] font-medium ${toneInk[tone]}`}>
+      <p className={`text-2xs font-medium ${toneText[tone]}`}>
         {title} · {alerts.length}
       </p>
       <ul className="mt-1 divide-y divide-gray-100 dark:divide-gray-800/60">

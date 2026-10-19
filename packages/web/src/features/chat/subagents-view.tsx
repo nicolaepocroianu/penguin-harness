@@ -201,7 +201,7 @@ export function SubagentsView({
     <div className="flex h-full min-h-0 flex-col">
       {/* Call graph of the displayed Task — latest by default, a chip's Task when pinned (capped height; scrolls both ways for deep/wide trees). */}
       <div className="shrink-0 border-b border-gray-200 px-3 pb-2 pt-1.5 dark:border-gray-800">
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           {S.subagentPanel.topologyLabel}
         </p>
         {nodes.length > 1 ? (
@@ -214,7 +214,7 @@ export function SubagentsView({
             />
           </div>
         ) : (
-          <p className="py-1 text-xs text-gray-400 dark:text-gray-500">{S.subagentPanel.empty}</p>
+          <p className="py-1 text-xs text-gray-500 dark:text-gray-400">{S.subagentPanel.empty}</p>
         )}
       </div>
 
@@ -225,7 +225,7 @@ export function SubagentsView({
         </div>
       ) : isRoot ? (
         <div className="flex min-h-0 flex-1 items-center justify-center p-4">
-          <p className="text-sm text-gray-400 dark:text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             {S.subagentPanel.mainSessionNote}
           </p>
         </div>
@@ -249,7 +249,7 @@ export function SubagentsView({
             </span>
             <span
               title={active.sessionId}
-              className="shrink-0 font-mono text-[10px] text-gray-400 dark:text-gray-500"
+              className="shrink-0 font-mono text-3xs text-gray-500 dark:text-gray-400"
             >
               {shortSessionId(active.sessionId)}
             </span>

@@ -41,7 +41,7 @@ export function UpdateRow({
         <span className="min-w-0 truncate">{rowLabel(flow)}</span>
       </span>
       {currentVersion !== null && (
-        <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
+        <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
           {`v${currentVersion}`}
         </span>
       )}

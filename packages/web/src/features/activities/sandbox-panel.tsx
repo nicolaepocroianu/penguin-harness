@@ -656,7 +656,7 @@ function SandboxPlayer({
             onPointerCancel={() => endDrag(true)}
             onLostPointerCapture={() => endDrag(true)}
             onKeyDown={onDividerKey}
-            className={`min-h-24 cursor-col-resize touch-none rounded-sm outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-400/60 ${
+            className={`min-h-24 cursor-col-resize touch-none rounded-sm outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-500 dark:focus-visible:ring-gray-400 ${
               dragging
                 ? "bg-gray-300 dark:bg-gray-600"
                 : "bg-gray-100 hover:bg-gray-200 dark:bg-gray-900 dark:hover:bg-gray-700"

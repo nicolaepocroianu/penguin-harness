@@ -323,14 +323,14 @@ export function BenchmarkCaseBrowser({ projectId, benchmarkId, caseSummary }: Pr
     if (row.depth === 0) {
       if (row.material !== "rubric") return null;
       return (
-        <span className="shrink-0 rounded bg-gray-200/70 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+        <span className="shrink-0 rounded bg-gray-200/70 px-1.5 py-0.5 text-3xs text-gray-500 dark:bg-gray-800 dark:text-gray-400">
           {S.benchmark.agentHidden}
         </span>
       );
     }
     if (row.kind !== "file") return null;
     return (
-      <span className="shrink-0 font-mono text-[11px] text-gray-400 dark:text-gray-500">
+      <span className="shrink-0 font-mono text-2xs text-gray-500 dark:text-gray-400">
         {formatBytes(row.sizeBytes)}
       </span>
     );

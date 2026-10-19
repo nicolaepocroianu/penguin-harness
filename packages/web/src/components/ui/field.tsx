@@ -7,6 +7,7 @@
  */
 import type { ReactNode } from "react";
 import { InfoPopover } from "./info-popover";
+import { toneText } from "../../lib/tone";
 
 /**
  * The control "look" shared by Input, Select and OptionMenu: rounded box, gray
@@ -38,13 +39,13 @@ export const menuRowClass = "w-full px-3 py-1.5 text-left transition-colors dura
 export function RequiredMark({ label }: { label?: string }) {
   if (label === undefined) {
     return (
-      <span className="ml-0.5 text-red-500 dark:text-red-400" aria-hidden>
+      <span className={`ml-0.5 ${toneText.danger}`} aria-hidden>
         *
       </span>
     );
   }
   return (
-    <span className="ml-0.5 text-red-500 dark:text-red-400">
+    <span className={`ml-0.5 ${toneText.danger}`}>
       <span aria-hidden>*</span>
       <span className="sr-only">{label}</span>
     </span>
@@ -85,7 +86,7 @@ export function FieldLabel({
 }
 
 export function FieldHint({ children }: { children: ReactNode }) {
-  return <span className="mt-1 block text-xs text-gray-500 dark:text-gray-500">{children}</span>;
+  return <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">{children}</span>;
 }
 
 /**
@@ -96,7 +97,7 @@ export function FieldHint({ children }: { children: ReactNode }) {
  */
 export function FieldError({ id, children }: { id?: string; children: ReactNode }) {
   return (
-    <span id={id} role="alert" className="mt-1 block text-xs text-red-600 dark:text-red-400">
+    <span id={id} role="alert" className={`mt-1 block text-xs ${toneText.danger}`}>
       {children}
     </span>
   );

@@ -211,7 +211,7 @@ export function LayoutMenu({
                 </span>
               )}
               {store.shortcuts && index < 9 && (
-                <kbd className="shrink-0 font-mono text-xs text-gray-400">
+                <kbd className="shrink-0 font-mono text-xs text-gray-500 dark:text-gray-400">
                   {words.shortcutKey(index + 1)}
                 </kbd>
               )}

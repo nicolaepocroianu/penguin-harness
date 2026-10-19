@@ -16,7 +16,7 @@ import {
 import { apiErrorText } from "../../lib/api-error";
 import { formatDateTime } from "../../lib/format";
 import { S } from "../../lib/strings";
-import { toneDot, toneInk } from "../../lib/tone";
+import { toneDot, toneInk, toneText } from "../../lib/tone";
 import { useActivityClient } from "./activity-client";
 import { readPlayerCheck } from "./checks-model";
 import { QualityChecksView } from "./quality-checks-view";
@@ -106,7 +106,7 @@ function PlayerCheckView({ version }: { version: string }) {
       ) : (
         <>
           <p
-            className={`text-sm ${toneInk[TEST_TONE[report.overallStatus]]}`}
+            className={`text-sm ${toneText[TEST_TONE[report.overallStatus]]}`}
             data-testid="player-check-status"
           >
             {playerCheckLine(failed.length, rows.length)}

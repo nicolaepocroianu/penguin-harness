@@ -81,7 +81,7 @@ export function AgentEnvEditor({
 
   return (
     <div className="space-y-1.5">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+      <span className="text-2xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
         {S.models.cliEnv}
       </span>
       <p className="text-xs text-gray-500 dark:text-gray-400">{S.models.cliEnvHint}</p>

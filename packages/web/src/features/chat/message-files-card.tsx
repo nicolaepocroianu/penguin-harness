@@ -46,7 +46,7 @@ export function PathLabel({ path }: { path: string }) {
   return (
     <span className="flex min-w-0 items-baseline font-mono text-sm">
       {dir && (
-        <span className="min-w-0 shrink-[9999] truncate text-gray-400 dark:text-gray-500">
+        <span className="min-w-0 shrink-[9999] truncate text-gray-500 dark:text-gray-400">
           {dir}
         </span>
       )}
@@ -138,7 +138,7 @@ export function MessageFilesCard({
                 the whole row. */}
             <span
               aria-hidden
-              className="shrink-0 text-xs text-gray-400 transition-colors duration-150 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300"
+              className="shrink-0 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-150 group-hover:text-gray-600 dark:group-hover:text-gray-300"
             >
               {S.chat.openPreview}
             </span>

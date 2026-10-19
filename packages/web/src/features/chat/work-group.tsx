@@ -106,7 +106,7 @@ export function WorkGroup({
     : {
         titleClass: DISCLOSURE_HEADER_TITLE_CLASS,
         title: active ? S.chat.workRunning : S.chat.workDone,
-        figureClass: "shrink-0 font-mono text-xs text-gray-400",
+        figureClass: "shrink-0 font-mono text-xs text-gray-500 dark:text-gray-400",
       };
   const { figureClass } = header;
 
@@ -189,7 +189,7 @@ export function WorkGroup({
                 live region — same non-live semantics as the text pill, so re-renders don't
                 chatter at screen readers. */}
             <span
-              className={`hidden shrink-0 rounded px-1 text-[10px] font-medium sm:inline ${toneSurface.attention}`}
+              className={`hidden shrink-0 rounded px-1 text-3xs font-medium sm:inline ${toneSurface.attention}`}
             >
               {S.chat.approvalWaiting}
             </span>

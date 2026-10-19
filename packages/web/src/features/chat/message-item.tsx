@@ -76,7 +76,9 @@ function MessageMeta({
       }`}
     >
       {atMs !== undefined && (
-        <span className="text-[11px] text-gray-400">{formatMessageTime(atMs, locale)}</span>
+        <span className="text-2xs text-gray-500 dark:text-gray-400">
+          {formatMessageTime(atMs, locale)}
+        </span>
       )}
       {/* No copy button for image-only messages: copying an image message has no clear meaning. */}
       {text !== undefined && <CopyButton text={text} label={S.chat.copyMessage} />}
@@ -162,7 +164,7 @@ function ReconnectLine({ item, ctx }: { item: ReconnectItem; ctx: StreamRenderCo
                 setActed(true);
                 ctx.onRetryNow!();
               }}
-              className="rounded border border-amber-300 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 transition-colors duration-150 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/40"
+              className="rounded border border-amber-300 px-1.5 py-0.5 text-2xs font-medium text-amber-700 transition-colors duration-150 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/40"
             >
               {S.chat.reconnectRetryNow}
             </button>
@@ -175,7 +177,7 @@ function ReconnectLine({ item, ctx }: { item: ReconnectItem; ctx: StreamRenderCo
                 setActed(true);
                 ctx.onGiveUp!();
               }}
-              className="rounded border border-gray-300 px-1.5 py-0.5 text-[11px] text-gray-500 transition-colors duration-150 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800"
+              className="rounded border border-gray-300 px-1.5 py-0.5 text-2xs text-gray-500 transition-colors duration-150 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800"
             >
               {S.chat.reconnectGiveUp}
             </button>
@@ -391,7 +393,9 @@ export function MessageItem({ item, ctx }: { item: ChatItem; ctx: StreamRenderCo
           <Md text={item.text} streaming={item.streaming} />
           {item.streaming && <span className="animate-pulse text-gray-400">▌</span>}
           {item.stopReason && item.stopReason !== "completed" && (
-            <span className="ml-1 font-mono text-xs text-gray-400">[{item.stopReason}]</span>
+            <span className="ml-1 font-mono text-xs text-gray-500 dark:text-gray-400">
+              [{item.stopReason}]
+            </span>
           )}
           {/* Nested models don't produce task_stats, so preserve their existing message-level file summaries. The root conversation renders one aggregated card from task_stats instead. */}
           {ctx.origin.length > 0 && !item.streaming && ctx.onOpenFile && ctx.statFiles && (

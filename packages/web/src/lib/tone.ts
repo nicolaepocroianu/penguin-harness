@@ -28,9 +28,9 @@
  * invent a difference the user is not being asked to read.
  */
 const INK = {
-  emerald: "text-emerald-600 dark:text-emerald-400",
-  amber: "text-amber-600 dark:text-amber-400",
-  red: "text-red-600 dark:text-red-400",
+  emerald: "text-emerald-700 dark:text-emerald-400",
+  amber: "text-amber-700 dark:text-amber-400",
+  red: "text-red-700 dark:text-red-400",
   gray: "text-gray-400 dark:text-gray-500",
 } as const;
 
@@ -43,14 +43,16 @@ export type Tone = "busy" | "attention" | "success" | "danger" | "muted";
  * and gray-900 `#0d0d0d`. The lower number of each pair is the sidebar, which is the worse case
  * in both themes:
  *
- * - `busy` / `success`  emerald-600 / emerald-400 …… 3.65–3.50 : 1 light, 10.83–10.03 : 1 dark
- * - `attention`         amber-600 / amber-400 ……… 3.20–3.06 : 1 light, 12.19–11.28 : 1 dark
- * - `danger`            red-600 / red-400 …………… 4.77–4.56 : 1 light, 7.27–6.73 : 1 dark
+ * - `busy` / `success`  emerald-700 / emerald-400 …… 5.37–5.14 : 1 light, 10.86–10.05 : 1 dark
+ * - `attention`         amber-700 / amber-400 ……… 5.05–4.84 : 1 light, 12.23–11.32 : 1 dark
+ * - `danger`            red-700 / red-400 …………… 6.42–6.15 : 1 light, 7.26–6.72 : 1 dark
  * - `muted`             gray-400 / gray-500 ……… 2.60–2.49 : 1 light, 4.34–4.02 : 1 dark
  *
- * The first three clear the 3:1 that WCAG 1.4.11 asks of a graphical object in both themes.
- * `muted` does not, and is the one tone that may only mark a state already spelled out in
- * adjacent text or in the mark's own accessible name — receding is its entire job.
+ * The first three clear the 4.5:1 that WCAG 1.4.3 asks of body text in both themes, because
+ * most of these inks colour words (Saved, Blocked, an error line), not only glyphs; the 600
+ * shades they replaced cleared only the 3:1 asked of a graphic. `muted` clears neither, and is
+ * the one tone that may only mark a glyph whose state is already spelled out in adjacent text or
+ * in the mark's own accessible name — receding is its entire job. Words take `toneText`.
  */
 export const toneInk: Record<Tone, string> = {
   busy: INK.emerald,
@@ -58,6 +60,16 @@ export const toneInk: Record<Tone, string> = {
   success: INK.emerald,
   danger: INK.red,
   muted: INK.gray,
+};
+
+/**
+ * Ink for words: `toneInk` with a `muted` that is still readable — the secondary body text
+ * colour, gray-500 / gray-400 (4.84–4.63 : 1 light, 8.07–7.47 : 1 dark). Use it wherever the
+ * tone colours text, and above all where the tone is chosen at run time and may be `muted`.
+ */
+export const toneText: Record<Tone, string> = {
+  ...toneInk,
+  muted: "text-gray-500 dark:text-gray-400",
 };
 
 const SURFACE = {

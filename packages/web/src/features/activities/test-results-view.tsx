@@ -13,7 +13,7 @@ import { Button } from "../../components/ui/button";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
-import { toneDot, toneInk } from "../../lib/tone";
+import { toneDot, toneInk, toneText } from "../../lib/tone";
 import { runStarted, useActivityClient } from "./activity-client";
 import { reportVersion } from "./use-checks";
 import { indexRuns } from "./runs-index";
@@ -185,7 +185,7 @@ export function TestResultsView({
             </p>
           )}
           <p
-            className={`text-sm ${toneInk[TEST_TONE[report.overallStatus]]}`}
+            className={`text-sm ${toneText[TEST_TONE[report.overallStatus]]}`}
             data-testid="tests-status"
           >
             {overallText(report)}

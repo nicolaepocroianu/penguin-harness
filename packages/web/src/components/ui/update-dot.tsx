@@ -126,7 +126,7 @@ export function UpdatePill({ onClick, children }: { onClick: () => void; childre
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-800 transition-colors duration-150 hover:bg-red-100 dark:bg-red-950/70 dark:text-red-300 dark:hover:bg-red-950"
+      className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-red-50 px-2 py-0.5 text-2xs font-semibold text-red-800 transition-colors duration-150 hover:bg-red-100 dark:bg-red-950/70 dark:text-red-300 dark:hover:bg-red-950"
     >
       {children}
     </button>

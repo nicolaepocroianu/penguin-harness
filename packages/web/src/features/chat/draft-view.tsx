@@ -808,7 +808,7 @@ export function DraftView({
           <h1 className="text-3xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
             {S.appName}
           </h1>
-          <p className="mt-2 text-base text-gray-400 dark:text-gray-500">{S.chat.draftSubtitle}</p>
+          <p className="mt-2 text-base text-gray-500 dark:text-gray-400">{S.chat.draftSubtitle}</p>
           <VersionLine />
         </div>
 
@@ -920,7 +920,7 @@ export function DraftView({
  * new version.
  */
 const versionBadgeClass =
-  "ml-1.5 inline-block align-super text-[10px] leading-4 text-gray-400 dark:text-gray-500";
+  "ml-1.5 inline-block align-super text-3xs leading-4 text-gray-500 dark:text-gray-400";
 
 /**
  * Quiet version line under the brand subtitle: `vX.Y.Z · Last updated Jul 26`
@@ -942,7 +942,7 @@ function VersionLine() {
   if (version === null) return null;
   const date = version.buildDate;
   return (
-    <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+    <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
       {`v${version.version}${
         date !== null ? ` · ${S.update.lastUpdated(formatMonthDay(date, locale))}` : ""
       }`}
@@ -1028,7 +1028,7 @@ function AgentSelect({
     >
       <div className="max-h-56 overflow-y-auto">
         {agents.length === 0 && (
-          <p className="px-3 py-1.5 text-xs text-gray-400">{S.common.loading}</p>
+          <p className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400">{S.common.loading}</p>
         )}
         {agents.map((a) => {
           const active = a.agentId === selected?.agentId;
@@ -1060,7 +1060,7 @@ function AgentSelect({
                   {agentDisplayName(a)}
                 </span>
                 {a.description && (
-                  <span className="block truncate text-[11px] text-gray-400 dark:text-gray-500">
+                  <span className="block truncate text-2xs text-gray-500 dark:text-gray-400">
                     {a.description}
                   </span>
                 )}

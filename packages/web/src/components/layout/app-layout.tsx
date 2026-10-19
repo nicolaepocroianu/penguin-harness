@@ -4,7 +4,7 @@
  * - <md: top thin bar (hamburger -> sidebar drawer + brand name) + main content.
  * All chrome uses solid backgrounds and avoids stacking contexts (frosted-glass/transform would trap overlay z-index).
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useMatch, useNavigate } from "react-router";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
@@ -552,7 +552,10 @@ export function AppLayout() {
         )}
 
         <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
-          <Outlet />
+          {/* Most pages load on first visit (router.tsx); the shell stays up meanwhile. */}
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
         </main>
         {/* The docks themselves render inside the chat page (features/dock); the xterm
             views live in this pool and are adopted into dock tab bodies by DOM handoff,

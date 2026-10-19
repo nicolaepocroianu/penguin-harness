@@ -81,7 +81,7 @@ export function MemoryChangesCard({
           <button
             type="button"
             onClick={onOpenPanel}
-            className="shrink-0 cursor-pointer text-xs text-gray-400 transition-colors duration-150 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+            className="shrink-0 cursor-pointer text-xs text-gray-500 dark:text-gray-400 transition-colors duration-150 hover:text-gray-600 dark:hover:text-gray-300"
           >
             {S.chat.memoryOpenList}
           </button>
@@ -102,7 +102,7 @@ export function MemoryChangesCard({
               {/* Right-aligned action hint, the file card's affordance (span, not a nested button: the row itself is the button). */}
               <span
                 aria-hidden
-                className="shrink-0 text-xs text-gray-400 transition-colors duration-150 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300"
+                className="shrink-0 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-150 group-hover:text-gray-600 dark:group-hover:text-gray-300"
               >
                 {S.chat.memoryRowOpen}
               </span>

@@ -20,6 +20,7 @@ import { Input } from "../../components/ui/input";
 import { PasswordInput } from "../../components/ui/password-input";
 import { TABLE, TABLE_HEAD_ROW, TABLE_WRAP, TBODY, TH } from "../../components/ui/table-classes";
 import { Modal } from "../../components/ui/modal";
+import { toneText } from "../../lib/tone";
 
 export function AdminUsersSection() {
   const { user, desktopMode } = useAuth();
@@ -56,7 +57,7 @@ export function AdminUsersSection() {
       </div>
 
       {users === null ? (
-        <p className="text-sm text-gray-400">{S.common.loading}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{S.common.loading}</p>
       ) : (
         <div className={TABLE_WRAP}>
           <table className={TABLE}>
@@ -109,7 +110,7 @@ export function AdminUsersSection() {
           </table>
         </div>
       )}
-      {listError && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{listError}</p>}
+      {listError && <p className={`mt-2 text-xs ${toneText.danger}`}>{listError}</p>}
 
       <CreateUserDialog
         open={createOpen}
@@ -226,7 +227,7 @@ function CreateUserDialog({
           hint={S.auth.passwordHint}
         />
         {USERNAME_PATTERN.test(userId.trim()) && (
-          <p className="text-xs text-gray-400 dark:text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             {S.admin.defaultProjectNote(`${userId.trim()}-default_project`)}
           </p>
         )}
@@ -295,7 +296,7 @@ function ResetPasswordDialog({ user, onClose }: { user: UserInfo | null; onClose
           hint={S.auth.passwordHint}
           autoFocus
         />
-        <p className="text-xs text-gray-400 dark:text-gray-500">{S.admin.resetPasswordNote}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{S.admin.resetPasswordNote}</p>
       </div>
     </Modal>
   );
@@ -357,10 +358,10 @@ function DeleteUserDialog({
       }
     >
       <div className="space-y-2">
-        <p className="text-sm text-red-600 dark:text-red-400">
+        <p className={`text-sm ${toneText.danger}`}>
           {user ? S.admin.deleteUserConfirm(user.userId) : ""}
         </p>
-        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+        {error && <p className={`text-xs ${toneText.danger}`}>{error}</p>}
       </div>
     </Modal>
   );

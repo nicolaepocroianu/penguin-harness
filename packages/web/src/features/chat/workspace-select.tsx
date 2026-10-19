@@ -22,6 +22,7 @@ import { toastError } from "../../components/ui/toast";
 import { GlyphIcon } from "../../components/ui/glyph-icon";
 import { FOLDER_ICON } from "../../components/ui/group-list";
 import { ICON_SIZE } from "../../lib/icon-scale";
+import { toneText } from "../../lib/tone";
 
 /** Whether a path is absolute on the server: POSIX (`/home/…`) or Windows (`C:\…`, `\\host\…`). */
 export function isAbsoluteDir(path: string): boolean {
@@ -280,12 +281,20 @@ export function WorkspaceSelect({
             </li>
           ))}
           {dir && entries.length === 0 && (
-            <li className="px-2.5 py-1.5 text-xs text-gray-400">{S.chat.workspaceNoSubdirs}</li>
+            <li className="px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400">
+              {S.chat.workspaceNoSubdirs}
+            </li>
           )}
-          {loading && <li className="px-2.5 py-1.5 text-xs text-gray-400">{S.common.loading}</li>}
+          {loading && (
+            <li className="px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400">
+              {S.common.loading}
+            </li>
+          )}
           {/* Load failure (e.g. the cached starting directory was deleted): provide "retry" to fall back to the home directory, avoiding getting stuck in an error state. */}
           {error && (
-            <li className="flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs text-red-500">
+            <li
+              className={`flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs ${toneText.danger}`}
+            >
               <span className="min-w-0 flex-1 truncate" title={error}>
                 {error}
               </span>
@@ -315,7 +324,7 @@ export function WorkspaceSelect({
         </button>
       )}
       {/* Hint text (bottom of the menu) */}
-      <p className="px-0.5 text-xs leading-5 text-gray-400 dark:text-gray-500">
+      <p className="px-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
         {menuHint ?? S.chat.workspaceHint}
       </p>
     </div>

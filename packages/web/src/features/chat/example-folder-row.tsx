@@ -52,7 +52,7 @@ export function ExampleFolderRow({
       <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-700 dark:text-gray-300">
         {label}
       </span>
-      <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">{count}</span>
+      <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">{count}</span>
       <Chevron open={open} size={ICON_SIZE.chevron} className="text-gray-400" />
     </button>
   );

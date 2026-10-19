@@ -292,9 +292,9 @@ export function QQScanConnect({
         {/* Only shown once a code has actually lapsed: a standing note that codes expire is
             noise until one does. */}
         {phase.refreshed && (
-          <p className="text-gray-400 dark:text-gray-500">{S.qq.scanRefreshed}</p>
+          <p className="text-gray-500 dark:text-gray-400">{S.qq.scanRefreshed}</p>
         )}
-        <p className="text-gray-400 dark:text-gray-500">{S.qq.scanPrivacy}</p>
+        <p className="text-gray-500 dark:text-gray-400">{S.qq.scanPrivacy}</p>
         <Button size="sm" variant="ghost" onClick={stop}>
           {S.common.cancel}
         </Button>

@@ -75,7 +75,7 @@ const COLORS = {
 const LABEL_STICKY =
   "sticky left-0 z-10 flex h-4 w-[5.5rem] shrink-0 items-center justify-end bg-white pr-2 dark:bg-gray-950";
 /** Label text (truncated when too long). */
-const LABEL_TEXT = "truncate font-mono text-[11px]";
+const LABEL_TEXT = "truncate font-mono text-2xs";
 /** Zoom range (time-axis multiplier). */
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 24;
@@ -254,7 +254,7 @@ function Track({ children }: { children: ReactNode }) {
 function Lane({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-center">
-      <span className={`${LABEL_STICKY} text-gray-400 dark:text-gray-500`} title={label}>
+      <span className={`${LABEL_STICKY} text-gray-500 dark:text-gray-400`} title={label}>
         <span className={LABEL_TEXT}>{label}</span>
       </span>
       <Track>{children}</Track>
@@ -278,7 +278,7 @@ function Ticks({ total }: { total: number }) {
         {fracs.map((f, i) => (
           <span
             key={i}
-            className={`absolute top-0 font-mono text-[11px] text-gray-400 dark:text-gray-500 ${
+            className={`absolute top-0 font-mono text-2xs text-gray-500 dark:text-gray-400 ${
               i === 0 ? "" : i === fracs.length - 1 ? "-translate-x-full" : "-translate-x-1/2"
             }`}
             style={{ left: `${f * 100}%` }}
@@ -396,7 +396,8 @@ export function TimelineChart({
   // Fallback cleanup of an in-progress drag listener on unmount (pointercancel / mid-drag unmount don't fire pointerup).
   useLayoutEffect(() => () => dragCleanup.current?.(), []);
 
-  if (groups.length === 0) return <p className="text-xs text-gray-400">{S.common.none}</p>;
+  if (groups.length === 0)
+    return <p className="text-xs text-gray-500 dark:text-gray-400">{S.common.none}</p>;
 
   const hlTs = highlight?.ts;
   const hlKey = highlight?.key;
@@ -530,10 +531,10 @@ export function TimelineChart({
               <div key={g.taskIndex} className="space-y-1">
                 {!hideTaskLabel && (
                   <div className="flex items-center gap-2 pl-[5.5rem]">
-                    <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                    <span className="rounded bg-gray-100 px-1.5 py-0.5 text-2xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                       {S.traces.task(g.taskIndex + 1)}
                     </span>
-                    <span className="font-mono text-[11px] text-gray-400">
+                    <span className="font-mono text-2xs text-gray-500 dark:text-gray-400">
                       {humanizeDuration(g.total)}
                     </span>
                   </div>
@@ -690,7 +691,7 @@ export function TimelineChart({
             type="button"
             onMouseEnter={() => setLegendKey(c.key)}
             onMouseLeave={() => setLegendKey(null)}
-            className={`flex items-center gap-1 px-1 font-mono text-[11px] text-gray-500 transition-opacity duration-150 dark:text-gray-400 ${
+            className={`flex items-center gap-1 px-1 font-mono text-2xs text-gray-500 transition-opacity duration-150 dark:text-gray-400 ${
               legendKey !== null && legendKey !== c.key ? "opacity-30" : ""
             }`}
           >
@@ -702,7 +703,7 @@ export function TimelineChart({
 
       {/* Premiere-style zoom/pan slider: drag the body to pan, drag either handle to zoom, double-click to reset; −/+ covers the full range from <1 to >1 */}
       <div className="flex items-center gap-2">
-        <span className="shrink-0 text-[11px] text-gray-400">{S.traces.zoom}</span>
+        <span className="shrink-0 text-2xs text-gray-500 dark:text-gray-400">{S.traces.zoom}</span>
         <button
           type="button"
           aria-label={S.traces.zoomOut}
@@ -710,7 +711,7 @@ export function TimelineChart({
           onClick={() => zoomStep(1 / 1.4)}
           className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-gray-200 text-gray-500 transition-colors duration-150 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
         >
-          <span className="text-[11px] leading-none">−</span>
+          <span className="text-2xs leading-none">−</span>
         </button>
         <div
           ref={trackRef}
@@ -742,15 +743,15 @@ export function TimelineChart({
           onClick={() => zoomStep(1.4)}
           className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-gray-200 text-gray-500 transition-colors duration-150 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
         >
-          <span className="text-[11px] leading-none">＋</span>
+          <span className="text-2xs leading-none">＋</span>
         </button>
-        <span className="w-9 shrink-0 text-right font-mono text-[11px] tabular-nums text-gray-400">
+        <span className="w-9 shrink-0 text-right font-mono text-2xs tabular-nums text-gray-500 dark:text-gray-400">
           {zoom.toFixed(2)}×
         </span>
       </div>
 
       {onHighlight && (
-        <p className="text-[11px] text-gray-400 dark:text-gray-600">{S.traces.linkHint}</p>
+        <p className="text-2xs text-gray-500 dark:text-gray-400">{S.traces.linkHint}</p>
       )}
     </div>
   );

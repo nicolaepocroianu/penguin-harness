@@ -51,7 +51,7 @@ const PANEL_WIDTH = 288; // w-72
  * control family allows: there is no rung below text-xs to step down to. It is a fixed px and
  * so does not scale with the user's font-size setting — do not copy the shape elsewhere.
  */
-export const rowDescClass: Record<ControlSize, string> = { base: "text-xs", sm: "text-[11px]" };
+export const rowDescClass: Record<ControlSize, string> = { base: "text-xs", sm: "text-2xs" };
 
 export function OptionMenu<T extends string>({
   options,

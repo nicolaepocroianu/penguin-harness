@@ -22,7 +22,7 @@
  * skeleton — so every organization page shares one frame, one header row and one section
  * rule instead of each drawing its own.
  */
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, Suspense, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Navigate, Outlet, useNavigate, useParams } from "react-router";
 import type { OrganizationSummary } from "@prismshadow/penguin-server/api";
@@ -140,7 +140,7 @@ function OrgEmptyLanding() {
   return (
     <OrgCenteredFrame>
       <div className="mx-auto max-w-2xl py-8 text-center md:py-14">
-        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-300">
+        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
           <GlyphIcon d={COMPANY_MODE_ICON} size={ICON_SIZE.sectionMark + 6} />
         </span>
         <h1 className="mt-4 text-2xl font-semibold tracking-tight">{S.company.landingTitle}</h1>
@@ -266,7 +266,9 @@ export function OrgLayout() {
   if (org === null && company.orgsLoaded) return <OrgGone />;
   return (
     <OrgContext.Provider value={{ projectId, orgId, org }}>
-      <Outlet />
+      <Suspense fallback={null}>
+        <Outlet />
+      </Suspense>
       <TicketDialogHost />
     </OrgContext.Provider>
   );
@@ -347,11 +349,11 @@ export function OrgSection({
     <section className={`min-w-0 ${className}`}>
       <div className="mb-3 flex items-center justify-between gap-2 border-b border-gray-200 pb-2 dark:border-gray-800">
         <h2
-          className={`flex min-w-0 items-center ${ICON_GAP.row} text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400`}
+          className={`flex min-w-0 items-center ${ICON_GAP.row} text-2xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400`}
         >
           {title}
           {count !== undefined && (
-            <span className="rounded-full bg-gray-100 px-1.5 text-[10px] font-semibold tabular-nums text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+            <span className="rounded-full bg-gray-100 px-1.5 text-3xs font-semibold tabular-nums text-gray-600 dark:bg-gray-800 dark:text-gray-400">
               {count}
             </span>
           )}
@@ -368,5 +370,5 @@ export function OrgSection({
 
 /** A section with nothing to list: one quiet line where the rows would be. */
 export function OrgEmptyLine({ children }: { children: ReactNode }) {
-  return <p className="py-1 text-xs text-gray-400 dark:text-gray-500">{children}</p>;
+  return <p className="py-1 text-xs text-gray-500 dark:text-gray-400">{children}</p>;
 }

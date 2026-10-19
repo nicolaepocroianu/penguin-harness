@@ -288,7 +288,7 @@ const headerControlClass = (active: boolean) =>
 
 /** Muted section label inside the list-settings menu (分组方式 / 排序方式), at the overflow menus' density. */
 const menuSectionClass =
-  "px-2.5 pb-0.5 pt-1.5 text-[11px] font-medium text-gray-400 dark:text-gray-500";
+  "px-2.5 pb-0.5 pt-1.5 text-2xs font-medium text-gray-500 dark:text-gray-400";
 
 /**
  * Collapsed-group and pinned-group persistence (survives a refresh), one storage key
@@ -1611,7 +1611,7 @@ export function Sidebar({
         >
           {products.map((product) => (
             <div key={product.productCode ?? "\u0000unknown"} className="mt-1.5">
-              <p className="truncate px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+              <p className="truncate px-2.5 py-0.5 text-2xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 {product.productCode ?? S.chat.unknownProduct}
               </p>
               {product.activities.map((group) => {
@@ -1622,7 +1622,7 @@ export function Sidebar({
                       to={`/activities/${encodeURIComponent(group.activityId)}`}
                       onClick={() => onNavigate?.()}
                       title={S.chat.openActivity(name)}
-                      className="block truncate px-2.5 py-0.5 text-[11px] font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                      className="block truncate px-2.5 py-0.5 text-2xs font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                     >
                       {name}
                     </Link>
@@ -1739,7 +1739,7 @@ export function Sidebar({
             // "no Sessions yet" is not the honest answer until they land.
             <SkeletonList rows={2} />
           ) : awaitingRows ? null : (
-            <p className="px-2.5 py-1 text-xs text-gray-400 dark:text-gray-600">
+            <p className="px-2.5 py-1 text-xs text-gray-500 dark:text-gray-400">
               {S.chat.noSessions}
             </p>
           )
@@ -2018,7 +2018,7 @@ export function Sidebar({
                         key={item.key}
                         role="link"
                         aria-disabled="true"
-                        className="relative flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-gray-400 dark:text-gray-600"
+                        className="relative flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-gray-500 dark:text-gray-400"
                       >
                         <span className="text-gray-300 dark:text-gray-700">
                           <Icon d={item.icon} />
@@ -2126,7 +2126,7 @@ export function Sidebar({
               }`}
             >
               <span
-                className={`min-w-0 overflow-hidden whitespace-nowrap px-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400 transition-opacity duration-200 dark:text-gray-500 ${
+                className={`min-w-0 overflow-hidden whitespace-nowrap px-1 text-2xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 transition-opacity duration-200 ${
                   searchOpen ? "opacity-0" : "opacity-100"
                 }`}
               >
@@ -2431,7 +2431,7 @@ export function Sidebar({
             {groupMode !== "workspace" ? null : loading && sessions.length === 0 ? (
               <SkeletonList rows={5} />
             ) : orderedWorkspaceGroups.length === 0 && !searching ? (
-              <p className="px-2.5 pt-3 text-xs text-gray-400 dark:text-gray-600">
+              <p className="px-2.5 pt-3 text-xs text-gray-500 dark:text-gray-400">
                 {S.chat.noSessions}
               </p>
             ) : (
@@ -2579,7 +2579,7 @@ export function Sidebar({
                 {/* Empty only when the shared folders below are empty too (renderGroupBody's own
                 rule): "no Sessions yet" over an "Archived (3)" row would contradict it. */}
                 {timeGroups.length === 0 && !searching && timeFolders.every((f) => f === null) && (
-                  <p className="px-2.5 pt-3 text-xs text-gray-400 dark:text-gray-600">
+                  <p className="px-2.5 pt-3 text-xs text-gray-500 dark:text-gray-400">
                     {S.chat.noSessions}
                   </p>
                 )}
@@ -2610,7 +2610,7 @@ export function Sidebar({
 
             {/* Quiet no-match line: the search is live and nothing — drafts included — hit. */}
             {searching && !hasSearchMatches && (
-              <p className="px-2.5 pt-3 text-xs text-gray-400 dark:text-gray-600">
+              <p className="px-2.5 pt-3 text-xs text-gray-500 dark:text-gray-400">
                 {S.chat.searchNoMatches}
               </p>
             )}
@@ -2652,7 +2652,7 @@ export function Sidebar({
                 {user?.displayName ?? user?.userId}
               </span>
               {user?.isAdmin && (
-                <span className="text-xs text-gray-400 dark:text-gray-500">{S.auth.admin}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">{S.auth.admin}</span>
               )}
             </button>
           )}
@@ -3192,7 +3192,7 @@ function SessionRow({
           {lastActive !== "" && (
             <span
               aria-hidden
-              className="pointer-events-none whitespace-nowrap px-1 text-right text-[11px] tabular-nums text-gray-400 transition-opacity duration-150 group-hover:opacity-0 peer-focus-within:opacity-0 dark:text-gray-500"
+              className="pointer-events-none whitespace-nowrap px-1 text-right text-2xs tabular-nums text-gray-500 dark:text-gray-400 transition-opacity duration-150 group-hover:opacity-0 peer-focus-within:opacity-0"
             >
               {lastActive}
             </span>

@@ -44,6 +44,7 @@ import { ConfirmModal } from "../ui/confirm-modal";
 import { Badge } from "../ui/badge";
 import { InfoPopover } from "../ui/info-popover";
 import { SemanticIdField } from "../../features/semantic-id/semantic-id-field";
+import { toneText } from "../../lib/tone";
 
 /** Approval modes offered by the new-chat-defaults select, in the composer menu's order. */
 const APPROVAL_MODES: readonly ApprovalMode[] = [
@@ -210,7 +211,9 @@ function SettingRow({
     <div className="flex items-center justify-between gap-4 py-3">
       <div className="min-w-0 flex-1">
         <p className="text-sm">{title}</p>
-        {description !== undefined && <p className="mt-0.5 text-xs text-gray-400">{description}</p>}
+        {description !== undefined && (
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{description}</p>
+        )}
       </div>
       {children !== undefined && <div className="flex shrink-0 items-center gap-2">{children}</div>}
     </div>
@@ -388,7 +391,7 @@ function GeneralSection({
         )}
       </SettingRow>
       <SettingRow title={S.project.projectIdLabel}>
-        <span className="font-mono text-xs text-gray-400">{projectId}</span>
+        <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{projectId}</span>
       </SettingRow>
       {isOwner &&
         (projectId === "default_project" ? (
@@ -472,8 +475,9 @@ function MembersSection({ projectId, isOwner }: { projectId: string; isOwner: bo
     }
   };
 
-  if (loadError) return <p className="text-xs text-red-600 dark:text-red-400">{loadError}</p>;
-  if (members === null) return <p className="text-xs text-gray-400">{S.common.loading}</p>;
+  if (loadError) return <p className={`text-xs ${toneText.danger}`}>{loadError}</p>;
+  if (members === null)
+    return <p className="text-xs text-gray-500 dark:text-gray-400">{S.common.loading}</p>;
   return (
     // Member permission table: username / role / actions; cells never wrap. Last row
     // (owner only) = add member: small username input + add button (new members are
@@ -679,9 +683,9 @@ function ChatDefaultsSection({ projectId, isOwner }: { projectId: string; isOwne
         <InfoPopover label={S.project.chatDefaultsTitle}>{S.project.chatDefaultsHint}</InfoPopover>
       </p>
       {loadError ? (
-        <p className="text-xs text-red-600 dark:text-red-400">{loadError}</p>
+        <p className={`text-xs ${toneText.danger}`}>{loadError}</p>
       ) : saved === null || models === null ? (
-        <p className="text-xs text-gray-400">{S.common.loading}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{S.common.loading}</p>
       ) : isOwner ? (
         <>
           {/* Compact responsive grid: label + control stacked per cell, two columns from sm
@@ -751,7 +755,7 @@ function ChatDefaultsSection({ projectId, isOwner }: { projectId: string; isOwne
                   />
                 </>
               ) : (
-                <p className="text-xs text-gray-400">{S.models.empty}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{S.models.empty}</p>
               )}
             </div>
             <div className="sm:col-span-2">
@@ -986,9 +990,9 @@ function SecurityPolicySection({ projectId, isOwner }: { projectId: string; isOw
   return (
     <div>
       {loadError !== null ? (
-        <p className="text-xs text-red-600 dark:text-red-400">{loadError}</p>
+        <p className={`text-xs ${toneText.danger}`}>{loadError}</p>
       ) : saved === null ? (
-        <p className="text-xs text-gray-400">{S.common.loading}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{S.common.loading}</p>
       ) : (
         <>
           <div className="divide-y divide-gray-100 dark:divide-gray-800/60">
@@ -999,7 +1003,7 @@ function SecurityPolicySection({ projectId, isOwner }: { projectId: string; isOw
               {isOwner ? (
                 <Switch checked={enabled} onChange={setEnabled} disabled={busy} />
               ) : (
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
                   {enabled ? S.project.commandPolicyOn : S.project.commandPolicyOff}
                 </span>
               )}
@@ -1071,10 +1075,12 @@ function SecurityPolicySection({ projectId, isOwner }: { projectId: string; isOw
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">{r.name}</p>
                       {r.description !== undefined && (
-                        <p className="mt-0.5 text-xs text-gray-400">{r.description}</p>
+                        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                          {r.description}
+                        </p>
                       )}
                       <p
-                        className="mt-0.5 truncate font-mono text-[11px] text-gray-400"
+                        className="mt-0.5 truncate font-mono text-2xs text-gray-500 dark:text-gray-400"
                         title={r.pattern}
                       >
                         {r.pattern}
@@ -1107,7 +1113,7 @@ function SecurityPolicySection({ projectId, isOwner }: { projectId: string; isOw
                         </Button>
                       </div>
                     ) : (
-                      <span className="shrink-0 text-xs text-gray-400">
+                      <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
                         {r.enabled ? S.project.commandPolicyOn : S.project.commandPolicyOff}
                       </span>
                     )}
@@ -1115,7 +1121,9 @@ function SecurityPolicySection({ projectId, isOwner }: { projectId: string; isOw
                 ),
               )}
               {rules.length === 0 && editing !== "new" && (
-                <p className="py-3 text-xs text-gray-400">{S.project.commandPolicyEmpty}</p>
+                <p className="py-3 text-xs text-gray-500 dark:text-gray-400">
+                  {S.project.commandPolicyEmpty}
+                </p>
               )}
             </div>
           </div>

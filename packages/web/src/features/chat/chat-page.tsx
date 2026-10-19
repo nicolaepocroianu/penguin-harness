@@ -138,7 +138,7 @@ import { advancePanelTaskScope, createPanelTaskScope } from "./panel-task-scope"
 import { useSessionDraft } from "./use-session-draft";
 import { useSessionStream } from "./use-session-stream";
 import { PanelsToolbar } from "./panels-toolbar";
-import { toneDot, toneInk, toneStrip } from "../../lib/tone";
+import { toneDot, toneInk, toneStrip, toneText } from "../../lib/tone";
 import { GlyphIcon } from "../../components/ui/glyph-icon";
 import { STAT_ICONS } from "../../lib/stat-icons";
 import { BACKGROUND_TASKS_ICON, INFO_ICON } from "../../components/ui/icons";
@@ -1884,7 +1884,7 @@ export function ChatPage() {
       {selected && (
         <div className="flex shrink-0 items-center gap-2.5 border-b border-gray-200 px-3 py-2 md:px-4 dark:border-gray-800">
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <h1 className="flex min-w-0 text-[15px] font-semibold">
+            <h1 className="flex min-w-0 text-sm font-semibold">
               <Truncated text={selected.title ?? S.chat.defaultSessionTitle} />
             </h1>
             {/* Session-level state: a turning hourglass while the run is active, and nothing at
@@ -1986,7 +1986,7 @@ export function ChatPage() {
                   )}
                 </span>
                 {/* Narrow: the info icon alone (the chips would crowd the title out). */}
-                <span className="flex h-7 w-7 items-center justify-center text-gray-500 sm:hidden dark:text-gray-400">
+                <span className="flex h-7 w-7 items-center justify-center text-gray-500 dark:text-gray-400 sm:hidden">
                   <GlyphIcon d={INFO_ICON} size={ICON_SIZE.navRow} />
                 </span>
               </button>
@@ -1994,9 +1994,9 @@ export function ChatPage() {
           >
             <div className="space-y-3 px-3.5 py-2.5 text-sm">
               {/* Agent, above the Model: a conversation belongs to an Agent first, and the
-                  Model it runs on is one of that Agent's settings. Paired the same way as the
-                  Model row — the id the API speaks, then the display name, which is dropped
-                  when the Agent has none of its own and the two would simply repeat. */}
+ Model it runs on is one of that Agent's settings. Paired the same way as the
+ Model row — the id the API speaks, then the display name, which is dropped
+ when the Agent has none of its own and the two would simply repeat. */}
               <div>
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                   {S.chat.agent}
@@ -2004,7 +2004,7 @@ export function ChatPage() {
                 <p className="truncate text-xs">
                   <span className="font-mono">{selected.agentId}</span>
                   {sessionAgentName !== null && (
-                    <span className="ml-1.5 text-gray-400 dark:text-gray-500">
+                    <span className="ml-1.5 text-gray-500 dark:text-gray-400">
                       {sessionAgentName}
                     </span>
                   )}
@@ -2040,10 +2040,10 @@ export function ChatPage() {
                   {S.chat.sessionStats}
                 </p>
                 {/* A bulleted list, one stat per line. The tokens bullet carries the cache
-                    hit rate in parentheses (cacheRead ÷ all recorded input); the rate comes
-                    from the usage fetch, so it can trail the live total mid-run and
-                    reconciles on idle. No-cost sessions omit the cost bullet entirely, as
-                    the chip does. */}
+ hit rate in parentheses (cacheRead ÷ all recorded input); the rate comes
+ from the usage fetch, so it can trail the live total mid-run and
+ reconciles on idle. No-cost sessions omit the cost bullet entirely, as
+ the chip does. */}
                 <ul className="list-inside list-disc space-y-0.5 font-mono text-xs">
                   <li>
                     {S.chat.statTotalTokens} {hs.tokensText}
@@ -2063,12 +2063,12 @@ export function ChatPage() {
                 </ul>
               </div>
               {/* Background processes the conversation started (e.g. a dev server on
-                  localhost:3000): live rows carry a stop button — the kill signals the whole
-                  process group and the row drops on the follow-up refresh; exited rows keep
-                  their "exited" label and carry a remove button that deletes the entry from
-                  the list (#312), and the heading carries one action removing every exited
-                  row at once. A command too long for its row shows whole in a tooltip. Hidden
-                  entirely while there are none. */}
+ localhost:3000): live rows carry a stop button — the kill signals the whole
+ process group and the row drops on the follow-up refresh; exited rows keep
+ their "exited" label and carry a remove button that deletes the entry from
+ the list (#312), and the heading carries one action removing every exited
+ row at once. A command too long for its row shows whole in a tooltip. Hidden
+ entirely while there are none. */}
               {processes.length > 0 && (
                 <div>
                   <div className="flex items-center justify-between gap-2">
@@ -2076,18 +2076,18 @@ export function ChatPage() {
                       {S.chat.processList}
                     </p>
                     {/* Only while something has exited. Words rather than a glyph, in the quiet
-                        text-action style of the memory card's "Open memory list": the same
-                        text size as the heading beside it, so the heading row keeps its height
-                        when the first process exits. The same no-confirm tidy-up as a single
-                        row's Remove, and its hint, like that button's, says what leaves with
-                        the rows. */}
+ text-action style of the memory card's "Open memory list": the same
+ text size as the heading beside it, so the heading row keeps its height
+ when the first process exits. The same no-confirm tidy-up as a single
+ row's Remove, and its hint, like that button's, says what leaves with
+ the rows. */}
                     {exitedIds.length > 0 && (
                       <button
                         type="button"
                         title={S.chat.processClearExitedHint}
                         disabled={procBusy !== null}
                         onClick={() => void onClearExitedProcesses()}
-                        className="shrink-0 cursor-pointer text-xs text-gray-400 transition-colors duration-150 hover:text-gray-600 disabled:cursor-default disabled:opacity-60 dark:text-gray-500 dark:hover:text-gray-300"
+                        className="shrink-0 cursor-pointer text-xs text-gray-500 transition-colors duration-150 hover:text-gray-600 disabled:cursor-default disabled:opacity-60 dark:hover:text-gray-300"
                       >
                         {S.chat.processClearExited}
                       </button>
@@ -2106,12 +2106,12 @@ export function ChatPage() {
                         />
                         <span className="min-w-0 flex-1">
                           <Truncated text={p.cmd} className="font-mono text-xs" codeTooltip />
-                          <span className="block truncate text-[11px] text-gray-400 dark:text-gray-500">
+                          <span className="block truncate text-2xs text-gray-500 dark:text-gray-400">
                             {formatDateTime(p.startedAt)}
                             {p.pid !== null && ` · pid ${p.pid}`}
                             {/* Detected service URL (output scan or port probe), running rows
-                                only — an exited process serves nothing to open. Scheme dropped
-                                at this size; the tooltip and the link carry the full URL. */}
+ only — an exited process serves nothing to open. Scheme dropped
+ at this size; the tooltip and the link carry the full URL. */}
                             {p.running && p.serviceUrl !== undefined && (
                               <>
                                 {" · "}
@@ -2141,15 +2141,15 @@ export function ChatPage() {
                           </button>
                         ) : (
                           <>
-                            <span className="shrink-0 text-[11px] text-gray-400 dark:text-gray-500">
+                            <span className="shrink-0 text-2xs text-gray-500 dark:text-gray-400">
                               {S.chat.processExited}
                             </span>
                             {/* The row is the only handle on that process's captured
-                                output — removing the entry drops it from the runtime
-                                registry, so the model can no longer be asked to read it
-                                (input_command answers "unknown process_id"). No confirm
-                                step for a one-click tidy-up of a dead row, but the title
-                                says what leaves with it. */}
+ output — removing the entry drops it from the runtime
+ registry, so the model can no longer be asked to read it
+ (input_command answers "unknown process_id"). No confirm
+ step for a one-click tidy-up of a dead row, but the title
+ says what leaves with it. */}
                             <button
                               type="button"
                               title={S.chat.processRemoveHint}
@@ -2174,7 +2174,7 @@ export function ChatPage() {
       )}
 
       {/* Banner: this conversation is an activity's generation run, not an ordinary chat
-          — it lives in the activity's studio (Sessions tab), and this is the one way back. */}
+ — it lives in the activity's studio (Sessions tab), and this is the one way back. */}
       {selected?.activityId !== undefined && (
         <div
           className={`flex shrink-0 items-center gap-2 border-b px-3 py-2 text-xs md:px-4 ${toneStrip.muted}`}
@@ -2224,7 +2224,7 @@ export function ChatPage() {
                 stream.error ? (
                   // History failed to load: show a clear error and a retry entry point, instead of staying on a misleading empty state.
                   <div className="flex h-full flex-col items-center justify-center gap-3 p-6">
-                    <p className="text-sm text-red-600 dark:text-red-400">
+                    <p className={`text-sm ${toneText.danger}`}>
                       {S.chat.historyLoadFailed}：{stream.error}
                     </p>
                     <Button onClick={stream.retry}>{S.common.retry}</Button>
@@ -2247,7 +2247,7 @@ export function ChatPage() {
                     <div className="relative min-h-0 flex-1">
                       {emptyChat ? (
                         <div className="flex h-full items-center justify-center px-4">
-                          <p className="text-lg font-medium text-gray-400 dark:text-gray-500">
+                          <p className="text-lg font-medium text-gray-500 dark:text-gray-400">
                             {S.chat.emptyGreeting}
                           </p>
                         </div>

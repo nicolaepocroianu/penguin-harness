@@ -92,13 +92,13 @@ export function PluginDetailPage() {
             <Skeleton className="mt-6 h-40 w-full" />
           </div>
         ) : entry === null ? (
-          <p className="mt-6 text-sm text-gray-400 dark:text-gray-500">
+          <p className="mt-6 text-sm text-gray-500 dark:text-gray-400">
             {S.pluginRegistry.notFound}
           </p>
         ) : (
           <>
             <header className="mt-4 flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                 <GlyphIcon d={NAV_ICONS.plugins} size={22} />
               </div>
               <div className="min-w-0 flex-1">
@@ -106,12 +106,14 @@ export function PluginDetailPage() {
                   <h1 className="min-w-0 break-all font-mono text-base font-semibold">
                     {entry.name}
                   </h1>
-                  <span className="font-mono text-xs text-gray-400">v{entry.version}</span>
+                  <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
+                    v{entry.version}
+                  </span>
                   <button
                     type="button"
                     onClick={() => flash(entry.name)}
                     title={copied ? S.common.copied : S.pluginRegistry.copySpecifier}
-                    className="inline-flex items-center gap-1 rounded border border-gray-200 px-1.5 py-0.5 text-[11px] text-gray-500 transition-colors duration-150 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+                    className="inline-flex items-center gap-1 rounded border border-gray-200 px-1.5 py-0.5 text-2xs text-gray-500 transition-colors duration-150 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
                   >
                     <CopyCheckGlyph copied={copied} size={12} />
                     {S.pluginRegistry.copySpecifier}
@@ -140,11 +142,11 @@ export function PluginDetailPage() {
             </dl>
 
             {(entry.keywords ?? []).length > 0 && (
-              <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px]">
+              <div className="mt-3 flex flex-wrap items-center gap-1.5 text-2xs">
                 {(entry.keywords ?? []).map((keyword) => (
                   <span
                     key={keyword}
-                    className="rounded-full bg-gray-100 px-2 py-0.5 font-mono text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                    className="rounded-full bg-gray-100 px-2 py-0.5 font-mono text-gray-600 dark:bg-gray-800 dark:text-gray-400"
                   >
                     {keyword}
                   </span>
@@ -161,7 +163,7 @@ export function PluginDetailPage() {
               {readme === undefined ? (
                 <Skeleton className="mt-3 h-40 w-full" />
               ) : readme === null ? (
-                <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">
+                <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
                   {S.pluginRegistry.noReadme}
                 </p>
               ) : (
@@ -182,7 +184,7 @@ export function PluginDetailPage() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <>
-      <dt className="text-gray-400 dark:text-gray-500">{label}</dt>
+      <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
       <dd className="min-w-0 break-all text-gray-600 dark:text-gray-300">{children}</dd>
     </>
   );

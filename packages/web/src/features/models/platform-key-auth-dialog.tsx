@@ -10,6 +10,7 @@ import { Button } from "../../components/ui/button";
 import { Modal } from "../../components/ui/modal";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
+import { toneText } from "../../lib/tone";
 
 const POLL_MS = 3_000;
 
@@ -258,7 +259,7 @@ export function PlatformKeyAuthDialog({
                 : S.models.oauthWaiting}
           </p>
         )}
-        {error !== null && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+        {error !== null && <p className={`text-xs ${toneText.danger}`}>{error}</p>}
       </div>
     </Modal>
   );

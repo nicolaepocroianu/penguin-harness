@@ -49,7 +49,7 @@ import { usePortalPanel } from "../ui/use-portal-panel";
 
 /** Section heading of the palette list, at the overflow menus' label density (menuSectionClass convention). */
 const sectionHeaderClass =
-  "px-3.5 pb-0.5 pt-1.5 text-[11px] font-medium text-gray-400 dark:text-gray-500";
+  "px-3.5 pb-0.5 pt-1.5 text-2xs font-medium text-gray-500 dark:text-gray-400";
 
 /** A palette row: full-width, hover/selection fill, at the menu rows' density (menuItemClass convention). */
 const rowClass = (active: boolean) =>
@@ -59,7 +59,7 @@ const rowClass = (active: boolean) =>
 
 /** Footer key-cap chip (↑ ↓ ↵ esc hints). */
 const kbdClass =
-  "rounded border border-gray-200 bg-gray-50 px-1 font-mono text-[11px] leading-4 text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400";
+  "rounded border border-gray-200 bg-gray-50 px-1 font-mono text-2xs leading-4 text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400";
 
 /** Section titles: pages/recents name themselves; agents reuse the coding agents' own heading. */
 function sectionTitle(section: SwitcherEntry["section"] | "recents"): string {

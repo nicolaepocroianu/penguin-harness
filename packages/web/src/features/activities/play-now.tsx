@@ -126,7 +126,7 @@ export function PlayNow({
                     )}
                     {lit && <span className="sr-only">{said ? words.speaking : words.chosen}</span>}
                   </span>
-                  <span className="shrink-0 font-mono text-xs text-gray-400 tabular-nums">
+                  <span className="shrink-0 font-mono text-xs text-gray-500 dark:text-gray-400 tabular-nums">
                     {line.estimated ? words.about(length) : length}
                   </span>
                 </button>
@@ -148,7 +148,7 @@ export function PlayNow({
       {state && (
         <p
           title={words.state(state)}
-          className="truncate px-2 font-mono text-xs text-gray-400 dark:text-gray-500"
+          className="truncate px-2 font-mono text-xs text-gray-500 dark:text-gray-400"
         >
           {state}
         </p>

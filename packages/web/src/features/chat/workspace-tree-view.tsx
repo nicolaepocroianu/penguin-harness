@@ -61,7 +61,7 @@ export function WorkspaceTreeView({
       }
       rowTrailing={(row) =>
         row.kind === "file" && (
-          <span className="shrink-0 font-mono text-[11px] text-gray-400 dark:text-gray-500">
+          <span className="shrink-0 font-mono text-2xs text-gray-500 dark:text-gray-400">
             {formatBytes(row.sizeBytes)}
           </span>
         )
@@ -72,9 +72,11 @@ export function WorkspaceTreeView({
       onOpenFile={onOpenFile}
     >
       {filtering ? (
-        <p className="px-3 py-2 text-sm text-gray-400">{S.files.searchNoMatch}</p>
+        <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+          {S.files.searchNoMatch}
+        </p>
       ) : rootEmpty ? (
-        <p className="px-3 py-2 text-sm text-gray-400">{S.files.empty}</p>
+        <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">{S.files.empty}</p>
       ) : null}
     </FileTree>
   );

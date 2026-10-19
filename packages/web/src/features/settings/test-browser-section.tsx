@@ -11,7 +11,7 @@ import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
-import { toneInk } from "../../lib/tone";
+import { toneInk, toneText } from "../../lib/tone";
 import { Button } from "../../components/ui/button";
 import { toastError, toastSuccess } from "../../components/ui/toast";
 import { SectionShell } from "./section-shell";
@@ -88,7 +88,7 @@ export function TestBrowserSection() {
       <div aria-live="polite">
         {view !== null && (
           <p
-            className={`text-sm font-medium ${toneInk[view.tone]}`}
+            className={`text-sm font-medium ${toneText[view.tone]}`}
             data-testid="test-browser-status"
           >
             {view.line}

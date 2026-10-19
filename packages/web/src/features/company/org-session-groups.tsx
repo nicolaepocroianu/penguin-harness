@@ -296,7 +296,7 @@ export function OrgSessionGroups({
             </Button>
           </div>
         ) : desks.length === 0 ? (
-          <p className="px-2.5 py-1 text-xs text-gray-400 dark:text-gray-600">
+          <p className="px-2.5 py-1 text-xs text-gray-500 dark:text-gray-400">
             {S.company.sessionList.noEmployees}
           </p>
         ) : (

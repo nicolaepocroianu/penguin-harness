@@ -44,6 +44,7 @@ import { downloadArchive } from "./archive-download";
 import { buildImportPrompt } from "./skill-import-source";
 import { usePromptInjection } from "./prompt-injection-controls";
 import { HelpFold } from "../../components/ui/help-fold";
+import { toneText } from "../../lib/tone";
 
 /** The Button look on the upload `<label>`; the Hooks tab's upload label borrows it. */
 export const UPLOAD_LABEL_CLASS = labelButtonClass("secondary", "sm");
@@ -261,10 +262,7 @@ export function SkillsTab({
             >
               <SkillTile icon={skill.icon} name={skill.name} size={36} glyph={20} />
               <div className="min-w-0 flex-1">
-                <span
-                  className="block truncate font-mono text-[13px] font-semibold"
-                  title={skill.name}
-                >
+                <span className="block truncate font-mono text-xs font-semibold" title={skill.name}>
                   {skill.name}
                 </span>
                 {/* Short description truncates to one line (full description goes into title for hover reading). */}
@@ -277,7 +275,7 @@ export function SkillsTab({
               </div>
               {metaLine(skill) !== "" && (
                 <span
-                  className="hidden shrink-0 text-[11px] text-gray-400 sm:block dark:text-gray-500"
+                  className="hidden shrink-0 text-2xs text-gray-500 dark:text-gray-400 sm:block"
                   title={metaLine(skill)}
                 >
                   {metaLine(skill)}
@@ -376,9 +374,7 @@ export function SkillsTab({
               <HiddenFileInput accept=".zip" disabled={uploading} onChange={onPickFile} />
               {uploading ? S.skills.importUploading : S.skills.importUploadAction}
             </label>
-            {uploadError && (
-              <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{uploadError}</p>
-            )}
+            {uploadError && <p className={`mt-1.5 text-xs ${toneText.danger}`}>{uploadError}</p>}
           </section>
         </div>
       </Modal>
@@ -412,7 +408,7 @@ export function SkillsTab({
         </p>
       </ConfirmModal>
 
-      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className={`text-xs ${toneText.danger}`}>{error}</p>}
     </div>
   );
 }

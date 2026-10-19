@@ -48,6 +48,11 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   // locale and render after this component, so they always read the post-switch dictionary.
   setActiveStrings(DICTIONARIES[locale]);
 
+  // The document's language is what screen readers pick a voice by (WCAG 3.1.1).
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+
   useEffect(() => {
     if (lang !== "system") return;
     const onChange = () => setSysTick((t) => t + 1);

@@ -234,7 +234,7 @@ function ReadView<T>({
   children: (value: T) => ReactNode;
 }) {
   if (loaded === null || loaded.state === "loading")
-    return <p className="text-sm text-gray-400">{S.common.loading}</p>;
+    return <p className="text-sm text-gray-500 dark:text-gray-400">{S.common.loading}</p>;
   if (loaded.state === "failed")
     return (
       <p role="alert" className={`text-xs ${toneInk.danger}`}>

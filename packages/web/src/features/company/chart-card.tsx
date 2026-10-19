@@ -78,7 +78,7 @@ export function ChartLegend() {
   return (
     <ul
       aria-label={S.company.chart.legend}
-      className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400"
+      className="flex flex-wrap items-center gap-x-4 gap-y-1 text-2xs text-gray-500 dark:text-gray-400"
     >
       {LEGEND_STATES.map((state) => (
         <li key={state} className="flex items-center">
@@ -168,18 +168,18 @@ export function ChartCard({
             className="shrink-0 rounded-md"
           />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] leading-4 font-semibold text-gray-900 dark:text-gray-100">
+            <span className="block truncate text-xs leading-4 font-semibold text-gray-900 dark:text-gray-100">
               {employee.name}
             </span>
-            <span className="block truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
+            <span className="block truncate text-2xs leading-4 text-gray-500 dark:text-gray-400">
               {employee.title}
             </span>
           </span>
         </span>
-        <span className="mt-2 flex items-center gap-1.5 text-[11px] leading-4 text-gray-600 dark:text-gray-300">
+        <span className="mt-2 flex items-center gap-1.5 text-2xs leading-4 text-gray-600 dark:text-gray-300">
           <ChartStateDot state={state} />
           <span
-            className="flex min-w-0 flex-1 items-center gap-1 font-mono text-[10px] text-gray-400 dark:text-gray-500"
+            className="flex min-w-0 flex-1 items-center gap-1 font-mono text-3xs text-gray-500 dark:text-gray-400"
             title={flag ?? employee.resolvedWorkspace ?? employee.workspace}
           >
             {flag !== undefined ? (

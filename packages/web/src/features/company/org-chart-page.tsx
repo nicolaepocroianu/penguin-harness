@@ -398,7 +398,7 @@ export function OrgChartPage() {
       {menuRow(close, MENU_ICONS.renewDesk, S.company.chart.renewDesk, () => setRenewFor(employee))}
       <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
       {isCeo ? (
-        <span className="block px-2.5 py-1.5 text-xs text-gray-400 dark:text-gray-500">
+        <span className="block px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400">
           {S.company.chart.ceoCannotLeave}
         </span>
       ) : (
@@ -473,7 +473,7 @@ export function OrgChartPage() {
         <>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <ChartLegend />
-            <span className="text-[11px] text-gray-500 dark:text-gray-400">
+            <span className="text-2xs text-gray-500 dark:text-gray-400">
               {S.company.chart.employeeCount(chart.employees.length)}
             </span>
           </div>
@@ -518,7 +518,7 @@ export function OrgChartPage() {
               </svg>
               {layout.detachedTop !== null && (
                 <p
-                  className={`absolute right-0 left-0 text-center text-[11px] font-medium ${toneInk.danger}`}
+                  className={`absolute right-0 left-0 text-center text-2xs font-medium ${toneInk.danger}`}
                   style={{ top: layout.detachedTop - CHART_DETACHED_LABEL_H }}
                 >
                   {S.company.chart.detached}

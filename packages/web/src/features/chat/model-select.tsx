@@ -135,7 +135,9 @@ export function PickerList<T>({
         />
       </div>
       <div className="max-h-56 overflow-y-auto">
-        {items.length === 0 && <p className="px-3 py-1.5 text-xs text-gray-400">{emptyText}</p>}
+        {items.length === 0 && (
+          <p className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400">{emptyText}</p>
+        )}
         {items.map((item) => {
           const key = itemKey(item);
           const current = isCurrent?.(item) ?? false;
@@ -256,7 +258,7 @@ export function ModelMenuList({
             </span>
           )}
           {sameModelRef(m, defaultModel) && (
-            <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
+            <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
               {S.models.default}
             </span>
           )}
@@ -272,7 +274,7 @@ export function ModelMenuList({
                 <button
                   type="button"
                   onClick={() => setShowAll(true)}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-400 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-500 dark:text-gray-400 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
                 >
                   {S.models.showModelsWithoutKey(hiddenCount)}
                 </button>

@@ -371,14 +371,14 @@ function CliCard({
             </p>
           )}
           <div className="space-y-1.5 lg:hidden">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <span className="text-2xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
               {S.models.cliModel}
             </span>
             {modelControl}
           </div>
           {effortOption && effortOption.options.length > 0 && (
             <div className="space-y-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              <span className="text-2xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 {S.models.cliEffort}
               </span>
               <Select

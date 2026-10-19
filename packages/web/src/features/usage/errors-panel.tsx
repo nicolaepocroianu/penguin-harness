@@ -19,7 +19,7 @@ import { Badge } from "../../components/ui/badge";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { toastError, toastSuccess } from "../../components/ui/toast";
 import { Empty } from "./usage-charts";
-import { toneInk } from "../../lib/tone";
+import { toneInk, toneText } from "../../lib/tone";
 
 /** The two error categories. */
 type ErrorKindKey = "unexpected" | "expected";
@@ -287,7 +287,7 @@ export function ErrorsPanel({
               never scroll sideways (styles.css). `overflow-y-clip` keeps browsers from reserving
               a vertical scrollbar gutter beside the horizontal one. */}
           <table className="w-full min-w-[720px] table-fixed text-xs">
-            <thead className="text-left text-gray-400 dark:text-gray-500">
+            <thead className="text-left text-gray-500 dark:text-gray-400">
               <tr>
                 <Th className="w-32">{S.common.time}</Th>
                 {/* Wide enough to fully fit the longest error code: a tool
@@ -306,7 +306,7 @@ export function ErrorsPanel({
                     key={`${e.ts}-${i}`}
                     className="border-t border-gray-100 dark:border-gray-800/60"
                   >
-                    <td className="py-1.5 pr-2 align-top font-mono tabular-nums text-gray-400">
+                    <td className="py-1.5 pr-2 align-top font-mono tabular-nums text-gray-500 dark:text-gray-400">
                       {formatDateTime(e.ts)}
                     </td>
                     <td className="py-1.5 pr-2 align-top font-mono text-gray-500 dark:text-gray-400">
@@ -356,9 +356,7 @@ export function ErrorsPanel({
               {S.usage.errorsClear}
             </button>
           )}
-          {pageError !== null && (
-            <span className="text-red-600 dark:text-red-400">{pageError}</span>
-          )}
+          {pageError !== null && <span className={`${toneText.danger}`}>{pageError}</span>}
           {(pageCount > 1 || page > 0) && (
             <>
               <span className="ml-auto tabular-nums">

@@ -395,7 +395,7 @@ export function ActivityWorkspace({
               tabIndex={0}
               onPointerDown={onPointerDown}
               onKeyDown={onKeyDown}
-              className={`w-1.5 shrink-0 cursor-col-resize outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-400/60 ${
+              className={`w-1.5 shrink-0 cursor-col-resize outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-500 dark:focus-visible:ring-gray-400 ${
                 dragging
                   ? "bg-gray-300 dark:bg-gray-600"
                   : "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
@@ -416,7 +416,7 @@ export function ActivityWorkspace({
               tabIndex={0}
               onPointerDown={onPanelPointerDown}
               onKeyDown={onPanelKeyDown}
-              className={`w-1.5 shrink-0 cursor-col-resize outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-400/60 ${
+              className={`w-1.5 shrink-0 cursor-col-resize outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-500 dark:focus-visible:ring-gray-400 ${
                 panelDragging
                   ? "bg-gray-300 dark:bg-gray-600"
                   : "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"

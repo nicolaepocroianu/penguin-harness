@@ -17,7 +17,7 @@ import type {
 import { S } from "../../lib/strings";
 import { formatMoney, formatPercent } from "../../lib/format";
 import { ICON_GAP, ICON_SIZE } from "../../lib/icon-scale";
-import { toneDot, toneInk, toneStrip } from "../../lib/tone";
+import { toneDot, toneInk, toneStrip, toneText } from "../../lib/tone";
 import type { Tone } from "../../lib/tone";
 import type { Currency } from "../../state/theme";
 import { AgentAvatar } from "../../components/ui/agent-avatar";
@@ -276,13 +276,7 @@ export function BudgetBar({
       : `${S.company.spendOfBudget(formatMoney(cost, currency), formatMoney(budget, currency))} · ${formatPercent(ratio)}`;
   return (
     <div className={compact ? "min-w-24" : ""}>
-      {!compact && (
-        <p
-          className={`mb-1 text-xs font-medium ${tone === "muted" ? "text-gray-500 dark:text-gray-400" : toneInk[tone]}`}
-        >
-          {label}
-        </p>
-      )}
+      {!compact && <p className={`mb-1 text-xs font-medium ${toneText[tone]}`}>{label}</p>}
       <div
         role="progressbar"
         aria-label={label}
@@ -320,7 +314,7 @@ export function MoneyPerMonthUnit({ currency }: { currency: Currency }) {
 export function StoredUsdNote({ usd, currency }: { usd: number | null; currency: Currency }) {
   if (currency === "USD" || usd === null) return null;
   return (
-    <span className="mt-1 block text-[11px] text-gray-400 dark:text-gray-500">
+    <span className="mt-1 block text-2xs text-gray-500 dark:text-gray-400">
       {S.company.budgetStoredAs(formatMoney(usd, "USD"))}
     </span>
   );
@@ -495,7 +489,7 @@ export function StatTile({
   return (
     <div className="rounded-md border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
       <p
-        className={`mb-1.5 flex items-center ${ICON_GAP.row} text-[11px] text-gray-500 dark:text-gray-400`}
+        className={`mb-1.5 flex items-center ${ICON_GAP.row} text-2xs text-gray-500 dark:text-gray-400`}
       >
         <GlyphIcon d={icon} size={ICON_SIZE.inlineGlyph} className={ink} />
         <span className="truncate">{label}</span>
@@ -504,7 +498,7 @@ export function StatTile({
         <div className="min-w-0">
           <p className={`truncate text-lg font-semibold tabular-nums ${ink}`}>{value}</p>
           {detail !== undefined && (
-            <p className="mt-0.5 text-[11px] leading-snug text-gray-500 dark:text-gray-400">
+            <p className="mt-0.5 text-2xs leading-snug text-gray-500 dark:text-gray-400">
               {detail}
             </p>
           )}

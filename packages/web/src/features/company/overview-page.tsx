@@ -36,7 +36,7 @@ import { apiErrorText } from "../../lib/api-error";
 import { formatDateTime, formatMoney, formatRelativeShort } from "../../lib/format";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import { ICON_GAP, ICON_SIZE } from "../../lib/icon-scale";
-import { toneDot, toneInk, toneSurface } from "../../lib/tone";
+import { toneDot, toneInk, toneSurface, toneText } from "../../lib/tone";
 import type { Tone } from "../../lib/tone";
 import { useCompany } from "../../state/company";
 import { useLocale } from "../../state/locale";
@@ -153,7 +153,7 @@ function SummaryLabel({
 }) {
   return (
     <div className="flex items-start justify-between gap-2">
-      <span className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+      <span className="block text-2xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
         {label}
       </span>
       <JumpButton label={jump} onClick={onJump} />
@@ -223,7 +223,7 @@ function MissionFold({ mission }: { mission: string }) {
   const toggle = expanded ? S.company.overview.collapse : S.company.overview.expand;
   return (
     <div className="mt-3 max-w-3xl">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+      <p className="text-2xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
         {S.company.overview.mission}
       </p>
       <div className="mt-0.5 flex items-baseline gap-3">
@@ -296,7 +296,7 @@ function StepCard({
               ? toneSurface.success
               : current
                 ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
-                : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
           }`}
         >
           {done ? <GlyphIcon d={STAT_ICONS.check} size={ICON_SIZE.inlineGlyph} /> : index}
@@ -745,7 +745,7 @@ export function OverviewPage() {
                       </span>
                     )}
                     <span
-                      className="w-20 shrink-0 text-right text-xs tabular-nums text-gray-400 dark:text-gray-500"
+                      className="w-20 shrink-0 text-right text-xs tabular-nums text-gray-500 dark:text-gray-400"
                       {...(row.time !== null ? { title: formatDateTime(row.time) } : {})}
                     >
                       {row.time === null ? "—" : formatRelativeShort(row.time, locale)}
@@ -786,7 +786,7 @@ export function OverviewPage() {
                         <span className="hidden shrink-0 text-xs text-gray-500 sm:inline-flex dark:text-gray-400">
                           <PrincipalChip principal={agentPrincipal(entry.agentId)} names={names} />
                         </span>
-                        <span className={`shrink-0 text-xs ${toneInk[tone]}`}>
+                        <span className={`shrink-0 text-xs ${toneText[tone]}`}>
                           {markLabel(entry.mark)}
                         </span>
                       </div>
@@ -794,7 +794,7 @@ export function OverviewPage() {
                   );
                 })}
                 {today.entries.length > TIMELINE_ROWS && (
-                  <li className="pl-4 pt-1 text-xs text-gray-400 dark:text-gray-500">
+                  <li className="pl-4 pt-1 text-xs text-gray-500 dark:text-gray-400">
                     {S.company.overview.timelineMore(today.entries.length - TIMELINE_ROWS)}
                   </li>
                 )}

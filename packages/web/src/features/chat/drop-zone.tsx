@@ -140,7 +140,7 @@ export function FileDropZone({ onFiles }: { onFiles: (files: File[]) => void }) 
       className="anim-fade pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-white/70 p-6 backdrop-blur-sm dark:bg-gray-950/70"
     >
       <div className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed border-gray-400 bg-white/80 px-10 py-8 text-center dark:border-gray-500 dark:bg-gray-900/80">
-        <GlyphIcon d={PAPERCLIP_ICON} size={28} className="text-gray-400 dark:text-gray-500" />
+        <GlyphIcon d={PAPERCLIP_ICON} size={28} className="text-gray-500 dark:text-gray-400" />
         <p className="text-base font-medium text-gray-800 dark:text-gray-100">
           {S.chat.dropFilesTitle}
         </p>

@@ -238,7 +238,7 @@ export function FileTree<Row extends FileTreeRow>({
         aria-label={rowLabel?.(row)}
         {...(retained ? {} : { onClick: () => activate(row), onFocus: () => setFocused(row.path) })}
         style={{ paddingLeft: TREE_PAD_PX + row.depth * TREE_INDENT_PX }}
-        className={`flex cursor-pointer select-none items-center gap-1.5 py-1 pr-2 text-sm outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-400/60 ${
+        className={`flex cursor-pointer select-none items-center gap-1.5 py-1 pr-2 text-sm outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-500 dark:focus-visible:ring-gray-400 ${
           dropHere
             ? "bg-sky-50 ring-2 ring-inset ring-sky-500/60 dark:bg-sky-950/40"
             : selected
@@ -264,7 +264,7 @@ export function FileTree<Row extends FileTreeRow>({
   const renderEmptyLine = (row: Row): ReactNode => (
     <p
       key={`empty:${row.path}`}
-      className="py-1 pr-2 text-xs text-gray-400"
+      className="py-1 pr-2 text-xs text-gray-500 dark:text-gray-400"
       style={{ paddingLeft: TREE_PAD_PX + (row.depth + 1) * TREE_INDENT_PX + CHEVRON_COL_PX }}
     >
       {emptyLabel}

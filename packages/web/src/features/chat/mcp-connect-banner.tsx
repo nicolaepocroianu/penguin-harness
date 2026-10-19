@@ -45,9 +45,11 @@ function ServerGroup({ outcome, tools }: { outcome: McpServerOutcome; tools: Mcp
       <code className="shrink-0 font-mono text-xs text-gray-700 dark:text-gray-300">
         {outcome.server}
       </code>
-      <span className="min-w-0 truncate font-mono text-xs text-gray-400">{meta}</span>
+      <span className="min-w-0 truncate font-mono text-xs text-gray-500 dark:text-gray-400">
+        {meta}
+      </span>
       {outcome.durationMs > 0 && (
-        <span className="shrink-0 font-mono text-xs text-gray-400">
+        <span className="shrink-0 font-mono text-xs text-gray-500 dark:text-gray-400">
           {humanizeDuration(outcome.durationMs)}
         </span>
       )}
@@ -88,7 +90,7 @@ function ServerGroup({ outcome, tools }: { outcome: McpServerOutcome; tools: Mcp
                 {tool.description !== undefined && (
                   <span
                     title={tool.description}
-                    className="min-w-0 truncate text-xs text-gray-400 dark:text-gray-500"
+                    className="min-w-0 truncate text-xs text-gray-500 dark:text-gray-400"
                   >
                     {tool.description}
                   </span>

@@ -67,7 +67,11 @@ import {
 
 /** Empty state for a chart card (defaults to "no usage records yet"; the errors chart passes its own copy). */
 export function Empty({ text }: { text?: string }) {
-  return <p className="py-6 text-center text-xs text-gray-400">{text ?? S.usage.empty}</p>;
+  return (
+    <p className="py-6 text-center text-xs text-gray-500 dark:text-gray-400">
+      {text ?? S.usage.empty}
+    </p>
+  );
 }
 
 /** Bucket name copy: S is a runtime live binding (switching language remounts the whole tree), so it must be read at render time and never cached at module scope. */
@@ -129,7 +133,7 @@ function RequestsLegend({
   onHover: (i: number | null) => void;
 }) {
   return (
-    <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-gray-500 dark:text-gray-400">
+    <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-3xs text-gray-500 dark:text-gray-400">
       {entities.map((e, i) => (
         <button
           key={`${e.label}:${i}`}
@@ -618,7 +622,7 @@ export function TokenLegend({
           type="button"
           onMouseEnter={() => onHover?.(key)}
           onMouseLeave={() => onHover?.(null)}
-          className={`flex items-center gap-1 text-[10px] text-gray-500 transition-opacity duration-150 dark:text-gray-400 ${dim(key)}`}
+          className={`flex items-center gap-1 text-3xs text-gray-500 transition-opacity duration-150 dark:text-gray-400 ${dim(key)}`}
         >
           <span
             className="inline-block h-2 w-3 rounded-sm"
@@ -632,7 +636,7 @@ export function TokenLegend({
         type="button"
         onMouseEnter={() => onHover?.("hitRate")}
         onMouseLeave={() => onHover?.(null)}
-        className={`flex items-center gap-1 text-[10px] text-gray-500 transition-opacity duration-150 dark:text-gray-400 ${dim("hitRate")}`}
+        className={`flex items-center gap-1 text-3xs text-gray-500 transition-opacity duration-150 dark:text-gray-400 ${dim("hitRate")}`}
       >
         <span className={`inline-block h-0.5 w-3 rounded-sm ${HIT_RATE_SWATCH}`} />
         {S.usage.legendHitRate}

@@ -84,12 +84,12 @@ export function AgentTopologyView({
                     Decorative next to the label — the aria-label pins the accessible name. */}
                 {node.running
                   ? node.startedMs !== undefined && (
-                      <span className="shrink-0 font-mono text-[10px] text-gray-400 dark:text-gray-500">
+                      <span className="shrink-0 font-mono text-3xs text-gray-500 dark:text-gray-400">
                         <LiveDuration sinceMs={node.startedMs} />
                       </span>
                     )
                   : node.elapsedMs !== undefined && (
-                      <span className="shrink-0 font-mono text-[10px] text-gray-400 dark:text-gray-500">
+                      <span className="shrink-0 font-mono text-3xs text-gray-500 dark:text-gray-400">
                         {humanizeDuration(node.elapsedMs)}
                       </span>
                     )}
@@ -102,7 +102,7 @@ export function AgentTopologyView({
                   Nodes without one (the root, a standalone child, an omitted description) drop
                   the line and the single row centers itself in the box instead. */}
               {node.description !== null && (
-                <span className="w-full truncate pl-[24px] text-[10px] leading-tight text-gray-400 dark:text-gray-500">
+                <span className="w-full truncate pl-[24px] text-3xs leading-tight text-gray-500 dark:text-gray-400">
                   {node.description}
                 </span>
               )}

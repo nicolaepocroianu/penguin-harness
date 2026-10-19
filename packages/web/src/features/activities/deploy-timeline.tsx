@@ -3,7 +3,7 @@ import { Button } from "../../components/ui/button";
 import { GlyphIcon } from "../../components/ui/glyph-icon";
 import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
-import { toneDot, toneInk, toneSurface } from "../../lib/tone";
+import { toneDot, toneInk, toneSurface, toneText } from "../../lib/tone";
 import type { DeployPhase, StageRow } from "./deploy-model";
 
 /** A hollow mark: the stage has not run, which is said by shape rather than in words. */
@@ -170,7 +170,7 @@ function StageItem({
             {row.detail}
           </span>
         )}
-        <span className={quiet ? "sr-only" : `shrink-0 text-xs ${toneInk[row.tone]}`}>
+        <span className={quiet ? "sr-only" : `shrink-0 text-xs ${toneText[row.tone]}`}>
           {row.statusText}
         </span>
       </div>

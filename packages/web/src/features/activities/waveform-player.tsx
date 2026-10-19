@@ -298,7 +298,7 @@ export function WaveformPlayer({
               setMark(null);
             }
           }}
-          className="w-full cursor-pointer rounded focus-visible:ring-2 focus-visible:ring-gray-400/40"
+          className="w-full cursor-pointer rounded focus-visible:ring-2 focus-visible:ring-gray-500 dark:focus-visible:ring-gray-400"
         >
           <canvas
             ref={canvasRef}

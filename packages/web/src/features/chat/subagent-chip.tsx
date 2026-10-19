@@ -56,7 +56,7 @@ export function SubagentChip({
         {label}
       </span>
       {sessionId && (
-        <span className="shrink-0 font-mono text-[10px] text-gray-400 dark:text-gray-500">
+        <span className="shrink-0 font-mono text-3xs text-gray-500 dark:text-gray-400">
           {shortSessionId(sessionId)}
         </span>
       )}

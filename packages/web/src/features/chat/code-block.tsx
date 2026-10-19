@@ -160,7 +160,7 @@ export function CodeBlock({
         {/* Always visible — the header bar has no hover-gated container. */}
         <CopyButton text={code} label={S.chat.copyCode} />
       </div>
-      <div className="overflow-x-auto bg-white text-[13px] leading-relaxed dark:bg-gray-950">
+      <div className="overflow-x-auto bg-white text-xs leading-relaxed dark:bg-gray-950">
         <CodeSurface language={language} code={code} highlight={highlight} />
       </div>
     </div>

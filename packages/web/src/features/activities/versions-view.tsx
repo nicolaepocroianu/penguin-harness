@@ -22,7 +22,7 @@ import { Modal } from "../../components/ui/modal";
 import { Tabs } from "../../components/ui/tabs";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
-import { toneInk } from "../../lib/tone";
+import { toneInk, toneText } from "../../lib/tone";
 import type { Announcement } from "./run-toasts";
 import { SpecDiffView } from "./spec-diff-view";
 import {
@@ -216,11 +216,7 @@ export function VersionsView({
         <ul aria-label={words.status.label} className="space-y-0.5 text-xs">
           {statusLines(status).map((line) => (
             <li key={line.target}>
-              <span
-                className={`font-medium ${line.tone === "muted" ? "text-gray-500" : toneInk[line.tone]}`}
-              >
-                {line.text}
-              </span>
+              <span className={`font-medium ${toneText[line.tone]}`}>{line.text}</span>
               {line.detail && <span className="text-gray-500"> · {line.detail}</span>}
             </li>
           ))}

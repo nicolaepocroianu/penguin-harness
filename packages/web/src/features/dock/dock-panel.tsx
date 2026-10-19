@@ -284,7 +284,7 @@ function DockPicker({
               <GlyphIcon d={NAV_ICONS.terminal} size={ICON_SIZE.iconButton} />
             </span>
             <span className="min-w-0 flex-1 truncate">{S.terminal.title}</span>
-            <kbd className="shrink-0 font-mono text-[10px] text-gray-400 dark:text-gray-500">
+            <kbd className="shrink-0 font-mono text-3xs text-gray-500 dark:text-gray-400">
               Ctrl+`
             </kbd>
           </button>

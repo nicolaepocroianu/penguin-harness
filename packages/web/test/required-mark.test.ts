@@ -18,6 +18,7 @@ import { join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { Input } from "../src/components/ui/input";
+import { toneText } from "../src/lib/tone";
 import { RequiredMark } from "../src/components/ui/field";
 
 import { en } from "../src/lib/strings-en";
@@ -139,7 +140,7 @@ describe("required mark", () => {
       createElement(Input, { label: "Name", required: true, value: "", readOnly: true }),
     );
     expect(required).toContain("*");
-    expect(required).toContain("text-red-500");
+    expect(required).toContain(toneText.danger);
     // Decorative to assistive tech — aria-required on the control is what gets announced.
     expect(required).toMatch(/<span[^>]*aria-hidden[^>]*>\*<\/span>/);
     expect(required).toContain('aria-required="true"');

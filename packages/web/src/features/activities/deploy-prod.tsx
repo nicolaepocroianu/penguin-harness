@@ -20,7 +20,7 @@ import { Input } from "../../components/ui/input";
 import { apiErrorText } from "../../lib/api-error";
 import { formatDateTime } from "../../lib/format";
 import { S } from "../../lib/strings";
-import { toneInk } from "../../lib/tone";
+import { toneInk, toneText } from "../../lib/tone";
 import { prodBar, prodConfirmed, prodRefusalText, prodStatus, refusalText } from "./deploy-model";
 import { DeployStatePill } from "./deploy-state-pill";
 import { StageList } from "./deploy-timeline";
@@ -195,7 +195,7 @@ export function DeployProd({
         {bar.line && (
           <p
             role="status"
-            className={`text-sm font-medium ${toneInk[bar.line.tone]}`}
+            className={`text-sm font-medium ${toneText[bar.line.tone]}`}
             data-testid="deploy-prod-status"
           >
             {bar.line.text}

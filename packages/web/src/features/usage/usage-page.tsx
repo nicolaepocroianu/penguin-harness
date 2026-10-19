@@ -56,6 +56,7 @@ import {
   type RangePreset,
 } from "./usage-controls";
 import { ErrorsPanel } from "./errors-panel";
+import { toneText } from "../../lib/tone";
 
 /** A summary card's stat row: name on the left, value on the right — each item on its own row, so a narrow card no longer crams them into one wrapping line. */
 function SummaryRow({
@@ -467,8 +468,10 @@ export function UsagePage() {
           </ChartCard>
         )}
 
-        {hasUncostedRows && <p className="text-xs text-gray-400">{S.usage.uncostedNote}</p>}
-        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+        {hasUncostedRows && (
+          <p className="text-xs text-gray-500 dark:text-gray-400">{S.usage.uncostedNote}</p>
+        )}
+        {error && <p className={`text-xs ${toneText.danger}`}>{error}</p>}
       </div>
     </div>
   );

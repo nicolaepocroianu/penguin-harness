@@ -31,7 +31,7 @@ import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
 import { ICON_SIZE } from "../../lib/icon-scale";
-import { toneInk } from "../../lib/tone";
+import { toneInk, toneText } from "../../lib/tone";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { FieldError, FieldHint, FieldLabel } from "../../components/ui/field";
@@ -154,7 +154,7 @@ export function SemanticIdField({
           input
         ) : (
           <div className="flex min-w-0 flex-1 items-stretch">
-            <span className="flex shrink-0 items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-100 px-2 font-mono text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+            <span className="flex shrink-0 items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-100 px-2 font-mono text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
               {lockedPrefix}
             </span>
             {input}
@@ -192,7 +192,7 @@ export function SemanticIdField({
               screen beside a quiet note — it is what the user reads while typing. */}
           <FieldHint>{`${hint}${generateHint ?? S.semanticId.idGenerateHint}`}</FieldHint>
           {notice !== null && (
-            <span id={messageId} role="status" className={`mt-1 block text-xs ${toneInk.muted}`}>
+            <span id={messageId} role="status" className={`mt-1 block text-xs ${toneText.muted}`}>
               {notice.text}
             </span>
           )}

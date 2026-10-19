@@ -91,10 +91,10 @@ function ScoreTrendChart({
                 <p className="font-mono">
                   {v === null ? "—" : formatScore(v)}
                   {e.version !== undefined && (
-                    <span className="ml-1.5 text-gray-400">v{e.version}</span>
+                    <span className="ml-1.5 text-gray-500 dark:text-gray-400">v{e.version}</span>
                   )}
                 </p>
-                <p className="font-mono text-gray-400">
+                <p className="font-mono text-gray-500 dark:text-gray-400">
                   {label.unlabeled ? S.benchmark.unlabeled : label.text}
                 </p>
               </>
@@ -154,7 +154,7 @@ function TrendSection({ evaluations }: { evaluations: BenchmarkEvaluation[] }) {
           {series.map((s, i) => (
             <span
               key={s.unlabeled ? "unlabeled" : s.key}
-              className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400"
+              className="flex items-center gap-1.5 text-2xs text-gray-500 dark:text-gray-400"
             >
               <span
                 className={`inline-block h-2 w-2 shrink-0 rounded-sm ${(s.unlabeled ? NEUTRAL_SERIES : seriesColor(i)).swatch}`}
@@ -283,7 +283,9 @@ function CasesSection({
       <p className="mb-1 text-xs font-semibold text-gray-500">{S.benchmark.cases}</p>
       <div className="overflow-hidden rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
         {error && <p className={`px-3 py-2 text-xs ${toneInk.danger}`}>{error}</p>}
-        {!cases && !error && <p className="px-3 py-2 text-xs text-gray-400">{S.common.loading}</p>}
+        {!cases && !error && (
+          <p className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">{S.common.loading}</p>
+        )}
         {cases?.map((item) => {
           return (
             <button
@@ -296,7 +298,7 @@ function CasesSection({
                 <span className="block text-sm font-medium text-gray-800 dark:text-gray-200">
                   {item.title}
                 </span>
-                <span className="block truncate font-mono text-[11px] text-gray-400">
+                <span className="block truncate font-mono text-2xs text-gray-500 dark:text-gray-400">
                   {item.id}
                 </span>
               </span>

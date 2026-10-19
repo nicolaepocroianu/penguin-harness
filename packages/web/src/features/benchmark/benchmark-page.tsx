@@ -23,7 +23,7 @@ import { useDocumentTitle } from "../../lib/use-document-title";
 import { formatRelativeShort, formatScore, signedDelta } from "../../lib/format";
 import { ICON_GAP, ICON_SIZE } from "../../lib/icon-scale";
 import { STAT_ICONS } from "../../lib/stat-icons";
-import { toneInk } from "../../lib/tone";
+import { toneInk, toneText } from "../../lib/tone";
 import { agentDisplayName, useProject } from "../../state/project";
 import { useLocale } from "../../state/locale";
 import { AgentAvatar } from "../../components/ui/agent-avatar";
@@ -55,8 +55,8 @@ const TRASH_ICON =
 const AVATARS_SHOWN = 3;
 
 function deltaTone(delta: number | null): string {
-  if (delta === null || delta === 0) return toneInk.muted;
-  return delta > 0 ? toneInk.success : toneInk.danger;
+  if (delta === null || delta === 0) return toneText.muted;
+  return delta > 0 ? toneText.success : toneText.danger;
 }
 
 /**
@@ -96,7 +96,7 @@ function GuideSteps({ isOwner }: { isOwner: boolean }) {
           className="min-w-0 rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900/40 dark:text-gray-400"
         >
           <span className="flex flex-wrap items-baseline gap-x-1.5">
-            <span className="font-mono tabular-nums text-gray-400 dark:text-gray-500">{i + 1}</span>
+            <span className="font-mono tabular-nums text-gray-500 dark:text-gray-400">{i + 1}</span>
             <span className="font-semibold text-gray-900 dark:text-gray-100">{step.title}</span>
           </span>
           <p className="mt-1 leading-relaxed">
@@ -138,7 +138,7 @@ function TestedAgents({
         />
       ))}
       {rest > 0 && (
-        <span className="text-[11px] tabular-nums text-gray-400 dark:text-gray-500">+{rest}</span>
+        <span className="text-2xs tabular-nums text-gray-500 dark:text-gray-400">+{rest}</span>
       )}
     </div>
   );
@@ -192,7 +192,7 @@ export function BenchmarkCard({
       >
         <span className="flex items-center gap-2">
           <span className="min-w-0 truncate text-base font-bold">{benchmark.title}</span>
-          <span className="hidden shrink-0 font-mono text-xs text-gray-400 md:inline dark:text-gray-500">
+          <span className="hidden shrink-0 font-mono text-xs text-gray-500 dark:text-gray-400 md:inline">
             {benchmark.id}
           </span>
         </span>
@@ -233,7 +233,7 @@ export function BenchmarkCard({
               {formatScore(latest.score)}
             </span>
             <span
-              className={`block whitespace-nowrap text-[11px] tabular-nums ${deltaTone(latest.delta)}`}
+              className={`block whitespace-nowrap text-2xs tabular-nums ${deltaTone(latest.delta)}`}
             >
               {latest.delta === null
                 ? S.benchmark.firstEvaluation
@@ -243,7 +243,7 @@ export function BenchmarkCard({
             </span>
           </>
         ) : (
-          <span className="block whitespace-nowrap text-xs text-gray-400 dark:text-gray-500">
+          <span className="block whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
             {S.benchmark.notEvaluated}
           </span>
         )}

@@ -37,7 +37,7 @@ const CONTROLS = new Set([
  * alignment and stay a caller's business; the bracket form is included because it is the one that
  * silently opts a control out of the user's font-size setting.
  */
-const FONT_SIZE_CLASS = /\btext-(?:xs|sm|base|lg|xl|\d?xl|\[[^\]]+])(?![\w-])/;
+const FONT_SIZE_CLASS = /\btext-(?:\d?xs|sm|base|lg|xl|\d?xl|\[[^\]]+])(?![\w-])/;
 
 function tsxFiles(dir = SRC, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -334,7 +334,7 @@ describe("control font size", () => {
         "option-menu.tsx's `rowDescClass`; a third copy is how the rungs drifted apart before.",
     ).toEqual({
       "input.tsx": ["text-base", "text-xs"], // sizeTextClass
-      "option-menu.tsx": ["text-[11px]", "text-xs"], // rowDescClass
+      "option-menu.tsx": ["text-2xs", "text-xs"], // rowDescClass
       "select.tsx": [],
       "form-picker.tsx": [],
     });

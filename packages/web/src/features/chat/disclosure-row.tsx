@@ -50,7 +50,7 @@ export const DISCLOSURE_HEADER_STICKY_CLASS = "sticky -top-4 z-[5]";
 
 /** The header-family title (the work-group header's title styling, minus the state-dependent color the caller appends). */
 export const DISCLOSURE_HEADER_TITLE_CLASS =
-  "shrink-0 text-[11px] font-semibold uppercase tracking-wide";
+  "shrink-0 text-2xs font-semibold uppercase tracking-wide";
 
 /**
  * Expanded plain-text body, the tool cards' output styling (an exec_command's expanded

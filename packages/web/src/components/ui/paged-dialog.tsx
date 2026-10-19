@@ -80,7 +80,7 @@ export function PagedDialog<K extends string>({
           {groups.map((group) => (
             <div key={group.key} className="contents sm:mt-3 sm:block sm:first:mt-0">
               {showGroupHeadings && group.label !== undefined && (
-                <p className="hidden px-2.5 pb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400 sm:block dark:text-gray-500">
+                <p className="hidden px-2.5 pb-1 text-2xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:block">
                   {group.label}
                 </p>
               )}

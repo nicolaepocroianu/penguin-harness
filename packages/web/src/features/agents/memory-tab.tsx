@@ -33,7 +33,7 @@ import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
 import { formatRelativeDate } from "../../lib/format";
-import { toneStrip } from "../../lib/tone";
+import { toneStrip, toneText } from "../../lib/tone";
 import { useAuth } from "../../state/auth";
 import { useLocale } from "../../state/locale";
 import { useProject } from "../../state/project";
@@ -473,7 +473,7 @@ export function MemoryTab({
     }
   };
 
-  if (error) return <p className="text-sm text-red-600 dark:text-red-400">{error}</p>;
+  if (error) return <p className={`text-sm ${toneText.danger}`}>{error}</p>;
 
   const scopeTitle = (scope: MemoryScopeInfo): string =>
     scope.kind === "user"
@@ -515,14 +515,14 @@ export function MemoryTab({
   const fileRow = (scope: MemoryScopeInfo, file: MemoryFileInfo) => (
     <li key={file.name} className="flex items-center gap-3 px-3.5 py-2.5">
       <div className="min-w-0 flex-1">
-        <p className="truncate font-mono text-[13px] font-medium text-gray-800 dark:text-gray-200">
+        <p className="truncate font-mono text-xs font-medium text-gray-800 dark:text-gray-200">
           {file.title}
         </p>
         {file.description && (
           <p className="truncate text-xs text-gray-500 dark:text-gray-400">{file.description}</p>
         )}
       </div>
-      <span className="shrink-0 text-xs tabular-nums text-gray-400 dark:text-gray-500">
+      <span className="shrink-0 text-xs tabular-nums text-gray-500 dark:text-gray-400">
         {file.updatedAt ?? formatRelativeDate(file.modifiedAt, locale)}
       </span>
       {rowActions(scope, file)}
@@ -532,7 +532,7 @@ export function MemoryTab({
   /** Metadata + rendered body of the memory in view, shared by the Drawer and the Sheet. */
   const viewMeta = viewing && (
     <>
-      <span className="text-xs text-gray-400 dark:text-gray-500">
+      <span className="text-xs text-gray-500 dark:text-gray-400">
         {viewing.file.updatedAt ?? formatRelativeDate(viewing.file.modifiedAt, locale)}
       </span>
       {viewing.file.description && (
@@ -612,12 +612,12 @@ export function MemoryTab({
                       {scopeTitle(scope)}
                     </span>
                     {scope.kind === "workspace" && scope.workspacePath !== undefined && (
-                      <span className="min-w-0 truncate font-mono text-[11px] text-gray-400 dark:text-gray-500">
+                      <span className="min-w-0 truncate font-mono text-2xs text-gray-500 dark:text-gray-400">
                         {scope.workspacePath}
                       </span>
                     )}
                     <span className="min-w-0 flex-1" />
-                    <span className="shrink-0 whitespace-nowrap text-xs text-gray-400 dark:text-gray-500">
+                    <span className="shrink-0 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
                       {S.memory.itemCount(files.length)}
                     </span>
                   </button>
@@ -681,7 +681,7 @@ export function MemoryTab({
                   {/* inert while collapsed: rows at zero height shouldn't still be Tab-focusable or clickable. */}
                   <div className="overflow-hidden" inert={!open}>
                     {files.length === 0 ? (
-                      <p className="px-4 py-4 text-center text-xs text-gray-400 dark:text-gray-500">
+                      <p className="px-4 py-4 text-center text-xs text-gray-500 dark:text-gray-400">
                         {scope.kind === "user" ? S.memory.emptyUserScope : S.memory.emptyScope}
                       </p>
                     ) : (
@@ -804,7 +804,7 @@ export function MemoryTab({
         {editing && (
           <div className="space-y-2.5">
             <p className="text-xs text-gray-500 dark:text-gray-400">{S.memory.editWhy}</p>
-            <p className="break-all font-mono text-[11px] text-gray-400 dark:text-gray-500">
+            <p className="break-all font-mono text-2xs text-gray-500 dark:text-gray-400">
               {memoryFilePath(editing.scope, editing.file)}
             </p>
             <Textarea
@@ -848,7 +848,7 @@ export function MemoryTab({
         {adding && (
           <div className="space-y-2.5">
             <p className="text-xs text-gray-500 dark:text-gray-400">{S.memory.addWhy}</p>
-            <p className="break-all font-mono text-[11px] text-gray-400 dark:text-gray-500">
+            <p className="break-all font-mono text-2xs text-gray-500 dark:text-gray-400">
               {`${memoryDir}/${adding.scopeKey}`}
             </p>
             <Textarea
@@ -903,7 +903,7 @@ export function MemoryTab({
         {importing && (
           <div className="space-y-3">
             <p className="text-xs text-gray-500 dark:text-gray-400">{S.memory.importWhy}</p>
-            <p className="break-all font-mono text-[11px] text-gray-500 dark:text-gray-400">
+            <p className="break-all font-mono text-2xs text-gray-500 dark:text-gray-400">
               {S.memory.importFile(importing.fileName, importing.doc.files.length)}
             </p>
             <fieldset className="space-y-2">

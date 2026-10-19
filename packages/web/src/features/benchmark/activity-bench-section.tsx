@@ -68,7 +68,8 @@ export function ActivityBenchSection({ projectId }: { projectId: string }) {
         {words.loadFailed(error)}
       </p>
     );
-  else if (view === null) body = <p className="text-sm text-gray-400">{S.common.loading}</p>;
+  else if (view === null)
+    body = <p className="text-sm text-gray-500 dark:text-gray-400">{S.common.loading}</p>;
   else if (view.problem === "home_missing")
     body = <p className={`text-xs ${toneInk.attention}`}>{words.homeMissing}</p>;
   else if (view.home !== null && view.boards.length === 0)

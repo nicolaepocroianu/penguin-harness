@@ -33,6 +33,14 @@ describe("active dictionary", () => {
   });
 });
 
+it("declares the page in English before the app mounts", async () => {
+  // Screen readers pick their voice from <html lang>; the upstream page said zh-CN while every
+  // string the app ships is English. LocaleProvider keeps it in step after mount.
+  const { readFileSync } = await import("node:fs");
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  expect(html).toMatch(/<html lang="en">/);
+});
+
 afterEach(() => vi.unstubAllGlobals());
 
 it("uses English when a removed language preference was saved", async () => {

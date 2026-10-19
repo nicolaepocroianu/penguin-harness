@@ -79,7 +79,9 @@ function CaseRow({
                 </span>
               )}
               {title && title !== c.case && (
-                <span className="block font-mono text-[11px] text-gray-400">{c.case}</span>
+                <span className="block font-mono text-2xs text-gray-500 dark:text-gray-400">
+                  {c.case}
+                </span>
               )}
             </span>
           </span>
@@ -120,7 +122,7 @@ function CaseRow({
 function Metric({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
     <span className="min-w-0">
-      <span className="block text-[11px] text-gray-500 dark:text-gray-400">{label}</span>
+      <span className="block text-2xs text-gray-500 dark:text-gray-400">{label}</span>
       <span
         className={`block font-mono text-xs tabular-nums ${strong ? "font-semibold" : "text-gray-600 dark:text-gray-300"}`}
       >

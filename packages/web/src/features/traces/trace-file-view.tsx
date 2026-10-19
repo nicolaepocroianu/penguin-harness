@@ -56,6 +56,7 @@ import { TRACE_EVENT_PAGE_SIZE, loadTraceEventPages } from "./trace-events-loade
 import { TimelineChart } from "./timeline-chart";
 import type { TraceHighlight } from "./timeline-chart";
 import { EventRow } from "./trace-event-row";
+import { toneText } from "../../lib/tone";
 
 /**
  * Badge text for a round card, or null when the round is not a compaction turn.
@@ -127,7 +128,7 @@ function SummaryRow({ label, value, detail }: { label: string; value: string; de
       title={hasDetail ? `${label}${detail}` : undefined}
       className="flex items-baseline justify-between gap-3 py-0.5"
     >
-      <span className="shrink-0 text-[11px] text-gray-400">{label}</span>
+      <span className="shrink-0 text-2xs text-gray-500 dark:text-gray-400">{label}</span>
       <span className="truncate font-mono text-sm font-semibold tabular-nums">{value}</span>
       {hasDetail && <span className="sr-only">{detail}</span>}
     </div>
@@ -142,7 +143,7 @@ const hitRateOf = (b: Buckets): number | null => cacheHitRate(b.cacheRead, b.cac
 
 /** Shared style for stat rows (icon + value, tabular figures). */
 const CHIP_CLASS =
-  "flex shrink-0 items-center font-mono text-[11px] tabular-nums text-gray-500 dark:text-gray-400";
+  "flex shrink-0 items-center font-mono text-2xs tabular-nums text-gray-500 dark:text-gray-400";
 
 /** Icon + value; hover shows what this item is (plain text alone doesn't convey the meaning). */
 function StatChip({ icon, value, label }: { icon: string; value: string; label: string }) {
@@ -442,7 +443,7 @@ export function TraceFileView({
   // on every settled turn now, so a blip mid-read would otherwise blank a file the user is in
   // the middle of. With a file already rendered the failure is a line above it (below).
   if (error !== null && analysis === null)
-    return <p className="text-xs text-red-600 dark:text-red-400">{error}</p>;
+    return <p className={`text-xs ${toneText.danger}`}>{error}</p>;
   if (!analysis) return <Skeleton className="h-40" />;
 
   // Duration is likewise "the sum across rounds" computed by the server over
@@ -492,7 +493,7 @@ export function TraceFileView({
     <div ref={rootRef} className="space-y-4">
       {/* A re-read that failed: what follows is the last read that succeeded, so it may be a
           turn or two behind. */}
-      {error !== null && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error !== null && <p className={`text-xs ${toneText.danger}`}>{error}</p>}
       {/* Global summary: split into three groups by nature (count / Token
           usage / duration·cost·TPS), separated by vertical rules — a dozen
           metrics laid out in one row would read as a blur of digits; grouping lets you spot the kind you want at a glance. */}
@@ -585,7 +586,7 @@ export function TraceFileView({
                   user, it's housekeeping" — naming which housekeeping, since a discard round
                   clears the context rather than compacting it. */}
               {compactionBadge !== null && (
-                <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-3xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                   {compactionBadge}
                 </span>
               )}
@@ -647,9 +648,7 @@ export function TraceFileView({
                 {/* This round's timeline */}
                 {(t.segments.length > 0 || t.spans.length > 0 || t.otherSpans.length > 0) && (
                   <div className="rounded-md border border-gray-100 p-2 dark:border-gray-800/60">
-                    <p className="mb-1.5 text-[11px] font-medium text-gray-500">
-                      {S.traces.timeline}
-                    </p>
+                    <p className="mb-1.5 text-2xs font-medium text-gray-500">{S.traces.timeline}</p>
                     <TimelineChart
                       segments={t.segments}
                       toolSpans={t.spans}
@@ -664,11 +663,11 @@ export function TraceFileView({
 
                 {/* This round's messages */}
                 <div>
-                  <p className="mb-1.5 text-[11px] font-medium text-gray-500">
+                  <p className="mb-1.5 text-2xs font-medium text-gray-500">
                     {S.traces.messages}（{t.messages.length}）
                   </p>
                   {t.messages.length === 0 ? (
-                    <p className="text-xs text-gray-400">{S.common.none}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{S.common.none}</p>
                   ) : (
                     <ul className="divide-y divide-gray-100 rounded-md border border-gray-200 dark:divide-gray-800/60 dark:border-gray-800">
                       {t.messages.map((msg, i) => {
@@ -693,7 +692,9 @@ export function TraceFileView({
       })}
 
       {events.length < total && (
-        <p className="text-xs text-gray-400">{S.traces.loadingNote(events.length, total)}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          {S.traces.loadingNote(events.length, total)}
+        </p>
       )}
     </div>
   );

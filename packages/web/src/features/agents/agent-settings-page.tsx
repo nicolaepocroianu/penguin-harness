@@ -51,6 +51,7 @@ import { SNAPSHOT_ACCEPT, SNAPSHOT_BUTTON_CLASS, fileToBase64 } from "./snapshot
 import { thinkingLevelOptionsFor } from "../chat/thinking-level";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { ICON_SIZE } from "../../lib/icon-scale";
+import { toneText } from "../../lib/tone";
 
 type TabKey =
   | "overview"
@@ -239,7 +240,7 @@ export function AgentSettingsPage() {
 
   if (!projectId) return null;
   if (error && !data) {
-    return <p className="p-6 text-sm text-red-600 dark:text-red-400">{error}</p>;
+    return <p className={`p-6 text-sm ${toneText.danger}`}>{error}</p>;
   }
   if (!data) {
     return (
@@ -265,7 +266,7 @@ export function AgentSettingsPage() {
           {S.agent.backToList}
         </Button>
         <h1 className="mb-1 text-xl font-semibold">{data.config.name ?? agentId}</h1>
-        <p className="mb-4 font-mono text-xs text-gray-400">{agentId}</p>
+        <p className="mb-4 font-mono text-xs text-gray-500 dark:text-gray-400">{agentId}</p>
         {/* The kernel update action lives in the Overview tab's Kernel section, so the trail
             from the Agents list has to cross the tab strip to reach it. */}
         <Tabs
@@ -510,9 +511,7 @@ function OverviewTab({
             </div>
           </div>
         </div>
-        {importError && (
-          <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{importError}</p>
-        )}
+        {importError && <p className={`mt-1.5 text-xs ${toneText.danger}`}>{importError}</p>}
       </section>
 
       {/* Kernel section (same ruled family as Agent State — no lone card): the defaults

@@ -268,7 +268,7 @@ export function TicketsPage() {
         <div className="flex items-start gap-1.5">
           <TitleButton
             title={S.company.tickets.openTicket}
-            className="line-clamp-2 flex-1 text-[13px] font-medium leading-snug text-gray-900 dark:text-gray-100"
+            className="line-clamp-2 flex-1 text-xs font-medium leading-snug text-gray-900 dark:text-gray-100"
             onClick={() => openTicket(t.ticketId)}
           >
             {t.title}
@@ -288,7 +288,7 @@ export function TicketsPage() {
         {/* The time-bound line, drawn only when there is something on it: the priority has
             moved up to the title and an empty row would leave a gap under it. */}
         {(t.due !== undefined || isBlocked(t)) && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-2xs text-gray-500 dark:text-gray-400">
             {t.due !== undefined && (
               <span
                 className={`inline-flex items-center gap-1 font-mono tabular-nums ${overdue ? toneInk.danger : ""}`}
@@ -310,14 +310,11 @@ export function TicketsPage() {
           </div>
         )}
         {t.parent !== undefined && (
-          <p
-            className="mt-2 truncate text-[11px] text-gray-400 dark:text-gray-500"
-            title={t.parent}
-          >
+          <p className="mt-2 truncate text-2xs text-gray-500 dark:text-gray-400" title={t.parent}>
             {S.company.tickets.parentLine(titles.get(t.parent) ?? t.parent)}
           </p>
         )}
-        <div className="mt-2 flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+        <div className="mt-2 flex items-center gap-2 text-2xs text-gray-500 dark:text-gray-400">
           <span
             className="flex min-w-0 text-gray-700 dark:text-gray-200"
             title={`${S.company.tickets.owner} ${principalLabel(t.owner, names)}`}
@@ -424,7 +421,7 @@ export function TicketsPage() {
                     <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
                       {S.company.tickets.columns[col.status] ?? col.status}
                     </span>
-                    <span className="rounded-full bg-gray-200/70 px-1.5 py-px text-[11px] font-medium tabular-nums text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                    <span className="rounded-full bg-gray-200/70 px-1.5 py-px text-2xs font-medium tabular-nums text-gray-600 dark:bg-gray-800 dark:text-gray-300">
                       {col.tickets.length}
                     </span>
                   </div>
@@ -432,10 +429,10 @@ export function TicketsPage() {
                     {col.tickets.map(card)}
                     {col.tickets.length === 0 && (
                       <div
-                        className={`flex min-h-20 flex-1 items-center justify-center rounded-md border border-dashed px-2 text-center text-[11px] ${
+                        className={`flex min-h-20 flex-1 items-center justify-center rounded-md border border-dashed px-2 text-center text-2xs ${
                           dropOver === col.status
                             ? "border-[var(--accent-bg)] text-gray-600 dark:text-gray-300"
-                            : "border-gray-300 text-gray-400 dark:border-gray-700 dark:text-gray-500"
+                            : "border-gray-300 text-gray-500 dark:text-gray-400 dark:border-gray-700"
                         }`}
                       >
                         {drag !== null && canMove(drag.from, col.status)

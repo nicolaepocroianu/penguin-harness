@@ -15,7 +15,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { Chevron } from "../../components/ui/chevron";
 import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
-import { toneDot, toneInk, type Tone } from "../../lib/tone";
+import { toneDot, toneText, type Tone } from "../../lib/tone";
 import type { MediaPreview } from "./media-preview";
 import { MediaThumb } from "./media-thumb";
 import type { SceneAssetSelection } from "./scene-asset-tree";
@@ -65,13 +65,13 @@ function Trail({ trail }: { trail: SectionTrail }) {
   const words = S.activities.studioTree.trail;
   if (trail.kind === "count")
     return (
-      <span className="ml-2 shrink-0 text-xs text-gray-400 tabular-nums dark:text-gray-500">
+      <span className="ml-2 shrink-0 text-xs text-gray-500 dark:text-gray-400 tabular-nums">
         {trail.count}
       </span>
     );
   const tone = TRAIL_TONE[trail.kind];
   return (
-    <span className={`ml-2 inline-flex shrink-0 items-center gap-1 text-xs ${toneInk[tone]}`}>
+    <span className={`ml-2 inline-flex shrink-0 items-center gap-1 text-xs ${toneText[tone]}`}>
       <span aria-hidden className={`size-1.5 rounded-full ${toneDot[tone]}`} />
       {/* A valid section only needs its dot; the word is for whoever cannot see it. */}
       <span className={trail.kind === "valid" ? "sr-only" : ""}>{words[trail.kind]}</span>
@@ -160,12 +160,12 @@ export function StudioTreeView({
             }}
             className={`min-w-0 flex-1 truncate py-1 text-left text-xs ${
               depth === 0 ? "font-medium" : ""
-            } ${node.disabled ? "cursor-not-allowed text-gray-400 dark:text-gray-600" : ""}`}
+            } ${node.disabled ? "cursor-not-allowed text-gray-500 dark:text-gray-400" : ""}`}
           >
             {node.sceneNumber !== undefined && (
               <span
                 aria-hidden
-                className="mr-1.5 inline-block min-w-3 font-mono text-xs text-gray-400 tabular-nums dark:text-gray-500"
+                className="mr-1.5 inline-block min-w-3 font-mono text-xs text-gray-500 dark:text-gray-400 tabular-nums"
               >
                 {node.sceneNumber}
               </span>
@@ -184,7 +184,7 @@ export function StudioTreeView({
             {label}
           </button>
           {node.waitsFor && (
-            <span aria-hidden className="ml-2 shrink-0 text-xs text-gray-400 dark:text-gray-600">
+            <span aria-hidden className="ml-2 shrink-0 text-xs text-gray-500 dark:text-gray-400">
               {words.waits[node.waitsFor]}
             </span>
           )}
@@ -227,7 +227,7 @@ export function StudioTreeView({
                 <li
                   role="none"
                   aria-hidden
-                  className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-gray-400 first:pt-1 dark:text-gray-500"
+                  className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 first:pt-1"
                 >
                   {S.activities.studioTree.phases[phase!]}
                 </li>

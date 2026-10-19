@@ -78,6 +78,7 @@ import type { PickableItem } from "../skills/skill-pick-list";
 import { addSkillNames, removeSkillNames, toggleSkillName } from "../skills/skill-selection";
 import { ICON_SIZE } from "../../lib/icon-scale";
 import { AiCreateModal, CreateButtons } from "../ai-create";
+import { toneText } from "../../lib/tone";
 
 /** Built-in Agents shipped with every Project (the server also rejects their deletion, so no delete entry point is shown here). */
 const BUILTIN_AGENT_IDS = new Set(["default_agent", "media_agent", "activity_agent"]);
@@ -518,7 +519,7 @@ export function AgentsPage() {
                       <span className="min-w-0 truncate text-base font-bold">
                         {agentDisplayName(a)}
                       </span>
-                      <span className="hidden shrink-0 font-mono text-xs text-gray-400 md:inline dark:text-gray-500">
+                      <span className="hidden shrink-0 font-mono text-xs text-gray-500 dark:text-gray-400 md:inline">
                         {a.agentId}
                       </span>
                       <Badge tone="gray">v{a.version}</Badge>
@@ -965,9 +966,7 @@ export function AgentsPage() {
         <p className="text-sm text-gray-600 dark:text-gray-300">
           {deleting ? S.agent.deleteConfirm(deleting.name) : ""}
         </p>
-        {deleteError && (
-          <p className="mt-2 text-xs text-red-600 dark:text-red-400">{deleteError}</p>
-        )}
+        {deleteError && <p className={`mt-2 text-xs ${toneText.danger}`}>{deleteError}</p>}
       </ConfirmModal>
     </div>
   );

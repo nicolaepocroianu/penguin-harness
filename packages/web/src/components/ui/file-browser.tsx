@@ -32,6 +32,7 @@ import { languageForExtension } from "../../features/chat/code-languages";
 import { FileTree } from "./file-tree";
 import type { TreeToggle } from "./file-tree";
 import { SkeletonList } from "./skeleton";
+import { toneText } from "../../lib/tone";
 
 /** A reference naming a scheme of its own (`https:`, `mailto:`) points outside the browsed files. */
 const EXTERNAL_REF_RE = /^[a-z][a-z0-9+.-]*:/i;
@@ -211,7 +212,9 @@ export function FileBrowser<Row extends FileTreeRow>({
   /** The note under a preview that stopped short of the whole file. */
   const truncatedNote = (p: FileBrowserPreview): ReactNode => {
     if (p.truncated !== true) return null;
-    return <p className="mt-2 text-xs text-gray-400">{S.files.previewTruncated}</p>;
+    return (
+      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{S.files.previewTruncated}</p>
+    );
   };
 
   const previewBody = (): ReactNode => {
@@ -220,10 +223,11 @@ export function FileBrowser<Row extends FileTreeRow>({
       // either, so the pane waits with the tree rather than announcing an empty browser; a
       // listing that failed is done waiting, and the host's empty text says what happened.
       if (treeLoading && treeError === null) return <SkeletonList rows={8} />;
-      return <p className="text-sm text-gray-400">{emptyPreview}</p>;
+      return <p className="text-sm text-gray-500 dark:text-gray-400">{emptyPreview}</p>;
     }
     if (preview.loading === true) return <SkeletonList rows={8} />;
-    if (preview.error !== undefined) return <p className="text-sm text-red-500">{preview.error}</p>;
+    if (preview.error !== undefined)
+      return <p className={`text-sm ${toneText.danger}`}>{preview.error}</p>;
     if (preview.kind === "image") {
       return (
         <img
@@ -285,7 +289,9 @@ export function FileBrowser<Row extends FileTreeRow>({
           the browser stays put while a file is read. */}
       <aside className="border-b border-gray-200 bg-gray-50/60 md:border-b-0 md:border-r dark:border-gray-800 dark:bg-gray-950/30">
         <div className="max-h-44 overflow-y-auto md:max-h-[var(--fb-tree-max-height)]">
-          {treeError !== null && <p className="px-3 py-2 text-xs text-red-500">{treeError}</p>}
+          {treeError !== null && (
+            <p className={`px-3 py-2 text-xs ${toneText.danger}`}>{treeError}</p>
+          )}
           {/* A `tree` with no `treeitem` in it is not one: while the listing is in flight, or
               when it failed or held nothing, the aside carries the skeleton or the error and
               no tree at all. */}

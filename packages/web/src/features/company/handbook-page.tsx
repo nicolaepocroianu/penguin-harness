@@ -339,13 +339,13 @@ export function HandbookPage() {
                   in a list of them. The explorer row carries the same sentence in its tooltip
                   and its accessible name. */}
               {isIndex && (
-                <span className="shrink-0 rounded-full bg-gray-100 px-1.5 text-[10px] font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                <span className="shrink-0 rounded-full bg-gray-100 px-1.5 text-3xs font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                   {S.company.handbook.indexLabel}
                 </span>
               )}
               {selectedFile !== null && (
                 <span
-                  className="hidden shrink-0 text-[11px] text-gray-400 sm:inline dark:text-gray-500"
+                  className="hidden shrink-0 text-2xs text-gray-500 dark:text-gray-400 sm:inline"
                   title={S.company.handbook.updatedAt(
                     formatDateTime(selectedFile.updatedAt),
                     formatBytes(selectedFile.size),
@@ -358,7 +358,7 @@ export function HandbookPage() {
             <div className="flex shrink-0 items-center gap-1.5">
               {editing ? (
                 <>
-                  <span className="hidden text-[11px] text-gray-400 sm:inline dark:text-gray-500">
+                  <span className="hidden text-2xs text-gray-500 dark:text-gray-400 sm:inline">
                     {S.company.handbook.editorHint}
                   </span>
                   <Button size="sm" disabled={saving} onClick={() => setEditing(false)}>

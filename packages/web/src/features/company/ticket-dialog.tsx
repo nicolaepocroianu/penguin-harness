@@ -374,7 +374,7 @@ function TicketDialog({
         onChange={(e) => setTextDraft(e.target.value)}
       />
     ) : text.trim() === "" ? (
-      <p className="text-xs text-gray-400 dark:text-gray-500">{empty}</p>
+      <p className="text-xs text-gray-500 dark:text-gray-400">{empty}</p>
     ) : (
       <div className="md-body text-sm leading-relaxed text-gray-800 dark:text-gray-100">
         <Md text={text} />
@@ -593,7 +593,7 @@ function TicketDialog({
                           />
                         </>
                       ) : (
-                        <span className="text-gray-400 dark:text-gray-500">
+                        <span className="text-gray-500 dark:text-gray-400">
                           {S.company.tickets.noParent}
                         </span>
                       ),
@@ -601,7 +601,7 @@ function TicketDialog({
                     {row(
                       S.company.tickets.notify,
                       detail.notify.length === 0 ? (
-                        <span className="text-gray-400 dark:text-gray-500">{S.common.none}</span>
+                        <span className="text-gray-500 dark:text-gray-400">{S.common.none}</span>
                       ) : (
                         <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                           {detail.notify.map((p) => (
@@ -629,7 +629,7 @@ function TicketDialog({
                             ` · ${S.company.tickets.overdue}`}
                         </span>
                       ) : (
-                        <span className="text-gray-400 dark:text-gray-500">
+                        <span className="text-gray-500 dark:text-gray-400">
                           {S.company.tickets.noDue}
                         </span>
                       ),
@@ -663,7 +663,7 @@ function TicketDialog({
                   bullets are md-compact so a one-line note reads as a line, not a paragraph. */}
               <OrgSection title={S.company.tickets.progress}>
                 {detail.progress.length === 0 ? (
-                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     {S.company.tickets.progressEmpty}
                   </p>
                 ) : (
@@ -708,7 +708,7 @@ function TicketDialog({
                 }
               >
                 {children.length === 0 ? (
-                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     {S.company.tickets.childrenEmpty}
                   </p>
                 ) : (
@@ -726,7 +726,7 @@ function TicketDialog({
                         )}
                         {"cost" in c && (
                           <span
-                            className="shrink-0 font-mono text-[11px] tabular-nums text-gray-400 dark:text-gray-500"
+                            className="shrink-0 font-mono text-2xs tabular-nums text-gray-500 dark:text-gray-400"
                             title={S.company.tickets.cost}
                           >
                             {formatMoney(c.cost, currency)}
@@ -754,7 +754,7 @@ function TicketDialog({
                 }
               >
                 {detail.sessionItems.length === 0 ? (
-                  <p className="text-xs text-gray-400 dark:text-gray-500">{S.common.none}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{S.common.none}</p>
                 ) : (
                   <ul className="space-y-0.5">
                     {detail.sessionItems.map((s) => (
@@ -764,7 +764,7 @@ function TicketDialog({
                           {s.title ?? s.sessionId}
                         </span>
                         {s.lastActiveAt !== undefined && (
-                          <span className="shrink-0 font-mono text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
+                          <span className="shrink-0 font-mono text-2xs tabular-nums text-gray-500 dark:text-gray-400">
                             {formatDateTime(s.lastActiveAt)}
                           </span>
                         )}
@@ -789,7 +789,7 @@ function TicketDialog({
                 summary={history.length === 0 ? S.common.none : `${history.length}`}
               >
                 {history.length === 0 ? (
-                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     {S.company.tickets.historyEmpty}
                   </p>
                 ) : (
@@ -803,7 +803,7 @@ function TicketDialog({
                           : [
                               <span
                                 key="at"
-                                className="shrink-0 font-mono tabular-nums text-gray-400 dark:text-gray-500"
+                                className="shrink-0 font-mono tabular-nums text-gray-500 dark:text-gray-400"
                                 title={h.at}
                               >
                                 {formatDateTime(h.at)}
@@ -1071,11 +1071,11 @@ function Fold({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((v) => !v)}
-        className={`flex w-full items-center ${ICON_GAP.row} border-b border-gray-200 pb-2 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 transition-colors duration-150 hover:text-gray-800 dark:border-gray-800 dark:text-gray-400 dark:hover:text-gray-200`}
+        className={`flex w-full items-center ${ICON_GAP.row} border-b border-gray-200 pb-2 text-left text-2xs font-semibold uppercase tracking-wide text-gray-500 transition-colors duration-150 hover:text-gray-800 dark:border-gray-800 dark:text-gray-400 dark:hover:text-gray-200`}
       >
         <Chevron open={open} size={ICON_SIZE.chevronDense} />
         <span className="min-w-0 truncate">{title}</span>
-        <span className="min-w-0 truncate font-normal normal-case tracking-normal text-gray-400 dark:text-gray-500">
+        <span className="min-w-0 truncate font-normal normal-case tracking-normal text-gray-500 dark:text-gray-400">
           · {summary}
         </span>
       </button>

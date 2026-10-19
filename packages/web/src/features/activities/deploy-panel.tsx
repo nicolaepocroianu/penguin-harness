@@ -26,7 +26,7 @@ import {
 import { apiErrorText } from "../../lib/api-error";
 import { settingsDialog } from "../../lib/settings-dialog-store";
 import { S } from "../../lib/strings";
-import { toneDot, toneInk, toneStrip } from "../../lib/tone";
+import { toneDot, toneInk, toneStrip, toneText } from "../../lib/tone";
 import { useAuth } from "../../state/auth";
 import { useActivityClient } from "./activity-client";
 import {
@@ -351,7 +351,7 @@ export function DeployPanel({
               <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                 <p
                   role="status"
-                  className={`text-sm font-medium ${toneInk[line.tone]}`}
+                  className={`text-sm font-medium ${toneText[line.tone]}`}
                   data-testid="deploy-readiness"
                 >
                   {line.text}

@@ -147,7 +147,9 @@ export function TracePanel({
           </p>
         )}
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-xs text-gray-400">{S.traces.filesTitle}</span>
+          <span className="mr-1 text-xs text-gray-500 dark:text-gray-400">
+            {S.traces.filesTitle}
+          </span>
           {visibleFiles.map((f) => (
             <button
               key={f.index}
@@ -176,7 +178,7 @@ export function TracePanel({
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <p className="min-w-0 flex-1 truncate font-mono text-xs text-gray-400">
+          <p className="min-w-0 flex-1 truncate font-mono text-xs text-gray-500 dark:text-gray-400">
             {activeFile.date} · {formatBytes(activeFile.sizeBytes)}
           </p>
           {/* Raw-file download for the selected Trace file (same styling as the inactive pills). */}

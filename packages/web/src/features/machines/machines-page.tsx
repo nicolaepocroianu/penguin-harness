@@ -34,7 +34,7 @@ import { apiErrorText } from "../../lib/api-error";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import { useProject } from "../../state/project";
 import { formatDateTime } from "../../lib/format";
-import { toneInk, toneStrip } from "../../lib/tone";
+import { toneInk, toneStrip, toneText } from "../../lib/tone";
 import type { Tone } from "../../lib/tone";
 import { ICON_SIZE } from "../../lib/icon-scale";
 import { Button } from "../../components/ui/button";
@@ -209,7 +209,7 @@ export function MachinesPage() {
                         <GlyphIcon d={NAV_ICONS.machines} size={ICON_SIZE.rowLead} />
                       </span>
                       <span
-                        className={`min-w-0 flex-1 truncate ${selected === null ? "text-gray-400 dark:text-gray-500" : ""}`}
+                        className={`min-w-0 flex-1 truncate ${selected === null ? "text-gray-500 dark:text-gray-400" : ""}`}
                       >
                         {selected?.alias ?? S.machines.pick}
                       </span>
@@ -242,7 +242,7 @@ export function MachinesPage() {
                       className="flex w-full min-w-0 items-center gap-2 px-3.5 py-2 text-left text-sm transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800"
                     >
                       <span
-                        className={`min-w-0 flex-1 truncate ${positions.length > 0 ? "text-gray-400 dark:text-gray-500" : ""}`}
+                        className={`min-w-0 flex-1 truncate ${positions.length > 0 ? "text-gray-500 dark:text-gray-400" : ""}`}
                       >
                         {positions.length === 0
                           ? machine.alias
@@ -269,12 +269,12 @@ export function MachinesPage() {
                     </button>
                   ))}
                   {visible.length === 0 && (
-                    <p className="px-3.5 py-2 text-sm text-gray-400 dark:text-gray-500">
+                    <p className="px-3.5 py-2 text-sm text-gray-500 dark:text-gray-400">
                       {S.machines.noMatch}
                     </p>
                   )}
                   {hiddenCount > 0 && (
-                    <p className="px-3.5 pt-1 pb-1.5 text-xs text-gray-400 dark:text-gray-500">
+                    <p className="px-3.5 pt-1 pb-1.5 text-xs text-gray-500 dark:text-gray-400">
                       {S.machines.more(hiddenCount)}
                     </p>
                   )}
@@ -334,7 +334,7 @@ export function MachinesPage() {
                       <span className={`shrink-0 text-xs ${toneInk.success}`}>
                         {machine.installed!.version}
                       </span>
-                      <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
+                      <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
                         {formatDateTime(machine.installed!.at)}
                       </span>
                     </button>
@@ -353,7 +353,7 @@ export function MachinesPage() {
                     <span className={`text-xs ${toneInk.busy}`}>{S.machines.installing}</span>
                   ) : (
                     verdictText !== null && (
-                      <span className={`text-xs ${toneInk[verdictText.tone]}`}>
+                      <span className={`text-xs ${toneText[verdictText.tone]}`}>
                         {verdictText.text}
                       </span>
                     )

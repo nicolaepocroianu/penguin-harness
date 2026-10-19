@@ -29,7 +29,7 @@ import { SkeletonList } from "../../components/ui/skeleton";
 import { toastError, toastSuccess } from "../../components/ui/toast";
 import { usePromptInjection } from "./prompt-injection-controls";
 import { HelpFold } from "../../components/ui/help-fold";
-import { toneStrip } from "../../lib/tone";
+import { toneStrip, toneText } from "../../lib/tone";
 import { AiCreateModal, CreateButtons } from "../ai-create";
 
 /** Vault key naming rule (consistent with core/server): shell environment variable name. */
@@ -328,7 +328,7 @@ export function VaultTab({
         </p>
       </ConfirmModal>
 
-      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className={`text-xs ${toneText.danger}`}>{error}</p>}
     </div>
   );
 }

@@ -15,7 +15,7 @@ import { GlyphIcon } from "../../components/ui/glyph-icon";
 import { ChevronDown } from "../../components/ui/icons";
 import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
-import { toneInk, type Tone } from "../../lib/tone";
+import { toneInk, toneText, type Tone } from "../../lib/tone";
 import type {
   JourneyStep,
   JourneyStepKey,
@@ -36,10 +36,6 @@ const MARK_PATH: Record<StepMark, string> = {
   busy: "M12 3a9 9 0 1 1-9 9",
   todo: RING,
 };
-
-function inkOf(tone: Tone): string {
-  return tone === "muted" ? "text-gray-500 dark:text-gray-400" : toneInk[tone];
-}
 
 export function StepMarkIcon({ mark, tone }: { mark: StepMark; tone: Tone }) {
   return (
@@ -99,7 +95,7 @@ export function JourneySteps({
                 <StepMarkIcon mark={step.mark} tone={step.tone} />
                 <span className="grid min-w-0 text-xs leading-tight">
                   <span className="truncate font-medium @max-xl:sr-only">{step.label}</span>
-                  <span className={`truncate @max-3xl:sr-only ${inkOf(step.tone)}`}>
+                  <span className={`truncate @max-3xl:sr-only ${toneText[step.tone]}`}>
                     {step.state}
                   </span>
                 </span>

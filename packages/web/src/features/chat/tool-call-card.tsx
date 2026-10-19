@@ -34,7 +34,7 @@ import {
 import { Button } from "../../components/ui/button";
 import { CopyButton } from "../../components/ui/copy-button";
 import { ZoomableImage } from "../../components/ui/image-zoom";
-import { toneInk } from "../../lib/tone";
+import { toneText } from "../../lib/tone";
 import { StatusIcon } from "../../components/ui/status-icon";
 import type { RunState } from "../../components/ui/status-icon";
 import { ApprovalButtons } from "./approval-buttons";
@@ -449,7 +449,7 @@ export function ToolCallCard({ item, ctx }: { item: ToolCallItem; ctx: StreamRen
           )}
           {/* A run log's blank reasoning before this step, kept as time rather than as a row. */}
           {thoughtMs !== undefined && (
-            <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
+            <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
               {S.chat.thoughtFor(humanizeDuration(thoughtMs))}
             </span>
           )}
@@ -485,7 +485,7 @@ export function ToolCallCard({ item, ctx }: { item: ToolCallItem; ctx: StreamRen
           word after the duration and an action further along. The row's own status icon
           keeps saying what the CALL did; this says where its work went. */}
         {(isBackgroundCall(item.argumentsText) || isDetachedCall(item.output)) && (
-          <span className={`shrink-0 font-mono text-xs ${toneInk.muted}`}>
+          <span className={`shrink-0 font-mono text-xs ${toneText.muted}`}>
             {S.chat.backgroundCall}
           </span>
         )}

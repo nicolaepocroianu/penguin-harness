@@ -24,7 +24,7 @@ import { LiveDuration } from "../chat/live-duration";
 import { ShowReasoningSwitch } from "./show-reasoning-switch";
 import { useShowReasoning } from "./run-log-prefs";
 import { S } from "../../lib/strings";
-import { toneDot, toneInk, type Tone } from "../../lib/tone";
+import { toneDot, toneInk, toneText, type Tone } from "../../lib/tone";
 import { MessageStream } from "../chat/message-stream";
 import { useSessionTranscript } from "./use-session-transcript";
 
@@ -368,7 +368,7 @@ function StepRow({
           {step.status === "succeeded" ? (
             <span className="sr-only">{words.status.succeeded}</span>
           ) : (
-            <span className={`shrink-0 text-xs ${toneInk[tone]}`}>
+            <span className={`shrink-0 text-xs ${toneText[tone]}`}>
               {step.total > 0 && running
                 ? words.progress(step.done, step.total)
                 : words.status[step.status]}
@@ -610,7 +610,7 @@ export function PipelinePanel({
           </div>
         )}
         <div className="flex items-baseline gap-2 text-xs">
-          <p aria-live="polite" className={`min-w-0 flex-1 truncate ${toneInk[line.tone]}`}>
+          <p aria-live="polite" className={`min-w-0 flex-1 truncate ${toneText[line.tone]}`}>
             {line.text}
           </p>
           <span className="shrink-0 text-gray-500 dark:text-gray-400">

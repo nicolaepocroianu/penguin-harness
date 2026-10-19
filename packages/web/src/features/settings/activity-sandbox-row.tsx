@@ -10,7 +10,7 @@ import type { ActivitySandboxState } from "@prismshadow/penguin-server/api";
 import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
-import { toneInk, type Tone } from "../../lib/tone";
+import { toneInk, toneText, type Tone } from "../../lib/tone";
 import { Button } from "../../components/ui/button";
 import { Switch } from "../../components/ui/switch";
 import { toastError, toastSuccess } from "../../components/ui/toast";
@@ -86,7 +86,7 @@ export function ActivitySandboxRow() {
       )}
       {line !== null && (
         <p
-          className={`pt-2 text-sm ${toneInk[line.tone]}`}
+          className={`pt-2 text-sm ${toneText[line.tone]}`}
           aria-live="polite"
           data-testid="activity-sandbox-status"
         >

@@ -25,7 +25,7 @@ import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
 import { ICON_SIZE } from "../../lib/icon-scale";
-import { toneInk } from "../../lib/tone";
+import { toneInk, toneText } from "../../lib/tone";
 import { useLocale } from "../../state/locale";
 import { useProject } from "../../state/project";
 import { Badge } from "../../components/ui/badge";
@@ -273,7 +273,7 @@ export function SchedulePanel({ session, active, onPrefillComposer }: SchedulePa
 
         {items === null ? (
           error !== null ? (
-            <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+            <p className={`text-xs ${toneText.danger}`}>{error}</p>
           ) : (
             <SkeletonList rows={3} />
           )

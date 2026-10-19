@@ -71,7 +71,7 @@ export function FormPicker({
         >
           {leading}
           <span
-            className={`min-w-0 flex-1 truncate ${muted ? "text-gray-400" : ""} ${labelClassName}`}
+            className={`min-w-0 flex-1 truncate ${muted ? "text-gray-500 dark:text-gray-400" : ""} ${labelClassName}`}
           >
             {label}
           </span>

@@ -61,7 +61,7 @@ export function StepBanner({
     <>
       <StatusIcon state={state} />
       <span
-        className={`shrink-0 text-[11px] font-semibold tracking-wide uppercase ${running ? toneInk.busy : "text-gray-500 dark:text-gray-400"}`}
+        className={`shrink-0 text-2xs font-semibold tracking-wide uppercase ${running ? toneInk.busy : "text-gray-500 dark:text-gray-400"}`}
       >
         {title}
       </span>
@@ -70,19 +70,22 @@ export function StepBanner({
           right edge. min-w-0 (not flex-1) lets a long detail truncate while a short one
           keeps the duration snug against it. */}
       {detail !== undefined && (
-        <span title={detail} className="min-w-0 truncate font-mono text-xs text-gray-400">
+        <span
+          title={detail}
+          className="min-w-0 truncate font-mono text-xs text-gray-500 dark:text-gray-400"
+        >
           {detail}
         </span>
       )}
       {running
         ? liveSinceMs !== undefined && (
-            <span className="shrink-0 font-mono text-xs text-gray-400">
+            <span className="shrink-0 font-mono text-xs text-gray-500 dark:text-gray-400">
               <LiveDuration sinceMs={liveSinceMs} />
             </span>
           )
         : durationMs !== undefined &&
           durationMs > 0 && (
-            <span className="shrink-0 font-mono text-xs text-gray-400">
+            <span className="shrink-0 font-mono text-xs text-gray-500 dark:text-gray-400">
               {humanizeDuration(durationMs)}
             </span>
           )}

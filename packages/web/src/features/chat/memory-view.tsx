@@ -147,12 +147,12 @@ export function ChatMemoryView({
             <GlyphIcon d={glyph.d} size={ICON_SIZE.rowLead} />
             <span className="sr-only">{glyph.title}</span>
           </span>
-          <p className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold">
+          <p className="min-w-0 flex-1 truncate font-mono text-xs font-semibold">
             {listedRow?.title ?? target.file}
           </p>
           {listedRow &&
             (listedRow.updatedAt !== undefined || listedRow.modifiedAt !== undefined) && (
-              <span className="shrink-0 text-xs tabular-nums text-gray-400 dark:text-gray-500">
+              <span className="shrink-0 text-xs tabular-nums text-gray-500 dark:text-gray-400">
                 {listedRow.updatedAt ??
                   (listedRow.modifiedAt !== undefined
                     ? formatRelativeDate(listedRow.modifiedAt, locale)
@@ -167,7 +167,7 @@ export function ChatMemoryView({
           {!loaded || (!detail.failed && detail.content === null) ? (
             <SkeletonList rows={3} />
           ) : detail.failed ? (
-            <p className="text-xs text-gray-400 dark:text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               {S.chat.memoryContentUnavailable}
             </p>
           ) : (
@@ -209,7 +209,7 @@ export function ChatMemoryView({
           <SkeletonList rows={3} />
         </div>
       ) : groups.every((g) => g.rows.length === 0) ? (
-        <p className="px-3.5 py-2 text-xs text-gray-400 dark:text-gray-500">
+        <p className="px-3.5 py-2 text-xs text-gray-500 dark:text-gray-400">
           {S.chat.memoryEmptyAll}
         </p>
       ) : (
@@ -229,7 +229,7 @@ export function ChatMemoryView({
                 >
                   {groupTitle(group)}
                 </p>
-                <span className="shrink-0 text-xs tabular-nums text-gray-400 dark:text-gray-500">
+                <span className="shrink-0 text-xs tabular-nums text-gray-500 dark:text-gray-400">
                   {S.memory.itemCount(group.rows.length)}
                 </span>
               </div>
@@ -242,7 +242,7 @@ export function ChatMemoryView({
                       className="flex w-full cursor-pointer items-center gap-3 px-3.5 py-2 text-left transition-colors duration-150 hover:bg-gray-50 dark:hover:bg-gray-800/50"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="flex items-center gap-1.5 truncate font-mono text-[13px] font-medium text-gray-800 dark:text-gray-200">
+                        <p className="flex items-center gap-1.5 truncate font-mono text-xs font-medium text-gray-800 dark:text-gray-200">
                           {row.changed !== undefined && (
                             <span
                               title={S.chat.memoryChangedMark}
@@ -260,7 +260,7 @@ export function ChatMemoryView({
                         )}
                       </div>
                       {(row.updatedAt !== undefined || row.modifiedAt !== undefined) && (
-                        <span className="shrink-0 text-xs tabular-nums text-gray-400 dark:text-gray-500">
+                        <span className="shrink-0 text-xs tabular-nums text-gray-500 dark:text-gray-400">
                           {row.updatedAt ??
                             (row.modifiedAt !== undefined
                               ? formatRelativeDate(row.modifiedAt, locale)

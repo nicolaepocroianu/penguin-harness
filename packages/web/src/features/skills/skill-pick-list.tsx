@@ -75,7 +75,7 @@ export function SkillPickList({
       </div>
       {bulk && skills.length > 0 && (
         <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-3 py-1 dark:border-gray-800">
-          <span className="min-w-0 truncate text-xs text-gray-400 dark:text-gray-500">
+          <span className="min-w-0 truncate text-xs text-gray-500 dark:text-gray-400">
             {S.skills.selectedCount(selected.length)}
           </span>
           <span className="flex shrink-0 items-center gap-0.5">
@@ -98,9 +98,11 @@ export function SkillPickList({
       )}
       <div className="max-h-56 overflow-y-auto">
         {skills.length === 0 ? (
-          <p className="px-3 py-1.5 text-xs text-gray-400">{emptyHint}</p>
+          <p className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400">{emptyHint}</p>
         ) : filtered.length === 0 ? (
-          <p className="px-3 py-1.5 text-xs text-gray-400">{S.chat.skillsNoMatch}</p>
+          <p className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400">
+            {S.chat.skillsNoMatch}
+          </p>
         ) : (
           filtered.map((s) => {
             const on = selected.includes(s.name);
@@ -125,7 +127,7 @@ export function SkillPickList({
                 />
                 <span className="shrink-0 font-mono">{s.name}</span>
                 {/* Prefers the short description (falls back to the full description if missing), per the UI language. */}
-                <span className="min-w-0 flex-1 truncate text-gray-400 dark:text-gray-500">
+                <span className="min-w-0 flex-1 truncate text-gray-500 dark:text-gray-400">
                   {localizedShortText(locale, s)}
                 </span>
                 <span className="w-3 shrink-0 text-center">{on ? "✓" : ""}</span>

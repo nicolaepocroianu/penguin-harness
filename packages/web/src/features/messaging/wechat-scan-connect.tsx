@@ -351,9 +351,9 @@ export function WeChatScanConnect({
         {/* Only shown once a code has actually lapsed: a standing note that codes expire is
             noise until one does. */}
         {phase.refreshed && (
-          <p className="text-gray-400 dark:text-gray-500">{S.wechat.scanRefreshed}</p>
+          <p className="text-gray-500 dark:text-gray-400">{S.wechat.scanRefreshed}</p>
         )}
-        <p className="text-gray-400 dark:text-gray-500">{S.wechat.scanPrivacy}</p>
+        <p className="text-gray-500 dark:text-gray-400">{S.wechat.scanPrivacy}</p>
         <Button size="sm" variant="ghost" onClick={stop}>
           {S.common.cancel}
         </Button>

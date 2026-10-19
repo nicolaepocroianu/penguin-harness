@@ -37,7 +37,11 @@ export function ThinkingBlock({ item }: { item: ThinkingItem }) {
               humanizeDuration(item.durationMs)
             ) : null}
           </span>
-          {failed && <span className="font-mono text-xs text-gray-400">[{item.stopReason}]</span>}
+          {failed && (
+            <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
+              [{item.stopReason}]
+            </span>
+          )}
         </>
       }
     >

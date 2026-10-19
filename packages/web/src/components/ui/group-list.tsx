@@ -110,7 +110,7 @@ export function storeGroupMode(mode: GroupMode): void {
 
 /** Row class of folder toggles and "More" rows (the sidebar's folderClass). */
 export const FOLDER_ROW_CLASS =
-  "flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[11px] font-medium text-gray-400 transition-colors duration-150 hover:bg-gray-200/50 dark:text-gray-500 dark:hover:bg-gray-800/50";
+  "flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-2xs font-medium text-gray-500 dark:text-gray-400 transition-colors duration-150 hover:bg-gray-200/50 dark:hover:bg-gray-800/50";
 
 /**
  * "More"-style row (a group's load-next-page, a folder's paging, the reveal-more-groups
@@ -196,7 +196,7 @@ export function GroupPager({
       <span
         aria-live="polite"
         aria-label={S.chat.groupPagePosition(page + 1, pageCount)}
-        className="min-w-[2.5rem] text-center text-[11px] font-medium tabular-nums text-gray-400 dark:text-gray-500"
+        className="min-w-[2.5rem] text-center text-2xs font-medium tabular-nums text-gray-500 dark:text-gray-400"
       >
         {page + 1}/{pageCount}
       </span>
@@ -355,7 +355,7 @@ export function GroupHeader({
           {label}
         </span>
         {count !== undefined && (
-          <span className="shrink-0 text-[11px] text-gray-400 dark:text-gray-500">{count}</span>
+          <span className="shrink-0 text-2xs text-gray-500 dark:text-gray-400">{count}</span>
         )}
         {/* Expand/collapse indicator sits right after the label */}
         <Chevron open={open} size={12} className="text-gray-400" />

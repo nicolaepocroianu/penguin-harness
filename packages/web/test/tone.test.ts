@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { toneDot, toneInk, toneStrip, toneSurface } from "../src/lib/tone";
+import { toneDot, toneInk, toneStrip, toneSurface, toneText } from "../src/lib/tone";
 import type { Tone } from "../src/lib/tone";
 
 const TONES: Tone[] = ["busy", "attention", "success", "danger", "muted"];
@@ -17,7 +17,7 @@ const read = (rel: string) =>
 
 describe("tone tokens", () => {
   it("covers every tone in every map", () => {
-    for (const map of [toneInk, toneSurface, toneDot, toneStrip]) {
+    for (const map of [toneInk, toneText, toneSurface, toneDot, toneStrip]) {
       for (const tone of TONES) expect(map[tone]).toBeTruthy();
       expect(Object.keys(map).sort()).toEqual([...TONES].sort());
     }
@@ -36,6 +36,21 @@ describe("tone tokens", () => {
     // separate hue would invent a difference nobody is being asked to read.
     expect(toneInk.busy).toBe(toneInk.success);
     expect(new Set([toneInk.attention, toneInk.danger, toneInk.muted, toneInk.busy]).size).toBe(4);
+  });
+
+  it("inks words at a text-contrast shade in light mode", () => {
+    // The 600 shades clear only the 3:1 asked of a graphic on white; most inks colour words
+    // (Saved, Blocked, an error line), which need 4.5:1, and the 700 shades clear it.
+    for (const tone of ["busy", "attention", "success", "danger"] as const) {
+      expect(toneText[tone]).toMatch(/^text-[a-z]+-700 dark:text-[a-z]+-400$/);
+      expect(toneText[tone]).toBe(toneInk[tone]);
+    }
+  });
+
+  it("gives words a readable muted tone and leaves the receding one to glyphs", () => {
+    // gray-400 on white is 2.6:1; muted words take the secondary body-text pair instead.
+    expect(toneText.muted).toBe("text-gray-500 dark:text-gray-400");
+    expect(toneInk.muted).not.toBe(toneText.muted);
   });
 
   it("fills a state dot with one value across both themes", () => {

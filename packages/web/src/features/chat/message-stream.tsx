@@ -530,7 +530,7 @@ export function MessageStream({
           {older && items.length > 0 && (
             <div className="flex justify-center pb-2">
               {older.loading ? (
-                <span className="flex items-center gap-2 py-1 text-xs text-gray-400 dark:text-gray-500">
+                <span className="flex items-center gap-2 py-1 text-xs text-gray-500 dark:text-gray-400">
                   <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
                   {S.chat.loadingEarlier}
                 </span>
@@ -543,7 +543,7 @@ export function MessageStream({
                   {S.chat.loadEarlierRetry}
                 </button>
               ) : !older.hasMore && older.prependedCount > 0 ? (
-                <span className="py-1 text-xs text-gray-400 dark:text-gray-500">
+                <span className="py-1 text-xs text-gray-500 dark:text-gray-400">
                   {S.chat.historyBeginning}
                 </span>
               ) : null}

@@ -8,7 +8,7 @@
  * alone. `SpendMeter` is the spend tree's bar, which carries its own percent.
  */
 import { formatPercent } from "../../lib/format";
-import { toneDot, toneInk } from "../../lib/tone";
+import { toneDot, toneInk, toneText } from "../../lib/tone";
 import { budgetTone } from "./finance-tree";
 
 export function FinanceGauge({
@@ -111,8 +111,8 @@ export function SpendMeter({
       {ratio !== undefined && (
         <span
           aria-hidden
-          className={`absolute inset-y-0 flex items-center text-[10px] font-medium tabular-nums ${
-            inside ? "pr-1.5 text-gray-900" : `pl-1.5 ${toneInk[tone]}`
+          className={`absolute inset-y-0 flex items-center text-3xs font-medium tabular-nums ${
+            inside ? "pr-1.5 text-gray-900" : `pl-1.5 ${toneText[tone]}`
           }`}
           style={inside ? { right: `${100 - width}%` } : { left: `${width}%` }}
         >

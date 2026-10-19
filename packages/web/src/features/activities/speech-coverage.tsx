@@ -28,7 +28,7 @@ import { Select } from "../../components/ui/select";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { ICON_GAP, ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
-import { toneInk, type Tone } from "../../lib/tone";
+import { toneInk, toneText, type Tone } from "../../lib/tone";
 import { ClipButton, useClipPlayer, type Clip, type ClipPlayer } from "./clip-player";
 import { ClipWave } from "./clip-wave";
 import { narrationScenes, type NarrationScene } from "./narration-scenes";
@@ -177,7 +177,7 @@ function SceneHeading({
       {group.number !== null && (
         <span
           aria-hidden
-          className="font-mono text-xs text-gray-400 tabular-nums dark:text-gray-500"
+          className="font-mono text-xs text-gray-500 dark:text-gray-400 tabular-nums"
         >
           {group.number}
         </span>
@@ -546,7 +546,7 @@ export function SpeechCoverage({
             label: (
               <>
                 {S.activities.bulkSpeechFilter[entry]}{" "}
-                <span className="tabular-nums opacity-70">{counts[entry]}</span>
+                <span className="tabular-nums">{counts[entry]}</span>
               </>
             ),
           }))}
@@ -568,7 +568,7 @@ export function SpeechCoverage({
                 label: (
                   <>
                     {S.activities.instructionType.filter[entry]}{" "}
-                    <span className="tabular-nums opacity-70">{typeCounts[entry]}</span>
+                    <span className="tabular-nums">{typeCounts[entry]}</span>
                   </>
                 ),
               }))}
@@ -648,7 +648,7 @@ export function SpeechCoverage({
                                       : status.translation
                                         ? toneInk.attention
                                         : tone
-                                          ? toneInk[tone]
+                                          ? toneText[tone]
                                           : "text-gray-500"
                                   }
                                 >
@@ -801,7 +801,7 @@ function SoundCoverage({
               >
                 <RowName text={byKey.get(status.key)?.description} assetKey={status.key} />
                 {status.state !== "ready" && (
-                  <span className={`shrink-0 ${tone ? toneInk[tone] : "text-gray-500"}`}>
+                  <span className={`shrink-0 ${tone ? toneText[tone] : "text-gray-500"}`}>
                     {words.statuses[status.state]}
                   </span>
                 )}

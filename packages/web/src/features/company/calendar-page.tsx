@@ -33,7 +33,7 @@ import { formatDateTime } from "../../lib/format";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import { employeeColor } from "../../lib/category-colors";
 import { ICON_GAP, ICON_SIZE } from "../../lib/icon-scale";
-import { toneInk, toneStrip } from "../../lib/tone";
+import { toneInk, toneStrip, toneText } from "../../lib/tone";
 import type { Tone } from "../../lib/tone";
 import { useAuth } from "../../state/auth";
 import { useCompany } from "../../state/company";
@@ -142,7 +142,7 @@ const CREATE_SLOT_CLASS =
 function CreateSlotHint({ className = "" }: { className?: string }) {
   return (
     <span
-      className={`pointer-events-none z-10 inline-flex items-center ${ICON_GAP.tight} text-[10px] leading-4 text-gray-500 opacity-0 transition-opacity duration-150 group-hover/slot:opacity-100 group-focus-visible/slot:opacity-100 dark:text-gray-400 ${className}`}
+      className={`pointer-events-none z-10 inline-flex items-center ${ICON_GAP.tight} text-3xs leading-4 text-gray-500 opacity-0 transition-opacity duration-150 group-hover/slot:opacity-100 group-focus-visible/slot:opacity-100 dark:text-gray-400 ${className}`}
     >
       <GlyphIcon d={PLUS_ICON} size={ICON_SIZE.inlineGlyph} />
       {S.company.calendar.create}
@@ -415,7 +415,7 @@ export function CalendarPage() {
           opts.onOpen?.();
           openEdit(i.event);
         }}
-        className={`flex min-w-0 items-center gap-1 rounded px-1 text-left text-[11px] leading-5 transition-opacity ${color.chip} ${
+        className={`flex min-w-0 items-center gap-1 rounded px-1 text-left text-2xs leading-5 transition-opacity ${color.chip} ${
           opts.block ? "h-full w-full" : "w-full"
         } ${i.past && outcome === null ? "opacity-60" : ""} ${
           inert ? "line-through decoration-1 opacity-60" : ""
@@ -504,7 +504,7 @@ export function CalendarPage() {
         <div className="pointer-events-none relative pb-5">
           <p className="mb-1 flex h-5 items-center">
             <span
-              className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] tabular-nums ${
+              className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-2xs tabular-nums ${
                 isToday
                   ? "bg-[var(--accent-bg)] font-semibold text-[var(--accent-fg)]"
                   : day.inMonth
@@ -617,7 +617,7 @@ export function CalendarPage() {
           className={`${days.length === 1 ? "" : "min-w-[52rem]"} overflow-hidden rounded-md border border-gray-200 dark:border-gray-800`}
         >
           <div
-            className={`grid ${cols} border-b border-gray-200 text-[11px] font-medium text-gray-500 dark:border-gray-800 dark:text-gray-400`}
+            className={`grid ${cols} border-b border-gray-200 text-2xs font-medium text-gray-500 dark:border-gray-800 dark:text-gray-400`}
           >
             <div />
             {days.map((day) => {
@@ -652,7 +652,7 @@ export function CalendarPage() {
                 {Array.from({ length: 24 }, (_, h) => (
                   <span
                     key={h}
-                    className="absolute right-2 font-mono text-[10px] tabular-nums text-gray-400 dark:text-gray-500"
+                    className="absolute right-2 font-mono text-3xs tabular-nums text-gray-500 dark:text-gray-400"
                     style={{ top: h * HOUR_PX - 6 }}
                   >
                     {h === 0 ? "" : hourLabel(h)}
@@ -671,7 +671,7 @@ export function CalendarPage() {
     view === "month" ? (
       <div className="overflow-x-auto">
         <div className="min-w-[44rem] overflow-hidden rounded-md border border-gray-200 dark:border-gray-800">
-          <div className="grid grid-cols-7 border-b border-gray-200 text-[11px] font-medium text-gray-500 dark:border-gray-800 dark:text-gray-400">
+          <div className="grid grid-cols-7 border-b border-gray-200 text-2xs font-medium text-gray-500 dark:border-gray-800 dark:text-gray-400">
             {S.company.calendar.weekdays.map((w) => (
               <div key={w} className="px-2 py-1.5">
                 {w}
@@ -747,7 +747,7 @@ export function CalendarPage() {
       {/* Legend: one entry per employee in the chart's colour order, naming its cadence; a click
           filters to it, and strikes through everyone it just switched off. */}
       {employees.length > 0 && (
-        <div className="mb-3 flex flex-wrap gap-x-1 gap-y-1 text-[11px]">
+        <div className="mb-3 flex flex-wrap gap-x-1 gap-y-1 text-2xs">
           {employees.map((e) => {
             const own = (events ?? []).filter((ev) => ev.agentId === e.agentId);
             const cadences = own.map(
@@ -902,7 +902,7 @@ export function CalendarPage() {
                       {formatDateTime(editingEvent.lastFiredAt)}
                     </span>
                     {editingEvent.lastOutcome !== undefined && (
-                      <span className={toneInk[OUTCOME_TONE[editingEvent.lastOutcome]]}>
+                      <span className={toneText[OUTCOME_TONE[editingEvent.lastOutcome]]}>
                         {S.company.calendarOutcomes[editingEvent.lastOutcome] ??
                           editingEvent.lastOutcome}
                       </span>
@@ -1085,7 +1085,7 @@ function DayOverflow({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((v) => !v)}
-        className="block w-full rounded px-1 text-left text-[10px] text-gray-400 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+        className="block w-full rounded px-1 text-left text-3xs text-gray-500 dark:text-gray-400 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
       >
         {S.company.calendar.moreEvents(hidden)}
       </button>
@@ -1107,7 +1107,7 @@ function DayOverflow({
             className="anim-pop z-[60] flex max-h-[70vh] max-w-[calc(100vw-2rem)] flex-col rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
           >
             <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-2 py-1.5 dark:border-gray-800">
-              <span className="truncate text-[11px] font-medium tabular-nums text-gray-700 dark:text-gray-200">
+              <span className="truncate text-2xs font-medium tabular-nums text-gray-700 dark:text-gray-200">
                 {dateLabel}
               </span>
               <button
@@ -1116,7 +1116,7 @@ function DayOverflow({
                   close();
                   onOpenDay();
                 }}
-                className="shrink-0 text-[11px] text-gray-500 underline-offset-2 transition-colors duration-150 hover:text-gray-900 hover:underline dark:text-gray-400 dark:hover:text-gray-100"
+                className="shrink-0 text-2xs text-gray-500 underline-offset-2 transition-colors duration-150 hover:text-gray-900 hover:underline dark:text-gray-400 dark:hover:text-gray-100"
               >
                 {S.company.calendar.openDay}
               </button>

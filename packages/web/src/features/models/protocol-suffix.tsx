@@ -142,7 +142,7 @@ export function ProtocolSuffixMenu({
               {/* The path this protocol appends: the same string the trigger shows, so the
                   menu explains what the suffix in the field means. */}
               <span
-                className={`mt-0.5 block font-mono ${rowDescClass.sm} text-gray-500 dark:text-gray-500`}
+                className={`mt-0.5 block font-mono ${rowDescClass.sm} text-gray-500 dark:text-gray-400`}
               >
                 {protocolPathForModel("custom", t)}
               </span>

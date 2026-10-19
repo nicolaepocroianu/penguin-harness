@@ -22,6 +22,7 @@ import { Skeleton } from "../../components/ui/skeleton";
 import { BenchmarkDetail } from "./benchmark-detail";
 import { benchmarkPath } from "./benchmark-prompts";
 import { UseBenchmarkModal } from "./use-benchmark-modal";
+import { toneText } from "../../lib/tone";
 
 /** Back to the list: the arrow-left every detail page's back button carries. */
 const BACK_ICON = "M15 18l-6-6 6-6M9 12h12";
@@ -112,7 +113,7 @@ export function BenchmarkDetailPage() {
 
   let body;
   if (error !== null) {
-    body = <p className="text-sm text-red-600 dark:text-red-400">{error}</p>;
+    body = <p className={`text-sm ${toneText.danger}`}>{error}</p>;
   } else if (missing) {
     body = <EmptyState title={S.benchmark.notFound} description={S.benchmark.notFoundHint} />;
   } else if (benchmark === null) {
@@ -154,7 +155,7 @@ export function BenchmarkDetailPage() {
           {benchmark && (
             <>
               <span className="flex min-w-0 flex-1 items-center gap-1">
-                <span className="min-w-0 truncate font-mono text-xs text-gray-400 dark:text-gray-500">
+                <span className="min-w-0 truncate font-mono text-xs text-gray-500 dark:text-gray-400">
                   {benchmarkPath(benchmark.id)}
                 </span>
                 <CopyButton

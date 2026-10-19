@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import type { ModuleDocuments } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
-import { toneDot, toneInk, toneStrip, type Tone } from "../../lib/tone";
+import { toneDot, toneStrip, toneText, type Tone } from "../../lib/tone";
 import { Button } from "../../components/ui/button";
 import { InfoPopover } from "../../components/ui/info-popover";
 import {
@@ -261,7 +261,7 @@ function FileRow({
       </td>
       {hasModule && (
         <td className={`${TD} whitespace-nowrap`}>
-          <span className={`inline-flex items-center gap-1.5 text-xs ${toneInk[tone]}`}>
+          <span className={`inline-flex items-center gap-1.5 text-xs ${toneText[tone]}`}>
             <span aria-hidden="true" className={`size-1.5 rounded-full ${toneDot[tone]}`} />
             {words.presenceState[presence]}
           </span>

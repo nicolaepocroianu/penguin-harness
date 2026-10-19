@@ -41,6 +41,7 @@ import { Input, Textarea } from "../../components/ui/input";
 import { Select } from "../../components/ui/select";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { EmptyState } from "../../components/ui/empty-state";
+import { SkeletonList } from "../../components/ui/skeleton";
 import { GlyphIcon } from "../../components/ui/glyph-icon";
 import { ICON_SIZE } from "../../lib/icon-scale";
 import { AssetLibraryView } from "./asset-library-view";
@@ -173,12 +174,20 @@ function announce({ kind, text }: Announcement) {
 export function ActivitiesPage() {
   useLocale();
   useDocumentTitle(S.activities.title);
-  const { currentProject, unavailableProjectId } = useProject();
+  const { currentProject, unavailableProjectId, projectsLoading } = useProject();
   const previousProject = useRef(currentProject);
   if (currentProject) previousProject.current = currentProject;
   const project =
     currentProject ??
     (previousProject.current?.projectId === unavailableProjectId ? previousProject.current : null);
+  // A deep link lands before the Project list answers: that wait is loading, not "no Project".
+  if (!project && projectsLoading) {
+    return (
+      <div role="status" aria-label={S.activities.loading} className="mx-auto max-w-6xl p-4 md:p-6">
+        <SkeletonList rows={4} />
+      </div>
+    );
+  }
   if (!project) return <EmptyState title={S.activities.noProject} />;
   return (
     <ActivityWorkspace

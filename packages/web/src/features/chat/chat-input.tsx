@@ -278,7 +278,7 @@ function AgentMenuList({
           />
           <span className="shrink-0 font-mono text-gray-800 dark:text-gray-200">{a.agentId}</span>
           {a.name && a.name !== a.agentId && (
-            <span className="min-w-0 flex-1 truncate text-gray-400 dark:text-gray-500">
+            <span className="min-w-0 flex-1 truncate text-gray-500 dark:text-gray-400">
               {a.name}
             </span>
           )}
@@ -407,7 +407,7 @@ function ThinkingLevelSelect({
         </button>
       ))}
       {note && (
-        <div className="max-w-56 border-t border-gray-100 px-3 pb-1 pt-1.5 text-[11px] leading-snug text-gray-400 dark:border-gray-800 dark:text-gray-500">
+        <div className="max-w-56 border-t border-gray-100 px-3 pb-1 pt-1.5 text-2xs leading-snug text-gray-500 dark:text-gray-400 dark:border-gray-800">
           {note}
         </div>
       )}
@@ -466,7 +466,7 @@ function SteerModeRow({
   );
   return (
     <div className="flex w-full items-center gap-2 px-3 py-1 text-xs">
-      <GlyphIcon d={SLIDERS_ICON} className="shrink-0 text-gray-400 dark:text-gray-500" />
+      <GlyphIcon d={SLIDERS_ICON} className="shrink-0 text-gray-500 dark:text-gray-400" />
       <span className="min-w-0 flex-1 truncate text-gray-600 dark:text-gray-400">
         {S.chat.steerModeLabel}
       </span>
@@ -529,7 +529,7 @@ function SkillSelect({
           <span className="hidden min-w-0 truncate @md:block">{S.chat.skillsSelect}</span>
           {/* Selected-count badge (the chip row above the input mirrors the selection too). */}
           {selected.length > 0 && (
-            <span className="shrink-0 rounded-full bg-gray-200/80 px-1.5 py-px font-mono text-[10px] font-semibold text-gray-700 dark:bg-gray-700/60 dark:text-gray-200">
+            <span className="shrink-0 rounded-full bg-gray-200/80 px-1.5 py-px font-mono text-3xs font-semibold text-gray-700 dark:bg-gray-700/60 dark:text-gray-200">
               {selected.length}
             </span>
           )}
@@ -623,7 +623,7 @@ function PlusMenu({
         >
           <GlyphIcon d={item.icon} className="shrink-0 text-gray-400 dark:text-gray-500" />
           <span className="shrink-0">{item.label}</span>
-          <span className="min-w-0 flex-1 truncate text-gray-400 dark:text-gray-500">
+          <span className="min-w-0 flex-1 truncate text-gray-500 dark:text-gray-400">
             {item.desc}
           </span>
           <span className="w-3 shrink-0 text-center">{item.active ? "✓" : ""}</span>
@@ -720,7 +720,7 @@ function QueuedMessageLine({
 }) {
   return (
     <div className="flex min-w-0 items-center gap-1">
-      <p className="min-w-0 truncate text-xs text-gray-400 dark:text-gray-500">{label}</p>
+      <p className="min-w-0 truncate text-xs text-gray-500 dark:text-gray-400">{label}</p>
       {onRecall && (
         <button
           type="button"
@@ -2231,7 +2231,7 @@ export function ChatInput({
                 type="button"
                 aria-label={S.chat.removeImage}
                 onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}
-                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gray-700 text-[10px] text-white transition-colors duration-150 hover:bg-gray-900"
+                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gray-700 text-3xs text-white transition-colors duration-150 hover:bg-gray-900"
               >
                 ×
               </button>
@@ -2258,7 +2258,7 @@ export function ChatInput({
                 className="shrink-0 text-gray-400 dark:text-gray-500"
               />
               <span className="min-w-0 truncate">{file.name}</span>
-              <span className="shrink-0 font-mono text-[10px] text-gray-400 dark:text-gray-500">
+              <span className="shrink-0 font-mono text-3xs text-gray-500 dark:text-gray-400">
                 {formatBytes(file.size)}
               </span>
               <button
@@ -2314,7 +2314,7 @@ export function ChatInput({
           path into the message text (the model views them via read_file). A small note is
           shown while images are attached. */}
       {!vision && images.length > 0 && (
-        <p className="anim-fade mb-1 text-xs text-gray-400 dark:text-gray-500">
+        <p className="anim-fade mb-1 text-xs text-gray-500 dark:text-gray-400">
           {S.chat.imagesAsPathHint}
         </p>
       )}
@@ -2324,7 +2324,7 @@ export function ChatInput({
           this is the line that says why — the chip stays staged and goes out on the next Enter
           once the Session settles. */}
       {stagedRoute === "blocked" && (
-        <p className="anim-fade mb-1 text-xs text-gray-400 dark:text-gray-500">
+        <p className="anim-fade mb-1 text-xs text-gray-500 dark:text-gray-400">
           {S.chat.modelSwitchBusyHint}
         </p>
       )}
@@ -2349,7 +2349,7 @@ export function ChatInput({
         </div>
       ) : (
         steerPending && (
-          <p className="anim-fade mb-1 text-xs text-gray-400 dark:text-gray-500">
+          <p className="anim-fade mb-1 text-xs text-gray-500 dark:text-gray-400">
             {S.chat.steerQueuedIndicator}
           </p>
         )
@@ -2374,7 +2374,7 @@ export function ChatInput({
         </div>
       ) : (
         queuedFollowUps > 0 && (
-          <p className="anim-fade mb-1 text-xs text-gray-400 dark:text-gray-500">
+          <p className="anim-fade mb-1 text-xs text-gray-500 dark:text-gray-400">
             {S.chat.followUpQueuedChip(queuedFollowUps)}
           </p>
         )
@@ -2477,7 +2477,7 @@ export function ChatInput({
                     </div>
                     <p
                       id="goal-budget-hint"
-                      className={`mt-1.5 text-[11px] leading-4 ${
+                      className={`mt-1.5 text-2xs leading-4 ${
                         goalBudgetDraftInvalid
                           ? "text-red-500 dark:text-red-400"
                           : "text-gray-400 dark:text-gray-500"

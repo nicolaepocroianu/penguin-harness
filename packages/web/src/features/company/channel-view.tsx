@@ -498,7 +498,7 @@ export function ChannelView() {
       return (
         <div key={`day-${item.date}`} className={`flex items-center ${ICON_GAP.menu} py-3`}>
           <span className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-          <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+          <span className="text-2xs font-medium text-gray-500 dark:text-gray-400">
             {dayLabel !== null ? `${dayLabel} · ${item.date}` : item.date}
           </span>
           <span className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
@@ -514,7 +514,7 @@ export function ChannelView() {
           aria-label={S.company.channels.unreadDivider}
         >
           <span className={`h-px flex-1 ${toneDot.attention}`} />
-          <span className={`text-[11px] font-medium ${toneInk.attention}`}>
+          <span className={`text-2xs font-medium ${toneInk.attention}`}>
             {S.company.channels.unreadDivider}
           </span>
           <span className={`h-px flex-1 ${toneDot.attention}`} />
@@ -547,7 +547,7 @@ export function ChannelView() {
                   />
                 </span>
               ))}
-            <span className="ml-2 text-gray-400 dark:text-gray-500">{clockTime(m.time)}</span>
+            <span className="ml-2 text-gray-500 dark:text-gray-400">{clockTime(m.time)}</span>
             {renderRefs(m)}
           </p>
         </div>
@@ -588,7 +588,7 @@ export function ChannelView() {
             <span className="sr-only">{S.company.channels.you}</span>
           ) : (
             <div
-              className={`flex max-w-full flex-wrap items-baseline ${ICON_GAP.row} px-1 text-[11px]`}
+              className={`flex max-w-full flex-wrap items-baseline ${ICON_GAP.row} px-1 text-2xs`}
             >
               <span className="truncate font-semibold text-gray-700 dark:text-gray-300">
                 {senderLabel}
@@ -629,7 +629,7 @@ export function ChannelView() {
                   </div>
                   <span
                     title={at}
-                    className="shrink-0 text-[11px] tabular-nums text-gray-600 dark:text-gray-400"
+                    className="shrink-0 text-2xs tabular-nums text-gray-600 dark:text-gray-400"
                   >
                     <span className="sr-only">{S.company.channels.sentAt(at)}</span>
                     <span aria-hidden>{clockTime(m.time)}</span>
@@ -700,7 +700,7 @@ export function ChannelView() {
                       </div>
                     ) : (
                       messageCount(days) > 0 && (
-                        <p className="py-2 text-center text-[11px] text-gray-400 dark:text-gray-500">
+                        <p className="py-2 text-center text-2xs text-gray-500 dark:text-gray-400">
                           {S.company.channels.noEarlier}
                         </p>
                       )
@@ -790,7 +790,7 @@ function RefChip({
       type="button"
       title={title}
       onClick={onClick}
-      className={`inline-flex items-center ${ICON_GAP.tight} rounded-full border border-gray-200 bg-white px-2 py-0.5 text-[11px] text-gray-600 transition-colors duration-150 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100`}
+      className={`inline-flex items-center ${ICON_GAP.tight} rounded-full border border-gray-200 bg-white px-2 py-0.5 text-2xs text-gray-600 transition-colors duration-150 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100`}
     >
       {icon !== undefined && <GlyphIcon d={icon} size={ICON_SIZE.inlineGlyph} />}
       {children}

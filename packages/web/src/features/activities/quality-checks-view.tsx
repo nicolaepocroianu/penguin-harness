@@ -17,7 +17,7 @@ import { Button } from "../../components/ui/button";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
-import { toneInk } from "../../lib/tone";
+import { toneInk, toneText } from "../../lib/tone";
 import { runStarted, useActivityClient } from "./activity-client";
 import { reportVersion } from "./use-checks";
 import { indexRuns } from "./runs-index";
@@ -68,7 +68,7 @@ function ReportBlock({
       ) : (
         <>
           <p
-            className={`text-sm ${toneInk[STATUS_TONE[report.status]]}`}
+            className={`text-sm ${toneText[STATUS_TONE[report.status]]}`}
             data-testid={`${id}-status`}
           >
             {statusText(report)}

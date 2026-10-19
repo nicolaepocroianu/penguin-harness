@@ -129,7 +129,7 @@ import { Tooltip } from "../../components/ui/tooltip";
 import { toastError, toastInfo, toastSuccess } from "../../components/ui/toast";
 import { ICON_SIZE } from "../../lib/icon-scale";
 import { STAT_ICONS } from "../../lib/stat-icons";
-import { toneInk } from "../../lib/tone";
+import { toneInk, toneText } from "../../lib/tone";
 import { setCloseGuard } from "../dock/close-guard";
 import { tabKey } from "../dock/dock-state";
 import { DOCK_TRANSITION_MS } from "../dock/use-dock-mount";
@@ -1817,15 +1817,15 @@ export function WorkspaceBrowser({
         </Tooltip>
       </div>
       {rootError !== null ? (
-        <p className="px-3 py-3 text-sm text-red-600 dark:text-red-400">{rootError}</p>
+        <p className={`px-3 py-3 text-sm ${toneText.danger}`}>{rootError}</p>
       ) : rootListing === undefined ? (
         <SkeletonList rows={6} />
       ) : searchError !== null ? (
-        <p className="px-3 py-3 text-sm text-red-600 dark:text-red-400">{searchError}</p>
+        <p className={`px-3 py-3 text-sm ${toneText.danger}`}>{searchError}</p>
       ) : filter !== "" && searchResult === null ? (
         // No answer for this query yet. An empty list here would read as "nothing matches",
         // which is a different thing and the one answer that must not be guessed.
-        <p className="px-3 py-3 text-xs text-gray-400 dark:text-gray-500">{S.files.searching}</p>
+        <p className="px-3 py-3 text-xs text-gray-500 dark:text-gray-400">{S.files.searching}</p>
       ) : (
         <>
           <WorkspaceTreeView
@@ -1842,7 +1842,7 @@ export function WorkspaceBrowser({
             onOpenFile={openFile}
           />
           {searchResult?.truncated === true && (
-            <p className="shrink-0 border-t border-gray-100 px-3 py-1.5 text-[11px] text-gray-400 dark:border-gray-800 dark:text-gray-500">
+            <p className="shrink-0 border-t border-gray-100 px-3 py-1.5 text-2xs text-gray-500 dark:text-gray-400 dark:border-gray-800">
               {S.files.searchTruncated(searchResult.hits.length)}
             </p>
           )}
@@ -1915,7 +1915,7 @@ export function WorkspaceBrowser({
       tabIndex={0}
       {...treeResizeProps}
       onKeyDown={onDividerKey}
-      className={`w-1.5 shrink-0 cursor-col-resize outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-400/60 ${
+      className={`w-1.5 shrink-0 cursor-col-resize outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-500 dark:focus-visible:ring-gray-400 ${
         resizingTree
           ? "bg-gray-300 dark:bg-gray-600"
           : "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
@@ -2146,7 +2146,7 @@ export function WorkspaceBrowser({
                 // preview mounted without content: the lazy source effect is already fetching
                 // it, and the srcDoc fallback renders once it lands.
                 sourceError !== null ? (
-                  <p className="text-sm text-red-600 dark:text-red-400">{sourceError}</p>
+                  <p className={`text-sm ${toneText.danger}`}>{sourceError}</p>
                 ) : (
                   <SkeletonList rows={6} />
                 )
@@ -2226,7 +2226,9 @@ export function WorkspaceBrowser({
                   </ReactMarkdown>
                 </div>
                 {p.truncated && (
-                  <p className="mt-1 text-xs text-gray-400">… {S.files.previewTruncated}</p>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    … {S.files.previewTruncated}
+                  </p>
                 )}
               </>
             ) : p.kind === "text" || p.kind === "html" || p.kind === "md" ? (
@@ -2235,7 +2237,7 @@ export function WorkspaceBrowser({
                 // skeleton (or the fetch's own error) — toggling back to Rendered is
                 // unaffected, and re-entering Source retries the fetch.
                 sourceError !== null ? (
-                  <p className="text-sm text-red-600 dark:text-red-400">{sourceError}</p>
+                  <p className={`text-sm ${toneText.danger}`}>{sourceError}</p>
                 ) : (
                   <SkeletonList rows={6} />
                 )
@@ -2255,7 +2257,9 @@ export function WorkspaceBrowser({
                     className="text-xs leading-relaxed"
                   />
                   {p.truncated && (
-                    <p className="px-3 pb-2 text-xs text-gray-400">… {S.files.previewTruncated}</p>
+                    <p className="px-3 pb-2 text-xs text-gray-500 dark:text-gray-400">
+                      … {S.files.previewTruncated}
+                    </p>
                   )}
                 </>
               )
@@ -2544,7 +2548,11 @@ export function WorkspaceBrowser({
           >
             <div className="absolute inset-1 rounded-lg border-2 border-dashed border-gray-400 bg-white/40 dark:border-gray-500 dark:bg-gray-950/40" />
             <div className="relative flex items-center gap-2 rounded-md border border-gray-300 bg-white/95 px-3 py-1.5 text-xs font-medium text-gray-800 shadow-sm dark:border-gray-700 dark:bg-gray-900/95 dark:text-gray-100">
-              <GlyphIcon d={PAPERCLIP_ICON} size={ICON_SIZE.rowLead} className="text-gray-400" />
+              <GlyphIcon
+                d={PAPERCLIP_ICON}
+                size={ICON_SIZE.rowLead}
+                className="text-gray-500 dark:text-gray-400"
+              />
               <span className="truncate">{S.files.dropToUpload(dirLabel(drag.targetDir))}</span>
             </div>
           </div>

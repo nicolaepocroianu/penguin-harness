@@ -13,7 +13,7 @@ import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
-import { toneInk } from "../../lib/tone";
+import { toneInk, toneText } from "../../lib/tone";
 import { Button } from "../../components/ui/button";
 import { FieldError, FieldHint, FieldLabel } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
@@ -165,7 +165,7 @@ export function WafWorkspaceSection() {
       <div aria-live="polite">
         {view !== null && (
           <p
-            className={`text-sm font-medium ${toneInk[view.tone]}`}
+            className={`text-sm font-medium ${toneText[view.tone]}`}
             data-testid="waf-workspace-status"
           >
             {view.line}
@@ -182,7 +182,7 @@ export function WafWorkspaceSection() {
               <p className="text-sm">
                 <span className="font-medium">{words.repos[repo.id]}</span>
                 {": "}
-                <span className={toneInk[repo.tone]}>{repo.line}</span>
+                <span className={toneText[repo.tone]}>{repo.line}</span>
               </p>
               <p className="break-all text-xs text-gray-500 dark:text-gray-400">{repo.path}</p>
             </li>

@@ -26,6 +26,13 @@
   --color-brand-800: #0842a0;
   --color-brand-900: #062e6f;
   --color-brand-950: #041e49;
+
+  /* The two steps below text-xs, for metadata and dense labels. rem-based so they follow the
+     font-size setting (state/theme.tsx sets the root to 16 / 18 / 20px) like every other text
+     size, with a floor at the pixel size they replaced so the small and default settings render
+     exactly as before: 2xs is 11 / 11 / 12.2px, 3xs is 10 / 10 / 11.1px. */
+  --text-2xs: max(11px, 0.6111rem);
+  --text-3xs: max(10px, 0.5556rem);
 }
 
 @layer base {
@@ -113,13 +120,23 @@
   kbd {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   }
-  /* Keyboard accessibility: soft brand-colored outer ring (input controls use their own focus ring, not stacked). */
+  /* Keyboard accessibility: a solid neutral outer ring (input controls use their own focus ring, not
+     stacked). Solid gray-500 / gray-400 clears the 3:1 WCAG 1.4.11 asks of a focus indicator on every
+     surface it lands on (4.4–4.8:1 light, 6.3–8.1:1 dark); the 40%-alpha ring it replaced measured
+     1.7:1 and 1.5:1. Neutral rather than the accent, because rose and violet fall under 3:1 on the
+     near-black dark surfaces. */
   button:focus-visible,
   a:focus-visible,
   [role="tab"]:focus-visible,
   summary:focus-visible {
-    outline: 3px solid rgb(107 114 128 / 0.4);
+    outline: 2px solid var(--color-gray-500);
     outline-offset: 2px;
+  }
+  .dark button:focus-visible,
+  .dark a:focus-visible,
+  .dark [role="tab"]:focus-visible,
+  .dark summary:focus-visible {
+    outline-color: var(--color-gray-400);
   }
   /* Consistent pointer cursor for clickable buttons: Tailwind 4 preflight reverted button to the browser's
      default arrow cursor (v3 used pointer); disabled state keeps the default. Explicit cursor-* utility

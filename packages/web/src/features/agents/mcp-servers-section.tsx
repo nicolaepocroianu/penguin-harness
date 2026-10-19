@@ -43,7 +43,7 @@ import {
   type McpServerFormState,
   type McpTransportKind,
 } from "./mcp-servers-form";
-import { toneInk } from "../../lib/tone";
+import { toneInk, toneText } from "../../lib/tone";
 import { InfoPopover } from "../../components/ui/info-popover";
 
 /** Maps a validation error code to its localized message. */
@@ -82,12 +82,14 @@ function TestBadge({ result }: { result: RowTestResult | undefined }) {
   if (result === undefined) return null;
   if (result === "pending") {
     return (
-      <span className="text-[11px] whitespace-nowrap text-gray-400">{S.agent.mcpTestPending}</span>
+      <span className="text-2xs whitespace-nowrap text-gray-500 dark:text-gray-400">
+        {S.agent.mcpTestPending}
+      </span>
     );
   }
   if (result.ok) {
     return (
-      <span className={`text-[11px] font-medium whitespace-nowrap ${toneInk.success}`}>
+      <span className={`text-2xs font-medium whitespace-nowrap ${toneInk.success}`}>
         {S.agent.mcpTestBadge(result.tools?.length ?? 0, result.latencyMs)}
       </span>
     );
@@ -95,7 +97,7 @@ function TestBadge({ result }: { result: RowTestResult | undefined }) {
   return (
     <span
       title={result.error}
-      className={`text-[11px] font-medium whitespace-nowrap ${toneInk.danger}`}
+      className={`text-2xs font-medium whitespace-nowrap ${toneInk.danger}`}
     >
       {S.agent.mcpTestBadgeFail}
     </span>
@@ -400,7 +402,7 @@ export function McpServersSection({
                 value={form.transport}
                 onChange={(v) => patchForm({ transport: v })}
               />
-              <p className="text-xs text-gray-400 dark:text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {transportHints[form.transport]}
               </p>
             </div>
@@ -508,7 +510,7 @@ export function McpServersSection({
                 value={form.permission}
                 onChange={(v) => patchForm({ permission: v })}
               />
-              <p className="text-xs text-gray-400 dark:text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {S.agent.mcpPermissionHint}
               </p>
             </div>
@@ -544,8 +546,8 @@ export function McpServersSection({
                 autoComplete="off"
               />
             </div>
-            <p className="text-xs text-gray-400 dark:text-gray-500">{S.agent.mcpBudgetsHint}</p>
-            {modalError && <p className="text-xs text-red-600 dark:text-red-400">{modalError}</p>}
+            <p className="text-xs text-gray-500 dark:text-gray-400">{S.agent.mcpBudgetsHint}</p>
+            {modalError && <p className={`text-xs ${toneText.danger}`}>{modalError}</p>}
           </div>
         )}
       </Modal>

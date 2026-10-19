@@ -40,6 +40,7 @@ import { Input } from "../../components/ui/input";
 import { UserAvatar, USER_AVATAR_SIZE } from "../../components/ui/user-avatar";
 import { toastSuccess } from "../../components/ui/toast";
 import { PrefRow } from "./setting-row";
+import { toneText } from "../../lib/tone";
 
 /** What the picker offers — the three formats the server stores, spelled the way `accept` wants. */
 const AVATAR_ACCEPT = "image/png,image/jpeg,image/webp";
@@ -205,7 +206,7 @@ export function ProfileSection() {
           sidebar as well as this page, so "it did not happen" has to be stated rather than
           left to the preview looking unchanged. */}
       {busy && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{S.common.saving}</p>}
-      {error !== null && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error !== null && <p className={`mt-2 text-xs ${toneText.danger}`}>{error}</p>}
     </section>
   );
 }

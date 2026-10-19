@@ -673,7 +673,7 @@ export function PluginsPage() {
                 </PluginList>
               )}
               {filtering && installedRows.length === 0 && availableRows.length === 0 && (
-                <p className="px-1 text-sm text-gray-400 dark:text-gray-500">{S.plugins.noMatch}</p>
+                <p className="px-1 text-sm text-gray-500 dark:text-gray-400">{S.plugins.noMatch}</p>
               )}
             </div>
             {/* The filter column: the categories on the page, then two attributes with a
@@ -975,7 +975,7 @@ function PluginFilters({
       type="button"
       aria-pressed={on}
       onClick={onClick}
-      className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] transition-colors duration-150 ${
+      className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs transition-colors duration-150 ${
         on
           ? "bg-gray-200/70 font-medium text-gray-900 dark:bg-gray-700/70 dark:text-gray-100"
           : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800/70"
@@ -991,14 +991,12 @@ function PluginFilters({
         {on && <GlyphIcon d="M20 6 9 17l-5-5" size={10} />}
       </span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="shrink-0 font-mono text-[11px] text-gray-400 dark:text-gray-500">
-        {count}
-      </span>
+      <span className="shrink-0 font-mono text-2xs text-gray-500 dark:text-gray-400">{count}</span>
     </button>
   );
   const group = (title: string, children: React.ReactNode) => (
     <div>
-      <div className="mb-1 px-2 text-[11px] font-semibold tracking-wide text-gray-400 uppercase dark:text-gray-500">
+      <div className="mb-1 px-2 text-2xs font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase">
         {title}
       </div>
       <div className="space-y-0.5">{children}</div>
@@ -1014,7 +1012,7 @@ function PluginFilters({
         onClick={onClear}
         tabIndex={active ? 0 : -1}
         aria-hidden={!active}
-        className={`px-2 text-[11px] text-gray-400 underline-offset-2 hover:underline dark:text-gray-500 ${active ? "" : "invisible"}`}
+        className={`px-2 text-2xs text-gray-500 dark:text-gray-400 underline-offset-2 hover:underline ${active ? "" : "invisible"}`}
       >
         {S.plugins.filterClear}
       </button>
@@ -1057,7 +1055,7 @@ function Tag({
   return (
     <span
       title={title}
-      className={`rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800 ${mono ? "font-mono text-gray-500 dark:text-gray-400" : "font-medium text-gray-600 dark:text-gray-300"}`}
+      className={`rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800 ${mono ? "font-mono text-gray-600 dark:text-gray-400" : "font-medium text-gray-600 dark:text-gray-300"}`}
     >
       {children}
     </span>
@@ -1157,10 +1155,7 @@ function PluginCard({
             glyph={20}
           />
           <div className="min-w-0 flex-1">
-            <span
-              className="block truncate font-mono text-[13px] font-semibold"
-              title={plugin.name}
-            >
+            <span className="block truncate font-mono text-xs font-semibold" title={plugin.name}>
               {plugin.name}
             </span>
             {/* Short description truncates to one line (full description goes into title for hover reading). */}
@@ -1174,11 +1169,11 @@ function PluginCard({
         </div>
         {/* Metadata line under the header (e.g. `v2026.08.29.1 · updated 3 days ago · used by
             2 agents`); what the plugin contains lives in the detail Modal this card opens. */}
-        <p className="mt-2.5 truncate text-[11px] text-gray-400 dark:text-gray-500" title={meta}>
+        <p className="mt-2.5 truncate text-2xs text-gray-500 dark:text-gray-400" title={meta}>
           {meta}
         </p>
         {/* Tag line: the category, "built in" (the library ships with the build), what it carries. */}
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-2xs">
           <Tag>{category}</Tag>
           <Tag title={S.plugins.libraryBuiltinHint}>{S.plugins.builtin}</Tag>
           {plugin.skills.length > 0 && <Tag mono>{S.skills.skillCount(plugin.skills.length)}</Tag>}
@@ -1244,7 +1239,7 @@ function PluginCard({
         >
           <div className="space-y-0.5">
             {agents.length === 0 && (
-              <p className="py-1.5 text-xs text-gray-400">{S.common.loading}</p>
+              <p className="py-1.5 text-xs text-gray-500 dark:text-gray-400">{S.common.loading}</p>
             )}
             {agents.map((a) => (
               <InstallRow
@@ -1449,7 +1444,7 @@ function ModuleRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
             <span
-              className="min-w-0 truncate font-mono text-[13px] font-semibold"
+              className="min-w-0 truncate font-mono text-xs font-semibold"
               title={`${S.pluginRegistry.specifierHint}: ${specifier}`}
             >
               {specifier}
@@ -1464,7 +1459,7 @@ function ModuleRow({
         </div>
       </div>
       <p
-        className="mt-2.5 truncate text-[11px] text-gray-400 dark:text-gray-500"
+        className="mt-2.5 truncate text-2xs text-gray-500 dark:text-gray-400"
         title={`${meta}${meta === "" ? "" : " · "}${stateText}`}
       >
         {meta !== "" && <span>{meta} · </span>}
@@ -1483,11 +1478,11 @@ function ModuleRow({
         </span>
       </p>
       {state === "failed" && error !== undefined && (
-        <p className={`mt-1 truncate text-[11px] ${toneInk.danger}`} title={error}>
+        <p className={`mt-1 truncate text-2xs ${toneInk.danger}`} title={error}>
           {error}
         </p>
       )}
-      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-2xs">
         {(entry?.categories ?? []).map((category) => (
           <Tag key={category}>{category}</Tag>
         ))}

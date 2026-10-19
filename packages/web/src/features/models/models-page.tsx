@@ -142,7 +142,7 @@ import { TodoNotice } from "../../components/ui/todo-notice";
 import { buildImportedRows } from "./group-import";
 import { tpsTone, ttftTone } from "./speed-test";
 import type { SpeedResult, SpeedTone } from "./speed-test";
-import { toneInk, toneStrip } from "../../lib/tone";
+import { toneInk, toneStrip, toneText } from "../../lib/tone";
 import { InfoPopover } from "../../components/ui/info-popover";
 import { PlatformKeyAuthDialog } from "./platform-key-auth-dialog";
 
@@ -1339,7 +1339,7 @@ export function ModelsPage() {
                         <span className="min-w-0 truncate text-sm font-semibold">
                           {group.provider.label}
                         </span>
-                        <span className="hidden shrink-0 whitespace-nowrap font-mono text-xs text-gray-400 @xl:inline">
+                        <span className="hidden shrink-0 whitespace-nowrap font-mono text-xs text-gray-500 dark:text-gray-400 @xl:inline">
                           {S.models.modelCount(group.rows.length)}
                         </span>
                         {/* The recommendation rides the collapse bar itself, so it is read with
@@ -1363,7 +1363,7 @@ export function ModelsPage() {
                           // gold, which clears it comfortably on this app's near-black. The
                           // ring is the text's own hue at 40%, in both themes: a ring brighter
                           // than the words it encloses reads as a highlighter, not as gold.
-                          <span className="hidden shrink-0 whitespace-nowrap rounded-full border border-yellow-700/40 px-2 py-0.5 text-[11px] font-semibold text-yellow-700 @lg:inline dark:border-yellow-400/40 dark:text-yellow-400">
+                          <span className="hidden shrink-0 whitespace-nowrap rounded-full border border-yellow-700/40 px-2 py-0.5 text-2xs font-semibold text-yellow-700 @lg:inline dark:border-yellow-400/40 dark:text-yellow-400">
                             {S.models.recommendedGroup}
                           </span>
                         )}
@@ -1556,7 +1556,7 @@ export function ModelsPage() {
                         >
                           {group.rows.length === 0 ? (
                             // An empty group only ever occurs for custom (always shown when there's no search query, to host the add entry point).
-                            <p className="col-span-full py-1 text-center text-xs text-gray-400 dark:text-gray-500">
+                            <p className="col-span-full py-1 text-center text-xs text-gray-500 dark:text-gray-400">
                               {S.models.groupEmptyHint}
                             </p>
                           ) : (
@@ -1594,7 +1594,7 @@ export function ModelsPage() {
           </div>
         )}
 
-        {loadError && <p className="mt-3 text-xs text-red-600 dark:text-red-400">{loadError}</p>}
+        {loadError && <p className={`mt-3 text-xs ${toneText.danger}`}>{loadError}</p>}
       </div>
 
       {rows && groupKeyFor && (
@@ -2188,7 +2188,7 @@ function AddGroupDialog({
  */
 /** The pill itself: no fill at all, so a row of marks sits on the card rather than on top of it. */
 const TAG_SHAPE =
-  "whitespace-nowrap rounded-full border border-gray-200 px-1.5 text-[10px] font-medium leading-[15px] dark:border-gray-700";
+  "whitespace-nowrap rounded-full border border-gray-200 px-1.5 text-3xs font-medium leading-[15px] dark:border-gray-700";
 const TAG_INK = {
   /** This model's standing in the Project. */
   status: "text-brand-700 dark:text-brand-300",
@@ -2335,10 +2335,12 @@ function ModelCard({
 
   const speedBadges =
     speed === "pending" ? (
-      <span className="shrink-0 text-[11px] text-gray-400">{S.models.speedPending}</span>
+      <span className="shrink-0 text-2xs text-gray-500 dark:text-gray-400">
+        {S.models.speedPending}
+      </span>
     ) : speed ? (
       speed.ok ? (
-        <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium">
+        <span className="flex shrink-0 items-center gap-1.5 text-2xs font-medium">
           {speed.ttftMs !== undefined && (
             <span
               className={`flex items-center gap-0.5 ${TONE_CLASS[ttftTone(speed.ttftMs)]}`}
@@ -2359,10 +2361,7 @@ function ModelCard({
           )}
         </span>
       ) : (
-        <span
-          className="shrink-0 text-[11px] font-medium text-red-600 dark:text-red-400"
-          title={speed.message}
-        >
+        <span className={`shrink-0 text-2xs font-medium ${toneText.danger}`} title={speed.message}>
           {S.models.speedFailed}
         </span>
       )
@@ -2377,7 +2376,7 @@ function ModelCard({
           but it is a detail you go looking for rather than one you scan by, and it is a click
           away in the config dialog; the width it was taking now belongs to the name. */}
       <span className="flex w-full min-w-0 items-baseline gap-2">
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
+        <span className="min-w-0 flex-1 truncate text-xs font-medium">
           {modelLabelOf(row.displayName, row.modelId)}
         </span>
         {/* What this model has spent over its whole life, on the row's right edge. Recessive by
@@ -2387,7 +2386,7 @@ function ModelCard({
             absence. */}
         {usedTokens !== undefined && usedTokens > 0 && (
           <span
-            className="shrink-0 text-[10px] tabular-nums text-gray-400 dark:text-gray-500"
+            className="shrink-0 text-3xs tabular-nums text-gray-500 dark:text-gray-400"
             title={S.models.usedTokensTitle}
           >
             {S.models.usedTokens(humanizeTokens(usedTokens))}
@@ -2409,7 +2408,7 @@ function ModelCard({
       {/* 3. Meta line: the truncating text takes the flexible space; speed badges keep their own
           non-shrinking slot on the right so the numbers never wrap or get pushed out. */}
       <span className="flex w-full items-center gap-1.5">
-        <span className="min-w-0 flex-1 truncate text-[11px] text-gray-400 dark:text-gray-500">
+        <span className="min-w-0 flex-1 truncate text-2xs text-gray-500 dark:text-gray-400">
           {meta.map((part, i) => (
             <Fragment key={i}>
               {i > 0 && " · "}
@@ -3361,12 +3360,12 @@ function ModelDialog({
             placeholder={apiKeyHint}
           />
         </div>
-        {envNote && <p className="text-xs text-gray-400 dark:text-gray-500">{envNote}</p>}
+        {envNote && <p className="text-xs text-gray-500 dark:text-gray-400">{envNote}</p>}
         {form.credential?.apiKeyMasked && !form.apiKeyInput && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
             <span className="font-mono">{form.credential.apiKeyMasked}</span>
             {form.credential.createdAt && (
-              <span className="text-gray-400">
+              <span className="text-gray-500 dark:text-gray-400">
                 {S.common.created} {formatDateTime(form.credential.createdAt)}
               </span>
             )}
@@ -3390,7 +3389,7 @@ function ModelDialog({
         {!form.credential?.apiKeyMasked && form.envKeyMasked !== undefined && !form.apiKeyInput && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
             <span className="font-mono">{form.envKeyMasked}</span>
-            <span className="text-gray-400">{S.models.readFromEnv}</span>
+            <span className="text-gray-500 dark:text-gray-400">{S.models.readFromEnv}</span>
           </div>
         )}
 
@@ -3487,7 +3486,7 @@ function ModelDialog({
                 />
               </div>
             ) : (
-              <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center font-mono text-xs text-gray-400">
+              <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center font-mono text-xs text-gray-500 dark:text-gray-400">
                 {protocolPath}
               </span>
             )}
@@ -3541,7 +3540,7 @@ function ModelDialog({
                 // Both fields in this row draw the same unit at the same size, so one
                 // measurement sizes the reserve for the pair.
                 ref={tokenUnitRef}
-                className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-gray-400"
+                className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-gray-500 dark:text-gray-400"
               >
                 {S.models.tokenUnit}
               </span>
@@ -3565,7 +3564,7 @@ function ModelDialog({
                 title={S.models.maxTokensTitle}
                 placeholder={S.models.maxTokensHint}
               />
-              <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-gray-400">
+              <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-gray-500 dark:text-gray-400">
                 {S.models.tokenUnit}
               </span>
             </span>
@@ -3592,7 +3591,7 @@ function ModelDialog({
                   // The three fields draw the same symbol and the same unit at the same size,
                   // so only the first pair is measured and every field reserves from it.
                   ref={i === 0 ? currencyRef : undefined}
-                  className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-xs text-gray-400"
+                  className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-xs text-gray-500 dark:text-gray-400"
                 >
                   {CURRENCY_SYMBOL[currency]}
                 </span>
@@ -3611,7 +3610,7 @@ function ModelDialog({
                 />
                 <span
                   ref={i === 0 ? priceUnitRef : undefined}
-                  className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-gray-400"
+                  className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-gray-500 dark:text-gray-400"
                 >
                   {S.models.priceUnitShort}
                 </span>
@@ -3644,7 +3643,7 @@ function ModelDialog({
           form.clientType &&
           form.clientType !== pinnedGroupClientType &&
           canonicalClientType(form.clientType) !== "openai-chat" && (
-            <p className="text-xs text-gray-400 dark:text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               {S.models.clientTypeLocked(form.clientType)}
             </p>
           )}
@@ -3706,7 +3705,7 @@ function ModelDialog({
                   )}
                 </div>
                 {!form.vision && (
-                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                     {S.models.visionOffProxyHint}
                   </p>
                 )}
@@ -3743,7 +3742,7 @@ function ModelDialog({
                   />
                 </label>
                 {form.fastMode && (
-                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                     {S.models.fastModeHint}
                   </p>
                 )}
@@ -3910,7 +3909,7 @@ function GroupKeyDialog({
         </p>
         {/* Default endpoint note (zhipu / moonshot): same wording as the single-model dialog's env fallback hint. */}
         {S.models.providerEnvNotes[provider.id] && (
-          <p className="text-xs text-gray-400 dark:text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             {S.models.providerEnvNotes[provider.id]}
           </p>
         )}
@@ -4202,7 +4201,7 @@ export function ModelOAuthDialog({
             {S.models.oauthWaiting}
           </p>
         )}
-        {error !== null && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+        {error !== null && <p className={`text-xs ${toneText.danger}`}>{error}</p>}
         {phase !== "done" && !provider.deviceOAuth && (
           <button
             type="button"

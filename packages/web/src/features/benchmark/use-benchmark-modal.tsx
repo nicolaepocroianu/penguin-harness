@@ -199,7 +199,7 @@ export function UseBenchmarkModal({
     <div>
       <FieldLabel>{label}</FieldLabel>
       {models !== null && models.models.length === 0 ? (
-        <p className="text-xs text-gray-400">{S.models.empty}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{S.models.empty}</p>
       ) : (
         <ModelSelect
           models={models?.models ?? []}
