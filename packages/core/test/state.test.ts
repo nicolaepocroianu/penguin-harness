@@ -22,7 +22,6 @@ import {
   DATE_PLACEHOLDER,
   DEFAULT_AGENT_ID,
   DEFAULT_PROJECT_ID,
-  MMSP_CLIENTS,
   MODEL_CATALOG,
   OS_VERSION_PLACEHOLDER,
   PLATFORM_PLACEHOLDER,
@@ -60,10 +59,9 @@ import {
   removeVaultEntry,
   renderProjectConfigToml,
   resolveEntryCredential,
-  resolveModelEnv,
   resolveModelRef,
   resolveRoot,
-  routedClientType,
+  modelEnvPreviewKey,
   saveProjectConfig,
   setDefaultModel,
   setProviderConnection,
@@ -1085,35 +1083,36 @@ describe("project-config round trip", () => {
       'model_id = "gemini-direct"',
       'client_type = "gemini-official"',
       'base_url = "https://generativelanguage.googleapis.com"',
+      'api_key = "sk-row"',
       "",
     ].join("\n");
     await fs.writeFile(file, text, "utf8");
     const loaded = await loadProjectConfig(tmpRoot, DEFAULT_PROJECT_ID);
     expect(await fs.readFile(file, "utf8")).toBe(text);
-    const env = { GEMINI_API_KEY: "sk-gemini-env" };
 
     // The group's protocol reaches its keyless row, which the client then serves from the
     // GEMINI_* pair it reads itself.
     const grouped = getModel(loaded, { provider: "google", model_id: "gemini-3.8-flash" })!;
     expect(
-      resolveEntryCredential(grouped, providerConnectionShape(loaded.providers?.google), {}, env),
+      resolveEntryCredential(grouped, providerConnectionShape(loaded.providers?.google)),
     ).toEqual({ clientType: "gemini-official" });
-    // A row naming Google's own endpoint is lent GEMINI_API_KEY, as google-official's would be.
+    // A row naming Google's own endpoint with its own key goes there on the alias, as written.
     const pinned = getModel(loaded, { provider: "custom", model_id: "gemini-direct" })!;
-    expect(pinned.client_type).toBe("gemini-official");
-    expect(resolveEntryCredential(pinned, undefined, {}, env)).toEqual({
-      apiKey: "sk-gemini-env",
+    expect(resolveEntryCredential(pinned, undefined)).toEqual({
+      apiKey: "sk-row",
       baseUrl: "https://generativelanguage.googleapis.com",
       clientType: "gemini-official",
     });
 
-    // Routed, and so accepted by the models page, the server and the CLI alike.
+    // Routed — MMSP keeps the alias — and so accepted by the models page, the server and the
+    // CLI alike, with google-official's variable and fast tier.
     expect(unroutableVendorModel("google", "gemini-3.8-flash", "gemini-official")).toBe(false);
-    const routed = routedClientType("gemini-3.8-flash", "gemini-official")!;
-    expect(MMSP_CLIENTS[routed]).toEqual(MMSP_CLIENTS["google-official"]);
-    expect(resolveModelEnv("gemini-3.8-flash", "gemini-official")).toEqual(
-      resolveModelEnv("gemini-3.8-flash"),
-    );
+    expect(
+      modelEnvPreviewKey(
+        { provider: "google", modelId: "gemini-3.8-flash", clientType: "gemini-official" },
+        undefined,
+      ),
+    ).toBe("GEMINI_API_KEY");
     expect(fastModeProtocol("gemini-3.8-flash", "gemini-official")).toBe("openai");
   });
 
@@ -1501,7 +1500,7 @@ describe("project-config round trip", () => {
     // With nothing of its own left, the row runs on its group's table.
     const cfg = await loadProjectConfig(tmpRoot, DEFAULT_PROJECT_ID);
     expect(
-      resolveEntryCredential(bare, providerConnectionShape(cfg.providers?.openrouter), {}, {}),
+      resolveEntryCredential(bare, providerConnectionShape(cfg.providers?.openrouter)),
     ).toEqual({
       apiKey: "or-group",
       baseUrl: "https://openrouter.ai/api/v1",
@@ -1814,15 +1813,10 @@ describe("providers (group-level connections)", () => {
   /** The credential and protocol each row's client is built with, the way a Session builds it. */
   const connections = (cfg: Pick<ProjectConfig, "models" | "providers">) =>
     Object.fromEntries(
-      cfg.models.map((m) => {
-        const key = `${m.provider}/${m.model_id}`;
-        try {
-          const group = providerConnectionShape(cfg.providers?.[m.provider]);
-          return [key, resolveEntryCredential(m, group, {}, {})];
-        } catch (err) {
-          return [key, (err as Error).name];
-        }
-      }),
+      cfg.models.map((m) => [
+        `${m.provider}/${m.model_id}`,
+        resolveEntryCredential(m, providerConnectionShape(cfg.providers?.[m.provider])),
+      ]),
     );
   /** One `[[models]]` row of an old file. */
   const row = (fields: Record<string, string>): string[] => [
@@ -2044,7 +2038,7 @@ describe("providers (group-level connections)", () => {
       model_id: "qwen-local",
     });
     // Every model runs on what it ran on; the keyless TokenDance model now has the group key.
-    expect(before["tokendance/seed-2.1-pro"]).toBe("ModelCredentialError");
+    expect(before["tokendance/seed-2.1-pro"]).not.toHaveProperty("apiKey");
     expect(after["tokendance/seed-2.1-pro"]).toEqual(after["tokendance/glm-5.3"]);
     expect({ ...after, "tokendance/seed-2.1-pro": "-" }).toEqual({
       ...before,

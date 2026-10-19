@@ -225,6 +225,7 @@ describe("Agent.createSession model reference ((provider, model_id) pair)", () =
     await addModel(tmpRoot, DEFAULT_PROJECT_ID, {
       provider: "myproxy",
       model_id: "claude-sonnet-4-6",
+      api_key: "proxy-key",
     });
     const agent = await createAgent();
     const ws = path.join(tmpRoot, "ws-ref-pair");
@@ -824,6 +825,7 @@ describe("Agent.createSession max output tokens (per-model cap wins over the Age
       model_id: "local-32k",
       client_type: "openai",
       context_window: 32768,
+      api_key: "sk-local",
       max_tokens: 8000,
     });
     const agent = await createAgent();
@@ -861,11 +863,13 @@ describe("Agent.createSession max output tokens (per-model cap wins over the Age
       model_id: "local-32k",
       client_type: "openai",
       max_tokens: 8000,
+      api_key: "sk-local",
     });
     await addModel(tmpRoot, DEFAULT_PROJECT_ID, {
       provider: "custom",
       model_id: "tiny-cap",
       client_type: "openai",
+      api_key: "sk-local",
       max_tokens: 128,
     });
     const agent = await createAgent();
@@ -915,6 +919,7 @@ describe("Agent.createSession fast mode (session requests only, never the meta o
       provider: "custom",
       model_id: "fast-on",
       client_type: "openai",
+      api_key: "sk-local",
       fast_mode: true,
     });
     const agent = await createAgent();
@@ -945,6 +950,7 @@ describe("Agent.createSession fast mode (session requests only, never the meta o
       provider: "custom",
       model_id: "fast-off",
       client_type: "openai",
+      api_key: "sk-local",
     });
     const agent = await createAgent();
     const ws = path.join(tmpRoot, "ws-fast-mode-off");
