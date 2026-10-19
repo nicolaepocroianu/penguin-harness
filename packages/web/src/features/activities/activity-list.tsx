@@ -46,10 +46,17 @@ import { MediaThumb } from "./media-thumb";
 import { NO_PLACEHOLDERS } from "./placeholder-media";
 import { runKindLabel } from "./run-toasts";
 
-/** The columns every row shares, from the picture to the menu, once there is room for them. */
-/** Narrow, the status folds under the name (a 9rem column left the name a few pixels at phone width). */
+/**
+ * The columns every row shares, from the picture to the menu, once there is room for them.
+ * Narrow, the row is three columns and the status takes a second line under the name: a 9rem
+ * status column left the name a few pixels at phone width. The picture and the menu span both
+ * lines (`NARROW_SPAN`), and the status cell places itself (`NARROW_STATUS`).
+ */
+const NARROW_SPAN = "@max-md:row-span-2";
+const NARROW_STATUS = "@max-md:col-start-2 @max-md:row-start-2";
+
 const ROW =
-  "grid grid-cols-[3.5rem_minmax(0,1fr)_2rem] items-center gap-3 @md:grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,9rem)_2rem] @2xl:grid-cols-[3.5rem_minmax(0,1fr)_6rem_minmax(0,11rem)_5rem_2rem]";
+  "grid grid-cols-[3.5rem_minmax(0,1fr)_2rem] items-center gap-x-3 gap-y-0.5 @md:grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,9rem)_2rem] @2xl:grid-cols-[3.5rem_minmax(0,1fr)_6rem_minmax(0,11rem)_5rem_2rem]";
 
 export function ActivityList({
   items,
@@ -351,7 +358,9 @@ function RowPicture({
     ? mediaPreview(poster.asset, activityEndpoint(projectId, activityId), NO_PLACEHOLDERS)
     : { kind: "none" as const };
   return (
-    <span className="block h-10 w-14 overflow-hidden rounded-md border border-gray-200 dark:border-gray-800">
+    <span
+      className={`block h-10 w-14 overflow-hidden rounded-md border border-gray-200 dark:border-gray-800 ${NARROW_SPAN}`}
+    >
       <MediaThumb preview={preview} type={poster?.asset.type ?? "image"} compact />
     </span>
   );
@@ -402,14 +411,9 @@ function ActivityRow({
           {/* Narrow, the edited column folds into this line. */}
           <span className="@2xl:hidden">{` · ${formatRelativeShort(item.updatedAt, locale)}`}</span>
         </span>
-        {summary && (
-          <span className="mt-0.5 flex min-w-0 @md:hidden">
-            <SummaryStatus status={summary.status} />
-          </span>
-        )}
       </div>
       <span className="@max-2xl:hidden">{summary && <Milestones summary={summary} />}</span>
-      <span className="min-w-0 @max-md:hidden">
+      <span className={`min-w-0 ${NARROW_STATUS}`}>
         {summary && <SummaryStatus status={summary.status} />}
       </span>
       <span className="text-xs text-gray-500 tabular-nums @max-2xl:hidden dark:text-gray-400">
@@ -464,7 +468,7 @@ function RowMenu({
       setOpen={setOpen}
       portal={{ direction: "down", align: "right" }}
       menuClass="w-64 max-w-[calc(100vw-1.5rem)]"
-      className="relative z-10"
+      className={`relative z-10 @max-md:col-start-3 @max-md:row-start-1 ${NARROW_SPAN}`}
       button={
         <button
           type="button"
