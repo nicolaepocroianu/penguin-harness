@@ -23,6 +23,7 @@ export function sandboxHasModule(status: SandboxStatusLike | null): boolean {
 /**
  * The link that plays an activity. The server answers it with a redirect to a signed,
  * short-lived link on the preview origin, where the module's code runs away from the App.
+ * The query uses Loom's player.html names, so a link reads the same in both.
  */
 export function playUrl(
   projectId: string,
@@ -31,8 +32,8 @@ export function playUrl(
 ): string {
   const base = `/api/projects/${encodeURIComponent(projectId)}/activities/${encodeURIComponent(activityId)}/sandbox/play`;
   const params = new URLSearchParams();
-  if (options.language) params.set("language", options.language);
-  if (options.scene) params.set("scene", options.scene);
+  if (options.language) params.set("languageCode", options.language);
+  if (options.scene) params.set("startSceneId", options.scene);
   const query = params.toString();
   return query ? `${base}?${query}` : base;
 }

@@ -3,7 +3,7 @@ import { ACTIVITY_LANGUAGES, DEFAULT_LANGUAGE_CODE } from "./languages.js";
 import { HttpError } from "../http/errors.js";
 import { isValidId } from "@prismshadow/penguin-core";
 import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
-import type { Hono } from "hono";
+import type { Context, Hono } from "hono";
 import { Hono as HonoApp } from "hono";
 import type { AppEnv } from "../auth/middleware.js";
 import type { Access } from "../mechanisms/projects.js";
@@ -15,6 +15,7 @@ import type { ModuleDocumentKind } from "./domain.js";
 import type { ActivitySummaries } from "./summary-service.js";
 import type { Config } from "../hmr/capabilities.js";
 import { hostOnly, requestAuthority, resolvePreviewTarget } from "../services/preview-token.js";
+import { playQueryString, readPlayQuery } from "./play-query.js";
 import { playBase } from "./play-routes.js";
 import { requestOrigin } from "../http/routes/model-oauth.js";
 import { IMAGE_MODEL } from "./generated-image.js";
@@ -701,8 +702,13 @@ export class ActivityRoutes {
     // Plays the activity. The page itself is served on the preview origin behind a signed,
     // short-lived link (see play-routes.ts), so the module's code never runs with the
     // author's session; this route is where an authorised author is handed that link.
-    app.get("/:activityId/sandbox/play", async (c) => {
-      const projectId = requireValidId(c, "projectId");
+    // Loom's player.html query (see play-query.ts); `language` and `scene` are the older names.
+    const playLink = async (c: Context, projectId: string, activityId: string) => {
+      const query = readPlayQuery((name) => c.req.query(name));
+      if (query.refError) throw new HttpError(400, "play_ref_invalid", query.refError);
+      if (query.sourceError) throw new HttpError(400, "play_source_invalid", query.sourceError);
+      const mismatch = await this.sandbox.playLinkMismatch(projectId, activityId, query);
+      if (mismatch) throw new HttpError(400, "play_link_mismatch", mismatch);
       const target = resolvePreviewTarget(
         c.req.url,
         c.req.header("host"),
@@ -727,22 +733,44 @@ export class ActivityRoutes {
       );
       const { token } = await this.sandbox.play(
         projectId,
-        pathParam(c, "activityId"),
+        activityId,
         host,
         target === null,
         parentOrigin,
       );
-      const query = new URLSearchParams();
-      const language = c.req.query("language");
-      const scene = c.req.query("scene");
-      if (language) query.set("language", language);
-      if (scene) query.set("scene", scene);
-      const search = query.toString();
+      const search = playQueryString(query, {
+        languageCode: Boolean(c.req.query("languageCode") ?? c.req.query("language")),
+      });
       return c.redirect(
         `${target?.origin ?? ""}${playBase(token)}play${search ? `?${search}` : ""}`,
         302,
       );
+    };
+    // A Loom link names a product and ref rather than an activity: `module` (the product
+    // code), `ref` and, optionally, `source`, the module root that owns the product.
+    app.get("/sandbox/play", async (c) => {
+      const projectId = requireValidId(c, "projectId");
+      const query = readPlayQuery((name) => c.req.query(name));
+      if (!query.module)
+        throw new HttpError(400, "play_module_required", "Name the product to play as module.");
+      if (query.ref === null)
+        throw new HttpError(
+          400,
+          "play_ref_invalid",
+          query.refError ?? "Ref is required. Use a non-negative whole number.",
+        );
+      if (query.sourceError) throw new HttpError(400, "play_source_invalid", query.sourceError);
+      const activityId = await this.sandbox.findPlayable(
+        projectId,
+        query.module,
+        query.ref,
+        query.source,
+      );
+      return playLink(c, projectId, activityId);
     });
+    app.get("/:activityId/sandbox/play", async (c) =>
+      playLink(c, requireValidId(c, "projectId"), pathParam(c, "activityId")),
+    );
     app.get("/:activityId/sandbox/status", async (c) => {
       return c.json(
         await this.sandbox.status(requireValidId(c, "projectId"), pathParam(c, "activityId")),
