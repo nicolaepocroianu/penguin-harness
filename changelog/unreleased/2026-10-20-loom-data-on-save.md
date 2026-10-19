@@ -3,7 +3,7 @@
 - **Date:** 2026-10-20
 - **Type:** fix
 - **Scope:** `server`
-- **PR:** pending
+- **PR:** [#166](https://github.com/nicolaepocroianu/penguin-harness/pull/166)
 
 Opening a product Loom authored, and saving it afterwards, no longer loses Loom's data. Books suffered most. Their asset manifests lost the reader's own assets (intro video, page-turn sound, vocabulary, sound-out and inspector clips), the image labels and segment timings, and the keys of their word pronunciations. Every book's tags were wiped as well.
 
