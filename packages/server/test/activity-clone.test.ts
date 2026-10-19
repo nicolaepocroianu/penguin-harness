@@ -623,3 +623,37 @@ describe("speaking for a deploy", () => {
     expect((failure as CloneError).message).toMatch(/^git checkout failed: /);
   }, 30_000);
 });
+
+describe("a module folder inside a shared repository", () => {
+  it("is refused before git stages, stashes, checks out or cleans anything in it", async () => {
+    const remote = await origin({
+      "modules/waf-module-a/package.json": "{}\n",
+      "other.txt": "x\n",
+    });
+    const monorepo = await remote.cloneOf("monorepo");
+    const module = path.join(monorepo, "modules", "waf-module-a");
+    await write(module, "new.txt", "work");
+    await write(monorepo, "other.txt", "changed elsewhere\n");
+    const clone = clones.open(module);
+    for (const change of [
+      () => clone.stage(),
+      () => clone.onBranchFromOrigin("main", { work: "carry" }),
+      () => clone.onBranchFromOrigin("main", { work: "discard", from: "main" }),
+      () => clone.branchFrom("loom/a-deploy", "HEAD"),
+    ]) {
+      const refusal = (await change().then(
+        () => null,
+        (error: unknown) => error,
+      )) as { status?: number; code?: string } | null;
+      expect(refusal).toMatchObject({ status: 409, code: "module_shared_repository" });
+    }
+    // Nothing in the shared repository moved: its work is where it was, unstaged, on main.
+    expect(git(monorepo, "status", "--porcelain")).toBe(
+      ["M other.txt", "?? modules/waf-module-a/new.txt"].join("\n"),
+    );
+    expect(git(monorepo, "stash", "list")).toBe("");
+    expect(git(monorepo, "branch", "--show-current")).toBe("main");
+    // Questions that change nothing are still answered.
+    expect((await clone.state()).branch).toBe("main");
+  });
+});

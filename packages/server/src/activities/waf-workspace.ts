@@ -524,6 +524,15 @@ export class WafWorkspaceService implements WafWorkspace {
           "module_not_a_clone",
           `modules/${folder} exists but is not a git repository.`,
         );
+      // A repository made or cloned inside another one (the waf-modules monorepo, say) would
+      // be a module the other's git commands reach too, so none is.
+      const shared = enclosingRepository(dir, root);
+      if (shared)
+        throw new HttpError(
+          409,
+          "module_shared_repository",
+          `modules/${folder} would be inside the Git repository at ${shared}. A module needs a repository of its own, so none was made.`,
+        );
       const remote = this.moduleRemote(folder);
       const clones = this.clones();
       let exists: boolean;
@@ -601,5 +610,18 @@ function safeJson(raw: string | null): unknown {
     return raw === null ? null : JSON.parse(raw);
   } catch {
     return null;
+  }
+}
+
+/**
+ * The folder above `dir`, up to and including the WAF root, that holds a `.git`: a repository
+ * `dir` is inside. Null when there is none. Only the checkout is looked at, so a WAF root that
+ * is itself inside a larger repository is not refused for it.
+ */
+function enclosingRepository(dir: string, root: string): string | null {
+  const top = path.resolve(root);
+  for (let at = path.dirname(path.resolve(dir)); ; at = path.dirname(at)) {
+    if (fs.existsSync(path.join(at, ".git"))) return at;
+    if (at === top || path.dirname(at) === at || !at.startsWith(top)) return null;
   }
 }

@@ -1,0 +1,17 @@
+{
+  "id": "m2ab01",
+  "moduleFolder": "waf-module-m2ab01",
+  "title": "Waterford Books (m2ab01)",
+  "runtime": {
+    "engine": "html",
+    "layout": "mainOnly",
+    "theme": "park",
+    "resolution": "640x480",
+    "usesAssessment": false
+  },
+  "canonicalRefNum": 1,
+  "templateStable": false,
+  "tags": ["Waterford Books", "Imported"],
+  "activityType": "book",
+  "bookMode": "readAlong"
+}

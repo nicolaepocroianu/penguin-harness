@@ -14,6 +14,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import { HttpError } from "../http/errors.js";
 import { spawnGit, type DeployGit, type DeployGitResult } from "./deploy-git.js";
 
 /** How long asking a remote whether it has a branch may take, unless the clone says. */
@@ -261,6 +262,35 @@ export function gitClones(git: DeployGit = spawnGit): Clones {
   };
 }
 
+/** The git commands that change a repository's branches, index, working tree or remote. */
+const CHANGES_REPOSITORY = new Set([
+  "add",
+  "checkout",
+  "clean",
+  "commit",
+  "merge",
+  "push",
+  "reset",
+  "switch",
+]);
+
+/** The same commands' verbs that only ask, never change: `git stash list`, say. */
+const ASKS = new Set(["list", "get-url", "show"]);
+
+/** Whether `args` change the repository they run in (CHANGES_REPOSITORY, and the verbs that do). */
+function changesRepository(args: readonly string[]): boolean {
+  let at = 0;
+  while (args[at] === "-c") at += 2;
+  const command = args[at] ?? "";
+  const verb = args[at + 1] ?? "";
+  if (CHANGES_REPOSITORY.has(command)) return true;
+  if (["stash", "remote", "sparse-checkout", "lfs"].includes(command)) return !ASKS.has(verb);
+  // `symbolic-ref HEAD <ref>` moves HEAD; with only a name it reads it.
+  if (command === "symbolic-ref")
+    return args.slice(at + 1).filter((arg) => !arg.startsWith("-")).length > 1;
+  return false;
+}
+
 interface RunOptions {
   /** Failing is an answer, not an error: the result comes back. */
   allowFailure?: boolean;
@@ -288,8 +318,41 @@ class GitClone implements Clone {
     if (this.options.signal?.aborted) throw new CloneStopped();
   }
 
+  private ownRepository?: Promise<void>;
+
+  /**
+   * Refuses to change a clone whose folder is not its repository's root, as Loom's
+   * `require_standalone_deploy_repository` does: a module folder inside another repository (the
+   * waf-modules monorepo, say) has no `.git` of its own, and git run there would stage, stash,
+   * check out and clean the whole of that repository. Asked once per clone.
+   */
+  private requireOwnRepository(): Promise<void> {
+    this.ownRepository ??= (async () => {
+      const args = ["rev-parse", "--show-toplevel"];
+      const result = await this.git.run(args, this.dir, { timeoutMs: 30_000 });
+      // git that could not run at all says so on the command itself.
+      if (result.error) return;
+      if (result.code !== 0)
+        throw new HttpError(
+          409,
+          "module_not_repository",
+          `${this.dir} is not a Git repository. Deploying needs the module to be its own Git repository.`,
+        );
+      const real = (dir: string) => fs.realpath(dir).catch(() => path.resolve(dir));
+      const top = result.stdout.trim();
+      if ((await real(top)) !== (await real(this.dir)))
+        throw new HttpError(
+          409,
+          "module_shared_repository",
+          `${this.dir} belongs to a shared Git repository at ${top}. Deploying needs the module to be its own Git repository, so nothing was changed in the shared one.`,
+        );
+    })();
+    return this.ownRepository;
+  }
+
   private async run(args: string[], options: RunOptions = {}): Promise<DeployGitResult> {
     if (!options.unstoppable) this.checkStopped();
+    if (changesRepository(args)) await this.requireOwnRepository();
     const { log } = this.options;
     const signal = options.unstoppable ? undefined : this.options.signal;
     log?.(`$ git ${args.join(" ")}`);

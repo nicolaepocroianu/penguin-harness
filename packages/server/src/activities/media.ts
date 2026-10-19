@@ -237,6 +237,41 @@ function object(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+/** Every field a manifest asset may have; a Loom field outside it is kept in the file only (loom-manifest.ts). */
+export const MEDIA_ASSET_FIELDS: ReadonlySet<string> = new Set([
+  "key",
+  "type",
+  "description",
+  "sourceKey",
+  "script",
+  "translatedFrom",
+  "voice",
+  "speechProvider",
+  "speechModel",
+  "wordTimings",
+  "durationMs",
+  "kind",
+  "channel",
+  "loop",
+  "volume",
+  "targetDurationMs",
+  "role",
+  "word",
+  "normalizedWord",
+  "phonemes",
+  "phonemeSource",
+  "customized",
+  "customScript",
+  "phonemeTimings",
+  "wholeWordTiming",
+  "path",
+  "usages",
+  "generatedAudio",
+  "generatedImage",
+  "generatedVideo",
+  "timeline",
+]);
+
 /** Keep the review contract bounded and reject ambiguous WAF configuration aliases. */
 export function validateManifest(value: unknown, address: ActivityAddress): AssetManifest {
   const manifest = object(value);
@@ -257,44 +292,7 @@ export function validateManifest(value: unknown, address: ActivityAddress): Asse
     assets[language] = entries.map((entry) => {
       const asset = object(entry);
       if (++count > 2000) throw new Error("A media manifest may contain at most 2000 assets.");
-      if (
-        Object.keys(asset).some(
-          (key) =>
-            ![
-              "key",
-              "type",
-              "description",
-              "sourceKey",
-              "script",
-              "translatedFrom",
-              "voice",
-              "speechProvider",
-              "speechModel",
-              "wordTimings",
-              "durationMs",
-              "kind",
-              "channel",
-              "loop",
-              "volume",
-              "targetDurationMs",
-              "role",
-              "word",
-              "normalizedWord",
-              "phonemes",
-              "phonemeSource",
-              "customized",
-              "customScript",
-              "phonemeTimings",
-              "wholeWordTiming",
-              "path",
-              "usages",
-              "generatedAudio",
-              "generatedImage",
-              "generatedVideo",
-              "timeline",
-            ].includes(key),
-        )
-      )
+      if (Object.keys(asset).some((key) => !MEDIA_ASSET_FIELDS.has(key)))
         throw new Error("Unsupported media asset field.");
       if (!safeKey(asset.key) || keys.has(asset.key))
         throw new Error("Media keys must be safe and unique within each language.");

@@ -1,0 +1,565 @@
+{
+  "productCode": "r2pt01",
+  "refNum": 150,
+  "assets": {
+    "en-US": [
+      {
+        "key": "scene-1-image-cover-ant-lab",
+        "type": "image",
+        "path": "media/loom/r2pt01/r2pt01-150/images/english/scene-1-image-cover-ant-lab.jpeg",
+        "description": "A full-page landscape cover background viewed from directly above: an orange picnic blanket spread on green grass, with a red field notebook in the center, a yellow magnifying glass, a pencil, a black marker, and a child’s ant sketches arranged around it. Warm natural daylight and realistic photographic texture, with clear open space on the notebook for an HTML title. Do not include lettering, logos, credits, buttons, or other text in the image."
+      },
+      {
+        "key": "scene-2-image-sam-ant-lab",
+        "type": "image",
+        "path": "media/loom/r2pt01/r2pt01-150/images/english/scene-2-image-sam-ant-lab.jpeg",
+        "description": "A realistic landscape photograph of Sam, a smiling elementary-age girl with shoulder-length dark hair, sitting cross-legged on green grass beside a large sandy anthill in a sunny park. An orange field mat in front of her holds a red notebook, magnifying glass, pencil, and loose observation papers. Trees and an open meadow fill the softly focused background. Do not include captions, labels, page numbers, buttons, or other text in the image."
+      },
+      {
+        "key": "scene-4-image-sam-kat-study-ant",
+        "type": "image",
+        "path": "media/loom/r2pt01/r2pt01-150/images/english/scene-4-image-sam-kat-study-ant.jpeg",
+        "description": "A realistic landscape photograph of Sam and her friend Kat kneeling together beside a sandy anthill in a sunny park. Kat, wearing a purple shirt, holds a yellow magnifying glass while Sam watches closely. Their orange observation mat and field notes rest beside them. Show the two children studying the ants with curiosity. Do not include captions, labels, page numbers, buttons, or other text in the image."
+      },
+      {
+        "key": "scene-4-image-magnifier-inset",
+        "type": "image",
+        "path": "media/loom/r2pt01/r2pt01-150/images/english/scene-4-image-magnifier-inset.png",
+        "description": "A magnifying glass shows the ant carrying sand."
+      },
+      {
+        "key": "scene-2-audio-narration-sam-lab",
+        "type": "audio",
+        "path": "media/loom/r2pt01/r2pt01-150/audios/english/scene-2-audio-narration-sam-lab.mp3",
+        "description": "Audio for scene scene-2.",
+        "script": "Sam has a lab. The lab is on a flat mat.",
+        "wordTimings": [
+          {
+            "word": "Sam",
+            "startMs": 0,
+            "endMs": 480
+          },
+          {
+            "word": "has",
+            "startMs": 560,
+            "endMs": 640
+          },
+          {
+            "word": "a",
+            "startMs": 720,
+            "endMs": 800
+          },
+          {
+            "word": "lab",
+            "startMs": 1040,
+            "endMs": 1280
+          },
+          {
+            "word": "The",
+            "startMs": 1720,
+            "endMs": 1760
+          },
+          {
+            "word": "lab",
+            "startMs": 1840,
+            "endMs": 2240
+          },
+          {
+            "word": "is",
+            "startMs": 2320,
+            "endMs": 2400
+          },
+          {
+            "word": "on",
+            "startMs": 2480,
+            "endMs": 2560
+          },
+          {
+            "word": "a",
+            "startMs": 2640,
+            "endMs": 2720
+          },
+          {
+            "word": "flat",
+            "startMs": 2880,
+            "endMs": 3040
+          },
+          {
+            "word": "mat",
+            "startMs": 3120,
+            "endMs": 3520
+          }
+        ],
+        "durationMs": 3840
+      },
+      {
+        "key": "scene-4-audio-narration-ant-grabs-sand",
+        "type": "audio",
+        "path": "media/loom/r2pt01/r2pt01-150/audios/english/scene-4-audio-narration-ant-grabs-sand.mp3",
+        "description": "Audio for scene scene-4.",
+        "script": "Sam and Kat see the ant. The ant can grab sand.",
+        "wordTimings": [
+          {
+            "word": "Sam",
+            "startMs": 0,
+            "endMs": 320
+          },
+          {
+            "word": "and",
+            "startMs": 400,
+            "endMs": 480
+          },
+          {
+            "word": "Kat",
+            "startMs": 560,
+            "endMs": 880
+          },
+          {
+            "word": "see",
+            "startMs": 960,
+            "endMs": 1120
+          },
+          {
+            "word": "the",
+            "startMs": 1200,
+            "endMs": 1280
+          },
+          {
+            "word": "ant",
+            "startMs": 1360,
+            "endMs": 1760
+          },
+          {
+            "word": "The",
+            "startMs": 2240,
+            "endMs": 2320
+          },
+          {
+            "word": "ant",
+            "startMs": 2400,
+            "endMs": 2640
+          },
+          {
+            "word": "can",
+            "startMs": 2720,
+            "endMs": 2880
+          },
+          {
+            "word": "grab",
+            "startMs": 3040,
+            "endMs": 3200
+          },
+          {
+            "word": "sand",
+            "startMs": 3280,
+            "endMs": 3760
+          }
+        ],
+        "durationMs": 4080
+      },
+      {
+        "key": "book-word-she-2cda85e504",
+        "type": "audio",
+        "path": "media/loom/r2pt01/r2pt01-150/audios/english/book-word-she-2cda85e504.mp3",
+        "description": "Pronunciation of \"She\".",
+        "sourceKey": "scene-2-audio-narration-sam-lab",
+        "script": "[very slowly] [drawn out] \"/ʃiːːːː/\" [short pause] She.",
+        "role": "bookWord",
+        "word": "She",
+        "normalizedWord": "she",
+        "voice": "default",
+        "phonemes": ["ʃ", "iː"],
+        "wordTimings": [
+          {
+            "word": "ʃ",
+            "startMs": 419,
+            "endMs": 909
+          },
+          {
+            "word": "iː",
+            "startMs": 909,
+            "endMs": 1399
+          },
+          {
+            "word": "She",
+            "startMs": 3159,
+            "endMs": 3619
+          }
+        ],
+        "customized": true,
+        "manifestOwned": true,
+        "usages": [
+          {
+            "sceneId": "scene-2",
+            "sourceKey": "scene-2-audio-narration-sam-lab",
+            "occurrence": 1,
+            "sceneOccurrenceCount": 1
+          }
+        ]
+      },
+      {
+        "key": "book-word-sam-e96e02d8e4",
+        "type": "audio",
+        "path": "media/loom/r2pt01/r2pt01-150/audios/english/book-word-sam-e96e02d8e4.mp3",
+        "description": "Pronunciation of \"Sam\".",
+        "sourceKey": "scene-2-audio-narration-sam-lab",
+        "script": "[very slowly] [drawn out] \"/sæːːːm/\" [short pause] Sam.",
+        "role": "bookWord",
+        "word": "Sam",
+        "normalizedWord": "sam",
+        "voice": "default",
+        "phonemes": ["s", "æ", "m"],
+        "wordTimings": [
+          {
+            "word": "s",
+            "startMs": 259,
+            "endMs": 652
+          },
+          {
+            "word": "æ",
+            "startMs": 652,
+            "endMs": 1046
+          },
+          {
+            "word": "m",
+            "startMs": 1046,
+            "endMs": 1439
+          },
+          {
+            "word": "Sam",
+            "startMs": 2779,
+            "endMs": 3720
+          }
+        ],
+        "customized": true,
+        "manifestOwned": true,
+        "usages": [
+          {
+            "sceneId": "scene-2",
+            "sourceKey": "scene-2-audio-narration-sam-lab",
+            "occurrence": 1,
+            "sceneOccurrenceCount": 1
+          },
+          {
+            "sceneId": "scene-4",
+            "sourceKey": "scene-4-audio-narration-ant-grabs-sand",
+            "occurrence": 1,
+            "sceneOccurrenceCount": 1
+          }
+        ]
+      },
+      {
+        "key": "book-word-kat-5455fc3fb9",
+        "type": "audio",
+        "path": "media/loom/r2pt01/r2pt01-150/audios/english/book-word-kat-5455fc3fb9.mp3",
+        "description": "Pronunciation of \"Kat\".",
+        "sourceKey": "scene-4-audio-narration-ant-grabs-sand",
+        "script": "[very slowly] [drawn out] \"/kæːːːt/\" [short pause] Kat.",
+        "role": "bookWord",
+        "word": "Kat",
+        "normalizedWord": "kat",
+        "voice": "default",
+        "phonemes": ["k", "æ", "t"],
+        "wordTimings": [
+          {
+            "word": "k",
+            "startMs": 199,
+            "endMs": 906
+          },
+          {
+            "word": "æ",
+            "startMs": 906,
+            "endMs": 1612
+          },
+          {
+            "word": "t",
+            "startMs": 1612,
+            "endMs": 2319
+          },
+          {
+            "word": "Kat",
+            "startMs": 4099,
+            "endMs": 4579
+          }
+        ],
+        "customized": true,
+        "manifestOwned": true,
+        "usages": [
+          {
+            "sceneId": "scene-4",
+            "sourceKey": "scene-4-audio-narration-ant-grabs-sand",
+            "occurrence": 1,
+            "sceneOccurrenceCount": 1
+          }
+        ]
+      },
+      {
+        "key": "scene-1-audio-title-credit",
+        "type": "audio",
+        "path": "media/loom/r2pt01/r2pt01-150/audios/english/scene-1-audio-title-credit.mp3",
+        "description": "Audio for scene scene-1.",
+        "script": "The Ant Lab\r\nWritten by Olivia Semeria",
+        "wordTimings": [
+          {
+            "word": "The",
+            "startMs": 0,
+            "endMs": 160
+          },
+          {
+            "word": "Ant",
+            "startMs": 240,
+            "endMs": 480
+          },
+          {
+            "word": "Lab",
+            "startMs": 560,
+            "endMs": 960
+          },
+          {
+            "word": "Written",
+            "startMs": 1360,
+            "endMs": 1680
+          },
+          {
+            "word": "by",
+            "startMs": 1760,
+            "endMs": 1920
+          },
+          {
+            "word": "Olivia",
+            "startMs": 2000,
+            "endMs": 2480
+          },
+          {
+            "word": "Semeria",
+            "startMs": 2560,
+            "endMs": 3520
+          }
+        ],
+        "durationMs": 3520
+      },
+      {
+        "key": "scene-1-audio-reading-directions",
+        "type": "audio",
+        "path": "media/loom/r2pt01/r2pt01-150/audios/english/scene-1-audio-reading-directions.mp3",
+        "description": "Audio for scene scene-1.",
+        "script": "Do you know what an ant lab is? Let's read to find out.  FIRST, read each page on your own. Tap a word if you need help. THEN, press the play button to read along with the reader and check your reading.",
+        "voice": "ehiTRHLcT9mKtdi7oaju",
+        "wordTimings": [
+          {
+            "word": "Do",
+            "startMs": 0,
+            "endMs": 160
+          },
+          {
+            "word": "you",
+            "startMs": 240,
+            "endMs": 320
+          },
+          {
+            "word": "know",
+            "startMs": 480,
+            "endMs": 560
+          },
+          {
+            "word": "what",
+            "startMs": 640,
+            "endMs": 800
+          },
+          {
+            "word": "an",
+            "startMs": 920,
+            "endMs": 1040
+          },
+          {
+            "word": "ant",
+            "startMs": 1120,
+            "endMs": 1360
+          },
+          {
+            "word": "lab",
+            "startMs": 1440,
+            "endMs": 1680
+          },
+          {
+            "word": "is",
+            "startMs": 1760,
+            "endMs": 2080
+          },
+          {
+            "word": "Let's",
+            "startMs": 2720,
+            "endMs": 3040
+          },
+          {
+            "word": "read",
+            "startMs": 3120,
+            "endMs": 3440
+          },
+          {
+            "word": "to",
+            "startMs": 3520,
+            "endMs": 3600
+          },
+          {
+            "word": "find",
+            "startMs": 3680,
+            "endMs": 3920
+          },
+          {
+            "word": "out",
+            "startMs": 4000,
+            "endMs": 4400
+          },
+          {
+            "word": "FIRST",
+            "startMs": 4960,
+            "endMs": 5440
+          },
+          {
+            "word": "read",
+            "startMs": 5760,
+            "endMs": 6080
+          },
+          {
+            "word": "each",
+            "startMs": 6160,
+            "endMs": 6400
+          },
+          {
+            "word": "page",
+            "startMs": 6480,
+            "endMs": 6880
+          },
+          {
+            "word": "on",
+            "startMs": 6960,
+            "endMs": 7040
+          },
+          {
+            "word": "your",
+            "startMs": 7120,
+            "endMs": 7200
+          },
+          {
+            "word": "own",
+            "startMs": 7280,
+            "endMs": 7600
+          },
+          {
+            "word": "Tap",
+            "startMs": 8080,
+            "endMs": 8320
+          },
+          {
+            "word": "a",
+            "startMs": 8400,
+            "endMs": 8480
+          },
+          {
+            "word": "word",
+            "startMs": 8560,
+            "endMs": 8880
+          },
+          {
+            "word": "if",
+            "startMs": 8960,
+            "endMs": 9120
+          },
+          {
+            "word": "you",
+            "startMs": 9200,
+            "endMs": 9280
+          },
+          {
+            "word": "need",
+            "startMs": 9360,
+            "endMs": 9520
+          },
+          {
+            "word": "help",
+            "startMs": 9600,
+            "endMs": 10000
+          },
+          {
+            "word": "THEN",
+            "startMs": 10480,
+            "endMs": 10800
+          },
+          {
+            "word": "press",
+            "startMs": 11200,
+            "endMs": 11440
+          },
+          {
+            "word": "the",
+            "startMs": 11520,
+            "endMs": 11600
+          },
+          {
+            "word": "play",
+            "startMs": 11680,
+            "endMs": 11920
+          },
+          {
+            "word": "button",
+            "startMs": 12000,
+            "endMs": 12400
+          },
+          {
+            "word": "to",
+            "startMs": 12480,
+            "endMs": 12560
+          },
+          {
+            "word": "read",
+            "startMs": 12720,
+            "endMs": 12880
+          },
+          {
+            "word": "along",
+            "startMs": 13080,
+            "endMs": 13280
+          },
+          {
+            "word": "with",
+            "startMs": 13360,
+            "endMs": 13440
+          },
+          {
+            "word": "the",
+            "startMs": 13520,
+            "endMs": 13600
+          },
+          {
+            "word": "reader",
+            "startMs": 13680,
+            "endMs": 14160
+          },
+          {
+            "word": "and",
+            "startMs": 14240,
+            "endMs": 14400
+          },
+          {
+            "word": "check",
+            "startMs": 14480,
+            "endMs": 14720
+          },
+          {
+            "word": "your",
+            "startMs": 14800,
+            "endMs": 14880
+          },
+          {
+            "word": "reading",
+            "startMs": 14960,
+            "endMs": 15440
+          }
+        ],
+        "durationMs": 15760
+      }
+    ]
+  },
+  "displayName": "Ref 1"
+}

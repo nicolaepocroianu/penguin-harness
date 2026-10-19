@@ -251,6 +251,19 @@ describe("WAF workspace", () => {
     await expect(s.workspace.ensureModule("../x")).rejects.toThrow(/module folder/);
   });
 
+  it("never makes a module's repository inside another repository", async () => {
+    const s = await setup();
+    await prepared(s);
+    // modules/ is a monorepo's folder, as in waf-modules.
+    const modules = path.join(s.t.root, "waf", "modules");
+    await fs.mkdir(path.join(modules, ".git"), { recursive: true });
+    await expect(s.workspace.ensureModule("waf-module-new")).rejects.toMatchObject({
+      status: 409,
+      code: "module_shared_repository",
+    });
+    expect(s.clones.ops(path.join(modules, "waf-module-new"))).toEqual([]);
+  });
+
   it("uses an existing checkout as it is, and never clones into it", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-waf-external-"));
     cleanups.push(() => fs.rm(root, { recursive: true, force: true }));

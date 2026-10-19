@@ -1,0 +1,169 @@
+{
+  "id": "m2ab01",
+  "moduleFolder": "waf-module-m2ab01",
+  "title": "Waterford Books (m2ab01)",
+  "runtime": {
+    "engine": "html",
+    "layout": "mainOnly",
+    "theme": "park",
+    "resolution": "640x480",
+    "usesAssessment": false
+  },
+  "activityDescription": "Milton's Milttens, trimmed to its first three pages for a round-trip test.",
+  "bookMode": "readAlong",
+  "audience": null,
+  "acceptance_criterias": [],
+  "scenes": [
+    {
+      "id": "page-1",
+      "description": "Milton's Milttens: page 1",
+      "role": "cover",
+      "media": {
+        "images": [
+          {
+            "key": "page-1-image",
+            "description": "Original artwork for Milton's Milttens, page 1.",
+            "targetPath": "media/loom/m2ab01/m2ab01-1/images/english/page-1-image.svg"
+          }
+        ],
+        "video": [],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "page-1-narration",
+            "description": "Original text for page 1.",
+            "targetPath": "media/loom/m2ab01/m2ab01-1/audios/english/page-1-narration.mp3",
+            "script": "Written by Maya L. Komegi\nIllustrated by Jeff Merrill",
+            "interruptible": false,
+            "voice": null
+          }
+        ]
+      },
+      "bookPresentation": {
+        "caption": false,
+        "captionStyle": null,
+        "boldWords": [],
+        "imageLabels": [
+          {
+            "id": "obj29",
+            "text": "Written by Maya L. Komegi\nIllustrated by Jeff Merrill",
+            "boldWords": [],
+            "x": 57.18518518518518,
+            "y": 82.0952380952381,
+            "width": 38.44444444444444,
+            "height": 10.761904761904761,
+            "style": "text",
+            "textStyle": {
+              "fontSize": 3.259259259259259,
+              "fontWeight": "normal",
+              "fontFamily": "GOUDYOSB",
+              "color": "#000000",
+              "textAlign": "right",
+              "lineHeight": 1.2
+            }
+          }
+        ],
+        "narrationHighlightColor": "#FFE500"
+      }
+    },
+    {
+      "id": "page-2",
+      "description": "Milton's Milttens: page 2",
+      "role": "title",
+      "media": {
+        "images": [
+          {
+            "key": "page-2-image",
+            "description": "Original artwork for Milton's Milttens, page 2.",
+            "targetPath": "media/loom/m2ab01/m2ab01-1/images/english/page-2-image.svg"
+          }
+        ],
+        "video": [],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "page-2-narration",
+            "description": "Original narration for page 2.",
+            "targetPath": "media/loom/m2ab01/m2ab01-1/audios/english/page-2-narration.mp3",
+            "script": ".",
+            "interruptible": false,
+            "voice": null
+          }
+        ]
+      },
+      "bookPresentation": {
+        "caption": false,
+        "captionStyle": null,
+        "boldWords": [],
+        "imageLabels": [],
+        "silent": false,
+        "narrationHighlightColor": "transparent"
+      }
+    },
+    {
+      "id": "page-3",
+      "description": "Milton's Milttens: page 3",
+      "role": "story",
+      "media": {
+        "images": [
+          {
+            "key": "page-3-image",
+            "description": "Original artwork for Milton's Milttens, page 3.",
+            "targetPath": "media/loom/m2ab01/m2ab01-1/images/english/page-3-image.jpeg"
+          }
+        ],
+        "video": [],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "page-3-narration",
+            "description": "Original text for page 3.",
+            "targetPath": "media/loom/m2ab01/m2ab01-1/audios/english/page-3-narration.mp3",
+            "script": "“Oh no! Milton went home without his mittens, and it’s cold outside,” said Quincy.",
+            "interruptible": false,
+            "voice": null
+          }
+        ]
+      },
+      "bookPresentation": {
+        "caption": false,
+        "captionStyle": null,
+        "boldWords": [],
+        "imageLabels": [
+          {
+            "id": "obj79",
+            "text": "“Oh no! Milton went home without his mittens, and it’s cold outside,” said Quincy.",
+            "boldWords": [],
+            "x": 6.962962962962963,
+            "y": 76.95238095238095,
+            "width": 86.07407407407408,
+            "height": 16.666666666666664,
+            "style": "text",
+            "textStyle": {
+              "fontSize": 3.851851851851852,
+              "fontWeight": "normal",
+              "fontFamily": "WaterfordNo3_0",
+              "color": "#000000",
+              "textAlign": "center",
+              "lineHeight": 1.3
+            }
+          }
+        ],
+        "narrationHighlightColor": "#FFE500",
+        "preserveSourceLayout": true
+      }
+    }
+  ],
+  "bookReadingDelay": {
+    "secondsPerWord": 0.5,
+    "minimumSeconds": 3,
+    "maximumSeconds": 10
+  },
+  "bookAutoNarration": true
+}

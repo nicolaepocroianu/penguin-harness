@@ -6,9 +6,9 @@
  *       spec/penguin.json                  Penguin's own: which project owns the product
  *       refs/<pc>-<ref>/spec/
  *         activity_metadata.json           the ref: number, title, display name, stability
- *         activity_spec.json               the specification (absent until one is saved)
+ *         activity_spec.json               the specification (`{}` until one is saved)
  *         activity_description.txt         what the author wrote
- *         asset_manifest.json              the media plan's manifest (absent until planned)
+ *         asset_manifest.json              the media plan's manifest (no assets until planned)
  *         implementation_features.json     `{ selectedIds }`
  *         penguin.json                     Penguin's bookkeeping for the draft
  *
@@ -18,20 +18,28 @@
  * with the module like the rest. `penguin.json` is written last: a draft whose other files
  * changed after it reads as "draft" until it is saved again, as `draft.json` did before.
  *
+ * Loom lists a ref only when its spec, manifest, description and metadata are all there (and
+ * the module's `configurations/<pc>-<ref>.json`), so none of them is ever removed: a draft
+ * with no specification or plan leaves Loom's, or writes Loom's own empty stub. Every Loom
+ * file is merged into rather than replaced, so what Loom wrote that Penguin does not use
+ * stays (see loom-manifest.ts for the manifest).
+ *
  * File I/O only: where the folders are is waf-layout.ts; the service owns locking, validation
  * and the index.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
 import { renameOver } from "../internal/rename-over.js";
-import type { ActivityDraft, ModuleDocumentOverrides } from "./domain.js";
-import type { AssetManifest } from "./media.js";
+import type { ActivityAddress, ActivityDraft, ModuleDocumentOverrides } from "./domain.js";
+import { mergeLoomManifest, penguinManifest } from "./loom-manifest.js";
 
 export const REF_METADATA_FILE = "activity_metadata.json";
 export const REF_SPEC_FILE = "activity_spec.json";
 export const REF_DESCRIPTION_FILE = "activity_description.txt";
 export const REF_MANIFEST_FILE = "asset_manifest.json";
 export const REF_FEATURES_FILE = "implementation_features.json";
+/** Loom's manifest as it was when a project adopted the ref, kept beside Penguin's. */
+export const LOOM_MANIFEST_COPY = "asset_manifest.loom.json";
 export const PENGUIN_FILE = "penguin.json";
 /** The behaviour machine, on the product (Loom's canonical one) or on a ref once implemented. */
 export const STATE_MACHINE_FILE = "state-machine.json";
@@ -49,6 +57,11 @@ export interface PenguinRefState {
   mediaPlan?: { specRevision: string; requirements: Record<string, string> };
   moduleDocuments?: ModuleDocumentOverrides;
   pinnedModuleRunId?: string;
+  /**
+   * The draft has no specification. `activity_spec.json` is then Loom's (one Penguin could
+   * not accept) or Loom's empty `{}`, and is not the draft's.
+   */
+  noSpec?: true;
   updatedAt: string;
 }
 
@@ -95,6 +108,13 @@ export async function writeFileAtomic(file: string, text: string): Promise<void>
   }
 }
 
+async function exists(file: string): Promise<boolean> {
+  return fs.stat(file).then(
+    () => true,
+    () => false,
+  );
+}
+
 function json(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
@@ -119,7 +139,7 @@ export async function readRefDraft(specDir: string): Promise<ActivityDraft | nul
   if (state === undefined) return null;
   if (!state || typeof state !== "object" || state.schemaVersion !== 1)
     throw new Error("penguin.json is corrupt.");
-  const spec = await readJson(path.join(specDir, REF_SPEC_FILE));
+  const spec = state.noSpec ? undefined : await readJson(path.join(specDir, REF_SPEC_FILE));
   const manifest = await readJson(path.join(specDir, REF_MANIFEST_FILE));
   const description = await fs
     .readFile(path.join(specDir, REF_DESCRIPTION_FILE), "utf8")
@@ -139,24 +159,40 @@ export async function readRefDraft(specDir: string): Promise<ActivityDraft | nul
   };
   // A plan is its bookkeeping and its manifest together; either alone is no plan.
   if (state.mediaPlan && manifest !== undefined)
-    draft.mediaPlan = { ...state.mediaPlan, manifest: manifest as AssetManifest };
+    draft.mediaPlan = { ...state.mediaPlan, manifest: penguinManifest(manifest) };
   if (state.moduleDocuments) draft.moduleDocuments = state.moduleDocuments;
   if (state.pinnedModuleRunId) draft.pinnedModuleRunId = state.pinnedModuleRunId;
   return draft;
 }
 
 /**
- * Writes the draft into the ref's files, `penguin.json` last. A part the draft lacks (no
- * specification yet, no media plan) is removed, so the files never hold a stale one.
+ * Writes the draft into the ref's files, `penguin.json` last. A specification or plan the
+ * draft lacks leaves the file as Loom has it, unless Penguin wrote it, when it becomes Loom's
+ * empty stub; a missing file becomes the stub, so Loom still lists the ref.
  */
-export async function writeRefDraft(specDir: string, draft: ActivityDraft): Promise<void> {
+export async function writeRefDraft(
+  specDir: string,
+  draft: ActivityDraft,
+  address: ActivityAddress,
+): Promise<void> {
   await fs.mkdir(specDir, { recursive: true });
   const specFile = path.join(specDir, REF_SPEC_FILE);
   const manifestFile = path.join(specDir, REF_MANIFEST_FILE);
+  const previous = (await readJson(path.join(specDir, PENGUIN_FILE)).catch(() => undefined)) as
+    PenguinRefState | undefined;
+  const ours = !!previous && typeof previous === "object" && previous.schemaVersion === 1;
   if (draft.spec !== null) await writeFileAtomic(specFile, json(draft.spec));
-  else await fs.rm(specFile, { force: true });
-  if (draft.mediaPlan) await writeFileAtomic(manifestFile, json(draft.mediaPlan.manifest));
-  else await fs.rm(manifestFile, { force: true });
+  else if ((ours && !previous.noSpec) || !(await exists(specFile)))
+    await writeFileAtomic(specFile, json({}));
+  const onDisk = await readJson(manifestFile).catch(() => undefined);
+  if (draft.mediaPlan || (ours && previous.mediaPlan) || onDisk === undefined) {
+    // An adopted ref's manifest as Loom left it (see loom-manifest.ts).
+    const original = await readJson(path.join(specDir, LOOM_MANIFEST_COPY)).catch(() => undefined);
+    await writeFileAtomic(
+      manifestFile,
+      json(mergeLoomManifest(onDisk, draft.mediaPlan?.manifest ?? null, address, original)),
+    );
+  }
   await writeFileAtomic(path.join(specDir, REF_DESCRIPTION_FILE), draft.description);
   const state: PenguinRefState = {
     schemaVersion: 1,
@@ -175,49 +211,82 @@ export async function writeRefDraft(specDir: string, draft: ActivityDraft): Prom
       : {}),
     ...(draft.moduleDocuments ? { moduleDocuments: draft.moduleDocuments } : {}),
     ...(draft.pinnedModuleRunId ? { pinnedModuleRunId: draft.pinnedModuleRunId } : {}),
+    ...(draft.spec === null ? { noSpec: true as const } : {}),
     updatedAt: draft.updatedAt,
   };
   await writeFileAtomic(path.join(specDir, PENGUIN_FILE), json(state));
 }
 
-/** Loom's ref metadata: its product's code as `id`, and the ref's own identity. */
-export async function writeRefMetadata(specDir: string, ref: RefMetadata): Promise<void> {
-  await writeFileAtomic(
-    path.join(specDir, REF_METADATA_FILE),
-    json({
-      id: ref.productCode,
-      title: ref.title,
-      moduleFolder: ref.moduleFolder,
-      ...(ref.runtime !== undefined ? { runtime: ref.runtime } : {}),
-      refNum: ref.refNum,
-      ...(ref.displayName !== null ? { displayName: ref.displayName } : {}),
-      stable: ref.stable,
-    }),
-  );
+/**
+ * `fields` written over the JSON object in `file`: every other key the file has stays, in its
+ * place, and a field set to undefined is removed.
+ */
+async function mergeJsonFile(file: string, fields: Record<string, unknown>): Promise<void> {
+  const current = await readJson(file).catch(() => undefined);
+  const base =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : {};
+  const merged: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(base))
+    merged[key] = key in fields ? fields[key] : value;
+  for (const [key, value] of Object.entries(fields)) if (!(key in merged)) merged[key] = value;
+  for (const [key, value] of Object.entries(merged)) if (value === undefined) delete merged[key];
+  await writeFileAtomic(file, json(merged));
 }
 
-/** Loom's product metadata, and which project owns the product, in the product's `spec/`. */
+/**
+ * Loom's ref metadata: its product's code as `id`, and the ref's own identity, over what the
+ * file has (a Loom ref's copy of its product's fields stays).
+ */
+export async function writeRefMetadata(specDir: string, ref: RefMetadata): Promise<void> {
+  await mergeJsonFile(path.join(specDir, REF_METADATA_FILE), {
+    id: ref.productCode,
+    title: ref.title,
+    moduleFolder: ref.moduleFolder,
+    ...(ref.runtime !== undefined ? { runtime: ref.runtime } : {}),
+    refNum: ref.refNum,
+    displayName: ref.displayName ?? undefined,
+    stable: ref.stable,
+  });
+}
+
+/**
+ * Loom's product metadata, and which project owns the product, in the product's `spec/`. What
+ * else the file has (Loom's `templateStable`, `runtime`, `deploymentName`, ...) stays.
+ */
 export async function writeProductFiles(
   spec: string,
   product: ProductMetadata,
   owner: PenguinProductState,
 ): Promise<void> {
-  await writeFileAtomic(
-    path.join(spec, REF_METADATA_FILE),
-    json({
-      id: product.productCode,
-      title: product.title,
-      moduleFolder: product.moduleFolder,
-      activityType: product.activityType,
-      ...(product.activityType === "book" && product.bookMode
-        ? { bookMode: product.bookMode }
-        : {}),
-      ...(product.runtime !== undefined ? { runtime: product.runtime } : {}),
-      ...(product.canonicalRefNum !== null ? { canonicalRefNum: product.canonicalRefNum } : {}),
-      tags: product.tags,
-    }),
-  );
+  await mergeJsonFile(path.join(spec, REF_METADATA_FILE), {
+    id: product.productCode,
+    title: product.title,
+    moduleFolder: product.moduleFolder,
+    activityType: product.activityType,
+    bookMode: product.activityType === "book" && product.bookMode ? product.bookMode : undefined,
+    ...(product.runtime !== undefined ? { runtime: product.runtime } : {}),
+    canonicalRefNum: product.canonicalRefNum ?? undefined,
+    tags: product.tags,
+  });
   await writeFileAtomic(path.join(spec, PENGUIN_FILE), json(owner));
+}
+
+/** The tags the product's metadata lists; none when it lists none or cannot be read. */
+export async function readProductTags(spec: string): Promise<unknown[]> {
+  const metadata = (await readJson(path.join(spec, REF_METADATA_FILE)).catch(() => null)) as {
+    tags?: unknown;
+  } | null;
+  return Array.isArray(metadata?.tags) ? metadata.tags : [];
+}
+
+/**
+ * The module's `configurations/<pc>-<ref>.json` as Loom's empty `{}` when there is none, so
+ * Loom lists a ref made here; one already there is left as it is.
+ */
+export async function ensureConfigurationFile(file: string): Promise<void> {
+  if (!(await exists(file))) await writeFileAtomic(file, json({}));
 }
 
 /** The product's owner from its `spec/`, or null when no Penguin project owns it yet. */
