@@ -1,6 +1,6 @@
 /**
- * Quick Switcher (Ctrl/Cmd+K): a keyboard-first palette for jumping to a page or a coding
- * agent. Mounted only while open by the app shell, so the agents fetch fires on open rather
+ * Quick Switcher (the `quickSwitcher.toggle` command, Ctrl/Cmd+K by default): a keyboard-first
+ * palette for jumping to a page or a coding agent. Mounted only while open by the app shell, so the agents fetch fires on open rather
  * than on app boot, and every other surface pays nothing for it.
  *
  * Overlay follows the portal-panel pattern (components/ui/use-portal-panel.ts): portaled
@@ -40,16 +40,19 @@ import {
   readQuickSwitcherRecents,
 } from "../../lib/quick-switcher-recents";
 import { S } from "../../lib/strings";
-import { ICON_GAP, ICON_SIZE } from "../../lib/icon-scale";
+import {
+  ICON_GAP,
+  ICON_SIZE,
+  GlyphIcon,
+  noAutofill,
+  usePortalPanel,
+} from "@prismshadow/penguin-ui";
 import { toneDot } from "../../lib/tone";
-import { GlyphIcon } from "../ui/glyph-icon";
-import { NAV_ICONS } from "../ui/icons";
-import { menuSearchClass, noAutofill } from "../ui/input";
-import { usePortalPanel } from "../ui/use-portal-panel";
+import { NAV_ICONS } from "../../lib/nav-icons";
 
 /** Section heading of the palette list, at the overflow menus' label density (menuSectionClass convention). */
 const sectionHeaderClass =
-  "px-3.5 pb-0.5 pt-1.5 text-[11px] font-medium text-gray-400 dark:text-gray-500";
+  "px-3.5 pb-0.5 pt-1.5 text-xs font-medium text-gray-400 dark:text-gray-500";
 
 /** A palette row: full-width, hover/selection fill, at the menu rows' density (menuItemClass convention). */
 const rowClass = (active: boolean) =>
@@ -59,7 +62,7 @@ const rowClass = (active: boolean) =>
 
 /** Footer key-cap chip (↑ ↓ ↵ esc hints). */
 const kbdClass =
-  "rounded border border-gray-200 bg-gray-50 px-1 font-mono text-[11px] leading-4 text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400";
+  "rounded border border-gray-200 bg-gray-50 px-1 font-mono text-xs leading-4 text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400";
 
 /** Section titles: pages/recents name themselves; agents reuse the coding agents' own heading. */
 function sectionTitle(section: SwitcherEntry["section"] | "recents"): string {
@@ -228,7 +231,7 @@ export function QuickSwitcherPalette({ onClose }: { onClose: () => void }) {
         <div className="border-b border-gray-200 px-3 py-2.5 dark:border-gray-800">
           <input
             ref={setAnchorRef}
-            className={`${menuSearchClass} px-1 py-0.5`}
+            className="w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm text-fg placeholder:text-fg-subtle focus:outline-none"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}

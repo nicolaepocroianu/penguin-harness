@@ -6,7 +6,7 @@
  * request's terminal state; see the docs page's "control plane"). Protocol conversion to and
  * from the provider is the implementation's own business.
  *
- * Docs: packages/docs/content/interfaces.{zh,en}.md (site path /docs/interfaces).
+ * Docs: packages/docs/content/interfaces.en.md (site path /docs/interfaces).
  */
 import type { ErrorCode, OmniMessage, StopReason, ToolDefinition } from "../omnimessage/types.js";
 import type { ThinkingLevelName } from "./shared.js";
@@ -20,14 +20,26 @@ import type { ToolCallIdAllocator } from "../llm/tool-call-ids.js";
 export interface GenerativeModelConfig {
   modelId: string;
   apiKey?: string;
-  /** Server-side source; keeps expiring subscription secrets out of request/Trace data. */
+  /**
+   * Server-side source of a ChatGPT subscription's credentials (the `chatgpt-codex` client
+   * type, served through AgentHub); keeps expiring subscription secrets out of request/Trace data.
+   */
   chatgptCredentials?: import("@prismshadow/agenthub").ChatGPTCredentialProvider;
+  /**
+   * Optional host-owned credential resolver, called before every upstream request. When it
+   * returns a different key, the MMSP client is rebuilt with its stateful history intact.
+   * Core assigns no provider semantics to this hook.
+   */
+  resolveApiKey?: () => Promise<string | undefined>;
   baseUrl?: string;
   /**
-   * AgentHub client protocol (`openai-chat` / `openai-responses` / `claude-4-8` /
-   * `deepseek-v4` / …; the bare `openai` spelling is a deprecated alias of `openai-chat`). If
-   * omitted, AgentHub infers it from `modelId`; custom-named models or third-party models
-   * using an OpenAI protocol must specify it explicitly.
+   * MMSP client type (`openai-chat` / `openai-responses` / `ant-messages` /
+   * `google-genai` / `anthropic-official` / …; the bare `openai` spelling is a
+   * deprecated alias of `openai-chat`). If omitted, MMSP routes by the vendor family
+   * `modelId` begins with (`gpt-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`,
+   * `minimax-`); custom-named models or third-party models using an OpenAI protocol must
+   * specify it explicitly. `github-copilot` and `chatgpt-codex` are AgentHub's subscription
+   * clients, which MMSP has none of (see llm/agenthub-bridge.ts).
    */
   clientType?: string;
   tools: ToolDefinition[];
@@ -49,9 +61,9 @@ export interface GenerativeModelConfig {
   maxTokens?: number;
   /**
    * Per-model fast mode (from the model entry's `fast_mode` annotation): when true, every
-   * request opts into the provider's faster serving tier at premium pricing (AgentHub
+   * request opts into the provider's faster serving tier at premium pricing (MMSP
    * UniConfig `fast_mode`). Off by default. Models without a fast tier reject the parameter
-   * before any network I/O (AgentHub `UnsupportedParameterError`); `streamGenerate` reports
+   * before any network I/O (MMSP `UnsupportedParameterError`); `streamGenerate` reports
    * that as a `fatal` outcome so the engine surfaces it instead of retrying.
    */
   fastMode?: boolean;
@@ -70,8 +82,9 @@ export interface GenerativeModelConfig {
   /**
    * The Session's id, for endpoints whose attribution scheme identifies the conversation
    * rather than the app (OpenCode's `x-opencode-session`; see state/model-catalog.ts
-   * `attributionHeaders`). Unset: no such header is sent — a placeholder id would file every
-   * conversation at the gateway under one session, which is worse than naming none.
+   * `attributionHeaders`). Unset — a request outside any Session: a connectivity test, a
+   * vision probe, a one-off utility completion — attributionHeaders mints a fresh id, which
+   * the instance then keeps for all of its requests, so they are a conversation of their own.
    */
   sessionId?: string;
   /**

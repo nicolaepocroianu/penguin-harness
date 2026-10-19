@@ -14,7 +14,7 @@
  * should be offered, and every release out there is another repository's.
  *
  * The request mirrors the CLI's fetchLatestVersion (packages/cli/src/commands/update.ts):
- * same endpoint, same accept / user-agent header shape, same 15s timeout — the server
+ * same endpoint, same accept / user-agent headers, same 15s timeout — the server
  * cannot import the CLI package (the dependency runs the other way), hence the small
  * duplication. fetch and the clock are injectable so tests never touch the network.
  */
@@ -24,6 +24,7 @@ import {
   VERSION,
   compareVersions,
   normalizeVersion,
+  userAgent,
 } from "@prismshadow/penguin-core";
 import type { ReleaseIdentity } from "@prismshadow/penguin-core";
 import type { UpdateCheckResponse } from "../api/types.js";
@@ -32,8 +33,10 @@ import type { AppEnv } from "../auth/middleware.js";
 import type { Hono } from "hono";
 import type { ClassCtx, Opaque } from "@prismshadow/penguin-core/kernel";
 import { versionRoutes } from "../http/routes/version.js";
-import type { Clock, Config, Lifecycle } from "../hmr/capabilities.js";
+import type { Clock, Config } from "../hmr/capabilities.js";
+import { processRestart } from "./process-restart.js";
 import type { UpdateJob } from "./update-job.js";
+import type { HarnessHistoryIface } from "./harness-history.js";
 
 /** How long a successful lookup is served from cache. */
 export const SUCCESS_TTL_MS = 60 * 60 * 1000;
@@ -41,12 +44,13 @@ export const SUCCESS_TTL_MS = 60 * 60 * 1000;
 export const FAILURE_TTL_MS = 10 * 60 * 1000;
 
 /** The network, as the update check reaches it; a test stands in a canned one. */
-export abstract class HttpFetch extends Interface<{
-  fetch(
+@Interface()
+export abstract class HttpFetch {
+  abstract fetch(
     input: string,
     init?: Opaque<"RequestInit", RequestInit>,
   ): Promise<Opaque<"Response", Response>>;
-}>() {}
+}
 @Component()
 export class GlobalFetch implements HttpFetch {
   fetch(input: string, init?: RequestInit): Promise<Response> {
@@ -130,7 +134,7 @@ export class UpdateCheckService implements UpdateCheck {
     let res: Response;
     try {
       res = await this.http.fetch(latestReleaseApi, {
-        headers: { accept: "application/vnd.github+json", "user-agent": "penguin-server" },
+        headers: { accept: "application/vnd.github+json", "user-agent": userAgent() },
         signal: AbortSignal.timeout(15_000),
       });
     } catch {
@@ -175,14 +179,16 @@ export class VersionRoutes {
   @Use() private readonly config!: Config;
   @Use() private readonly updateCheck!: UpdateCheck;
   @Use() private readonly updateJob!: UpdateJob;
-  @Use() private readonly lifecycle!: Lifecycle;
+  @Use() private readonly history!: HarnessHistoryIface;
   @Bind("VersionModule.routes") routes!: Hono<AppEnv>;
   setup() {
     this.routes = versionRoutes({
       config: this.config,
       updateCheck: this.updateCheck,
       updateJob: this.updateJob,
-      lifecycle: this.lifecycle,
+      // The platform's own, claimed from nothing: the environment and the process it runs in.
+      restart: processRestart(),
+      history: this.history,
     });
   }
 }

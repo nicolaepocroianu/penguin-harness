@@ -1,14 +1,26 @@
 /**
  * The task-completion notification's opt-in (lib/notification-pref): what the stored
- * preference reads as, and what a request for OS permission does to it.
+ * preference reads as, and what a request for OS permission does to it. The preference and
+ * the permission are separate facts, and the switch must never latch on over notifications
+ * that can never be shown.
  *
- * The defect this covers is that the preference and the permission are separate facts.
- * Nothing may store the opt-in unless the platform granted permission in that same
- * request, or the switch latches on over notifications that can never be shown — and the
- * default has to be off, because turning it on is what opens the system prompt.
+ * - The opt-in is off unless the stored value is exactly the on marker.
+ * - A write round-trips and tells the subscribers (until they unsubscribe).
+ * - A storage that throws costs persistence only: reads are off and writes do not throw.
+ * - A platform with no Notification API is unsupported and is asked nothing; otherwise the
+ *   platform's own answer passes through, falling back to the live permission when the
+ *   request answers with neither.
+ * - Turning the preference on stores the opt-in only when the request came back granted,
+ *   judged by the request's answer rather than the permission it started from, and then shows
+ *   one confirmation notification; a denial, a dismissed prompt and a missing API all leave it
+ *   off and show nothing. A platform that refuses to construct the confirmation still keeps
+ *   the opt-in.
+ * - The hint under the switch is silent until something needs saying, names a dismissed
+ *   prompt, and keeps a refusal or a missing API on screen.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  ENABLED_NOTIFICATION_TAG,
   NOTIFICATIONS_KEY,
   enableNotifications,
   notificationHintFor,
@@ -19,48 +31,49 @@ import {
   subscribeNotificationsEnabled,
   writeNotificationsEnabled,
 } from "../src/lib/notification-pref";
-import type { NotificationStorage } from "../src/lib/notification-pref";
+import { blockedStorage, memoryStorage } from "./helpers/storage";
 
-/** In-memory storage: vitest runs in a Node environment, so there is no localStorage. */
-function fakeStorage(entries: Record<string, string> = {}): NotificationStorage & {
-  map: Map<string, string>;
-} {
-  const map = new Map(Object.entries(entries));
-  return {
-    map,
-    getItem: (k) => map.get(k) ?? null,
-    setItem: (k, v) => void map.set(k, v),
-  };
+interface RecordedNotice {
+  title: string;
+  options: NotificationOptions | undefined;
 }
 
 /**
  * A platform whose permission answer is fixed. `requestPermission` records its calls so a
- * test can tell an answer that came from the platform apart from one assumed by the app.
+ * test can tell an answer that came from the platform apart from one assumed by the app, and
+ * constructing `new Notification(...)` records the confirmation notice.
  */
-function stubNotification(permission: NotificationPermission): { requests: number } {
-  const calls = { requests: 0 };
-  vi.stubGlobal("Notification", {
-    permission,
-    requestPermission: async () => {
+function stubNotification(permission: NotificationPermission): {
+  requests: number;
+  notices: RecordedNotice[];
+} {
+  const calls = { requests: 0, notices: [] as RecordedNotice[] };
+  class FakeNotification {
+    static permission = permission;
+    static async requestPermission(): Promise<NotificationPermission> {
       calls.requests += 1;
       return permission;
-    },
-  });
+    }
+    onclick: (() => void) | null = null;
+    constructor(title: string, options?: NotificationOptions) {
+      calls.notices.push({ title, options });
+    }
+    close(): void {}
+  }
+  vi.stubGlobal("Notification", FakeNotification);
   return calls;
 }
 
-afterEach(() => vi.unstubAllGlobals());
-
 describe("the stored opt-in", () => {
   it("is off unless the stored value is exactly the on marker", () => {
-    expect(readNotificationsEnabled(fakeStorage())).toBe(false);
-    expect(readNotificationsEnabled(fakeStorage({ [NOTIFICATIONS_KEY]: "1" }))).toBe(true);
-    expect(readNotificationsEnabled(fakeStorage({ [NOTIFICATIONS_KEY]: "0" }))).toBe(false);
-    expect(readNotificationsEnabled(fakeStorage({ [NOTIFICATIONS_KEY]: "true" }))).toBe(false);
+    expect(readNotificationsEnabled(memoryStorage())).toBe(false);
+    expect(readNotificationsEnabled(memoryStorage({ [NOTIFICATIONS_KEY]: "1" }))).toBe(true);
+    expect(readNotificationsEnabled(memoryStorage({ [NOTIFICATIONS_KEY]: "0" }))).toBe(false);
+    expect(readNotificationsEnabled(memoryStorage({ [NOTIFICATIONS_KEY]: "true" }))).toBe(false);
   });
 
   it("round-trips a write and tells its subscribers", () => {
-    const storage = fakeStorage();
+    const storage = memoryStorage();
     let notified = 0;
     const stop = subscribeNotificationsEnabled(() => {
       notified += 1;
@@ -80,14 +93,7 @@ describe("the stored opt-in", () => {
   });
 
   it("survives storage that throws, which only costs persistence", () => {
-    const broken: NotificationStorage = {
-      getItem: () => {
-        throw new Error("site data blocked");
-      },
-      setItem: () => {
-        throw new Error("site data blocked");
-      },
-    };
+    const broken = blockedStorage();
     expect(readNotificationsEnabled(broken)).toBe(false);
     expect(() => writeNotificationsEnabled(true, broken)).not.toThrow();
   });
@@ -120,45 +126,57 @@ describe("asking the platform for permission", () => {
 });
 
 describe("turning the preference on", () => {
-  it("stores the opt-in once the request came back granted", async () => {
-    const storage = fakeStorage();
+  it("stores the opt-in and shows a confirmation notice once the request came back granted", async () => {
+    const storage = memoryStorage();
     const calls = stubNotification("granted");
 
     await expect(enableNotifications(storage)).resolves.toBe("granted");
     expect(calls.requests).toBe(1);
     expect(readNotificationsEnabled(storage)).toBe(true);
+    expect(calls.notices).toHaveLength(1);
+    expect(calls.notices[0]?.options?.tag).toBe(ENABLED_NOTIFICATION_TAG);
   });
 
-  it("does not latch on when the platform denies", async () => {
-    const storage = fakeStorage();
-    stubNotification("denied");
+  it.each(["denied", "default", "unsupported"] as const)(
+    "does not latch on or show a notice when the answer is %s (a refusal, a dismissed prompt, no API at all)",
+    async (answer) => {
+      const storage = memoryStorage();
+      const calls = answer === "unsupported" ? null : stubNotification(answer);
+      if (answer === "unsupported") vi.stubGlobal("Notification", undefined);
 
-    await expect(enableNotifications(storage)).resolves.toBe("denied");
-    expect(readNotificationsEnabled(storage)).toBe(false);
-    expect(storage.map.has(NOTIFICATIONS_KEY)).toBe(false);
-  });
+      await expect(enableNotifications(storage)).resolves.toBe(answer);
+      expect(readNotificationsEnabled(storage)).toBe(false);
+      expect(storage.map.has(NOTIFICATIONS_KEY)).toBe(false);
+      expect(calls?.notices ?? []).toEqual([]);
+    },
+  );
 
-  it("does not latch on when the prompt is dismissed, which leaves the answer at default", async () => {
-    const storage = fakeStorage();
-    stubNotification("default");
+  it("keeps the opt-in when the platform refuses to construct the confirmation", async () => {
+    // Chrome on Android, for one, shows notifications only through a service worker and
+    // throws on `new Notification(...)` even with permission granted.
+    const storage = memoryStorage();
+    vi.stubGlobal(
+      "Notification",
+      class {
+        static permission: NotificationPermission = "granted";
+        static async requestPermission(): Promise<NotificationPermission> {
+          return "granted";
+        }
+        constructor() {
+          throw new TypeError("Illegal constructor");
+        }
+      },
+    );
 
-    await expect(enableNotifications(storage)).resolves.toBe("default");
-    expect(readNotificationsEnabled(storage)).toBe(false);
-  });
-
-  it("does not latch on where the platform has no notifications at all", async () => {
-    const storage = fakeStorage();
-    vi.stubGlobal("Notification", undefined);
-
-    await expect(enableNotifications(storage)).resolves.toBe("unsupported");
-    expect(readNotificationsEnabled(storage)).toBe(false);
+    await expect(enableNotifications(storage)).resolves.toBe("granted");
+    expect(readNotificationsEnabled(storage)).toBe(true);
   });
 
   it("takes the answer the request gave, not the permission it started from", async () => {
     // The real sequence, which a stub answering with a fixed permission cannot express:
     // the permission is "default" until the prompt is answered, and only the request
     // reports what the user chose.
-    const storage = fakeStorage();
+    const storage = memoryStorage();
     let permission: NotificationPermission = "default";
     vi.stubGlobal("Notification", {
       get permission() {

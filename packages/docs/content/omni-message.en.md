@@ -38,16 +38,28 @@ A `session_meta` message describes **one model context**:
 interface SessionMetaPayload {
   session_id: string;
   provider: string;                       // one half of the model-identity pair
-  model_id: string;                       // the upstream request id sent to AgentHub
+  model_id: string;                       // the upstream request id sent to MMSP
   model_context_window: number | string;
   system_prompt: string;                  // fully assembled, placeholders substituted
   agent_state: string;                    // absolute path of the Agent State
   workspace: string;                      // absolute path of the Workspace
-  source?: "subagent" | "schedule" | "benchmark"; // spawned by a subagent / a scheduled task / a Benchmark run; absent = user-created
+  source: "user" | "api" | "schedule" | "subagent" | "cli" | "company" | "workbench"; // what kind of conversation this is
 }
 ```
 
-The model and the Workspace are fixed for the Session's lifetime. The system prompt is fixed per context.
+The Workspace is fixed for the Session's lifetime. The model and the system prompt are fixed per context: an in-session model switch opens its new context on another model, and this record is the only place that says so.
+
+`source` says what kind of conversation the Session is, and is fixed for its lifetime too:
+
+- `user`: a person's conversation, the Web App's composer, `penguin chat` and forks included;
+- `api`: one an external program opened through the Agent API;
+- `schedule`: a scheduled task's run;
+- `subagent`: a `run_subagent` child;
+- `cli`: one `penguin run` created;
+- `workbench`: a Session the Workbench host created for an application;
+- `company`: a desk or ticket Session that [company mode](/company-mode) opened.
+
+A Trace written by an older release may have no `source`, which reads as `user`, or as `company` when the server's index row says company mode opened the Session. It may also carry the retired `benchmark`, which reads as `cli`. The file itself is never rewritten.
 
 Every Trace file opens with a `session_meta`. When a compaction opens a new context, the new file's `session_meta` carries the system prompt assembled for that context from the Agent State as it stands at that moment (see [Compaction](/agent-loop#compaction)). On resume, the engine takes the latest file's `session_meta` as the runtime configuration. See [Sessions & Traces](/sessions-and-traces).
 
@@ -129,7 +141,7 @@ interface InlineDataPayload {
 }
 ```
 
-`sender` separates the human user (`user`) from the parent agent driving a subagent (`parent_agent`), the harness's automatic injections such as background-task completion reports and hook continues (`harness`), and the server's own triggers such as scheduled tasks (`server`). It is never sent to the provider.
+`sender` separates the human user (`user`) from the parent agent driving a subagent (`parent_agent`), the harness's automatic injections such as background-task completion reports, stop-hook continues and user-prompt hook contexts (`harness`), and the server's own triggers such as scheduled tasks (`server`). It is never sent to the provider.
 
 `tool_call` and `tool_call_output` pair strictly via `tool_call_id`. The calls of a turn form one batch, and outputs are re-fed in the original call order (see [The Agent Loop](/agent-loop)).
 
@@ -187,7 +199,7 @@ partial_text(start) → partial_text(delta) → … → partial_text(stop) → t
                           (truncation applies to both alike)
 ```
 
-Renderers can therefore paint deltas as they arrive and swap in the complete message in place. The Trace records only complete messages, never fragments. Interface implementations close their structures internally and never leak an unclosed fragment upward. `PartialAggregator` (`aggregate.ts`) is a ready-made aggregator.
+Renderers can therefore paint deltas as they arrive and swap in the complete message in place. The Trace records only complete messages, never fragments. Interface implementations close their structures internally and never leak an unclosed fragment upward. Each run of fragments ends with its complete message after the `stop`, so a consumer never has to reassemble fragments itself.
 
 ## event_msg
 
@@ -222,10 +234,13 @@ type ErrorCode =
   | "malformed"               // response failed parsing/validation, or the stream was truncated
   | "auth"                    // the provider rejected the credentials
   | "rejected"                // a definitive provider 4xx rejection (params, quota; 408/429 excluded)
+  | "image_rejected"          // a provider 4xx on an input holding images, retried with them replaced
   | "unsupported"             // a deterministic client-side rejection (fast mode without a fast tier)
   | "invalid_input"           // the input failed to assemble into a request
-  // MCP connect failures
-  | "connect_failed";
+  // MCP connect failures (per-server results of mcp_connect_end)
+  | "connect_failed"          // the server could not connect or list its tools
+  | "mcp_needs_setup"         // not contacted: the vault lacks a key the entry references
+  | "mcp_sign_in_required";   // not contacted: the entry needs an OAuth sign-in
 
 interface ToolListReadyPayload {
   type: "tool_list_ready";
@@ -356,7 +371,8 @@ interface SubagentPayload {
 
 interface HookPayload {
   type: "hook";
-  hook: "stop" | "pre_tool_use";    // the hook point that fired (see the agent loop's hooks)
+  hook: "stop" | "pre_tool_use"     // the hook point that fired (see the agent loop's hooks)
+    | "user_prompt";                // user_prompt: only for a hook that failed
   name: string;               // the hook's name: "goal", "continual-learning", …
   decision?: "continue" | "stop"    // stop point
     | "allow" | "deny";             // pre_tool_use point; absent when the hook only left a record
@@ -368,6 +384,8 @@ interface HookPayload {
                               // here: it is the user message that follows
 }
 ```
+
+A server that is skipped rather than contacted, because its entry references a vault key the agent lacks or because it needs an OAuth sign-in, appears in `results` as `fatal` with `mcp_needs_setup` or `mcp_sign_in_required`; its `error_message` names the missing keys, never a value. See [Vault references](/tools#vault-references).
 
 `compaction_end` never carries `retry_in_ms`: compaction retries are announced on the compaction request's own `request_end`, which stays in the Trace. Older Traces may still spell an MCP connect failure or an abandoned compaction as `failed`, and carry a per-server `error` field instead of the error pair.
 
@@ -435,6 +453,8 @@ The payload is opaque to PenguinHarness: it passes through and persists verbatim
 | SDK boundary (`session.run` output) | complete `model_msg` + streaming `partial_*` + all `event_msg` |
 | Trace on disk | `session_meta` + complete `model_msg` + all `event_msg` (no partials, no `origin`-tagged messages) |
 | Server SSE stream | same as the SDK boundary, verbatim single-line JSON — see [Server API](/server-api) |
+
+The [Agent API](/agent-api) does not stream OmniMessage: its stream is [AMSP](/amsp), a projection the server makes of the same live stream for programs outside PenguinHarness. Nothing in OmniMessage changes for it: no field, type or value is added.
 
 How messages travel along these surfaces, and every ordering guarantee, is covered on [Message Flow & Ordering](/message-flow).
 

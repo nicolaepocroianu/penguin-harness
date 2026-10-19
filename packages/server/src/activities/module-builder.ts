@@ -28,7 +28,7 @@ import {
   type DeployProcess,
   type DeployProcessResult,
 } from "./deploy-process.js";
-import { confinedArgv, type ProgramConfiner } from "./run-program.js";
+import { confinedSpawn, type ProgramConfiner } from "./run-program.js";
 import { runConfinement } from "./run-sandbox.js";
 import {
   runBuildEnv,
@@ -238,9 +238,10 @@ export class PinnedSass {
   /** Compiles one stylesheet: `sass <from> <to> --no-source-map`, as a deploy runs it. */
   async compile(job: StyleJob): Promise<StyleResult> {
     let argv: [string, ...string[]];
+    let env = job.env;
     try {
       argv = [process.execPath, await this.cli(job), job.from, job.to, "--no-source-map"];
-      if (job.confine) argv = confinedArgv(job.confine, argv);
+      if (job.confine) ({ argv, env } = confinedSpawn(job.confine, argv, env));
     } catch (error) {
       return { code: 1, tail: (error as Error).message };
     }
@@ -248,7 +249,7 @@ export class PinnedSass {
     return this.run(command, args, {
       cwd: job.cwd,
       shell: false,
-      ...(job.env ? { env: job.env } : {}),
+      ...(env ? { env } : {}),
       ...(job.signal ? { signal: job.signal } : {}),
       ...(job.onOutput ? { onOutput: job.onOutput } : {}),
     });

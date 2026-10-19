@@ -22,10 +22,7 @@
  * same setters the rail and the panels use.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Chevron } from "../../components/ui/chevron";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { CloseIcon } from "../../components/ui/icons";
-import { ICON_SIZE } from "../../lib/icon-scale";
+import { Chevron, Dot, GlyphIcon, CloseIcon, ICON_SIZE, ICONS } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import {
   SIDE_PANEL_MAX_WIDTH,
@@ -59,26 +56,17 @@ import { setMapVisible, setMapWidth, useMapVisible, useMapWidth } from "./map-pr
 import { setShowReasoning, useShowReasoning } from "./run-log-prefs";
 import { SidePanelFill } from "./side-panel-fill";
 import type { PanelBadge } from "./checks-model";
-import { toneDot } from "../../lib/tone";
+import { toneName } from "../../lib/tone";
 
 /** A tool's mark on the rail: a dot, pulsing while its run is in progress; the words go to a reader. */
 function ToolBadge({ badge }: { badge: PanelBadge }) {
   return (
     <>
-      <span
-        aria-hidden
-        className={`absolute top-1 right-1.5 size-1.5 rounded-full ${toneDot[badge.tone]} ${
-          badge.text ? "" : "motion-safe:animate-pulse"
-        }`}
-      />
+      <Dot tone={toneName[badge.tone]} pulse={!badge.text} className="absolute top-1 right-1.5" />
       <span className="sr-only">{`, ${badge.label}`}</span>
     </>
   );
 }
-
-/** Four corners pointing out, and in: fill the workspace, and put the panel back. */
-const EXPAND_ICON = "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5";
-const RESTORE_ICON = "M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5";
 
 /** One tool of the right rail: its icon, and what its panel shows once opened. */
 export interface StudioPanelEntry {
@@ -370,7 +358,7 @@ export function ActivityWorkspace({
                 type="button"
                 aria-expanded={open}
                 aria-label={open ? S.activities.railCollapse : S.activities.railExpand}
-                title={open ? S.activities.railCollapse : S.activities.railExpand}
+                data-tooltip={open ? S.activities.railCollapse : S.activities.railExpand}
                 onClick={toggle}
                 className="rounded-md p-1 hover:bg-gray-100 dark:hover:bg-gray-800"
               >
@@ -391,7 +379,7 @@ export function ActivityWorkspace({
               aria-valuenow={applied}
               aria-valuemin={RAIL_MIN_WIDTH}
               aria-valuemax={RAIL_MAX_WIDTH}
-              title={S.activities.railWidth}
+              data-tooltip={S.activities.railWidth}
               tabIndex={0}
               onPointerDown={onPointerDown}
               onKeyDown={onKeyDown}
@@ -412,7 +400,7 @@ export function ActivityWorkspace({
               aria-valuenow={panelApplied}
               aria-valuemin={SIDE_PANEL_MIN_WIDTH}
               aria-valuemax={SIDE_PANEL_MAX_WIDTH}
-              title={S.activities.studioPanels.width}
+              data-tooltip={S.activities.studioPanels.width}
               tabIndex={0}
               onPointerDown={onPanelPointerDown}
               onKeyDown={onPanelKeyDown}
@@ -456,21 +444,21 @@ export function ActivityWorkspace({
                   aria-label={
                     expanded ? S.activities.studioPanels.restore : S.activities.studioPanels.expand
                   }
-                  title={
+                  data-tooltip={
                     expanded ? S.activities.studioPanels.restore : S.activities.studioPanels.expand
                   }
                   onClick={toggleExpanded}
                   className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
                 >
                   <GlyphIcon
-                    d={expanded ? RESTORE_ICON : EXPAND_ICON}
+                    d={expanded ? ICONS.cornersIn : ICONS.cornersOut}
                     size={ICON_SIZE.iconButton}
                   />
                 </button>
                 <button
                   type="button"
                   aria-label={S.activities.studioPanels.close}
-                  title={S.activities.studioPanels.close}
+                  data-tooltip={S.activities.studioPanels.close}
                   onClick={() => choosePanel(openPanel.key)}
                   className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
                 >
@@ -497,7 +485,7 @@ export function ActivityWorkspace({
                   key={entry.key}
                   type="button"
                   aria-pressed={on}
-                  title={entry.label}
+                  data-tooltip={entry.label}
                   onClick={() => choosePanel(entry.key)}
                   className={`relative grid w-10 place-items-center gap-1 rounded-md py-1.5 sm:w-14 ${
                     on

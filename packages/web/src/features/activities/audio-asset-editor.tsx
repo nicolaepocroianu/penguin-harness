@@ -20,12 +20,16 @@ import type {
   UploadedMedia,
   VoiceOption,
 } from "@prismshadow/penguin-server/api";
-import { Button, labelButtonClass } from "../../components/ui/button";
-import { HiddenFileInput } from "../../components/ui/hidden-file-input";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { Input, Textarea } from "../../components/ui/input";
-import { Segmented } from "../../components/ui/segmented";
-import { Select } from "../../components/ui/select";
+import {
+  Button,
+  buttonClass,
+  HiddenFileInput,
+  InfoPopover,
+  Input,
+  Textarea,
+  Segmented,
+  Select,
+} from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { AudioPlaybackFields } from "./audio-playback-fields";
@@ -578,7 +582,7 @@ function AudioCard({
               {accepting ? words.saving : words.save}
             </Button>
             <label
-              className={`relative inline-flex items-center ${labelButtonClass("secondary", "sm")}`}
+              className={`relative inline-flex items-center ${buttonClass("secondary", "sm")}`}
             >
               <HiddenFileInput
                 accept={UPLOAD_ACCEPT.audio}

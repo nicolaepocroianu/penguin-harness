@@ -11,6 +11,13 @@
  * Mounted fresh on every open (like AiCreateModal), so the form starts from its `editing` item
  * or from an empty form each time. Writes are owner-only server-side; a member's submit shows
  * the rejection under the form.
+ *
+ * A record dialog under the settings commit model: the dialog is one form — the `enabled`
+ * checkbox included — that Save / Create writes. The footer verb is live only while what it
+ * would send differs from what the dialog opened with and every required field is filled;
+ * closing it with unsaved edits (Cancel, Esc, the ×, a press outside) asks first. A required
+ * field's error shows once it differs from what the dialog opened with (an untouched one has its
+ * asterisk). A rejection from the server lands under the form, and the dialog stays open.
  */
 import { useEffect, useState } from "react";
 import type {
@@ -20,18 +27,27 @@ import type {
   ScheduleUpsertRequest,
   SessionInfo,
 } from "@prismshadow/penguin-server/api";
+import {
+  Button,
+  Checkbox,
+  FieldError,
+  FieldLabel,
+  FormPicker,
+  Input,
+  Modal,
+  PickerList,
+  Select,
+  Textarea,
+  toastSuccess,
+  useFormDraft,
+  useGuardedClose,
+} from "@prismshadow/penguin-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
 import { useProject } from "../../state/project";
-import { Button } from "../../components/ui/button";
-import { Input, Textarea } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
-import { Modal } from "../../components/ui/modal";
-import { FormPicker } from "../../components/ui/form-picker";
-import { FieldError, FieldHint, FieldLabel } from "../../components/ui/field";
-import { toastInfo, toastSuccess } from "../../components/ui/toast";
-import { ModelSelect, PickerList } from "../chat/model-select";
+import { useAgentLocation } from "../../lib/agent-location";
+import { ModelCatalogSelect } from "../chat/model-select";
 import { WorkspaceSelect } from "../chat/workspace-select";
 import { sameModelRef } from "../models/model-grouping";
 import { itemModelRef } from "./schedule-upsert";
@@ -87,7 +103,7 @@ function filterSessions(sessions: SessionInfo[], query: string): SessionInfo[] {
 
 /**
  * Searchable Session picker for the bind-to-Session mode: the shared FormPicker (same
- * trigger look as ModelSelect/WorkspaceSelect) whose panel is the shared PickerList (search
+ * trigger look as ModelCatalogSelect/WorkspaceSelect) whose panel is the shared PickerList (search
  * box + keyboard nav). The Agent's full Session list is fetched once when the picker first
  * opens — un-paged, mirroring how the form one-shots getModels — so search covers every
  * Session rather than only the sidebar's loaded active page. The stored value is still the
@@ -107,6 +123,8 @@ function SessionSelect({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [sessions, setSessions] = useState<SessionInfo[] | null>(null);
+  /** The machine the Agent lives on: its Sessions are there. */
+  const machineId = useAgentLocation();
 
   // Load lazily on first open, then keep the snapshot; a failed fetch degrades to an empty
   // list (the user can still see the currently-bound id on the trigger and cancel out).
@@ -114,7 +132,7 @@ function SessionSelect({
     if (!open || sessions !== null) return;
     let cancelled = false;
     api
-      .listSessions(projectId, agentId)
+      .listSessions(projectId, agentId, undefined, machineId)
       .then((res) => {
         if (!cancelled) setSessions(res.sessions);
       })
@@ -138,7 +156,8 @@ function SessionSelect({
       setOpen={setOpen}
       label={label}
       muted={!value}
-      title={value ? `${S.schedule.sessionId}：${value}` : S.schedule.chooseSession}
+      title={value ? `${S.schedule.sessionId}: ${value}` : S.schedule.chooseSession}
+      titleExtra={selected !== null}
       ariaLabel={S.schedule.chooseSession}
       ariaHaspopup="listbox"
       menuClass="w-80 origin-top-left"
@@ -165,7 +184,7 @@ function SessionSelect({
               <span className="min-w-0 flex-1 truncate text-gray-800 dark:text-gray-200">
                 {s.title ?? S.chat.defaultSessionTitle}
               </span>
-              <span className="shrink-0 font-mono text-[11px] text-gray-400 dark:text-gray-500">
+              <span className="shrink-0 font-mono text-xs text-gray-400 dark:text-gray-500">
                 {s.sessionId.slice(-6)}
               </span>
             </>
@@ -189,8 +208,42 @@ export interface ScheduleFormModalProps {
 }
 
 export function ScheduleFormModal(props: ScheduleFormModalProps) {
-  // Mounted only while open, so the form starts fresh every time.
-  return props.open ? <ScheduleFormDialog {...props} /> : null;
+  // Mounted only while open, and keyed by the task, so the form starts fresh every time.
+  return props.open ? <ScheduleFormDialog key={props.editing?.name ?? ""} {...props} /> : null;
+}
+
+/**
+ * What Save / Create would send, for the dirty comparison: the name and the other text trimmed,
+ * only the fields the chosen target uses, and the Project default model as "no model" (the body
+ * omits a model that is the default, so picking it is no change).
+ */
+function normalizeForm(form: FormState, defaultModel: ModelRefDto | null) {
+  return {
+    name: form.editing ?? form.name.trim(),
+    prompt: form.prompt,
+    enabled: form.enabled,
+    startAt: form.startAt,
+    endAt: form.endAt,
+    period: form.period.trim(),
+    target: form.target,
+    sessionId: form.target === "session" ? form.sessionId.trim() : "",
+    workspace: form.target === "new" ? form.workspace.trim() : "",
+    model:
+      form.target === "new" && form.model !== null && !sameModelRef(defaultModel, form.model)
+        ? form.model
+        : null,
+  };
+}
+
+/** The required fields this form leaves empty (none: Save / Create may go). */
+function missingFields(form: FormState): Set<"name" | "prompt" | "startAt" | "sessionId"> {
+  const missing = new Set<"name" | "prompt" | "startAt" | "sessionId">();
+  if (!(form.editing ?? form.name.trim())) missing.add("name");
+  if (!form.prompt.trim()) missing.add("prompt");
+  if (!form.startAt) missing.add("startAt");
+  // sessionId is required in bind-to-Session mode — leaving it blank would silently downgrade to "new Session", changing the user's intended choice.
+  if (form.target === "session" && !form.sessionId.trim()) missing.add("sessionId");
+  return missing;
 }
 
 /** The form as it opens: the edited task's fields, or an empty form — pinned when a Session is locked. */
@@ -210,7 +263,7 @@ function initialForm(editing: ScheduleItem | null, lockedSessionId: string | und
     sessionId: editing.sessionId ?? "",
     workspace: editing.workspace ?? "",
     // A schedule that follows the Project default stores no model; the default takes its
-    // place in the picker once the model list arrives (ModelSelect has no null state).
+    // place in the picker once the model list arrives (ModelCatalogSelect has no null state).
     model: itemModelRef(editing),
     ...pinned,
   };
@@ -226,42 +279,43 @@ function ScheduleFormDialog({
 }: ScheduleFormModalProps) {
   const { currentProject } = useProject();
   const projectId = currentProject?.projectId ?? null;
-  const [form, setForm] = useState<FormState>(() => initialForm(editing, lockedSessionId));
-  // The form as opened — an edit submit with nothing changed reports "no changes" instead of rewriting the file.
-  const [opened, setOpened] = useState<FormState>(form);
-  // Per-field required errors sit next to their input; formError holds a submit rejection that isn't attributable to one field.
-  const [fieldErrors, setFieldErrors] = useState<{
-    name?: string;
-    prompt?: string;
-    startAt?: string;
-    sessionId?: string;
-  }>({});
+  /** The machine the Agent lives on (null: this server): its models, Workspaces and tasks. */
+  const machineId = useAgentLocation();
+  // A submit rejection that isn't attributable to one field, under the form.
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Model dropdown data; a load failure doesn't block the form — falling back to "Project default" is fine.
   const [models, setModels] = useState<ModelInfo[]>([]);
-  // The Project default model reference, kept so ModelSelect can mark it and so the form can
+  // The Project default model reference, kept so ModelCatalogSelect can mark it and so the form can
   // treat "the default is selected" as "follow the default" (omit the model from the body).
   const [defaultModel, setDefaultModel] = useState<ModelRefDto | null>(null);
+  // A form that follows the default shows the default in the picker (ModelCatalogSelect has no
+  // null state) once the model list arrives: the opening values move, and an untouched form
+  // follows them.
+  const opening = initialForm(editing, lockedSessionId);
+  const draft = useFormDraft(
+    defaultModel !== null && opening.model === null ? { ...opening, model: defaultModel } : opening,
+    { normalize: (f) => normalizeForm(f, defaultModel) },
+  );
+  const form = draft.draft;
+  const requestClose = useGuardedClose(onClose, draft.scope, { locked: busy });
+  const missing = missingFields(form);
+  /** A required field's error, once the field differs from what the dialog opened with. */
+  const requiredError = (field: "name" | "prompt" | "startAt" | "sessionId") =>
+    missing.has(field) && form[field] !== draft.baseline[field]
+      ? S.common.requiredField
+      : undefined;
 
   useEffect(() => {
     if (!projectId) return;
     let cancelled = false;
     api
-      .getModels(projectId)
+      .getModels(projectId, machineId)
       .then((res) => {
         if (cancelled) return;
         setModels(res.models);
-        const def = res.defaultModel ?? null;
-        setDefaultModel(def);
-        // A form that follows the default shows the default in the picker; the submit body
-        // treats a selected default as "follow the default" again and omits it. The opening
-        // snapshot moves with the form, so an untouched edit still reports "no changes".
-        if (def) {
-          const seed = (f: FormState) => (f.model === null ? { ...f, model: def } : f);
-          setForm(seed);
-          setOpened(seed);
-        }
+        // The submit body treats a selected default as "follow the default" and omits it.
+        setDefaultModel(res.defaultModel ?? null);
       })
       .catch(() => {
         if (cancelled) return;
@@ -271,36 +325,17 @@ function ScheduleFormDialog({
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, machineId]);
 
   const set = (patch: Partial<FormState>) => {
-    setFieldErrors((p) => (p.name || p.prompt || p.startAt || p.sessionId ? {} : p));
     setFormError((p) => (p ? null : p));
-    setForm((prev) => ({ ...prev, ...patch }));
+    draft.patch(patch);
   };
 
   const submit = async () => {
-    if (!projectId) return;
+    if (!projectId || !draft.dirty || missing.size > 0 || busy) return;
     setFormError(null);
     const name = form.editing ?? form.name.trim();
-    // sessionId is required in bind-to-Session mode — leaving it blank would silently downgrade to "new Session", changing the user's intended choice.
-    const next: { name?: string; prompt?: string; startAt?: string; sessionId?: string } = {};
-    if (!name) next.name = S.common.requiredField;
-    if (!form.prompt.trim()) next.prompt = S.common.requiredField;
-    if (!form.startAt) next.startAt = S.common.requiredField;
-    if (form.target === "session" && !form.sessionId.trim())
-      next.sessionId = S.common.requiredField;
-    if (next.name || next.prompt || next.startAt || next.sessionId) {
-      setFieldErrors(next);
-      return;
-    }
-    setFieldErrors({});
-    // Editing with nothing changed: report it instead of rewriting the same file (both
-    // sides are FormState built the same way, so a field-wise JSON compare is exact).
-    if (form.editing !== null && JSON.stringify(form) === JSON.stringify(opened)) {
-      toastInfo(S.common.noChangesToSave);
-      return;
-    }
     // Empty-string keys are always omitted; target is one of two choices — sessionId is
     // sent only when binding to a Session, and workspace plus the model reference
     // (modelId + provider pair) only when creating a new Session.
@@ -325,9 +360,11 @@ function ScheduleFormDialog({
     };
     setBusy(true);
     try {
-      if (form.editing !== null) await api.updateSchedule(projectId, agentId, form.editing, body);
-      else await api.createSchedule(projectId, agentId, { name, ...body });
+      if (form.editing !== null) {
+        await api.updateSchedule(projectId, agentId, form.editing, body, machineId);
+      } else await api.createSchedule(projectId, agentId, { name, ...body }, machineId);
       toastSuccess(S.schedule.toastSaved);
+      // Saved: nothing is unsaved, so the dialog closes without asking.
       onClose();
       onSaved();
     } catch (e) {
@@ -344,14 +381,19 @@ function ScheduleFormDialog({
     <Modal
       open={open}
       title={form.editing !== null ? S.schedule.editTitle(form.editing) : S.schedule.addTitle}
-      onClose={onClose}
+      onClose={requestClose}
       widthClass="sm:max-w-lg"
       footer={
         <>
-          <Button size="sm" onClick={onClose}>
+          <Button size="sm" onClick={requestClose}>
             {S.common.cancel}
           </Button>
-          <Button size="sm" variant="primary" disabled={busy} onClick={() => void submit()}>
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={!draft.dirty || missing.size > 0 || busy}
+            onClick={() => void submit()}
+          >
             {form.editing !== null ? S.common.save : S.common.create}
           </Button>
         </>
@@ -364,7 +406,7 @@ function ScheduleFormDialog({
             label={S.common.name}
             required
             hint={S.schedule.nameHint}
-            error={fieldErrors.name}
+            error={requiredError("name")}
             value={form.name}
             disabled={form.editing !== null}
             onChange={(e) => set({ name: e.target.value })}
@@ -386,7 +428,7 @@ function ScheduleFormDialog({
             label={S.schedule.startAt}
             required
             type="datetime-local"
-            error={fieldErrors.startAt}
+            error={requiredError("startAt")}
             value={form.startAt}
             onChange={(e) => set({ startAt: e.target.value })}
             className="font-mono"
@@ -405,7 +447,7 @@ function ScheduleFormDialog({
               <FieldLabel>{S.schedule.target}</FieldLabel>
               <p className="text-xs text-gray-600 dark:text-gray-300">
                 {S.schedule.targetThisSession}
-                <span className="ml-1.5 font-mono text-[11px] text-gray-400 dark:text-gray-500">
+                <span className="ml-1.5 font-mono text-xs text-gray-400 dark:text-gray-500">
                   {lockedSessionId.slice(-6)}
                 </span>
               </p>
@@ -432,19 +474,21 @@ function ScheduleFormDialog({
                     value={form.sessionId}
                     onChange={(sessionId) => set({ sessionId })}
                   />
-                  {fieldErrors.sessionId && <FieldError>{fieldErrors.sessionId}</FieldError>}
+                  {requiredError("sessionId") !== undefined && (
+                    <FieldError>{requiredError("sessionId")}</FieldError>
+                  )}
                 </div>
               ) : (
                 // New-Session mode: Model and Workspace use the same form-variant pickers as
-                // the Project default-settings dialog (ModelSelect / WorkspaceSelect), so the
+                // the Project default-settings dialog (ModelCatalogSelect / WorkspaceSelect), so the
                 // two surfaces read identically.
                 <>
                   <div>
                     <FieldLabel>{S.schedule.model}</FieldLabel>
                     {models.length > 0 ? (
-                      <ModelSelect
+                      <ModelCatalogSelect
                         models={models}
-                        value={form.model}
+                        value={form.model ?? defaultModel}
                         {...(defaultModel ? { defaultModel } : {})}
                         onChange={(ref) => set({ model: ref })}
                         disabled={busy}
@@ -460,9 +504,11 @@ function ScheduleFormDialog({
                       projectId={projectId}
                       workspace={form.workspace}
                       onChange={(workspace) => set({ workspace })}
+                      agentId={agentId}
+                      // A machine's Agent runs its tasks there: the Workspace is browsed on it alone.
+                      {...(machineId !== null ? { machineId, chooseMachine: false } : {})}
                       variant="form"
                     />
-                    <FieldHint>{S.chat.workspaceHintShort}</FieldHint>
                   </div>
                 </>
               )}
@@ -474,18 +520,16 @@ function ScheduleFormDialog({
           required
           size="sm"
           rows={4}
-          error={fieldErrors.prompt}
+          error={requiredError("prompt")}
           value={form.prompt}
           onChange={(e) => set({ prompt: e.target.value })}
         />
-        <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
-          <input
-            type="checkbox"
-            checked={form.enabled}
-            onChange={(e) => set({ enabled: e.target.checked })}
-          />
-          {S.schedule.enabled}
-        </label>
+        <Checkbox
+          checked={form.enabled}
+          onChange={(on) => set({ enabled: on })}
+          label={S.schedule.enabled}
+          className="text-gray-600 dark:text-gray-300"
+        />
         {formError && <p className="text-xs text-red-600 dark:text-red-400">{formError}</p>}
       </div>
     </Modal>

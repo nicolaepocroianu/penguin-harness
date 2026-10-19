@@ -70,7 +70,7 @@ written in it. Commands, file names, ids and field names stay ASCII.
 
 | Path | What it is | Who writes it |
 | --- | --- | --- |
-| \`org_config.toml\` | name, mission, status, timezone, working language, approval mode, mention-chain and budget thresholds | people, CEO |
+| \`org_config.toml\` | name, mission, status, timezone, working language, approval mode, mention-chain and budget thresholds | people, CEO — except the approval mode, which only the board changes, in the organization's settings |
 | \`org_chart.yaml\` | employee tree: title, reports_to, duties, workspace, budget, model | CEO, HR (\`penguin org hire\` / \`employee set\`) |
 | \`handbook/\` | the knowledge base: this index (\`README.md\`) and the documents it lists | CEO, HR, employees (\`penguin org handbook …\` or file tools) |
 | \`desks.toml\` | employee → current desk session (fact file) | the server |

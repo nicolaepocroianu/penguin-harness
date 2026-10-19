@@ -11,7 +11,7 @@
  *   and subagents panels, an approval mode's permission check) and are ordinary method calls
  *   returning ordinary data.
  *
- * Docs: packages/docs/content/interfaces.{zh,en}.md (site path /docs/interfaces).
+ * Docs: packages/docs/content/interfaces.en.md (site path /docs/interfaces).
  */
 import type { ProtectedRoot } from "../environment/tools/path-guard.js";
 import type { ConfinedSandboxMode } from "../plugin/sandbox.js";
@@ -69,12 +69,19 @@ export interface ToolDefinitionConfig {
  * `environment/mcp/config.ts`: `transport: "stdio" | "http" | "sse"` (inferable from
  * `command` / `url`), the per-transport fields (stdio: `command`/`args`/`env`/`cwd`;
  * http/sse: `url`/`headers`), and the shared optional `connectTimeoutMs` / `timeoutMs` /
- * `maxOutputLength`.
+ * `maxOutputLength`. A string value may hold `${KEY}` references to the Agent's vault, filled
+ * in when the server connects.
  * Docs: /docs/tools § "MCP servers".
  */
 export interface MCPServerConfig {
   name: string;
   config: Record<string, unknown>;
+  /**
+   * Provenance: the plugin whose install wrote this entry (its `penguin.mcp_servers`). Absent
+   * on an entry the user added. Uninstalling or reinstalling that plugin touches exactly the
+   * entries carrying its name.
+   */
+  plugin?: string;
 }
 
 /** Set of tool configs required to initialize Environment. */
@@ -229,7 +236,7 @@ export interface VisionDescriberService {
  */
 export interface EnvironmentServices {
   subagentRunner?: SubagentRunner;
-  /** Injected when (and only when) the session model doesn't support images: read_file then describes an image through it instead of returning image content. */
+  /** Injected when (and only when) the running context's model doesn't support images: read_file then describes an image through it instead of returning image content. Follows the model across an in-session switch (`Environment.reconfigure` re-injects or removes it as each context opens). */
   visionDescriber?: VisionDescriberService;
   /** Registry of long-running command sessions (shared by `exec_command` / `input_command`); constructed and injected internally by Environment. */
   commandSessions?: CommandSessionManager;
@@ -333,12 +340,14 @@ export interface EnvironmentConfig {
    */
   pathPrepend?: () => string[];
   /**
-   * Sandbox-confinement seam for exec_command / input_command subprocesses (see
-   * {@link SpawnConfiner}). Like {@link EnvironmentConfig.proxyEnv} it is a getter
-   * re-read at every spawn, so the hosting server can change the active confiner at
-   * runtime (e.g. via a platform hot push) and reach Sessions that are already
-   * running. Absent, or a getter returning null = commands spawn unconfined (the
-   * default for SDK/CLI standalone use).
+   * Sandbox-confinement seam for everything the Environment spawns for the Session: the
+   * exec_command / input_command subprocesses, the stdio MCP Servers, and the helper the
+   * file tools work through when the Session is confined (see {@link SpawnConfiner} and
+   * tools/fs-worker.ts). Like {@link EnvironmentConfig.proxyEnv} it is a getter re-read
+   * at every spawn, so the hosting server can change the active confiner at runtime
+   * (e.g. via a platform hot push) and reach Sessions that are already running. Absent,
+   * or a getter returning null = everything spawns unconfined (the default for SDK/CLI
+   * standalone use).
    */
   confineSpawn?: () => SpawnConfiner | null;
   /**
@@ -359,7 +368,9 @@ export interface EnvironmentConfig {
  *   HTTP_PROXY / HTTPS_PROXY (plus their lowercase twins) are set to `url` and
  *   NO_PROXY / no_proxy to `noProxy`, overriding inherited values; an inherited
  *   ALL_PROXY (any casing) is removed for the same reason. The caller supplies `noProxy`
- *   pre-merged (the hosting server includes the loopback names).
+ *   pre-merged: the hosting server includes the loopback names, and the private and
+ *   link-local ranges as CIDR entries plus `.local`, so commands bypass the proxy for the
+ *   same local destinations its own traffic does.
  * - `null` (or no getter at all) — pass through unchanged.
  * The Agent vault still overrides whichever of these the policy produced: a per-Agent
  * explicit variable outranks the host-level policy.
@@ -380,15 +391,41 @@ export type ProxyEnvPolicy = { mode: "strip" } | { mode: "inject"; url: string; 
  * @param opts - spawn context: `cwd` is the working directory of THIS command (per-call,
  *   may differ from the workspace); `workspaceDir` is the Session's Workspace root — the
  *   directory a workspace-scoped confinement policy should treat as writable, never
- *   inferred from `cwd` (a command may run in a workdir outside the Workspace).
- *   `sessionMode`, when present, is the least confinement the Session was created with
- *   (see {@link SessionSandboxMode}): the confiner may confine more, never less.
- * @returns the argv to spawn instead.
+ *   inferred from `cwd` (a command may run in a workdir outside the Workspace);
+ *   `scratchpadDir` is the Session's scratchpad, writable beside the workspace under
+ *   that policy (absent for a Session without one); `sessionMode`, when present, is the
+ *   least confinement the Session was created with (see {@link SessionSandboxMode}): the
+ *   confiner may confine more, never less.
+ * @returns what to spawn instead: the argv, and any environment entries the runner
+ *   itself needs (see {@link ConfinedSpawn}).
  */
 export type SpawnConfiner = (
   argv: readonly string[],
-  opts: { cwd: string; workspaceDir: string; sessionMode?: SessionSandboxMode },
-) => readonly string[];
+  opts: {
+    cwd: string;
+    workspaceDir: string;
+    scratchpadDir?: string;
+    sessionMode?: SessionSandboxMode;
+  },
+) => ConfinedSpawn;
+
+/**
+ * A confiner's answer. `argv` replaces the spawn's argv wholesale; `env` is laid over
+ * the environment the manager assembled for the command — entries the runner needs to
+ * be a runner at all (an interpreter switch, say), never the command's own settings,
+ * which stay the manager's to decide.
+ */
+export interface ConfinedSpawn {
+  argv: readonly string[];
+  env?: Readonly<Record<string, string>>;
+  /**
+   * Whole lines the runner itself prints at the head of stderr before it execs the command
+   * (a report, not an error — the Landlock launcher's "partial enforcement" on an older
+   * kernel). The spawn drops them from the head of the command's stderr, matched by exact
+   * line, case-insensitively; the command's own output is never examined past its first line.
+   */
+  runnerLines?: readonly string[];
+}
 
 /**
  * The least confinement one Session's commands may run under, whatever the host's own

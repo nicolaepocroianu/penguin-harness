@@ -395,7 +395,7 @@ export class TestBrowserService implements TestBrowser {
     if (executable === null)
       return {
         ran: false,
-        reason: "The test browser is not installed. An admin installs it in System settings.",
+        reason: "The test browser is not installed. An admin installs it in Settings.",
       };
     return (this.ports.runChecks ?? runConfinedChecks)({
       ...request,

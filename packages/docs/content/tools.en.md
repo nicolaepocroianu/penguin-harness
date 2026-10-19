@@ -188,20 +188,26 @@ The tools' arguments (explicit keys):
 
 ### File tools
 
-`read_file` / `edit_file` / `write_file` run with the user's full permissions, like the shell tool. Relative paths resolve against the Workspace, and absolute paths are allowed. A symlinked path is followed to the file it names: reads, edits and writes all land on that file, and the link stays a link. `read_file` refuses the secret stores `.vault.toml` and `.project_config.toml`, matched by file name in any directory and after following symlinks.
+`read_file` / `edit_file` / `write_file` are harness code, but every file-system effect they have — a stat, a read, an atomic write, a directory listing, a symlink resolution, and `read_file`'s download of an image URL — goes through a file-system port. Relative paths resolve against the Workspace, and absolute paths are allowed. A symlinked path is followed to the file it names: reads, edits and writes all land on that file, and the link stays a link. `read_file` refuses the secret stores `.vault.toml` and `.project_config.toml`, matched by file name in any directory and after following symlinks.
 
-The file tools return a single final output rather than a stream, with one exception: for a text-only model, `read_file` streams the vision model's description of an image. They never throw. Failures come back as explanatory text with `stop_reason: fatal`.
+In a Session the [sandbox](/settings#sandbox) confines, the port is a helper process the same confiner wraps that wraps a command: the harness starts a Node process with the helper's program inline (`node -e …`, builtin modules only, so nothing has to ship beside a bundle) under the same policy and scope — the Workspace and the Session's scratchpad — and the tools' operations cross to it as JSON lines on its stdin and stdout. What the tools can do is then exactly what a command can: the backend that bounds the Session's commands bounds them, mask paths included, and a download follows the network level. One helper serves a Session: it starts at the first confined file operation, is reused for the rest, is started over when the Session's policy changes or after a crash, is killed when a call is aborted (the sandbox may be stalling that operation), and stops with the Session. A refused write comes back as the kernel's permission error, and the tool names the sandbox so the next attempt can take another route:
+
+```text
+Failed to write "/etc/hosts": EROFS: read-only file system, open '/etc/hosts' — refused by this session's sandbox, which does not allow that here.
+```
+
+Under the WSL backend the helper runs inside the distro, which the initialization installs `nodejs` into: Windows drive paths are mapped to their `/mnt/<drive>` spelling on the way in and back on the way out. A distro initialized before `nodejs` joined the package list needs initializing again. Without a sandbox, as when the SDK or the CLI runs standalone or the sandbox is off, the port is the harness process itself and the tools run with the user's full permissions, like the shell tool.
 
 `edit_file` and `write_file` serialize per file within the server process, keyed by the file's real path, so a symlink and its target count as one file. Parallel edits of one file are applied one after another, and an `old_string` that an earlier edit removed fails to match instead of overwriting it. Writes from other processes are outside this lock.
 
-`read_file` reads images as well as text. The image branch takes a png, jpeg, gif or webp file up to 5MB, recognized by its magic number and then by its extension, or an http(s) URL in `file_path`. A URL is only ever an image source, and the response's content-type is checked first.
+`read_file` reads images as well as text. A file whose magic number or extension says image takes the image branch, and so does an http(s) URL in `file_path`; a URL is only ever an image source. The format is decided by the file's bytes (magic number) only: a png, jpeg, gif or webp up to 5MB is read, and anything else, such as an SVG, a HEIC photo or a renamed web page, is refused with a hint to convert it to PNG or JPEG first. Neither the extension nor the response's content-type decides the format.
 
 What comes back depends on the Session model's vision flag:
 
-- A model that accepts images gets the image itself as image content, and the text output is one line such as `image/png, 123.4 kB`.
-- A text-only model gets the Project's `vision_model` answering `prompt` (by default, a detailed description), streamed as the tool's text output. The image never enters that Session's history. Without a `vision_model`, reading an image in a text-only Session fails with an explanation asking the user to pick one in the model settings. See [Models & Providers](/models).
+- A model that accepts images gets the image itself as image content, and the text output is one line giving its format and byte size, such as `image/png, 123.4 kB`. If the provider then rejects the request, the engine sends it again without the image (see [Retryable and fatal failures](/agent-loop#retryable-and-fatal-failures)) and leaves a fixed note in the tool output saying so; the provider's error reaches the model through the retry's `[request_error]` line (see [Automatic reconnect](/agent-loop#automatic-reconnect)).
+- A text-only model gets the Project's `vision_model` answering `prompt` (by default, a detailed description), streamed as the tool's text output. The image never enters that Session's history. If the vision model refuses the image, the tool output carries the same causes and advice. Without a `vision_model`, reading an image in a text-only Session fails with an explanation asking the user to pick one in the model settings. See [Models & Providers](/models).
 
-The branch is decided by the `VisionDescriberService` that the SDK injects into the Environment for text-only Sessions only, so one config entry (without `forModel`) serves both model classes.
+The branch is decided by the `VisionDescriberService` that the SDK injects into the Environment for text-only Sessions only, so one config entry (without `forModel`) serves both model classes. A model that accepts images is handed `read_file` without `prompt`: assembly drops the argument from the schema in memory, as `call_description: false` drops `description`, and the YAML is never rewritten.
 
 ```ts
 // read_file — cat -n style output (line number, tab, content) for text; overlong single lines
@@ -212,7 +218,7 @@ The branch is decided by the `VisionDescriberService` that the SDK injects into 
   file_path: string;       // required: absolute, or relative to the Workspace; an http(s) URL for an image
   offset?: number;         // 1-based line to start from; default 1
   limit?: number;          // max lines returned; default 2000 — a trailing note points at the continuation
-  prompt?: string;         // a question about an image, answered by the vision_model for a text-only model; default: a detailed description
+  prompt?: string;         // text-only models only: a question about an image, answered by the vision_model; default: a detailed description
 }
 
 // edit_file — the file must exist; old_string must occur exactly once (or set replace_all);
@@ -366,6 +372,8 @@ A policy hit therefore never reads as a person cancelling. See [ApproveFn](/inte
 
 The `tools.builtin` array in `system_config.yaml` declares the toolset, with entries of the same `ToolDefinitionConfig` shape. It **replaces the defaults wholesale; it is not merged with them**. Omit the section to keep the full default toolset. Once you write it, the default list is gone, and every tool you keep needs its complete definition, including the `parameters` JSON Schema, because a tool's schema comes entirely from config.
 
+In the Web App, Agent settings → Tools lets you choose read-only or read-and-write permissions for each built-in tool and delete it after confirmation. Deletion saves immediately and preserves other unsaved parameters. A deleted tool is no longer available to the Agent: new conversations apply the change immediately, and existing conversations apply it when their context is next rebuilt. Deleting every tool leaves an empty toolset; it does not restore the defaults.
+
 `tools.mcpServers` holds the MCP Server configuration, covered in the next section. See also [Configuration](/configuration).
 
 ```yaml
@@ -388,9 +396,9 @@ tools:
 
 ## MCP Servers
 
-Each `tools.mcpServers` entry is `{ name, config }`. `name` becomes the tool-name prefix: it must start with a letter or digit and contain only letters, digits, `_` and `-`, and a duplicate name is skipped. `config` describes the transport. Three transports are supported:
+Each `tools.mcpServers` entry is `{ name, config }`, plus `plugin` on an entry a plugin installed (see [Skills & Plugins](/skills#mcp-servers-in-a-plugin)). `name` becomes the tool-name prefix: it must start with a letter or digit and contain only letters, digits, `_` and `-`, and a duplicate name is skipped. `config` describes the transport. Three transports are supported:
 
-- `stdio`: a local process (`command` / `args` / `env` / `cwd`). The process environment is the SDK's safe inherited defaults plus the entry's `env`, with `env` winning. Unlike command subprocesses, MCP Server processes do **not** receive the agent's Vault: list any variable a Server needs in the entry's `env`. `cwd` defaults to the Session's Workspace.
+- `stdio`: a local process (`command` / `args` / `env` / `cwd`). The process environment is the SDK's safe inherited defaults plus the entry's `env`, with `env` winning. Unlike command subprocesses, MCP Server processes do **not** receive the agent's Vault as a whole: list any variable a Server needs in the entry's `env`, and write a secret there as a [Vault reference](#vault-references). `cwd` defaults to the Session's Workspace. The process starts under the Session's [sandbox](/settings#sandbox) exactly as a command does: the same confiner rewrites its argv, and a policy no backend can enforce fails the Server's connect rather than starting it unconfined.
 - `http`: Streamable HTTP, the current spec's remote transport (`url` / `headers`).
 - `sse`: the legacy HTTP+SSE transport, kept for servers that have not migrated (`url` / `headers`).
 
@@ -418,17 +426,31 @@ tools:
       config:
         transport: http
         url: https://mcp.linear.app/mcp
-        headers: { Authorization: "Bearer ..." }
+        headers: { Authorization: "Bearer ${LINEAR_API_KEY}" }   # read from the agent's Vault
         permission: r        # auto (default) | r | rw
 ```
+
+### Vault references
+
+Any string value in an entry's `config` (a header, an `env` value, an argument, an `oauth` field) may hold `${KEY}`, where `KEY` follows the Vault's key rule: a letter or `_`, then letters, digits and `_`. When the Server connects, each reference is replaced with the value of that key in the agent's Vault. `system_config.yaml`, the config API and the Trace only ever carry the reference, and only the keys an entry references reach its Server: the rest of the Vault stays out. The rule holds for every entry, the ones you write by hand as well as the ones a plugin installs.
+
+- A reference cannot sit in the host of `url`: the Vault decides what is sent to a Server, never which Server is contacted. The host is judged the way the connection parses the address, however the URL spells it. A path or a query may hold one.
+- A value is substituted once: a Vault value that itself contains `${…}` is not read again.
+- A connection test fills references only into an entry saved on the agent exactly as tested. A new or changed entry that references the Vault is neither filled in nor contacted, and the test says to save it first: otherwise anyone who can test an entry could send a Vault value to an address of their own.
+- A Server may repeat what it was sent when it fails, such as a refusal that quotes the request line or a header, or a process that prints its environment on stderr. Where such a text lands in a warning, a connect result in the Trace or a tool result the model reads, the Vault values in it are replaced with their references. A value shorter than six characters is left as it is: it is no secret, and replacing it would garble the text.
+- `${PLUGIN_ROOT}` is not a Vault key. Installing a plugin's Server replaces it with the plugin package's directory.
+- A Server whose references the Vault cannot fill is not contacted. It is skipped as **needs setup**, and its warning and connect result name the missing keys, never a value. Once the keys are in the Vault, the Server connects at the agent's next model context.
+- An entry with `config.oauth`, a Server that signs in with OAuth, is skipped as **sign-in required** when it has no `Authorization` header after substitution: this version cannot sign in yet. A Server that also accepts a token can take one as `Authorization: Bearer ${KEY}`.
+
+An existing entry that holds a literal `${…}` in a value reads it as a reference too, and is skipped as needs setup until the Vault has that key.
 
 ### Connection and discovery
 
 - Connecting is **lazy**. Creating a Session returns at once; the first `run()` connects all Servers in parallel and discovers their tools once.
 - The wait streams as one `mcp_connect_begin` / `mcp_connect_end` pair: frontends show a connecting status, and the end event carries the overall status plus per-Server results. The full tool definitions follow as a `tool_list_ready` event (see [OmniMessage](/omni-message)). In the Trace, all three land after the run's input, inside the new turn.
 - Aborting during the connect **cancels** the attempt, and the next `run()` connects again.
-- The discovered tools are a snapshot for the model context: `tools/list_changed` notifications are ignored. When a compaction opens the next context, a Server whose entry is unchanged keeps its live connection and tools. Removed or changed Servers are closed, and new, changed or previously failed ones connect again. The connect event pair appears only when some Server needs connecting, while `tool_list_ready` is always emitted (see [Compaction](/agent-loop)).
-- An unreachable Server or an invalid entry only produces a warning on stderr and is skipped. **The Session is never blocked.**
+- The discovered tools are a snapshot for the model context: `tools/list_changed` notifications are ignored. When a compaction opens the next context, a Server whose entry is unchanged keeps its live connection and tools; a Vault value the entry references counts as part of it. Removed or changed Servers are closed, and new, changed or previously failed ones connect again. The connect event pair appears only when some Server needs connecting, while `tool_list_ready` is always emitted (see [Compaction](/agent-loop)).
+- An unreachable Server or an invalid entry only produces a warning on stderr and is skipped. **The Session is never blocked.** A Server skipped as needs setup or sign-in required is never contacted, and its connect result is a failure with the `mcp_needs_setup` or `mcp_sign_in_required` code.
 - Discovered tools join the flat tool namespace as `mcp__<server>__<tool>`. A tool whose full name is not a valid LLM tool name (letters, digits, `_` and `-`, at most 128 characters) or that the Server lists twice is skipped with a warning. The rest go through the same [execution contract](#execution-contract) (timeout, truncation, interruption) and [approval](#approval) flow as built-in tools.
 
 ### Permission mapping

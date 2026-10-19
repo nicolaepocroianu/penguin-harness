@@ -215,7 +215,7 @@ export class ActivityQualityService implements ActivityQuality {
       throw new HttpError(
         409,
         "test_browser_missing",
-        "The test browser is not installed. An admin installs it in System settings.",
+        "The test browser is not installed. An admin installs it in Settings.",
       );
     const sandbox = await this.sandbox.status(projectId, activityId);
     if (!sandbox.playable) throw new HttpError(409, "quality_not_playable", sandbox.message);

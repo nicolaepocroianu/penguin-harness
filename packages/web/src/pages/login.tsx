@@ -10,6 +10,16 @@
  */
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import {
+  Button,
+  Input,
+  Modal,
+  Notice,
+  PasswordInput,
+  PenguinLogo,
+  Segmented,
+} from "@prismshadow/penguin-ui";
+import { PENGUIN_LOGO_URL } from "../lib/brand-logo";
 import { S } from "../lib/strings";
 import { apiErrorText } from "../lib/api-error";
 import { useDocumentTitle } from "../lib/use-document-title";
@@ -18,12 +28,6 @@ import { useLocale } from "../state/locale";
 import type { LangPref } from "../state/locale";
 import { useTheme } from "../state/theme";
 import type { ThemeMode } from "../state/theme";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { PasswordInput } from "../components/ui/password-input";
-import { Modal } from "../components/ui/modal";
-import { PenguinLogo } from "../components/ui/penguin-logo";
-import { Segmented } from "../components/ui/segmented";
 import { LoginCircuit } from "./login-circuit";
 
 /** Which advice a failed claim asks for; the server decides it from the deployment, not from the token. */
@@ -93,20 +97,20 @@ export function LoginPage() {
     // relative + overflow-hidden: the circuit-trace background fills this page and clips lines that go out
     // of bounds; the form area uses relative positioning to sit above the background (otherwise the
     // absolutely positioned SVG would render in front of the static content).
-    <div className="relative flex min-h-full items-center justify-center overflow-hidden p-4">
+    <div className="relative flex min-h-full items-center justify-center overflow-hidden p-4 pt-[calc(env(titlebar-area-height,0px)+1rem)]">
       <LoginCircuit />
       {/* Language / theme settings: compact segmented control in the top-right corner (stacks vertically on narrow screens to avoid competing with the form for width). */}
-      <div className="absolute right-4 top-4 flex flex-col items-end gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+      <div className="absolute right-4 top-[calc(env(titlebar-area-height,0px)+1rem)] flex flex-col items-end gap-1.5 sm:flex-row sm:items-center sm:gap-2">
         <div aria-label={S.settings.language}>
           <Segmented options={langOptions} value={lang} onChange={setLang} />
         </div>
-        <div aria-label={S.settings.theme}>
+        <div aria-label={S.settings.colorMode}>
           <Segmented options={themeOptions} value={mode} onChange={setMode} />
         </div>
       </div>
       <div className="anim-rise relative w-full max-w-sm">
         {/* Brand penguin logo (part of the form area, not background graphics, so it doesn't clash with the trace animation) */}
-        <PenguinLogo className="mx-auto mb-3 h-16 w-16 rounded-2xl" />
+        <PenguinLogo src={PENGUIN_LOGO_URL} className="mx-auto mb-3 h-16 w-16 rounded-2xl" />
         <h1 className="mb-6 text-center text-3xl font-semibold tracking-tight">{S.appName}</h1>
 
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
@@ -145,11 +149,7 @@ export function LoginPage() {
               error={errors.password}
               autoComplete="current-password"
             />
-            {errors.form && (
-              <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300">
-                {errors.form}
-              </p>
-            )}
+            {errors.form && <Notice tone="danger">{errors.form}</Notice>}
             <Button
               type="submit"
               variant="primary"

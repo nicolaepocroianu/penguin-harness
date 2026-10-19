@@ -15,10 +15,7 @@ import type {
   SceneLookSummary,
   VideoCheck,
 } from "@prismshadow/penguin-server/api";
-import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { Select } from "../../components/ui/select";
+import { Badge, Button, InfoPopover, Select } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import {
@@ -161,7 +158,7 @@ export function SceneCompositionView({
       <h4 className="flex items-center gap-2 text-xs font-semibold">
         {S.activities.video.title}
         <InfoPopover label={S.activities.video.title}>{S.activities.video.info}</InfoPopover>
-        <Badge tone="amber">{S.activities.video.experimental}</Badge>
+        <Badge tone="attention">{S.activities.video.experimental}</Badge>
       </h4>
       {choice && <p className="text-xs text-gray-500">{S.activities.video.choiceWarning}</p>}
       {editable && (
@@ -356,10 +353,10 @@ export function SceneCompositionView({
 function VideoCheckNote({ check }: { check: VideoCheck }) {
   const line = checkLine(check);
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-1">
       <p className={toneInk[line.tone]}>{line.text}</p>
       {check.findings.length > 0 && (
-        <ul className="list-disc space-y-0.5 pl-4 text-gray-600 dark:text-gray-400">
+        <ul className="list-disc space-y-1 pl-4 text-gray-600 dark:text-gray-400">
           {check.findings.map((finding, index) => (
             <li key={`${finding.code}-${index}`}>{findingText(finding)}</li>
           ))}
@@ -503,7 +500,7 @@ function CompositionPreview({
       {candidate?.lint && candidate.lint.length > 0 && (
         <section className="space-y-1" aria-label={S.activities.video.lint.title}>
           <h5 className="text-xs font-semibold">{S.activities.video.lint.title}</h5>
-          <ul className={`list-disc space-y-0.5 pl-4 text-xs ${toneInk.attention}`}>
+          <ul className={`list-disc space-y-1 pl-4 text-xs ${toneInk.attention}`}>
             {candidate.lint.map((finding) => (
               <li key={finding.code}>
                 {S.activities.video.lint.findings[finding.code]}{" "}

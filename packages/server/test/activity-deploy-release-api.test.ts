@@ -245,7 +245,7 @@ describe("activity deploy release routes", () => {
     expect(await early.json()).toMatchObject({
       error: {
         code: "deploy_blocked",
-        detail: {
+        details: {
           stage: "trigger_module_build",
           blocker: "previous_stage",
           previous: "prepare_deploy",
@@ -385,7 +385,7 @@ describe("activity deploy release routes", () => {
     expect(await again.json()).toMatchObject({
       error: {
         code: "deploy_blocked",
-        detail: { stage: "prepare_deploy", blocker: "previous_rerun", previous: "verify_module" },
+        details: { stage: "prepare_deploy", blocker: "previous_rerun", previous: "verify_module" },
       },
     });
     expect((await state()).stages[1]!.blocker).toEqual({

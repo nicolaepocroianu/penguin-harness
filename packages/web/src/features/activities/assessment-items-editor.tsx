@@ -5,9 +5,7 @@
  * Nothing is saved while a blocker stands, and each blocker names its item.
  */
 import { useMemo, useState } from "react";
-import { Button } from "../../components/ui/button";
-import { Input, Textarea } from "../../components/ui/input";
-import { Switch } from "../../components/ui/switch";
+import { Button, Input, Textarea, Switch } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneStrip } from "../../lib/tone";
 import {
@@ -123,7 +121,7 @@ export function AssessmentItemsEditor({
                       type={item.interaction === "SIMPLE_CHOICE" ? "radio" : "checkbox"}
                       name={`assessment-item-${index}-correct`}
                       aria-label={words.correctOf(position + 1)}
-                      title={words.correct}
+                      data-tooltip={words.correct}
                       checked={choice.isCorrect}
                       disabled={locked}
                       onChange={(event) => {
@@ -185,7 +183,7 @@ export function AssessmentItemsEditor({
       )}
       {editable && found.length > 0 && (
         <div role="alert" className={`rounded-md border p-3 text-xs ${toneStrip.danger}`}>
-          <ul className="list-disc space-y-0.5 pl-4">
+          <ul className="list-disc space-y-1 pl-4">
             {found.map((blocker, index) => (
               <li key={index}>{blockerText(blocker)}</li>
             ))}

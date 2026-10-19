@@ -2,9 +2,13 @@
  * The org chart: the reporting line as a top-down tree with the CEO at the top centre
  * (layout in org-chart-tree.ts), each node an employee card (chart-card.tsx). The card has
  * one menu and no other action: it opens the desk session, and holds the personnel actions
- * below that — hire a subordinate, set budget, change the reporting line, renew the desk (a
- * fresh desk session, and the workspace it runs in), leave. Every one of the personnel actions
- * confirms before it writes the chart file. The card owns when that menu is open (three
+ * below that — hire a subordinate, set budget, set the thinking level (the employee's Agent
+ * config, which its desk reads), change the reporting line, renew the desk (a fresh desk
+ * session, and the workspace it runs in), leave. The hire, budget, thinking-level and reporting
+ * line dialogs write on their Save (employee-dialogs.tsx); the desk renewal is a confirmation of
+ * its own, and leaving confirms before it writes. An employee whose Agent was deleted keeps only what needs no Agent — no
+ * desk to open or renew, no config to write — so 「离任」 is how it is removed; a deleted CEO
+ * cannot leave, and the page says how to restore it instead. The card owns when that menu is open (three
  * gestures reach it — see chart-card.tsx); this page only supplies the rows, against the
  * panel's own close, and bumps `viewEpoch` whenever the canvas moves the cards out from under
  * an open one.
@@ -28,26 +32,29 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useNavigate } from "react-router";
 import type { OrgChartResponse, OrgEmployeeItem } from "@prismshadow/penguin-server/api";
+import {
+  Button,
+  ConfirmModal,
+  EmptyState,
+  GlyphIcon,
+  ICONS,
+  ICON_SIZE,
+  Menu,
+  MenuItem,
+  MenuSeparator,
+  Notice,
+  toastError,
+  toastSuccess,
+  usePointerDrag,
+} from "@prismshadow/penguin-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
 import { useDocumentTitle } from "../../lib/use-document-title";
-import { ICON_SIZE } from "../../lib/icon-scale";
-import { toneInk, toneStrip } from "../../lib/tone";
+import { toneInk } from "../../lib/tone";
 import { useCompany } from "../../state/company";
 import { useLiveSessionStatuses } from "../../state/sessions";
 import { useTheme } from "../../state/theme";
-import { Button } from "../../components/ui/button";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { EmptyState } from "../../components/ui/empty-state";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { toastError, toastSuccess } from "../../components/ui/toast";
-import {
-  overflowMenuDangerClass,
-  overflowMenuGlyph,
-  overflowMenuRowClass,
-} from "../../components/ui/session-row-menu";
-import { usePointerDrag } from "../dock/use-pointer-drag";
 import { OrgPage, OrgPageSkeleton, useOrg } from "./org-layout";
 import { orgKey } from "./company-nav";
 import { liveEmployeeStates } from "./org-sessions";
@@ -66,21 +73,28 @@ import {
 } from "./canvas-view";
 import type { CanvasSize, CanvasView } from "./canvas-view";
 import { ChartCard, ChartLegend } from "./chart-card";
-import { DeskRenewDialog, EmployeeEditDialog, HireDialog } from "./employee-dialogs";
+import {
+  DeskRenewDialog,
+  EmployeeEditDialog,
+  EmployeeProfileDialog,
+  HireDialog,
+} from "./employee-dialogs";
 import type { EmployeeEdit } from "./employee-dialogs";
 
-/** Node-menu glyphs (24x24 line paths): the open door of a desk session, a plus person for hiring, a coin for budget, an arrow for the line, a refresh for a fresh desk, a door out for leaving. */
+/** Node-menu glyphs: the open door of a desk session, a plus person for hiring, a coin for budget, the composer's spark for the thinking level, an arrow for the line, a turning arrow for a fresh desk, a door out for leaving. */
 const MENU_ICONS = {
   openDesk: DESK_ICON,
-  hire: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6",
-  budget: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8M12 18V6",
-  reportsTo: "M4 17V7l4 4 4-4v10M16 7h4v4m0-4-6 6",
-  renewDesk: "M21 12a9 9 0 1 1-3-6.7M21 3v6h-6",
-  leave: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
+  hire: ICONS.userPlus,
+  profile: ICONS.user,
+  budget: ICONS.dollarCircle,
+  thinkingLevel: ICONS.sparkle,
+  reportsTo: ICONS.letterMArrow,
+  renewDesk: ICONS.rotateCw,
+  leave: ICONS.signOut,
 } as const;
 
-/** The header's zoom buttons (24x24 line paths): a minus and a plus. */
-const ZOOM_ICONS = { out: "M5 12h14", in: "M12 5v14M5 12h14" } as const;
+/** The header's zoom buttons: a minus and a plus. */
+const ZOOM_ICONS = { out: ICONS.minus, in: ICONS.plus } as const;
 
 /** The canvas never collapses below this, however little of the window the rows above it leave. */
 const CANVAS_MIN_H = 240;
@@ -121,6 +135,7 @@ export function OrgChartPage() {
   const [chart, setChart] = useState<OrgChartResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hireFor, setHireFor] = useState<OrgEmployeeItem | null>(null);
+  const [profileFor, setProfileFor] = useState<OrgEmployeeItem | null>(null);
   const [editFor, setEditFor] = useState<{ employee: OrgEmployeeItem; edit: EmployeeEdit } | null>(
     null,
   );
@@ -325,6 +340,10 @@ export function OrgChartPage() {
       setLeaveFor(null);
       void load();
       void company.reloadOrganizations();
+      // The sidebar's 工位 group reads the company store's own copies, which no event
+      // refreshes for a departure: without this the employee's row stays until one does.
+      void company.reloadOrgChart();
+      void company.reloadOrgSessions();
     } catch (e) {
       toastError(apiErrorText(e));
     } finally {
@@ -351,6 +370,8 @@ export function OrgChartPage() {
   }
 
   const byId = new Map(chart.employees.map((e) => [e.agentId, e]));
+  /** The CEO's Agent was deleted: the organization cannot run until it is created again. */
+  const ceoMissing = byId.get(chart.ceoAgentId)?.agentMissing === true;
 
   const menuRow = (
     close: () => void,
@@ -360,52 +381,62 @@ export function OrgChartPage() {
     danger = false,
     disabled = false,
   ) => (
-    <button
-      type="button"
-      className={danger ? overflowMenuDangerClass : overflowMenuRowClass}
+    <MenuItem
+      glyph={icon}
+      label={label}
+      danger={danger}
       disabled={disabled}
-      onClick={() => {
+      onSelect={() => {
         close();
         onClick();
       }}
-    >
-      {danger ? (
-        <span className="shrink-0">
-          <GlyphIcon d={icon} size={ICON_SIZE.inlineGlyph} />
-        </span>
-      ) : (
-        overflowMenuGlyph(icon)
-      )}
-      {label}
-    </button>
+    />
   );
 
   /* Opening the desk sits first and apart: it is where the reader goes, while everything
      below it rewrites the chart file. `close` is the card's own panel dismissal — the card
      owns the menu, since only it sees the gesture that opened one. */
-  const nodeMenu = (employee: OrgEmployeeItem, isCeo: boolean, close: () => void) => (
-    <>
-      {menuRow(close, MENU_ICONS.openDesk, S.company.openDesk, () => void openDesk(employee))}
-      <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
-      {menuRow(close, MENU_ICONS.hire, S.company.chart.hire, () => setHireFor(employee))}
-      {menuRow(close, MENU_ICONS.budget, S.company.chart.setBudget, () =>
-        setEditFor({ employee, edit: "budget" }),
-      )}
-      {!isCeo &&
-        menuRow(close, MENU_ICONS.reportsTo, S.company.chart.changeReportsTo, () =>
-          setEditFor({ employee, edit: "reportsTo" }),
+  const nodeMenu = (employee: OrgEmployeeItem, isCeo: boolean, close: () => void) => {
+    /** The entry's Agent is gone: nothing that opens a desk or writes the Agent's config. */
+    const missing = employee.agentMissing === true;
+    return (
+      <Menu density="sm">
+        {!missing && (
+          <>
+            {menuRow(close, MENU_ICONS.openDesk, S.company.openDesk, () => void openDesk(employee))}
+            <MenuSeparator />
+          </>
         )}
-      {menuRow(close, MENU_ICONS.renewDesk, S.company.chart.renewDesk, () => setRenewFor(employee))}
-      <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
-      {isCeo ? (
-        <span className="block px-2.5 py-1.5 text-xs text-gray-400 dark:text-gray-500">
-          {S.company.chart.ceoCannotLeave}
-        </span>
-      ) : (
-        menuRow(close, MENU_ICONS.leave, S.company.chart.leave, () => setLeaveFor(employee), true)
-      )}
-    </>
-  );
+        {menuRow(close, MENU_ICONS.hire, S.company.chart.hire, () => setHireFor(employee))}
+        {menuRow(close, MENU_ICONS.profile, S.company.chart.nameAndAvatar, () =>
+          setProfileFor(employee),
+        )}
+        {menuRow(close, MENU_ICONS.budget, S.company.chart.setBudget, () =>
+          setEditFor({ employee, edit: "budget" }),
+        )}
+        {!missing &&
+          menuRow(close, MENU_ICONS.thinkingLevel, S.company.chart.setThinkingLevel, () =>
+            setEditFor({ employee, edit: "thinkingLevel" }),
+          )}
+        {!isCeo &&
+          menuRow(close, MENU_ICONS.reportsTo, S.company.chart.changeReportsTo, () =>
+            setEditFor({ employee, edit: "reportsTo" }),
+          )}
+        {!missing &&
+          menuRow(close, MENU_ICONS.renewDesk, S.company.chart.renewDesk, () =>
+            setRenewFor(employee),
+          )}
+        <MenuSeparator />
+        {isCeo ? (
+          <span className="block px-2.5 py-1.5 text-xs text-gray-400 dark:text-gray-500">
+            {S.company.chart.ceoCannotLeave}
+          </span>
+        ) : (
+          menuRow(close, MENU_ICONS.leave, S.company.chart.leave, () => setLeaveFor(employee), true)
+        )}
+      </Menu>
+    );
+  };
 
   const zoomControl = (
     <div className="flex items-center" role="group" aria-label={S.company.chart.zoom}>
@@ -421,7 +452,7 @@ export function OrgChartPage() {
       </Button>
       <button
         type="button"
-        title={S.company.chart.zoomFit}
+        data-tooltip={S.company.chart.zoomFit}
         aria-label={`${S.company.chart.zoomFit} · ${percent}%`}
         onClick={() => {
           setViewEpoch((n) => n + 1);
@@ -453,19 +484,24 @@ export function OrgChartPage() {
     >
       {/* A refresh that failed while a chart is on screen: say so above it, keep the chart. */}
       {error !== null && (
-        <div
-          className={`mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-xs ${toneStrip.danger}`}
+        <Notice
+          tone="danger"
+          role="alert"
+          className="mb-3"
+          retry={{ label: S.common.retry, onClick: () => void load() }}
         >
-          <span>{S.company.chart.refreshFailed(error)}</span>
-          <Button size="sm" onClick={() => void load()}>
-            {S.common.retry}
-          </Button>
-        </div>
+          {S.company.chart.refreshFailed(error)}
+        </Notice>
+      )}
+      {ceoMissing && (
+        <Notice tone="attention" className="mb-3">
+          {S.company.chart.ceoMissing(chart.ceoAgentId)}
+        </Notice>
       )}
       {layout.detached.length > 0 && (
-        <div className={`mb-3 rounded-md border px-3 py-1.5 text-xs ${toneStrip.attention}`}>
+        <Notice tone="attention" className="mb-3">
           {S.company.chart.detachedNotice(layout.detached.length)}
-        </div>
+        </Notice>
       )}
       {layout.nodes.length === 0 ? (
         <EmptyState title={S.company.chart.empty} />
@@ -473,7 +509,7 @@ export function OrgChartPage() {
         <>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <ChartLegend />
-            <span className="text-[11px] text-gray-500 dark:text-gray-400">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
               {S.company.chart.employeeCount(chart.employees.length)}
             </span>
           </div>
@@ -518,7 +554,7 @@ export function OrgChartPage() {
               </svg>
               {layout.detachedTop !== null && (
                 <p
-                  className={`absolute right-0 left-0 text-center text-[11px] font-medium ${toneInk.danger}`}
+                  className={`absolute right-0 left-0 text-center text-xs font-medium ${toneInk.danger}`}
                   style={{ top: layout.detachedTop - CHART_DETACHED_LABEL_H }}
                 >
                   {S.company.chart.detached}
@@ -562,6 +598,21 @@ export function OrgChartPage() {
           }}
         />
       )}
+      {profileFor !== null && (
+        <EmployeeProfileDialog
+          open
+          projectId={projectId}
+          orgId={orgId}
+          // The chart's own row, so the dialog shows the picture it just wrote.
+          employee={chart.employees.find((e) => e.agentId === profileFor.agentId) ?? profileFor}
+          onClose={() => setProfileFor(null)}
+          onChanged={() => {
+            void load();
+            void company.reloadOrgChart();
+            void company.reloadOrgSessions();
+          }}
+        />
+      )}
       {editFor !== null && (
         <EmployeeEditDialog
           edit={editFor.edit}
@@ -596,7 +647,8 @@ export function OrgChartPage() {
         open={leaveFor !== null}
         title={S.company.chart.leave}
         tone="danger"
-        confirmLabel={S.common.confirm}
+        confirmLabel={S.company.chart.leave}
+        cancelLabel={S.common.cancel}
         busy={busy}
         onClose={() => (busy ? undefined : setLeaveFor(null))}
         onConfirm={() => void runLeave()}

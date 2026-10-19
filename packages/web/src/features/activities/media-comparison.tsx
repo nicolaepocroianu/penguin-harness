@@ -4,7 +4,7 @@
  * "Keep current" puts the new one aside, where it stays in the candidates or the library.
  */
 import type { ReactNode } from "react";
-import { Button } from "../../components/ui/button";
+import { Button } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 
 export function MediaComparison({

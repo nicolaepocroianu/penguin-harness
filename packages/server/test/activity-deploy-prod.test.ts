@@ -255,7 +255,7 @@ describe("activity deploy to PROD", () => {
     expect(await early.json()).toMatchObject({
       error: {
         code: "deploy_blocked",
-        detail: {
+        details: {
           stage: "trigger_production_deploy",
           blocker: "previous_stage",
           previous: "await_activity_deploy",
@@ -291,7 +291,7 @@ describe("activity deploy to PROD", () => {
     expect(await outdated.json()).toMatchObject({
       error: {
         code: "deploy_blocked",
-        detail: { stage: "trigger_production_deploy", blocker: "qa_outdated" },
+        details: { stage: "trigger_production_deploy", blocker: "qa_outdated" },
       },
     });
   });

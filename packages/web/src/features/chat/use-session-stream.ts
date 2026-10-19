@@ -7,7 +7,8 @@
  * 2. GET messages renders history, then replays the buffer (overlap deduped); on load failure,
  *    expose error and a retry entry point;
  * 3. Disconnects are auto-reconnected by the browser (Last-Event-ID built in; server replays from
- *    its buffer); resync_required → controller rebuilds the model and keeps consuming the same
+ *    its buffer), and a connection that went silent is reopened by api/sse.ts from the last id
+ *    seen; resync_required → controller rebuilds the model and keeps consuming the same
  *    connection;
  * 4. task_state in the stream is the authoritative run state (server pushes the current snapshot
  *    on subscribe); initialStatus only serves as the first-frame placeholder, driving the input
@@ -23,7 +24,8 @@ import type {
   SessionStatus,
   SubagentRuntimeInfo,
 } from "@prismshadow/penguin-server/api";
-import { getGoal, getMe, getMessages } from "../../api/endpoints";
+import { getGoal, getMessages } from "../../api/endpoints";
+import { probeSession } from "../../api/session-probe";
 import { openSessionStream } from "../../api/sse";
 import { createStreamController } from "../../lib/omni/stream-controller";
 import type {
@@ -103,8 +105,6 @@ export function useSessionStream(
   initialStatus: SessionStatus,
   /** Notification of a server auto-generated title (for updating the list in place); held in a ref, doesn't trigger a reconnect. */
   onSessionTitle?: (sessionId: string, title: string) => void,
-  /** New session has been registered (sub-sessions are pushed over the parent session's channel); held in a ref, doesn't trigger a reconnect. */
-  onSessionCreated?: () => void,
 ): SessionStreamState {
   const [version, setVersion] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -144,8 +144,6 @@ export function useSessionStream(
   }, []);
   const onTitleRef = useRef(onSessionTitle);
   onTitleRef.current = onSessionTitle;
-  const onCreatedRef = useRef(onSessionCreated);
-  onCreatedRef.current = onSessionCreated;
 
   const controllerRef = useRef<StreamController | null>(null);
   // Empty model placeholder before the controller is established (first frame).
@@ -234,6 +232,7 @@ export function useSessionStream(
     };
 
     const controller = createStreamController({
+      sessionId,
       // The whole response rides through: `live` (in-progress stream tail) lets the
       // controller seed the currently streaming message after a reload, and `page` (the
       // windowed-history envelope) drives tail-first loading (see stream-controller).
@@ -249,7 +248,6 @@ export function useSessionStream(
       onModelChange: bump,
       onPendingChange: () => setPendingTick((t) => t + 1),
       onSessionTitle: (sid, title) => onTitleRef.current?.(sid, title),
-      onSessionCreated: () => onCreatedRef.current?.(),
       onGoalEvent,
     });
     controllerRef.current = controller;
@@ -261,11 +259,10 @@ export function useSessionStream(
       // Hydrate the goal banner only once the subscription is live (fires on first connect and
       // every reconnect); the prev/active guards keep it from clobbering a live banner.
       onOpen: hydrateGoal,
-      // EventSource can't read the status code: when the connection is judged a fatal error and
-      // closes, probe once with GET /api/me; if the session has expired (401), the client's
-      // global handler clears the user and redirects to the login page.
+      // EventSource can't read the status code: when the connection is judged a fatal error
+      // and closes, ask whether this browser is still signed in (api/session-probe.ts).
       onError: (closed) => {
-        if (closed) void getMe().catch(() => undefined);
+        if (closed) void probeSession();
       },
     });
     void controller.load();

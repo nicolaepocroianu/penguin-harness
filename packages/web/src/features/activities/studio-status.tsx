@@ -4,8 +4,8 @@
  */
 import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
-import { toneDot, toneInk } from "../../lib/tone";
-import { LiveDuration } from "../chat/live-duration";
+import { toneDot, toneInk, toneName } from "../../lib/tone";
+import { Dot, LiveDuration } from "@prismshadow/penguin-ui";
 import { runKindLabel } from "./run-toasts";
 import type { StudioPanel } from "./workspace-model";
 
@@ -37,11 +37,11 @@ export function RunningChip({ run, onFollow }: { run: ActivityRunSummary; onFoll
   return (
     <button
       type="button"
-      title={S.activities.followRun}
+      data-tooltip={S.activities.followRun}
       onClick={onFollow}
       className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border border-current/20 px-2 py-0.5 text-xs whitespace-nowrap hover:bg-gray-50 dark:hover:bg-gray-900 ${toneInk.busy}`}
     >
-      <span aria-hidden className={`size-1.5 animate-pulse rounded-full ${toneDot.busy}`} />
+      <Dot tone={toneName.busy} pulse />
       <span className="@max-3xl:sr-only">{S.activities.runningChip(runKindLabel(run))}</span>
       {Number.isFinite(started) && (
         <span className="font-mono tabular-nums text-gray-500 dark:text-gray-400">
@@ -57,7 +57,7 @@ export function ProposalWaiting({ onReview }: { onReview: () => void }) {
   return (
     <button
       type="button"
-      title={S.activities.journey.proposalWaiting}
+      data-tooltip={S.activities.journey.proposalWaiting}
       onClick={onReview}
       className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border border-current/20 px-2 py-0.5 text-xs whitespace-nowrap hover:bg-gray-50 dark:hover:bg-gray-900 ${toneInk.attention}`}
     >

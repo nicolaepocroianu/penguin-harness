@@ -5,7 +5,7 @@
  */
 import type { ReactNode } from "react";
 
-const TRACK = "inline-flex flex-wrap gap-0.5 rounded-md bg-gray-100 p-0.5 dark:bg-gray-800";
+const TRACK = "inline-flex flex-wrap gap-1 rounded-md bg-gray-100 p-1 dark:bg-gray-800";
 const CHIP = "rounded px-2 py-1 text-xs transition-colors duration-150 disabled:opacity-50";
 const ON = "bg-white font-medium text-gray-900 shadow-sm dark:bg-gray-600 dark:text-gray-100";
 const OFF = "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200";

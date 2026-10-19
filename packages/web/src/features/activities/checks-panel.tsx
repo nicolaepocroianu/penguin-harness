@@ -4,7 +4,7 @@
  * checks, each with its own Run, since a run of one waits for any other run to end.
  */
 import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
-import { InfoPopover } from "../../components/ui/info-popover";
+import { InfoPopover } from "@prismshadow/penguin-ui";
 import {
   TABLE,
   TABLE_HEAD_ROW,

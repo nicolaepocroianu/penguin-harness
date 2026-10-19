@@ -1,6 +1,7 @@
 ---
 name: company-employee
 description: The protocol every employee of a PenguinHarness organization follows — read the handbook first, act on [org_trigger] work runs, schedule tickets from the desk session and do the work in ticket sessions, block instead of idling, ask the board in the all-hands channel before anything heavy, costly, irreversible or outside the workspace, keep channel and budget discipline, and drive it all with penguin org.
+version: 2026.10.11.1
 ---
 
 # Company Employee
@@ -19,7 +20,7 @@ Write in the organization's **working language** — the one the handbook's 「�
 
 | Path | What it is | Who writes it |
 | --- | --- | --- |
-| `org_config.toml` | Name, mission, status, timezone, approval mode, mention chain limit, budget ratios, creator | humans, the CEO |
+| `org_config.toml` | Name, mission, status, timezone, approval mode, mention chain limit, budget ratios, creator | humans, the CEO — except `approval_mode`, which only the board changes, in the organization's settings |
 | `org_chart.yaml` | The employee tree: `agent_id`, `title`, `reports_to`, `duties`, `workspace`, `budget`, `model` | the CEO and HR, through `penguin org hire` / `employee set` |
 | `desks.toml` | Employee → current desk session | the server only |
 | `calendar/<agent_id>/<name>.toml` | One calendar event per file | its employee, HR |
@@ -60,7 +61,7 @@ The first three arrive at your desk session; `ticket_work` opens a ticket sessio
 
 ## Principals
 
-Structured fields — ticket fields, a message's `sender` / `mentions`, `--owner`, `--by`, `--notify` — name people and employees as `agent:<agent_id>` or `user:<user_id>`; `@all` means every member of the channel you write it in — in the all-hands channel, every employee — and `system` is only ever a message sender. In message text `@<id>` is the shorthand: the server resolves employees first, then Project members; when an agent and a user share an id, write `@agent:<id>` / `@user:<id>`.
+Structured fields — ticket fields, a message's `sender` / `mentions`, `--owner`, `--by`, `--notify` — name people and employees as `agent:<agent_id>` or `user:<user_id>`; `@all` means every member of the channel you write it in — in the all-hands channel, every employee — and `system` is only ever a message sender. In message text `@<id>` is the shorthand: the server resolves employees first, then Project members; when an agent and a user share an id, write `@agent:<id>` / `@user:<id>`. An employee also has a **name** the organization gave it (the `name` of its `org_chart.yaml` entry, any language — `penguin org chart` lists it beside the id), and `@<name>` reaches it exactly like `@<id>`: people will write `@小明`, and you may too. Two employees with the same name are listed — and addressed — as `name (id)`. In structured fields and commands, keep using ids.
 
 ## The desk session: schedule, do not do
 
@@ -74,7 +75,7 @@ A sweep, on a calendar event or whenever a human asks you for one — start it b
 
 1. `penguin org ticket ls --owner agent:<your_agent_id> --json` — your tickets; add `--status proposed` for candidates and `--blocked` to see what is stuck. Skip every blocked ticket: no new session for it until its `blocked` field is cleared.
 2. For each `in_progress` ticket of yours that no session is working on, start one: `penguin org ticket start <ticket_id> -m "<what to do first, what to leave alone>"`. It runs in the background and prints the session id; start several for independent streams of one ticket. **Only the ticket's owner starts its sessions** — the server answers `403 not_ticket_owner` on anyone else's ticket. When you need a colleague on your ticket, ask in a channel and they answer with `penguin org ticket start <your_ticket_id> --agent-id <them>`; when a colleague asks you for help, it is their ticket, so they start the session naming you and you work in it. To move the work itself, reassign the ticket: `penguin org ticket assign <ticket_id> --owner agent:<them>`, and their desk picks it up in its next sweep.
-3. Check on the sessions you started earlier: `penguin input <session_id> --timeout 0` for the latest reply, `penguin logs <session_id> --tail 40` for the trail, `penguin input <session_id> -m "<course correction>" --timeout 0` to steer.
+3. Check on the sessions you started earlier: `penguin session input <session_id> --timeout 0` for the latest reply, `penguin session log <session_id> --tail 40` for the trail, `penguin session input <session_id> -m "<course correction>" --timeout 0` to steer.
 4. Verify what a finished session claims — `penguin org ticket show <ticket_id>`, then the files in the workspace — and write the verdict back: `penguin org ticket progress <ticket_id> -m "verified: …"`, and `penguin org ticket move <ticket_id> --to review` (or `done`, where the handbook allows) if the session did not already.
 5. Report only what needs someone — a decision, a blocker, a completion — in the channel that work belongs to (see etiquette).
 
@@ -157,6 +158,8 @@ Your sessions run unattended under the organization's approval mode, so the line
 
 When you cannot measure a threshold, estimate; when two rules could apply, the stricter one does.
 
+The approval mode itself belongs to the board. The board changes it in the organization's settings, which moves every open desk and ticket session to the new mode at once; `approval_mode` in `org_config.toml` is never yours to edit, not even after a yes, because a hand edit reaches only the sessions opened after it. If you think the organization needs another mode, ask the board in the all-hands channel ("Asking the board"), naming the mode and what it would unblock.
+
 ## Asking the board
 
 The board is the humans of the Project; the one you ask is the organization's creator — `created_by` in `org_config.toml`, written `@user:<id>`. Ask in the **all-hands channel** (`default_channel`): it is the one channel every person is in, and a mention of someone a channel does not hold is refused. One message a person can answer with one word — what you want to run, what it needs (estimated duration, CPU/GPU, memory, disk, network, money if any), how to stop it, and what you do if the answer is no — then block the ticket on that person, and **end the run**:
@@ -198,6 +201,7 @@ penguin org show [--org-id <id>] [--json]                       # overview: empl
 penguin org chart [--org-id <id>] [--json]                      # the employee tree
 penguin org hire (--agent-id <id> | --new-agent <id> [--name <s>] [--description <s>] [--skills <a,b>]) --title <s> --reports-to <agent_id> [--workspace <path>] [--budget <usd>] [--duties <s>]
 penguin org employee set <agent_id> [--title <s>] [--reports-to <agent_id>] [--workspace <path>] [--budget <usd>] [--duties <s>] [--model-id <id> --provider <p>]
+penguin org employee avatar [<agent_id>] (--file <image> | --clear)   # PNG/JPEG/WebP ≤ ~96 KiB; the id defaults to PENGUIN_AGENT_ID, so an employee sets its own
 penguin org leave <agent_id>                                    # remove from the organization (not the CEO); the Agent is kept
 penguin org desk show [<agent_id>] [--json]                     # desk session id and Workspace
 penguin org desk renew [<agent_id>]                             # open a fresh desk session (resets the context)

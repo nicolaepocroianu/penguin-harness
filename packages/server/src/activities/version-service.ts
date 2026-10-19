@@ -649,7 +649,7 @@ export class ActivityVersionService implements ActivityVersions {
 
 /**
  * A restore refused because the version lacks a file; names the first one missing as
- * `detail.path` for the App to word, or none when the version's record itself is missing.
+ * `details.path` for the App to word, or none when the version's record itself is missing.
  */
 function incomplete(file: string | null): HttpError {
   return file === null

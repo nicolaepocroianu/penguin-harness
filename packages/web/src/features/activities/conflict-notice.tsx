@@ -4,7 +4,7 @@
  * the two ways out: keep the author's edit, or take the saved one.
  */
 import type { ActivityDraft, VideoTimeline } from "@prismshadow/penguin-server/api";
-import { Button } from "../../components/ui/button";
+import { Button } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneStrip } from "../../lib/tone";
 import { conflictGroups, conflictParts, type ConflictGroup, type FieldId } from "./draft-merge";

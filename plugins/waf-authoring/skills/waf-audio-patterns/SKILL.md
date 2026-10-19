@@ -1,6 +1,7 @@
 ---
 name: waf-audio-patterns
 description: Use when implementing audio in pipeline-generated WAF HTML sequence modules. Follow the established config shape, asset sourcing, playback, timing, repeat-audio, and input-locking patterns used by the working reference modules.
+version: 2026.10.10.1
 ---
 
 # WAF Audio Patterns

@@ -21,6 +21,7 @@ import type { AuthState, Clock, Config } from "../hmr/capabilities.js";
 import type { Auth, AuthSessions, Users } from "../mechanisms/identity.js";
 
 export const MIN_PASSWORD_LENGTH = 8;
+export const REMOTE_SESSION_TTL_MS = 60 * 60_000;
 
 /** Built-in admin user_id. */
 export const ADMIN_USER_ID = "admin";
@@ -52,8 +53,10 @@ export function generateInitialAdminPassword(): string {
 
 /**
  * "desktop" and "setup" may set a password without the old one (theirs is random and was never
- * shown); desktop-only routes open to "desktop" alone. "token" is the local API token's Bearer
- * header — per request, never a stored row. Anything else reads as "password".
+ * shown); desktop-only routes open to "desktop" alone. "token" is the local API token's
+ * authority, whether presented as a Bearer header or exchanged for a Remote cookie.
+ * Exchanging the credential must not grant the person's privileges. Anything else reads as
+ * "password".
  */
 export type SessionVia = "password" | "desktop" | "setup" | "token";
 
@@ -234,6 +237,17 @@ export class AuthService implements Auth {
   }
 
   /**
+   * Whether a user is an admin, by id — for a caller that has a user's NAME rather than an
+   * authenticated request: the terminal relay reads the owner out of a pty reference the
+   * runtime has already matched against the signed-in user (machines/terminal-relay.ts), and
+   * what is left to decide is whether that user may reach machines at all. Unknown users are
+   * not admins.
+   */
+  isAdmin(userId: string): boolean {
+    return this.users.findById(userId)?.isAdmin === true;
+  }
+
+  /**
    * Desktop-mode sign-in: an admin session with no password check — the claim route already
    * redeemed the shell's one-shot token, which is the credential here. Throws only on a
    * broken deployment (seeding runs before the route exists).
@@ -244,6 +258,23 @@ export class AuthService implements Auth {
       throw new HttpError(500, "internal", "Built-in admin has not been seeded.");
     }
     return { user: toUserInfo(row), token: this.issueSession(row.userId, "desktop") };
+  }
+
+  issueRemoteSession(): { token: string; expiresAt: string; maxAgeSeconds: number } {
+    const row = this.users.findById(ADMIN_USER_ID);
+    if (!row) {
+      throw new HttpError(500, "internal", "Built-in admin has not been seeded.");
+    }
+    const maxAgeSeconds = Math.floor(REMOTE_SESSION_TTL_MS / 1000);
+    return {
+      ...this.authSessions.issue({
+        userId: row.userId,
+        via: "remote",
+        now: this.clock.now(),
+        ttlMs: REMOTE_SESSION_TTL_MS,
+      }),
+      maxAgeSeconds,
+    };
   }
 
   /** Self password change (user settings): validates the old password first; the current session stays valid. */
@@ -339,8 +370,28 @@ export class AuthService implements Auth {
       renewed = true;
     }
     const via: SessionVia =
-      session.via === "desktop" ? "desktop" : session.via === "setup" ? "setup" : "password";
+      session.via === "remote"
+        ? "token"
+        : session.via === "desktop"
+          ? "desktop"
+          : session.via === "setup"
+            ? "setup"
+            : "password";
     return { user, via, renewed };
+  }
+
+  /**
+   * Whether the session behind a cookie token still exists and has not expired — the same
+   * two facts {@link authenticateWithMeta} establishes, without its sliding renewal or its
+   * user lookup. A connection that outlives the request that opened it has to re-ask
+   * periodically (the SSE heartbeat does, once per beat), and asking through the renewing
+   * path would top the expiry up every time: a window nobody has touched since last week
+   * would stay signed in purely because it is still connected.
+   */
+  sessionIsLive(token: string): boolean {
+    const session = this.authSessions.findByTokenHash(sessionTokenHash(token));
+    if (!session) return false;
+    return Date.parse(session.expiresAt) > this.clock.now().getTime();
   }
 
   private issueSession(userId: string, via: SessionViaValue): string {
@@ -354,6 +405,7 @@ export class AuthService implements Auth {
 }
 
 /** What signing a new user in needs of project administration — declared at the consumer. */
-export abstract class InitialProjectProvisioner extends Interface<{
-  provisionInitialProject(user: UserRow, isAdmin: boolean): Promise<void>;
-}>() {}
+@Interface()
+export abstract class InitialProjectProvisioner {
+  abstract provisionInitialProject(user: UserRow, isAdmin: boolean): Promise<void>;
+}

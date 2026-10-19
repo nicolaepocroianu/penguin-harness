@@ -20,15 +20,20 @@ import type {
   ModelVisionDetectResponse,
   ModelsResponse,
   ModelsUpdateRequest,
+  PresetSyncMode,
+  PresetSyncResponse,
   ProjectRole,
+  ProviderConnectionUpdate,
   ProjectSummary,
+  ServerEvent,
 } from "../api/types.js";
 import type { UserRow } from "../db/repos/users.js";
 import type { RawTable, UtilityCompletion } from "../services/project-config-service.js";
 import type {
   ListEndpointModelsOptions,
+  ModelRequestContext,
   ModelRef,
-  PluginTable,
+  PluginTables,
   ProjectConfig,
 } from "@prismshadow/penguin-core";
 import type { TieredRates } from "../services/usage-service.js";
@@ -44,14 +49,15 @@ import type {
 } from "../services/model-oauth-service.js";
 
 /** Projects: the mechanism ProjectsRepo implements. */
-export abstract class Projects extends Interface<{
-  insert(row: ProjectRow): void;
-  findById(projectId: string): ProjectRow | null;
-  listAll(): ProjectRow[];
-  listAccessible(userId: string): AccessibleProjectRow[];
-  listByOwner(userId: string): ProjectRow[];
-  delete(projectId: string): void;
-}>() {}
+@Interface()
+export abstract class Projects {
+  abstract insert(row: ProjectRow): void;
+  abstract findById(projectId: string): ProjectRow | null;
+  abstract listAll(): ProjectRow[];
+  abstract listAccessible(userId: string): AccessibleProjectRow[];
+  abstract listByOwner(userId: string): ProjectRow[];
+  abstract delete(projectId: string): void;
+}
 
 /** Activity work admitted before Project destruction must settle before its files are removed. */
 export abstract class ProjectActivityWork extends Interface<{
@@ -60,115 +66,159 @@ export abstract class ProjectActivityWork extends Interface<{
 }>() {}
 
 /** Members: the mechanism MembersRepo implements. */
-export abstract class Members extends Interface<{
-  insert(row: MemberRow): void;
-  isMember(projectId: string, userId: string): boolean;
-  list(projectId: string): MemberRow[];
-  delete(projectId: string, userId: string): void;
-}>() {}
+@Interface()
+export abstract class Members {
+  abstract insert(row: MemberRow): void;
+  abstract isMember(projectId: string, userId: string): boolean;
+  abstract list(projectId: string): MemberRow[];
+  abstract delete(projectId: string, userId: string): void;
+}
 
 /** AgentIndex: the mechanism AgentsRepo implements. */
-export abstract class AgentIndex extends Interface<{
-  insertOrIgnore(row: AgentRow): void;
-  exists(projectId: string, agentId: string): boolean;
-  list(projectId: string): AgentRow[];
-  delete(projectId: string, agentId: string): void;
-  deleteByProject(projectId: string): void;
-}>() {}
+@Interface()
+export abstract class AgentIndex {
+  abstract insertOrIgnore(row: AgentRow): void;
+  abstract exists(projectId: string, agentId: string): boolean;
+  abstract list(projectId: string): AgentRow[];
+  abstract delete(projectId: string, agentId: string): void;
+  abstract deleteByProject(projectId: string): void;
+}
 
 /** Access: the mechanism ProjectAccess implements. */
-export abstract class Access extends Interface<{
-  find(userId: string, projectId: string): (ProjectRow & { role: ProjectRole }) | null;
-  requireProjectAccess(userId: string, projectId: string): ProjectRow & { role: ProjectRole };
-  canAccess(userId: string, projectId: string): boolean;
-  requireProjectOwner(userId: string, projectId: string): ProjectRow;
-  accessibleProjectIds(userId: string): string[];
-  listProjects(userId: string): Promise<ProjectSummary[]>;
-}>() {}
+@Interface()
+export abstract class Access {
+  abstract find(userId: string, projectId: string): (ProjectRow & { role: ProjectRole }) | null;
+  abstract requireProjectAccess(
+    userId: string,
+    projectId: string,
+  ): ProjectRow & { role: ProjectRole };
+  abstract canAccess(userId: string, projectId: string): boolean;
+  abstract requireProjectOwner(userId: string, projectId: string): ProjectRow;
+  abstract accessibleProjectIds(userId: string): string[];
+  abstract listProjects(userId: string): Promise<ProjectSummary[]>;
+}
 
 /** ProjectLifecycle: the mechanism ProjectService implements. */
-export abstract class ProjectLifecycle extends Interface<{
-  requireProjectAccess(userId: string, projectId: string): ProjectRow & { role: ProjectRole };
-  canAccess(userId: string, projectId: string): boolean;
-  requireProjectOwner(userId: string, projectId: string): ProjectRow;
-  accessibleProjectIds(userId: string): string[];
-  listProjects(userId: string): Promise<ProjectSummary[]>;
-  createProject(owner: UserRow, projectId: string, name?: string): Promise<ProjectSummary>;
+@Interface()
+export abstract class ProjectLifecycle {
+  abstract requireProjectAccess(
+    userId: string,
+    projectId: string,
+  ): ProjectRow & { role: ProjectRole };
+  abstract canAccess(userId: string, projectId: string): boolean;
+  abstract requireProjectOwner(userId: string, projectId: string): ProjectRow;
+  abstract accessibleProjectIds(userId: string): string[];
+  abstract listProjects(userId: string): Promise<ProjectSummary[]>;
+  abstract createProject(owner: UserRow, projectId: string, name?: string): Promise<ProjectSummary>;
   /** Every id `createProject` refuses as taken, as names only: the rows and the data root's entries. */
-  takenProjectIds(): Promise<string[]>;
-  provisionInitialProject(user: UserRow, isAdmin: boolean): Promise<void>;
-  renameProject(userId: string, projectId: string, name: string): Promise<ProjectSummary>;
-  deleteProject(userId: string, projectId: string): Promise<void>;
-  destroyProject(projectId: string): Promise<void>;
-  listMembers(userId: string, projectId: string): MemberInfo[];
-  addMember(userId: string, projectId: string, targetUserId: string): MemberInfo;
-  removeMember(userId: string, projectId: string, targetUserId: string): void;
-}>() {}
+  abstract takenProjectIds(): Promise<string[]>;
+  abstract provisionInitialProject(user: UserRow, isAdmin: boolean): Promise<void>;
+  abstract renameProject(userId: string, projectId: string, name: string): Promise<ProjectSummary>;
+  abstract deleteProject(userId: string, projectId: string): Promise<void>;
+  abstract destroyProject(projectId: string): Promise<void>;
+  abstract listMembers(userId: string, projectId: string): MemberInfo[];
+  abstract addMember(userId: string, projectId: string, targetUserId: string): MemberInfo;
+  abstract removeMember(userId: string, projectId: string, targetUserId: string): void;
+}
 
 /** ProjectConfigStore: the mechanism ProjectConfigService implements. */
-export abstract class ProjectConfigStore extends Interface<{
-  readRaw(projectId: string): Promise<RawTable>;
-  loadConfig(projectId: string): Promise<ProjectConfig>;
-  writeRaw(projectId: string, data: RawTable): Promise<void>;
-  writeInitialConfig(projectId: string, name: string): Promise<void>;
-  ensurePresetModels(projectId: string): Promise<boolean>;
-  seedPresetPromotions(projectId: string): Promise<void>;
-  getName(projectId: string): Promise<string | undefined>;
-  setName(projectId: string, name: string): Promise<void>;
-  getDefaultModelRef(projectId: string): Promise<ModelRef | undefined>;
-  setDefaultModelRef(projectId: string, ref: ModelRefDto): Promise<ModelRefDto>;
-  getChatDefaults(projectId: string): Promise<ChatDefaultsDto>;
-  setChatDefaults(projectId: string, req: ChatDefaultsDto): Promise<ChatDefaultsDto>;
-  /** The `[plugins]` table this Project asks for: package name → requirement, in the file's order. */
-  getPlugins(projectId: string): Promise<PluginTable>;
-  /** Replaces the table (a declarative PUT); answers what was written. */
-  setPlugins(projectId: string, plugins: PluginTable): Promise<PluginTable>;
-  getCommandPolicy(projectId: string): Promise<CommandPolicyDto>;
-  setCommandPolicy(
+@Interface()
+export abstract class ProjectConfigStore {
+  abstract readRaw(projectId: string): Promise<RawTable>;
+  abstract loadConfig(projectId: string): Promise<ProjectConfig>;
+  abstract writeRaw(projectId: string, data: RawTable): Promise<void>;
+  abstract writeInitialConfig(projectId: string, name: string): Promise<void>;
+  abstract ensurePresetModels(projectId: string): Promise<boolean>;
+  abstract seedPresetPromotions(projectId: string): Promise<void>;
+  abstract getName(projectId: string): Promise<string | undefined>;
+  abstract setName(projectId: string, name: string): Promise<void>;
+  abstract getDefaultModelRef(projectId: string): Promise<ModelRef | undefined>;
+  abstract setDefaultModelRef(projectId: string, ref: ModelRefDto): Promise<ModelRefDto>;
+  abstract getChatDefaults(projectId: string): Promise<ChatDefaultsDto>;
+  abstract setChatDefaults(projectId: string, req: ChatDefaultsDto): Promise<ChatDefaultsDto>;
+  /** The `[plugins]` key: the shared table and each machine's own, package name → requirement, in the file's order. */
+  abstract getPluginTables(projectId: string): Promise<PluginTables>;
+  /** Replaces the tables (a declarative PUT); answers what was written. */
+  abstract setPluginTables(projectId: string, tables: PluginTables): Promise<PluginTables>;
+  abstract getCommandPolicy(projectId: string): Promise<CommandPolicyDto>;
+  abstract setCommandPolicy(
     projectId: string,
     req: {
       enabled?: boolean;
       rules: { name: string; pattern: string; description?: string; enabled?: boolean }[];
     },
   ): Promise<CommandPolicyDto>;
-  getPricing(
+  abstract getPricing(
     projectId: string,
     provider: string,
     modelId: string,
   ): Promise<TieredRates | undefined>;
-  detectVision(
+  abstract detectVision(
     projectId: string,
     req: ModelVisionDetectRequest,
   ): Promise<ModelVisionDetectResponse>;
-  testModel(projectId: string, req: ModelTestRequest): Promise<ModelTestResponse>;
-  detectProtocol(
+  abstract testModel(projectId: string, req: ModelTestRequest): Promise<ModelTestResponse>;
+  abstract detectProtocol(
     projectId: string,
     req: ModelProtocolDetectRequest,
   ): Promise<ModelProtocolDetectResponse>;
-  listEndpointModels(
+  abstract listEndpointModels(
     req: EndpointModelListRequest,
     listImpl?: (options: ListEndpointModelsOptions) => Promise<string[]>,
     timeoutMs?: number,
   ): Promise<EndpointModelListResponse>;
-  getModels(projectId: string): Promise<ModelsResponse>;
-  updateModels(projectId: string, req: ModelsUpdateRequest): Promise<ModelsResponse>;
-  setGroupApiKey(projectId: string, provider: string, apiKey: string): Promise<number>;
-  connectCopilot(projectId: string, token: string, signal?: AbortSignal): Promise<number>;
-  connectChatGPT(
+  abstract getModels(projectId: string): Promise<ModelsResponse>;
+  abstract updateModels(projectId: string, req: ModelsUpdateRequest): Promise<ModelsResponse>;
+  /** One group's `[providers.<id>]` connection, merged per field; rows are never touched. */
+  abstract setProviderConnection(
+    projectId: string,
+    provider: string,
+    patch: ProviderConnectionUpdate,
+  ): Promise<ModelsResponse>;
+  /** "Add new models" (`add`) or "Restore defaults" (`restore`) against the built-in catalog. */
+  abstract syncPresets(projectId: string, mode: PresetSyncMode): Promise<PresetSyncResponse>;
+  /** Writes the group key; resolves to how many of the group's rows use it (none of their own). */
+  abstract setGroupApiKey(projectId: string, provider: string, apiKey: string): Promise<number>;
+  abstract connectCopilot(projectId: string, token: string, signal?: AbortSignal): Promise<number>;
+  abstract connectChatGPT(
     projectId: string,
     credentials: import("@prismshadow/penguin-core").ChatGPTCredentials,
     signal?: AbortSignal,
   ): Promise<number>;
-  getGroupApiKey(projectId: string, provider: string): Promise<string | undefined>;
-  mergePlatformModels(
+  abstract setGroupApiKeyWithProviderAuthToken(
+    projectId: string,
+    provider: string,
+    apiKey: string,
+    token: Omit<ModelProviderAuthToken, "provider" | "updatedAt">,
+    options?: { expectedRefreshToken?: string },
+  ): Promise<number>;
+  /** The group key (`[providers.<id>].api_key`), never a row's own. Server-side only. */
+  abstract getGroupApiKey(projectId: string, provider: string): Promise<string | undefined>;
+  /** One row's own key (its override of the group's), or undefined. Server-side only. */
+  abstract getModelApiKey(
+    projectId: string,
+    provider: string,
+    modelId: string,
+  ): Promise<string | undefined>;
+  /**
+   * The key a group's account balance is read with: the group key (never a row's own), or
+   * else the environment key a Session on one of the group's rows would use on its effective
+   * endpoint, when that variable's official endpoint is the balance endpoint's own host.
+   * Server-side only.
+   */
+  abstract getGroupBalanceKey(projectId: string, provider: string): Promise<string | undefined>;
+  abstract setModelApiKeyResolver(
+    resolver: (context: ModelRequestContext) => Promise<string | undefined>,
+  ): void;
+  abstract mergePlatformModels(
     projectId: string,
     provider: string,
     catalog: PlatformModelCatalog,
     apiKey: string,
     applyKeyToExisting: boolean,
   ): Promise<PlatformModelApplyResult>;
-  completeOnce(projectId: string, prompt: string): Promise<UtilityCompletion>;
-}>() {}
+  abstract completeOnce(projectId: string, prompt: string): Promise<UtilityCompletion>;
+}
 
 export interface ModelPromotion {
   provider: string;
@@ -177,36 +227,68 @@ export interface ModelPromotion {
 }
 
 /** Per-Project model promotions (web.db `model_promotions`). */
-export abstract class ModelPromotions extends Interface<{
-  get(projectId: string, provider: string, modelId: string): number | undefined;
-  list(projectId: string): ModelPromotion[];
+@Interface()
+export abstract class ModelPromotions {
+  abstract get(projectId: string, provider: string, modelId: string): number | undefined;
+  abstract list(projectId: string): ModelPromotion[];
   /** Replaces every promotion of the Project, in one transaction. */
-  replaceAll(projectId: string, rows: readonly ModelPromotion[]): void;
+  abstract replaceAll(projectId: string, rows: readonly ModelPromotion[]): void;
   /** Replaces the promotions of one provider group, in one transaction. */
-  replaceProvider(projectId: string, provider: string, rows: readonly ModelPromotion[]): void;
-}>() {}
+  abstract replaceProvider(
+    projectId: string,
+    provider: string,
+    rows: readonly ModelPromotion[],
+  ): void;
+}
+
+export interface ModelProviderAuthToken {
+  provider: string;
+  refreshToken: string;
+  accessTokenExpiresAt?: string;
+  updatedAt: string;
+}
+
+/** Server-side OAuth refresh metadata for provider groups (web.db `model_provider_auth_tokens`). */
+@Interface()
+export abstract class ModelProviderAuthTokens {
+  abstract get(projectId: string, provider: string): ModelProviderAuthToken | undefined;
+  abstract upsert(projectId: string, row: Omit<ModelProviderAuthToken, "updatedAt">): void;
+  abstract delete(projectId: string, provider: string): void;
+}
 
 /** ModelOAuth: the mechanism ModelOAuthService implements. */
-export abstract class ModelOAuth extends Interface<{
-  start(input: {
+@Interface()
+export abstract class ModelOAuth {
+  abstract start(input: {
     projectId: string;
     userId: string;
     provider: string;
     mode: ModelOAuthMode;
     callbackOrigin: string;
   }): ModelOAuthStartResult | Promise<ModelOAuthStartResult>;
-  cancel(input: { flowId: string; userId: string; projectId: string }): void;
-  deposit(input: { flowId: string; projectId: string; code: string }): void;
-  poll(input: { flowId: string; userId: string; projectId: string }): Promise<{
+  abstract cancel(input: { flowId: string; userId: string; projectId: string }): void;
+  abstract deposit(input: { flowId: string; projectId: string; code: string }): void;
+  abstract poll(input: { flowId: string; userId: string; projectId: string }): Promise<{
     status: ModelOAuthStatus;
     provider: string;
     error?: ModelOAuthErrorCode;
     applied?: number;
   }>;
-  complete(input: {
+  abstract complete(input: {
     flowId: string;
     userId: string;
     projectId: string;
     code: string;
   }): Promise<{ ok: true; applied: number } | { ok: false; error: ModelOAuthErrorCode }>;
-}>() {}
+}
+
+/**
+ * ProjectEvents: the mechanism ProjectNotifier implements — a user-level event to everyone
+ * who can see a Project, its owner and its members with GET /api/events open. The runtime
+ * publishes a Session's state flips and its generated title this way, and a route
+ * publishes a change the list could not otherwise learn of (a rename, a new Session).
+ */
+@Interface()
+export abstract class ProjectEvents {
+  abstract notifyProjectUsers(projectId: string, event: ServerEvent): void;
+}

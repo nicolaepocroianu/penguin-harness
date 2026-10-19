@@ -40,9 +40,8 @@ import {
   unifiedMergeView,
 } from "@codemirror/merge";
 import { search, searchKeymap } from "@codemirror/search";
-import { Button } from "../../components/ui/button";
+import { Button, CloseIcon } from "@prismshadow/penguin-ui";
 import { ChipGroup } from "../../components/ui/chip-group";
-import { CloseIcon } from "../../components/ui/icons";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneStrip } from "../../lib/tone";
 import {
@@ -635,7 +634,7 @@ export function ScriptEditor({
             one row beside the title rather than wrapping under it. */}
         <span
           aria-live="polite"
-          title={status ?? undefined}
+          data-tooltip={status ?? undefined}
           className="min-w-0 flex-1 basis-0 truncate text-xs text-gray-500"
         >
           {status}
@@ -778,7 +777,7 @@ export function ScriptEditor({
               <button
                 type="button"
                 aria-label={words.closeVideo}
-                title={words.closeVideo}
+                data-tooltip={words.closeVideo}
                 onClick={() => setVideo(null)}
                 className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
               >
@@ -798,7 +797,7 @@ export function ScriptEditor({
                 key={`${marker.line}:${marker.top}`}
                 type="button"
                 aria-label={words.jump(marker.line)}
-                title={words.jump(marker.line)}
+                data-tooltip={words.jump(marker.line)}
                 onClick={() => goTo(marker.line)}
                 style={{ top: `${marker.top}%`, height: `${marker.height}%` }}
                 className="absolute inset-x-0.5 min-h-1 rounded-sm bg-brand-400 hover:bg-brand-600 dark:bg-brand-500"
@@ -810,7 +809,7 @@ export function ScriptEditor({
       <div
         role="group"
         aria-label={words.status.label}
-        className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-0.5 border-t border-gray-200 bg-gray-50 px-4 py-1 text-xs text-gray-500 tabular-nums dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400"
+        className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-gray-200 bg-gray-50 px-4 py-1 text-xs text-gray-500 tabular-nums dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400"
       >
         <span>
           {cursorScene

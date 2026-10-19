@@ -14,13 +14,16 @@ import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
 import { formatBytes } from "../../lib/format";
 import { toneInk } from "../../lib/tone";
-import { Button } from "../../components/ui/button";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { Input } from "../../components/ui/input";
-import { Switch } from "../../components/ui/switch";
-import { toastError, toastSuccess } from "../../components/ui/toast";
-import { SectionShell } from "../settings/section-shell";
-import { PrefRow } from "../settings/setting-row";
+import {
+  Button,
+  ConfirmModal,
+  Input,
+  Switch,
+  toastError,
+  toastSuccess,
+  PrefRow,
+  SettingsSection,
+} from "@prismshadow/penguin-ui";
 import {
   KEEP_DEFAULT,
   KEEP_MAX,
@@ -125,7 +128,7 @@ export function RunCleanupSection() {
   };
 
   return (
-    <SectionShell
+    <SettingsSection
       actions={
         <>
           <Button size="sm" disabled={options === null || busy} onClick={() => void check()}>
@@ -198,6 +201,7 @@ export function RunCleanupSection() {
         </div>
       )}
       <ConfirmModal
+        cancelLabel={S.common.cancel}
         open={confirming && shown !== null}
         title={strings.confirmTitle}
         confirmLabel={strings.confirmLabel}
@@ -213,6 +217,6 @@ export function RunCleanupSection() {
         )}
         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{strings.confirmNote}</p>
       </ConfirmModal>
-    </SectionShell>
+    </SettingsSection>
   );
 }

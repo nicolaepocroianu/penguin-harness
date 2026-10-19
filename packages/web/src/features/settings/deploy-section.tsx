@@ -18,11 +18,18 @@ import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
 import { toneInk } from "../../lib/tone";
-import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
-import { PasswordInput } from "../../components/ui/password-input";
-import { toastError, toastInfo, toastSuccess } from "../../components/ui/toast";
-import { SectionShell } from "./section-shell";
+import {
+  Button,
+  Input,
+  PasswordInput,
+  toastError,
+  toastInfo,
+  toastSuccess,
+  SettingsSection,
+  useSaving,
+  useUnsavedChanges,
+} from "@prismshadow/penguin-ui";
+import { SETTINGS_SCOPE } from "../../lib/unsaved/scopes";
 import {
   DEPLOY_GROUPS,
   deployUpdate,
@@ -86,8 +93,8 @@ export function DeploySection() {
       adopt((await api.adminPutDeploySettings(update)).settings);
       toastSuccess(S.common.saved);
     } catch (e) {
-      if (e instanceof ApiError && e.code === "invalid_deploy_setting" && e.detail?.field)
-        setFieldError({ field: e.detail.field, reason: e.detail.reason ?? "" });
+      if (e instanceof ApiError && e.code === "invalid_deploy_setting" && e.details?.field)
+        setFieldError({ field: e.details.field, reason: e.details.reason ?? "" });
       else toastError(apiErrorText(e));
     } finally {
       setBusy(false);
@@ -106,11 +113,22 @@ export function DeploySection() {
     }
   };
 
+  // The typed values are a draft of the Settings dialog: a rail switch or a close with edits not
+  // saved asks first, and a Save in flight holds the dialog open until it answers.
+  const dirty = view !== null && deployUpdate(values, view, tokens) !== null;
+  useUnsavedChanges(dirty, {
+    scope: SETTINGS_SCOPE,
+    discard: () => {
+      if (view !== null) adopt(view);
+    },
+  });
+  useSaving(busy, SETTINGS_SCOPE);
+
   const hydrated = view !== null;
   const errorFor = (path: string) =>
     fieldError?.field === path ? (words.reasons[fieldError.reason] ?? words.invalid) : undefined;
   return (
-    <SectionShell
+    <SettingsSection
       actions={
         <Button
           size="sm"
@@ -212,6 +230,6 @@ export function DeploySection() {
           </fieldset>
         );
       })}
-    </SectionShell>
+    </SettingsSection>
   );
 }

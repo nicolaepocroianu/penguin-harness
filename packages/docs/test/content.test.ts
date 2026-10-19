@@ -19,10 +19,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DOCS_NAV, DOC_SLUGS, pagerFor } from "../src/lib/nav";
-import { parseFrontmatter } from "../src/lib/frontmatter";
-import { hashTargetId } from "../src/lib/hash";
 import { en } from "../src/lib/strings-en";
-import { extractToc } from "../src/lib/toc";
+import { extractToc, hashTargetId, parseFrontmatter } from "@prismshadow/penguin-ui/site";
 
 const contentDir = join(__dirname, "..", "content");
 const files = readdirSync(contentDir).filter((f) => f.endsWith(".md"));
@@ -91,7 +89,7 @@ describe("docs navigation / content integrity", () => {
 
   it("has no content file outside the navigation", () => {
     for (const file of files) {
-      const slug = /^(.+)\.(zh|en)\.md$/.exec(file)?.[1];
+      const slug = /^(.+)\.(en)\.md$/.exec(file)?.[1];
       expect(slug, `unparsable content file name ${file}`).toBeTruthy();
       expect(DOC_SLUGS, `orphan content file ${file}`).toContain(slug!);
     }
@@ -127,7 +125,7 @@ describe("docs navigation / content integrity", () => {
 
   it("resolves every cross-page anchor to a heading of the target page in the same language", () => {
     for (const file of files) {
-      const lang = /\.(zh|en)\.md$/.exec(file)![1]!;
+      const lang = /\.(en)\.md$/.exec(file)![1]!;
       const { body } = parseFrontmatter(readFileSync(join(contentDir, file), "utf8"));
       const dangling = docLinks(body)
         .filter((link) => link.anchor !== null && DOC_SLUGS.includes(link.slug))

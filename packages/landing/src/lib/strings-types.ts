@@ -1,45 +1,62 @@
-/** Shared dictionary contract for supported translations. */
+/** The landing page's dictionary contract: the English dictionary in strings-en.ts implements it. */
 export type Strings = {
   siteName: string;
   announcement: {
     label: string;
     prev: string;
     next: string;
-    flashModels: string;
+    geminiArgon: string;
+    tokenDanceChallenge: string;
     penguinGo: string;
   };
   nav: {
-    highlights: string;
-    selfImprove: string;
-    quickstart: string;
-    cases: string;
-    scenarios: string;
-    benchmark: string;
-    contract: string;
-    features: string;
+    home: string;
     blog: string;
     download: string;
     docs: string;
+    gallery: string;
     github: string;
     openMenu: string;
     closeMenu: string;
   };
-  theme: { label: string; light: string; dark: string; system: string };
-  lang: { label: string; en: string; system: string };
+  theme: {
+    label: string;
+    light: string;
+    dark: string;
+    system: string;
+  };
   hero: {
-    platformLead: string;
-    platformActions: string[];
-    platformTail: string;
-    automationLead: string;
-    automationActions: string[];
-    automationTail: string;
+    positioning: string;
+    /** The badge on the positioning line's top-right corner. */
+    badge: string;
+    automation: string;
     downloadCta: string;
     cliInstall: string;
-    stats: { value: string; label: string }[];
+    stats: {
+      value: string;
+      label: string;
+    }[];
+    /**
+     * The three catalogue rows under the stat tiles, each led by its count; their entries live in
+     * lib/rsi-stats.ts. The model count is a claim about the catalog and is spelled here; the
+     * algorithm and Benchmark counts are those lists' lengths.
+     */
+    supportedModelsCount: string;
     supportedModelsLabel: string;
-    supportedModels: string[];
     supportedModelsMore: string;
+    algorithmsLabel: string;
+    benchmarksLabel: string;
+    /** One per BENCHMARKS entry, in its order (the benchmarks of Sec A to Sec E, then GDPevo): the kind of each. */
+    benchmarkKinds: string[];
+    /** The confirmation an outside link in the catalogue rows asks before it opens. */
+    externalLink: {
+      title: string;
+      body: string;
+      cancel: string;
+      open: string;
+    };
   };
+  /** Install-method switcher (quick start step 1): OS tabs, online/offline methods. */
   install: {
     linux: string;
     macos: string;
@@ -47,7 +64,11 @@ export type Strings = {
     online: string;
     offline: string;
     offlineNote: string;
-    offlineHints: { linux: string; macos: string; windows: string };
+    offlineHints: {
+      linux: string;
+      macos: string;
+      windows: string;
+    };
     offlineRelease: string;
     desktopNote: string;
     desktopPage: string;
@@ -57,9 +78,18 @@ export type Strings = {
     title: string;
     recommended: string;
     platforms: {
-      mac: { name: string; require: string };
-      windows: { name: string; require: string };
-      linux: { name: string; require: string };
+      mac: {
+        name: string;
+        require: string;
+      };
+      windows: {
+        name: string;
+        require: string;
+      };
+      linux: {
+        name: string;
+        require: string;
+      };
     };
     speed: {
       title: string;
@@ -84,55 +114,101 @@ export type Strings = {
     altOss: string;
     checksums: string;
     allReleases: string;
-    faq: { title: string; intro: string; linux: { question: string; answer: string } };
+    /**
+     * First-launch FAQ. The macOS builds are Developer ID signed and notarized and the
+     * Windows installers are Authenticode signed, so those two platforms have nothing to
+     * unblock; the Linux AppImage's execute bit is the one item left, pre-expanded for a
+     * Linux visitor.
+     */
+    faq: {
+      title: string;
+      intro: string;
+      linux: {
+        question: string;
+        answer: string;
+      };
+    };
     cliHint: string;
     cliHintLink: string;
   };
-  copy: { copy: string; copied: string };
-  pillars: {
-    eyebrow: string;
-    title: string;
-    subtitle: string;
-    root: string;
-    concepts: string[];
-    diagramLabel: string;
-    items: { title: string; tag: string; desc: string }[];
+  copy: {
+    copy: string;
+    copied: string;
   };
-  compare: {
-    eyebrow: string;
-    title: string;
-    subtitle: string[];
-    langchain: { name: string; speed: string; mode: string; note: string };
-    penguin: { name: string; speed: string; mode: string; note: string };
+  /** A live frame's window bar and its stand-in (components/live-app-frame.tsx). */
+  live: {
+    /** The link to the same screen in the component gallery, full size. */
+    open: string;
+    loading: string;
   };
+  /** The app live under the hero, and the three rows beside it (sections/showcase.tsx). */
+  showcase: {
+    /** Each `frame` names its frame for assistive technology. */
+    start: string;
+    evolve: {
+      title: string;
+      text: string;
+      link: string;
+      frame: string;
+    };
+    evaluate: {
+      title: string;
+      text: string;
+      link: string;
+      frame: string;
+    };
+    toolkits: {
+      title: string;
+      /** `names`: the paper toolkits, already listed (OPRO、APE、…). */
+      text: (names: string) => string;
+      link: string;
+      frame: string;
+    };
+  };
+  /** The self-evolution loop and its three recorded numbers (sections/self-improve.tsx). */
   selfImprove: {
-    eyebrow: string;
     title: string;
     subtitle: string;
-    videoLabel: string;
-    videoCaption: string;
     nodeOptimizer: string;
     nodeEvaluator: string;
     nodeTarget: string;
-    badgeOld: string;
-    badgeNew: string;
     edgeSpawn: string;
-    edgeBench: string;
     edgeFeedback: string;
+    edgeBench: string;
     edgeImprove: string;
-    trends: { label: string; hint: string }[];
+    noteOld: string;
+    noteNew: string;
+    /** Index-aligned with TRENDS in sections/self-improve.tsx. */
+    trends: {
+      label: string;
+      hint: string;
+    }[];
+    trendsNote: string;
+    demo: {
+      caption: string;
+      cost: string;
+    };
     diagramLabel: string;
   };
   quickstart: {
-    eyebrow: string;
     title: string;
     subtitle: string;
     stepOne: string;
     chooseInstall: string;
     stepTwo: string;
     chooseLaunch: string;
-    tabs: { desktop: string; install: string; web: string; cli: string };
-    desktop: { title: string; desc: string; cta: string; steps: string[] };
+    tabs: {
+      desktop: string;
+      install: string;
+      web: string;
+      cli: string;
+    };
+    desktop: {
+      title: string;
+      desc: string;
+      cta: string;
+      steps: string[];
+    };
     install: {
       title: string;
       desc: string;
@@ -142,32 +218,67 @@ export type Strings = {
       offlineDesc: string;
       offlineCommand: string;
     };
-    web: { title: string; desc: string; command: string; steps: string[] };
-    cli: { title: string; desc: string; command: string };
+    web: {
+      title: string;
+      desc: string;
+      command: string;
+      steps: string[];
+    };
+    cli: {
+      title: string;
+      desc: string;
+      command: string;
+    };
     localNote: string;
   };
   cases: {
-    eyebrow: string;
     title: string;
     subtitle: string;
-    tabs: { label: string; prompt: string; caption: string; cost: string }[];
+    prompt: string;
+    caption: string;
+    cost: string;
+  };
+  /**
+   * The radiating diagram and its cards (sections/pillars.tsx): each item's `concept` labels one
+   * branch of the diagram and the card under it. Concept names are product names.
+   */
+  pillars: {
+    title: string;
+    subtitle: string;
+    root: string;
+    diagramLabel: string;
+    items: {
+      concept: string;
+      title: string;
+      desc: string;
+      link: string;
+    }[];
+  };
+  /** Building on an agent library against PenguinHarness (sections/compare.tsx). */
+  compare: {
+    title: string;
+    subtitle: string;
+    library: {
+      name: string;
+      mode: string;
+      note: string;
+    };
+    penguin: {
+      name: string;
+      mode: string;
+      note: string;
+    };
   };
   scenarios: {
-    eyebrow: string;
     title: string;
     subtitle: string;
-    items: { title: string; alt: string; body: string }[];
-  };
-  contract: {
-    eyebrow: string;
-    title: string;
-    subtitle: string;
-    intro: string;
-    items: { term: string; text: string }[];
-    outro: string;
+    items: {
+      title: string;
+      alt: string;
+      body: string;
+    }[];
   };
   benchmark: {
-    eyebrow: string;
     title: string;
     subtitle: string;
     higherBetter: string;
@@ -187,44 +298,45 @@ export type Strings = {
     colTokens: string;
     colCost: string;
   };
-  features: {
-    eyebrow: string;
+  /** The latest posts on the home page (sections/updates.tsx). */
+  updates: {
     title: string;
-    subtitle: string;
-    more: string;
-    items: { title: string; desc: string }[];
-  };
-  skills: {
-    eyebrow: string;
-    title: string;
-    subtitle: string;
-    groups: { title: string; skills: string[] }[];
-  };
-  security: {
-    eyebrow: string;
-    title: string;
-    subtitle: string;
-    items: { title: string; desc: string }[];
+    all: string;
   };
   community: {
-    eyebrow: string;
     title: string;
     subtitle: string;
     items: {
-      discord: { name: string; desc: string };
-      x: { name: string; desc: string };
-      wechat: { name: string; desc: string };
-      github: { name: string; desc: string };
+      discord: {
+        name: string;
+        desc: string;
+      };
+      x: {
+        name: string;
+        desc: string;
+      };
+      wechat: {
+        name: string;
+        desc: string;
+      };
+      github: {
+        name: string;
+        desc: string;
+      };
     };
   };
-  cta: { title: string; subtitle: string; download: string; quickstart: string; docs: string };
+  cta: {
+    title: string;
+    subtitle: string;
+    download: string;
+    quickstart: string;
+    docs: string;
+  };
   footer: {
     tagline: string;
     product: string;
     resources: string;
     quickstart: string;
-    features: string;
-    selfImprove: string;
     cases: string;
     blog: string;
     repo: string;

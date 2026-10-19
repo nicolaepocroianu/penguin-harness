@@ -1,6 +1,7 @@
 ---
 name: xstate-v5
 description: Design, implement, review, and migrate XState v5 state machines and statecharts in TypeScript using modern v5 patterns. Use this whenever the user mentions XState, actors, state machines, statecharts, guards, transitions, workflows, or Stately, or is modeling non-trivial UI/app/process logic in a codebase that uses XState. Prefer a short machine sketch before code when requirements are fuzzy. If the problem is too simple for a state machine, say so and recommend @xstate/store instead.
+version: 2026.10.10.1
 ---
 
 # XState v5

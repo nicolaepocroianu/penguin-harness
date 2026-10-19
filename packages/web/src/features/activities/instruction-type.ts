@@ -31,30 +31,15 @@ const SCAFFOLDING_KEYWORDS = [
   "corrective",
 ] as const;
 
-const EXCLUDE_KEYWORDS = [
-  "background",
-  "bgm",
-  "music",
-  "ambient",
-  "soundtrack",
-  "sfx",
-  "sound effect",
-  "chime",
-  "ding",
-  "sting",
-  "whoosh",
-  "jingle",
-  "fanfare",
-  "transition",
-  "outro",
-  "ending",
-  "credits",
-  "celebration",
-  "celebrate",
-  "applause",
-  "cheer",
-  "reward",
-] as const;
+/**
+ * One `|`-separated list rather than an array of literals: a lone "transition" literal reads as
+ * a Tailwind class to the de-slop scan, which judges every class-shaped string in the source.
+ */
+const EXCLUDE_KEYWORDS: readonly string[] = (
+  "background|bgm|music|ambient|soundtrack|sfx|sound effect|chime|ding|sting|" +
+  "whoosh|jingle|fanfare|transition|outro|ending|credits|celebration|celebrate|" +
+  "applause|cheer|reward"
+).split("|");
 
 const MAIN_INSTRUCTION_KEYWORDS = ["press and hold", "tap", "select"] as const;
 

@@ -22,6 +22,7 @@ import type {
   OrgChannelMessage,
   OrgChannelMessageSendRequest,
   OrgChannelMessagesResponse,
+  Employment,
   OrgChartResponse,
   OrgDeskResponse,
   OrgEmployeeItem,
@@ -78,7 +79,6 @@ import {
   TICKET_ID_PATTERN,
   defaultTicketNotify,
   detectLanguage,
-  extractMentionTokens,
   historyNote,
   orgLanguage,
   parseCalendarEvent,
@@ -93,6 +93,7 @@ import {
   DEFAULT_CHANNEL_ID,
   ORG_TICKET_COLUMNS,
   ceoAgentId,
+  handbookDir,
   isChannelId,
   isHandbookFilePath,
   isTicketColumn,
@@ -115,8 +116,11 @@ import { budgetLine, budgetRatio, computeSpend, pausedEmployees } from "./budget
 import type { OrgSpend } from "./budget.js";
 import { DEFAULT_EMPLOYEE_PLUGINS, OrgRuns, OrgSessions, employeePlugins } from "./deps.js";
 import type { OrgDeps } from "./deps.js";
-import { loadOrg, sharedWorkspace } from "./model.js";
+import { loadOrg, orgEmployeeNames, projectUserIds, sharedWorkspace } from "./model.js";
 import type { LoadedOrg } from "./model.js";
+import { parseAvatarDataUrl, readAvatar, writeAvatar } from "../../organization/avatars.js";
+import { employeeNameProblem, findMentions } from "../../organization/names.js";
+import type { MentionHandle } from "../../organization/names.js";
 import {
   channelArchiveChanged,
   channelCreated,
@@ -126,7 +130,7 @@ import {
   employeeLeft,
   systemMessage,
 } from "./notices.js";
-import { appendChannelMessage, listTickets, syncCaches } from "./reconcile.js";
+import { appendChannelMessage, listTickets, syncApprovalMode, syncCaches } from "./reconcile.js";
 import type { LoadedTicket } from "./reconcile.js";
 import { rotaWarnings } from "./rota.js";
 import { OrganizationScheduler } from "./scheduler.js";
@@ -300,6 +304,39 @@ export class OrganizationService {
   // ---------------------------------------------------------------------------
   // Organizations
   // ---------------------------------------------------------------------------
+
+  /**
+   * Which organizations of the Project employ which Agents, by Agent id: every chart entry of
+   * every organization directory the store lists — paused ones included, since a paused
+   * organization keeps every desk reachable — plus each organization's CEO id, which stands
+   * even while the chart does not parse (the CEO is the one employee an organization cannot be
+   * without, and its id is fixed by the organization's). The Agent list marks employees with
+   * it, and an employee's Agent cannot be deleted. A directory removed by hand is not listed,
+   * so it employs nobody. A record rather than a Map, since it crosses the service interface;
+   * read it with `Object.hasOwn`, as an Agent id may be any word, `constructor` included.
+   */
+  async employments(projectId: string): Promise<Record<string, Employment[]>> {
+    const out: Record<string, Employment[]> = {};
+    const add = (agentId: string, employment: Employment) => {
+      if (Object.hasOwn(out, agentId)) out[agentId]!.push(employment);
+      else out[agentId] = [employment];
+    };
+    for (const orgId of await this.deps.store.listOrgIds(projectId)) {
+      const org = await loadOrg(this.deps, projectId, orgId);
+      if (org === null) continue;
+      const base = { orgId, orgName: org.config.name, status: org.config.status };
+      for (const e of org.chart.employees) add(e.agentId, { ...base, title: e.title });
+      const ceo = ceoAgentId(orgId);
+      if (!org.byId.has(ceo)) add(ceo, { ...base, title: "CEO" });
+    }
+    return out;
+  }
+
+  /** The organizations employing one Agent (see `employments`); empty when none does. */
+  async employersOf(projectId: string, agentId: string): Promise<Employment[]> {
+    const all = await this.employments(projectId);
+    return Object.hasOwn(all, agentId) ? all[agentId]! : [];
+  }
 
   async list(projectId: string): Promise<OrganizationSummary[]> {
     const out: OrganizationSummary[] = [];
@@ -569,51 +606,57 @@ export class OrganizationService {
       ...(req.model !== undefined ? { model: req.model } : {}),
     };
     const dir = this.deps.store.dir(projectId, orgId);
-    await this.deps.store.createLayout(dir, new Date(this.now()).toISOString());
-    try {
-      await this.deps.store.writeConfig(dir, config);
-      await this.deps.store.writeChart(dir, {
-        employees: [
-          {
+    // The layout is written under the organization's lock — the same one a delete holds when
+    // it moves the directory to the trash. Unlocked, a delete landing between the exists
+    // check above and the lock below would move the half-made directory away and leave this
+    // method writing chart and handbook beside a config that is no longer there.
+    await this.scheduler.withLock(projectId, orgId, async () => {
+      await this.deps.store.createLayout(dir, new Date(this.now()).toISOString());
+      try {
+        await this.deps.store.writeConfig(dir, config);
+        await this.deps.store.writeChart(dir, {
+          employees: [
+            {
+              agentId: ceo,
+              title: "CEO",
+              reportsTo: null,
+              duties:
+                "Turn the mission into tickets, hire, partition the shared workspace, review tickets, report to the board",
+              workspace: CEO_WORKSPACE,
+              // Compared on the cumulative line, so this one number is the whole company's cap.
+              budget: req.ceoBudget ?? DEFAULT_CEO_BUDGET,
+            },
+          ],
+        });
+        await this.deps.store.writeHandbook(
+          dir,
+          renderHandbook({ orgId, name, mission, ceoAgentId: ceo, createdBy: userId, language }),
+        );
+        await this.deps.agents.create(
+          projectId,
+          ceo,
+          `${name} CEO`,
+          `CEO of ${name}`,
+          DEFAULT_EMPLOYEE_PLUGINS,
+        );
+        await this.deps.agents.writeAgentsMd(
+          projectId,
+          ceo,
+          employeeBrief({
+            orgId,
+            name,
+            mission,
             agentId: ceo,
             title: "CEO",
             reportsTo: null,
-            duties:
-              "Turn the mission into tickets, hire, partition the shared workspace, review tickets, report to the board",
-            workspace: CEO_WORKSPACE,
-            // Compared on the cumulative line, so this one number is the whole company's cap.
-            budget: req.ceoBudget ?? DEFAULT_CEO_BUDGET,
-          },
-        ],
-      });
-      await this.deps.store.writeHandbook(
-        dir,
-        renderHandbook({ orgId, name, mission, ceoAgentId: ceo, createdBy: userId, language }),
-      );
-      await this.deps.agents.create(
-        projectId,
-        ceo,
-        `${name} CEO`,
-        `CEO of ${name}`,
-        DEFAULT_EMPLOYEE_PLUGINS,
-      );
-      await this.deps.agents.writeAgentsMd(
-        projectId,
-        ceo,
-        employeeBrief({
-          orgId,
-          name,
-          mission,
-          agentId: ceo,
-          title: "CEO",
-          reportsTo: null,
-          language,
-        }),
-      );
-    } catch (err) {
-      await this.deps.store.remove(dir);
-      throw err;
-    }
+            language,
+          }),
+        );
+      } catch (err) {
+        await this.deps.store.remove(dir);
+        throw err;
+      }
+    });
     await this.scheduler.withLock(projectId, orgId, async () => {
       const org = await this.requireValidOrg(projectId, orgId);
       const spend = await computeSpend(this.deps, org, []);
@@ -624,6 +667,30 @@ export class OrganizationService {
     });
     await this.scheduler.reconcile(projectId, orgId);
     return this.detail(projectId, orgId, userId);
+  }
+
+  /**
+   * Deletes the organization — and ONLY the organization: its directory goes to the Project's
+   * trash (store.trash), whole and restorable, and the rows this server derived from it go
+   * with it, since a new organization under the same id must not inherit
+   * another's read cursors, calendar state or pending notices.
+   *
+   * What it had is left exactly as it is. Its employees stay Agents of the Project, with
+   * everything they learned. Its desk and ticket Sessions stay too, still marked as an
+   * organization's (`client = org`), so they do not spill into development mode's list;
+   * with the organization gone no page lists them either, which is the price of not
+   * deleting conversations along with a company.
+   *
+   * Under the organization's lock, so a pass in flight finishes first and the next one finds
+   * no directory — the same state a hand-removed directory always was.
+   */
+  async delete(projectId: string, orgId: string): Promise<void> {
+    await this.requireOrg(projectId, orgId);
+    await this.scheduler.withLock(projectId, orgId, async () => {
+      await this.deps.store.trash(projectId, orgId, new Date(this.now()).toISOString());
+      this.deps.cache.deleteOrg(projectId, orgId);
+    });
+    this.deps.log?.(`[organization] ${projectId}/${orgId} deleted (moved to the trash)`);
   }
 
   async patch(
@@ -667,8 +734,16 @@ export class OrganizationService {
         await this.validateModel(projectId, req.model);
         next.model = req.model;
       }
+      const modeChanged = next.approvalMode !== org.config.approvalMode;
       await this.deps.store.writeConfig(org.dir, next);
       org.config = next;
+      // Every API write of the approval mode comes through here, so this is where a change
+      // reaches the desk and ticket sessions already open rather than only the next ones. A
+      // hand edit of org_config.toml does not pass here.
+      if (modeChanged) {
+        const { tickets } = await listTickets(this.deps, org);
+        syncApprovalMode(this.deps, org, tickets);
+      }
       return this.settings(org);
     });
   }
@@ -688,6 +763,7 @@ export class OrganizationService {
     const paused = pausedEmployees(this.deps, org, spend.period);
     const out: OrgEmployeeItem[] = [];
     const shared = sharedWorkspace(org);
+    const names = await orgEmployeeNames(this.deps, org);
     for (const e of org.chart.employees) {
       const exists = await this.deps.agents.exists(org.projectId, e.agentId);
       // A relative sub-directory that is not there yet is not a broken entry: it is created
@@ -707,10 +783,20 @@ export class OrganizationService {
             : undefined;
       const own = spend.own.get(e.agentId) ?? 0;
       const cumulative = spend.cumulative.get(e.agentId) ?? 0;
-      const desk = org.desks[e.agentId];
+      // A desk is listed only while its Session exists: the ledger keeps naming one that was
+      // deleted (by hand, or with its Agent) until the pass re-opens it, and handing that id
+      // out is what sent a click to a conversation the server no longer has.
+      const ledgerDesk = org.desks[e.agentId];
+      const desk =
+        ledgerDesk !== undefined && this.deps.sessions.findById(ledgerDesk.sessionId) !== null
+          ? ledgerDesk
+          : undefined;
+      const avatarRev = (await readAvatar(org.dir, e.agentId))?.rev;
       out.push({
         agentId: e.agentId,
-        name: exists ? await this.deps.agents.displayName(org.projectId, e.agentId) : e.agentId,
+        name: names.get(e.agentId) ?? e.agentId,
+        ...(e.name !== undefined ? { givenName: e.name } : {}),
+        ...(avatarRev !== undefined ? { avatarRev } : {}),
         title: e.title,
         reportsTo: e.reportsTo,
         ...(e.duties !== undefined ? { duties: e.duties } : {}),
@@ -738,6 +824,7 @@ export class OrganizationService {
           ...(e.budget !== undefined ? { ratio: budgetRatio(cumulative, e.budget) } : {}),
         },
         ...(invalid !== undefined ? { invalid } : {}),
+        ...(!exists ? { agentMissing: true as const } : {}),
       });
     }
     return out;
@@ -816,6 +903,23 @@ export class OrganizationService {
       }
       if (org.byId.has(agentId))
         throw new HttpError(409, "employee_exists", `${agentId} is already an employee.`);
+      // The name the organization gives this employee: said outright — and then refused here,
+      // before anything is created — else the one a new Agent is created under, so the two
+      // start out the same. That display name follows looser rules (any character, longer),
+      // so one that cannot be an employee's name leaves the employee without a given name
+      // rather than failing the hire.
+      const said = req.name?.trim();
+      if (said !== undefined && said !== "") {
+        const problem = employeeNameProblem(said);
+        if (problem !== null) throw badRequest(problem);
+      }
+      const agentName = req.newAgent?.name?.trim();
+      const given =
+        said !== undefined && said !== ""
+          ? said
+          : agentName !== undefined && employeeNameProblem(agentName) === null
+            ? agentName
+            : undefined;
       // Before the Agent and the chart entry: the partition an employee is hired into exists
       // from the moment the employee does, and a spec that leaves the shared workspace is
       // refused rather than written and found broken on the first trigger. Omitted, it is a
@@ -846,6 +950,7 @@ export class OrganizationService {
       }
       const employee: OrgEmployee = {
         agentId,
+        ...(given !== undefined ? { name: given } : {}),
         title,
         reportsTo: req.reportsTo,
         ...(req.duties !== undefined && req.duties.trim() !== ""
@@ -888,6 +993,41 @@ export class OrganizationService {
     return item;
   }
 
+  /** The employee's avatar image (organization/avatars.ts); 404 when it has none. */
+  async employeeAvatar(
+    projectId: string,
+    orgId: string,
+    agentId: string,
+  ): Promise<{ bytes: Buffer; mime: string; rev: string }> {
+    const org = await this.requireOrg(projectId, orgId);
+    const avatar = org.byId.has(agentId) ? await readAvatar(org.dir, agentId) : null;
+    if (avatar === null) throw new HttpError(404, "not_found", "This employee has no avatar.");
+    return avatar;
+  }
+
+  /** Sets the employee's avatar from a data URL; `null` removes it. */
+  async setEmployeeAvatar(
+    projectId: string,
+    orgId: string,
+    agentId: string,
+    avatar: string | null,
+  ): Promise<OrgEmployeeItem> {
+    return this.scheduler.withLock(projectId, orgId, async () => {
+      const org = await this.requireOrg(projectId, orgId);
+      if (!org.byId.has(agentId))
+        throw new HttpError(404, "employee_not_found", `${agentId} is not an employee.`);
+      let image: { ext: string; bytes: Buffer } | null = null;
+      if (avatar !== null) {
+        const parsed = parseAvatarDataUrl(avatar);
+        if (!parsed.ok) throw badRequest(parsed.error);
+        image = parsed;
+      }
+      await writeAvatar(org.dir, agentId, image);
+      const spend = await computeSpend(this.deps, org, (await listTickets(this.deps, org)).tickets);
+      return (await this.employeeItems(org, spend)).find((i) => i.agentId === agentId)!;
+    });
+  }
+
   async patchEmployee(
     projectId: string,
     orgId: string,
@@ -919,6 +1059,12 @@ export class OrganizationService {
       else if (req.budget !== undefined) next.budget = req.budget;
       if (req.model === null) delete next.model;
       else if (req.model !== undefined) next.model = req.model;
+      if (req.name === null || req.name?.trim() === "") delete next.name;
+      else if (req.name !== undefined) {
+        const problem = employeeNameProblem(req.name);
+        if (problem !== null) throw badRequest(problem);
+        next.name = req.name.trim();
+      }
       if (next.duties === "") delete next.duties;
       if (next.title === "") throw badRequest("title must not be empty.");
       await this.writeChart(
@@ -931,6 +1077,36 @@ export class OrganizationService {
     });
     await this.scheduler.reconcile(projectId, orgId);
     return item;
+  }
+
+  /**
+   * A Session's model moved (an in-session switch). When that Session is an employee's
+   * CURRENT desk the switch is the employee's: its chart entry takes the desk's model, so a
+   * desk renewed later opens on it (ticket Sessions read the desk itself, see
+   * `openTicketSession`). Any other Session — a ticket Session, a desk already replaced, one
+   * no organization owns — leaves the chart alone.
+   */
+  async deskModelChanged(
+    sessionId: string,
+    model: { provider: string; modelId: string },
+  ): Promise<void> {
+    const owner = this.deps.cache.ownerOfSession(sessionId);
+    if (owner === null || owner.kind !== "desk") return;
+    const { projectId, orgId, agentId } = owner;
+    await this.scheduler.withLock(projectId, orgId, async () => {
+      const org = await loadOrg(this.deps, projectId, orgId);
+      // An organization that needs repair is repaired by editing its files, not from here.
+      if (org === null || org.invalid !== undefined) return;
+      if (org.desks[agentId]?.sessionId !== sessionId) return;
+      const employee = org.byId.get(agentId);
+      if (!employee) return;
+      if (employee.model?.provider === model.provider && employee.model.modelId === model.modelId)
+        return;
+      await this.writeChart(
+        org,
+        org.chart.employees.map((e) => (e.agentId === agentId ? { ...e, model } : e)),
+      );
+    });
   }
 
   /** Removes the employee from the tree (subordinates move up to its manager); the Agent and its sessions stay. */
@@ -1010,6 +1186,7 @@ export class OrganizationService {
     const org = await this.requireOrg(projectId, orgId);
     const files = await this.deps.store.listHandbookFiles(org.dir);
     return {
+      dir: handbookDir(org.dir),
       files: files.map((f) => ({
         path: f.path,
         size: f.size,
@@ -1650,6 +1827,13 @@ export class OrganizationService {
         if (isTicket && (await this.deps.store.findTicket(org.dir, by)) === null) {
           throw badRequest(`Blocking ticket does not exist: ${by}`);
         }
+        if (p?.kind === "agent" || p?.kind === "user") {
+          // A named principal is held to the same chart as a channel member: an
+          // agent:<id> that names no employee, or a user:<id> outside the Project,
+          // would still render as "(by …)" in the digest and on the board — an
+          // attribution nobody can answer for.
+          this.requireChannelPrincipal(org, by);
+        }
       }
       const d = t.doc;
       d.blocked = reason.trim();
@@ -1822,15 +2006,7 @@ export class OrganizationService {
 
   /** The Project's people: its owner and its members, the `user:` half of the all-hands channel. */
   private projectUserIds(org: LoadedOrg): string[] {
-    const project = this.deps.projects.findById(org.projectId);
-    const out: string[] = [];
-    for (const id of [
-      ...(project ? [project.ownerUserId] : []),
-      ...this.deps.members.list(org.projectId).map((m) => m.userId),
-    ]) {
-      if (!out.includes(id)) out.push(id);
-    }
-    return out;
+    return projectUserIds(this.deps, org.projectId);
   }
 
   /** A channel's membership as principals: the all-hands channel resolves to everyone, the rest to their list. */
@@ -1953,13 +2129,11 @@ export class OrganizationService {
 
   private async channelMembers(org: LoadedOrg, cfg: ChannelConfig): Promise<OrgChannelMember[]> {
     const out: OrgChannelMember[] = [];
+    const names = await orgEmployeeNames(this.deps, org);
     for (const principal of this.channelMemberPrincipals(org, cfg)) {
       const parsed = parsePrincipal(principal);
       if (parsed?.kind === "agent") {
-        const name = (await this.deps.agents.exists(org.projectId, parsed.id))
-          ? await this.deps.agents.displayName(org.projectId, parsed.id)
-          : parsed.id;
-        out.push({ principal, name, kind: "agent" });
+        out.push({ principal, name: names.get(parsed.id) ?? parsed.id, kind: "agent" });
       } else if (parsed?.kind === "user") {
         out.push({ principal, name: parsed.id, kind: "user" });
       }
@@ -2258,28 +2432,38 @@ export class OrganizationService {
     };
   }
 
-  /** Resolves `@` tokens: employees first, then Project members; the writer disambiguates with a prefix. */
-  private resolveMentions(org: LoadedOrg, text: string): string[] {
+  /**
+   * Whom a message addresses (organization/names.ts): an employee by id or by name, a Project
+   * member by user id, `all` — an id before a name, an employee before a member of the same
+   * id — and the explicit `@agent:<id>` / `@user:<id>` for a writer who has to say which.
+   */
+  private async resolveMentions(org: LoadedOrg, text: string): Promise<string[]> {
     const users = new Set(this.projectUserIds(org));
+    const names = await orgEmployeeNames(this.deps, org);
+    // Listed in order of precedence: of two handles of one length, the first one wins.
+    const handles: MentionHandle[] = [
+      { handle: "all", principal: "all" },
+      ...org.chart.employees.map((e) => ({
+        handle: e.agentId,
+        principal: agentPrincipal(e.agentId),
+      })),
+      ...org.chart.employees.map((e) => ({
+        handle: names.get(e.agentId) ?? e.agentId,
+        principal: agentPrincipal(e.agentId),
+      })),
+      ...[...users].map((id) => ({ handle: id, principal: userPrincipal(id) })),
+    ];
     const out: string[] = [];
-    const add = (p: string): void => {
-      if (!out.includes(p)) out.push(p);
-    };
-    for (const token of extractMentionTokens(text)) {
-      if (token.id === "all" && token.prefix === undefined) {
-        add("all");
-        continue;
-      }
-      if (token.prefix === "agent") {
-        if (org.byId.has(token.id)) add(agentPrincipal(token.id));
-      } else if (token.prefix === "user") {
-        if (users.has(token.id)) add(userPrincipal(token.id));
-      } else if (org.byId.has(token.id)) {
-        add(agentPrincipal(token.id));
-      } else if (users.has(token.id)) {
-        add(userPrincipal(token.id));
-      }
-    }
+    const found = findMentions(text, handles, (kind, id) =>
+      kind === "agent"
+        ? org.byId.has(id)
+          ? agentPrincipal(id)
+          : null
+        : users.has(id)
+          ? userPrincipal(id)
+          : null,
+    );
+    for (const { principal } of found) if (!out.includes(principal)) out.push(principal);
     return out;
   }
 
@@ -2313,7 +2497,7 @@ export class OrganizationService {
       }
       const members = this.channelMemberPrincipals(org, cfg);
       if (!members.includes(sender)) throw notAMember(channelId, sender);
-      const mentions = this.resolveMentions(org, text);
+      const mentions = await this.resolveMentions(org, text);
       // `@all` is the channel's own membership, so only named principals can be outsiders.
       const outsiders = mentions.filter((m) => m !== "all" && !members.includes(m));
       if (outsiders.length > 0) {
@@ -2362,14 +2546,13 @@ export class OrganizationService {
       this.deps.cache.listBudgetStates(projectId, orgId, spend.period).map((s) => [s.agentId, s]),
     );
     const employees: OrgFinanceResponse["employees"] = [];
+    const names = await orgEmployeeNames(this.deps, org);
     for (const e of org.chart.employees) {
       const cumulative = spend.cumulative.get(e.agentId) ?? 0;
       const mark = marks.get(e.agentId);
       employees.push({
         agentId: e.agentId,
-        name: (await this.deps.agents.exists(projectId, e.agentId))
-          ? await this.deps.agents.displayName(projectId, e.agentId)
-          : e.agentId,
+        name: names.get(e.agentId) ?? e.agentId,
         title: e.title,
         reportsTo: e.reportsTo,
         own: spend.own.get(e.agentId) ?? 0,
@@ -2411,21 +2594,23 @@ export class OrganizationService {
     const { tickets } = await listTickets(this.deps, org);
     syncCaches(this.deps, org, tickets);
     const desks: OrgSessionsResponse["desks"] = [];
+    const names = await orgEmployeeNames(this.deps, org);
     for (const e of org.chart.employees) {
       const desk = org.desks[e.agentId];
       if (!desk) continue;
       const row = this.deps.sessions.findById(desk.sessionId);
+      // The ledger still names a Session that is gone (see employeeItems): not a desk anyone
+      // can open, so not a row — until the pass opens a new one.
+      if (row === null) continue;
       const messagingChannel = this.deps.messagingChannel(desk.sessionId);
       desks.push({
         agentId: e.agentId,
-        name: (await this.deps.agents.exists(projectId, e.agentId))
-          ? await this.deps.agents.displayName(projectId, e.agentId)
-          : e.agentId,
+        name: names.get(e.agentId) ?? e.agentId,
         sessionId: desk.sessionId,
-        ...(row?.title ? { title: row.title } : {}),
+        ...(row.title ? { title: row.title } : {}),
         status: this.deps.runner.statusOf(desk.sessionId),
         workspace: desk.workspace,
-        ...(row?.lastActiveAt ? { lastActiveAt: row.lastActiveAt } : {}),
+        ...(row.lastActiveAt ? { lastActiveAt: row.lastActiveAt } : {}),
         ...(messagingChannel !== null ? { messagingChannel } : {}),
       });
     }
@@ -2596,19 +2781,25 @@ function calendarStatus(
 
 /**
  * What the organization routes need of the runtime — declared where they consume it, so
- * the route group names one node instead of reaching into a bag.
+ * the route group names one node instead of reaching into a bag. The Agent routes read the
+ * two employment views (the list's marks, the delete guard).
  */
 export abstract class OrgService extends Interface<
   Pick<
     OrganizationService,
+    | "employments"
+    | "employersOf"
     | "list"
     | "create"
     | "detail"
+    | "delete"
     | "patch"
     | "leave"
     | "suggestId"
     | "chart"
     | "hire"
+    | "employeeAvatar"
+    | "setEmployeeAvatar"
     | "patchEmployee"
     | "desk"
     | "sessions"
@@ -2727,7 +2918,20 @@ export class OrganizationModule {
     };
     const orgScheduler = new OrganizationScheduler(deps);
     this.orgScheduler = orgScheduler;
-    this.orgService = new OrganizationService(deps, orgScheduler);
+    const service = new OrganizationService(deps, orgScheduler);
+    this.orgService = service;
+    // An employee's model is its desk Session's: a switch made on a desk reaches the chart.
+    const unsubscribe = runner.onModelChanged((sessionId, model) => {
+      service.deskModelChanged(sessionId, model).catch((err: unknown) =>
+        deps.errors.record({
+          source: "organization",
+          err,
+          code: "org_desk_model_sync_failed",
+          ctx: { sessionId },
+        }),
+      );
+    });
+    effect(() => unsubscribe());
     // Only active while this App is; the successor's start() reconciles from the files.
     effect(() => orgScheduler.stop());
   }

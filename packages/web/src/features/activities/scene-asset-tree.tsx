@@ -5,9 +5,7 @@
  * and an author reaches it through the scene they are working on.
  */
 import { useState } from "react";
-import { Chevron } from "../../components/ui/chevron";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { ICON_GAP, ICON_SIZE } from "../../lib/icon-scale";
+import { Chevron, GlyphIcon, ICON_GAP, ICON_SIZE } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk } from "../../lib/tone";
 import { SCENE_ASSET_ICON } from "./scene-asset-icons";
@@ -60,7 +58,7 @@ function AssetRow({
         className="mt-0.5 text-gray-500"
       />
       <span className="min-w-0 flex-1">
-        <span className="block truncate" title={asset.key}>
+        <span className="block truncate" data-tooltip={asset.key}>
           {asset.key}
         </span>
         <span className="block text-gray-500">
@@ -118,7 +116,7 @@ export function SceneAssetTree({
               className={`flex w-full items-center rounded-md px-1.5 py-1.5 text-left text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-900 ${ICON_GAP.row}`}
             >
               <Chevron open={open} size={ICON_SIZE.chevronDense} className="text-gray-500" />
-              <span className="min-w-0 flex-1 truncate" title={scene.sceneId}>
+              <span className="min-w-0 flex-1 truncate" data-tooltip={scene.sceneId}>
                 {scene.sceneId}
               </span>
               <span className="shrink-0 font-normal text-gray-500">

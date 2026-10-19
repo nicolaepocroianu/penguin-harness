@@ -3,8 +3,7 @@ import type { SandboxBuildReport, SandboxStatus } from "@prismshadow/penguin-ser
 import { StateMapView } from "./state-map-view";
 import { S } from "../../lib/strings";
 import { toneStrip } from "../../lib/tone";
-import { Button } from "../../components/ui/button";
-import { Select } from "../../components/ui/select";
+import { Button, Select } from "@prismshadow/penguin-ui";
 import { PREVIEW_RESOLUTIONS, fitScale, parseResolution, sceneIds } from "./preview";
 import { useActivityClient } from "./activity-client";
 import { playUrl } from "./sandbox";
@@ -645,7 +644,7 @@ function SandboxPlayer({
             role="separator"
             aria-orientation="vertical"
             aria-label={S.activities.studioPlayer.map.resizeMap}
-            title={S.activities.studioPlayer.map.resizeMap}
+            data-tooltip={S.activities.studioPlayer.map.resizeMap}
             aria-valuenow={appliedMapWidth}
             aria-valuemin={MAP_MIN}
             aria-valuemax={mapMaxFor(areaWidth)}

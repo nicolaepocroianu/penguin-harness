@@ -4,6 +4,7 @@
  */
 import type { ThinkingLevelName } from "@prismshadow/penguin-core/interfaces";
 import type { ApprovalMode } from "../../api/types.js";
+import type { SandboxSettings } from "@prismshadow/penguin-core/plugin";
 import { Component, Use } from "@prismshadow/penguin-core/kernel";
 import type { Db } from "../../hmr/capabilities.js";
 import type { SessionIndex } from "../../mechanisms/sessions.js";
@@ -12,9 +13,13 @@ export interface SessionRow {
   sessionId: string;
   projectId: string;
   agentId: string;
-  /** Provider group of the session's model (pairs with `modelId` to form the model reference). */
+  /**
+   * Provider group of the session's **current** model (pairs with `modelId` to form the model
+   * reference). Moves with each in-session switch (`updateModel`); the Trace's latest
+   * `session_meta` is the durable truth, and the runtime reconciles a row it disagrees with.
+   */
   provider: string;
-  /** Upstream model_id of the session's model (sent as-is to AgentHub; never concatenated). */
+  /** Upstream model_id of the session's current model (sent as-is to MMSP; never concatenated). */
   modelId: string;
   workspace: string;
   approvalMode: ApprovalMode;
@@ -26,14 +31,25 @@ export interface SessionRow {
   thinkingLevel?: ThinkingLevelName | null;
   /** Auto-generated session title; NULL = not yet generated (frontend shows "New Conversation"). */
   title: string | null;
-  /** Archive timestamp, ISO; NULL = not archived (omitting on insert defaults to NULL). */
+  /**
+   * When the user archived it, ISO; NULL = not archived by hand (omitting on insert defaults to
+   * NULL). Archived or not is the listing rule's answer (runtime/session-sources.ts listCategory):
+   * a background Session without `keptAt` is filed away too.
+   */
   archivedAt?: string | null;
+  /**
+   * The "keep in sidebar" mark, ISO: written when the user unarchives the Session, cleared when
+   * they archive it, never written by a run. It is what keeps a background Session (api /
+   * schedule / cli) listed among the conversations; NULL = the listing rule decides.
+   */
+  keptAt?: string | null;
   /**
    * Creating client: "web" (created via the Web App), "cli" (created through the API by
    * the CLI, or adopted from a Trace a legacy CLI-direct run left behind), "org" (opened by
    * the organization runtime — a desk or a ticket session — or spawned as a sub-session of
-   * one, which inherits the stamp at registration); NULL = legacy row from before the column
-   * existed, treated as web. Free text in SQLite, so a new value needs no migration.
+   * one, which inherits the stamp at registration), "api" (created by an Agent API run — the
+   * only rows the API may continue), "workbench" (created by the Workbench host); NULL = legacy row from before the column existed,
+   * treated as web. Free text in SQLite, so a new value needs no migration.
    * Provenance that outlives its organization: development mode's list is the one reader
    * that filters on it (through the list's `excludeOrg`), and it hides "org" rows whether or
    * not the organization still exists. The schedule/subagent SOURCE is deliberately NOT a row field — core
@@ -41,7 +57,7 @@ export interface SessionRow {
    * (runtime/session-sources.ts); `client` is a separate, DB-only axis that meta never
    * records.
    */
-  client?: "web" | "cli" | "org" | null;
+  client?: "web" | "cli" | "org" | "api" | "workbench" | null;
   /** Cache: a Trace record exists (set at task start / adoption / subagent registration; backfilled by list hydration). */
   hasTrace?: boolean;
   /**
@@ -54,6 +70,33 @@ export interface SessionRow {
    */
   lastActiveAt: string;
   createdAt: string;
+  /**
+   * The Session's own sandbox policy, snapshotted from the server's settings at creation.
+   * NULL = a row from before the column: it takes the settings at its next command.
+   */
+  sandbox?: SandboxSettings | null;
+}
+
+/** A stored policy, or null when the column is empty or holds something unreadable. */
+function parseSandbox(raw: unknown): SandboxSettings | null {
+  if (typeof raw !== "string" || raw === "") return null;
+  try {
+    const value = JSON.parse(raw) as Partial<SandboxSettings> | null;
+    const modes = ["read-only", "workspace-write", "danger-full-access"];
+    if (value === null || typeof value !== "object" || !modes.includes(value.mode as string)) {
+      return null;
+    }
+    return {
+      mode: value.mode as SandboxSettings["mode"],
+      ...(value.network === "none" || value.network === "local" ? { network: value.network } : {}),
+      ...(Array.isArray(value.maskPaths)
+        ? { maskPaths: value.maskPaths.filter((p): p is string => typeof p === "string") }
+        : {}),
+      ...(typeof value.writableTemp === "boolean" ? { writableTemp: value.writableTemp } : {}),
+    };
+  } catch {
+    return null;
+  }
 }
 
 function mapRow(r: Record<string, unknown>): SessionRow {
@@ -68,12 +111,14 @@ function mapRow(r: Record<string, unknown>): SessionRow {
     thinkingLevel: (r.thinking_level as ThinkingLevelName | null) ?? null,
     title: (r.title as string | null) ?? null,
     archivedAt: (r.archived_at as string | null) ?? null,
-    client: (r.client as "web" | "cli" | "org" | null) ?? null,
+    keptAt: (r.kept_at as string | null) ?? null,
+    client: (r.client as "web" | "cli" | "org" | "api" | "workbench" | null) ?? null,
     hasTrace: (r.has_trace as number) === 1,
     // The open-time backfill leaves no NULLs; the coalesce only hardens against a row
     // somehow inserted as NULL (degrades to createdAt instead of surfacing undefined).
     lastActiveAt: (r.last_active_at as string | null) ?? (r.created_at as string),
     createdAt: r.created_at as string,
+    sandbox: parseSandbox(r.sandbox),
   };
 }
 
@@ -130,8 +175,8 @@ export class SessionsRepo implements SessionIndex {
   private runInsert(verb: "INSERT" | "INSERT OR IGNORE", row: SessionRow): void {
     this.db
       .prepare(
-        `${verb} INTO sessions (session_id, project_id, agent_id, provider, model_id, workspace, approval_mode, title, client, has_trace, last_active_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, ?), ?)`,
+        `${verb} INTO sessions (session_id, project_id, agent_id, provider, model_id, workspace, approval_mode, title, client, has_trace, last_active_at, created_at, sandbox, thinking_level)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, ?), ?, ?, ?)`,
       )
       .run(
         row.sessionId,
@@ -147,6 +192,8 @@ export class SessionsRepo implements SessionIndex {
         row.lastActiveAt ?? null,
         row.createdAt,
         row.createdAt,
+        row.sandbox ? JSON.stringify(row.sandbox) : null,
+        row.thinkingLevel ?? null,
       );
   }
 
@@ -229,6 +276,13 @@ export class SessionsRepo implements SessionIndex {
       .run(mode, sessionId);
   }
 
+  /** Replace the Session's sandbox policy snapshot (applies from its next command). */
+  updateSandbox(sessionId: string, sandbox: SandboxSettings): void {
+    this.db
+      .prepare("UPDATE sessions SET sandbox = ? WHERE session_id = ?")
+      .run(JSON.stringify(sandbox), sessionId);
+  }
+
   /** Pin the session's thinking level (runs without one of their own then use it). */
   updateThinkingLevel(sessionId: string, level: ThinkingLevelName): void {
     this.db
@@ -238,6 +292,13 @@ export class SessionsRepo implements SessionIndex {
 
   updateTitle(sessionId: string, title: string): void {
     this.db.prepare("UPDATE sessions SET title = ? WHERE session_id = ?").run(title, sessionId);
+  }
+
+  /** The session's current model after an in-session switch (or a reconcile against its Trace). */
+  updateModel(sessionId: string, provider: string, modelId: string): void {
+    this.db
+      .prepare("UPDATE sessions SET provider = ?, model_id = ? WHERE session_id = ?")
+      .run(provider, modelId, sessionId);
   }
 
   /**
@@ -253,11 +314,24 @@ export class SessionsRepo implements SessionIndex {
       .run(title, sessionId);
   }
 
-  /** Archive / unarchive (archivedAt = ISO or NULL). */
-  setArchived(sessionId: string, archivedAt: string | null): void {
-    this.db
-      .prepare("UPDATE sessions SET archived_at = ? WHERE session_id = ?")
-      .run(archivedAt, sessionId);
+  /**
+   * Writes the user's listing decision on these Sessions: `archived` stamps `archived_at` and
+   * clears the keep mark, `kept` clears `archived_at` and stamps the keep mark — at most one of
+   * the two is ever set. Chunked like markOrgClient, since a batch names up to 500 ids.
+   */
+  setListing(sessionIds: readonly string[], listing: "archived" | "kept", at: string): void {
+    const set =
+      listing === "archived"
+        ? "archived_at = ?, kept_at = NULL"
+        : "archived_at = NULL, kept_at = ?";
+    for (let i = 0; i < sessionIds.length; i += 400) {
+      const chunk = sessionIds.slice(i, i + 400);
+      this.db
+        .prepare(
+          `UPDATE sessions SET ${set} WHERE session_id IN (${chunk.map(() => "?").join(", ")})`,
+        )
+        .run(at, ...chunk);
+    }
   }
 
   deleteByAgent(projectId: string, agentId: string): void {

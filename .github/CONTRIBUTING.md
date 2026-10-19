@@ -26,7 +26,7 @@ pnpm dev:landing # landing page (Vite) at 127.0.0.1:7366
 pnpm penguin ... # CLI from source; `penguin web` serves at 127.0.0.1:7369
 pnpm desktop     # desktop app from source (builds everything first, then Electron)
 
-BASE_PATH=/ pnpm build:site   # assemble landing + docs exactly like the Pages deploy
+BASE_PATH=/ pnpm build:site   # assemble landing + docs + gallery exactly like the Pages deploy
 ```
 
 Every dev command runs `scripts/dev-prebuild.mjs` first, which (behind a lock that
@@ -60,10 +60,14 @@ rebuild, delete `packages/web/node_modules/.vite` and restart.
 Plugins are the exception to the snapshot rule: in a workspace checkout core's loader reads
 the repo's `plugins/<name>/` directories directly, not pnpm's injected copies (plugins have
 no `build` script, so those copies would never re-sync), so an edit under `plugins/` — a new
-skill, a changed SKILL.md, a bumped `plugin.json` — is live in `pnpm dev` and in the test
-suites at once. Any content change under a plugin must bump its `plugin.json` date version
-(`YYYY.MM.DD.N`): that version is how installed copies learn they are behind, and CI fails a
-pull request whose plugin files changed without it (`scripts/check-plugin-versions.mjs`).
+skill, a changed SKILL.md, a changed `package.json` — is live in `pnpm dev` and in the test
+suites at once. A plugin's own version is its npm version (`package.json`, bumped by the
+release); the date versions (`YYYY.MM.DD.N`) sit on the parts an install writes into an Agent.
+Any change under `skills/<name>/` must raise that skill's `version` in its SKILL.md
+frontmatter, and any change to the hook scripts or the `penguin.hooks` commands must raise
+`penguin.hooks.version` in `package.json`: those versions are how installed copies learn they are
+behind, and CI fails a pull request that changed a part without raising it
+(`scripts/check-plugin-versions.mjs`).
 
 Dev entry points that touch data default to separate data roots, kept apart from the
 installed CLI/server's `~/.penguin/data` — hacking on the repo never mixes state with
@@ -86,8 +90,22 @@ step further: an unpackaged run takes a dev-suffixed app identity (`PenguinHarne
 with its own userData directory, single-instance lock, and sticky port, and defaults to
 `~/.penguin/dev-data` even when launched without the env var
 (`pnpm --dir packages/desktop start`) — so it runs side by side with an installed release
-build, with neither instance seeing the other. Every unpackaged launch prints which pair
+build, with neither instance seeing the other. Every dev-profile launch prints which pair
 it picked: `[shell] dev instance '<name>' on data root <root>`.
+
+That dev profile is a switch, not a property of being unpackaged: an installed release
+build launched with `--dev` (a second shortcut whose target ends in `--dev`, or
+`PenguinHarness.exe --dev`) takes the same dev identity and `~/.penguin/dev-data`, so one
+installation runs twice side by side — the release instance on your real data and a
+second one on a scratch root — without a checkout. It runs the release's own code, so it
+is a way to try the app against separate data, not a way to see uncommitted changes. A
+`--dev` instance does not update itself and does not repair the `penguin` command link;
+both belong to the one installation the two instances share, and the release instance
+does them. The profile also reaches other machines: the shell passes it to its server as
+`PENGUIN_PROFILE`, and the Machines page then works with the machine's installation for
+that profile — `~/.penguin-dev` on port 7371 for dev, beside the release one — so a dev
+instance never touches the release server someone is using there
+(`packages/server/src/machines/layout.ts`).
 
 Two one-time moves came with that split. A bare `pnpm --dir packages/desktop start` used
 to run on `~/.penguin/data` (the release/CLI root) and now runs on `~/.penguin/dev-data`,
@@ -112,11 +130,12 @@ single data directory (`~/.penguin/data`) and a single message protocol (OmniMes
 | [`packages/core`](../packages/core)       | `@prismshadow/penguin-core`   | SDK & engine: ReAct loop, OmniMessage protocol, LLM/Environment interface contracts, Agent State, Trace |
 | [`packages/cli`](../packages/cli)         | `@prismshadow/penguin-cli`    | The `penguin` command: REPL, one-shot runs, model & vault config, service launcher                      |
 | [`packages/server`](../packages/server)   | `@prismshadow/penguin-server` | Web backend: HTTP API + SSE streaming, multi-user auth, Project authorization, usage stats              |
+| [`packages/amsp`](../packages/amsp) | `@prismshadow/amsp` | AMSP, the Agent API's event stream: its wire types, which the server imports, and a zero-dependency client for Node and browsers |
 | [`packages/web`](../packages/web)         | `@prismshadow/penguin-web`    | Web App: multi-session chat, Agent/skill/model management, Trace observability, evaluation center       |
-| [`plugins/*`](../plugins) | `@penguinharness/<name>` | The built-in plugins, one npm package each: skills (software development, model development, agent development/tuning, …) and session hooks (goal mode, skill summaries); the loader lives in `packages/core` |
+| [`plugins/*`](../plugins) | `@penguinharness/<name>` | The built-in plugins, one npm package each (`plugins/<name>` is `@penguinharness/<name>`): Agent plugins — skills (software development, model development, agent development/tuning, …) and session hooks (goal mode, skill summaries) — which `packages/core` depends on and loads; and server plugins a Project asks for on the Plugins page (its `[plugins]` table), such as the sandbox backends |
 | [`packages/landing`](../packages/landing) | —                             | Product landing page (this repo's website)                                                              |
 | [`packages/docs`](../packages/docs)       | —                             | Documentation site (deployed under `/docs/`)                                                 |
-| [`plugins/*`](../plugins) | `@prismshadow/penguin-plugin-*` | Plugin packages a Project asks for on the Plugins page (its `[plugins]` table) — a directory of their own because nothing else in the harness depends on one                        |
+| [`packages/browser-extension`](../packages/browser-extension) | — | PenguinHarness Browser: the Chrome extension through which the server drives the tabs a user hands it (released as a zip) |
 
 Responsibilities split by source of truth: the **SDK** owns protocol and execution
 (message parsing, the agent loop, tools), the **Server** owns the multi-user runtime
@@ -126,7 +145,30 @@ is in [Architecture → Division of responsibilities](https://penguin.ooo/docs/a
 
 ## Quality gates
 
-CI runs all of these on every PR — run them locally before pushing:
+PRs and pushes to `main` use pnpm's dependency graph to select changed packages and
+their downstream consumers. CI builds their dependencies, then runs typechecks and tests.
+Browser and site suites run on Linux; affected native runtime packages also run on macOS
+and Windows, but only on a ready pull request (or a manual or release run): a push to `main`
+and a draft pull request run the ubuntu jobs only, and a change to docs, changelog entries or
+agent skills alone runs no CI. Changes to shared build scripts, the lockfile or unclassified inputs select
+the whole workspace. The plan job lists the selection and its reason.
+
+Core, server and web tests collect branch and line coverage during their Linux run; each
+shard uploads LCOV and JSON summaries. There is no arbitrary coverage threshold. Add
+behavioral regression tests for changed branches, including failures and forbidden side effects.
+
+The browser smoke suite runs against the real server and a local mock LLM on app changes,
+including fork PRs. It checks authentication, approval before command execution, reload
+recovery and follow-up messages. Packaging checks retain stamped version/plugin-index,
+installer and bundled-CLI regressions. Unpacked Electron artifacts are uploaded only on
+manual CI runs.
+
+New releases run the complete three-platform CI workflow against the release ref before
+any publishing job starts. Existing immutable releases can still retry their publishers
+and mirrors. A manual CI run defaults to full validation. Keep the aggregate `ci` job
+required in branch protection: it rejects failed, missing and unexpectedly skipped jobs.
+
+Use the package's narrow checks while developing; these commands run the complete local suites:
 
 ```bash
 pnpm format:check   # prettier
@@ -145,6 +187,7 @@ End-to-end suites (optional locally, slower):
 ```bash
 npx playwright install chromium                      # once
 pnpm --filter @prismshadow/penguin-web test:e2e      # browser e2e against a mock LLM
+pnpm --filter @prismshadow/penguin-web test:e2e smoke.spec.mjs project-switch.spec.mjs sticky-rows.spec.mjs  # what CI runs
 pnpm test:e2e                                        # core live-model e2e, needs DEEPSEEK_API_KEY
 ```
 
@@ -165,10 +208,11 @@ pnpm test:e2e                                        # core live-model e2e, need
   file added later never reaches the Release page. Without it the workflow falls back to
   GitHub's auto-generated notes.
 - **The official image is built from source**, by `.github/workflows/docker.yml`, and
-  pushed to Docker Hub `hiyouga/penguinharness` for `linux/amd64` and `linux/arm64`. Every
-  push to `main` publishes that commit as `latest`, the only tag a push moves; the release
-  workflow's `docker` job builds the tag's own source and publishes the exact version
-  `X.Y.Z`, nothing else. A PR touching the `Dockerfile`,
+  pushed to Docker Hub `hiyouga/penguinharness` for `linux/amd64` and `linux/arm64`. A push
+  to `main` that changes the image's runtime or build inputs publishes that commit as
+  `latest`, the only tag a push moves. Docs, site and desktop-only source changes leave
+  the image unchanged. The release workflow's `docker` job builds the tag's own source
+  and publishes the exact version `X.Y.Z`. A PR touching the `Dockerfile`, `.dockerignore`,
   `docker/` or that workflow runs the same file as an amd64 smoke build. The push
   needs the `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets of the `docker` GitHub Environment (whose URL is the Docker Hub repository) — the latter a
   Docker Hub access token with read/write scope on that repository — and the Docker Hub

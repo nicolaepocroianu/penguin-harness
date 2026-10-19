@@ -1057,6 +1057,241 @@ export const MIGRATIONS: readonly Migration[] = [
       db.exec("DROP TABLE IF EXISTS activity_outcome_recipes");
     },
   },
+  // 26-35 are upstream's 10-19 (Prism-Shadow/penguin-harness), which reused the numbers this
+  // fork's activity migrations had already shipped under. They run after the fork's own, each
+  // unchanged but for its number, and all of them are additive and idempotent, so a database
+  // the declarative track (schema.ts) already gave their tables and columns takes them as done.
+  {
+    version: 26,
+    name: "model-provider-auth-tokens",
+    // Additive: one new table, nothing existing touched. A predecessor build never reads it;
+    // the access token already written into .project_config.toml keeps working until it
+    // expires, so rollback only loses silent refresh state.
+    // KEEP until every supported upgrade starts from schema 10 or newer. The release that
+    // raises the minimum database baseline past 9 owns removing this migration block and its
+    // version-9 fixture; the table itself remains while provider token refresh uses it.
+    swapSafe: true,
+    up(db) {
+      // Frozen copy of the DDL as of the provider-auth-token feature; do not re-derive from
+      // schema.ts. IF NOT EXISTS because the declarative track may already have created it
+      // (ADOPTION).
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS model_provider_auth_tokens ( -- Server-side OAuth refresh metadata for provider groups. The current request token remains in .project_config.toml as api_key; this table holds only the refresh material that must never be returned to the frontend or written into Project files.
+          project_id              TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+          provider                TEXT NOT NULL,
+          refresh_token           TEXT NOT NULL,
+          access_token_expires_at TEXT,
+          updated_at              TEXT NOT NULL,
+          PRIMARY KEY (project_id, provider)
+        );
+      `);
+    },
+    // LOSES every stored refresh token and access-token expiry. Existing access tokens in
+    // Project files remain until they expire; users re-authorize to restore silent refresh.
+    down(db) {
+      db.exec("DROP TABLE IF EXISTS model_provider_auth_tokens");
+    },
+  },
+  {
+    version: 27,
+    name: "sessions-sandbox",
+    // The Session's own sandbox policy (JSON), snapshotted from the server's settings when
+    // the Session is created, so a later settings change leaves running Sessions alone.
+    // NULL = a row from before this column: it takes the settings in force at its next
+    // command and keeps them from then on. Swap-safe: a pushed platform boots against the
+    // runtime's already-open database, so the column has to arrive by a migration.
+    swapSafe: true,
+    up(db) {
+      ensureColumn(db, "sessions", "sandbox", "TEXT");
+    },
+    // Not a DROP: schema.ts declares the column, and dropping it would put every Session
+    // back under whatever the settings say.
+    down() {},
+  },
+  {
+    version: 28,
+    name: "machines-columns",
+    // A machines table can predate migration 4 — a data root that ran the machines line
+    // before it was released kept forwards, not sessions — and that migration's IF NOT
+    // EXISTS adopted it whatever its columns were, so the first connect failed on the row's
+    // insert. Adds what is missing, nullable; a platform rolled back to 4 declared these
+    // columns itself, so there is nothing for it to mind.
+    swapSafe: true,
+    up(db) {
+      ensureColumn(db, "machines", "session_pid", "INTEGER");
+      ensureColumn(db, "machines", "platform", "TEXT");
+    },
+    // Nothing to undo: what this added, 4 already declares, and a column it found in place
+    // was never this migration's to take away.
+    down() {},
+  },
+  {
+    version: 29,
+    name: "browser-extensions",
+    // Additive: one new table and its index. The Chrome backend's pairings — one row per
+    // PenguinHarness Browser extension a user paired, its token stored hashed. A predecessor
+    // build never reads the table, so a rollback survives it; the paired extensions then simply
+    // fail to connect until a build that knows them is back.
+    swapSafe: true,
+    up(db) {
+      // Frozen copy of the DDL as of the system-Chrome feature; do not re-derive from schema.ts.
+      // IF NOT EXISTS because the declarative track may already have created it (ADOPTION).
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS browser_extensions ( -- one row per Chrome paired to a user (builtin-browser/extension-pairing.ts): the PenguinHarness Browser extension's long-lived credential, stored only hashed; NOT rebuildable — a lost row means pairing that Chrome again
+          extension_id TEXT PRIMARY KEY,
+          user_id      TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+          token_hash   TEXT NOT NULL UNIQUE,
+          name         TEXT NOT NULL,
+          version      TEXT NOT NULL,
+          created_at   TEXT NOT NULL,
+          last_seen_at TEXT,
+          revoked_at   TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_browser_extensions_user ON browser_extensions(user_id);
+      `);
+    },
+    // LOSES every pairing: each user's Chrome has to be paired again (a new code from the
+    // Browser panel) before agents can drive it.
+    down(db) {
+      db.exec(`
+        DROP INDEX IF EXISTS idx_browser_extensions_user;
+        DROP TABLE IF EXISTS browser_extensions;
+      `);
+    },
+  },
+  {
+    version: 30,
+    name: "agent-api",
+    // Additive: two new tables and an index. The Agent API's per-Agent settings (the switch,
+    // keyless access, the approval mode API Sessions are created with) and its keys, stored
+    // hashed. A predecessor build never reads them and serves no /api/amsp route, so a
+    // rollback survives it: callers get 404 until a build that knows the tables is back.
+    swapSafe: true,
+    up(db) {
+      // Frozen copy of the DDL as of the Agent API feature; do not re-derive from schema.ts.
+      // IF NOT EXISTS because the declarative track may already have created them (ADOPTION).
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS agent_api (          -- per-Agent public API settings (amsp/routes.ts); NOT rebuildable from files
+          project_id    TEXT NOT NULL,
+          agent_id      TEXT NOT NULL,
+          enabled       INTEGER NOT NULL DEFAULT 0,
+          open          INTEGER NOT NULL DEFAULT 0,
+          approval_mode TEXT NOT NULL DEFAULT 'allow-all',
+          updated_at    TEXT NOT NULL,
+          PRIMARY KEY (project_id, agent_id)
+        );
+        CREATE TABLE IF NOT EXISTS agent_api_keys (     -- one row per key the API tab or the CLI minted; the caller alone holds the key
+          key_id       TEXT PRIMARY KEY,
+          project_id   TEXT NOT NULL,
+          agent_id     TEXT NOT NULL,
+          token_hash   TEXT NOT NULL UNIQUE,
+          prefix       TEXT NOT NULL,
+          name         TEXT NOT NULL,
+          created_by   TEXT NOT NULL REFERENCES users(user_id),
+          created_at   TEXT NOT NULL,
+          last_used_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_api_keys_agent ON agent_api_keys(project_id, agent_id);
+      `);
+    },
+    // LOSES every Agent's API settings and every key: each exposed Agent reads as disabled
+    // again (404 to its callers), and every caller needs a newly created key once it is back
+    // on — no file holds a copy of either.
+    down(db) {
+      db.exec(`
+        DROP INDEX IF EXISTS idx_agent_api_keys_agent;
+        DROP TABLE IF EXISTS agent_api_keys;
+        DROP TABLE IF EXISTS agent_api;
+      `);
+    },
+  },
+  {
+    version: 31,
+    name: "messaging-conversations",
+    // Additive: one new table. The WeChat connector's per-(bot, user) delivery state — the
+    // context token every send must echo, how many sends it has funded, and replies held for
+    // the user's next message. A predecessor build never reads it and keeps its tokens in
+    // memory as it always did, so a rollback survives it.
+    swapSafe: true,
+    up(db) {
+      // Frozen copy of the DDL as of the WeChat delivery fix; do not re-derive from schema.ts.
+      // IF NOT EXISTS because the declarative track may already have created it (ADOPTION).
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS messaging_conversations ( -- per-(bot, chat) delivery state a connector must keep across reconnects and restarts (WeChat: the context token, its send count, held replies); deleted once no messaging_bindings row references (channel, account_id) — see MessagingBindingsRepo
+          channel    TEXT NOT NULL,
+          account_id TEXT NOT NULL,
+          chat_id    TEXT NOT NULL,
+          state_json TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (channel, account_id, chat_id)
+        );
+      `);
+    },
+    // LOSES every stored context token and every held reply: replies sent before each user's
+    // next message are refused again, and what was held never arrives.
+    down(db) {
+      db.exec("DROP TABLE IF EXISTS messaging_conversations");
+    },
+  },
+  {
+    version: 32,
+    name: "sessions-kept-at",
+    // The "keep in sidebar" mark: written when the user unarchives a Session, cleared when they
+    // archive it. The listing rule files a background Session (api / schedule / cli) away unless
+    // it carries the mark, so existing rows are listed by the rule as they stand and nothing is
+    // rewritten. Swap-safe: a pushed platform boots against the runtime's already-open database,
+    // so the column has to arrive by a migration.
+    swapSafe: true,
+    up(db) {
+      ensureColumn(db, "sessions", "kept_at", "TEXT");
+    },
+    // Not a DROP: schema.ts declares the column, and dropping it would file every kept
+    // background Session away again.
+    down() {},
+  },
+  {
+    version: 33,
+    name: "agent-api-session-settings",
+    // Retain until the minimum supported database version exceeds 16; the maintainer raising
+    // that baseline removes this upgrade after all supported data roots have these columns.
+    // Nullable additions preserve existing keys, exposure, approvals and new-Session defaults.
+    swapSafe: true,
+    up(db) {
+      ensureColumn(db, "agent_api", "provider", "TEXT");
+      ensureColumn(db, "agent_api", "model_id", "TEXT");
+      ensureColumn(db, "agent_api", "thinking_level", "TEXT");
+      ensureColumn(db, "agent_api", "workspace", "TEXT");
+    },
+    // Keep the saved defaults on rollback; older builds ignore the additional columns.
+    down() {},
+  },
+  {
+    version: 34,
+    name: "agent-api-concurrency",
+    // Retain until the minimum supported database version exceeds 17. The maintainer raising
+    // that baseline removes this upgrade once every supported data root has the column.
+    swapSafe: true,
+    up(db) {
+      ensureColumn(db, "agent_api", "max_concurrent_runs", "INTEGER NOT NULL DEFAULT 4");
+    },
+    // Keep the configured limit on rollback; older builds ignore this column.
+    down() {},
+  },
+  {
+    version: 35,
+    name: "machines-adopted-at",
+    // When this server adopted a machine (first recorded it): the Sessions that machine held
+    // before then read as CLI tasks through this server (session-sources.ts sourceSeenBy). A
+    // machine recorded before this column has none and never gets one, so the rule does not apply
+    // to it (user decision, 2026-10-15) — nothing on either side is rewritten. Swap-safe: a pushed platform boots against the runtime's
+    // already-open database, so the column has to arrive by a migration.
+    swapSafe: true,
+    up(db) {
+      ensureColumn(db, "machines", "adopted_at", "TEXT");
+    },
+    // Keep the adoption times on rollback; older builds ignore the column.
+    down() {},
+  },
 ];
 
 /** The highest version this build knows how to reach. */

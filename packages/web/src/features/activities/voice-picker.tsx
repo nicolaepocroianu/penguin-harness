@@ -7,13 +7,17 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { VoiceOption } from "@prismshadow/penguin-server/api";
-import { Button } from "../../components/ui/button";
-import { Field, controlBase, menuRowClass } from "../../components/ui/field";
-import { CheckIcon, ChevronDown } from "../../components/ui/icons";
-import { Input, sizeClass } from "../../components/ui/input";
-import { rowDescClass } from "../../components/ui/option-menu";
-import { Select } from "../../components/ui/select";
-import { usePortalPanel } from "../../components/ui/use-portal-panel";
+import {
+  Button,
+  Field,
+  controlBase,
+  ChevronDown,
+  Input,
+  MenuItem,
+  sizeClass,
+  Select,
+  usePortalPanel,
+} from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import {
   NO_VOICE_FILTERS,
@@ -216,49 +220,36 @@ export function VoicePicker({
                 id={listId}
                 role="listbox"
                 aria-label={label}
+                // A row's focus previews its voice; the row names the voice it stands for.
+                onFocus={(event) => {
+                  const id = (event.target as HTMLElement).dataset.voiceId;
+                  if (id) highlight(id);
+                }}
                 className="-mx-2 min-h-0 flex-1 overflow-y-auto"
               >
-                {shown.map((option) => {
-                  const selected = option.id === value;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      role="option"
-                      aria-selected={selected}
-                      onClick={() => choose(option.id)}
-                      onFocus={() => highlight(option.id)}
-                      className={`block w-full ${menuRowClass} hover:bg-gray-100 dark:hover:bg-gray-800 ${
-                        selected ? "bg-gray-100 dark:bg-gray-800" : ""
-                      }`}
-                    >
-                      <span className="flex items-center justify-between gap-2">
-                        <span
-                          className={`text-xs ${
-                            selected
-                              ? "font-medium text-gray-900 dark:text-gray-100"
-                              : "text-gray-700 dark:text-gray-300"
-                          }`}
-                        >
-                          {option.label}
-                          {option.description ? ` · ${option.description}` : ""}
+                {shown.map((option) => (
+                  <MenuItem
+                    key={option.id}
+                    role="option"
+                    density="sm"
+                    checked={option.id === value}
+                    data-voice-id={option.id}
+                    onSelect={() => choose(option.id)}
+                    label={option.label + (option.description ? ` · ${option.description}` : "")}
+                    description={
+                      <>
+                        <span className="block">{words.id(option.id)}</span>
+                        <span className="block">
+                          {[
+                            ...voiceDetails(option),
+                            ...(option.languages.length ? [] : [words.allLanguages]),
+                          ].join(" · ")}
                         </span>
-                        {selected && <CheckIcon className="text-gray-500 dark:text-gray-400" />}
-                      </span>
-                      <span
-                        className={`mt-0.5 block ${rowDescClass.sm} text-gray-500 dark:text-gray-400`}
-                      >
-                        {words.id(option.id)}
-                      </span>
-                      <span className={`block ${rowDescClass.sm} text-gray-500 dark:text-gray-400`}>
-                        {[
-                          ...voiceDetails(option),
-                          ...(option.languages.length ? [] : [words.allLanguages]),
-                        ].join(" · ")}
-                      </span>
-                    </button>
-                  );
-                })}
+                      </>
+                    }
+                    className="w-full"
+                  />
+                ))}
               </div>
             ) : (
               <p className="text-xs text-gray-500 dark:text-gray-400">{words.noMatches}</p>

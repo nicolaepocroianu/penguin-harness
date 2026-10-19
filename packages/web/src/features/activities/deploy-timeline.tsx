@@ -1,7 +1,5 @@
 import type { DeployStage } from "@prismshadow/penguin-server/api";
-import { Button } from "../../components/ui/button";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { ICON_SIZE } from "../../lib/icon-scale";
+import { Button, GlyphIcon, ICON_SIZE, ICONS, Spinner } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneSurface } from "../../lib/tone";
 import type { DeployPhase, StageRow } from "./deploy-model";
@@ -100,7 +98,7 @@ export function StageList({
   label?: string;
 }) {
   return (
-    <ol aria-label={label} className="space-y-0.5">
+    <ol aria-label={label} className="space-y-1">
       {rows.map((row) => (
         <StageItem
           key={row.stage}
@@ -149,15 +147,11 @@ function StageItem({
       <div className="flex items-center gap-2">
         <span aria-hidden className={`flex shrink-0 ${toneInk[row.tone]}`}>
           {row.status === "done" ? (
-            <GlyphIcon size={ICON_SIZE.inlineGlyph} d="m5 12 4 4L19 6" />
+            <GlyphIcon size={ICON_SIZE.inlineGlyph} d={ICONS.check} />
           ) : row.status === "failed" ? (
-            <GlyphIcon size={ICON_SIZE.inlineGlyph} d="m7 7 10 10M17 7 7 17" />
+            <GlyphIcon size={ICON_SIZE.inlineGlyph} d={ICONS.cross} />
           ) : row.status === "running" ? (
-            <GlyphIcon
-              size={ICON_SIZE.inlineGlyph}
-              className="motion-safe:animate-spin"
-              d="M12 3a9 9 0 1 1-9 9"
-            />
+            <Spinner size="sm" label={words.statuses.running} />
           ) : (
             <span
               className={`m-1 size-1.5 rounded-full ${quiet ? NOT_RUN_MARK : toneDot[row.tone]}`}

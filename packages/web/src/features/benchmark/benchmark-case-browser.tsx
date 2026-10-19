@@ -17,10 +17,13 @@ import type {
   CaseMaterial,
   WorkspaceFileEntry,
 } from "@prismshadow/penguin-server/api";
+import { FileBrowser, Pill } from "@prismshadow/penguin-ui";
+import type { FileBrowserPreview, FileTreeRow, TreeToggle } from "@prismshadow/penguin-ui";
 import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { joinWorkspacePath } from "../../lib/file-path";
 import { formatBytes } from "../../lib/format";
+import { useReaderFind } from "../../lib/reader-find";
 import { S } from "../../lib/strings";
 import { useLocale } from "../../state/locale";
 import {
@@ -28,13 +31,10 @@ import {
   baseName,
   expandTo,
   parentDir,
+  previewKindOf,
   withExpanded,
 } from "../../lib/workspace-tree";
 import type { Listings } from "../../lib/workspace-tree";
-import type { FileTreeRow } from "../../lib/file-tree";
-import { FileBrowser, previewKindOf } from "../../components/ui/file-browser";
-import type { FileBrowserPreview } from "../../components/ui/file-browser";
-import type { TreeToggle } from "../../components/ui/file-tree";
 
 /** One row of the case tree: a shared tree row, which material it came from, and a file's size. */
 export interface CaseTreeRow extends FileTreeRow {
@@ -135,9 +135,16 @@ interface Props {
   projectId: string;
   benchmarkId: string;
   caseSummary: BenchmarkCaseSummary;
+  /**
+   * The machine whose disk holds this Case's files; null for this server. A Benchmark's Cases
+   * can be read off any machine that has them, and the listing this browser was opened from
+   * recorded which one — asking a different server for the same path is asking about a
+   * directory it may not have.
+   */
+  machineId: string | null;
 }
 
-export function BenchmarkCaseBrowser({ projectId, benchmarkId, caseSummary }: Props) {
+export function BenchmarkCaseBrowser({ projectId, benchmarkId, caseSummary, machineId }: Props) {
   const { locale } = useLocale();
   /** Listings by tree path; a missing key means "not fetched yet". */
   const [listings, setListings] = useState<Listings>(() => new Map());
@@ -160,8 +167,11 @@ export function BenchmarkCaseBrowser({ projectId, benchmarkId, caseSummary }: Pr
       filePath: string,
       options?: { download?: boolean; preview?: boolean },
     ) =>
-      api.benchmarkCaseFileUrl(projectId, benchmarkId, caseSummary.id, filePath, material, options),
-    [projectId, benchmarkId, caseSummary.id],
+      api.benchmarkCaseFileUrl(projectId, benchmarkId, caseSummary.id, filePath, material, {
+        ...options,
+        machineId,
+      }),
+    [projectId, benchmarkId, caseSummary.id, machineId],
   );
 
   /**
@@ -182,6 +192,7 @@ export function BenchmarkCaseBrowser({ projectId, benchmarkId, caseSummary }: Pr
           caseSummary.id,
           path,
           material,
+          machineId,
         );
         if (!current()) return null;
         setListings((m) => new Map(m).set(treePath, res.entries));
@@ -201,7 +212,7 @@ export function BenchmarkCaseBrowser({ projectId, benchmarkId, caseSummary }: Pr
         }
       }
     },
-    [projectId, benchmarkId, caseSummary.id],
+    [projectId, benchmarkId, caseSummary.id, machineId],
   );
 
   /** Opens a file in the preview pane: the text kinds are read, the rest are served by URL. */
@@ -254,7 +265,7 @@ export function BenchmarkCaseBrowser({ projectId, benchmarkId, caseSummary }: Pr
     // The request counters are deliberately not reset: a listing still in flight for the case
     // being left would otherwise match the new case's first request and land in its tree.
     readmeOpened.current = false;
-  }, [projectId, benchmarkId, caseSummary.id]);
+  }, [projectId, benchmarkId, caseSummary.id, machineId]);
 
   useEffect(() => {
     void loadDir("rubric");
@@ -317,20 +328,22 @@ export function BenchmarkCaseBrowser({ projectId, benchmarkId, caseSummary }: Pr
     return `${label} / ${path}`;
   };
 
+  const readerFind = useReaderFind();
+
   const rowTrailing = (row: CaseTreeRow): ReactNode => {
     // The rubric is what the case is scored against, and the tested agent never sees it: the
     // badge says so where the folder is, rather than in a note under the tree.
     if (row.depth === 0) {
       if (row.material !== "rubric") return null;
       return (
-        <span className="shrink-0 rounded bg-gray-200/70 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">
-          {S.benchmark.agentHidden}
+        <span className="shrink-0">
+          <Pill>{S.benchmark.agentHidden}</Pill>
         </span>
       );
     }
     if (row.kind !== "file") return null;
     return (
-      <span className="shrink-0 font-mono text-[11px] text-gray-400 dark:text-gray-500">
+      <span className="shrink-0 font-mono text-xs text-gray-400 dark:text-gray-500">
         {formatBytes(row.sizeBytes)}
       </span>
     );
@@ -338,8 +351,8 @@ export function BenchmarkCaseBrowser({ projectId, benchmarkId, caseSummary }: Pr
 
   // One fixed width per language, so opening or closing a folder never moves the preview beside
   // the tree. It is sized to the rubric folder's row, whose name shares the row with the
-  // hidden-from-agent badge: the English pair takes about 320px at the default 18px root and the
-  // Chinese pair about 230px. A longer file name is cut, and its row's tooltip holds the path.
+  // hidden-from-agent badge: the English pair takes about 370px at the default 18px root and the
+  // Chinese pair about 260px. A longer file name is cut, and its row's tooltip holds the path.
   return (
     <FileBrowser
       rows={caseTreeRows(materials, listings, expanded)}
@@ -354,8 +367,14 @@ export function BenchmarkCaseBrowser({ projectId, benchmarkId, caseSummary }: Pr
       headerPath={headerPath()}
       preview={preview}
       emptyPreview={S.benchmark.caseFileUnavailable}
+      emptyDirLabel={S.files.empty}
+      truncatedLabel={S.files.previewTruncated}
+      unsupportedLabel={S.files.previewUnsupported}
+      downloadLabel={S.files.download}
       resolveRef={resolveRef}
-      treeWidth={locale === "en" ? 330 : 240}
+      isFindKey={readerFind.isFindKey}
+      findShortcut={readerFind.findShortcut}
+      treeWidth={locale === "en" ? 380 : 270}
       treeMaxHeight={53}
       previewHeight={52}
       minHeight={58}

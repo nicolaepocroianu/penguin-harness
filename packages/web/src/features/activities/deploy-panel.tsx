@@ -12,9 +12,7 @@ import type {
   DeployRun,
   DeployStateResponse,
 } from "@prismshadow/penguin-server/api";
-import { Button } from "../../components/ui/button";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { SkeletonList } from "../../components/ui/skeleton";
+import { Button, InfoPopover, SkeletonList } from "@prismshadow/penguin-ui";
 import {
   TABLE,
   TABLE_HEAD_ROW,
@@ -241,7 +239,7 @@ export function DeployPanel({
   );
 
   return (
-    <section className="space-y-5" aria-labelledby="activity-deploy-title">
+    <section className="space-y-6" aria-labelledby="activity-deploy-title">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3
           id="activity-deploy-title"

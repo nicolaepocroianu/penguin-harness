@@ -6,11 +6,9 @@
  */
 import { useEffect, useState } from "react";
 import * as api from "../../api/endpoints";
-import { Badge } from "../../components/ui/badge";
-import { Switch } from "../../components/ui/switch";
+import { Badge, Switch, PrefRow } from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
-import { PrefRow } from "./setting-row";
 
 export function VideoExperimentRow() {
   /** The last value the server confirmed; null until the settings load. */
@@ -56,7 +54,7 @@ export function VideoExperimentRow() {
     // A failed write says why on the row's own line, under the label it went back on.
     <PrefRow label={S.settings.videoExperiment} info={S.settings.videoExperimentInfo} hint={error}>
       <div className="flex items-center gap-2">
-        <Badge tone="amber">{S.activities.video.experimental}</Badge>
+        <Badge tone="attention">{S.activities.video.experimental}</Badge>
         <Switch
           checked={on}
           onChange={(next) => void toggle(next)}

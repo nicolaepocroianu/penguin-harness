@@ -1,7 +1,7 @@
 /**
  * The account menu, shared by both avatars that open one: the pinned sidebar's user row and
  * the collapsed rail's avatar. One component rather than a copy per anchor — the rows
- * (System settings, the update entry, sign out) and the dialog behind the first of them must
+ * (Settings, App info, sign out) and the dialog behind the first of them must
  * stay the same menu from either side, and a second copy is how two menus drift apart.
  *
  * Only the trigger differs, so the trigger is the caller's: it is handed the menu's own open
@@ -18,15 +18,19 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
+import {
+  ConfirmModal,
+  Dropdown,
+  ICON_GAP,
+  Menu,
+  MenuItem,
+  UserAvatar,
+} from "@prismshadow/penguin-ui";
+import type { DropdownPortal } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
-import { ICON_GAP } from "../../lib/icon-scale";
 import { useAuth } from "../../state/auth";
-import { ConfirmModal } from "../ui/confirm-modal";
-import { Dropdown, menuItemClass } from "../ui/dropdown";
-import { UserAvatar } from "../ui/user-avatar";
-import type { DropdownPortal } from "../ui/dropdown";
-import { UpdateRow } from "../account/update-row";
-import { openUpdateModal } from "../../lib/use-update-flow";
+import { AppInfoRow } from "../account/app-info-row";
+import { openAppInfo } from "../../lib/use-update-flow";
 import { settingsDialog } from "../../lib/settings-dialog-store";
 
 export function UserMenu({
@@ -89,48 +93,46 @@ export function UserMenu({
               </div>
             </div>
           )}
-          {/* System settings dialog: everyone gets the row — the dialog always has the
+          {/* Settings dialog: everyone gets the row — the dialog always has the
               personal pages, and the server-global ones inside it stay gated by the
               section registry rather than by this row. The preference rows that used to
               stack here live on its pages now. */}
-          <button
-            type="button"
-            className={menuItemClass}
-            onClick={() => {
-              setOpen(false);
-              settingsDialog.getState().open();
-            }}
-          >
-            {S.settings.systemSettings}
-          </button>
-          {/* Update entry, directly under the settings entry rather than on a page inside
-              it: one row for both backends (the server release here, the shell's own
-              updater in the desktop window), naming where the update flow stands and
-              opening the update modal — where the flow is explained and acted on. The
-              modal is mounted by the app layout, so it outlives this menu. Hidden where
-              this session can update nothing (a browser signed into a desktop-mode
-              server, see updateModeFor). */}
-          <UpdateRow
-            menuItemClass={menuItemClass}
-            onOpen={() => {
-              setOpen(false);
-              openUpdateModal();
-            }}
-          />
-          {/* Hidden in desktop mode: the window IS the session — logging out would
-              strand the user on a login page whose password was never shown. */}
-          {!desktopMode && (
-            <button
-              type="button"
-              className="block w-full px-3.5 py-2 text-left text-sm text-red-600 transition-colors duration-150 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
-              onClick={() => {
+          <Menu>
+            <MenuItem
+              label={S.settings.title}
+              onSelect={() => {
                 setOpen(false);
-                setConfirmingLogout(true);
+                settingsDialog.getState().open();
               }}
-            >
-              {S.auth.logout}
-            </button>
-          )}
+            />
+            {/* App info entry: version, links, release notes, licences, and the update flow for
+                the sessions that can update — directly under the settings entry rather than on
+                a page inside it. One row for both backends (the server release here, the
+                shell's own updater in the desktop window); while the update flow moves or
+                waits, its status line says where it stands. It opens the App info dialog,
+                where the flow is explained and acted on; the dialog is mounted by the app
+                layout, so it outlives this menu. Shown to every session, including one that
+                can update nothing (a browser signed into a desktop-mode server, see
+                updateModeFor): the version, the notes and the licences are everyone's. */}
+            <AppInfoRow
+              onOpen={() => {
+                setOpen(false);
+                openAppInfo();
+              }}
+            />
+            {/* Hidden in desktop mode: the window IS the session — logging out would
+                strand the user on a login page whose password was never shown. */}
+            {!desktopMode && (
+              <MenuItem
+                danger
+                onSelect={() => {
+                  setOpen(false);
+                  setConfirmingLogout(true);
+                }}
+                label={S.auth.logout}
+              />
+            )}
+          </Menu>
         </div>
       </Dropdown>
       {/* Signing out is confirmed first: the row sits in a menu of harmless entries, and a
@@ -140,6 +142,7 @@ export function UserMenu({
         open={confirmingLogout}
         title={S.auth.logoutConfirmTitle}
         confirmLabel={S.auth.logout}
+        cancelLabel={S.common.cancel}
         onClose={() => setConfirmingLogout(false)}
         onConfirm={() => {
           setConfirmingLogout(false);

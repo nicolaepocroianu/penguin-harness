@@ -57,12 +57,15 @@ export function projectChatGPTCredentials(
         };
         const rows = (raw: Table): Table[] =>
           Array.isArray(raw.models) ? (raw.models as Table[]) : [];
+        // The protocol may sit on the group's table rather than the row (a Project's group
+        // tables hold a protocol every row shares), so the row is found by its reference; a
+        // row pinned to another protocol is not a subscription row.
         const find = (raw: Table) =>
           rows(raw).find(
             (m) =>
               m.provider === "chatgpt-codex" &&
               m.model_id === modelId &&
-              m.client_type === "chatgpt-codex",
+              (m.client_type === undefined || m.client_type === "chatgpt-codex"),
           );
         const initial = await read();
         const current = parseCredentials(find(initial)?.chatgpt_oauth);

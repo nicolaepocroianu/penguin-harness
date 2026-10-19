@@ -142,7 +142,7 @@ function standInConfiner(runner: string) {
   const calls: { argv: readonly string[]; opts: Parameters<SpawnConfiner>[1] }[] = [];
   const confiner: SpawnConfiner = (argv, opts) => {
     calls.push({ argv, opts });
-    return [process.execPath, runner, ...argv];
+    return { argv: [process.execPath, runner, ...argv] };
   };
   return { confiner, calls };
 }

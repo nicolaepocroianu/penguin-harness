@@ -8,11 +8,15 @@ import { useState } from "react";
 import { saveCodingAgent } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
-import { Button } from "../../components/ui/button";
-import { Field } from "../../components/ui/field";
-import { Input, Textarea } from "../../components/ui/input";
-import { Modal } from "../../components/ui/modal";
-import { toastError, toastSuccess } from "../../components/ui/toast";
+import {
+  Button,
+  Field,
+  Input,
+  Textarea,
+  Modal,
+  toastError,
+  toastSuccess,
+} from "@prismshadow/penguin-ui";
 
 export function AddAgentModal({
   open,

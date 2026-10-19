@@ -69,6 +69,21 @@ describe("pluginHostFrom", () => {
   it("falls back to an empty host when nothing was published", () => {
     expect(pluginHostFrom(new HotResources()).modules()).toEqual([]);
   });
+
+  it("reads a host of an older shape as no extensions, and one without replacements as having none", () => {
+    // The activate-era runtime published a different object under the same id.
+    const old = new HotResources();
+    old.register(PLUGINS_RESOURCE_ID, { activated: [], iface: {} });
+    expect(pluginHostFrom(old).modules()).toEqual([]);
+    expect(pluginHostFrom(old).replacements().size).toBe(0);
+    // A modules-only host (before replacements existed): its modules carry over.
+    const partial = new HotResources();
+    const m = backend("carried");
+    partial.register(PLUGINS_RESOURCE_ID, { modules: () => [m] });
+    const host = pluginHostFrom(partial);
+    expect(host.modules()).toEqual([m]);
+    expect(host.replacements().size).toBe(0);
+  });
 });
 
 describe("plugin modules on the real platform", () => {
@@ -110,7 +125,7 @@ describe("plugin modules on the real platform", () => {
     b.dispose();
   });
 
-  it("a contribution to a slot no module declares refuses the boot, naming it", async () => {
+  it("a contribution to a slot no module declares is dropped, and the tree boots", async () => {
     const stray: ModuleDef = {
       manifest: parseManifest({
         name: "ext-stray",
@@ -121,6 +136,8 @@ describe("plugin modules on the real platform", () => {
       }),
       create: () => ({ api: {} }),
     };
-    await expect(bootWith([stray])).rejects.toThrow(/contributes to 'nowhere.slot'/);
+    const inst = await bootWith([stray]);
+    expect(inst.api.info()).toMatchObject({ impl: "packaged" });
+    inst.dispose();
   });
 });

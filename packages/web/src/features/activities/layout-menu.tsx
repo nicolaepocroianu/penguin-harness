@@ -4,15 +4,20 @@
  * arrangement itself belongs to the workspace, which is handed the chosen layout to apply.
  */
 import { useEffect, useRef, useState } from "react";
-import { Button } from "../../components/ui/button";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { Dropdown, menuItemClass } from "../../components/ui/dropdown";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { CheckIcon } from "../../components/ui/icons";
-import { Input } from "../../components/ui/input";
-import { Modal } from "../../components/ui/modal";
-import { toastSuccess } from "../../components/ui/toast";
-import { ICON_SIZE } from "../../lib/icon-scale";
+import {
+  Button,
+  ConfirmModal,
+  Dropdown,
+  GlyphIcon,
+  Input,
+  Modal,
+  toastSuccess,
+  ICON_SIZE,
+  ICONS,
+  Menu,
+  MenuItem,
+  MenuSeparator,
+} from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import {
   BUILT_IN_PRESETS,
@@ -58,9 +63,6 @@ function errorText(error: PresetError): string {
   if (error === "tooLong") return words.tooLong;
   return words.empty;
 }
-
-/** Panes side by side: the rail's mark for arrangements of the workspace. */
-const LAYOUT_ICON = "M4 5h16v14H4z M10 5v14 M10 12h10";
 
 export function LayoutMenu({
   state,
@@ -179,7 +181,7 @@ export function LayoutMenu({
             type="button"
             aria-haspopup="menu"
             aria-expanded={open}
-            title={words.menu}
+            data-tooltip={words.menu}
             onClick={() => setOpen(!open)}
             className={`grid w-10 place-items-center gap-1 rounded-md py-1.5 sm:w-14 ${
               open
@@ -187,75 +189,49 @@ export function LayoutMenu({
                 : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
             }`}
           >
-            <GlyphIcon d={LAYOUT_ICON} size={ICON_SIZE.navRow} />
+            <GlyphIcon d={ICONS.panelLeft} size={ICON_SIZE.navRow} />
             <span className="text-xs leading-none max-sm:sr-only">{words.menu}</span>
           </button>
         }
       >
-        <div role="menu" aria-label={words.menu} className="max-h-[60vh] overflow-y-auto py-1">
+        <Menu label={words.menu} density="md" className="max-h-[60vh] overflow-y-auto py-1">
           {presets.map((preset, index) => (
-            <button
+            <MenuItem
               key={preset.id}
-              type="button"
-              role="menuitem"
-              onClick={() => {
+              label={presetName(preset)}
+              onSelect={() => {
                 setOpen(false);
                 onApply(preset);
               }}
-              className={`${menuItemClass} flex items-center gap-2`}
-            >
-              <span className="min-w-0 flex-1 truncate">{presetName(preset)}</span>
-              {preset.id === current && (
-                <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
-                  {words.current}
-                </span>
-              )}
-              {store.shortcuts && index < 9 && (
-                <kbd className="shrink-0 font-mono text-xs text-gray-400">
-                  {words.shortcutKey(index + 1)}
-                </kbd>
-              )}
-            </button>
+              trailing={
+                (preset.id === current || (store.shortcuts && index < 9)) && (
+                  <span className="flex items-center gap-2">
+                    {preset.id === current && <span>{words.current}</span>}
+                    {store.shortcuts && index < 9 && (
+                      <kbd className="font-mono">{words.shortcutKey(index + 1)}</kbd>
+                    )}
+                  </span>
+                )
+              }
+            />
           ))}
-          <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => startNaming({ mode: "save" })}
-            className={menuItemClass}
-          >
-            {words.saveAs}
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
+          <MenuSeparator />
+          <MenuItem label={words.saveAs} onSelect={() => startNaming({ mode: "save" })} />
+          <MenuItem
+            label={words.manage}
+            onSelect={() => {
               setOpen(false);
               setManaging(true);
             }}
-            className={menuItemClass}
-          >
-            {words.manage}
-          </button>
-          <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
-          <button
-            type="button"
-            role="menuitemcheckbox"
-            aria-checked={store.shortcuts}
-            onClick={() => change((current) => ({ ...current, shortcuts: !store.shortcuts }))}
-            className={`${menuItemClass} flex items-start gap-2`}
-          >
-            <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
-              {store.shortcuts && <CheckIcon />}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block">{words.shortcuts}</span>
-              <span className="block text-xs text-gray-500 dark:text-gray-400">
-                {words.shortcutsHint}
-              </span>
-            </span>
-          </button>
-        </div>
+          />
+          <MenuSeparator />
+          <MenuItem
+            label={words.shortcuts}
+            description={words.shortcutsHint}
+            checked={store.shortcuts}
+            onSelect={() => change((current) => ({ ...current, shortcuts: !store.shortcuts }))}
+          />
+        </Menu>
       </Dropdown>
       <Modal
         open={naming !== null}
@@ -352,6 +328,7 @@ export function LayoutMenu({
         )}
       </Modal>
       <ConfirmModal
+        cancelLabel={S.common.cancel}
         open={deleting !== null}
         title={words.deleteTitle}
         confirmLabel={words.delete}

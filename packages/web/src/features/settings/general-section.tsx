@@ -1,7 +1,7 @@
 /**
- * General page of System settings: per-account preferences that are neither appearance nor
+ * General page of the Settings dialog: per-account preferences that are neither appearance nor
  * credentials. Everything applies the moment it is touched — the stores persist each value
- * (language, currency and task-completion notifications per browser) — so the page carries
+ * (currency and task-completion notifications per browser) — so the page carries
  * no Save button and no draft state to lose.
  *
  * The notification row is the one that reaches outside the app: turning it on asks the
@@ -10,9 +10,8 @@
  * request answered rather than on what was clicked.
  */
 import { useState, useSyncExternalStore } from "react";
+import { PrefRow, Segmented, SettingsGroup, ToggleRow } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
-import { Segmented } from "../../components/ui/segmented";
-import { Switch } from "../../components/ui/switch";
 import {
   enableNotifications,
   notificationHintFor,
@@ -24,17 +23,13 @@ import {
 } from "../../lib/notification-pref";
 import type { NotificationAccess } from "../../lib/notification-pref";
 import { useCompany } from "../../state/company";
-import { useLocale } from "../../state/locale";
-import type { LangPref } from "../../state/locale";
 import { useTheme } from "../../state/theme";
 import type { Currency } from "../../state/theme";
-import { PrefRow } from "./setting-row";
 import { TraceImportRow } from "./trace-import-row";
 import { VideoExperimentRow } from "./video-experiment-row";
 import { useAuth } from "../../state/auth";
 
 export function GeneralSection() {
-  const { lang, setLang } = useLocale();
   const { currency, setCurrency } = useTheme();
   const { serverEnabled, personalEnabled, setPersonalEnabled } = useCompany();
   const { user } = useAuth();
@@ -47,10 +42,6 @@ export function GeneralSection() {
   const [access, setAccess] = useState<NotificationAccess>(notificationPermission);
   const [asked, setAsked] = useState(false);
 
-  const langOptions: ReadonlyArray<{ value: LangPref; label: string }> = [
-    { value: "en", label: S.settings.langEn },
-    { value: "system", label: S.settings.followSystem },
-  ];
   const currencyOptions: ReadonlyArray<{ value: Currency; label: string }> = [
     { value: "USD", label: S.models.currencyUsd },
     { value: "CNY", label: S.models.currencyCny },
@@ -67,50 +58,43 @@ export function GeneralSection() {
           : undefined;
 
   return (
-    <div className="divide-y divide-gray-100 dark:divide-gray-800/60">
-      <PrefRow label={S.settings.language} info={S.settings.languageInfo}>
-        <Segmented options={langOptions} value={lang} onChange={setLang} />
-      </PrefRow>
+    <SettingsGroup>
       <PrefRow label={S.models.currency} info={S.settings.currencyInfo}>
         <Segmented options={currencyOptions} value={currency} onChange={setCurrency} cols={2} />
       </PrefRow>
-      <PrefRow
+      <ToggleRow
         label={S.settings.notifications}
         hint={notificationHint}
         info={S.settings.notificationsInfo}
-      >
-        <Switch
-          checked={notificationsOn}
-          disabled={access === "unsupported"}
-          onChange={(on) => {
-            if (!on) {
-              writeNotificationsEnabled(false);
-              return;
-            }
-            // Only a granted request stores the preference, so anything else leaves the
-            // switch where it was and turns the hint on instead.
-            void enableNotifications().then((answer) => {
-              setAccess(answer);
-              setAsked(true);
-            });
-          }}
-        />
-      </PrefRow>
+        checked={notificationsOn}
+        disabled={access === "unsupported"}
+        onChange={(on) => {
+          if (!on) {
+            writeNotificationsEnabled(false);
+            return;
+          }
+          // Only a granted request stores the preference, so anything else leaves the
+          // switch where it was and turns the hint on instead.
+          void enableNotifications().then((answer) => {
+            setAccess(answer);
+            setAsked(true);
+          });
+        }}
+      />
       {/* The personal company-mode switch: off hides this user's mode switch and nothing else.
           Offered only while the server allows company mode at all — a switch that changes
           nothing would only invite the question of why. */}
       {serverEnabled && (
-        <PrefRow label={S.settings.companyModePersonal} info={S.settings.companyModePersonalInfo}>
-          <Switch
-            checked={personalEnabled}
-            onChange={setPersonalEnabled}
-            aria-label={S.settings.companyModePersonal}
-          />
-        </PrefRow>
+        <ToggleRow
+          label={S.settings.companyModePersonal}
+          info={S.settings.companyModePersonalInfo}
+          checked={personalEnabled}
+          onChange={setPersonalEnabled}
+        />
       )}
       {/* Server-wide, so an admin's alone; the API refuses anyone else whatever is drawn. */}
       {user?.isAdmin === true && <VideoExperimentRow />}
       <TraceImportRow />
-    </div>
+    </SettingsGroup>
   );
 }

@@ -16,19 +16,25 @@ import type { Resources, Opaque, ClassCtx, Json } from "@prismshadow/penguin-cor
 import path from "node:path";
 import { HttpError } from "../http/errors.js";
 import { spawnHelperHint } from "./spawn-helper.js";
+import { loadedNodePtyDir } from "./pty-module.js";
 import {
   TerminalSession,
   expandHomePath,
   type CreateTerminalSessionOptions,
+  type TerminalNotice,
   type TerminalSessionInfo,
 } from "./session.js";
 import { Interface, Bind, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
 import type { AppEnv } from "../auth/middleware.js";
 import type { Hono } from "hono";
-import { Hmr, ResourceGroups } from "../hmr/capabilities.js";
+import { Config, Hmr, ResourceGroups } from "../hmr/capabilities.js";
+import type { SessionEnv } from "../runtime/session-manager.js";
+import { shellStartupDir, type TerminalPathFirst } from "./shell-startup.js";
+import { shimNamesDataRoot, terminalCliNotice } from "./cli-notice.js";
 import { terminalRoutes } from "./routes.js";
 import { identityFrom } from "./identity.js";
 import type { Auth } from "../mechanisms/identity.js";
+import type { RemoteTerminals } from "../machines/terminal-relay.js";
 
 /** How long an exited session stays listable/attachable before it is disposed. */
 export const EXITED_SESSION_GRACE_MS = 5 * 60 * 1000;
@@ -56,6 +62,28 @@ export class TerminalManager {
       graceMs?: number;
       /** Where a pushed bundle's node-pty assets live (hmr.assetsDir); absent falls back to the packaged require. */
       assets?: () => string | null;
+      /**
+       * A pty this manager does not hold — served elsewhere and named in the id — asked
+       * after the local registry says no, so `get` answers for it in the shape the
+       * runtime's owner check reads.
+       */
+      beyond?: (id: string) => TerminalSession | undefined;
+      /**
+       * What leads each new shell's PATH once its startup files have run (the server's CLI
+       * shim directory, see shell-startup.ts); read per terminal. Absent or null: nothing.
+       */
+      pathFirst?: () => TerminalPathFirst | null;
+      /**
+       * The line each new terminal shows first (see cli-notice.ts); read per terminal, so it
+       * says what holds when that terminal opens. Absent or null: none.
+       */
+      notice?: () => TerminalNotice | null;
+      /**
+       * Whether new shells keep the server's PENGUIN_HOME / PENGUIN_WEB_DB because no shim
+       * names the data root for `penguin` (CreateTerminalSessionOptions.inheritDataRoot).
+       * Absent: false.
+       */
+      inheritDataRoot?: () => boolean;
     } = {},
   ) {}
 
@@ -99,12 +127,18 @@ export class TerminalManager {
     let seq = 1;
     while (usedSeqs.has(seq)) seq += 1;
 
+    const pathFirst = this.opts.pathFirst?.() ?? null;
+    const notice = this.opts.notice?.() ?? null;
+    const inheritDataRoot = this.opts.inheritDataRoot?.() ?? false;
     const options: CreateTerminalSessionOptions = {
       cwd,
       ownerUserId: request.ownerUserId,
       seq,
       name,
       ...(this.opts.assets !== undefined ? { assets: this.opts.assets } : {}),
+      ...(pathFirst !== null ? { pathFirst } : {}),
+      ...(notice !== null ? { notice } : {}),
+      ...(inheritDataRoot ? { inheritDataRoot } : {}),
       ...(request.cols !== undefined ? { cols: request.cols } : {}),
       ...(request.rows !== undefined ? { rows: request.rows } : {}),
       ...(request.shell !== undefined ? { shell: request.shell } : {}),
@@ -115,12 +149,14 @@ export class TerminalManager {
       session = new TerminalSession(options);
     } catch (err) {
       // A bare "posix_spawnp failed." says nothing; when the cause is node-pty's
-      // non-executable spawn-helper, name the file and the fix.
-      const hint = spawnHelperHint();
+      // non-executable spawn-helper, name the file and the fix. A node-pty that loads on
+      // nothing here already says so in a sentence of its own (pty-module.ts).
+      const hint = spawnHelperHint(loadedNodePtyDir());
+      const said = err instanceof Error ? err.message : String(err);
       throw new HttpError(
         500,
         "terminal_spawn_failed",
-        `Could not start a shell: ${err instanceof Error ? err.message : String(err)}` +
+        (said.startsWith("Terminals cannot start") ? said : `Could not start a shell: ${said}`) +
           (hint === null ? "" : ` (${hint})`),
       );
     }
@@ -205,7 +241,7 @@ export class TerminalManager {
   }
 
   get(id: string): TerminalSession | undefined {
-    return this.sessions.get(id);
+    return this.sessions.get(id) ?? this.opts.beyond?.(id);
   }
 
   list(userId: string): TerminalSession[] {
@@ -280,18 +316,19 @@ function resourceId(sessionId: string): string {
 export type Terminal = Opaque<"TerminalSession", TerminalSession>;
 
 /** Live ptys: the spawn primitive behind /api/terminals and the terminal WebSocket. */
-export abstract class Terminals extends Interface<{
-  create(request: CreateTerminalRequest): Promise<Terminal>;
-  adopt(ids: readonly string[]): void;
-  quiesce(): void;
-  handleIds(): string[];
-  require(id: string, userId: string): Terminal;
-  get(id: string): Terminal | undefined;
-  list(userId: string): Terminal[];
-  listInfo(userId: string): TerminalSessionInfo[];
-  kill(id: string, userId: string): void;
-  disposeAll(): void;
-}>() {}
+@Interface()
+export abstract class Terminals {
+  abstract create(request: CreateTerminalRequest): Promise<Terminal>;
+  abstract adopt(ids: readonly string[]): void;
+  abstract quiesce(): void;
+  abstract handleIds(): string[];
+  abstract require(id: string, userId: string): Terminal;
+  abstract get(id: string): Terminal | undefined;
+  abstract list(userId: string): Terminal[];
+  abstract listInfo(userId: string): TerminalSessionInfo[];
+  abstract kill(id: string, userId: string): void;
+  abstract disposeAll(): void;
+}
 
 /** The manager satisfies the contract; this keeps the two from drifting. */
 export type _Check = TerminalManager extends Terminals ? true : never;
@@ -316,14 +353,29 @@ export type _Check = TerminalManager extends Terminals ? true : never;
 })
 export class TerminalModule {
   @Use() private readonly hmr!: Hmr;
+  @Use() private readonly config!: Config;
+  /** The directories every Agent command finds first on PATH; a terminal gets the same. */
+  @Use() private readonly sessionEnv!: SessionEnv;
   @Use() private readonly resourceGroups!: ResourceGroups;
   @Use() private readonly auth!: Auth;
+  /** Answers `get` for a pty on a machine (machines/terminal-relay.ts). */
+  @Use() private readonly remote!: RemoteTerminals;
   @Provide() terminals!: Terminals;
   @Bind("TerminalModule.routes") routes!: ReturnType<typeof terminalRoutes>;
   setup({ resources, effect }: ClassCtx, context: Json) {
     const terminals = new TerminalManager(resources, {
       // A pushed bundle's node-pty binaries live where the host materialized them.
       assets: () => this.hmr.assetsDir() ?? null,
+      beyond: (id) => this.remote.get(id),
+      // `penguin` in a terminal is the one the Agent's commands get: this harness's own.
+      pathFirst: () => {
+        const dirs = this.sessionEnv.pathPrepend();
+        return dirs.length === 0 ? null : { dirs, startupDir: shellStartupDir(this.config.root) };
+      },
+      // And the terminal says which one that is on a development instance, or why it is not.
+      notice: () => terminalCliNotice(this.config, this.sessionEnv.pathPrepend()),
+      // The shell keeps the server's data root only where no shim names it for `penguin`.
+      inheritDataRoot: () => !shimNamesDataRoot(this.config, this.sessionEnv.pathPrepend()),
     });
     // Shells started before this App existed are still running in the registry: claim
     // them back so a push is invisible to whoever was typing in one — unless their group

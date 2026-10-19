@@ -1,25 +1,33 @@
 /**
- * tool-call-card.tsx preview helpers: previewArguments keeps the real arguments (what heads
- * the approval row), headerSubtitle surfaces the model-written `description` argument for
- * the command/subagent tools and the shortened file path for the file tools, and
- * pendingFilePayload decodes the file-tool arguments so a pending approval shows the actual
- * rewrite. All must tolerate incomplete mid-stream JSON; headerSubtitle additionally holds a
- * still-streaming field back until its closing quote so the header never jitters (#137).
- * isDetachedCall and showsBackgroundAction decide the background mark and the "move to
- * background" button from the same row's facts.
+ * A tool call card's preview helpers (features/chat/tool-call-card.tsx). All of them tolerate
+ * incomplete mid-stream JSON.
+ *
+ * - The approval row shows the real arguments: `$ <cmd>` for exec_command (its `command` alias
+ *   too, `cmd` winning), the shortened path for file tools and old image tools, and the raw
+ *   single line otherwise; a description argument never replaces the command.
+ * - A path is shortened to at most one parent directory plus the file name.
+ * - The header subtitle shows the model's description for command and subagent tools and the
+ *   file path for file tools, on one line, holding a still-streaming field back until it
+ *   closes (#137) and showing whatever is there once the arguments settle.
+ * - A file path the subtitle shortened keeps its whole form for the hover hint; a description,
+ *   or a path short enough to show whole, has none.
+ * - A pending file-tool approval decodes the rewrite, the content or the read window.
+ * - A call launched with the background flag is marked; one moved to the background later is
+ *   marked from the note its output carries.
+ * - "Move to background" is offered only while exec_command or run_subagent executes on a
+ *   main-session card past the delay, and never for a call already in the background.
  */
 import { describe, expect, it } from "vitest";
 import {
   headerSubtitle,
+  headerSubtitlePath,
   isBackgroundCall,
   isDetachedCall,
   pendingFilePayload,
   previewArguments,
   shortenPath,
   showsBackgroundAction,
-  BACKGROUND_ACTION_DELAY_MS,
 } from "../src/features/chat/tool-call-card";
-import { S } from "../src/lib/strings";
 
 describe("previewArguments", () => {
   it("renders exec_command as $ <cmd>", () => {
@@ -73,6 +81,25 @@ describe("shortenPath", () => {
     expect(shortenPath("packages/core/src/state/default-config.ts")).toBe(
       "…/state/default-config.ts",
     );
+  });
+});
+
+describe("headerSubtitlePath", () => {
+  it("gives the whole path behind a shortened file-tool subtitle", () => {
+    const args = '{"file_path":"packages/core/src/state/default-config.ts"}';
+    expect(headerSubtitle("read_file", args)).toBe("…/state/default-config.ts");
+    expect(headerSubtitlePath("read_file", args)).toBe("packages/core/src/state/default-config.ts");
+  });
+
+  it("gives nothing for a path shown whole, a description, or a path still streaming", () => {
+    expect(headerSubtitlePath("read_file", '{"file_path":"src/app.py"}')).toBeNull();
+    expect(
+      headerSubtitlePath("read_file", '{"description":"Check the config","file_path":"/a/b/c.ts"}'),
+    ).toBeNull();
+    expect(
+      headerSubtitlePath("exec_command", '{"cmd":"ls","description":"List files"}'),
+    ).toBeNull();
+    expect(headerSubtitlePath("read_file", '{"file_path":"/home/us', false)).toBeNull();
   });
 });
 
@@ -227,8 +254,7 @@ describe("showsBackgroundAction", () => {
   });
 
   it("waits for the delay: a call that returns sooner never flashes it", () => {
-    // Ten seconds, measured by useElapsedPast on the card; this function only reads its answer.
-    expect(BACKGROUND_ACTION_DELAY_MS).toBe(10_000);
+    // The delay is measured by useElapsedPast on the card; this function only reads its answer.
     expect(showsBackgroundAction("exec_command", EXEC, true, [], false)).toBe(false);
     expect(showsBackgroundAction("exec_command", EXEC, true, [], PAST)).toBe(true);
   });
@@ -261,14 +287,5 @@ describe("showsBackgroundAction", () => {
         PAST,
       ),
     ).toBe(false);
-  });
-});
-
-describe("the tool row's background marker", () => {
-  it("marks one call rather than a count of one", () => {
-    // The row marks a single call whose work went to the background; "1 background task"
-    // would be a count the row is not making, and would read as the conversation's total.
-    expect(S.chat.backgroundCall).not.toBe(S.chat.backgroundTasks(1));
-    expect(S.chat.backgroundCall).not.toMatch(/\d/);
   });
 });

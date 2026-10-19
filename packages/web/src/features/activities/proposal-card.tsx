@@ -5,8 +5,7 @@
  * accepted proposal is an ordinary draft change.
  */
 import { useMemo, useState } from "react";
-import { Button } from "../../components/ui/button";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
+import { Button, ConfirmModal } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneSurface } from "../../lib/tone";
 import {
@@ -235,6 +234,7 @@ export function ProposalCard({
       )}
       {discarding && onDiscard && (
         <ConfirmModal
+          cancelLabel={S.common.cancel}
           open
           tone="primary"
           title={words.title}

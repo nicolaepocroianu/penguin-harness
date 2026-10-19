@@ -14,15 +14,24 @@ import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
 import { toneInk } from "../../lib/tone";
-import { Button } from "../../components/ui/button";
-import { FieldError, FieldHint, FieldLabel } from "../../components/ui/field";
-import { Input } from "../../components/ui/input";
-import { toastError, toastInfo, toastSuccess } from "../../components/ui/toast";
+import {
+  Button,
+  FieldError,
+  FieldHint,
+  FieldLabel,
+  Input,
+  toastError,
+  toastInfo,
+  toastSuccess,
+  SettingsSection,
+  useSaving,
+  useUnsavedChanges,
+} from "@prismshadow/penguin-ui";
+import { SETTINGS_SCOPE } from "../../lib/unsaved/scopes";
 import { useProject } from "../../state/project";
 import { WorkspaceSelect } from "../chat/workspace-select";
 import { ActivityRunLimitRow } from "./activity-run-limit-row";
 import { ActivitySandboxRow } from "./activity-sandbox-row";
-import { SectionShell } from "./section-shell";
 import {
   WAF_REPO_ORDER,
   WAF_WORKSPACE_POLL_MS,
@@ -116,14 +125,24 @@ export function WafWorkspaceSection() {
       toastSuccess(S.common.saved);
       await load();
     } catch (e) {
-      if (e instanceof ApiError && e.code === "waf_workspace_invalid" && e.detail?.field)
-        setFieldError(e.detail.field);
+      if (e instanceof ApiError && e.code === "waf_workspace_invalid" && e.details?.field)
+        setFieldError(e.details.field);
       else toastError(apiErrorText(e));
     } finally {
       setBusy(false);
     }
   };
 
+  // The remotes and branches are a draft of the Settings dialog: a rail switch or a close with
+  // edits not saved asks first, and a request in flight holds the dialog open until it answers.
+  const dirty = settings !== null && wafWorkspaceUpdate(form, settings) !== null;
+  useUnsavedChanges(dirty, {
+    scope: SETTINGS_SCOPE,
+    discard: () => {
+      if (settings !== null) adopt(settings);
+    },
+  });
+  useSaving(busy, SETTINGS_SCOPE);
   const view = status === null ? null : wafWorkspaceView(status);
   const hydrated = settings !== null;
   const field = (path: string, label: string, hint?: string) => (
@@ -139,7 +158,7 @@ export function WafWorkspaceSection() {
     />
   );
   return (
-    <SectionShell
+    <SettingsSection
       actions={
         <>
           <Button
@@ -221,7 +240,7 @@ export function WafWorkspaceSection() {
               variant="form"
               fieldLabel={words.externalRoot}
               emptyLabel={words.externalRootPick}
-              menuHint={words.externalRootMenuHint}
+              clearable
               clearLabel={words.externalRootClear}
             />
             {fieldError === "externalRoot" ? (
@@ -232,6 +251,6 @@ export function WafWorkspaceSection() {
           </div>
         )}
       </fieldset>
-    </SectionShell>
+    </SettingsSection>
   );
 }

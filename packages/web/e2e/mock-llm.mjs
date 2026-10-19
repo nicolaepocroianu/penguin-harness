@@ -3,6 +3,8 @@
  * Branches on request body:
  *  - title request (prompt contains "concise title") -> short text
  *  - files-card probe ("files card test") -> text with two backtick paths (one real, one missing)
+ *  - "files rewrite test <cmd>" -> tool_use(exec_command) running <cmd>, then a short final text
+ *    (files-folders.spec: the Agent rewrites a file the Files panel has open)
  *  - subagent's own turns (its prompt is the only user text) -> tool_use(exec_command) first,
  *    then the report text once the tool_result is back — the tool call gives the child a real
  *    approval point (under always-ask it parks on a NESTED approval, which the subagents-panel
@@ -23,6 +25,8 @@
  *    every 200ms for ~8s (reload-midstream.spec reloads while its output streams)
  *  - "slow text test" -> a long text streamed one delta every 200ms for ~8s
  *    (reload-midstream.spec reloads while the TEXT streams)
+ *  - "sticky rows test" -> thinking + three tool_use(exec_command) printing long runs of numbers
+ *    (sticky-rows.spec scrolls an open output under the pinned group head and tool row)
  *  - last message has tool_result -> final text (turn 2)
  *  - otherwise (first user turn) -> thinking + text + tool_use(exec_command)
  */
@@ -107,7 +111,11 @@ const server = http.createServer((req, res) => {
     } catch {}
     const messages = json.messages || [];
     const flat = JSON.stringify(messages);
-    const isTitle = flat.includes("concise title");
+    // The title request is one out-of-band one-shot whose material is the run's own user text,
+    // so it is identified by the wording of core's title Prompt (buildTitlePrompt), not by the
+    // conversation content — probing for user text would let a title request read as a normal
+    // turn and hand the mock's answer back as the Session's title.
+    const isTitle = flat.includes("You are a title generator.");
     // After compaction the new context has only the summary left, so the message count drops
     // sharply -> reported usage drops along with it, letting compaction converge.
     const msgCount = messages.length;
@@ -116,8 +124,9 @@ const server = http.createServer((req, res) => {
     const isSubagentTurn = flat.includes(SUBAGENT_PROMPT) && !flat.includes("run a subagent");
     const wantsSubagent = flat.includes("run a subagent");
     // "Bad stream" test case: the first request streams half the tool_use arguments then cuts
-    // the connection (no message_stop), so AgentHub reports "stream incomplete" -> GenerativeModel
-    // resolves it as malformed. On reconnect the engine **resends the input verbatim** — in this
+    // the connection (no message_delta / message_stop), so MMSP fails those arguments with a
+    // ToolCallArgumentParseError when the stream ends -> GenerativeModel resolves it as
+    // malformed. On reconnect the engine **resends the input verbatim** — in this
     // scenario the failed attempt only has a half tool_call (never committed to the ledger), so
     // the retry request carries no [turn_retried] block and is byte-for-byte identical to the
     // first request; the mock can only tell them apart by request count (see the malformedTurns counter).
@@ -235,6 +244,17 @@ const server = http.createServer((req, res) => {
       return;
     }
 
+    // Find-bar fixture (find.spec): one settled reply whose body repeats a token nobody else in
+    // the app writes, so the hit count is exact without depending on the app's own copy.
+    if (flat.includes("find marker test")) {
+      block(res, 0, { type: "text", text: "" }, [
+        { type: "text_delta", text: "findmarker one, findmarker two, and findmarker three.\n\n" },
+        { type: "text_delta", text: "A second paragraph also says findmarker.\n" },
+      ]);
+      messageStop(res, "end_turn", 30);
+      return;
+    }
+
     // Files-card test case: the reply carries two backtick paths — demo.html was actually
     // written into the Workspace beforehand by the spec via files/content, while
     // missing-report.pdf doesn't exist; the card should only list the former. This branch
@@ -248,6 +268,29 @@ const server = http.createServer((req, res) => {
         },
       ]);
       messageStop(res, "end_turn", 18);
+      return;
+    }
+
+    // Files-panel rewrite test: the Agent rewrites a Workspace file while the panel has it open.
+    // Keyed on the LAST message, since the history keeps every earlier request of the
+    // conversation: the user's own text names the command, and its tool_result ends the turn.
+    const lastMessage = JSON.stringify(messages[messages.length - 1] ?? {});
+    const rewrite = /files rewrite test ([^"\\]+)/.exec(lastMessage);
+    if (rewrite) {
+      block(
+        res,
+        0,
+        { type: "tool_use", id: "toolu_files_rewrite", name: "exec_command", input: {} },
+        [{ type: "input_json_delta", partial_json: JSON.stringify({ cmd: rewrite[1].trim() }) }],
+      );
+      messageStop(res, "tool_use", 12);
+      return;
+    }
+    if (flat.includes("files rewrite test") && lastMessage.includes("tool_result")) {
+      block(res, 0, { type: "text", text: "" }, [
+        { type: "text_delta", text: "The file was rewritten." },
+      ]);
+      messageStop(res, "end_turn", 8);
       return;
     }
 
@@ -270,7 +313,7 @@ const server = http.createServer((req, res) => {
           delta: { type: "input_json_delta", partial_json: '{"cmd": "ec' },
         });
         sse(res, "content_block_stop", { type: "content_block_stop", index: 0 });
-        res.end(); // ends normally but is missing message_delta/message_stop -> AgentHub reports "stream incomplete"
+        res.end(); // ends normally but is missing message_delta/message_stop -> MMSP cannot parse the half-streamed arguments
         return;
       }
       // Retry (original input resent): return a complete tool_use, then proceed normally.
@@ -419,7 +462,7 @@ const server = http.createServer((req, res) => {
     }
 
     // Background process that EXITS on its own (processes.spec: the exited row keeps its
-    // "已退出" label and gains a remove button that deletes the entry from the list). The
+    // "exited" label and gains a remove button that deletes the entry from the list). The
     // command outlives the 300ms yield window — so it is promoted to background — and
     // exits ~200ms later, leaving an exited entry behind.
     if (flat.includes("background exit test") && !hasToolResult) {
@@ -461,6 +504,29 @@ const server = http.createServer((req, res) => {
         { type: "input_json_delta", partial_json: ' echo line $i; sleep 0.2; done"}' },
       ]);
       messageStop(res, "tool_use", 14);
+      return;
+    }
+
+    // Sticky-rows test case (sticky-rows.spec): one work group of a thinking step and three
+    // exec_command calls whose output is one long run of numbers, so every line of an open
+    // output block is full of text, edge to edge, while it scrolls under the pinned rows.
+    if (flat.includes("sticky rows test") && !hasToolResult) {
+      block(
+        res,
+        0,
+        { type: "thinking", thinking: "" },
+        [{ type: "thinking_delta", thinking: "Three commands will print the numbers." }],
+        { type: "signature_delta", signature: "sig_mock_sticky" },
+      );
+      for (let i = 1; i <= 3; i++) {
+        block(
+          res,
+          i,
+          { type: "tool_use", id: `toolu_sticky_${i}`, name: "exec_command", input: {} },
+          [{ type: "input_json_delta", partial_json: `{"cmd": "seq -s ' ' ${i} 4000"}` }],
+        );
+      }
+      messageStop(res, "tool_use", 40);
       return;
     }
 

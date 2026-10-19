@@ -5,10 +5,7 @@
  */
 import { useEffect, useState } from "react";
 import type { ActivityRunSummary, SceneCritique } from "@prismshadow/penguin-server/api";
-import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
-import { HelpFold } from "../../components/ui/help-fold";
-import { InfoPopover } from "../../components/ui/info-popover";
+import { Badge, Button, HelpFold, InfoPopover } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { useActivityClient } from "./activity-client";
@@ -84,7 +81,9 @@ export function SceneCritiqueView({
         {words.title}
         <InfoPopover label={words.title}>{words.info}</InfoPopover>
         {critique && (
-          <Badge tone={scoredWell ? "green" : "amber"}>{words.score(String(critique.score))}</Badge>
+          <Badge tone={scoredWell ? "success" : "attention"}>
+            {words.score(String(critique.score))}
+          </Badge>
         )}
       </h5>
       {critique && latest && madeBy(latest) && (
@@ -105,7 +104,7 @@ export function SceneCritiqueView({
           {critique.fixes.length ? (
             <div className="space-y-1">
               <p className="text-xs font-medium">{words.fixes}</p>
-              <ol className={`list-decimal space-y-0.5 pl-4 text-xs ${toneInk.attention}`}>
+              <ol className={`list-decimal space-y-1 pl-4 text-xs ${toneInk.attention}`}>
                 {critique.fixes.map((fix, index) => (
                   <li key={index}>{fix}</li>
                 ))}

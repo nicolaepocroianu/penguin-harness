@@ -5,11 +5,7 @@
  */
 import { useId, useState } from "react";
 import type { ImplementationFeature } from "@prismshadow/penguin-server/api";
-import { Badge } from "../../components/ui/badge";
-import { FieldLabel } from "../../components/ui/field";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { SkeletonList } from "../../components/ui/skeleton";
-import { Switch } from "../../components/ui/switch";
+import { Badge, FieldLabel, InfoPopover, SkeletonList, Switch } from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
@@ -36,7 +32,7 @@ function FeatureRow({
           <FieldLabel htmlFor={id} block={false}>
             {feature.label}
           </FieldLabel>
-          <Badge tone="gray">{feature.category}</Badge>
+          <Badge tone="neutral">{feature.category}</Badge>
         </div>
         <p className="text-xs text-gray-600 dark:text-gray-400">{feature.description}</p>
         <p className="text-xs text-gray-500">{words.source(feature.sourceModule)}</p>

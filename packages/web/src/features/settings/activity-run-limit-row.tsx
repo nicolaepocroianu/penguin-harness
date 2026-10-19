@@ -7,11 +7,10 @@
  */
 import { useEffect, useState } from "react";
 import * as api from "../../api/endpoints";
-import { Select } from "../../components/ui/select";
+import { Select, PrefRow } from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { runLimitChoices, runLimitOf, runLimitValue } from "./run-limit";
-import { PrefRow } from "./setting-row";
 
 export function ActivityRunLimitRow() {
   const words = S.settings.wafWorkspace;

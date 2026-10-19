@@ -1,5 +1,5 @@
 /**
- * Profile page of System settings: the avatar and nickname the account shows itself by.
+ * Profile page of Settings: the avatar and nickname the account shows itself by.
  *
  * Unlike the Account page beside it, this one exists in every session — the desktop shell's
  * own token window included, which for a desktop install is the only session there is. A
@@ -10,8 +10,12 @@
  * direct manipulation with nothing to review before committing, and one staged behind a button
  * is the kind of edit people set and then lose by closing the dialog. Typed text is the one
  * thing here that still needs an explicit commit, so the nickname keeps a Save — beside the
- * field, not under the page. Restore default is a write like any other on both rows, so the
- * two buttons next to one control never disagree about when they act.
+ * field, not under the page, live only while the trimmed text differs from the stored nickname.
+ * Leaving the page or the dialog with an unsaved nickname asks first (settings-dialog.tsx), and
+ * the dialog does not close while a nickname write is in flight. Restore default is a write like
+ * any other on both rows, so the two buttons next to one control never disagree about when they
+ * act. The avatar's asks first: it deletes the uploaded picture, which only a fresh upload brings
+ * back.
  *
  * Both control rows are rigid and the field is what gives: the buttons carry `shrink-0` and the
  * nickname field `min-w-0`, so a narrow dialog takes width from the field rather than from the
@@ -27,31 +31,43 @@
  */
 import { useState } from "react";
 import type { ChangeEvent } from "react";
-import type { UpdateProfileRequest } from "@prismshadow/penguin-server/api";
+import type { UpdateProfileRequest, UserInfo } from "@prismshadow/penguin-server/api";
+import {
+  Button,
+  ConfirmModal,
+  HiddenFileInput,
+  Input,
+  PrefRow,
+  SettingsGroup,
+  USER_AVATAR_SIZE,
+  UserAvatar,
+  buttonClass,
+  toastSuccess,
+  useFormDraft,
+  useSaving,
+} from "@prismshadow/penguin-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
-import { avatarDataUrlFromFile } from "../../lib/avatar-image";
+import {
+  avatarDataUrlFromImage,
+  loadAvatarImage,
+  releaseAvatarImage,
+} from "../../lib/avatar-image";
+import type { AvatarCrop } from "../../lib/avatar-image";
+import { AvatarCropDialog } from "../../components/ui/avatar-crop-dialog";
 import { profileControls } from "../../lib/profile-form";
+import { SETTINGS_SCOPE } from "../../lib/unsaved/scopes";
 import { useAuth } from "../../state/auth";
-import { Button, labelButtonClass } from "../../components/ui/button";
-import { HiddenFileInput } from "../../components/ui/hidden-file-input";
-import { Input } from "../../components/ui/input";
-import { UserAvatar, USER_AVATAR_SIZE } from "../../components/ui/user-avatar";
-import { toastSuccess } from "../../components/ui/toast";
-import { PrefRow } from "./setting-row";
 
 /** What the picker offers — the three formats the server stores, spelled the way `accept` wants. */
 const AVATAR_ACCEPT = "image/png,image/jpeg,image/webp";
 
-const CHANGE_AVATAR_CLASS = labelButtonClass("secondary", "sm");
+const CHANGE_AVATAR_CLASS = buttonClass("secondary", "sm");
 
 /**
- * The same control while a write is running. `Button`'s `disabled:` rules cannot help here — a
- * `<label>` takes no disabled state — and a `cursor-not-allowed` beside `labelButtonClass`'s
- * `cursor-pointer` would be decided by the order the stylesheet was generated in rather than by
- * this string. `pointer-events-none` has no counterpart to lose to, and it removes the hover
- * colour and the pointer cursor together; the input inside is `disabled`, so Tab skips it too.
+ * A label has no disabled state: ignore pointer input while its write runs, including hover
+ * styling. The input inside is disabled too, so Tab skips it.
  */
 const CHANGE_AVATAR_BUSY_CLASS = `${CHANGE_AVATAR_CLASS} pointer-events-none opacity-60`;
 
@@ -60,25 +76,32 @@ type PendingWrite = "avatar" | "nickname";
 
 export function ProfileSection() {
   const { user, setUserInfo } = useAuth();
-  /** The typed nickname; `undefined` means "not edited here", so the field shows what is stored. */
-  const [draftName, setDraftName] = useState<string | undefined>(undefined);
+  /** The typed nickname against the stored one; trimmed before comparing, as Save stores it. */
+  const nickname = useFormDraft(user?.displayName ?? "", {
+    scope: SETTINGS_SCOPE,
+    normalize: (value) => value.trim(),
+  });
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingWrite | null>(null);
+  // A nickname write (Save, or Restore default) holds the dialog's close until it answers; an
+  // avatar write is direct manipulation with no draft to lose, so it holds nothing.
+  useSaving(pending === "nickname", SETTINGS_SCOPE);
+  const [confirmAvatarReset, setConfirmAvatarReset] = useState(false);
 
   /**
    * One patch out, and the row that comes back becomes the auth state: the sidebar's user row,
    * the collapsed rail's trigger and the account menu's header all read it, so they change with
    * this call rather than on the next page load.
    */
-  const send = async (patch: UpdateProfileRequest): Promise<boolean> => {
+  const send = async (patch: UpdateProfileRequest): Promise<UserInfo | null> => {
     try {
       const res = await api.updateProfile(patch);
       setUserInfo(res.user);
       toastSuccess(S.common.saved);
-      return true;
+      return res.user;
     } catch (e) {
       setError(apiErrorText(e));
-      return false;
+      return null;
     }
   };
 
@@ -97,36 +120,54 @@ export function ProfileSection() {
     }
   };
 
+  /** The picked image, decoded and waiting for its crop to be chosen. */
+  const [cropping, setCropping] = useState<HTMLImageElement | null>(null);
+  const endCrop = (): void => {
+    if (cropping !== null) releaseAvatarImage(cropping);
+    setCropping(null);
+  };
+
   const onPickFile = (e: ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
     // Reset before reading so re-picking the same file fires change again.
     e.target.value = "";
     if (file === undefined) return;
-    // The encode runs inside the busy window as well as the request: it decodes the picked file
-    // and redraws it, which for a phone photograph is long enough to click twice through.
+    setError(null);
+    loadAvatarImage(file).then(setCropping, () => setError(S.profile.avatarUnreadable));
+  };
+
+  const onCropped = (crop: AvatarCrop): void => {
+    const image = cropping;
+    if (image === null) return;
+    // The encode runs inside the busy window as well as the request: it redraws the image,
+    // which for a phone photograph is long enough to click twice through.
     void run("avatar", async () => {
-      const dataUrl = await avatarDataUrlFromFile(file).catch(() => undefined);
-      if (dataUrl === undefined) {
-        setError(S.profile.avatarUnreadable);
-        return;
-      }
+      const dataUrl = avatarDataUrlFromImage(image, crop);
       if (dataUrl === null) {
         setError(S.profile.avatarTooLarge);
         return;
       }
       await send({ avatar: dataUrl });
-    });
+    }).finally(endCrop);
   };
 
   if (!user) return null;
-  const controls = profileControls(user, draftName ?? user.displayName ?? "");
+  const controls = profileControls(user, nickname.draft);
   const busy = pending !== null;
 
   return (
     <section>
-      <div className="divide-y divide-gray-100 dark:divide-gray-800/60">
+      <AvatarCropDialog
+        image={cropping}
+        busy={pending !== null}
+        onCancel={endCrop}
+        onConfirm={onCropped}
+      />
+      <SettingsGroup>
+        {/* The avatar's controls wrap, right-aligned, where a phone-width column cannot hold
+            them on one line: a button keeps its label whole and does not shrink. */}
         <PrefRow label={S.profile.avatar} info={S.profile.avatarInfo}>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <UserAvatar
               userId={user.userId}
               {...(user.displayName !== undefined ? { displayName: user.displayName } : {})}
@@ -146,24 +187,24 @@ export function ProfileSection() {
               className="shrink-0"
               aria-label={S.profile.restoreDefaultOf(S.profile.avatar)}
               disabled={busy || !controls.canRestoreAvatar}
-              onClick={() => void run("avatar", () => send({ avatar: null }))}
+              onClick={() => setConfirmAvatarReset(true)}
             >
               {S.profile.restoreDefault}
             </Button>
           </div>
         </PrefRow>
-        <PrefRow label={S.profile.displayName} hint={S.profile.displayNameHint}>
+        <PrefRow label={S.profile.displayName} info={S.profile.displayNameInfo}>
           <div className="flex items-center gap-2">
             <Input
               size="sm"
               className="w-48 min-w-0"
               maxLength={32}
-              value={draftName ?? user.displayName ?? ""}
+              value={nickname.draft}
               placeholder={S.profile.displayNamePlaceholder}
               disabled={busy}
               aria-label={S.profile.displayName}
               onChange={(e) => {
-                setDraftName(e.target.value);
+                nickname.setDraft(e.target.value);
                 setError(null);
               }}
             />
@@ -174,11 +215,10 @@ export function ProfileSection() {
               disabled={busy || !controls.canSaveNickname}
               onClick={() =>
                 void run("nickname", async () => {
-                  // Back to "not edited" only once it landed, so a failed save keeps the text
-                  // the user typed instead of snapping the field back to the stored value.
-                  if (await send({ displayName: controls.nicknameToStore })) {
-                    setDraftName(undefined);
-                  }
+                  // The stored value becomes the field's only once it landed, so a failed save
+                  // keeps the text the user typed instead of snapping back.
+                  const stored = await send({ displayName: controls.nicknameToStore });
+                  if (stored !== null) nickname.adopt(stored.displayName ?? "");
                 })
               }
             >
@@ -192,7 +232,8 @@ export function ProfileSection() {
               disabled={busy || !controls.canRestoreNickname}
               onClick={() =>
                 void run("nickname", async () => {
-                  if (await send({ displayName: null })) setDraftName(undefined);
+                  const stored = await send({ displayName: null });
+                  if (stored !== null) nickname.adopt(stored.displayName ?? "");
                 })
               }
             >
@@ -200,12 +241,25 @@ export function ProfileSection() {
             </Button>
           </div>
         </PrefRow>
-      </div>
+      </SettingsGroup>
       {/* Busy and failed, in the one place both rows can say it: a write here changes the
           sidebar as well as this page, so "it did not happen" has to be stated rather than
           left to the preview looking unchanged. */}
       {busy && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{S.common.saving}</p>}
       {error !== null && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
+      <ConfirmModal
+        open={confirmAvatarReset}
+        title={S.profile.restoreDefaultOf(S.profile.avatar)}
+        onClose={() => setConfirmAvatarReset(false)}
+        onConfirm={() => {
+          setConfirmAvatarReset(false);
+          void run("avatar", () => send({ avatar: null }));
+        }}
+        confirmLabel={S.profile.restoreDefault}
+        cancelLabel={S.common.cancel}
+      >
+        <p className="text-sm text-gray-600 dark:text-gray-300">{S.profile.avatarResetConfirm}</p>
+      </ConfirmModal>
     </section>
   );
 }

@@ -14,6 +14,12 @@
  * zip upload that takes such a package back (409 hook_exists asks before overwriting). Read,
  * import/export and uninstall are member-level, matching the hooks routes.
  *
+ * The import dialog is mounted only while it is open, so every opening starts with nothing
+ * typed. The source is its draft under the settings commit model: closing the dialog with one
+ * typed (Esc, the ×, a press outside) asks first, and nothing closes it while an upload is in
+ * flight. Opening the chat hands the source over, so the draft is forgotten before the page
+ * moves to the conversation.
+ *
  * The Agent-level switch card sits at the top (usePromptInjection, the Skills tab's slot):
  * `hooks.enabled` in system_config.yaml decides whether a new Session assembles any hooks at
  * all — the packages are never touched by it. It is the owner's, like the Vault and Schedules
@@ -22,32 +28,44 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { HookItem } from "@prismshadow/penguin-server/api";
+import {
+  Badge,
+  Button,
+  Card,
+  ConfirmModal,
+  CopiedStatus,
+  CopyCheckGlyph,
+  DownloadIcon,
+  GlyphIcon,
+  HelpFold,
+  HiddenFileInput,
+  ICONS,
+  Modal,
+  SettingsEmpty,
+  SkeletonList,
+  Textarea,
+  discardUnsaved,
+  toastError,
+  toastSuccess,
+  useCopied,
+  useFormDraft,
+  useGuardedClose,
+} from "@prismshadow/penguin-ui";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
 import { useLocale } from "../../state/locale";
 import { agentDisplayName, useProject } from "../../state/project";
-import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { CopiedStatus, CopyCheckGlyph, useCopied } from "../../components/ui/copy-button";
-import { SettingsEmpty } from "../../components/ui/empty-state";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { HelpFold } from "../../components/ui/help-fold";
-import { HiddenFileInput } from "../../components/ui/hidden-file-input";
-import { DownloadIcon, HOOK_ICON } from "../../components/ui/icons";
-import { Textarea } from "../../components/ui/input";
-import { Modal } from "../../components/ui/modal";
-import { SkeletonList } from "../../components/ui/skeleton";
-import { toastError, toastSuccess } from "../../components/ui/toast";
+import { useAgentLocation } from "../../lib/agent-location";
+import { useAgentsOn } from "../../lib/machine-agent-lists";
 import { localizedText } from "../chat/skill-use";
 import { SkillTile } from "../skills/skill-icon-view";
 import { useAiBridge } from "../ai-create";
 import { downloadArchive } from "./archive-download";
 import { buildHookImportPrompt } from "./hook-import";
 import { usePromptInjection } from "./prompt-injection-controls";
-import { TRASH_ICON, UPLOAD_LABEL_CLASS } from "./skills-tab";
+import { UPLOAD_LABEL_CLASS } from "./skills-tab";
 
 /** Zip pending an overwrite confirmation: the payload to resend with overwrite: true plus the package name for the confirm copy. */
 interface PendingOverwrite {
@@ -64,10 +82,12 @@ export function HooksTab({
   onConfigChanged?: () => void;
 }) {
   const { locale } = useLocale();
-  const { currentProject, agents, reloadAgents } = useProject();
-  const { openAiChat } = useAiBridge();
+  const { currentProject, reloadAgents } = useProject();
   const projectId = currentProject?.projectId ?? null;
   const isOwner = currentProject?.role === "owner";
+  /** The machine the Agent lives on (null: this server), and the Agents that server runs. */
+  const machineId = useAgentLocation();
+  const agents = useAgentsOn(machineId);
   // The Agent-level hook switch: owner-only, like the Vault and Schedules switches.
   const { applyConfig, toggleCard } = usePromptInjection({
     agentId,
@@ -83,13 +103,8 @@ export function HooksTab({
   const [busy, setBusy] = useState(false);
   // Package name pending uninstall confirmation (non-null shows the confirm modal).
   const [removing, setRemoving] = useState<string | null>(null);
-  // Import modal: the source for the chat-import prompt + upload state travel with the modal.
+  // The import dialog; what it holds (the source, the upload) lives in it, while it is open.
   const [importOpen, setImportOpen] = useState(false);
-  const [source, setSource] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  // Non-null shows the overwrite confirm (the archive POST answered 409 hook_exists).
-  const [overwriting, setOverwriting] = useState<PendingOverwrite | null>(null);
 
   const load = useCallback(async () => {
     if (!projectId || !agentId) return;
@@ -98,15 +113,15 @@ export function HooksTab({
     try {
       // The switch card's state loads in parallel with the tab's own list.
       const [res, configView] = await Promise.all([
-        api.getAgentHooks(projectId, agentId),
-        api.getAgentConfig(projectId, agentId),
+        api.getAgentHooks(projectId, agentId, machineId),
+        api.getAgentConfig(projectId, agentId, machineId),
       ]);
       setHooks(res.hooks);
       applyConfig(configView.config);
     } catch (e) {
       setError(apiErrorText(e));
     }
-  }, [projectId, agentId, applyConfig]);
+  }, [projectId, agentId, machineId, applyConfig]);
 
   useEffect(() => {
     void load();
@@ -120,7 +135,7 @@ export function HooksTab({
   const exportHook = async (name: string) => {
     if (!projectId) return;
     try {
-      await downloadArchive(api.agentHookArchiveUrl(projectId, agentId, name), name);
+      await downloadArchive(api.agentHookArchiveUrl(projectId, agentId, name, machineId), name);
     } catch (e) {
       toastError(apiErrorText(e));
     }
@@ -131,11 +146,11 @@ export function HooksTab({
     if (!projectId || removing === null) return;
     setBusy(true);
     try {
-      await api.uninstallAgentHook(projectId, agentId, removing);
+      await api.uninstallAgentHook(projectId, agentId, removing, machineId);
       toastSuccess(S.hooks.uninstalledToast(removing, agentName));
       await load();
       // The agent card's hook count (and its plugin-update marks) changed; refresh the list provider too.
-      void reloadAgents();
+      if (machineId === null) void reloadAgents();
     } catch (e) {
       toastError(apiErrorText(e));
     } finally {
@@ -144,35 +159,190 @@ export function HooksTab({
     }
   };
 
-  /** Open the import modal (reset the form and upload state). */
-  const openImport = () => {
-    setSource("");
-    setUploadError(null);
-    setOverwriting(null);
-    setImportOpen(true);
+  /** An upload landed: the dialog closes and the list is read again from disk. */
+  const imported = async () => {
+    setImportOpen(false);
+    toastSuccess(S.hooks.importDoneToast);
+    await load();
+    // The agent card's hook count changed; refresh the list provider too.
+    if (machineId === null) void reloadAgents();
   };
+
+  if (!projectId) return null;
+
+  return (
+    <div className="space-y-4">
+      {/* Tab-level description: no title in the panel to anchor a "?" to (see help-fold.tsx). */}
+      <HelpFold label={S.agent.tabHooks}>
+        {S.hooks.agentTabDesc}
+        {!isOwner && <span className="mt-1.5 block">{S.hooks.readOnlyHint}</span>}
+      </HelpFold>
+
+      {toggleCard}
+
+      {/* Import entry point at the head of the installed list, right-aligned — the Skills tab's
+          slot. It renders in every list state so the action never shifts. */}
+      <div className="flex justify-end">
+        <Button
+          size="sm"
+          variant="primary"
+          disabled={hooks === null}
+          onClick={() => setImportOpen(true)}
+        >
+          {S.hooks.importHook}
+        </Button>
+      </div>
+
+      {hooks === null ? (
+        <SkeletonList rows={3} />
+      ) : hooks.length === 0 ? (
+        <SettingsEmpty>{S.hooks.agentTabEmpty}</SettingsEmpty>
+      ) : (
+        <Card padding="none">
+          {hooks.map((hook) => {
+            const description = localizedText(locale, hook.description, hook.descriptionZh);
+            return (
+              <div
+                key={hook.name}
+                className="flex items-center gap-3 border-b border-gray-100 px-3 py-2.5 transition-colors duration-150 last:border-b-0 hover:bg-gray-50 dark:border-gray-800/60 dark:hover:bg-gray-800/40"
+              >
+                <SkillTile
+                  icon={hook.icon}
+                  name={hook.name}
+                  fallback={ICONS.fishHook}
+                  size={36}
+                  glyph={20}
+                />
+                <div className="min-w-0 flex-1">
+                  {/* Title row: the name with the hook points it answers at right beside it — bare
+                      point names, wrapping onto a second line rather than truncating. */}
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                    <span
+                      className="max-w-full truncate font-mono text-[length:var(--ui-text-code-size)] font-semibold"
+                      data-tooltip={hook.name}
+                      data-tooltip-content="code"
+                    >
+                      {hook.name}
+                    </span>
+                    {hook.events.map((event) => (
+                      <Badge key={event}>{event}</Badge>
+                    ))}
+                  </div>
+                  {/* Description truncates to one line (the full text goes into title for hover reading). */}
+                  <p
+                    className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400"
+                    data-tooltip={description}
+                    data-tooltip-content="text"
+                  >
+                    {description}
+                  </p>
+                </div>
+                {hook.version !== "" && (
+                  <span className="hidden shrink-0 text-xs text-gray-400 sm:block dark:text-gray-500">
+                    {hook.version}
+                  </span>
+                )}
+                {/* Icon-only row actions (the Skills tab's pair: neutral bordered icon for export,
+                    danger variant with red text/hover for delete); the tooltip + aria-label carry the wording. */}
+                <Button
+                  size="icon"
+                  title={S.hooks.exportHook}
+                  aria-label={`${S.hooks.exportHook} ${hook.name}`}
+                  disabled={busy}
+                  onClick={() => void exportHook(hook.name)}
+                >
+                  <DownloadIcon size={14} className="text-gray-600 dark:text-gray-300" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="danger"
+                  title={S.skills.uninstall}
+                  aria-label={`${S.skills.uninstall} ${hook.name}`}
+                  disabled={busy}
+                  onClick={() => setRemoving(hook.name)}
+                >
+                  <GlyphIcon d={ICONS.trash} size={14} />
+                </Button>
+              </div>
+            );
+          })}
+        </Card>
+      )}
+
+      {importOpen && (
+        <HookImportDialog
+          projectId={projectId}
+          agentId={agentId}
+          onClose={() => setImportOpen(false)}
+          onImported={() => void imported()}
+        />
+      )}
+
+      {/* Uninstall confirmation (shared ConfirmModal, the Skills tab's pattern). */}
+      <ConfirmModal
+        open={removing !== null}
+        title={removing !== null ? S.hooks.uninstallConfirmTitle(removing) : ""}
+        busy={busy}
+        onClose={() => setRemoving(null)}
+        onConfirm={() => void confirmRemove()}
+        confirmLabel={S.skills.uninstall}
+        cancelLabel={S.common.cancel}
+      >
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          {removing !== null ? S.hooks.uninstallConfirmBody(removing, agentName) : ""}
+        </p>
+      </ConfirmModal>
+
+      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * The "Import hook" dialog: the recommended chat import on top, the zip upload below (the Skills
+ * tab's shape). The source is the dialog's draft (compared without the spaces around it): closing
+ * with one typed asks first, and an upload in flight holds every way of closing until it answers.
+ */
+function HookImportDialog({
+  projectId,
+  agentId,
+  onClose,
+  onImported,
+}: {
+  projectId: string;
+  agentId: string;
+  onClose: () => void;
+  /** A zip landed: the tab closes the dialog and reads the list again. */
+  onImported: () => void;
+}) {
+  const { openAiChat } = useAiBridge();
+  const machineId = useAgentLocation();
+  const form = useFormDraft<string>("", { normalize: (text) => text.trim() });
+  const source = form.draft;
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  // Non-null shows the overwrite confirm (the archive POST answered 409 hook_exists).
+  const [overwriting, setOverwriting] = useState<PendingOverwrite | null>(null);
+  const requestClose = useGuardedClose(onClose, form.scope, { locked: uploading });
 
   /**
    * POST the zip to the archive endpoint. A 409 hook_exists pops the overwrite confirm (the
    * package name is read from the server's fixed message tail, pinned by the route tests;
-   * `fallbackName` — the picked file's stem — covers a parse miss). Success closes the modal
-   * and re-fetches the list.
+   * `fallbackName` — the picked file's stem — covers a parse miss). Success hands over to the
+   * tab, which closes the dialog and re-fetches the list.
    */
   const upload = async (dataBase64: string, fallbackName: string, overwrite: boolean) => {
-    if (!projectId) return;
     setUploading(true);
     setUploadError(null);
     try {
-      await api.installAgentHookArchive(projectId, agentId, {
-        dataBase64,
-        ...(overwrite ? { overwrite: true } : {}),
-      });
+      await api.installAgentHookArchive(
+        projectId,
+        agentId,
+        { dataBase64, ...(overwrite ? { overwrite: true } : {}) },
+        machineId,
+      );
       setOverwriting(null);
-      setImportOpen(false);
-      toastSuccess(S.hooks.importDoneToast);
-      await load();
-      // The agent card's hook count changed; refresh the list provider too.
-      void reloadAgents();
+      onImported();
     } catch (e) {
       if (e instanceof ApiError && e.status === 409 && e.code === "hook_exists") {
         const name = /:\s*([A-Za-z0-9_-]+)$/.exec(e.message)?.[1] ?? fallbackName;
@@ -204,10 +374,11 @@ export function HooksTab({
   // A URL / repo / path source gets an import lead sentence, free text is the lead itself (see
   // hook-import.ts); the preview substitutes a placeholder token until something is entered.
   const trimmedSource = source.trim();
-  const chatPrompt =
-    projectId !== null
-      ? buildHookImportPrompt(trimmedSource || S.hooks.importSourceToken, projectId, agentId)
-      : "";
+  const chatPrompt = buildHookImportPrompt(
+    trimmedSource || S.hooks.importSourceToken,
+    projectId,
+    agentId,
+  );
   // Copy feedback lives at the button (the shared copy convention): its glyph flips to the
   // check while copied — no toast, and the button label never changes.
   const promptCopy = useCopied();
@@ -215,125 +386,31 @@ export function HooksTab({
   /**
    * "Open a new chat" with this Agent: the AI bridge prefills the composer with the generated
    * import prompt (parking typed-but-unsent draft text first) and clears a stale handoff
-   * target and skill pre-selection along with it.
+   * target and skill pre-selection along with it. The source goes with the chat, so nothing
+   * typed is left to lose: it is forgotten first, or the leave guard would hold the move to
+   * the conversation.
    */
   const openChat = () => {
-    if (projectId === null || trimmedSource === "") return;
-    openAiChat({ agentId, text: buildHookImportPrompt(trimmedSource, projectId, agentId) });
-    setImportOpen(false);
+    if (trimmedSource === "") return;
+    discardUnsaved(form.scope);
+    openAiChat({
+      agentId,
+      text: buildHookImportPrompt(trimmedSource, projectId, agentId),
+      machineId,
+    });
+    onClose();
   };
 
-  if (!projectId) return null;
-
   return (
-    <div className="space-y-4">
-      {/* Tab-level description: no title in the panel to anchor a "?" to (see help-fold.tsx). */}
-      <HelpFold label={S.agent.tabHooks}>
-        {S.hooks.agentTabDesc}
-        {!isOwner && <span className="mt-1.5 block">{S.hooks.readOnlyHint}</span>}
-      </HelpFold>
-
-      {toggleCard}
-
-      {/* Import entry point at the head of the installed list, right-aligned — the Skills tab's
-          slot. It renders in every list state so the action never shifts. */}
-      <div className="flex justify-end">
-        <Button size="sm" variant="primary" disabled={hooks === null} onClick={openImport}>
-          {S.hooks.importHook}
-        </Button>
-      </div>
-
-      {hooks === null ? (
-        <SkeletonList rows={3} />
-      ) : hooks.length === 0 ? (
-        <SettingsEmpty>{S.hooks.agentTabEmpty}</SettingsEmpty>
-      ) : (
-        <div className="overflow-hidden rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-          {hooks.map((hook) => {
-            const description = localizedText(locale, hook.description, hook.descriptionZh);
-            return (
-              <div
-                key={hook.name}
-                className="flex items-center gap-3 border-b border-gray-100 px-3 py-2.5 transition-colors duration-150 last:border-b-0 hover:bg-gray-50 dark:border-gray-800/60 dark:hover:bg-gray-800/40"
-              >
-                <SkillTile
-                  icon={hook.icon}
-                  name={hook.name}
-                  fallback={HOOK_ICON}
-                  size={36}
-                  glyph={20}
-                />
-                <div className="min-w-0 flex-1">
-                  {/* Title row: the name with the hook points it answers at right beside it — bare
-                      point names, wrapping onto a second line rather than truncating. */}
-                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-                    <span
-                      className="max-w-full truncate font-mono text-[13px] font-semibold"
-                      title={hook.name}
-                    >
-                      {hook.name}
-                    </span>
-                    {hook.events.map((event) => (
-                      <Badge key={event}>{event}</Badge>
-                    ))}
-                  </div>
-                  {/* Description truncates to one line (the full text goes into title for hover reading). */}
-                  <p
-                    className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400"
-                    title={description}
-                  >
-                    {description}
-                  </p>
-                </div>
-                {hook.version !== "" && (
-                  <span
-                    className="hidden shrink-0 text-[11px] text-gray-400 sm:block dark:text-gray-500"
-                    title={hook.version}
-                  >
-                    {hook.version}
-                  </span>
-                )}
-                {/* Icon-only row actions (the Skills tab's pair: neutral bordered icon for export,
-                    danger variant with red text/hover for delete); the tooltip + aria-label carry the wording. */}
-                <Button
-                  size="icon"
-                  title={S.hooks.exportHook}
-                  aria-label={`${S.hooks.exportHook} ${hook.name}`}
-                  disabled={busy}
-                  onClick={() => void exportHook(hook.name)}
-                >
-                  <DownloadIcon size={14} className="text-gray-600 dark:text-gray-300" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="danger"
-                  title={S.skills.uninstall}
-                  aria-label={`${S.skills.uninstall} ${hook.name}`}
-                  disabled={busy}
-                  onClick={() => setRemoving(hook.name)}
-                >
-                  <GlyphIcon d={TRASH_ICON} size={14} />
-                </Button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Import modal: recommended chat import on top, zip upload below (the Skills tab's shape). */}
-      <Modal
-        open={importOpen}
-        title={S.hooks.importHook}
-        onClose={() => setImportOpen(false)}
-        widthClass="sm:max-w-lg"
-      >
+    <>
+      <Modal open title={S.hooks.importHook} onClose={requestClose} widthClass="sm:max-w-lg">
         <div className="space-y-4">
           <section>
             <p className="text-sm font-medium">{S.hooks.importChatTitle}</p>
             <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
               {S.hooks.importChatWhy}
             </p>
-            <div className="mt-2.5 space-y-2.5">
+            <div className="mt-2.5 space-y-3">
               {/* A source may be a whole pasted hooks config block, so the field is multi-line. */}
               <Textarea
                 label={S.hooks.importSourceLabel}
@@ -341,7 +418,7 @@ export function HooksTab({
                 size="sm"
                 rows={3}
                 value={source}
-                onChange={(e) => setSource(e.target.value)}
+                onChange={(e) => form.setDraft(e.target.value)}
                 placeholder={S.hooks.importSourcePlaceholder}
               />
               <Textarea
@@ -398,7 +475,9 @@ export function HooksTab({
       <ConfirmModal
         open={overwriting !== null}
         title={S.hooks.importOverwriteTitle}
+        tone="primary"
         confirmLabel={S.hooks.importOverwriteAction}
+        cancelLabel={S.common.cancel}
         busy={uploading}
         onClose={() => setOverwriting(null)}
         onConfirm={() => {
@@ -409,21 +488,6 @@ export function HooksTab({
           {overwriting !== null ? S.hooks.importOverwriteBody(overwriting.name) : ""}
         </p>
       </ConfirmModal>
-
-      {/* Uninstall confirmation (shared ConfirmModal, the Skills tab's pattern). */}
-      <ConfirmModal
-        open={removing !== null}
-        title={removing !== null ? S.hooks.uninstallConfirmTitle(removing) : ""}
-        busy={busy}
-        onClose={() => setRemoving(null)}
-        onConfirm={() => void confirmRemove()}
-      >
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          {removing !== null ? S.hooks.uninstallConfirmBody(removing, agentName) : ""}
-        </p>
-      </ConfirmModal>
-
-      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
-    </div>
+    </>
   );
 }

@@ -1,31 +1,78 @@
 /**
- * Plugin detail Modal — opened by clicking a library card (the model library's card-detail
- * pattern): the plugin's icon, full description, metadata line and hook points, then the
- * shared read-only file browser over everything the plugin ships — one directory per skill
- * and one for the hook package, any number open at once, and a preview on the right. The
- * header and the tree never leave: opening a file fills the preview pane instead of replacing
- * the view, so the summary and the other files stay in sight while reading. The files arrive
- * in one request (GET /api/plugins/:plugin/files) when the Modal opens, so the whole tree is
- * on hand at once and nothing here is fetched per directory.
+ * A plugin's detail dialog — every plugin's, opened by clicking its card (the model library's
+ * card-detail pattern); there is no detail page. Its title is the card's (the package's display
+ * name, else the plugin's name), and a display name has the package name beneath it. The header
+ * names what the card names (icon, version, category, status, "built in", the package specifier
+ * of a server module), then what the package says of itself — author · license and links to its
+ * homepage and repository — where it says any of it. Below it, in ruled sections:
+ *
+ * - **About**: the full description (the "no description" placeholder in muted ink when the
+ *   package carries none), and the package's own README.md where it ships one (every server
+ *   module does), in the Markdown reader with its outline and its find. The README is read from
+ *   the package on this server, never fetched from npm: a package this server does not have says
+ *   so instead.
+ * - **MCP servers**, for a plugin that carries any (plugin-mcp.tsx): one row per server — its
+ *   name, transport and target, and marks for the vault keys it needs, the sign-in it needs and,
+ *   for a stdio server, the command it runs on this server.
+ * - **Files**, for a plugin of Skills, hooks or workbenches: the shared read-only file browser
+ *   over everything an install writes — one directory per skill and one for the hook package,
+ *   any number open at once, a preview on the right (the first SKILL.md opens on arrival). The
+ *   files arrive in one request (GET /api/plugins/:plugin/files), so nothing is fetched per
+ *   directory. A plugin of MCP servers alone has no files to browse, and no such section.
+ *
+ * A plugin that is both shows About, then Files. The footer holds the card's own actions.
  */
-import { useEffect, useState } from "react";
-import { Modal } from "../../components/ui/modal";
-import { Badge } from "../../components/ui/badge";
-import { FileBrowser } from "../../components/ui/file-browser";
-import type { FileBrowserPreview } from "../../components/ui/file-browser";
-import type { TreeToggle } from "../../components/ui/file-tree";
-import type { FileTreeRow } from "../../lib/file-tree";
-import { PLUGIN_ICON } from "../../components/ui/icons";
+import { Fragment, useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import {
+  Badge,
+  CopyButton,
+  FileBrowser,
+  GlyphIcon,
+  ICONS,
+  ICON_SIZE,
+  MarkdownReader,
+  Modal,
+  ReaderFindBar,
+  ReaderTools,
+  RuledSection,
+  Skeleton,
+  useMarkdownReader,
+} from "@prismshadow/penguin-ui";
+import type {
+  FileBrowserPreview,
+  FileTreeRow,
+  MarkdownReaderState,
+  TreeToggle,
+} from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
+import { linkSegments } from "../../lib/link-segments";
 import { apiErrorText } from "../../lib/api-error";
 import { baseName } from "../../lib/workspace-tree";
+import { useReaderFind } from "../../lib/reader-find";
 import { useLocale } from "../../state/locale";
-import { getPluginFiles } from "../../api/endpoints";
-import type { PluginItem } from "@prismshadow/penguin-server/api";
+import { getLibraryPluginReadme, getPluginFiles, getPluginReadme } from "../../api/endpoints";
+import { ApiError } from "../../api/client";
 import { SkillTile } from "../skills/skill-icon-view";
-import { localizedText } from "../chat/skill-use";
+import type { PluginItem } from "@prismshadow/penguin-server/api";
+import { PluginMcpSection } from "./plugin-mcp";
+import type { ModulePart, PluginRow } from "./plugin-groups";
+import type { PluginStatus } from "./plugin-status";
+import {
+  PluginTag,
+  StatusMark,
+  rowBuiltin,
+  rowDetails,
+  rowInstalledOnServer,
+  rowDescription,
+  rowHasDescription,
+  rowIcon,
+  rowTitle,
+  rowVersion,
+  type PluginDetails,
+} from "./plugin-marks";
 
-/** One collapsible group of the tree: a skill's directory, or the hook package's scripts. */
+/** One collapsible group of installable files. */
 interface FileGroup {
   id: string;
   label: string;
@@ -47,8 +94,8 @@ function filePreview(path: string, text: string): FileBrowserPreview {
 
 /**
  * The tree's groups, from the response's keys: `skills/<name>/…` files under their skill (in
- * the plugin's skill order), `hooks/…` scripts in one group at the end. SKILL.md leads its
- * group; every other file follows in path order.
+ * the plugin's skill order), then hooks and workbenches. SKILL.md leads a Skill group;
+ * a workbench's package.json leads its source files.
  */
 export function groupPluginFiles(
   paths: readonly string[],
@@ -56,6 +103,7 @@ export function groupPluginFiles(
   hooksLabel: string,
 ): FileGroup[] {
   const bySkill = new Map<string, string[]>();
+  const byWorkbench = new Map<string, string[]>();
   const hooks: string[] = [];
   for (const path of [...paths].sort()) {
     const skill = /^skills\/([^/]+)\//.exec(path)?.[1];
@@ -65,6 +113,13 @@ export function groupPluginFiles(
       bySkill.set(skill, list);
     } else if (path.startsWith("hooks/")) {
       hooks.push(path);
+    } else {
+      const workbench = /^workbenches\/([^/]+)\//.exec(path)?.[1];
+      if (workbench !== undefined) {
+        const list = byWorkbench.get(workbench) ?? [];
+        list.push(path);
+        byWorkbench.set(workbench, list);
+      }
     }
   }
   const leadWithSkillMd = (skill: string, list: string[]): string[] => {
@@ -79,6 +134,15 @@ export function groupPluginFiles(
       groups.push({ id: `skills/${skill}`, label: skill, paths: leadWithSkillMd(skill, list) });
   }
   if (hooks.length > 0) groups.push({ id: "hooks", label: hooksLabel, paths: hooks });
+  for (const [name, paths] of byWorkbench) {
+    const id = `workbenches/${name}`;
+    const manifest = `${id}/package.json`;
+    groups.push({
+      id,
+      label: id,
+      paths: paths.includes(manifest) ? [manifest, ...paths.filter((p) => p !== manifest)] : paths,
+    });
+  }
   return groups;
 }
 
@@ -144,17 +208,402 @@ export function pluginTreeRows(
   return rows;
 }
 
+/** What the About section shows under the description. */
+export type ReadmeState =
+  | { kind: "loading" }
+  | { kind: "text"; text: string }
+  /** The package is not on this server, so there is no README here to read. */
+  | { kind: "after-install" }
+  | { kind: "none" };
+
+/**
+ * Whether a server module's package is on this server, where its README can be read: shipped
+ * with the build, or listed here and loaded — or tried and failed, which still means installed.
+ */
+export function moduleOnThisServer(part: ModulePart): boolean {
+  return (
+    part.shipped ||
+    part.state === "active" ||
+    part.state === "pending" ||
+    part.state === "failed" ||
+    part.state === "disabled"
+  );
+}
+
+/** Whether a row installs files into an Agent: Skills, or a hook package. */
+export function rowHasFiles(row: PluginRow): boolean {
+  return (
+    (row.library?.skills.length ?? 0) > 0 ||
+    (row.library?.hooks.length ?? 0) > 0 ||
+    (row.library?.workbenches?.length ?? 0) > 0
+  );
+}
+
+/** What the header says beside the icon, besides what the dialog's title already names. */
+export interface PluginDetailHead {
+  status: PluginStatus;
+  /** The status's hover sentence. */
+  statusHint: string;
+  categoryTitle: string;
+  /** How many Agents use its Skills and hooks; null for a server module alone. */
+  usedBy: number | null;
+}
+
+/**
+ * The dialog's content under its title: the header, About (the description and the README,
+ * or why there is none here), and Files — `files`, the browser — for a plugin that installs
+ * any. Rendered without the Modal, so it reads the same wherever it is drawn.
+ */
+export function PluginDetailSections({
+  row,
+  head,
+  readme,
+  files,
+  locale,
+}: {
+  row: PluginRow;
+  head: PluginDetailHead;
+  readme: ReadmeState;
+  files: ReactNode;
+  locale: "zh" | "en";
+}) {
+  const version = rowVersion(row);
+  // The README's reader: its outline and find buttons sit in the section's title row.
+  const readmeReader = useMarkdownReader(useReaderFind());
+  // Under a display name, the package it names: a server module's specifier line below says
+  // the same, so it stands in for this one.
+  const packageName =
+    row.module === undefined && rowTitle(row, locale) !== row.name
+      ? row.library?.package
+      : undefined;
+  return (
+    <>
+      <div className="flex items-start gap-3">
+        <SkillTile
+          icon={rowIcon(row)}
+          name={row.name}
+          fallback={ICONS.puzzle}
+          size={40}
+          glyph={22}
+        />
+        <div className="min-w-0 flex-1">
+          {packageName !== undefined && (
+            <p className="mb-1 truncate font-mono text-xs text-fg-muted">{packageName}</p>
+          )}
+          <MetaLine>
+            {version !== undefined && <span className="shrink-0 font-mono">v{version}</span>}
+            <StatusMark status={head.status} hint={head.statusHint} />
+            {head.usedBy !== null && (
+              <span className="min-w-0 truncate">{S.plugins.usedByAgents(head.usedBy)}</span>
+            )}
+          </MetaLine>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <PluginTag>{head.categoryTitle}</PluginTag>
+            {rowBuiltin(row) && (
+              <PluginTag
+                title={
+                  row.library !== undefined ? S.plugins.libraryBuiltinHint : S.plugins.builtinHint
+                }
+              >
+                {S.plugins.builtin}
+              </PluginTag>
+            )}
+            {rowInstalledOnServer(row) && (
+              <PluginTag title={S.plugins.installedOnServerHint}>
+                {S.plugins.installedOnServer}
+              </PluginTag>
+            )}
+            {/* The hook points the package answers at: bare point names (`stop`, `user_prompt`) — identifiers, not copy. */}
+            {(row.library?.hooks ?? []).map((event) => (
+              <Badge key={event} variant="outline">
+                {event}
+              </Badge>
+            ))}
+          </div>
+          {row.module !== undefined && (
+            <div className="mt-2 flex min-w-0 items-center gap-1 text-xs text-fg-muted">
+              <span
+                className="min-w-0 truncate font-mono"
+                data-tooltip={S.pluginRegistry.specifierHint}
+                data-tooltip-content="text"
+              >
+                {row.module.specifier}
+              </span>
+              <CopyButton
+                text={row.module.specifier}
+                label={S.pluginRegistry.copySpecifier}
+                size="sm"
+              />
+            </div>
+          )}
+          {row.module?.shared === true && (
+            <PluginTag title={S.plugins.sharedHint}>{S.plugins.sharedTag}</PluginTag>
+          )}
+          <PackageDetailsLine details={rowDetails(row)} />
+        </div>
+      </div>
+
+      <RuledSection
+        title={S.plugins.detailDescription}
+        level={3}
+        className="mt-5"
+        actions={
+          readme.kind === "text" ? (
+            <>
+              <ReaderFindBar reader={readmeReader} className="w-56 max-w-[50vw]" />
+              <ReaderTools reader={readmeReader} />
+            </>
+          ) : undefined
+        }
+      >
+        <p
+          className={`text-sm leading-relaxed ${rowHasDescription(row, locale) ? "" : "text-fg-muted"}`}
+        >
+          <LinkedText text={rowDescription(row, locale)} />
+        </p>
+        {readme.kind === "loading" && <Skeleton className="mt-4 h-24 w-full" />}
+        {readme.kind === "text" && <ReadmeReader text={readme.text} reader={readmeReader} />}
+        {readme.kind === "after-install" && (
+          <p className="mt-2 text-xs text-fg-muted">{S.plugins.readmeAfterInstall}</p>
+        )}
+      </RuledSection>
+
+      {(row.library?.workbenches?.length ?? 0) > 0 && (
+        <RuledSection title={S.plugins.detailWorkbenches} level={3} className="mt-5">
+          <ul className="text-sm">
+            {row.library!.workbenches!.map((w) => (
+              <li key={w.name}>{w.name}</li>
+            ))}
+          </ul>
+        </RuledSection>
+      )}
+      {row.library !== undefined && row.library.mcpServers.length > 0 && (
+        <PluginMcpSection servers={row.library.mcpServers} />
+      )}
+
+      {files !== null && (
+        <RuledSection title={S.plugins.detailFiles} level={3} className="mt-6">
+          {files}
+        </RuledSection>
+      )}
+    </>
+  );
+}
+
+/**
+ * The README in the Markdown reader: its own scroll box, capped so the sections under it stay in
+ * reach. Its outline and find (on the user's `find.open` binding) are drawn by the section's
+ * title row from the same `reader`.
+ */
+function ReadmeReader({ text, reader }: { text: string; reader: MarkdownReaderState }) {
+  return (
+    <MarkdownReader
+      reader={reader}
+      text={text}
+      className="mt-4 max-h-[60vh] overflow-hidden rounded-md border border-line"
+    />
+  );
+}
+
+/**
+ * Items of a metadata line, a middle dot between each, held on one line: a wrapped line would
+ * strand a dot at its edge. The items are the line's flex children, so an item that may run long
+ * (the agent count) brings its own `min-w-0 truncate`, and the rest keep `shrink-0`.
+ */
+export function MetaLine({ children }: { children: ReactNode }) {
+  const items = (Array.isArray(children) ? children : [children]).filter(
+    (child) => child !== null && child !== undefined && child !== false,
+  );
+  return (
+    <div className="flex min-w-0 items-center gap-x-1.5 overflow-hidden whitespace-nowrap text-xs text-fg-muted">
+      {items.map((item, index) => (
+        <Fragment key={index}>
+          {index > 0 && (
+            <span aria-hidden className="shrink-0">
+              ·
+            </span>
+          )}
+          {item}
+        </Fragment>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * A description as the package wrote it, with each web address in it a link that opens in a new
+ * tab — an algorithm toolkit names its paper that way. The rest stays plain text: a description
+ * is not Markdown.
+ */
+function LinkedText({ text }: { text: string }) {
+  return (
+    <>
+      {linkSegments(text).map((segment, i) =>
+        segment.kind === "text" ? (
+          <Fragment key={i}>{segment.text}</Fragment>
+        ) : (
+          <a
+            key={i}
+            href={segment.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="break-all text-link underline-offset-2 transition-colors duration-150 hover:text-link-hover hover:underline"
+          >
+            {segment.href}
+          </a>
+        ),
+      )}
+    </>
+  );
+}
+
+/** A details-line link: the glyph alone, flat — no box at rest or on hover, the ink deepens instead. */
+const DETAIL_LINK_CLASS =
+  "inline-flex size-5 shrink-0 items-center justify-center rounded-sm text-fg-subtle transition-colors duration-150 hover:text-fg";
+
+/** One of the package's links, opened in a new tab that keeps no handle on this one. */
+function DetailLink({ href, glyph, label }: { href: string; glyph: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={label}
+      data-tooltip={label}
+      data-tooltip-content="text"
+      className={DETAIL_LINK_CLASS}
+    >
+      <GlyphIcon d={glyph} size={ICON_SIZE.inlineGlyph} />
+    </a>
+  );
+}
+
+/**
+ * What the package says of itself, under the header's tags: author · license, then a link each
+ * to its homepage and its repository; nothing at all when it carries none of them. The links sit
+ * beside the meta line rather than in it, whose overflow clip would cut their focus ring.
+ */
+function PackageDetailsLine({ details }: { details: PluginDetails }) {
+  const { author, license, homepage, repository } = details;
+  const words = author !== undefined || license !== undefined;
+  const links = homepage !== undefined || repository !== undefined;
+  if (!words && !links) return null;
+  return (
+    <div className="mt-2 flex min-w-0 items-center gap-1.5 text-xs text-fg-muted">
+      {words && (
+        <MetaLine>
+          {author !== undefined && <span className="min-w-0 truncate">{author}</span>}
+          {license !== undefined && <span className="shrink-0">{license}</span>}
+        </MetaLine>
+      )}
+      {words && links && (
+        <span aria-hidden className="shrink-0">
+          ·
+        </span>
+      )}
+      {homepage !== undefined && (
+        <DetailLink href={homepage} glyph={ICONS.globe} label={S.plugins.detailHomepage} />
+      )}
+      {repository !== undefined && (
+        <DetailLink href={repository} glyph={ICONS.gitBranch} label={S.plugins.detailRepository} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * The README the About section shows: a server module's from the registry route (read from the
+ * package on this server, so one not here says so without asking), a library plugin's from the
+ * library route, where a 404 means it ships none.
+ */
+function usePluginReadme(row: PluginRow): ReadmeState {
+  const part = row.module;
+  const here = part === undefined || moduleOnThisServer(part);
+  const [state, setState] = useState<ReadmeState>(
+    here ? { kind: "loading" } : { kind: "after-install" },
+  );
+  const specifier = part?.specifier;
+  const name = row.library?.name;
+  useEffect(() => {
+    // Installing or removing from the dialog's own footer moves the package on or off this
+    // server while the dialog is open.
+    if (!here) {
+      setState({ kind: "after-install" });
+      return;
+    }
+    setState({ kind: "loading" });
+    let cancelled = false;
+    const read =
+      specifier !== undefined
+        ? getPluginReadme(specifier).then((res) => res.readme)
+        : name !== undefined
+          ? getLibraryPluginReadme(name).then(
+              (res) => res.readme,
+              (e: unknown) => {
+                if (e instanceof ApiError && e.status === 404) return null;
+                throw e;
+              },
+            )
+          : Promise.resolve(null);
+    read.then(
+      (text) => {
+        if (!cancelled) setState(text === null ? { kind: "none" } : { kind: "text", text });
+      },
+      () => {
+        // A readme that cannot be read is not the dialog's failure: the description stands.
+        if (!cancelled) setState({ kind: "none" });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [here, specifier, name]);
+  return state;
+}
+
 export function PluginDetailModal({
-  plugin,
-  meta,
+  row,
+  head,
+  footer,
   onClose,
 }: {
-  plugin: PluginItem;
-  /** The card's metadata line (version · updated · used by N agents), repeated under the title. */
-  meta: string;
+  row: PluginRow;
+  head: PluginDetailHead;
+  /** The card's own actions, as footer buttons; null leaves the dialog without a footer. */
+  footer: ReactNode;
   onClose: () => void;
 }) {
   const { locale } = useLocale();
+  const readme = usePluginReadme(row);
+  return (
+    <Modal
+      open
+      title={rowTitle(row, locale)}
+      onClose={onClose}
+      widthClass="sm:max-w-4xl"
+      {...(footer !== null ? { footer } : {})}
+    >
+      <PluginDetailSections
+        row={row}
+        head={head}
+        readme={readme}
+        files={
+          row.library !== undefined && rowHasFiles(row) ? (
+            <PluginFiles plugin={row.library} />
+          ) : null
+        }
+        locale={locale}
+      />
+    </Modal>
+  );
+}
+
+/**
+ * The browser over what a library plugin installs: tree left, preview right (stacked on narrow
+ * screens) — the same one the Benchmark case dialog draws. SKILL.md shows its body, with the
+ * frontmatter the header already states dropped.
+ */
+function PluginFiles({ plugin }: { plugin: PluginItem }) {
   const [files, setFiles] = useState<Record<string, string> | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** Collapsed directories: every one starts open, so the whole plugin is in view at once. */
@@ -193,6 +642,8 @@ export function PluginDetailModal({
   const text = current !== null && files !== null ? files[current] : undefined;
   const preview = current !== null && text !== undefined ? filePreview(current, text) : null;
 
+  const readerFind = useReaderFind();
+
   const toggleDir = (dir: string): void => {
     const open = collapsed.has(dir);
     // The serial makes toggling the same directory again a new event for the tree to animate.
@@ -206,50 +657,25 @@ export function PluginDetailModal({
   };
 
   return (
-    <Modal open title={plugin.name} onClose={onClose} widthClass="sm:max-w-4xl">
-      {/* Header: icon tile + full description + the card's metadata line + hook points. */}
-      <div className="flex items-start gap-3">
-        <SkillTile
-          icon={plugin.icon}
-          name={plugin.name}
-          fallback={PLUGIN_ICON}
-          size={40}
-          glyph={22}
-        />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            {localizedText(locale, plugin.description, plugin.descriptionZh)}
-          </p>
-          <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">{meta}</p>
-          {/* The hook points the package answers at: bare point names (`stop`, `user_prompt`) — identifiers, not copy. */}
-          {plugin.hooks.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {plugin.hooks.map((event) => (
-                <Badge key={event}>{event}</Badge>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* The browser: tree left, preview right (stacked on narrow screens) — the same one the
-          Benchmark case dialog draws. SKILL.md shows its body, with the frontmatter the card
-          above already states dropped. */}
-      <FileBrowser
-        className="mt-4"
-        rows={rows}
-        treeLabel={S.files.treeLabel}
-        selectedPath={current}
-        toggled={toggled}
-        treeLoading={files === null}
-        treeError={error}
-        headerFallback={plugin.name}
-        preview={preview}
-        emptyPreview={error ?? S.common.none}
-        stripFrontmatter
-        onToggleDir={toggleDir}
-        onOpenFile={setSelected}
-      />
-    </Modal>
+    <FileBrowser
+      rows={rows}
+      treeLabel={S.files.treeLabel}
+      selectedPath={current}
+      toggled={toggled}
+      treeLoading={files === null}
+      treeError={error}
+      headerFallback={plugin.name}
+      preview={preview}
+      emptyPreview={error ?? S.common.none}
+      emptyDirLabel={S.files.empty}
+      truncatedLabel={S.files.previewTruncated}
+      unsupportedLabel={S.files.previewUnsupported}
+      downloadLabel={S.files.download}
+      stripFrontmatter
+      isFindKey={readerFind.isFindKey}
+      findShortcut={readerFind.findShortcut}
+      onToggleDir={toggleDir}
+      onOpenFile={setSelected}
+    />
   );
 }

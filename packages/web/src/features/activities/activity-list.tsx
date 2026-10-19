@@ -9,22 +9,26 @@
  * made from the product's canonical ref and said why not where it cannot.
  */
 import { useId, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import type {
   ActivityPoster,
   ActivityRecord,
   ActivitySummary,
 } from "@prismshadow/penguin-server/api";
-import { Button } from "../../components/ui/button";
-import { Chevron } from "../../components/ui/chevron";
-import { Dropdown, menuItemClass } from "../../components/ui/dropdown";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
+import {
+  Button,
+  Chevron,
+  Dropdown,
+  GlyphIcon,
+  EmptyState,
+  Input,
+  SkeletonList,
+  ICON_SIZE,
+  ICONS,
+  Menu,
+  MenuItem,
+} from "@prismshadow/penguin-ui";
 import { ChipGroup } from "../../components/ui/chip-group";
-import { EmptyState } from "../../components/ui/empty-state";
-import { Input } from "../../components/ui/input";
-import { ELLIPSIS_ICON } from "../../components/ui/session-row-menu";
-import { SkeletonList } from "../../components/ui/skeleton";
-import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneStrip } from "../../lib/tone";
 import { useLocale } from "../../state/locale";
@@ -333,9 +337,6 @@ function ProductGroup({
   );
 }
 
-/** A five-pointed star: the product's canonical ref, the one its module and shared documents live on. */
-const CANONICAL_ICON = "M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z";
-
 /** The activity's picture: its poster's first frame or image, else a blank tile. */
 function RowPicture({
   projectId,
@@ -390,9 +391,10 @@ function ActivityRow({
               role="img"
               className="text-gray-400"
               aria-label={home.canonical}
-              title={home.canonical}
+              data-tooltip={home.canonical}
             >
-              <GlyphIcon d={CANONICAL_ICON} size={ICON_SIZE.inlineGlyph} filled />
+              {/* A five-pointed star: the product's canonical ref, the one its module and shared documents live on. */}
+              <GlyphIcon d={ICONS.star} size={ICON_SIZE.inlineGlyph} filled />
             </span>
           )}
         </span>
@@ -421,10 +423,10 @@ function Milestones({ summary }: { summary: ActivitySummary }) {
   );
   return (
     <span
-      className="flex w-24 gap-0.5"
+      className="flex w-24 gap-1"
       role="img"
       aria-label={`${home.progress(summary.done, summary.total)}: ${named.join(", ")}`}
-      title={named.join("\n")}
+      data-tooltip={named.join("\n")}
     >
       {steps.map((step, index) => (
         <i
@@ -450,6 +452,11 @@ function RowMenu({
 }) {
   const home = S.activities.home;
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const go = (to: string) => {
+    setOpen(false);
+    navigate(to);
+  };
   return (
     <Dropdown
       open={open}
@@ -463,41 +470,23 @@ function RowMenu({
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label={home.more(title)}
-          title={home.more(title)}
+          data-tooltip={home.more(title)}
           onClick={() => setOpen(!open)}
           className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
         >
-          <GlyphIcon d={ELLIPSIS_ICON} size={ICON_SIZE.iconButton} filled />
+          <GlyphIcon d={ICONS.ellipsis} size={ICON_SIZE.iconButton} filled />
         </button>
       }
     >
-      <div role="menu" aria-label={home.more(title)} className="py-1">
-        <Link role="menuitem" to={href} onClick={() => setOpen(false)} className={menuItemClass}>
-          {home.open}
-        </Link>
+      <Menu label={home.more(title)} density="md" className="py-1">
+        <MenuItem label={home.open} onSelect={() => go(href)} />
         {newRef &&
           (newRef.href ? (
-            <Link
-              role="menuitem"
-              to={newRef.href}
-              onClick={() => setOpen(false)}
-              className={menuItemClass}
-            >
-              {newRef.label}
-            </Link>
+            <MenuItem label={newRef.label} onSelect={() => newRef.href && go(newRef.href)} />
           ) : (
-            <span
-              role="menuitem"
-              aria-disabled="true"
-              className={`${menuItemClass} cursor-not-allowed`}
-            >
-              <span className="block text-gray-400 dark:text-gray-500">{newRef.label}</span>
-              <span className="block text-xs text-gray-500 dark:text-gray-400">
-                {home.newRefUnavailable}
-              </span>
-            </span>
+            <MenuItem disabled label={newRef.label} description={home.newRefUnavailable} />
           ))}
-      </div>
+      </Menu>
     </Dropdown>
   );
 }

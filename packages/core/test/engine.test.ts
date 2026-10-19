@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  REJECTED_IMAGE_NOTE,
   assistantText,
   emptyTokenCounts,
   imageUrlMessage,
@@ -879,6 +880,7 @@ describe("ContextEngine ReAct loop (mock LLM, approve callback)", () => {
         system_prompt: "sys",
         agent_state: "/root/p/worker/agent_state",
         workspace: "/tmp/w",
+        source: "user",
       });
     // Custom Environment: on execution, first forwards origin-tagged child session messages
     // (child meta / child text / grandchild meta), then yields the complete output (simulates
@@ -1444,7 +1446,7 @@ describe("ContextEngine abort during execution", () => {
             toolCallId: "slow",
             stopReason: "completed",
           });
-          // Model output completed (outcome=completed) -> AgentHub has committed this turn
+          // Model output completed (outcome=completed) -> MMSP has committed this turn
           // including the tool_call.
           yield tokenUsage(emptyTokenCounts(), {
             cache_read: 0,
@@ -1511,7 +1513,7 @@ describe("ContextEngine abort during execution", () => {
         received.push(params.newMessages);
         call += 1;
         if (call === 1) {
-          // Two real tool_calls + token_usage: AgentHub commits this turn including both
+          // Two real tool_calls + token_usage: MMSP commits this turn including both
           // a1 and a2 tool_calls.
           yield toolCall({
             name: "exec_command",
@@ -1549,7 +1551,7 @@ describe("ContextEngine abort during execution", () => {
     });
     const engine = new ContextEngine({ llm, environment });
     // Interrupted immediately while approving the first tool: after a1's approval, signal is
-    // already aborted -> neither a1 nor a2 is dispatched, but both have been committed by AgentHub.
+    // already aborted -> neither a1 nor a2 is dispatched, but both have been committed by MMSP.
     let approvals = 0;
     const approve: ApproveFn = async () => {
       approvals += 1;
@@ -1594,7 +1596,7 @@ describe("ContextEngine LLM timeout / network interruption (PRN-012)", () => {
           yield partialText("delta", "thinking...");
           yield partialText("stop", "", "retryable");
           yield assistantText("thinking...", "retryable");
-          return { status: "retryable" };
+          return { status: "retryable", errorCode: "timeout" };
         }
         // Retry succeeds: completes normally.
         yield assistantText("done");
@@ -1628,6 +1630,8 @@ describe("ContextEngine LLM timeout / network interruption (PRN-012)", () => {
     const retried = (inputs[1]![1]!.payload as { text?: string }).text ?? "";
     expect(retried).toContain("[turn_retried]");
     expect(retried).toContain("[text]thinking...[/text]");
+    // The block closes with the failure: a timeout has a code and no provider text.
+    expect(retried).toContain('  [request_error code="timeout"][/request_error]');
     expect(retried).not.toContain("[turn_aborted]");
     // The final reply is produced, with no abort throughout.
     expect(
@@ -1640,7 +1644,7 @@ describe("ContextEngine LLM timeout / network interruption (PRN-012)", () => {
 
   it("skips a malformed (never-committed) tool_call: no dispatch, no paired output", async () => {
     // A tool_call produced by an interrupted finish (stop_reason not completed) is never
-    // committed into history by AgentHub: the engine does not dispatch it for execution, does
+    // committed into history by MMSP: the engine does not dispatch it for execution, does
     // not add it to this turn's ledger, and does not backfill a paired output; the malformed
     // turn is cleaned up by reconnect.
     let calls = 0;
@@ -1693,10 +1697,13 @@ describe("ContextEngine LLM timeout / network interruption (PRN-012)", () => {
     );
 
     // The retry resends the original input as-is; the half-formed tool_call is discarded
-    // entirely and does not appear in the retry input in any form.
-    expect(inputs[1]).toEqual(inputs[0]);
-    const retryText = (inputs[1]![0]!.payload as { text?: string }).text ?? "";
-    expect(retryText).toBe("go");
+    // entirely and does not appear in the retry input in any form. The only addition is the
+    // [turn_retried] block, holding nothing but the failure's own text.
+    expect(inputs[1]).toHaveLength(2);
+    expect(inputs[1]![0]).toEqual(inputs[0]![0]);
+    expect((inputs[1]![1]!.payload as { text?: string }).text).toBe(
+      "[turn_retried]\n  [request_error]incomplete stream[/request_error]\n[/turn_retried]",
+    );
   });
 
   it("auto-retries on LLM malformed: original input + [turn_retried] carrying partial products", async () => {
@@ -1740,7 +1747,7 @@ describe("ContextEngine LLM timeout / network interruption (PRN-012)", () => {
     const all = await collectRun(engine, [userText("go")], allowAll);
 
     expect(calls).toBe(2);
-    // The malformed attempt never entered AgentHub history: the original input is resent,
+    // The malformed attempt never entered MMSP history: the original input is resent,
     // plus [turn_retried] carrying the partial products already produced.
     expect(inputs[1]).toHaveLength(2);
     expect(inputs[1]![0]).toEqual(inputs[0]![0]);
@@ -1953,7 +1960,7 @@ describe("ContextEngine LLM timeout / network interruption (PRN-012)", () => {
   it("a fast-mode rejection (fatal) stops the run without burning the ladder", async () => {
     let calls = 0;
     const llm: LLMInterface = {
-      // GenerativeModel classifies AgentHub's fast_mode UnsupportedParameterError as fatal
+      // GenerativeModel classifies MMSP's fast_mode UnsupportedParameterError as fatal
       // (see llm.test.ts): thrown before any network I/O, deterministic for the session's
       // frozen config, so retrying the identical request can never succeed. The engine
       // must abort with the actionable message instead of costing the ladder.
@@ -1986,6 +1993,122 @@ describe("ContextEngine LLM timeout / network interruption (PRN-012)", () => {
       "turn it off in the model settings",
     );
     expect(all.some((m) => (m.payload as { type?: string }).type === "abort")).toBe(false);
+  });
+
+  it("a provider 4xx on an input holding images retries at once with them replaced by the note", async () => {
+    // GenerativeModel reports a definitive provider 4xx as fatal/rejected (see llm.test.ts) and
+    // reads nothing out of its wording. While the turn's input holds images, the engine takes
+    // the rejection as theirs, replaces them and sends the turn again — no backoff: the 60s
+    // base would time this test out if it waited.
+    const inputs: OmniMessage[][] = [];
+    const providerError = "400 You have uploaded an unsupported image.";
+    const llm: LLMInterface = {
+      async *streamGenerate(params) {
+        inputs.push(params.newMessages);
+        if (inputs.length === 1) {
+          return { status: "fatal", errorCode: "rejected", errorMessage: providerError };
+        }
+        yield assistantText("I could not see the image.");
+        yield tokenUsage(emptyTokenCounts(), {
+          cache_read: 0,
+          cache_write: 0,
+          output: 1,
+          total: 1,
+        });
+        return { status: "completed" };
+      },
+    };
+    const environment = new Environment({
+      workspaceDir: workspace,
+      toolConfig: execCommandToolConfig(),
+    });
+    const engine = new ContextEngine({ llm, environment, reconnectBackoffMs: 60_000 });
+
+    // A read_file result carrying an image, handed in the way a carry-over hands it back.
+    const readImage = toolCallOutput({
+      output: "image/png, 70 B",
+      toolCallId: "call_img",
+      images: [PNG_DATA_URL],
+    });
+    const { all, cutoff } = await collectRunWithReturn(engine, [readImage], allowAll);
+
+    expect(cutoff).toBeNull();
+    expect(inputs).toHaveLength(2);
+    expect((inputs[0]![0]!.payload as { images?: string[] }).images).toEqual([PNG_DATA_URL]);
+    // The retry carries no image: the tool output keeps its text and pairing id, the fixed
+    // note appended in place of the picture; the [turn_retried] block behind it quotes the
+    // provider's error for the model to judge — the one place that text goes.
+    expect(inputs[1]).toHaveLength(2);
+    const retried = inputs[1]![0]!.payload as {
+      output?: string;
+      images?: string[];
+      tool_call_id?: string;
+    };
+    expect(retried.images).toBeUndefined();
+    expect(retried.output).toBe(`image/png, 70 B\n${REJECTED_IMAGE_NOTE}`);
+    expect(retried.tool_call_id).toBe("call_img");
+    const block = (inputs[1]![1]!.payload as { text?: string }).text ?? "";
+    expect(block).toContain("[turn_retried]");
+    expect(block).toContain(
+      `  [request_error code="image_rejected"]${providerError}[/request_error]`,
+    );
+    // The rejected attempt is recorded as retried, announcing an immediate retry.
+    const ends = all
+      .filter((m) => (m.payload as { type?: string }).type === "request_end")
+      .map((m) => m.payload as { status?: string; error_code?: string; retry_in_ms?: number });
+    expect(ends).toHaveLength(2);
+    expect(ends[0]).toMatchObject({
+      status: "retryable",
+      error_code: "image_rejected",
+      retry_in_ms: 0,
+    });
+    expect(ends[1]!.status).toBe("completed");
+  });
+
+  it("a provider 4xx on an input with no image ends the run as fatal, whatever it says", async () => {
+    // Nothing to strip: the request's parameters or the committed history are what the
+    // provider refuses, and no retry changes either. The wording is not consulted.
+    let calls = 0;
+    const inputs: OmniMessage[][] = [];
+    const llm: LLMInterface = {
+      // eslint-disable-next-line require-yield
+      async *streamGenerate(params) {
+        inputs.push(params.newMessages);
+        calls += 1;
+        return {
+          status: "fatal",
+          errorCode: "rejected",
+          errorMessage: "400 Could not process image",
+        };
+      },
+    };
+    const environment = new Environment({
+      workspaceDir: workspace,
+      toolConfig: execCommandToolConfig(),
+    });
+    const engine = new ContextEngine({ llm, environment, reconnectBackoffMs: 1 });
+
+    const { all, cutoff } = await collectRunWithReturn(engine, [userText("go on")], allowAll);
+    expect(calls).toBe(1);
+    expect(cutoff).toEqual({
+      kind: "llm_failure",
+      errorCode: "rejected",
+      errorMessage: "400 Could not process image",
+    });
+    const end = all.find((m) => (m.payload as { type?: string }).type === "request_end");
+    expect(end!.payload).toMatchObject({ status: "fatal", error_code: "rejected" });
+    expect((end!.payload as { retry_in_ms?: number }).retry_in_ms).toBeUndefined();
+    // The next run resends the turn as carry-over, its [turn_aborted] block closing with the
+    // failure's error: the model learns why the turn comes again before it carries on.
+    await collectRunWithReturn(engine, [userText("again")], allowAll);
+    expect(inputs).toHaveLength(2);
+    const texts = inputs[1]!.map((m) => (m.payload as { text?: string }).text ?? "");
+    expect(texts[0]).toContain("[turn_aborted]");
+    expect(texts[0]).toContain("  [user_input]go on[/user_input]");
+    expect(texts[0]).toContain(
+      '  [request_error code="rejected"]400 Could not process image[/request_error]',
+    );
+    expect(texts[1]).toBe("again");
   });
 
   it("a retryable outcome takes the ladder", async () => {
@@ -2423,13 +2546,13 @@ describe("ContextEngine LLM timeout / network interruption (PRN-012)", () => {
             toolCallId: "t1",
             stopReason: "completed",
           });
-          return { status: "retryable" };
+          return { status: "retryable", errorCode: "network", errorMessage: "502 Bad Gateway" };
         }
         if (calls === 2) {
           // Attempt 2 (retry, original input resent): produces partial thinking then times out
           // again -> retries exhausted.
           yield thinkingMessage("retry-thought", "retryable");
-          return { status: "retryable" };
+          return { status: "retryable", errorCode: "timeout" };
         }
         yield assistantText("ok");
         yield tokenUsage(emptyTokenCounts(), {
@@ -2461,6 +2584,9 @@ describe("ContextEngine LLM timeout / network interruption (PRN-012)", () => {
     // Retry = original input + [turn_retried] (attempt 1's t1 call/result).
     expect(inputs[1]![0]).toEqual(inputs[0]![0]);
     expect((inputs[1]![1]!.payload as { text?: string }).text ?? "").toContain("[turn_retried]");
+    expect((inputs[1]![1]!.payload as { text?: string }).text ?? "").toContain(
+      '  [request_error code="network"]502 Bad Gateway[/request_error]',
+    );
 
     // Next run: carry-over = original input + [turn_retried] (accumulating attempt 1's t1
     // call/result and attempt 2's partial thinking), a single un-nested block; produces no
@@ -2474,6 +2600,10 @@ describe("ContextEngine LLM timeout / network interruption (PRN-012)", () => {
     expect(block).toContain('[tool_call_output id="t1"');
     expect(block).toContain("[thinking]retry-thought[/thinking]");
     expect((block.match(/\[turn_retried\]/g) ?? []).length).toBe(1);
+    // One request_error line, the latest failure's: the first attempt's 502 is gone.
+    expect((block.match(/\[request_error/g) ?? []).length).toBe(1);
+    expect(block).toContain('  [request_error code="timeout"][/request_error]');
+    expect(block).not.toContain("502 Bad Gateway");
     expect(nextRunTexts[2]).toBe("next");
     expect(nextRunTexts.join("\n")).not.toContain("[turn_aborted]");
     // t1 already executed once during the failed attempts (side effect occurred); the
@@ -2500,7 +2630,7 @@ describe("ContextEngine LLM timeout / network interruption (PRN-012)", () => {
         inputs.push(params.newMessages);
         if (calls === 1) {
           yield thinkingMessage("half-1", "retryable");
-          return { status: "retryable" };
+          return { status: "retryable", errorCode: "network", errorMessage: "socket hang up" };
         }
         if (calls === 2) {
           // Interrupted by the user while the retry is in progress.
@@ -2540,6 +2670,9 @@ describe("ContextEngine LLM timeout / network interruption (PRN-012)", () => {
     expect(text).toContain("[turn_aborted]");
     expect(text).toContain("[thinking]half-1[/thinking]");
     expect(text).not.toContain("[turn_retried]");
+    // The user interrupted: no request failed this time, so the merged block's old error line
+    // is dropped rather than carried as if it described this attempt.
+    expect(text).not.toContain("[request_error");
     expect((text.match(/\[turn_aborted\]/g) ?? []).length).toBe(1);
   });
 

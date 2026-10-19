@@ -1,6 +1,7 @@
 ---
 name: waf-layout-patterns
 description: Use when reading or editing the on-screen layout of an existing WAF activity module, especially one built on src/sequence.js. Catalogues how the real modules position, show and hide, clean up, highlight, layer and animate elements, and says which newer rule wins where an old pattern conflicts with it.
+version: 2026.10.10.1
 ---
 
 # WAF Layout Patterns

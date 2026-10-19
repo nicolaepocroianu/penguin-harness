@@ -1,6 +1,0 @@
-{
-  "description": "Install skills from external ecosystems into this agent's agent_state/skills/ — resolve Claude Code plugin marketplaces, the Codex plugin repo, skills.sh registry names, GitHub repos, or local folders to their skill directories, review every file, and normalize SKILL.md frontmatter to the Penguin format.",
-  "short_description": "Port external skills into this agent.",
-  "version": "2026.08.04.1",
-  "category": "ai-app-development"
-}

@@ -12,10 +12,12 @@
 import { createHash } from "node:crypto";
 import { comparePluginVersions } from "@prismshadow/penguin-core";
 import type { OrgCalendarOutcome, OrgChannelMessage, OrgTicketChange } from "../../api/types.js";
+import type { SessionRow } from "../../db/repos/sessions.js";
 import type { ChannelConfig, TicketDoc } from "../../organization/files.js";
 import { parseChannelMessageLine, serializeChannelMessageLine } from "../../organization/files.js";
 import { agentPrincipal, parsePrincipal, principalAgentId } from "../../organization/principal.js";
 import { DEFAULT_CHANNEL_ID } from "../../organization/paths.js";
+import type { TicketFile } from "../../organization/store.js";
 import { zonedDate } from "../../organization/zoned.js";
 import { latestSlotAt, slotInWindow } from "../schedule-file.js";
 import { budgetLine, computeSpend, pausedEmployees } from "./budget.js";
@@ -57,20 +59,35 @@ function recordError(
   });
 }
 
-/** Every ticket file, parsed; an unparsable file or a duplicated id is reported and left out. */
+/** Every ticket file, parsed; an unparsable file is reported and left out, a duplicated id keeps its newest copy (the rest reported). */
 export async function listTickets(deps: OrgDeps, org: LoadedOrg): Promise<TicketListing> {
   const files = await deps.store.listTickets(org.dir);
-  const seen = new Map<string, number>();
-  for (const f of files) seen.set(f.ticketId, (seen.get(f.ticketId) ?? 0) + 1);
+  // A crash between moveTicket's write of the new column and its unlink of the old one
+  // leaves the id in two columns. Dropping both used to take the ticket off the board
+  // until someone edited files by hand; the newest file is the move's target (the new
+  // column is written before the old one is removed), so that copy is kept and the stale
+  // one is reported instead.
+  const keep = new Map<string, TicketFile>();
+  const stale = new Map<string, TicketFile[]>();
+  for (const f of files) {
+    const current = keep.get(f.ticketId);
+    if (current === undefined) {
+      keep.set(f.ticketId, f);
+    } else if (f.mtimeMs >= current.mtimeMs) {
+      stale.set(f.ticketId, [...(stale.get(f.ticketId) ?? []), current]);
+      keep.set(f.ticketId, f);
+    } else {
+      stale.set(f.ticketId, [...(stale.get(f.ticketId) ?? []), f]);
+    }
+  }
   const tickets: LoadedTicket[] = [];
   const invalid: Array<{ path: string; error: string }> = [];
-  for (const f of files) {
-    if ((seen.get(f.ticketId) ?? 0) > 1) {
+  for (const f of keep.values()) {
+    for (const s of stale.get(f.ticketId) ?? []) {
       invalid.push({
-        path: f.relPath,
-        error: `ticket id ${f.ticketId} appears in more than one column`,
+        path: s.relPath,
+        error: `ticket id ${f.ticketId} appears in more than one column; keeping the newest copy (${f.relPath})`,
       });
-      continue;
     }
     if (!f.parsed.ok) {
       invalid.push({ path: f.relPath, error: f.parsed.error });
@@ -97,6 +114,39 @@ export async function listTickets(deps: OrgDeps, org: LoadedOrg): Promise<Ticket
 }
 
 /**
+ * The session rows an organization's files name as its own: every desk in the ledger, current
+ * and previous, then every session a ticket's `sessions` lists, with that ticket's id. Both
+ * files are hand-editable and what is written through the result outlives the caches (the
+ * `client` stamp, the approval mode), so a name with no row, or naming a row of another
+ * Project, is not the organization's and is left out.
+ */
+function ownedSessions(
+  deps: OrgDeps,
+  org: LoadedOrg,
+  tickets: readonly LoadedTicket[],
+): { desks: SessionRow[]; tickets: Array<{ ticketId: string; row: SessionRow }> } {
+  const rowOf = (sessionId: string): SessionRow | null => {
+    const row = deps.sessions.findById(sessionId);
+    return row !== null && row.projectId === org.projectId ? row : null;
+  };
+  const desks: SessionRow[] = [];
+  for (const desk of Object.values(org.desks)) {
+    for (const sessionId of [desk.sessionId, ...desk.previous]) {
+      const row = rowOf(sessionId);
+      if (row !== null) desks.push(row);
+    }
+  }
+  const ticketRows: Array<{ ticketId: string; row: SessionRow }> = [];
+  for (const t of tickets) {
+    for (const sessionId of t.doc.sessions) {
+      const row = rowOf(sessionId);
+      if (row !== null) ticketRows.push({ ticketId: t.ticketId, row });
+    }
+  }
+  return { desks, tickets: ticketRows };
+}
+
+/**
  * Projects the ledger and the tickets' `sessions` fields into the two session caches, and
  * stamps `client = "org"` on every session row those files name. The caches are rebuilt from
  * the files on every pass and vanish with the organization; the stamp is written once per row
@@ -107,28 +157,40 @@ export async function listTickets(deps: OrgDeps, org: LoadedOrg): Promise<Ticket
  */
 export function syncCaches(deps: OrgDeps, org: LoadedOrg, tickets: readonly LoadedTicket[]): void {
   syncDeskCache(deps, org);
-  // The stamp is durable, unlike the caches beside it, so a hand-edited ledger naming a
-  // session of another Project must not mark it as this organization's.
-  const owned: string[] = [];
-  const own = (sessionId: string): void => {
-    if (deps.sessions.findById(sessionId)?.projectId === org.projectId) owned.push(sessionId);
-  };
-  for (const desk of Object.values(org.desks)) {
-    own(desk.sessionId);
-    for (const prev of desk.previous) own(prev);
+  const owned = ownedSessions(deps, org, tickets);
+  deps.cache.syncTicketSessions(
+    org.projectId,
+    org.orgId,
+    owned.tickets.map(({ ticketId, row }) => ({
+      ticketId,
+      sessionId: row.sessionId,
+      agentId: row.agentId,
+    })),
+  );
+  deps.sessions.markOrgClient(
+    [...owned.desks, ...owned.tickets.map((t) => t.row)].map((row) => row.sessionId),
+  );
+}
+
+/**
+ * Carries the organization's approval mode onto every session it owns (see `ownedSessions`)
+ * that is not archived. A desk or ticket session takes the mode of the moment it is opened and
+ * its approvals read its own row, so without this a changed mode would reach only the sessions
+ * opened after the change. A session mid-run applies it from its next approval decision, which
+ * re-reads the row; an archived session keeps the mode it had. Run only when the mode actually
+ * changed: until then, a session whose own mode was changed from its composer keeps it.
+ */
+export function syncApprovalMode(
+  deps: OrgDeps,
+  org: LoadedOrg,
+  tickets: readonly LoadedTicket[],
+): void {
+  const mode = org.config.approvalMode;
+  const owned = ownedSessions(deps, org, tickets);
+  for (const row of [...owned.desks, ...owned.tickets.map((t) => t.row)]) {
+    if ((row.archivedAt ?? null) !== null || row.approvalMode === mode) continue;
+    deps.sessions.updateApprovalMode(row.sessionId, mode);
   }
-  const rows: Array<{ ticketId: string; sessionId: string; agentId: string }> = [];
-  for (const t of tickets) {
-    for (const sessionId of t.doc.sessions) {
-      const row = deps.sessions.findById(sessionId);
-      if (row && row.projectId === org.projectId) {
-        rows.push({ ticketId: t.ticketId, sessionId, agentId: row.agentId });
-        owned.push(sessionId);
-      }
-    }
-  }
-  deps.cache.syncTicketSessions(org.projectId, org.orgId, rows);
-  deps.sessions.markOrgClient(owned);
 }
 
 /**
@@ -308,6 +370,21 @@ async function reconcileCalendar(
       // back on the queue in their order, so the slot that does fire still carries them.
       for (const row of notices) deps.cache.queueDeskNotice(row);
       mark("error");
+      // A one-shot event unwinds its consumed slot, or the failure would be the last word:
+      // this dispatch is the only thing that drains the desk notices just re-queued, and a
+      // consumed one-shot slot never comes again. Retrying is safe — the run never started —
+      // and a persistent failure keeps surfacing as mark("error") every pass instead of
+      // stranding the notices with nothing on the errors panel. A periodic event needs no
+      // unwind: its next slot fires regardless.
+      if (def.periodMs === undefined) {
+        deps.cache.markCalendarSlot(
+          key.projectId,
+          key.orgId,
+          key.agentId,
+          key.name,
+          state.lastSlotMs,
+        );
+      }
       continue;
     }
     deps.cache.markCalendarFired(

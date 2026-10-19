@@ -27,6 +27,8 @@
  */
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import type { ToolResult } from "../types.js";
+import type { ConfinedSpawn } from "../../../interfaces/index.js";
+import { runnerLineFilter } from "./runner-lines.js";
 import { CappedTextBuffer, WakeSignal } from "../background/index.js";
 import { sessionShell } from "./shell.js";
 import { pathPrependPrefix } from "./path-prepend.js";
@@ -89,7 +91,7 @@ export interface SpawnOptions {
    * Workspace root) before handing the confiner down, so this narrower shape only
    * carries what the spawn itself knows (see `SpawnConfiner` in interfaces.ts).
    */
-  confine?: (argv: readonly string[], opts: { cwd: string }) => readonly string[];
+  confine?: (argv: readonly string[], opts: { cwd: string }) => ConfinedSpawn;
 }
 
 export class ManagedSession {
@@ -124,16 +126,17 @@ export class ManagedSession {
     // The confinement seam runs BEFORE spawn on the exact argv (shell included), so a
     // confiner that cannot enforce its policy aborts the spawn by throwing (fail-closed)
     // rather than letting the command run unconfined. The rewritten argv is spawned in
-    // place of the original; env assembly is unaffected (the runner inherits it).
+    // place of the original; env assembly is unaffected (the runner inherits it), except
+    // for the entries the runner itself asked for, which go on top.
     const argv = [shell.command, ...shell.args, prefix + opts.cmd];
-    const confined = opts.confine ? [...opts.confine(argv, { cwd: opts.cwd })] : argv;
-    const program = confined[0];
+    const confined = opts.confine ? opts.confine(argv, { cwd: opts.cwd }) : { argv };
+    const program = confined.argv[0];
     if (program === undefined) {
       throw new Error("spawn confiner returned an empty argv");
     }
-    this.child = spawn(program, confined.slice(1), {
+    this.child = spawn(program, confined.argv.slice(1), {
       cwd: opts.cwd,
-      env: opts.env,
+      env: confined.env === undefined ? opts.env : { ...opts.env, ...confined.env },
       detached: SUPPORTS_PROCESS_GROUP, // Become the process-group leader, so the whole group can be signaled
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true, // No flashing console window on Windows (ignored elsewhere)
@@ -145,7 +148,20 @@ export class ManagedSession {
     // as an unhandled error.
     this.child.stdin?.on("error", () => {});
     this.child.stdout?.on("data", (c: string) => this.handleData(c));
-    this.child.stderr?.on("data", (c: string) => this.handleData(c));
+    // The runner's own report lines (ConfinedSpawn.runnerLines) are not the command's output.
+    const runner = runnerLineFilter(confined.runnerLines);
+    if (runner === null) {
+      this.child.stderr?.on("data", (c: string) => this.handleData(c));
+    } else {
+      this.child.stderr?.on("data", (c: string) => {
+        const out = runner.push(c);
+        if (out !== "") this.handleData(out);
+      });
+      this.child.stderr?.on("end", () => {
+        const out = runner.flush();
+        if (out !== "") this.handleData(out);
+      });
+    }
     // exit follows waitpid semantics: it fires as soon as bash exits, without waiting for
     // stdout/stderr pipe EOF — background child processes that inherit and hold the pipe open
     // won't hold up termination.

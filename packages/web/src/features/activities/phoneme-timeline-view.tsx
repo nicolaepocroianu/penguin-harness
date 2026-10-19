@@ -4,7 +4,7 @@
  * without sound timings says so rather than showing sounds that never light up.
  */
 import type { AssetManifest } from "@prismshadow/penguin-server/api";
-import { InfoPopover } from "../../components/ui/info-popover";
+import { InfoPopover } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { activeCue, wordTimeline } from "./phoneme-timeline";
 

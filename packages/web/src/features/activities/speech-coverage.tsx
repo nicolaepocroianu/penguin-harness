@@ -18,15 +18,18 @@ import type {
   SpeechProviderStatus,
   VoiceOption,
 } from "@prismshadow/penguin-server/api";
-import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { PAUSE_ICON, PLAY_ICON } from "../../components/ui/icons";
+import {
+  Badge,
+  Button,
+  GlyphIcon,
+  ConfirmModal,
+  Select,
+  InfoPopover,
+  ICON_GAP,
+  ICON_SIZE,
+  ICONS,
+} from "@prismshadow/penguin-ui";
 import { ChipGroup } from "../../components/ui/chip-group";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { Select } from "../../components/ui/select";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { ICON_GAP, ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
 import { toneInk, type Tone } from "../../lib/tone";
 import { ClipButton, useClipPlayer, type Clip, type ClipPlayer } from "./clip-player";
@@ -133,7 +136,7 @@ function RowName({
   const words = text?.trim();
   const where = scenes?.length ? scenes.join(", ") : "";
   return (
-    <span className="min-w-0 space-y-0.5">
+    <span className="min-w-0 space-y-1">
       <span className="block">
         <span className={words ? "font-medium" : "font-mono font-medium break-all"}>
           {words || assetKey}
@@ -195,7 +198,7 @@ function SceneHeading({
           onClick={() => player.toggleRun(run, playable)}
         >
           <GlyphIcon
-            d={running ? PAUSE_ICON : PLAY_ICON}
+            d={running ? ICONS.pause : ICONS.play}
             size={ICON_SIZE.inlineGlyph}
             filled={!running}
           />
@@ -394,7 +397,7 @@ export function SpeechCoverage({
               onClick={() => player.toggleRun(ALL_LINES, everyClip)}
             >
               <GlyphIcon
-                d={player.run === ALL_LINES ? PAUSE_ICON : PLAY_ICON}
+                d={player.run === ALL_LINES ? ICONS.pause : ICONS.play}
                 size={ICON_SIZE.inlineGlyph}
                 filled={player.run !== ALL_LINES}
               />
@@ -580,9 +583,9 @@ export function SpeechCoverage({
           {groups.map((group) => {
             const clips = group.rows.flatMap((status) => clipOf(status.key) ?? []);
             return (
-              <div key={group.sceneId || "unplaced"} className="space-y-0.5">
+              <div key={group.sceneId || "unplaced"} className="space-y-1">
                 <SceneHeading group={group} playable={clips} player={player} />
-                <ul className="space-y-0.5">
+                <ul className="space-y-1">
                   {group.rows.map((status) => {
                     const tone = STATE_TONE[status.state];
                     const type = typeOf(status.key);
@@ -605,7 +608,7 @@ export function SpeechCoverage({
                         <button
                           type="button"
                           onClick={() => onSelect(status.key)}
-                          title={status.error}
+                          data-tooltip={status.error}
                           className="flex min-w-0 flex-1 items-start justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-900"
                         >
                           <RowName
@@ -620,7 +623,7 @@ export function SpeechCoverage({
                             }
                             badge={
                               type !== "other" && (
-                                <Badge tone="gray">
+                                <Badge tone="neutral">
                                   {S.activities.instructionType.badge[type]}
                                 </Badge>
                               )
@@ -723,6 +726,7 @@ export function SpeechCoverage({
         )}
         {confirming && (
           <ConfirmModal
+            cancelLabel={S.common.cancel}
             open
             tone="primary"
             title={S.activities.bulkSpeechTitle}
@@ -796,7 +800,7 @@ function SoundCoverage({
               <button
                 type="button"
                 onClick={() => onSelect(status.key)}
-                title={status.error}
+                data-tooltip={status.error}
                 className="flex w-full items-start justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-900"
               >
                 <RowName text={byKey.get(status.key)?.description} assetKey={status.key} />
@@ -824,6 +828,7 @@ function SoundCoverage({
       )}
       {confirming && provider && onGenerate && (
         <ConfirmModal
+          cancelLabel={S.common.cancel}
           open
           tone="primary"
           title={words.bulkTitle}

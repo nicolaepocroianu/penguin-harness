@@ -16,13 +16,17 @@ import {
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, toneStrip } from "../../lib/tone";
-import { Button } from "../../components/ui/button";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { Modal } from "../../components/ui/modal";
-import { PasswordInput } from "../../components/ui/password-input";
-import { ProviderLogo } from "../../components/ui/provider-logo";
-import { SkeletonList } from "../../components/ui/skeleton";
-import { toastError } from "../../components/ui/toast";
+import {
+  Button,
+  ConfirmModal,
+  Modal,
+  PasswordInput,
+  ProviderLogo,
+  SkeletonList,
+  toastError,
+  useGuardedClose,
+  useUnsavedChanges,
+} from "@prismshadow/penguin-ui";
 import { codingAgentLogo } from "../chat/coding-agent-models";
 import { builtinActions, builtinSubtitle, progressPercent } from "./builtin-model";
 
@@ -68,6 +72,11 @@ function CopilotCard({ info, onChanged }: { info: BuiltinAgentInfo; onChanged: (
   const [replacing, setReplacing] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [tested, setTested] = useState<CodingAgentTestResult | null>(null);
+  // A typed token is a draft until Set up or Save sends it: leaving with one asks first, and the
+  // replace dialog closes through the same question.
+  const tokenScope = `builtin-token:${info.agentId}`;
+  useUnsavedChanges(token !== "", { scope: tokenScope, discard: () => setToken("") });
+  const closeReplace = useGuardedClose(() => setReplacing(false), tokenScope, { locked: busy });
   const act = (work: () => Promise<unknown>) => {
     setBusy(true);
     work()
@@ -220,10 +229,10 @@ function CopilotCard({ info, onChanged }: { info: BuiltinAgentInfo; onChanged: (
       <Modal
         open={replacing}
         title={S.models.builtinReplaceTokenTitle}
-        onClose={() => setReplacing(false)}
+        onClose={closeReplace}
         footer={
           <>
-            <Button size="sm" onClick={() => setReplacing(false)}>
+            <Button size="sm" onClick={closeReplace}>
               {S.common.cancel}
             </Button>
             <Button
@@ -253,6 +262,7 @@ function CopilotCard({ info, onChanged }: { info: BuiltinAgentInfo; onChanged: (
       </Modal>
 
       <ConfirmModal
+        cancelLabel={S.common.cancel}
         open={removing}
         title={S.models.builtinRemoveTitle}
         confirmLabel={S.models.builtinRemove}

@@ -56,7 +56,7 @@ pnpm bench seal <private source> --bench <id>   # people only, see below
 | invalid | meaning |
 | --- | --- |
 | `dirty_tree` | The checkout has uncommitted changes. Commit or remove them. |
-| `out_of_surface` | Head changes something besides the plugin's skills, `README.md` and `icon.svg` — its `package.json` and `plugin.json` only in their `version` — and the stage prompts' own modules (`packages/server/src/activities/prompts/`) only inside their string and template literals; or it changes a symbolic link anywhere. Split the change. |
+| `out_of_surface` | Head changes something besides the plugin's skills, `README.md` and `icon.svg` — its `package.json` only in its `version` — and the stage prompts' own modules (`packages/server/src/activities/prompts/`) only inside their string and template literals; or it changes a symbolic link anywhere. Split the change. |
 | `preflight` | A revision, the seed, the test browser or a recipe build is not ready; the reason says which. |
 | `budget` | The estimate or the next block would pass the cap, or the estimate was not confirmed. |
 | `infrastructure` | The machinery failed twice in a row. Fix it and run the same comparison again. |

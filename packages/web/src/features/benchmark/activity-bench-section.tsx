@@ -14,8 +14,7 @@ import { formatDateTime, formatMoney, formatScore, humanizeDuration } from "../.
 import { toneInk } from "../../lib/tone";
 import { useAuth } from "../../state/auth";
 import { useTheme } from "../../state/theme";
-import { FieldHint, FieldLabel } from "../../components/ui/field";
-import { InfoPopover } from "../../components/ui/info-popover";
+import { FieldHint, FieldLabel, InfoPopover, toastError, Sparkline } from "@prismshadow/penguin-ui";
 import {
   TABLE,
   TABLE_HEAD_ROW,
@@ -24,11 +23,9 @@ import {
   TD,
   TH,
 } from "../../components/ui/table-classes";
-import { toastError } from "../../components/ui/toast";
 import { WorkspaceSelect } from "../chat/workspace-select";
 import { benchHomeChoice, newestFirst } from "./activity-bench-model";
 import { latestWithDelta, sparklineSeries } from "./benchmark-metrics";
-import { ScoreSparkline } from "./score-sparkline";
 
 export function ActivityBenchSection({ projectId }: { projectId: string }) {
   const { user } = useAuth();
@@ -97,7 +94,7 @@ export function ActivityBenchSection({ projectId }: { projectId: string }) {
           variant="form"
           fieldLabel={words.home}
           emptyLabel={words.homePick}
-          menuHint={words.homeMenuHint}
+          clearable
           clearLabel={words.homeClear}
         />
         <FieldHint>{words.homeHint}</FieldHint>
@@ -129,12 +126,17 @@ function BenchBoard({ board }: { board: ActivityBenchBoard }) {
           </p>
         </div>
         {series.length > 0 && (
-          <ScoreSparkline values={series} label={S.benchmark.sparklineLabel(series.length)} />
+          <Sparkline
+            values={series}
+            label={S.benchmark.sparklineLabel(series.length)}
+            scale="range"
+            marker
+          />
         )}
         <div className="min-w-16 text-right">
           <span
             className="block font-mono text-sm font-semibold tabular-nums"
-            title={S.benchmark.latestScoreLabel}
+            data-tooltip={S.benchmark.latestScoreLabel}
           >
             {latest ? formatScore(latest.score) : "—"}
           </span>

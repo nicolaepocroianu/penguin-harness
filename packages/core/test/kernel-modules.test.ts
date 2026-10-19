@@ -11,6 +11,7 @@ import {
   checkTree,
   Component,
   defineModule,
+  closedShape,
   extendsExpr,
   Interface,
   Module,
@@ -191,6 +192,59 @@ describe("extendsExpr", () => {
       false,
     );
   });
+
+  it("a Map or a Set is compared by its element types, like an array", () => {
+    expect(extendsExpr({ map: [str, num] }, { map: [str, num] })).toBe(true);
+    expect(extendsExpr({ map: [str, num] }, { map: [str, str] })).toBe(false);
+    expect(extendsExpr({ map: [num, str] }, { map: [str, str] })).toBe(false);
+    expect(extendsExpr({ set: str }, { set: str })).toBe(true);
+    expect(extendsExpr({ set: str }, { set: num })).toBe(false);
+    // Neither is the other, nor an array of the same element.
+    expect(extendsExpr({ set: str }, { array: str })).toBe(false);
+    expect(extendsExpr({ map: [str, str] }, { set: str })).toBe(false);
+  });
+
+  it("a Map's value may be a live object, checked through the table", () => {
+    const t: IfaceTable = {
+      "a#A": { name: "A", methods: { x: { params: [], returns: str } }, slots: {} },
+      "a#B": { name: "B", methods: { x: { params: [], returns: num } }, slots: {} },
+    };
+    expect(extendsExpr({ map: [str, { iface: "a#A" }] }, { map: [str, { iface: "a#A" }] }, t)).toBe(
+      true,
+    );
+    expect(extendsExpr({ map: [str, { iface: "a#A" }] }, { map: [str, { iface: "a#B" }] }, t)).toBe(
+      false,
+    );
+  });
+});
+
+describe("closedShape", () => {
+  const table = (returns: typeof str | typeof num): IfaceTable => ({
+    "a#State": {
+      name: "State",
+      methods: {},
+      fields: { entries: { map: [str, { iface: "a#Session" }] } },
+      slots: {},
+    },
+    "a#Session": { name: "Session", methods: { run: { params: [], returns } }, slots: {} },
+    "a#Unrelated": { name: "Unrelated", methods: { x: { params: [], returns } }, slots: {} },
+  });
+
+  it("is the same string for the same interface, whatever order the table was written in", () => {
+    const t = table(str);
+    const reversed = Object.fromEntries(Object.entries(t).reverse()) as IfaceTable;
+    expect(closedShape(t, "a#State")).toBe(closedShape(reversed, "a#State"));
+  });
+
+  it("changes when an interface it reaches changes, and only then", () => {
+    expect(closedShape(table(str), "a#State")).not.toBe(closedShape(table(num), "a#State"));
+    const grown = { ...table(str), "a#New": table(str)["a#Unrelated"]! };
+    expect(closedShape(grown, "a#State")).toBe(closedShape(table(str), "a#State"));
+  });
+
+  it("is null for an interface the table does not have", () => {
+    expect(closedShape(table(str), "a#Missing")).toBeNull();
+  });
 });
 
 describe("checkTree", () => {
@@ -284,11 +338,11 @@ describe("parseManifest", () => {
   it("reads an empty requires, provides, contributes or children left out as empty", () => {
     expect(
       parseManifest({
-        name: "SandboxMxc",
+        name: "SandboxBwrap",
         contributes: { "SandboxModule.providers": [{ id: "p" }] },
       }),
     ).toEqual({
-      name: "SandboxMxc",
+      name: "SandboxBwrap",
       requires: {},
       provides: {},
       contributes: { "SandboxModule.providers": [{ id: "p" }] },
@@ -352,6 +406,45 @@ describe("bootModules", () => {
     const booted = await bootModules(root, { ifaces: table, resources });
     expect(order).toEqual(["sessions", "scheduler", "http"]);
     expect(booted.api("sessions", "sessions")).toBe(sessionsApi);
+    booted.dispose();
+  });
+
+  it("a data-only contribution orders nothing: its contributor may require the slot's owner", async () => {
+    const Registry: IfaceDecl = {
+      name: "Registry",
+      methods: { names: { params: [], returns: { data: "string[]" } } },
+      slots: { entries: { data: { title: "string" } } },
+    };
+    const t: IfaceTable = { ...table, "registry#Registry": Registry, "user#Registry": Registry };
+    const registry = manifest({ name: "registry", provides: { registry: "Registry" } });
+    const user = manifest({
+      name: "user",
+      requires: { registry: { iface: "Registry", from: "registry" } },
+      contributes: { "registry.entries": [{ id: "user.entry", title: "User" }] },
+    });
+    const order: string[] = [];
+    const root = defineModule(manifest({ name: "platform", children: ["registry", "user"] }), {
+      create: () => ({ api: {} }),
+      children: [
+        defineModule(user, {
+          create(ctx) {
+            order.push("user");
+            expect((ctx.use.registry as { names(): string[] }).names()).toEqual(["User"]);
+            return { api: {} };
+          },
+        }),
+        defineModule(registry, {
+          create(ctx) {
+            order.push("registry");
+            const names = (ctx.contributions.entries ?? []).map((c) => c.data.title as string);
+            expect(ctx.contributions.entries?.[0]).not.toHaveProperty("code");
+            return { api: { registry: { names: () => names } } };
+          },
+        }),
+      ],
+    });
+    const booted = await bootModules(root, { ifaces: t, resources });
+    expect(order).toEqual(["registry", "user"]);
     booted.dispose();
   });
 
@@ -561,11 +654,15 @@ describe("Interface, in both spellings", () => {
 });
 
 describe("class form: @Module / @Use / @Provide / @Bind", () => {
-  abstract class Sessions extends Interface<{
-    startTask(id: string): Promise<{ sessionId: string }>;
-    statusOf(id: string): string;
-  }>() {}
-  abstract class Runner extends Interface<{ statusOf(id: string): string }>() {}
+  @Interface()
+  abstract class Sessions {
+    abstract startTask(id: string): Promise<{ sessionId: string }>;
+    abstract statusOf(id: string): string;
+  }
+  @Interface()
+  abstract class Runner {
+    abstract statusOf(id: string): string;
+  }
   const t: IfaceTable = {
     "SessionsModule#Sessions": {
       name: "Sessions",

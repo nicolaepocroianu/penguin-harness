@@ -24,7 +24,22 @@ import type {
   UploadedMedia,
   VoiceOption,
 } from "@prismshadow/penguin-server/api";
-import { toastAttention, toastError, toastInfo, toastSuccess } from "../../components/ui/toast";
+import {
+  toastAttention,
+  toastError,
+  toastInfo,
+  toastSuccess,
+  Button,
+  Input,
+  Textarea,
+  Select,
+  InfoPopover,
+  EmptyState,
+  GlyphIcon,
+  ICON_SIZE,
+  ICONS,
+  Segmented,
+} from "@prismshadow/penguin-ui";
 import { discoverCodingAgents, listCodingAgents } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { formatMonthDay, localYmd } from "../../lib/format";
@@ -36,13 +51,6 @@ import { useProject } from "../../state/project";
 import { useSessions } from "../../state/sessions";
 import { startedUnlistedRuns, shouldReloadList } from "../../lib/activity-sessions";
 import { subscribeActivityListStale } from "../../lib/activity-run-events";
-import { Button } from "../../components/ui/button";
-import { Input, Textarea } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { EmptyState } from "../../components/ui/empty-state";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { ICON_SIZE } from "../../lib/icon-scale";
 import { AssetLibraryView } from "./asset-library-view";
 import { settledPipeline, settledRuns, type Announcement } from "./run-toasts";
 import { CreateActivityDialog } from "./create-activity-dialog";
@@ -66,7 +74,6 @@ import { assetForPick, buildStudioTree, sectionTrails } from "./studio-tree";
 import { sceneRanges } from "./script-model";
 import { buildScriptMedia, clipSelection } from "./script-media";
 import { SpecScenesView, readSpecView, writeSpecView, type SpecView } from "./spec-scenes-view";
-import { Segmented } from "../../components/ui/segmented";
 import type { SavedReview, ScriptReview } from "./script-editor";
 import { ConversationPanel } from "./conversation-panel";
 import { conversationThreads, focusFor } from "./conversation";
@@ -149,9 +156,6 @@ const NO_LANGUAGES = {
 const MEDIA_RUNNER = { agentId: "media_agent" };
 /** How long the list waits after a run finishes for others finishing with it, before one reload. */
 const RUN_FINISHED_SETTLE_MS = 300;
-/** The phone header's way back to the list, an arrow pointing left. */
-const BACK_ICON = "M15 18l-6-6 6-6M9 12h12";
-
 /** A stage sequence the panels can draw, or null for an answer that is not one. */
 function pipelineOrNull(value: unknown): PipelineState | null {
   const state = value as PipelineState | null;
@@ -1450,7 +1454,7 @@ function ActivityEditor({
                 title={S.activities.backToActivities}
                 className="-ml-1 shrink-0 rounded p-1 text-gray-500 hover:text-gray-800 sm:ml-0 sm:p-0 dark:text-gray-400 dark:hover:text-gray-200"
               >
-                <GlyphIcon d={BACK_ICON} size={ICON_SIZE.rowLead} className="sm:hidden" />
+                <GlyphIcon d={ICONS.arrowLeft} size={ICON_SIZE.rowLead} className="sm:hidden" />
                 <span className="sr-only sm:not-sr-only">{S.activities.backToActivities}</span>
               </Link>
               <span
@@ -1464,7 +1468,7 @@ function ActivityEditor({
                 <>
                   <span
                     className="hidden shrink-0 font-mono text-xs text-gray-500 sm:inline dark:text-gray-400"
-                    title={`${S.activities.collection}: ${detail.collectionId}`}
+                    data-tooltip={`${S.activities.collection}: ${detail.collectionId}`}
                   >
                     {detail.productCode}
                   </span>
@@ -1478,7 +1482,7 @@ function ActivityEditor({
               )}
               <h2
                 className="min-w-0 flex-1 truncate font-semibold sm:flex-initial"
-                title={detail.title}
+                data-tooltip={detail.title}
               >
                 {detail.title}
               </h2>
@@ -1863,7 +1867,7 @@ function ActivityEditor({
           <section className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               <div
-                className={`mx-auto space-y-5 ${section === "deploy" ? "max-w-6xl" : "max-w-4xl"}`}
+                className={`mx-auto space-y-6 ${section === "deploy" ? "max-w-6xl" : "max-w-4xl"}`}
               >
                 {section === "scenes" && (
                   <>

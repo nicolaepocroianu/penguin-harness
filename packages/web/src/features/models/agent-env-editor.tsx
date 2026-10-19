@@ -12,12 +12,18 @@ import { setCodingAgentEnv } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
-import { Button } from "../../components/ui/button";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { Input } from "../../components/ui/input";
-import { Modal } from "../../components/ui/modal";
-import { PasswordInput } from "../../components/ui/password-input";
-import { toastError, toastSuccess } from "../../components/ui/toast";
+import {
+  Button,
+  ConfirmModal,
+  Input,
+  Modal,
+  PasswordInput,
+  Text,
+  toastError,
+  useGuardedClose,
+  useUnsavedChanges,
+  toastSuccess,
+} from "@prismshadow/penguin-ui";
 import { envKeyProblem, keepAllExcept } from "./agent-env";
 
 export function AgentEnvEditor({
@@ -38,6 +44,18 @@ export function AgentEnvEditor({
   const [errors, setErrors] = useState<{ key?: string; value?: string }>({});
   const [overwriting, setOverwriting] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  // The add dialog's two fields are a draft: leaving it with something typed asks first, through
+  // every way the dialog closes (Esc, the ×, the scrim and Cancel), and not while a save runs.
+  const addScope = `cli-env-add:${agentId}`;
+  useUnsavedChanges(adding && (key !== "" || value !== ""), {
+    scope: addScope,
+    discard: () => {
+      setKey("");
+      setValue("");
+      setErrors({});
+    },
+  });
+  const closeAdd = useGuardedClose(() => setAdding(false), addScope, { locked: busy });
 
   const persist = async (body: CodingAgentEnvRequest): Promise<string | null> => {
     setBusy(true);
@@ -81,9 +99,9 @@ export function AgentEnvEditor({
 
   return (
     <div className="space-y-1.5">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+      <Text variant="label" as="span">
         {S.models.cliEnv}
-      </span>
+      </Text>
       <p className="text-xs text-gray-500 dark:text-gray-400">{S.models.cliEnvHint}</p>
       {entries.length === 0 ? (
         <p className="text-xs text-gray-500 dark:text-gray-400">{S.models.cliEnvEmpty}</p>
@@ -126,10 +144,10 @@ export function AgentEnvEditor({
       <Modal
         open={adding}
         title={S.models.cliEnvAddTitle}
-        onClose={() => setAdding(false)}
+        onClose={closeAdd}
         footer={
           <>
-            <Button size="sm" onClick={() => setAdding(false)}>
+            <Button size="sm" onClick={closeAdd}>
               {S.common.cancel}
             </Button>
             <Button size="sm" variant="primary" disabled={busy} onClick={() => void add()}>
@@ -173,6 +191,7 @@ export function AgentEnvEditor({
       </Modal>
 
       <ConfirmModal
+        cancelLabel={S.common.cancel}
         open={overwriting !== null}
         title={S.models.cliEnvOverwriteTitle}
         tone="primary"
@@ -189,6 +208,8 @@ export function AgentEnvEditor({
       <ConfirmModal
         open={removing !== null}
         title={S.models.cliEnvRemoveTitle}
+        confirmLabel={S.models.cliEnvRemove}
+        cancelLabel={S.common.cancel}
         busy={busy}
         onClose={() => setRemoving(null)}
         onConfirm={() => {

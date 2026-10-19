@@ -8,6 +8,15 @@
  * credential with `sk-1…abcd`. Neither failure says anything at the time; both are found
  * later, by the machine, as an auth error.
  *
+ * The groups' connections (`[providers.<id>]`) travel in the same PUT: our values, keys in
+ * plaintext, merged into theirs per field — a field we do not hold is left alone there.
+ *
+ * An entry the machine refuses by name is left out and the rest of the table still lands, with
+ * no pointer to it. A Project the machine is still provisioning on its first boot (its creation
+ * refused as taken, the Project not listed yet) is written once it is listed; one that never is
+ * stays refused. A value a row takes from this server's environment never travels, and
+ * `envSourced` names exactly those.
+ *
  * The machine's API is faked. What travels between the two servers is HTTP through a tunnel
  * that already exists, so there is nothing ssh-shaped left to exercise at this level.
  */
@@ -17,7 +26,7 @@ import { describe, expect, it } from "vitest";
 import { serve } from "@hono/node-server";
 import type { ModelEntry } from "@prismshadow/penguin-core";
 import type { ModelsResponse, ModelsUpdateRequest } from "../src/api/types.js";
-import { planModelSync, syncModelsToMachine } from "../src/machines/models-sync.js";
+import { envSourced, planModelSync, syncModelsToMachine } from "../src/machines/models-sync.js";
 import type { LocalModels } from "../src/machines/models-sync.js";
 import { machineApi } from "../src/machines/machine-api.js";
 import type { MachineApi } from "../src/machines/machine-api.js";
@@ -83,9 +92,17 @@ const local = (over: Partial<ModelEntry> = {}): ModelEntry => ({
 
 /** What that machine's GET answers: keys masked, exactly as the real endpoint reports them. */
 const remoteTable = (over: Partial<ModelsResponse> = {}): ModelsResponse => ({
+  providers: {},
   models: [],
   ...over,
 });
+
+/** A remote row's effective connection, as its GET reports one; the sync never reads it. */
+const followsNothing = {
+  baseUrlSource: "none",
+  clientTypeSource: "none",
+  apiKeySource: "none",
+} as const;
 
 describe("planModelSync", () => {
   it("sends our entry with its key in plaintext", () => {
@@ -106,6 +123,7 @@ describe("planModelSync", () => {
             isDefault: false,
             contextWindow: 200000,
             credential: { apiKeyMasked: "sk-a…wxyz", baseUrl: "https://theirs.example" },
+            effective: followsNothing,
           },
         ],
       }),
@@ -128,6 +146,7 @@ describe("planModelSync", () => {
             modelId: "deepseek-v4-flash",
             isDefault: true,
             credential: { apiKeyMasked: "sk-o…lder" },
+            effective: followsNothing,
           },
         ],
       }),
@@ -155,6 +174,26 @@ describe("planModelSync", () => {
     const ours = { provider: "deepseek", modelId: "deepseek-v4-flash" };
     expect(planModelSync(mine, remoteTable({ defaultModel: theirs })).defaultModel).toEqual(ours);
     expect(planModelSync(mine, remoteTable()).defaultModel).toEqual(ours);
+  });
+
+  it("sends our group connections with their keys in plaintext, omitting what we do not hold", () => {
+    const plan = planModelSync(
+      {
+        models: [],
+        providers: {
+          tokendance: { api_key: "td-group-0123456789", created_at: "2026-10-01T00:00:00Z" },
+          "my-lab": { base_url: "https://lab.example/v1", client_type: "openai-chat" },
+          "penguin-go": { client_type: "google-genai", api_key: "pg-group-0123456789" },
+        },
+      },
+      remoteTable({ providers: { tokendance: { apiKeyMasked: "td-t…heir" } } }),
+    );
+    expect(plan.providers).toEqual({
+      tokendance: { apiKey: "td-group-0123456789" },
+      "my-lab": { baseUrl: "https://lab.example/v1", clientType: "openai-chat" },
+      "penguin-go": { clientType: "google-genai", apiKey: "pg-group-0123456789" },
+    });
+    expect(JSON.stringify(plan)).not.toContain("…");
   });
 
   it("does not name a pointer that is not in the table it sends", () => {
@@ -220,8 +259,99 @@ describe("syncModelsToMachine, against a scripted machine", () => {
       refused: [
         { projectId: "alice-lab", detail: expect.stringContaining("refused to create alice-lab") },
       ],
+      skipped: [],
     });
     expect(machine.puts.map((p) => p.path)).toEqual(["/api/projects/default_project/models"]);
+  });
+
+  it("a Project whose only configuration is a group key is written; one with nothing to carry is left alone", async () => {
+    const machine = fakeMachine({
+      "/api/projects": {
+        status: 200,
+        body: { projects: [{ projectId: "keyed" }, { projectId: "bare" }] },
+      },
+      "/api/projects/keyed/models": { status: 200, body: remoteTable() },
+      "/api/projects/bare/models": { status: 200, body: remoteTable() },
+    });
+    const outcome = await syncModelsToMachine({
+      api: machine.api,
+      projects: ["keyed", "bare"],
+      loadLocal: async (projectId): Promise<LocalModels> =>
+        projectId === "keyed"
+          ? { models: [], providers: { tokendance: { api_key: "td-group-0123456789" } } }
+          : { models: [], providers: {} },
+    });
+    expect(outcome).toMatchObject({ kind: "synced", projects: ["keyed"] });
+    expect(machine.puts).toEqual([
+      {
+        path: "/api/projects/keyed/models",
+        body: { models: [], providers: { tokendance: { apiKey: "td-group-0123456789" } } },
+      },
+    ]);
+  });
+
+  /**
+   * A machine on its first boot, still provisioning `default_project`: its directory is there, so
+   * a creation is refused as taken, and it is listed only once `ready` is set.
+   */
+  function provisioningMachine() {
+    const state = { ready: false, pauses: 0 };
+    const puts: string[] = [];
+    const api: MachineApi = {
+      postBytes: async () => ({ status: 500, text: "" }),
+      request: async (method, path) => {
+        if (path === "/api/projects" && method === "GET") {
+          const projects = state.ready ? [{ projectId: "default_project" }] : [];
+          return { status: 200, text: JSON.stringify({ projects }) };
+        }
+        if (path === "/api/projects" && method === "POST") {
+          return {
+            status: 409,
+            text: JSON.stringify({ error: { code: "project_exists", message: "taken" } }),
+          };
+        }
+        if (method === "PUT") {
+          puts.push(path);
+          return { status: 200, text: "{}" };
+        }
+        return { status: 200, text: JSON.stringify(remoteTable()) };
+      },
+    };
+    return { api, state, puts };
+  }
+
+  it("writes a Project the machine is still provisioning once it is listed", async () => {
+    const machine = provisioningMachine();
+    const outcome = await syncModelsToMachine({
+      api: machine.api,
+      projects: ["default_project"],
+      loadLocal: async () => ({ models: [local()] }),
+      pause: async () => {
+        machine.state.pauses += 1;
+        if (machine.state.pauses === 3) machine.state.ready = true;
+      },
+    });
+    expect(outcome).toMatchObject({ kind: "synced", projects: ["default_project"], created: [] });
+    expect(machine.puts).toEqual(["/api/projects/default_project/models"]);
+  });
+
+  it("refuses a Project still not listed after waiting, and writes nothing for it", async () => {
+    const machine = provisioningMachine();
+    const outcome = await syncModelsToMachine({
+      api: machine.api,
+      projects: ["default_project"],
+      loadLocal: async () => ({ models: [local()] }),
+      pause: async () => {
+        machine.state.pauses += 1;
+      },
+    });
+    expect(outcome).toMatchObject({
+      kind: "synced",
+      projects: [],
+      refused: [{ projectId: "default_project", detail: expect.stringContaining("409") }],
+    });
+    expect(machine.puts).toEqual([]);
+    expect(machine.state.pauses).toBeGreaterThan(0);
   });
 
   it("the channel giving out fails the sync as a whole — nothing after it would fare better", async () => {
@@ -241,6 +371,38 @@ describe("syncModelsToMachine, against a scripted machine", () => {
       loadLocal: async () => ({ models: [local()] }),
     });
     expect(outcome).toEqual({ kind: "failed", detail: "the machine's server closed mid-answer" });
+  });
+});
+
+describe("envSourced", () => {
+  it("names exactly the values a row takes from this server's environment, and only those set here", () => {
+    const found = envSourced(
+      {
+        models: [
+          // No key anywhere: the vendor's variable, set here.
+          { provider: "openai", model_id: "gpt-5" },
+          // Its own key, and no OPENAI_BASE_URL here: nothing.
+          { provider: "openai", model_id: "gpt-5-mini", api_key: "sk-own-0123456789" },
+          // Its group's key, and no base URL: the routed client's ANTHROPIC_BASE_URL, set here.
+          { provider: "anthropic", model_id: "claude-opus-5" },
+          // No key, and DEEPSEEK_API_KEY is not set here: it does not run here either.
+          { provider: "deepseek", model_id: "deepseek-v4-flash" },
+          // A gateway's endpoint is never lent a vendor's key.
+          { provider: "custom", model_id: "gpt-5", base_url: "https://gw.example.com/v1" },
+        ],
+        providers: { anthropic: { api_key: "sk-ant-group-0123456789" } },
+      },
+      {
+        OPENAI_API_KEY: "sk-env-0123456789",
+        ANTHROPIC_API_KEY: "sk-ant-env-0123456789",
+        ANTHROPIC_BASE_URL: "https://proxy.example.com",
+        DEEPSEEK_API_KEY: "  ",
+      },
+    );
+    expect(found).toEqual([
+      { provider: "openai", modelId: "gpt-5", variable: "OPENAI_API_KEY" },
+      { provider: "anthropic", modelId: "claude-opus-5", variable: "ANTHROPIC_BASE_URL" },
+    ]);
   });
 });
 
@@ -297,6 +459,7 @@ describe("syncModelsToMachine, against a running server", () => {
         projects: ["default_project"],
         created: [],
         refused: [],
+        skipped: [],
       });
 
       const config = await machine.deps.projectConfigService.loadConfig("default_project");
@@ -304,6 +467,85 @@ describe("syncModelsToMachine, against a running server", () => {
       const theirs = config.models.find((m) => m.model_id === "claude-opus-5");
       expect(ours?.api_key).toBe("sk-ours-0123456789");
       expect(theirs?.api_key).toBe("sk-theirs-9876543210");
+    } finally {
+      server.close();
+      await machine.cleanup();
+    }
+  });
+
+  it("lands a group key and a bare model of the user's on it, with no row of ours keyed", async () => {
+    const machine = await createTestApp();
+    const { server, port } = await listening(machine.app.fetch);
+    try {
+      const login = await post(port, "/api/auth/login", {
+        userId: "admin",
+        password: machine.adminPassword,
+      });
+      const cookie = login.setCookie.map((line) => line.split(";")[0]?.trim() ?? "").join("; ");
+
+      const outcome = await syncModelsToMachine({
+        api: machineApi(new http.Agent(), port, cookie),
+        projects: ["default_project"],
+        // What a Project looks like once its keys live on its groups: no row carries one.
+        loadLocal: async () => ({
+          models: [{ provider: "openrouter", model_id: "acme/hand-added" }],
+          providers: { openrouter: { api_key: "sk-or-group-0123456789" } },
+        }),
+      });
+      expect(outcome).toMatchObject({ kind: "synced", projects: ["default_project"] });
+
+      const config = await machine.deps.projectConfigService.loadConfig("default_project");
+      expect(config.providers?.openrouter?.api_key).toBe("sk-or-group-0123456789");
+      expect(config.models.find((m) => m.model_id === "acme/hand-added")).toEqual({
+        provider: "openrouter",
+        model_id: "acme/hand-added",
+      });
+    } finally {
+      server.close();
+      await machine.cleanup();
+    }
+  });
+
+  it("leaves out an entry the machine refuses by name, with the pointer to it, and lands the rest", async () => {
+    const machine = await createTestApp();
+    const { server, port } = await listening(machine.app.fetch);
+    try {
+      const login = await post(port, "/api/auth/login", {
+        userId: "admin",
+        password: machine.adminPassword,
+      });
+      const cookie = login.setCookie.map((line) => line.split(";")[0]?.trim() ?? "").join("; ");
+      // Penguin Go carries only its built-in models; this id is none of them.
+      const handAdded = { provider: "penguin-go", model_id: "gemini-9.9-not-a-preset" };
+
+      const outcome = await syncModelsToMachine({
+        api: machineApi(new http.Agent(), port, cookie),
+        projects: ["default_project"],
+        loadLocal: async () => ({
+          models: [handAdded, local({ api_key: "sk-ours-0123456789" })],
+          defaultModel: handAdded,
+        }),
+      });
+      expect(outcome).toMatchObject({
+        kind: "synced",
+        projects: ["default_project"],
+        refused: [],
+        skipped: [
+          {
+            projectId: "default_project",
+            provider: "penguin-go",
+            modelId: "gemini-9.9-not-a-preset",
+            code: "model_not_addable",
+          },
+        ],
+      });
+
+      const config = await machine.deps.projectConfigService.loadConfig("default_project");
+      expect(config.models.some((m) => m.model_id === "gemini-9.9-not-a-preset")).toBe(false);
+      expect(config.models.find((m) => m.model_id === "deepseek-v4-flash")?.api_key).toBe(
+        "sk-ours-0123456789",
+      );
+      expect(config.default_model?.model_id).not.toBe("gemini-9.9-not-a-preset");
     } finally {
       server.close();
       await machine.cleanup();
@@ -334,6 +576,7 @@ describe("syncModelsToMachine, against a running server", () => {
         projects: ["field_work"],
         created: ["field_work"],
         refused: [],
+        skipped: [],
       });
 
       const listed = await machine.deps.projectService.listProjects("admin");

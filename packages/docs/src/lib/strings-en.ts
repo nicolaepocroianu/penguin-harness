@@ -5,17 +5,11 @@ export const en: Strings = {
   siteName: "PenguinHarness",
 
   nav: {
-    highlights: "Highlights",
-    selfImprove: "Self-evolution",
-    quickstart: "Quick start",
-    cases: "Cases",
-    scenarios: "Scenarios",
-    benchmark: "Benchmark",
-    contract: "CONTRACT.md",
-    features: "Features",
+    home: "Home",
     blog: "Blog",
     download: "Download",
     docs: "Docs",
+    gallery: "Gallery",
     github: "GitHub",
     openMenu: "Open navigation",
     closeMenu: "Close navigation",
@@ -25,12 +19,6 @@ export const en: Strings = {
     label: "Theme",
     light: "Light",
     dark: "Dark",
-    system: "System",
-  },
-
-  lang: {
-    label: "Language",
-    en: "English",
     system: "System",
   },
 

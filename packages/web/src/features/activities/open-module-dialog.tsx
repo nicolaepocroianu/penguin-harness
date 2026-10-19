@@ -11,9 +11,7 @@ import type { ClaimModuleProductResponse, ModuleProduct } from "@prismshadow/pen
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, toneStrip } from "../../lib/tone";
-import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
-import { Modal } from "../../components/ui/modal";
+import { Button, Input, Modal } from "@prismshadow/penguin-ui";
 import { filterModuleProducts, moduleProductKey } from "./module-products";
 import { projectActivitiesApi } from "./activity-api";
 
@@ -142,7 +140,7 @@ export function OpenModuleDialog({
                     {result && !("error" in result) && (
                       <div
                         role="status"
-                        className={`space-y-1 rounded-md border p-2 text-xs ${toneStrip[result.problems.length > 0 ? "attention" : "success"]}`}
+                        className={`space-y-1 rounded-control border p-2 text-xs ${toneStrip[result.problems.length > 0 ? "attention" : "success"]}`}
                       >
                         <p>{result.message}</p>
                         {result.problems.length > 0 && (

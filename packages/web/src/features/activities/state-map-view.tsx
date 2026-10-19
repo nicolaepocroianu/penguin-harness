@@ -8,13 +8,11 @@
  * a page chose to say.
  */
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
-import { Button } from "../../components/ui/button";
-import { EmptyState } from "../../components/ui/empty-state";
-import { Select } from "../../components/ui/select";
-import { SkeletonList } from "../../components/ui/skeleton";
+import { Button, EmptyState, Select, SkeletonList } from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
+import { isZoomWheel } from "../../lib/shortcuts/wheel";
 import {
   machineOf,
   machineScenes,
@@ -41,6 +39,13 @@ const WIDTH = 360;
 const ROW = 64;
 const NODE_HEIGHT = 28;
 const PAD = 18;
+/** The arrowhead marker's square box; its tip sits one unit inside the line's end. */
+const MARKER = 8;
+
+/** The graph's own arrowhead: a filled triangle filling the marker's box, tip at mid-height. */
+function arrowHeadPath(size: number): string {
+  return "M0 0L" + size + " " + size / 2 + "L0 " + size + "z";
+}
 
 function centre(node: MapNode) {
   return {
@@ -81,7 +86,7 @@ function LiveTargets({
           key={entry.id}
           type="button"
           aria-pressed={outlined === entry.id}
-          title={words.targetTitle(entry.id, words.inputTypes[entry.inputType])}
+          data-tooltip={words.targetTitle(entry.id, words.inputTypes[entry.inputType])}
           onMouseEnter={() => onOutline(entry.id)}
           onMouseLeave={() => onOutline(null)}
           onFocus={() => onOutline(entry.id)}
@@ -108,7 +113,7 @@ function Facts({ label, items }: { label: string; items: ReactNode[] }) {
       <dt className="font-medium text-gray-600 dark:text-gray-400">{label}</dt>
       <dd>
         {items.length ? (
-          <ul className="space-y-0.5">
+          <ul className="space-y-1">
             {items.map((item, index) => (
               <li key={index} className="break-words">
                 {item}
@@ -248,7 +253,7 @@ function SceneGraph({
       <div
         className="max-h-[32rem] overflow-auto"
         onWheel={(event) => {
-          if (!event.ctrlKey && !event.metaKey) return;
+          if (!isZoomWheel(event)) return;
           event.preventDefault();
           onZoom(event.deltaY < 0 ? 1 : -1);
         }}
@@ -263,14 +268,14 @@ function SceneGraph({
           <defs>
             <marker
               id={marker}
-              viewBox="0 0 8 8"
-              refX="7"
-              refY="4"
+              viewBox={`0 0 ${MARKER} ${MARKER}`}
+              refX={MARKER - 1}
+              refY={MARKER / 2}
               markerWidth="7"
               markerHeight="7"
               orient="auto-start-reverse"
             >
-              <path d="M0 0L8 4L0 8z" className="fill-gray-400 dark:fill-gray-500" />
+              <path d={arrowHeadPath(MARKER)} className="fill-gray-400 dark:fill-gray-500" />
             </marker>
           </defs>
           {[...lines.values()].map(({ from, to, labels, back }) => {
@@ -411,7 +416,7 @@ function SceneGraph({
         <p className="text-xs text-gray-500">{words.inspect.hint}</p>
       )}
       {map.exits.length > 0 && (
-        <div className="space-y-0.5 text-xs text-gray-500">
+        <div className="space-y-1 text-xs text-gray-500">
           <p className="font-medium">{words.leaves}</p>
           <ul>
             {map.exits.map((exit) => (

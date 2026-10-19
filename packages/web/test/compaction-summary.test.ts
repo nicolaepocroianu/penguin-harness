@@ -1,16 +1,15 @@
 /**
- * What a compaction row shows: the text inside its result section (compaction-summary.ts)
- * and the titles above it (the dictionaries' mode-aware `compactionTitle`, and the state
- * titles `compactionRunning` / `compactionDone` the header shows while the step runs and once
- * it settles, the work-group header's own Running/Done idiom).
+ * What a compaction row shows (lib/omni/compaction-summary.ts and the dictionaries' mode-aware
+ * titles). The section timings are stream-model.test.ts's.
  *
- * The row itself is a StepBanner whose body stacks a thinking section and a result section.
- * The banner opens while the compaction runs and closes itself once it settles; the two
- * sections stay closed throughout, showing only their labels and their wall times — the
- * reader expands one to watch the request think or write, or to read the outcome afterwards.
- * What the result section then contains is this pure helper's job, and it is what these tests
- * pin; the section timings behind those wall times are pinned in stream-model.test.ts (the
- * Web suite runs in a node environment and renders no React).
+ * - The result section reads the summary as prose: tags stripped, an unclosed block shown as
+ *   far as it streamed, tagless output verbatim, and nothing when nothing streamed.
+ * - The result section stays hidden while the request only thinks, appears with the first
+ *   summary text, and stays for a completed row but not for a failed one.
+ * - A discard is never titled as a compaction, and an unknown mode falls back to the
+ *   compaction title.
+ * - The running and settled titles differ, in both modes and both languages, and a discard
+ *   never reads as compacting in either state.
  */
 import { describe, expect, it } from "vitest";
 import { en } from "../src/lib/strings-en";
@@ -84,12 +83,7 @@ describe("compactionTitle (the row is titled by its mode)", () => {
 });
 
 describe("compactionRunning / compactionDone (the title doubles as the status, as the work group's does)", () => {
-  it("names running and completed compaction states", () => {
-    expect(en.chat.compactionRunning("summarize")).toBe("Compacting");
-    expect(en.chat.compactionDone("summarize")).toBe("Compacted");
-  });
-
-  it("keeps the two states and the two modes apart in the English dictionary", () => {
+  it("keeps the two states and the two modes apart in both dictionaries", () => {
     for (const [locale, dict] of [["en", en]] as const) {
       for (const mode of ["summarize", "discard"]) {
         expect(dict.chat.compactionRunning(mode), `${locale} ${mode}`).toBeTruthy();

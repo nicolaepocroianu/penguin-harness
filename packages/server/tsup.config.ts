@@ -18,6 +18,15 @@ import { MEDIA_PLACEHOLDER_ASSETS } from "../../scripts/media-placeholder-assets
 // compile target — see its own module doc) is compiled straight from source by
 // esbuild in scripts/deploy.mjs, never through this package's published dist,
 // so it has no reason to be a tsup entry or a subpath export.
+/**
+ * PENGUIN_BUILD_JS_ONLY=1 skips the declarations: scripts/dev-prebuild.mjs builds this
+ * package only so that the dev CLI's runtime imports of it resolve, and nothing at runtime
+ * reads a .d.ts. The declaration pass is most of a full build's time. The declarations an
+ * earlier full build left are kept rather than cleaned, so the CLI's and the desktop's
+ * typecheck still find this package's types after a dev start.
+ */
+const jsOnly = process.env.PENGUIN_BUILD_JS_ONLY === "1";
+
 const entry = {
   index: "src/index.ts",
   "api/types": "src/api/types.ts",
@@ -68,12 +77,13 @@ const shared = {
 } satisfies Options;
 
 export default defineConfig(() => {
-  fs.rmSync(path.join(here, "dist"), { recursive: true, force: true });
-  return [
+  // A JS-only build is one build, so it can clean for itself, sparing the declarations.
+  if (!jsOnly) fs.rmSync(path.join(here, "dist"), { recursive: true, force: true });
+  const builds: Options[] = [
     {
       ...shared,
       entry,
-      dts: { entry: declarations },
+      ...(jsOnly ? { dts: false, clean: ["!**/*.d.ts"] } : { dts: { entry: declarations } }),
       sourcemap: true,
       // Scripts that run somewhere else, as REAL files beside the bundles: the release installers
       // a remote install feeds to the far side (the one thing that has to arrive before the CLI
@@ -97,10 +107,13 @@ export default defineConfig(() => {
         }
       },
     },
-    {
+  ];
+  if (!jsOnly) {
+    builds.push({
       ...shared,
       entry: { "plugin/index": pluginSurface, "api/types": apiTypes },
       dts: { only: true },
-    },
-  ];
+    });
+  }
+  return builds;
 });

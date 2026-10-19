@@ -1,6 +1,7 @@
 ---
 name: waf-scene-composition
 description: Use when composing an animated scene for a WAF activity's video or animation asset (Penguin's scene composition, an HTML page driven by one paused GSAP timeline). Covers planning the frames, laying out the stage, text and motion for young learners, timing against the storyboard, and checking the result before finishing.
+version: 2026.10.10.1
 ---
 
 # WAF Scene Composition

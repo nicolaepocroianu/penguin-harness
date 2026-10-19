@@ -1,12 +1,20 @@
-import { en } from "../src/lib/strings-en";
 /**
- * The web app's page manifest (src/module.json) and how server contributions fold in.
+ * The web app's page manifest (src/module.json) and how server contributions fold in
+ * (lib/pages.ts).
+ *
+ * - Every nav key the JSON manifest names has a nav label and an icon (the JSON is not
+ *   type-checked against them).
+ * - Every page has a unique id, key and path, and a renderer.
+ * - A member's nav drops admin-only and unreleased pages and adds nothing the admin lacks.
+ * - A server page whose renderer this build carries is appended after the local ones.
+ * - A server page with an unknown builtin renderer is skipped, and a local page wins over a
+ *   same-key server one.
+ * - An iframe renderer needs no registry entry.
  */
 import { describe, expect, it } from "vitest";
 import { NAV_PAGE_KEYS, PAGES, mergePages, navPagesFor } from "../src/lib/pages";
-import { NAV_GROUP_KEYS } from "../src/lib/nav-group-collapse";
-
-import { NAV_ICONS } from "../src/components/ui/icons";
+import { en } from "../src/lib/strings-en";
+import { NAV_ICONS } from "../src/lib/nav-icons";
 
 describe("the page manifest", () => {
   it("names only keys the nav strings and icons are typed for", () => {
@@ -14,7 +22,6 @@ describe("the page manifest", () => {
       expect(en.nav).toHaveProperty(key);
       expect(NAV_ICONS).toHaveProperty(key);
     }
-    expect(NAV_GROUP_KEYS).toEqual(NAV_PAGE_KEYS);
   });
 
   it("every page has a unique id, key and path, and a renderer", () => {
@@ -29,7 +36,8 @@ describe("the page manifest", () => {
   it("the nav a member sees drops admin-only and unreleased pages", () => {
     const admin = navPagesFor(true).map((p) => p.key);
     const member = navPagesFor(false).map((p) => p.key);
-    expect(admin).not.toContain("machines"); // unreleased for everyone
+    expect(admin).toContain("machines"); // released, and admin-only
+    expect(member).not.toContain("machines");
     expect(member.every((key) => admin.includes(key))).toBe(true);
     for (const page of PAGES.filter((p) => p.nav === "main" && p.admin))
       expect(member).not.toContain(page.key);
@@ -81,7 +89,7 @@ describe("mergePages", () => {
         {
           key: "wf",
           path: "/wf",
-          renderer: { iframe: { src: "/workflow/a/wf/", namespace: "wf" } },
+          renderer: { iframe: { src: "/workbench/a/wf/", namespace: "wf" } },
         },
       ],
       known,

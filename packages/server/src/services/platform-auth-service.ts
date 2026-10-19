@@ -4,13 +4,15 @@
  * The Web App presents this like any other provider's "authorize a key" action. Penguin Go's
  * wire protocol is different from OAuth/PKCE, though: the server registers a device secret,
  * polls the one-time delivery, validates its API key and model catalog, then adds newly
- * advertised models while writing the key across the provider group. Account and balance
- * metadata remain outside PenguinHarness.
+ * advertised models while writing the key across the provider group. Balance readings are
+ * fetched separately by the models balance route; authorization retains no account metadata.
  */
 import { randomBytes } from "node:crypto";
+import { userAgent } from "@prismshadow/penguin-core";
 import { Interface, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
 import { PENGUIN_GO_PROVIDER_ID } from "@prismshadow/penguin-core/model-catalog";
 import { HttpError } from "../http/errors.js";
+import { normalizePenguinGoOrigin } from "../config.js";
 import { Config } from "../hmr/capabilities.js";
 import type { ProjectConfigStore } from "../mechanisms/projects.js";
 import type { PlatformAuthFlowStatusResponse } from "../api/types.js";
@@ -104,19 +106,6 @@ function requiredString(value: unknown, maxLength: number, label: string): strin
   return value;
 }
 
-function platformEndpoint(value: unknown): string {
-  const raw = requiredString(value, MAX_ENDPOINT_LENGTH, "endpoint");
-  const parsed = new URL(raw);
-  if (
-    (parsed.protocol !== "http:" && parsed.protocol !== "https:") ||
-    parsed.username ||
-    parsed.password
-  ) {
-    throw new Error("The platform returned an invalid endpoint.");
-  }
-  return raw.replace(/\/+$/, "");
-}
-
 function platformPrice(value: unknown, label: string): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
     throw new Error(`The platform returned an invalid ${label} price.`);
@@ -175,15 +164,23 @@ function platformPromotion(
 
 function platformCatalog(value: unknown, requireEnvelope: boolean): PlatformModelCatalog {
   const body = asRecord(value);
-  if (requireEnvelope && body.schemaVersion !== 1) {
+  if ((requireEnvelope || body.schemaVersion !== undefined) && body.schemaVersion !== 1) {
     throw new Error("The platform returned an unsupported model catalog.");
   }
   if (requireEnvelope) requiredString(body.catalogVersion, 128, "catalog version");
-  const endpoints = asRecord(body.endpoints);
-  const endpointByName = {
-    openai: platformEndpoint(endpoints.openai),
-    google: platformEndpoint(endpoints.google),
-  } as const;
+  const endpoint = requiredString(asRecord(body.endpoints).mmsp, MAX_ENDPOINT_LENGTH, "endpoint");
+  const parsed = new URL(endpoint);
+  if (
+    !["http:", "https:"].includes(parsed.protocol) ||
+    parsed.username ||
+    parsed.password ||
+    parsed.search ||
+    parsed.hash ||
+    parsed.pathname.replace(/\/+$/, "") !== "/api/v1"
+  ) {
+    throw new Error("The platform returned an invalid endpoint.");
+  }
+  const baseUrl = endpoint.replace(/\/+$/, "");
   if (!Array.isArray(body.models) || body.models.length > MAX_CATALOG_MODELS) {
     throw new Error("The platform returned an invalid model catalog.");
   }
@@ -214,19 +211,6 @@ function platformCatalog(value: unknown, requireEnvelope: boolean): PlatformMode
     }
     const billed = platformPricing(model.pricing, "effective");
     const promotion = platformPromotion(model, billed);
-    const route = asRecord(model.recommendedRoute);
-    const provider = model.provider;
-    const googleRoute =
-      provider === "google" &&
-      route.protocol === "google-generative-language" &&
-      route.endpoint === "google";
-    const deepSeekRoute =
-      provider === "deepseek" &&
-      route.protocol === "deepseek-responses" &&
-      route.endpoint === "openai";
-    if (!googleRoute && !deepSeekRoute) {
-      throw new Error("The platform returned an unsupported model route.");
-    }
     return {
       modelId,
       displayName,
@@ -235,8 +219,8 @@ function platformCatalog(value: unknown, requireEnvelope: boolean): PlatformMode
       // A Project stores the list price; the promotion travels apart, as the fraction.
       pricing: promotion?.listPricing ?? billed,
       ...(promotion !== undefined ? { discount: promotion.discount } : {}),
-      baseUrl: endpointByName[googleRoute ? "google" : "openai"],
-      clientType: googleRoute ? ("gemini-3.8" as const) : ("deepseek-v4" as const),
+      baseUrl,
+      clientType: "mmsp" as const,
     };
   });
   return { models };
@@ -292,8 +276,11 @@ export class PlatformAuthService {
   }
 
   private async request(path: string, init: RequestInit): Promise<Response> {
+    const headers = new Headers(init.headers);
+    headers.set("user-agent", userAgent());
     return this.fetchImpl(this.url(path), {
       ...init,
+      headers,
       redirect: "manual",
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
@@ -407,7 +394,7 @@ export class PlatformAuthService {
     try {
       response = await this.request("/api/client/models", {
         method: "GET",
-        headers: { authorization: `Bearer ${apiKey}` },
+        headers: { authorization: `Bearer ${apiKey}`, "x-penguin-protocol": "mmsp" },
       });
     } catch {
       throw new HttpError(502, "platform_unreachable", "Penguin Go could not be reached.");
@@ -457,7 +444,7 @@ export class PlatformAuthService {
     try {
       response = await this.request("/api/auth/desktop/poll", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "x-penguin-protocol": "mmsp" },
         body: JSON.stringify({ code: flow.code, deviceSecret: flow.deviceSecret }),
       });
     } catch {
@@ -533,8 +520,10 @@ export class PlatformAuthService {
     flow.status = "applying";
     flow.error = undefined;
     try {
+      // The key lands as the group key whether or not a model uses it yet (every one keyed on
+      // its own, or nothing delivered and nothing held): the report carries how many use it,
+      // 0 included — as Enter key and the other Connect flows do.
       const result = await this.deps.applyCatalog(flow.projectId, flow.catalog, flow.apiKey, true);
-      if (result.applied === 0) throw new Error("The Penguin Go catalog is empty.");
       flow.applied = result.applied;
       flow.apiKey = undefined;
       flow.catalog = undefined;
@@ -604,7 +593,8 @@ export class PlatformAuthProvider {
 
   setup() {
     this.auth = new PlatformAuthService({
-      origin: this.config.penguinGoOrigin,
+      // A runtime older than the field publishes none; the default is the production origin.
+      origin: this.config.penguinGoOrigin ?? normalizePenguinGoOrigin(undefined),
       getKey: (projectId) => this.projectConfig.getGroupApiKey(projectId, PENGUIN_GO_PROVIDER_ID),
       applyCatalog: (projectId, catalog, apiKey, applyKeyToExisting) =>
         this.projectConfig.mergePlatformModels(

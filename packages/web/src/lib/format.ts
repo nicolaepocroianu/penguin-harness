@@ -182,7 +182,18 @@ export function formatDateTime(iso: string): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
-/** English month abbreviations for formatMonthDay (Intl-free — see the rationale there). */
+/**
+ * ISO timestamp → local `MM-dd HH:mm`: `formatDateTime` without the year, for a time said beside
+ * how long ago it was (a week at most), where the year goes without saying. Returns the input
+ * unchanged if parsing fails.
+ */
+export function formatShortDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+/** English month abbreviations for the date formatters below (Intl-free — see formatMonthDay). */
 const EN_MONTHS = [
   "Jan",
   "Feb",
@@ -218,6 +229,24 @@ export function formatMonthDay(iso: string, locale: string): string {
   // zh writes the date without spaces (8月30日), the way the message-time format does;
   // en keeps the abbreviated month (Aug 30).
   return `${EN_MONTHS[month - 1]} ${day}`;
+}
+
+/**
+ * `yyyy-mm-dd` (or a full ISO timestamp — only the date part is read) → localized date with
+ * the year: en `Sep 15, 2026`, zh `2026年9月15日` (a release's date in the release notes, whose
+ * entries span years). Read straight from the string for the same reason as formatMonthDay;
+ * unparsable or out-of-range input returns unchanged.
+ */
+export function formatYearMonthDay(iso: string, locale: "zh" | "en"): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:$|T)/.exec(iso);
+  if (!m) return iso;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return iso;
+  return locale === "en"
+    ? `${EN_MONTHS[month - 1]} ${day}, ${year}`
+    : `${year}年${month}月${day}日`;
 }
 
 /**
@@ -302,6 +331,54 @@ export function formatRelativeShort(iso: string, locale: string): string {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d`;
   return formatMonthDay(localYmd(d), locale);
+}
+
+/** `n unit(s) ago`, singular for one. */
+function agoEn(n: number, unit: string): string {
+  return `${n} ${unit}${n === 1 ? "" : "s"} ago`;
+}
+
+/**
+ * ISO timestamp → how long ago, in words a sentence can hold — the long form of
+ * `formatRelativeShort`, for a fact in a dialog rather than a narrow row: under a minute zh
+ * 「刚刚」 / en "just now", then minutes, hours and days (`3 分钟前` / `3 minutes ago`) up to a
+ * week. A week or older — or a future time (clock skew) — is the absolute `formatDateTime`; an
+ * unparsable value yields "". `now` is the clock it measures from.
+ */
+export function formatRelativeLong(
+  iso: string,
+  locale: "zh" | "en",
+  now: number = Date.now(),
+): string {
+  const at = new Date(iso).getTime();
+  if (Number.isNaN(at)) return "";
+  const diffMs = now - at;
+  if (diffMs < 0) return formatDateTime(iso);
+  const min = Math.floor(diffMs / 60_000);
+  if (min < 1) return locale === "en" ? "just now" : "刚刚";
+  if (min < 60) return locale === "en" ? agoEn(min, "minute") : `${min} 分钟前`;
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return locale === "en" ? agoEn(hours, "hour") : `${hours} 小时前`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return locale === "en" ? agoEn(days, "day") : `${days} 天前`;
+  return formatDateTime(iso);
+}
+
+/**
+ * A span of time in words a sentence can hold — how long something has lasted, or how long until
+ * it happens: whole seconds under a minute (at least one), then whole minutes, hours and days
+ * (`3 分钟` / `3 minutes`), each rounded down. Always led by its number, so a sentence puts the
+ * same space before it in either language.
+ */
+export function formatSpan(ms: number, locale: "zh" | "en"): string {
+  const unit = (n: number, zh: string, en: string) =>
+    locale === "en" ? `${n} ${en}${n === 1 ? "" : "s"}` : `${n} ${zh}`;
+  const min = Math.floor(Math.max(0, ms) / 60_000);
+  if (min < 1) return unit(Math.max(1, Math.floor(Math.max(0, ms) / 1000)), "秒", "second");
+  if (min < 60) return unit(min, "分钟", "minute");
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return unit(hours, "小时", "hour");
+  return unit(Math.floor(hours / 24), "天", "day");
 }
 
 /** ISO timestamp → local `HH:mm:ss` (inline display in the Trace timeline); returns the input unchanged if parsing fails. */

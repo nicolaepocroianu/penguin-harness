@@ -17,6 +17,7 @@
  * file header.
  */
 import type {
+  CostParts,
   UsageAgentSeries,
   UsageBucket,
   UsageErrors,
@@ -56,7 +57,7 @@ import type { ErrorLog, UsageQueries, UsageStore } from "../mechanisms/observabi
 import type { ProjectConfigStore } from "../mechanisms/projects.js";
 
 /**
- * Number of most-recent entries kept in the error detail table. Also the page size the whole
+ * Number of most-recent rows kept in the error detail table. Also the page size the whole
  * feature runs on, but nothing needs to hard-code it: `errors.recent` is exactly this many rows
  * whenever a second page exists, so the client derives its page size from the response instead
  * of holding a constant that could drift out of step with this one.
@@ -110,6 +111,12 @@ export interface UsageQuery {
    */
   fromTs?: string;
   toTs?: string;
+  /**
+   * The viewer's offset east of UTC, in minutes: the calendar day the error table folds a
+   * day's repeats by (see ErrorsRepo.recent). Nothing else in the response reads it; absent,
+   * the day is the server's own.
+   */
+  utcOffsetMinutes?: number;
 }
 
 /** One page of the error detail table (see {@link UsageService.queryErrors}). */
@@ -126,6 +133,8 @@ export interface UsageErrorsQuery {
   kind?: string;
   /** Admin only: include errors with no Project attribution (see the ErrorsRepo file header). */
   includeGlobalErrors?: boolean;
+  /** The viewer's offset east of UTC, in minutes (see {@link UsageQuery}). */
+  utcOffsetMinutes?: number;
 }
 
 /**
@@ -155,6 +164,33 @@ export function requestCostUsd(
       counts.output * rates.output) /
     1e6
   );
+}
+
+/** A cost split with nothing in any bucket: where a running sum of splits starts. */
+export const ZERO_COST_PARTS: CostParts = { cacheRead: 0, cacheWrite: 0, output: 0 };
+
+/**
+ * {@link requestCostUsd} kept bucket by bucket: each bucket's Tokens at its own rate, in USD.
+ * Given the rates a cost was priced at, the parts add up to that cost.
+ */
+export function requestCostParts(
+  counts: { cacheRead: number; cacheWrite: number; output: number },
+  rates: PricingRates,
+): CostParts {
+  return {
+    cacheRead: (counts.cacheRead * rates.cacheRead) / 1e6,
+    cacheWrite: (counts.cacheWrite * rates.cacheWrite) / 1e6,
+    output: (counts.output * rates.output) / 1e6,
+  };
+}
+
+/** Two cost splits added bucket by bucket. */
+export function sumCostParts(a: CostParts, b: CostParts): CostParts {
+  return {
+    cacheRead: a.cacheRead + b.cacheRead,
+    cacheWrite: a.cacheWrite + b.cacheWrite,
+    output: a.output + b.output,
+  };
 }
 
 /**
@@ -196,6 +232,11 @@ function costFor(
   if (sums.reportedCostUsd !== null)
     return { cost: sums.reportedCostUsd, uncosted: sums.unreported > 0 };
   return { cost: null, uncosted: true };
+}
+
+/** {@link costOf} split by bucket, at the same tier. */
+function costPartsOf(sums: UsageModelSums, tiered: TieredRates): CostParts {
+  return requestCostParts(sums, sums.peak ? tiered.peak : tiered.offPeak);
 }
 
 /** In-process Map key for a paired reference (\0-separated, the same style as session-manager's agentKey; never persisted). */
@@ -420,7 +461,7 @@ export class UsageService implements UsageQueries {
       series: this.foldSeries(bucketKeys, seriesRows, rates),
       byAgentSeries: foldAgentSeries(bucketKeys, agentBucketRows),
       byModelSeries: foldModelSeries(bucketKeys, modelBucketRows),
-      errors: this.foldErrors(projectId, errorFilter),
+      errors: this.foldErrors(projectId, errorFilter, q.utcOffsetMinutes),
       agentIds: this.usage.distinctAgentIds(projectId),
       models: this.usage.distinctModels(projectId),
     };
@@ -429,8 +470,9 @@ export class UsageService implements UsageQueries {
   /**
    * One page of the error detail table, newest first. The dashboard's own response already
    * carries the first page (`errors.recent`); this serves the "show me earlier ones" paging,
-   * where refetching the whole aggregate to move one page would be wasteful. `total` is the
-   * filtered row count, so the caller knows when it has reached the end.
+   * where refetching the whole aggregate to move one page would be wasteful. `rows` is the
+   * filtered row count, so the caller knows when it has reached the end; `total` counts the
+   * records behind those rows, the occurrences the badge reports.
    *
    * Takes the same filter the dashboard applies — date + agent, and admin-only visibility of
    * unattributed errors — so a page never widens what the summary above it counted.
@@ -452,8 +494,9 @@ export class UsageService implements UsageQueries {
       ...(q.includeGlobalErrors === true ? { includeGlobal: true } : {}),
     };
     return {
-      items: this.errors.recent(projectId, f, q.limit, q.offset),
+      items: this.errors.recent(projectId, f, q.limit, q.offset, q.utcOffsetMinutes),
       total: this.errors.summary(projectId, f).total,
+      rows: this.errors.rowCount(projectId, f, q.utcOffsetMinutes),
     };
   }
 
@@ -478,14 +521,15 @@ export class UsageService implements UsageQueries {
     });
   }
 
-  /** Error statistics: summary info (total / unexpected / most common error code) + the last N entries, all filtered by the selected range. */
-  private foldErrors(projectId: string, f: ErrorFilter): UsageErrors {
+  /** Error statistics: summary info (total / unexpected / most common error code) + the table's first N rows and its row count, all filtered by the selected range. */
+  private foldErrors(projectId: string, f: ErrorFilter, utcOffsetMinutes?: number): UsageErrors {
     const { total, unexpected } = this.errors.summary(projectId, f);
     return {
       total,
       unexpected,
       topCode: this.errors.topCode(projectId, f),
-      recent: this.errors.recent(projectId, f, ERROR_RECENT_N),
+      recent: this.errors.recent(projectId, f, ERROR_RECENT_N, 0, utcOffsetMinutes),
+      rows: this.errors.rowCount(projectId, f, utcOffsetMinutes),
     };
   }
 
@@ -534,7 +578,7 @@ export class UsageService implements UsageQueries {
       groupBy === "model" ? refKey(r.provider, r.key) : r.key;
     const byKey = new Map<string, UsageGroupRow>();
     for (const r of rows) {
-      const acc = byKey.get(keyOf(r)) ?? {
+      const acc: UsageGroupRow = byKey.get(keyOf(r)) ?? {
         key: r.key,
         ...(groupBy === "model" ? { provider: r.provider } : {}),
         cacheRead: 0,
@@ -550,9 +594,14 @@ export class UsageService implements UsageQueries {
       acc.output += r.output;
       acc.total += r.total;
       acc.requests += r.requests;
-      const priced = costFor(r, rates.get(refKey(r.provider, r.modelId)));
+      const rate = rates.get(refKey(r.provider, r.modelId));
+      const priced = costFor(r, rate);
       if (priced.cost !== null) acc.cost = (acc.cost ?? 0) + priced.cost;
       if (priced.uncosted) acc.hasUncosted = true;
+      // The buckets are priced from Project rates only; a runner's reported cost has none.
+      if (rate) {
+        acc.costParts = sumCostParts(acc.costParts ?? ZERO_COST_PARTS, costPartsOf(r, rate));
+      }
       byKey.set(keyOf(r), acc);
     }
     const out = [...byKey.values()];

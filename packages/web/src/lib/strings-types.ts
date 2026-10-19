@@ -2367,6 +2367,9 @@ export type Strings = {
       finance: string;
       handbook: string;
     };
+    unpinEntry: string;
+    /** A nav entry's favourite toggle (a star): a favourite stays visible when the collapsible area folds. */
+    pinEntry: string;
   };
   quickSwitcher: {
     title: string;
@@ -2382,24 +2385,256 @@ export type Strings = {
   };
   machines: {
     pageTitle: string;
-    pageDesc: string;
     imageVersion: (version: string) => string;
     noImage: string;
-    empty: string;
-    pick: string;
-    search: string;
-    noMatch: string;
-    more: (count: number) => string;
-    installedTitle: (count: number) => string;
-    installedAt: (version: string, when: string) => string;
-    install: string;
-    installing: string;
-    reinstall: string;
-    installed: (version: string) => string;
-    alreadyInstalled: (version: string) => string;
     failedAt: (step: string) => string;
-    output: string;
     adminOnly: string;
+    check: {
+      title: string;
+      skipped: (what: string) => string;
+      name: {
+        ssh: string;
+        platform: string;
+        tools: string;
+        download: string;
+        disk: string;
+        port: string;
+      };
+      sshPass: (user: string, host: string) => string;
+      ssh: {
+        "host-key-unknown": (alias: string) => string;
+        "host-key-changed": (alias: string) => string;
+        auth: (alias: string) => string;
+        "password-rejected": (alias: string) => string;
+        "password-not-offered": (alias: string) => string;
+        "key-file": (alias: string) => string;
+        "host-not-found": (alias: string) => string;
+        refused: (alias: string) => string;
+        timeout: (alias: string) => string;
+        closed: (alias: string) => string;
+        "ssh-config": (alias: string) => string;
+        other: (alias: string) => string;
+      };
+      platform: (os: string, arch: string) => string;
+      platformWindows: string;
+      platformUnsupported: string;
+      platformOldGlibc: (glibc: string, need: string) => string;
+      platformTerminals: (arch: string, glibc: string, need: string) => string;
+      platformMusl: string;
+      toolsPass: string;
+      toolsNoCurl: string;
+      toolsMissing: (tools: string) => string;
+      downloadFrom: (version: string, source: "both" | "github" | "oss") => string;
+      downloadCarried: (version: string) => string;
+      downloadMissing: (version: string) => string;
+      diskPass: (free: string) => string;
+      diskTight: (free: string) => string;
+      diskLow: (free: string, need: string) => string;
+      portFree: (port: number) => string;
+      portOurs: (port: number) => string;
+      portTaken: (port: number) => string;
+      sshSaid: (words: string) => string;
+    };
+    confirm: {
+      deleteTitle: (alias: string) => string;
+      deleteBody: (alias: string, passwordSaved: boolean) => string;
+      stopTitle: (alias: string) => string;
+      stopBody: string;
+      uninstallTitle: (alias: string) => string;
+      uninstallBody: (programDir: string) => string;
+      removeData: string;
+      removeDataWarning: string;
+    };
+    detail: {
+      describeRemote: (alias: string) => string;
+      describeLocal: string;
+      newerAvailable: (version: string) => string;
+      facts: string;
+      progress: string;
+      fact: {
+        connection: string;
+        viaSsh: (alias: string) => string;
+        local: string;
+        host: string;
+        root: string;
+        service: string;
+        serviceLocal: string;
+        running: (port: number) => string;
+        stopped: string;
+        unreachable: string;
+        checked: string;
+        installed: string;
+        version: string;
+        latest: (version: string) => string;
+        behind: (version: string, latest: string) => string;
+        installedAt: string;
+        started: string;
+        machineId: string;
+      };
+      copyMachineId: string;
+      lastJobDone: string;
+      failedAtStep: (step: string, message: string) => string;
+      showLog: string;
+      logLabel: string;
+      copyLog: string;
+      retry: string;
+      checking: string;
+      toolbar: {
+        label: string;
+        enable: string;
+        update: string;
+        stop: string;
+        start: string;
+        restart: string;
+        syncConfig: string;
+        configure: string;
+        uninstall: string;
+      };
+      configSync: {
+        synced: (ago: string) => string;
+        failed: (detail: string) => string;
+        envOnly: string;
+        skippedTitle: string;
+        skippedModel: (model: string, reason: string) => string;
+      };
+      held: { moving: string; unreachable: string; stopped: string; noImage: string };
+      reconnect: {
+        title: string;
+        trying: string;
+        lasting: (span: string) => string;
+        attempt: (n: number) => string;
+        next: (span: string) => string;
+        now: string;
+        lastError: string;
+        checked: string;
+        stopped: string;
+      };
+    };
+    card: {
+      local: string;
+      ssh: string;
+      updateNeeded: string;
+      use: string;
+      settings: string;
+      syncConfig: string;
+      delete: string;
+      localUndeletable: string;
+      why: {
+        reconnecting: string;
+        reconnectingFor: (span: string) => string;
+        stopped: string;
+        notConnected: string;
+        notInstalled: string;
+        failed: string;
+        windows: string;
+      };
+    };
+    updateNotice: (count: number) => string;
+    composer: {
+      reconnecting: string;
+      stopped: string;
+      notConnected: string;
+      missing: string;
+      signInRefused: string;
+      failed: (message: string) => string;
+    };
+    refusedUnknown: (alias: string) => string;
+    refusedSelf: (alias: string) => string;
+    replaceProgramConfirm: (alias: string) => string;
+    replaceProgram: string;
+    working: string;
+    queued: string;
+    stepOf: (step: number, total: number) => string;
+    step: {
+      build: string;
+      check: string;
+      install: string;
+      handover: string;
+      restart: string;
+      connect: string;
+      sync: string;
+      stop: string;
+      remove: string;
+    };
+    phase: {
+      build: string;
+      check: string;
+      install: string;
+      handover: string;
+      restart: string;
+      connect: string;
+      sync: string;
+      stop: string;
+      remove: string;
+    };
+    state: {
+      serving: string;
+      queued: string;
+      working: string;
+      ready: string;
+      reconnecting: string;
+      failed: string;
+      installedOnly: string;
+      behind: string;
+      notConnected: string;
+      unreachable: string;
+      stopped: string;
+      notInstalled: string;
+      unknown: string;
+      signInRefused: string;
+    };
+    updateAllConfirm: (count: number) => string;
+    updateAll: (count: number) => string;
+    add: string;
+    addDialog: {
+      title: string;
+      intro: string;
+      tabs: { config: string; manual: string };
+      search: string;
+      noHosts: string;
+      noMatch: (query: string) => string;
+      elsewhere: (version: string) => string;
+      installNow: string;
+      submit: string;
+      submitCount: (count: number) => string;
+      added: (count: number) => string;
+      addedInstalling: (count: number) => string;
+    };
+    host: {
+      configureVerb: string;
+      name: string;
+      nameHint: string;
+      namePlaceholder: string;
+      hostName: string;
+      hostNameHint: string;
+      hostNamePlaceholder: string;
+      user: string;
+      userPlaceholder: string;
+      port: string;
+      portPlaceholder: string;
+      identityFile: string;
+      identityFileHint: string;
+      identityFilePlaceholder: string;
+      signIn: string;
+      signInKey: string;
+      signInPassword: string;
+      password: string;
+      passwordPlaceholder: string;
+      passwordSavedPlaceholder: string;
+      passwordDropped: string;
+      passwordOneLine: string;
+      passwordUnsupported: (ssh: string) => string;
+      oneWord: string;
+      portRange: string;
+      exists: string;
+      editTitle: string;
+      saved: (alias: string) => string;
+      foreign: string;
+    };
+    sshHint: string;
+    noneInUse: string;
+    localTitle: string;
+    checkoutImageFailed: string;
   };
   terminal: {
     title: string;
@@ -2410,6 +2645,21 @@ export type Strings = {
     detach: string;
     status: { connecting: string; ready: string; exited: string; error: string };
     exitedWithCode: (code: string) => string;
+    touchKeys: {
+      label: string;
+      esc: string;
+      tab: string;
+      ctrl: string;
+      alt: string;
+      up: string;
+      down: string;
+      left: string;
+      right: string;
+      interrupt: string;
+      paste: string;
+      hideKeyboard: string;
+      showKeyboard: string;
+    };
   };
   dock: {
     addTab: string;
@@ -2431,12 +2681,14 @@ export type Strings = {
     launcherPanels: string;
     launcherHide: string;
     launcherHiddenToast: string;
+    panelUnavailable: string;
+    exitFullscreen: string;
+    fullscreen: string;
   };
   tracePanel: { empty: string; emptyHint: string; loadFailed: string };
   settings: {
     language: string;
     languageInfo: string;
-    systemSettings: string;
     groupPersonal: string;
     groupServer: string;
     profile: string;
@@ -2487,9 +2739,6 @@ export type Strings = {
     langEn: string;
     fontSize: string;
     fontSizeInfo: string;
-    fontSmall: string;
-    fontMedium: string;
-    fontLarge: string;
     accent: string;
     accentInfo: string;
     launcher: string;
@@ -2629,6 +2878,122 @@ export type Strings = {
       invalid: string;
     };
     accentNames: Record<string, string>;
+    companyModeOffBody: string;
+    companyModeOff: string;
+    /** Asked before the master switch goes off (turning it on does not ask). */
+    companyModeOffTitle: string;
+    fontSystem: string;
+    fontFollowTheme: string;
+    fontCjk: string;
+    fontLatin: string;
+    fontsInfo: string;
+    fonts: string;
+    textSizeNames: { xs: string; s: string; m: string; l: string; xl: string };
+    colorModeInfo: string;
+    colorMode: string;
+    themeNames: { github: string; modern: string; geek: string };
+    background: {
+      title: string;
+      info: string;
+      choose: string;
+      replace: string;
+      remove: string;
+      loading: string;
+      preview: string;
+      transparency: string;
+      mode: string;
+      modes: { cover: string; contain: string; tile: string; original: string };
+      position: string;
+      positions: {
+        "left top": string;
+        "center top": string;
+        "right top": string;
+        "left center": string;
+        "center center": string;
+        "right center": string;
+        "left bottom": string;
+        "center bottom": string;
+        "right bottom": string;
+      };
+      fileError: string;
+      readError: string;
+      storageError: string;
+    };
+    /** Asked when the Sandbox switch is turned on and the machine has no sandbox backend. */
+    sandboxBackendPrompt: {
+      title: string;
+      body: (machine: string, pkgs: readonly string[]) => string;
+      cost: string;
+      install: string;
+      installing: string;
+      later: string;
+      dontAsk: string;
+      noProject: string;
+    };
+    /** One line of a row's "?" that lists its values: a choice column's value, and what it does. */
+    pluginTableRowValue: (column: string, value: string, does: string | undefined) => string;
+    pluginTableDeleteChosen: string;
+    pluginTableDelete: string;
+    pluginTableChosen: string;
+    /** The row menu's items: make the row the chosen one, and delete a row an administrator added. */
+    pluginTableChoose: string;
+    pluginTableRowMenuHint: string;
+    /** A table row's "…" button: its accessible name and tooltip. */
+    pluginTableRowMenu: (row: string) => string;
+    /** After the chosen row's name (the sandbox's default preset): the row choice's title. */
+    pluginTableChosenMarker: (title: string) => string;
+    /** The add button under an extensible table that names none of its own. */
+    pluginTableAdd: string;
+    pluginTableMoveHint: string;
+    /** A table row's drag handle: what it moves, and how. */
+    pluginTableMove: (row: string) => string;
+    pluginCellOff: string;
+    pluginCellOn: string;
+    /** A table cell its row does not let change, beside the lock mark. */
+    pluginCellLocked: string;
+    /** The fold holding the fields a settings group marks advanced. */
+    pluginAdvanced: string;
+    /** Under a number field whose box does not parse; the save is not sent. */
+    pluginFieldNotNumber: string;
+    /** `machine` is the picked machine's name, null for this server. */
+    pluginActionConfirm: (action: string, machine: string | null) => string;
+    pluginActionRun: string;
+    /** A plugin group's action: it runs once on the picked machine, and only the plugin knows what it does. */
+    pluginActionTitle: string;
+    /** The Plugins settings page's machine picker: each server keeps its own plugin settings. */
+    pluginConfigMachine: string;
+    pluginSecretClear: string;
+    /** A secret field with a stored value: submitting it empty keeps the stored one. */
+    pluginSecretKeepHint: string;
+    /** The page's own switch, above the server's cards: a display preference of this browser. */
+    pluginsIncompatibleOnly: string;
+    pluginsInfo: string;
+    pluginPositionOff: string;
+    pluginPositionOn: string;
+    /** A switch one of whose positions this machine cannot honour, under the switch. */
+    pluginPositionUnavailable: (position: string, reason: string) => string;
+    /** An enum option this machine cannot honour, listed greyed out. */
+    pluginOptionUnavailable: (title: string, reason: string) => string;
+    /** Admin-only sub-page (server-global): the options loaded plugins declare. */
+    pluginsTitle: string;
+    /** Under the two switches while the address has unsaved edits: they act on the saved address. */
+    saveProxyAddressFirst: string;
+    /** The Shortcuts page's "?": what follows the platform, where bindings live, and the browser's own claims. */
+    shortcutsInfo: string;
+    archivedInfo: string;
+    archivedTitle: string;
+    shortcutsTitle: string;
+    agentApiOff: string;
+    agentApiOffConfirm: string;
+    agentApiOffTitle: string;
+    agentApiHint: string;
+    agentApiToggle: string;
+    agentApiTitle: string;
+    chromeExtensionInfo: string;
+    chromeExtensionTitle: string;
+    browserTitle: string;
+    /** Sidebar user-menu row opening the Settings dialog, and that dialog's title. */
+    title: string;
   };
   update: {
     lastUpdated: (date: string) => string;
@@ -2642,9 +3007,7 @@ export type Strings = {
     checking: string;
     rowDownloading: (v: string | null, percent: number | null) => string;
     rowRestarting: string;
-    rowUnsupported: string;
     title: string;
-    currentVersion: (v: string) => string;
     checkingBody: string;
     upToDate: string;
     checkFailed: string;
@@ -2655,8 +3018,6 @@ export type Strings = {
     availableBodyClient: string;
     adminOnly: string;
     downloadAndInstall: string;
-    later: string;
-    background: string;
     downloading: (v: string | null) => string;
     downloadProgress: string;
     phaseResolving: string;
@@ -2685,6 +3046,12 @@ export type Strings = {
     clientUpdateFailed: (detail: string) => string;
     requestFailed: (detail: string) => string;
     restartTimedOut: string;
+    restartTimedOutClient: string;
+    /** The shell was asked to restart into the downloaded build and this window is still here. */
+    readyBodyManualClient: string;
+    /** Nothing is known yet: no check has answered since the page loaded. */
+    notChecked: string;
+    unresponsiveHint: string;
   };
   todo: {
     pluginUpdates: (n: number) => string;
@@ -2693,7 +3060,6 @@ export type Strings = {
     pending: string;
     dismiss: string;
     markRead: string;
-    changesWithAdded: (added: number, updated: number) => string;
     changesUpgradable: (updated: number) => string;
     updateNow: string;
     willTouch: string;
@@ -2705,7 +3071,12 @@ export type Strings = {
     bulkPartial: (ok: number, failed: string) => string;
     listSeparator: string;
   };
-  notify: { taskCompleteTitle: string; taskCompleteBody: (session: string) => string };
+  notify: {
+    taskCompleteTitle: string;
+    taskCompleteBody: (session: string) => string;
+    enabledBody: string;
+    enabledTitle: string;
+  };
   common: {
     save: string;
     cancel: string;
@@ -2737,6 +3108,24 @@ export type Strings = {
     created: string;
     cost: string;
     time: string;
+    nextPage: string;
+    /** A pager's two steps, as their names and tooltips (the shared UI package's `Pager`). */
+    previousPage: string;
+    /** Read after a toast's text: pressing the toast dismisses it. */
+    dismiss: string;
+    /** The toast stack's name as a live region (the shared UI package's `Toaster`). */
+    notifications: string;
+    /** A page form's button beside Save: puts every field back to what is stored, without asking. */
+    reset: string;
+    keepEditing: string;
+    discard: string;
+    discardBody: string;
+    /**
+     * The one prompt every way of leaving a form with unsaved edits shows (the shared UI
+     * package's UnsavedChangesHost): its accessible name, the question, the danger button that
+     * discards and leaves, and the button that stays with the edits.
+     */
+    discardTitle: string;
   };
   semanticId: {
     generateIdLabel: string;
@@ -2780,8 +3169,14 @@ export type Strings = {
     avatarTooLarge: string;
     avatarUnreadable: string;
     displayName: string;
-    displayNameHint: string;
     displayNamePlaceholder: string;
+    displayNameInfo: string;
+    /** Asked before the avatar's restore: the uploaded picture is deleted, unlike the nickname's. */
+    avatarResetConfirm: string;
+    useAvatar: string;
+    cropZoom: string;
+    cropAvatarHint: string;
+    cropAvatar: string;
   };
   account: {
     changePassword: string;
@@ -2936,6 +3331,10 @@ export type Strings = {
     noCredentialBody: string;
     goToModels: string;
     later: string;
+    /** Buffered like every edit (Save writes it), but it replaces the whole list in one click. */
+    commandPolicyRestoreConfirm: string;
+    removeMemberConfirm: (user: string) => string;
+    removeMemberTitle: string;
   };
   aiCreate: {
     withAi: string;
@@ -3016,9 +3415,6 @@ export type Strings = {
     placeholders: ReadonlyArray<readonly [string, string]>;
     maxTurns: string;
     maxTokens: string;
-    thinkingLevel: string;
-    thinkingLevelOptions: ReadonlyArray<readonly [string, string]>;
-    thinkingLevelNoneKept: string;
     timeoutMs: string;
     timeoutMsHint: string;
     compaction: string;
@@ -3029,8 +3425,6 @@ export type Strings = {
     compactionMode: string;
     compactionModeOptions: ReadonlyArray<readonly [string, string]>;
     compactionPrompt: string;
-    maxTurnsInvalid: string;
-    timeoutInvalid: string;
     toolFieldInvalid: (name: string, field: string) => string;
     toolPermission: string;
     permissionReadLabel: string;
@@ -3119,6 +3513,95 @@ export type Strings = {
     kernelUpdateDone: (version: string, advanced: number) => string;
     kernelUpdateKeptIntro: string;
     kernelListSeparator: string;
+    apiTryStreamBroken: string;
+    apiTryElapsed: string;
+    apiTryCacheWrite: string;
+    apiTryCacheRead: string;
+    apiTryTokens: string;
+    apiTryRequests: string;
+    apiTryStatus: string;
+    apiTryEmpty: string;
+    apiTryCopyRaw: string;
+    apiTryRaw: string;
+    apiTryRendered: string;
+    apiTryNewSession: string;
+    apiTryFollowUp: string;
+    apiTryStop: string;
+    apiTryRun: string;
+    apiTryExample: string;
+    apiTryHint: string;
+    apiTry: string;
+    apiOn: string;
+    apiOff: string;
+    apiOffBody: string;
+    apiOffTitle: string;
+    apiOpenConfirm: string;
+    apiOpenBody: string;
+    apiOpenTitle: string;
+    apiExamples: string;
+    apiOpenHint: string;
+    apiOpen: string;
+    apiDeleteKeyBody: (name: string) => string;
+    apiDeleteKey: string;
+    apiKeyDone: string;
+    apiCopySecret: string;
+    apiKeyShownOnce: string;
+    apiKeyNever: string;
+    apiKeyLastUsed: string;
+    apiKeyCreated: string;
+    apiKeyName: string;
+    apiNewKey: string;
+    apiKeysEmpty: string;
+    apiKeys: string;
+    apiCopy: (what: string) => string;
+    apiAgentId: string;
+    apiBaseUrlOnMachine: (machine: string) => string;
+    apiBaseUrl: string;
+    apiConnection: string;
+    apiApprovalModeHint: string;
+    apiApprovalMode: string;
+    apiSessionSettingsHint: string;
+    apiSessionSettings: string;
+    apiAgentPrompt: (docsUrl: string, baseUrl: string, agentRef: string) => string;
+    apiCopyAgentPrompt: string;
+    apiReadDocs: string;
+    apiConcurrencyInvalid: string;
+    apiConcurrencyHint: string;
+    apiConcurrency: string;
+    apiRunLimits: string;
+    apiAdminOff: string;
+    apiOwnerOnly: string;
+    apiEnableHint: string;
+    apiEnable: string;
+    /** Asked before every snapshot import; the server snapshots the current version first and keeps the Vault. */
+    importConfirmBody: (file: string) => string;
+    employeeMark: (employments: ReadonlyArray<{ orgName: string; title: string }>) => string;
+    employedUndeletable: (employments: ReadonlyArray<{ orgName: string; title: string }>) => string;
+    employmentLine: (orgName: string, title: string) => string;
+    employeesSectionInfo: string;
+    employeesSection: string;
+    deleteConfirmOnMachine: (name: string, machine: string) => string;
+    usageThisServerOnly: string;
+    onMachineHint: (machine: string) => string;
+    mcpRemoveFromPlugin: (plugin: string) => string;
+    mcpFromPlugin: (plugin: string) => string;
+    mcpInstalledBy: (plugin: string) => string;
+    mcpTestSaveFirstBadge: string;
+    mcpTestSaveFirst: string;
+    mcpTestAll: string;
+    deleteToolBody: (name: string) => string;
+    deleteToolNamed: (name: string) => string;
+    deleteTool: string;
+    numberCannotClear: string;
+    numberInvalid: string;
+    compactionModeNames: Readonly<Record<string, string>>;
+    maxTurnsHint: string;
+    tabApi: string;
+    tabWorkbenches: string;
+    createStdioQuestion: (agent: string) => string;
+    createLocationInfo: string;
+    createLocationHere: string;
+    createLocation: string;
   };
   models: {
     title: string;
@@ -3126,11 +3609,7 @@ export type Strings = {
     addToGroup: string;
     editTitle: string;
     addTitle: string;
-    addTitleVendor: string;
-    addProtocolHint: string;
-    vendorProtocolHint: (vendor: string) => string;
     addProtocolHintPinned: (protocol: string) => string;
-    addProtocolHintPinnedGateway: (protocol: string) => string;
     autoRouteNone: string;
     useCustomGroup: string;
     addGroup: string;
@@ -3158,16 +3637,11 @@ export type Strings = {
     groupDeleted: (n: number) => string;
     searchPlaceholder: string;
     noSearchResults: string;
-    syncCatalog: string;
-    syncCatalogHint: string;
-    syncDone: (added: number, updated: number) => string;
-    syncUpToDate: string;
     aiAddTitle: string;
     aiAddIntro: string;
     aiAddPlaceholder: string;
     aiAddExamples: { key: string; label: string; description: string; prompt: string }[];
     aiAddTail: (projectId: string) => string;
-    platformSync: string;
     homepage: string;
     speedTest: string;
     speedTestTitle: string;
@@ -3203,7 +3677,6 @@ export type Strings = {
     detectFailedBody: string;
     detectFellBack: string;
     addProtocolHintDetect: string;
-    addTitleCustom: string;
     vision: string;
     detectVision: string;
     detectingVision: string;
@@ -3248,18 +3721,13 @@ export type Strings = {
     keyConfigured: string;
     clearApiKey: string;
     baseUrl: string;
-    baseUrlHint: string;
     baseUrlSuffixTitle: string;
     baseUrlRequired: string;
     contextWindowDefaultHint: (n: number) => string;
     confirmDeleteTitle: string;
     confirmDelete: (name: string) => string;
-    groupApiKey: string;
-    groupApiKeyTitle: (label: string) => string;
-    groupApiKeyHint: (n: number) => string;
     getApiKey: string;
     getModelIds: string;
-    groupKeyApplied: (n: number) => string;
     oauthKey: string;
     viewLocalCli: string;
     viewBuiltin: string;
@@ -3397,8 +3865,6 @@ export type Strings = {
     providerEnvNotes: Record<string, string | undefined>;
     confirmVisionModelTitle: string;
     confirmVisionModel: (name: string) => string;
-    confirmSaveTitle: string;
-    confirmSave: (name: string) => string;
     confirmDefaultTitle: string;
     confirmDefault: (name: string) => string;
     default: string;
@@ -3413,6 +3879,89 @@ export type Strings = {
     pricingAllOrNone: string;
     pricingInvalid: string;
     contextWindowInvalid: string;
+    confirmCancelPromotion: (name: string, pct: number) => string;
+    confirmCancelPromotionTitle: string;
+    addAction: string;
+    modelScopeKeyErrors: {
+      unreachable: string;
+      upstream_failed: string;
+      invalid_key: string;
+      expired: string;
+      locked: string;
+      already_delivered: string;
+      apply_failed: string;
+    };
+    modelScopeKeyAppliedBody: (n: number) => string;
+    modelScopeKeyIntro: (n: number) => string;
+    /** The banner above every group: TokenDance's own connect flow, pitched as the way to skip keys. */
+    tokenDanceBanner: string;
+    unpinBalance: string;
+    /** The balance menu's pin: keeps it beside the user name at the sidebar's bottom-left, one at a time. */
+    pinBalance: string;
+    /** Appended when the vendor answered with an HTTP error. */
+    balanceStatus: (status: number) => string;
+    /** Why no balance could be read, by the server's code: the reason after balanceFailed's prefix. */
+    balanceErrors: Record<string, string | undefined>;
+    /** Added to the tooltip when the vendor says the account cannot make requests (DeepSeek's is_available). */
+    balanceUnavailable: string;
+    balanceFailed: (reason: string) => string;
+    balanceUpdatedAt: (time: string) => string;
+    balanceRefresh: string;
+    /**
+     * A group's account balance in its header (and pinned beside the user name): the sentence
+     * spoken behind the amount names the group, the vendor's own figures and the time of the
+     * reading. `amounts` and `time` are already formatted.
+     */
+    balanceTitle: (label: string, amounts: string, time: string) => string;
+    disconnected: (label: string) => string;
+    disconnectConfirm: (label: string) => string;
+    disconnect: string;
+    reconnect: string;
+    syncModels: string;
+    notConnectedStatus: string;
+    connectedStatus: string;
+    keyFromGroup: string;
+    details: string;
+    keyNotReachedNote: string;
+    inheritFromGroup: string;
+    protocolFixedHint: (group: string, protocol: string) => string;
+    protocolFollowGroup: string;
+    protocolEachModel: string;
+    protocolRoutedById: string;
+    protocolNone: string;
+    detectNeedsBaseUrl: string;
+    baseUrlNone: string;
+    clearGroupKey: string;
+    groupSettingsTitle: (label: string) => string;
+    groupSettingsEntry: string;
+    sortModes: { "price-asc": string; "price-desc": string; name: string };
+    sortHeading: string;
+    groupMenuTitle: (sort: string) => string;
+    groupSettings: string;
+    modelList: string;
+    baseUrlInvalid: string;
+    foldedGroups: (n: number) => string;
+    unpinGroup: string;
+    pinGroup: string;
+    /** The same icon button while its group's run is going: stops after the probe in flight. */
+    speedTestStop: string;
+    platformUpToDate: string;
+    platformSyncAdded: (n: number) => string;
+    restoredDefaults: string;
+    restoreDefaultsBody: string;
+    restoreDefaultsTitle: string;
+    restoreDefaults: string;
+    presetsNone: string;
+    presetsAdded: (n: number) => string;
+    syncNewPresetsHint: string;
+    syncNewPresets: string;
+    /** Connectivity test on a hand-added row: replaces MMSP's "No client for model" sentence, which names client types the user has no way to act on. */
+    testNotRoutable: string;
+    /** The way out offered beside that warning: opens the config dialog with the row already in the custom group. */
+    moveToCustomGroup: string;
+    /** Warning on a hand-added vendor-group row whose model id MMSP cannot route — it begins with no known vendor prefix (such a row can no longer be created, only inherited). */
+    vendorRowUnroutable: string;
+    addProtocolHintInherit: (protocol: string) => string;
   };
   memory: {
     desc: string;
@@ -3495,7 +4044,6 @@ export type Strings = {
     readOnlyHint: string;
     keyHint: string;
     keyInvalid: string;
-    valueRequired: string;
     aiAddTitle: string;
     aiAddIntro: string;
     aiAddPlaceholder: string;
@@ -3561,7 +4109,6 @@ export type Strings = {
     filterAll: string;
     filterActive: string;
     filterPaused: string;
-    filterCompleted: string;
     panelEmpty: string;
     panelNoMatch: string;
     panelDraftEmpty: string;
@@ -3628,10 +4175,6 @@ export type Strings = {
     };
   };
   plugins: {
-    installedTitle: string;
-    installedDesc: string;
-    installedEmpty: string;
-    stateActive: string;
     builtin: string;
     builtinHint: string;
     installedRestart: string;
@@ -3645,24 +4188,9 @@ export type Strings = {
     deploymentFailedToast: (name: string, reason: string) => string;
     applyConfirmInstall: (name: string) => string;
     applyConfirmRemove: (name: string) => string;
-    applyConfirmBody: string;
     pageTitle: string;
     pageDesc: string;
-    installedSection: (n: number) => string;
-    availableSection: (n: number) => string;
-    notInstalled: string;
-    filterCategories: string;
-    filterKind: string;
-    filterState: string;
-    filterClear: string;
-    kindLabel: { skills: string; hooks: string; modules: string };
-    stateLabel: {
-      installed: string;
-      available: string;
-      running: string;
-      restart: string;
-      failed: string;
-    };
+    kindLabel: { skills: string; hooks: string; modules: string; mcp: string; workbenches: string };
     noMatch: string;
     shippedNoEntry: string;
     libraryBuiltinHint: string;
@@ -3671,7 +4199,6 @@ export type Strings = {
     detailSkills: string;
     detailHooks: string;
     usedByAgents: (n: number) => string;
-    quickInvokeNeedsInstall: string;
     installedToast: (plugin: string, agent: string) => string;
     uninstalledToast: (plugin: string, agent: string) => string;
     updateOutdated: (n: number) => string;
@@ -3679,7 +4206,152 @@ export type Strings = {
     updateConfirmWarning: (name: string) => string;
     updatedToast: (plugin: string, n: number) => string;
     uninstallConfirmTitle: (name: string) => string;
-    uninstallConfirmBody: (plugin: string, agent: string) => string;
+    uninstallConfirmBody: (plugin: string, agent: string, withMcp: boolean) => string;
+    importMcpNote: string;
+    updatePartReplaced: string;
+    updatePartMcp: string;
+    setUpHelpLink: string;
+    setUpKeySetHint: string;
+    setUpKeySet: string;
+    setUpDesc: string;
+    setUpTitle: (plugin: string, agent: string) => string;
+    setUp: string;
+    installStdioBody: (server: string, command: string, machine?: string) => string;
+    installStdioTitle: (plugin: string, agent: string) => string;
+    mcpRunsCommand: (command: string) => string;
+    mcpSignIn: string;
+    mcpSetUpByOwner: string;
+    mcpSetUpWhere: string;
+    mcpNeedsSetup: (keys: string[]) => string;
+    quickStartAfterInstall: string;
+    quickStartInstallTitle: (plugin: string, agent: string) => string;
+    /** Quick start's tooltip: what pressing it does, and what it does not. */
+    quickStartHint: string;
+    replaceAction: string;
+    replaceBody: (name: string, installed: string, incoming: string) => string;
+    /** The confirm when the zip holds another version of a package on this server (409 plugin_exists). */
+    replaceTitle: string;
+    importUnchangedToast: (name: string, version: string | null) => string;
+    importedToast: (name: string, version: string | null) => string;
+    importExamples: { key: string; label: string; description: string }[];
+    importUploadAction: string;
+    importUploadDesc: string;
+    importPromptTail: (projectId: string) => string;
+    /** The prompt's first sentence, by what kind of source was pasted (plugin-import-prompt.ts). */
+    importPromptLead: {
+      link: (source: string) => string;
+      localPath: (source: string) => string;
+      reference: (source: string) => string;
+    };
+    importSourceToken: string;
+    importSourcePlaceholder: string;
+    importSourceLabel: string;
+    importAgentWhy: string;
+    /** On the npm, link and zip tabs: what installing runs, said plainly. */
+    importScriptsRun: string;
+    importCost: string;
+    importLinkAskAgent: string;
+    /** A folder or a file inside a repository on the link tab, and the action that hands it to the agent tab. */
+    importLinkSubpath: string;
+    importLinkInvalid: string;
+    importLinkPlaceholder: string;
+    importLinkLabel: string;
+    /** The link tab: an https link npm fetches, from wherever the server's network reaches. */
+    importLinkWhy: string;
+    importNpmInvalid: string;
+    importNpmPlaceholder: string;
+    importNpmLabel: string;
+    /** The npm tab: a package name, which the server installs from the registry itself. */
+    importNpmWhy: string;
+    importTabs: { npm: string; link: string; zip: string; agent: string };
+    importServerWide: string;
+    importPlugin: string;
+    /** The import dialog (admin): a tab for each way in — npm, a link, a zip, or an Agent in a chat. */
+    importDestination: string;
+    deletedToast: (name: string) => string;
+    deleteConfirmBody: (name: string) => string;
+    deleteConfirmTitle: (name: string) => string;
+    deletePlugin: string;
+    exportPluginHint: string;
+    /** The detail dialog's export (any member) and delete (admin, a package installed on the server). */
+    exportPlugin: string;
+    installedOnServerHint: string;
+    /** The tag of a plugin an admin installed on this server (not shipped with the build). */
+    installedOnServer: string;
+    /** In place of the README of a package that is not on this server. */
+    readmeAfterInstall: string;
+    detailRepository: string;
+    /** The detail dialog's links to the package's homepage and repository: their names and hover hints. */
+    detailHomepage: string;
+    detailMcpServers: string;
+    uninstallWorkbenchRecords: string;
+    detailWorkbenches: string;
+    detailFiles: string;
+    /** Sections of the plugin detail dialog: the description (and the package's README), then the files it installs. */
+    detailDescription: string;
+    /** In place of the description of a package that carries none. */
+    noDescription: string;
+    /** What a status means for this plugin, on hover over its glyph. */
+    statusHint: {
+      libraryInstalled: string;
+      libraryAvailable: string;
+      update: (n: number) => string;
+      moduleInstalled: string;
+      moduleAvailable: string;
+      restart: string;
+      failed: (reason: string) => string;
+      elsewhere: (machines: string) => string;
+      unsynced: string;
+    };
+    /** A plugin's install status: the word beside the status glyph, and the grouping's section titles. */
+    status: {
+      update: string;
+      installed: string;
+      restart: string;
+      failed: string;
+      "not-here": string;
+      incompatible: string;
+      available: string;
+    };
+    otherCategory: string;
+    /** The category of the sandbox backends, and of a plugin whose category the page does not know. */
+    sandboxCategory: string;
+    groupBy: { category: string; status: string; kind: string; none: string };
+    /** The grouping select: its accessible name, and its options, each a phrase that says what it does. */
+    groupByLabel: string;
+    /** The header button (admin only) that opens the Settings dialog on its Plugins page. */
+    openSettings: string;
+    machineUnreadable: (name: string, reason: string) => string;
+    sharedHint: string;
+    /** The tag on a row the shared table lists, and its tooltip (Remove is unavailable on it). */
+    sharedTag: string;
+    /** A row the Project lists for a machine that has not reported it running yet. */
+    notSynced: string;
+    thisServer: string;
+    /** The header's machine picker: which machine's plugins the page shows and edits. */
+    viewMachine: string;
+    applyConfirmWarning: (install: boolean) => string;
+    applyConfirmRemoveBody: (name: string) => string;
+    applyConfirmInstallBody: (name: string) => string;
+    /** The repair prompt written into the new chat's composer; the user reads and sends it. */
+    repairPrompt: (name: string, disabled: boolean, reason: string) => string;
+    repairNoAgent: string;
+    repairOpen: string;
+    repairBody: (name: string) => string;
+    repairTitle: (name: string) => string;
+    repair: string;
+    /** That notice's action: turns the filter off. */
+    incompatibleOnlyShowAll: string;
+    /** Page notice while Settings › Plugins narrows the list to the incompatible plugins. */
+    incompatibleOnlyNotice: string;
+    /** The notice's action: filters the list down to those rows. */
+    unsatisfiedShow: string;
+    /** Page notice while this build cannot fully run a listed plugin. */
+    unsatisfiedNotice: (n: number) => string;
+    /** Under a running row: this build has no slot for part of what the plugin contributes. */
+    runsPartly: (reason: string) => string;
+    /** A module plugin the running build cannot run at all: it needs a module or interface this build lacks. */
+    stateDisabled: string;
   };
   hooks: {
     agentTabDesc: string;
@@ -3713,19 +4385,13 @@ export type Strings = {
     injection: { enable: string; enableHint: string; savedToast: string };
   };
   pluginRegistry: {
-    pageTitle: string;
     empty: string;
     specifierHint: string;
-    back: string;
-    readme: string;
-    noReadme: string;
-    notFound: string;
-    repository: string;
-    homepage: string;
-    authors: string;
-    license: string;
     copySpecifier: string;
-    installHint: string;
+    /** Shown while the server is still reading a source: the list holds what has answered so far. */
+    sourcePending: (count: number) => string;
+    /** Shown above the list when a source answered with nothing, so a short list is not read as a complete one. */
+    sourceUnavailable: (count: number) => string;
   };
   skills: {
     quickInvoke: string;
@@ -3785,7 +4451,6 @@ export type Strings = {
     };
   };
   chat: {
-    thinkingLevelChangeNote: string;
     newSessionMenu: string;
     chooseAgent: string;
     chooseModel: string;
@@ -3801,9 +4466,6 @@ export type Strings = {
     thinkingSwitchCompacting: string;
     thinkingSwitchApplied: (to: string) => string;
     thinkingSwitchCompactFailed: string;
-    workspaceUseThis: string;
-    workspaceUp: string;
-    workspaceNoSubdirs: string;
     workspaceAuto: string;
     workspaceClear: string;
     workspaceDirInvalid: string;
@@ -3830,7 +4492,12 @@ export type Strings = {
     tempWorkspaces: string;
     newSessionInWorkspace: string;
     draftSubtitle: string;
-    exampleFolders: { webapps: string; agents: string; schedules: string };
+    exampleFolders: {
+      webapps: string;
+      schedules: string;
+      evolve: string;
+      apps: string;
+    };
     exampleFillHint: string;
     shortcuts: {
       folder: string;
@@ -3854,12 +4521,14 @@ export type Strings = {
       lol: { label: string; desc: string; prompt: string };
       rhythmRunner: { label: string; desc: string; prompt: string };
       investmentCopilot: { label: string; desc: string; prompt: string };
-      rag: { label: string; desc: string; prompt: string };
       agentBenchmarkBuild: { label: string; desc: string; prompt: string };
       agentOptimization: { label: string; desc: string; prompt: string };
       dailyPlan: { label: string; desc: string; prompt: string };
       githubDigest: { label: string; desc: string; prompt: string };
       memoryReview: { label: string; desc: string; prompt: string };
+      benchmarkImport: { label: string; desc: string; prompt: string };
+      legalDesk: { label: string; desc: string; prompt: string };
+      ragDocsExpert: { label: string; desc: string; prompt: string };
     };
     sessionList: string;
     defaultSessionTitle: string;
@@ -3868,8 +4537,6 @@ export type Strings = {
     agent: string;
     model: string;
     workspace: string;
-    workspaceHint: string;
-    workspaceHintShort: string;
     approvalMode: string;
     approvalModeNames: Record<string, string>;
     approvalModes: Record<string, string>;
@@ -3960,7 +4627,6 @@ export type Strings = {
     statTotalTokens: string;
     statCacheHit: (pct: string) => string;
     statElapsed: string;
-    statElapsedSplit: (apiMs: string, toolMs: string) => string;
     statInput: string;
     statCached: string;
     statOutput: string;
@@ -4050,9 +4716,6 @@ export type Strings = {
     modelSwitchBusyHint: string;
     modelSwitchFrom: (prevModel?: string) => string;
     modelSwitchAutoMessage: string;
-    modelLockedHint: string;
-    scheduledFrom: (name: string) => string;
-    orgTriggerFrom: (org: string) => string;
     orgTriggerKinds: Record<string, string>;
     orgTriggerBudget: (budget: string) => string;
     backgroundDone: (
@@ -4062,7 +4725,7 @@ export type Strings = {
     emptyGreeting: string;
     mcpConnectTitle: string;
     mcpServerList: (servers: string[]) => string;
-    mcpConnectResult: (toolCount: number, failed: string[]) => string;
+    mcpConnectResult: (toolCount: number, failed: string[], waiting: string[]) => string;
     mcpToolsCount: (n: number) => string;
     mcpServerFailed: string;
     mcpConnectAborted: string;
@@ -4103,20 +4766,11 @@ export type Strings = {
     moreActions: string;
     loadMore: string;
     expandRestSessions: (n: number) => string;
-    loadMoreSessions: string;
-    folderGroups: {
-      subagent: (n: number) => string;
-      schedule: (n: number) => string;
-      benchmark: (n: number) => string;
-      archived: (n: number) => string;
-    };
     activityRunsFolder: (n: number) => string;
     unnamedActivity: string;
     unknownProduct: string;
     openActivity: (name: string) => string;
     folderOnlyGroup: (n: number, path?: string) => string;
-    skillsBanner: (names: string[]) => string;
-    attachedFilesBanner: (names: string[]) => string;
     plusMenu: string;
     uploadImage: string;
     uploadImageDesc: string;
@@ -4140,6 +4794,217 @@ export type Strings = {
     harnessInjected: string;
     goalProgress: (rounds: number, tokens: string) => string;
     goalStatus: Record<string, string>;
+    linkMenu: {
+      openInBuiltinBrowser: string;
+      openInChromeTab: string;
+      openExternal: string;
+      openInNewTab: string;
+      copyLink: string;
+    };
+    /** The goal line's fixed phrase; the objective follows it as the line's subject. */
+    goalLabel: string;
+    /** A paste too long for the text box, attached as a text file instead. */
+    longPasteAttached: (name: string) => string;
+    /** Names listed after a note's fixed phrase (the skills). */
+    nameList: (names: string[]) => string;
+    /** The skills note's fixed phrase (the count picks the plural); the skill names follow it as `nameList`. */
+    skillsLabel: (count: number) => string;
+    archivedStub: { note: string };
+    sessionSource: { user: string; api: string; schedule: string; cli: string; workbench: string };
+    a2ui: {
+      lang: "en";
+      fill: string;
+      other: string;
+      recommended: string;
+      note: string;
+      tip: string;
+      caution: string;
+      warning: string;
+      composing: string;
+      cannotShow: (reason: string) => string;
+      diagram: string;
+      showSource: string;
+      stepUp: string;
+      stepDown: string;
+      conditions: {
+        clear: string;
+        "partly-cloudy": string;
+        cloudy: string;
+        fog: string;
+        drizzle: string;
+        rain: string;
+        "heavy-rain": string;
+        thunder: string;
+        snow: string;
+        sleet: string;
+        wind: string;
+      };
+      asOf: (time: string) => string;
+      source: (name: string) => string;
+      feelsLike: string;
+      humidity: string;
+      wind: string;
+      precipitation: string;
+      high: string;
+      low: string;
+      hourly: string;
+      daily: string;
+      today: string;
+      weather: string;
+      clock: string;
+      countdown: string;
+      metrics: string;
+      localTime: string;
+      countdownDone: string;
+      unitDays: string;
+      unitHours: string;
+      unitMinutes: string;
+      unitSeconds: string;
+      done: string;
+      deltaUp: string;
+      deltaDown: string;
+    };
+    modelChanged: (from: string, to: string) => string;
+    mcpServerSignIn: string;
+    mcpServerNeedsSetup: string;
+    /** `[org_trigger]` banner: what the organization scheduler sent this desk or ticket session, folded into one line — this fixed phrase, then the organization's name. */
+    orgTriggerLabel: string;
+    /** The scheduled-task note's fixed phrase; the task's name follows it as the note's subject. */
+    scheduledLabel: string;
+    modelSwitchPrev: (model: string) => string;
+    /** The model-switch note: its fixed phrase, and the earlier model as its subject (`modelSwitchFrom` is its accessible name). */
+    modelSwitchLabel: string;
+    /** The handoff note's fixed phrase; the agent follows it as the note's subject. */
+    handoffLabel: string;
+    sessionNotFoundHint: string;
+    sessionNotFound: string;
+    sessionOfflineHint: string;
+    sessionOnOfflineMachineUnknown: string;
+    /** The routed conversation is on a machine with no connection held: not gone, just out of reach from here. */
+    sessionOnOfflineMachine: (machine: string) => string;
+    usagePartOutput: string;
+    usagePartCacheWrite: string;
+    usagePartCacheRead: string;
+    statToolTime: string;
+    statApiTime: string;
+    clearTypedBody: string;
+    clearTyped: string;
+    /** A choice's "Other…" about to empty the composer of text the user typed. */
+    clearTypedTitle: string;
+    replaceTypedBody: string;
+    replaceTyped: string;
+    /** An example task, a saved shortcut or a schedule's prompt about to replace text typed in the composer. */
+    replaceTypedTitle: string;
+    processStopConfirm: string;
+    processStopTitle: string;
+    /** The hint on a sent image that did not load (its file was removed, or its machine is out of reach). */
+    imageUnavailable: string;
+    /** Toast when Retry finds nothing held: the unfinished turn's input already went out with a later message. */
+    retryNothing: string;
+    /** "Retry" on the line a run ended on (the error banner, a reconnect line that gave up, or the stop marker): sends the unfinished turn's input again, with no new message. */
+    retryRun: string;
+    /** The composer's permission button: one colored shield for the level, a menu of Fs / Network / More. */
+    permission: {
+      label: string;
+      levels: Record<string, string>;
+      fs: string;
+      fsModes: Record<string, string>;
+      network: string;
+      networkModes: Record<string, string>;
+      unsupported: string;
+      localUnsupported: string;
+      notInstalled: string;
+      noBackend: string;
+      noNetworkUnsupported: (backends?: string) => string;
+      maskUnsupported: (backends?: string) => string;
+      notAvailable: string;
+      adminOnly: string;
+      aboveCeiling: string;
+      backendUnavailable: (name: string, reason: string) => string;
+      more: string;
+      approval: string;
+      custom: string;
+      advancedActive: string;
+      advancedHint: string;
+      blocks: string;
+      allows: string;
+      nothing: string;
+      enforceable: string;
+      needsNoBackend: string;
+      effects: Record<string, string>;
+    };
+    sessionListByMode: { workspace: string; agent: string; time: string };
+    start: {
+      metrics: { agents: string; toolkits: string; benchmarks: string };
+      examplesTitle: string;
+    };
+    machineTag: (machine: string) => string;
+    onMachine: (name: string, machine: string) => string;
+    /** A Workspace group's "more" menu: the dock's Files panel on that directory. */
+    browseWorkspaceFiles: string;
+    /** The Workspace finder: the modal the Workspace pickers open (workspace-finder.tsx). */
+    finder: {
+      choose: string;
+      back: string;
+      forward: string;
+      up: string;
+      refresh: string;
+      address: string;
+      addressPlaceholder: string;
+      editPath: string;
+      filter: string;
+      showSidebar: string;
+      hideSidebar: string;
+      quickAccess: string;
+      thisPc: string;
+      locations: string;
+      drives: { drive: string; removable: string; network: string; optical: string };
+      fileSystem: string;
+      switchLocation: string;
+      recent: string;
+      machines: string;
+      places: { desktop: string; documents: string; downloads: string; pictures: string };
+      documentsMac: string;
+      addToQuickAccess: string;
+      removeFromQuickAccess: string;
+      addCurrentToQuickAccess: string;
+      removeNamed: (name: string) => string;
+      open: string;
+      openFolder: (name: string) => string;
+      chooseThis: string;
+      chooseCurrent: string;
+      copyPath: string;
+      path: string;
+      columnName: string;
+      columnModified: string;
+      fileNotSelectable: string;
+      empty: string;
+      noMatch: (q: string) => string;
+      deniedTitle: string;
+      denied: string;
+      deniedMacServer: string;
+      deniedMacAsk: string;
+      deniedMacRefused: string;
+      deniedMacRefusedDev: string;
+      allowAccess: string;
+      allowAccessWaiting: string;
+      openSystemSettings: string;
+      loadFailed: string;
+    };
+    workspaceTempRule: string;
+    /** Why a listed machine cannot be picked — shown ON its row, where the question is asked. */
+    workspaceMachineWhy: { "no-identity": string };
+    workspaceHere: string;
+    modelSwitchInSessionApplied: (to: string) => string;
+    modelSwitchInSessionSwitching: (to: string) => string;
+    modelSwitchInSessionStarted: (from: string, to: string) => string;
+    modelSwitchInSessionCompactedBody: (to: string) => string;
+    modelSwitchInSessionDirectBody: (to: string) => string;
+    modelSwitchInSessionBody: (from: string, to: string) => string;
+    /** Confirm label when the transcript is empty: nothing to compact, so it only switches. */
+    modelSwitchInSessionDirectConfirm: string;
+    modelSwitchInSessionConfirm: string;
+    modelSwitchInSessionTitle: string;
   };
   feishu: {
     intro: string;
@@ -4238,7 +5103,7 @@ export type Strings = {
     statusLabel: string;
     status: { disconnected: string; connecting: string; connected: string; error: string };
     otherEnabledHint: (other: string) => string;
-    credentialMissingHint: string;
+    credentialMissingHint: { feishu: string; telegram: string; qq: string; wechat: string };
     disableBeforeClearHint: string;
     renderMarkdown: string;
     renderMarkdownHelpFeishu: string;
@@ -4267,6 +5132,13 @@ export type Strings = {
     troubleWeChatDirect: string;
     troubleQQPassive: string;
     troubleNoGroupInbound: string;
+    /** WeChat's reply budget and window — the answer to "replies arrive combined, or late". */
+    troubleWeChatReplyWindow: string;
+    /**
+     * WeChat only, in the delivery-failure line's place: replies the platform would not take
+     * yet are held for the user's next WeChat message, which is not a failure.
+     */
+    repliesHeld: (when: string) => string;
   };
   subagentPanel: {
     topologyLabel: string;
@@ -4317,7 +5189,6 @@ export type Strings = {
     editorLabel: (name: string) => string;
     wrapLines: string;
     unsaved: string;
-    saveTitle: string;
     saveConfirmTitle: string;
     saveConfirm: (name: string) => string;
     editTooLarge: (kb: number) => string;
@@ -4333,7 +5204,6 @@ export type Strings = {
     renameLabel: string;
     renameHint: string;
     renameConfirm: string;
-    renameTargetExists: (path: string) => string;
     renamed: (name: string) => string;
     deleteTitle: string;
     deleteBody: (name: string) => string;
@@ -4344,6 +5214,22 @@ export type Strings = {
     conflictTitle: string;
     conflictBody: (name: string) => string;
     overwriteAnyway: string;
+    /** The new-chat draft's Files panel and its toggle, while the Workspace is a temporary one. */
+    draftTemporary: string;
+    created: (name: string) => string;
+    createConfirm: string;
+    /** Formatting, kept on screen while typing: where the entry goes, and what a `/` does. */
+    createHint: (dir: string) => string;
+    newFolderName: string;
+    newFileName: string;
+    newFolder: string;
+    newTextFile: string;
+    /** The tree header's New menu, a folder's menu and the blank space under the tree. */
+    newMenu: string;
+    /** A move or a New landed on a name that is taken: nothing was written. */
+    targetExists: (path: string) => string;
+    /** The editor's ×: back to the preview (asking first when there are unsaved changes). */
+    stopEditing: string;
   };
   usage: {
     title: string;
@@ -4396,6 +5282,8 @@ export type Strings = {
     errorsClearScopeAgent: (count: number, range: string, agentId: string) => string;
     errorsClearIrreversible: string;
     errorsClearDone: (count: number) => string;
+    /** Time cell tooltip on a row that folds several of a day's records: when the first one was. */
+    errorsFirstAt: (time: string) => string;
   };
   traces: {
     timeline: string;
@@ -4412,7 +5300,6 @@ export type Strings = {
     globalSummary: string;
     tasksLabel: string;
     messages: string;
-    loadingNote: (shown: number, total: number) => string;
     zoom: string;
     zoomReset: string;
     zoomOut: string;
@@ -4429,6 +5316,10 @@ export type Strings = {
     systemPrompt: string;
     toolDefs: (n: number) => string;
     exportFile: string;
+    /** Spoken by an open round's placeholder while its messages are being read. */
+    roundLoading: string;
+    /** The control above the drawn round cards: how many earlier rounds are not drawn yet; a click draws the next page of them. */
+    earlierRounds: (n: number) => string;
   };
   benchmark: {
     title: string;
@@ -4504,7 +5395,6 @@ export type Strings = {
     colDuration: string;
     colCase: string;
     colRun: string;
-    colSession: string;
     askAi: string;
     evaluationDetailTitle: (time: string) => string;
     askEvaluationTitle: string;
@@ -4622,13 +5512,68 @@ export type Strings = {
       roundLimit: number;
       targetScore: number;
     }) => string;
+    exportBenchmark: string;
+    importOverwriteAction: string;
+    importOverwriteBody: (id: string) => string;
+    importOverwriteTitle: string;
+    importDoneToast: string;
+    importUploading: string;
+    importUploadAction: string;
+    importUploadInfo: string;
+    importUploadDesc: string;
+    importUploadTitle: string;
+    importOpenChat: string;
+    importPromptTail: (projectId: string) => string;
+    importPromptLead: {
+      repoFolderUrl: (s: string) => string;
+      localPath: (s: string) => string;
+      reference: (s: string) => string;
+    };
+    importSourceToken: string;
+    importExamples: { key: string; label: string; description: string }[];
+    importSourcePlaceholder: string;
+    importSourceHint: string;
+    importSourceLabel: string;
+    importChatWhy: string;
+    importChatTitle: string;
+    importBenchmark: string;
+    rsiOptimizeTail: (p: {
+      skill: string;
+      targetAgentId: string;
+      benchmarkId: string;
+      runs: number;
+      provider?: string;
+      modelId?: string;
+    }) => string;
+    methodMissingSkill: (plugin: string, skill: string) => string;
+    methodOptimizerHint: (skill: string) => string;
+    methodBudgetHint: string;
+    methodsNone: string;
+    methodsFailed: string;
+    methodsLoading: string;
+    methodHint: string;
+    methodField: string;
+    /** Copy button beside a run recorded as a Harbor trial, which is no Session the app opens. */
+    copyTrialName: string;
+    runSessionUntitled: string;
+    runArchivedOpen: string;
+    runArchivedCopyId: string;
+    runArchivedSessionId: string;
+    runArchivedSessionTitle: string;
+    runArchivedBody: string;
+    runArchivedTitle: string;
+    runOpenSession: string;
+    manifestBrokenDetail: (hint: string, reason: string) => string;
+    manifestBrokenHintMember: string;
+    manifestBrokenHint: string;
+    manifestBroken: string;
+    sourceLabel: string;
+    versionLabel: string;
   };
   company: {
     workMode: string;
     modeDev: string;
     modeCompany: string;
-    switchToCompany: string;
-    switchToDev: string;
     beta: string;
     betaTitle: string;
     betaNotice: string;
@@ -4653,17 +5598,15 @@ export type Strings = {
     mission: string;
     missionHint: string;
     missionPlaceholder: string;
-    missionExampleHint: string;
     missionExamples: {
-      research: { name: string; mission: string };
-      agentTuning: { name: string; mission: string };
-      cloudReseller: { name: string; mission: string };
-      mirror: { name: string; mission: string };
+      research: { name: string; mission: string; summary: string };
+      agentTuning: { name: string; mission: string; summary: string };
+      cloudReseller: { name: string; mission: string; summary: string };
+      mirror: { name: string; mission: string; summary: string };
     };
     createdOpeningCeo: string;
     modelField: string;
     modelInfo: string;
-    modelHint: string;
     modelClear: string;
     modelStale: string;
     modelProjectDefault: string;
@@ -4671,9 +5614,7 @@ export type Strings = {
     modelsLoadFailed: string;
     workspaceField: string;
     workspaceInfo: string;
-    workspaceHint: string;
     workspaceEmpty: string;
-    workspaceMenuHint: string;
     workspaceClear: string;
     ceoBudget: string;
     ceoBudgetHint: string;
@@ -4714,6 +5655,11 @@ export type Strings = {
       noEmployees: string;
       untitledSession: string;
       loadFailed: string;
+      agentMissing: string;
+      closeAllTemporary: string;
+      closeTemporary: string;
+      temporaryEntry: (title: string) => string;
+      temporary: (n: number) => string;
     };
     overview: {
       title: string;
@@ -4750,8 +5696,6 @@ export type Strings = {
       openBoard: string;
       openCalendar: string;
       openFinance: string;
-      openTicket: string;
-      openChannel: string;
       openColumn: (column: string) => string;
       firstStepsTitle: string;
       firstStepsInfo: string;
@@ -4808,15 +5752,11 @@ export type Strings = {
       dutiesHint: string;
       workspace: string;
       workspaceHint: string;
-      hireWorkspaceHint: string;
       budget: string;
       budgetHint: string;
-      hireConfirm: (name: string, manager: string) => string;
       hired: (name: string) => string;
       budgetTitle: (name: string) => string;
-      budgetConfirm: (name: string, budget: string) => string;
       reportsToTitle: (name: string) => string;
-      reportsToConfirm: (name: string, manager: string) => string;
       reportsToCycle: string;
       renewDeskTitle: (name: string) => string;
       renewDeskExplain: string;
@@ -4839,11 +5779,23 @@ export type Strings = {
       hireAgentSection: string;
       hirePositionSection: string;
       agentHint: string;
-      budgetPlaceholder: string;
       clearBudget: string;
       currentValue: (value: string) => string;
       manager: string;
       reportsToHint: string;
+      thinkingLevelPinned: (level: string) => string;
+      thinkingLevelDefault: (level: string) => string;
+      thinkingLevelInfo: string;
+      thinkingLevelTitle: (name: string) => string;
+      hireStdioQuestion: (name: string) => string;
+      ceoMissing: (ceoId: string) => string;
+      agentMissing: string;
+      setThinkingLevel: string;
+      employeeNameHireHint: string;
+      employeeNameHint: (agentId: string) => string;
+      employeeName: string;
+      profileTitle: (name: string) => string;
+      nameAndAvatar: string;
     };
     calendar: {
       title: string;
@@ -4870,7 +5822,6 @@ export type Strings = {
       periodHint: string;
       delete: string;
       deleteConfirm: (name: string) => string;
-      saveConfirm: (name: string) => string;
       outcome: string;
       lastFired: string;
       nextFire: string;
@@ -4925,7 +5876,6 @@ export type Strings = {
       owner: string;
       noOwner: string;
       ownerSelf: string;
-      ownerSelfHint: string;
       parent: string;
       noParent: string;
       notify: string;
@@ -4945,8 +5895,6 @@ export type Strings = {
       blockByHint: string;
       sessions: string;
       sessionsCount: (n: number) => string;
-      openSession: string;
-      openTicket: string;
       progress: string;
       progressEmpty: string;
       addProgress: string;
@@ -4964,7 +5912,6 @@ export type Strings = {
       invalid: string;
       invalidFiles: string;
       edit: string;
-      saveConfirm: (title: string) => string;
       saved: string;
       created: string;
       detail: string;
@@ -4989,6 +5936,7 @@ export type Strings = {
       copyId: string;
       invalidTickets: string;
       loadFailed: (error: string) => string;
+      notifyInfo: string;
     };
     finance: {
       title: string;
@@ -5038,7 +5986,6 @@ export type Strings = {
       saveBudget: string;
       cancelEdit: string;
       editBudgetOf: (name: string) => string;
-      openTicket: string;
       trendInfo: string;
       trendEmpty: string;
       alertsInfo: string;
@@ -5164,29 +6111,20 @@ export type Strings = {
       };
     };
     handbook: {
-      info: string;
-      indexLabel: string;
-      documents: string;
-      collapseAll: string;
-      documentsInFolder: (n: number) => string;
-      noOtherDocuments: string;
-      emptyDocument: string;
-      newDocument: string;
-      creating: string;
-      pathField: string;
-      pathPlaceholder: string;
-      pathHint: string;
-      pathInvalid: string;
-      pathExists: string;
-      documentCreated: string;
-      deleteDocument: string;
-      deleteConfirm: (path: string) => string;
-      documentDeleted: string;
       loadFailed: string;
-      documentLoadFailed: string;
-      updatedAt: (time: string, size: string) => string;
-      editorHint: string;
     };
+    /** A data path in a ticket drawn as a capsule: the hover names the whole path, a click copies it. */
+    pathCapsule: { hint: (path: string) => string; copy: (path: string) => string };
+    deleted: (orgId: string) => string;
+    deleteOrgTypeId: (orgId: string) => string;
+    deleteOrgConfirm: string;
+    deleteOrgDesc: string;
+    deleteOrg: string;
+    timezoneInfo: string;
+    clearDraftConfirm: string;
+    clearDraftConfirmLabel: string;
+    orgIdInfo: string;
+    backToOverview: string;
   };
   errors: {
     networkError: string;
@@ -5331,6 +6269,380 @@ export type Strings = {
       ticket_session_failed: string;
       handbook_file_not_found: string;
       handbook_index_required: string;
+      timeout: string;
+      shell_unreachable: string;
+      source_not_found: string;
+      browser_unavailable: string;
+      agent_employed: string;
+      wechat_needs_recent_message: string;
+      wechat_send_failed: string;
+      wechat_no_chat: string;
+      model_unavailable: string;
+      model_not_configured: string;
+      same_model: string;
+      dir_permission_denied: string;
+      benchmark_busy: string;
+      model_not_routable: string;
+      penguin_go_protocol_fixed: string;
+      model_not_addable: string;
+      modelscope_refresh_failed: string;
     };
+    notTheServer: {
+      page: (status: number) => string;
+      proxy: (status: number) => string;
+      other: (status: number, type: string) => string;
+    };
+  };
+  find: {
+    placeholder: string;
+    next: string;
+    prev: string;
+    close: string;
+    caseSensitive: string;
+    noResults: string;
+    regionConversation: string;
+    regionSubagent: string;
+    regionSessions: string;
+    regionFiles: string;
+    scopeAll: string;
+    scopeThisRegion: (region: string) => string;
+    loadMore: string;
+    loadMoreAction: string;
+    moreRows: (count: number) => string;
+    resultsLabel: string;
+    outline: string;
+    inDocument: string;
+    documentPlaceholder: string;
+  };
+  /** The App info dialog, opened from the avatar menu: identity, links, update, release notes, credits. */
+  appInfo: {
+    title: string;
+    menuEntry: string;
+    homepage: string;
+    repository: string;
+    opensInNewTab: string;
+    releaseNotes: string;
+    earlierVersions: (n: number) => string;
+    current: string;
+    credits: string;
+    copyright: string;
+    licenses: string;
+    creditsThemes: string;
+    creditsNoTheme: string;
+    creditsLicense: string;
+    creditsSource: string;
+    creditsLicenseText: string;
+    creditsFonts: string;
+    creditsIcons: string;
+  };
+  harnessHistory: {
+    title: string;
+    pageDesc: string;
+    loading: string;
+    empty: string;
+    current: string;
+    noProvenance: string;
+    pushedAt: string;
+    bundles: string;
+    table: string;
+    tableCounts: (nodes: number, interfaces: number, types: number) => string;
+    noTable: string;
+    noTableShort: string;
+    changesSince: (previous: string) => string;
+    changesFirst: string;
+    noChanges: string;
+    nodes: (n: number) => string;
+    interfaces: (n: number) => string;
+    typesSummary: (added: number, removed: number, changed: number) => string;
+    change: { added: string; removed: string; changed: string };
+    rollback: string;
+    rollbackConfirm: string;
+    rollbackYes: string;
+    rollbackPushing: string;
+    rollbackTimeout: string;
+    notKept: string;
+    viewChanges: string;
+    viewTree: string;
+    kind: { group: string; module: string; component: string };
+    expand: string;
+    collapse: string;
+    extensionSlot: string;
+    ownProvision: string;
+    pickNode: string;
+    requires: string;
+    provides: string;
+    contributes: string;
+    children: string;
+    exports: string;
+    methods: string;
+    fields: string;
+    slots: string;
+  };
+  workbenches: {
+    title: string;
+    count: (n: number) => string;
+    empty: string;
+    agentTabDesc: string;
+    open: string;
+    noMatches: string;
+    searchAgents: string;
+    tabsLabel: string;
+    chatTab: string;
+    brokenMark: string;
+    reload: string;
+    reloading: string;
+    history: string;
+    loadError: string;
+    loadingHistory: string;
+    loadingPage: string;
+    noHistory: string;
+    current: string;
+    restore: string;
+    restoreTitle: string;
+    restoreConfirm: (revision: string) => string;
+    remove: string;
+    fillApp: string;
+    fillAppHint: (palette: string | null) => string;
+    exitFullPage: string;
+    exitFullPageButton: string;
+    retryHistory: string;
+    exitHint: (palette: string | null) => string;
+    noSuchPage: string;
+    removeConfirm: string;
+    removeYes: string;
+    removing: string;
+    removeNo: string;
+    fileCount: (n: number) => string;
+  };
+  modelPicker: { groups: string; hideModelsWithoutKey: string; hint: (mod: string) => string };
+  commandPalette: {
+    title: string;
+    placeholder: string;
+    noResults: string;
+    hint: (toggle: string | null) => string;
+    harnessHistory: string;
+  };
+  archivedSessions: {
+    search: string;
+    sourceFilter: string;
+    projectFilter: string;
+    allSources: string;
+    allProjects: string;
+    count: (n: number) => string;
+    selectAll: string;
+    deselectAll: string;
+    select: (title: string) => string;
+    selected: (n: number) => string;
+    clearSelection: string;
+    moreGroups: (n: number) => string;
+    empty: string;
+    noMatches: string;
+    running: string;
+    loadFailed: (reason: string) => string;
+    actionFailed: (reason: string) => string;
+    deleteTitle: (n: number) => string;
+    deleteConfirm: (n: number) => string;
+    unreachable: (machines: string[]) => string;
+  };
+  browserSettings: {
+    backend: string;
+    backendInfo: string;
+    paired: string;
+    pairedNone: string;
+    pairedLine: (version: string, seen: string | null) => string;
+    connected: string;
+    notConnected: string;
+    revoke: string;
+    revokeTitle: string;
+    revokeBody: (name: string) => string;
+    revoked: (name: string) => string;
+    revokeFailed: (reason: string) => string;
+    connectFirst: string;
+    connectAnother: string;
+    loadFailed: (reason: string) => string;
+    disabledNote: string;
+    allow: string;
+    offTitle: string;
+    offBody: string;
+    off: string;
+  };
+  builtinBrowser: {
+    panelTitle: string;
+    tabs: string;
+    newTab: string;
+    closeTab: string;
+    untitled: string;
+    back: string;
+    forward: string;
+    reload: string;
+    stop: string;
+    address: string;
+    addressPlaceholder: string;
+    suggestions: string;
+    more: string;
+    importAction: string;
+    clearDataAction: string;
+    setHomepageAction: string;
+    openExternal: string;
+    devTools: string;
+    home: string;
+    agentBusy: (action: string) => string;
+    agentBusyTab: string;
+    actions: {
+      navigate: string;
+      scan: string;
+      exec: string;
+      click: string;
+      type: string;
+      screenshot: string;
+      cdp: string;
+    };
+    unavailableTitle: string;
+    unavailableDesktop: string;
+    unavailableShell: string;
+    unavailableWindow: string;
+    unavailablePairChrome: string;
+    useChrome: string;
+    startPage: {
+      label: string;
+      sites: {
+        google: string;
+        bing: string;
+        baidu: string;
+        github: string;
+        stackoverflow: string;
+        wikipedia: string;
+      };
+    };
+    openFailed: (reason: string) => string;
+    closeFailed: (reason: string) => string;
+    backendBuiltin: string;
+    backendChrome: string;
+    chromeConnected: (name: string | null) => string;
+    chromeNotConnected: string;
+    chromeNotPaired: string;
+    chromeDisabled: string;
+    connectChrome: string;
+    manageChrome: string;
+    switchedToChrome: string;
+    switchedToBuiltin: string;
+    switchRefused: string;
+    switchFailed: (reason: string) => string;
+    chromeTabCard: string;
+    showInChrome: string;
+    chromeNoTabsTitle: string;
+    chromeNoTabsBody: string;
+    chromeDisconnectedTitle: string;
+    chromeDisconnectedBody: (name: string | null) => string;
+    reconnectHelp: string;
+    reconnectOpen: string;
+    reconnectResume: string;
+    reconnectPair: string;
+    chromeDisabledTitle: string;
+    chromeDisabledBody: string;
+    chromeUnpairedIntro: string;
+    pairTitle: string;
+    pairStepInstall: string;
+    pairStore: string;
+    pairStepInstallZip: string;
+    pairDownload: string;
+    pairStepOpen: string;
+    pairStepPaste: string;
+    pairServer: string;
+    pairCode: string;
+    pairCodeExpiry: (time: string) => string;
+    pairCodeExpired: string;
+    pairNewCode: string;
+    pairCodeFailed: (reason: string) => string;
+    pairWaiting: string;
+    pairConnected: string;
+    importTitle: string;
+    importIntro: string;
+    importLoading: string;
+    importNone: string;
+    importSourcesFailed: (reason: string) => string;
+    importSource: string;
+    importWhat: string;
+    importCookies: string;
+    importHistory: string;
+    importDomains: string;
+    importDomainsHint: string;
+    importDomainsPlaceholder: string;
+    importKeychainNote: string;
+    importRun: string;
+    importRunning: string;
+    importDone: string;
+    importCookiesResult: (c: {
+      found: number;
+      imported: number;
+      skipped: number;
+      failed: number;
+    }) => string;
+    importHistoryResult: (h: { found: number; imported: number }) => string;
+    importFailed: (reason: string) => string;
+    clearTitle: string;
+    clearBody: string;
+    clearCookies: string;
+    clearCache: string;
+    clearStorage: string;
+    clearHistory: string;
+    clearConfirm: string;
+    clearDone: string;
+    clearFailed: (reason: string) => string;
+    homepageTitle: string;
+    homepageIntro: string;
+    homepageAddress: string;
+    homepagePlaceholder: string;
+    homepageHintEmpty: string;
+    homepageHintOpens: (url: string) => string;
+    homepageUseCurrent: string;
+    homepageClear: string;
+    homepageFailed: (reason: string) => string;
+    crashedTitle: string;
+    crashedOutOfMemory: string;
+    crashedBody: string;
+    crashedTab: string;
+    load: {
+      memory: (size: string, tabs: number) => string;
+      lowSystemMemory: (percent: number) => string;
+      manyTabs: (tabs: number) => string;
+      advice: string;
+      join: (sentences: string[]) => string;
+      heavyTab: (size: string) => string;
+    };
+  };
+  /** Keyboard shortcuts: the registry's command and group labels (lib/shortcuts/registry.ts). */
+  shortcuts: {
+    commands: {
+      "palette.toggle": string;
+      "sessions.search": string;
+      "quickSwitcher.toggle": string;
+      "chat.new": string;
+      "find.open": string;
+      "find.all": string;
+      "sidebar.toggle": string;
+      "dock.toggleRight": string;
+      "dock.toggleBottom": string;
+      "terminal.toggle": string;
+      "terminal.new": string;
+      "terminal.close": string;
+      "editor.save": string;
+    };
+    groups: { general: string; panels: string; terminal: string; editor: string };
+    scopes: { terminal: string; editor: string };
+    unbound: string;
+    rebind: string;
+    record: string;
+    recordHint: string;
+    needsModifier: string;
+    resetRow: string;
+    resetAll: string;
+    resetAllBody: (n: number) => string;
+    conflictSame: (other: string) => string;
+    conflictShadowed: (other: string, surface: string) => string;
+    browserReserved: string;
+    browserCommon: string;
+    desktopMenuReserved: string;
+    saveFailed: string;
   };
 };

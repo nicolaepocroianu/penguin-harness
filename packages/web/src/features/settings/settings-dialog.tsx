@@ -1,13 +1,22 @@
 /**
- * System settings dialog: one popup holding the settings that used to sit as separate rows
+ * Settings dialog: one popup holding the settings that used to sit as separate rows
  * in the sidebar user menu, on the PagedDialog shell (left rail of pages, ChatGPT-style
  * rows on the right). The rail is grouped — Personal for the viewer's own preferences,
  * Server for the server-global settings an admin writes — and both the rail and the pane
  * go through visibleSettingsSections, so a viewer neither sees a page they may not open
  * nor lands on one: the active page is re-resolved against that list on every render, and
  * anything not on it falls back to the first page they can actually open.
+ *
+ * A page with a typed form registers it under the dialog's scope while it holds unsaved
+ * edits, and both ways of leaving that page ask first: switching pages on the rail (which
+ * unmounts the page and its drafts) and closing the dialog by Esc, the ×, or a press on the
+ * scrim. Switches, selects and other instant controls never make a page dirty. A page's Save
+ * registers under the same scope while it is in flight (`useSaving`), and the dialog's close
+ * does nothing until it answers; an instant control's write holds nothing.
  */
 import { useEffect, useState } from "react";
+import { ICONS, PagedDialog, guardLeave, useGuardedClose } from "@prismshadow/penguin-ui";
+import type { PagedDialogGroup } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import {
   resolveSettingsSection,
@@ -15,18 +24,21 @@ import {
   visibleSettingsSections,
 } from "../../lib/settings-sections";
 import type { SettingsGroupKey, SettingsSectionKey } from "../../lib/settings-sections";
+import { SETTINGS_SCOPE } from "../../lib/unsaved/scopes";
 import { useAuth } from "../../state/auth";
-import { PagedDialog } from "../../components/ui/paged-dialog";
-import type { PagedDialogGroup } from "../../components/ui/paged-dialog";
-import { Icon } from "../../components/ui/group-list";
-import { COMPANY_MODE_ICON, GEAR_ICON } from "../../components/ui/icons";
 import { ProfileSection } from "./profile-section";
 import { GeneralSection } from "./general-section";
 import { AppearanceSection } from "./appearance-section";
+import { ShortcutsSection } from "./shortcuts-section";
+import { ArchivedSessionsSection } from "./archived-sessions-section";
 import { AccountSection } from "./account-section";
 import { ProxySection } from "./proxy-section";
 import { UploadsSection } from "./uploads-section";
 import { CompanySection } from "./company-section";
+import { BrowserSection } from "./browser-section";
+import { ChromeExtensionSection } from "./chrome-extension-section";
+import { AgentApiSection } from "./agent-api-section";
+import { PluginsSection } from "./plugins-section";
 import { TestBrowserSection } from "./test-browser-section";
 import { DeploySection } from "./deploy-section";
 import { WafWorkspaceSection } from "./waf-workspace-section";
@@ -34,50 +46,59 @@ import { AdminUsersSection } from "../admin/admin-users-page";
 import { ActivityOutcomesSection } from "../admin/activity-outcomes-section";
 import { RunCleanupSection } from "../admin/run-cleanup-section";
 
-/** Rail glyphs, on the shared 24x24 stroke grid (see NAV_ICONS' conventions). */
+/** Rail glyphs (see NAV_ICONS' conventions). */
 const SECTION_ICONS: Record<SettingsSectionKey, string> = {
   /** Person in a circle: the account's own identity, distinct from the bust used for credentials. */
-  profile:
-    "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6.2 18.4a6 6 0 0 1 11.6 0",
-  general: GEAR_ICON,
+  profile: ICONS.userCircle,
+  general: ICONS.gear,
   /** Sun: appearance. */
-  appearance:
-    "M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4l1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4m11.4-11.4l1.4-1.4",
+  appearance: ICONS.sun,
+  /** Keyboard: shortcuts. */
+  shortcuts: ICONS.keyboard,
+  /** The archive box the sidebar row's archive action wears: archived chats. */
+  archived: ICONS.archive,
   /** Single person: the signed-in account. */
-  account: "M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10z",
+  account: ICONS.user,
+  /** A browser window: the agent browser. */
+  browser: ICONS.appWindow,
   /** Globe: outbound traffic. */
-  proxy:
-    "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 0 0 0 18M12 3a15 15 0 0 1 0 18",
+  proxy: ICONS.globe,
   /** Up arrow over a base: uploads. */
-  uploads: "M12 15V4m0 0L7 9m5-5l5 5M4 20h16",
+  uploads: ICONS.arrowUpFromLine,
   /** The building the mode switch wears: company mode. */
-  company: COMPANY_MODE_ICON,
+  company: ICONS.building,
+  /** Plug: whether users may connect their Chrome. */
+  chromeExtension: ICONS.plug,
+  /** Angle brackets: programs calling the Agents. The plug that marks the API elsewhere is taken here, by the Chrome page above. */
+  agentApi: ICONS.angleBrackets,
+  /** Puzzle piece: plugins, the plugin library's own mark. */
+  plugins: ICONS.puzzle,
   /** A browser window: the test browser. */
-  testBrowser:
-    "M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 9h18M7 6h.01M10 6h.01",
-  /** Stacked folders: the WAF workspace's checkouts. */
-  wafWorkspace: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 11h18",
-  /** A rocket: where activities are deployed to. */
-  deploy:
-    "M5 15c-1.5 1.3-2 5-2 5s3.7-.5 5-2m-3-3l4 4m-4-4c1-4 4.5-9 12-11-2 7.5-7 11-11 12m6-7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z",
+  testBrowser: ICONS.appWindow,
+  /** An open folder: the WAF workspace's checkouts. */
+  wafWorkspace: ICONS.folderOpen,
+  /** A box with an arrow leaving it: where activities are deployed to. */
+  deploy: ICONS.boxArrowOut,
   /** A bar chart: what became of activity runs, counted. */
-  activityOutcomes: "M4 20h16M7 16v-5M12 16V6M17 16v-8",
+  activityOutcomes: ICONS.barChart,
   /** A disk drive: what activity runs keep on the server. */
-  runCleanup: "M3 13l3-8h12l3 8M3 13v5a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-5M3 13h18M17 16h.01",
+  runCleanup: ICONS.hardDrive,
   /** Two people: user management. */
-  users:
-    "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+  users: ICONS.users,
 };
 
 export function SettingsDialog({
   open,
-  initialSection,
   onClose,
+  section,
+  pluginFocus,
 }: {
   open: boolean;
-  /** The page to land on when this opening is a shortcut to a specific setting (e.g. the deploy panel's missing settings), instead of the viewer's usual first page. */
-  initialSection?: SettingsSectionKey | null;
   onClose: () => void;
+  /** The page an opening starts on; a page this viewer may not open falls back like any other. */
+  section?: SettingsSectionKey;
+  /** On the Plugins page: the card an opening scrolls to (e.g. `sandbox`). */
+  pluginFocus?: string;
 }) {
   // uploadLimits feeds the Upload limits page's "?" (sectionInfo below); the rest pick pages.
   const { user, desktopMode, sessionVia, uploadLimits } = useAuth();
@@ -87,14 +108,15 @@ export function SettingsDialog({
     sessionVia,
   });
   const [active, setActive] = useState<SettingsSectionKey | null>(null);
+  const requestClose = useGuardedClose(onClose, SETTINGS_SCOPE);
 
-  // Each opening starts on the requested page, or on the viewer's first page: clearing the
-  // choice lets `current` below resolve it against the live list. Keyed on `open` and
-  // `initialSection` only (a deep link to another page while open moves there) — re-running
-  // on every sections identity change would yank the user off a page they navigated to.
+  // Each opening starts on the requested page, or the viewer's first: `current` below
+  // resolves the choice against the live list. Deliberately keyed on `open` (and the
+  // request) alone — re-running on every sections identity change would yank the user off a
+  // page they navigated to.
   useEffect(() => {
-    if (open) setActive(initialSection ?? null);
-  }, [open, initialSection]);
+    if (open) setActive(section ?? null);
+  }, [open, section]);
 
   const current = resolveSettingsSection(active, sections);
   if (current === null) return null;
@@ -104,10 +126,16 @@ export function SettingsDialog({
     profile: S.settings.profile,
     general: S.settings.generalTitle,
     appearance: S.settings.appearanceTitle,
+    shortcuts: S.settings.shortcutsTitle,
+    archived: S.settings.archivedTitle,
     account: S.settings.accountTitle,
+    browser: S.settings.browserTitle,
     proxy: S.settings.proxyTitle,
     uploads: S.settings.uploadLimitsTitle,
     company: S.settings.companyModeTitle,
+    chromeExtension: S.settings.chromeExtensionTitle,
+    agentApi: S.settings.agentApiTitle,
+    plugins: S.settings.pluginsTitle,
     testBrowser: S.settings.testBrowser.title,
     wafWorkspace: S.settings.wafWorkspace.title,
     deploy: S.settings.deploy.title,
@@ -122,9 +150,14 @@ export function SettingsDialog({
   // Page-level explanations, disclosed by the "?" the shell draws beside the pane heading.
   // Pages whose rows explain themselves one by one carry none.
   const sectionInfo: Partial<Record<SettingsSectionKey, string>> = {
+    shortcuts: S.settings.shortcutsInfo,
+    archived: S.settings.archivedInfo,
     proxy: S.settings.proxyInfo,
     uploads: S.settings.uploadLimitsInfo(uploadLimits.attachmentMaxCount, uploadLimits.imageMaxMb),
     company: S.settings.companyModeServerInfo,
+    chromeExtension: S.settings.chromeExtensionInfo,
+    agentApi: S.settings.agentApiHint,
+    plugins: S.settings.pluginsInfo,
     testBrowser: S.settings.testBrowser.about,
     wafWorkspace: S.settings.wafWorkspace.about,
     deploy: S.settings.deploy.about,
@@ -141,7 +174,7 @@ export function SettingsDialog({
         .map((s) => ({
           key: s.key,
           label: sectionLabel[s.key],
-          icon: <Icon d={SECTION_ICONS[s.key]} size={16} />,
+          icon: SECTION_ICONS[s.key],
           ...(sectionInfo[s.key] !== undefined ? { info: sectionInfo[s.key] } : {}),
         })),
     }),
@@ -150,19 +183,29 @@ export function SettingsDialog({
   return (
     <PagedDialog
       open={open}
-      onClose={onClose}
-      title={S.settings.systemSettings}
+      onClose={requestClose}
+      title={S.settings.title}
       groups={groups}
       active={current}
-      onSelect={setActive}
+      onSelect={(key) => {
+        if (key !== current) void guardLeave(() => setActive(key), SETTINGS_SCOPE);
+      }}
     >
       {current === "profile" && <ProfileSection />}
       {current === "general" && <GeneralSection />}
       {current === "appearance" && <AppearanceSection />}
+      {current === "shortcuts" && <ShortcutsSection />}
+      {current === "archived" && <ArchivedSessionsSection />}
       {current === "account" && <AccountSection />}
+      {current === "browser" && <BrowserSection />}
       {current === "proxy" && <ProxySection />}
       {current === "uploads" && <UploadsSection />}
       {current === "company" && <CompanySection />}
+      {current === "chromeExtension" && <ChromeExtensionSection />}
+      {current === "agentApi" && <AgentApiSection />}
+      {current === "plugins" && (
+        <PluginsSection {...(pluginFocus !== undefined ? { focus: pluginFocus } : {})} />
+      )}
       {current === "testBrowser" && <TestBrowserSection />}
       {current === "wafWorkspace" && <WafWorkspaceSection />}
       {current === "deploy" && <DeploySection />}

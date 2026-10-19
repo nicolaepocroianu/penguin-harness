@@ -10,11 +10,11 @@
  * table. A table narrower than its columns need (a side panel open beside it) lays out one
  * row per asset instead (narrow-table.ts), so a key never breaks one letter per line.
  */
+import type { BadgeStyle } from "@prismshadow/penguin-ui";
 import { useState, type ReactNode } from "react";
 import type { AssetManifest, UploadedMedia } from "@prismshadow/penguin-server/api";
-import { Badge, type BadgeTone } from "../../components/ui/badge";
+import { Badge, Input, ICON_GAP } from "@prismshadow/penguin-ui";
 import { ChipGroup } from "../../components/ui/chip-group";
-import { Input } from "../../components/ui/input";
 import {
   TABLE,
   TABLE_HEAD_ROW,
@@ -37,7 +37,6 @@ import {
   type LibraryLayout,
   type PlannedEntry,
 } from "./asset-library";
-import { ICON_GAP } from "../../lib/icon-scale";
 import { toneInk } from "../../lib/tone";
 import { ClipButton, useClipPlayer, type ClipPlayer } from "./clip-player";
 import { ClipWave } from "./clip-wave";
@@ -94,11 +93,11 @@ function AssetPicture({
 
 const KINDS: readonly LibraryKind[] = ["all", "audio", "image", "video", "animation"];
 const BINDINGS: readonly LibraryBinding[] = ["any", "unbound", "bound"];
-const SOURCE_TONE: Record<NonNullable<PlannedEntry["source"]>, BadgeTone> = {
-  generated: "brand",
-  upload: "gray",
-  checkout: "gray",
-  placeholder: "amber",
+const SOURCE_TONE: Record<NonNullable<PlannedEntry["source"]>, NonNullable<BadgeStyle["tone"]>> = {
+  generated: "info",
+  upload: "neutral",
+  checkout: "neutral",
+  placeholder: "attention",
 };
 
 const LINK = "text-left font-medium text-brand-600 hover:text-brand-700 dark:text-brand-300";
@@ -118,7 +117,7 @@ function SourceBadge({ entry }: { entry: PlannedEntry }) {
   return entry.source ? (
     <Badge tone={SOURCE_TONE[entry.source]}>{words.sources[entry.source]}</Badge>
   ) : (
-    <Badge tone="amber">{words.unbound}</Badge>
+    <Badge tone="attention">{words.unbound}</Badge>
   );
 }
 
@@ -172,14 +171,14 @@ function AssetTile({
         )}
         {!entry.path && (
           <span className="absolute top-1.5 left-1.5">
-            <Badge tone="amber">{words.needsFile}</Badge>
+            <Badge tone="attention">{words.needsFile}</Badge>
           </span>
         )}
       </div>
-      <div className="space-y-0.5 px-2.5 py-2">
+      <div className="space-y-1 px-2.5 py-2">
         <button
           type="button"
-          title={entry.key}
+          data-tooltip={entry.key}
           className={`${ASSET_NAME} text-xs`}
           onClick={() => onOpen(entry.key)}
         >
@@ -284,7 +283,7 @@ export function AssetLibraryView({
         {name !== entry.key && (
           <p
             className="truncate font-mono text-xs text-gray-500 dark:text-gray-400"
-            title={entry.key}
+            data-tooltip={entry.key}
           >
             {entry.key}
           </p>
@@ -468,8 +467,8 @@ export function AssetLibraryView({
                     className="h-8 w-8 shrink-0 rounded border border-gray-200 object-cover dark:border-gray-800"
                   />
                 )}
-                <div className="min-w-0 flex-1 space-y-0.5 text-xs">
-                  <p className="truncate font-medium" title={upload.name}>
+                <div className="min-w-0 flex-1 space-y-1 text-xs">
+                  <p className="truncate font-medium" data-tooltip={upload.name}>
                     {upload.name}
                   </p>
                   <p className="text-gray-500 dark:text-gray-400">

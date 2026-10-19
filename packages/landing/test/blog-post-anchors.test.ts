@@ -10,24 +10,14 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import Markdown from "react-markdown";
 import { describe, expect, it } from "vitest";
-import { MD_COMPONENTS, REHYPE_PLUGINS, REMARK_PLUGINS } from "../src/pages/blog-post";
-import { parseFrontmatter } from "../src/lib/frontmatter";
-import { hashTargetId } from "../src/lib/hash";
-import { extractToc } from "../src/lib/toc";
+import { PostBody } from "../src/pages/blog-post";
+import { extractToc, hashTargetId, parseFrontmatter } from "@prismshadow/penguin-ui/site";
 
 const contentDir = join(__dirname, "..", "content", "blog");
 const files = readdirSync(contentDir).filter((f) => f.endsWith(".md"));
 
-const render = (body: string) =>
-  renderToStaticMarkup(
-    createElement(
-      Markdown,
-      { remarkPlugins: REMARK_PLUGINS, rehypePlugins: REHYPE_PLUGINS, components: MD_COMPONENTS },
-      body,
-    ),
-  );
+const render = (body: string) => renderToStaticMarkup(createElement(PostBody, { body }));
 
 /** Ids of the rendered h2/h3 headings, in document order. */
 const headingIds = (html: string) =>
@@ -76,5 +66,7 @@ describe("blog post in-page anchors", () => {
       const dangling = inPageHrefs(html).filter((href) => !ids.has(targetOf(href)));
       expect(dangling, `dangling in-page anchors in ${file}`).toEqual([]);
     }
-  });
+    // Renders every post through the full markdown pipeline: on hosted runners that alone sits at
+    // the 5 s default, so the budget grows with the blog rather than flaking at its edge.
+  }, 30_000);
 });

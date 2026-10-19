@@ -110,7 +110,7 @@ hiyouga/penguinharness
 
 It has two kinds of tag:
 
-- `latest` follows `main`: every push rebuilds it.
+- `latest` follows changes to the image's runtime or build inputs on `main`. Docs, site and desktop-only source changes do not rebuild it.
 - `X.Y.Z` is a release, built from that tag's own source.
 
 There is no `main-<sha>`, `X.Y` or `stable` tag, so nothing moves under a second name. Every tag is a multi-platform manifest covering `linux/amd64` and `linux/arm64`, so the same reference works on an x86 VPS and an arm64 one alike. The examples on this page use `latest`. Pin a version for a deployment that should move only when a release ships.
@@ -177,7 +177,7 @@ docker compose pull && docker compose up -d
 ```
 
 > [!WARNING]
-> Do not update from inside the container. The update dialog reports that this install cannot update itself, and anything `penguin update` installs there is lost when the container is recreated.
+> Do not update from inside the container. The About dialog's **Software Update** section reports that this install cannot update itself, and anything `penguin update` installs there is lost when the container is recreated.
 
 Stopping is graceful. On `SIGTERM` the server interrupts running Tasks, waits for them to wrap up, then closes the database. An idle server stops in well under a second, and a busy one can take several seconds, which is why the compose example raises Docker's 10-second grace period.
 

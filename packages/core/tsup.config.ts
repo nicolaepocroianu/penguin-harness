@@ -16,6 +16,9 @@ export default defineConfig({
     // without depending on whatever embeds it.
     "src/plugin/index.ts",
     "src/state/model-catalog.ts",
+    // The built-in Benchmarks as data: no Node dependency, so the component gallery's demo
+    // Project lists them as a new Project gets them.
+    "src/state/builtin-benchmarks-data.ts",
     // Window/threshold arithmetic plus its two defaults: pure numbers, no Node dependency, so
     // the web app can bundle the compaction-threshold derivation its context ring fills against.
     "src/llm/context-limits.ts",
@@ -23,6 +26,10 @@ export default defineConfig({
     "src/release-identity.ts",
     // Hot-update kernel: zero-dependency subpath so web can bundle it directly.
     "src/kernel/index.ts",
+    // A2UI block grammar: pure TypeScript, no Node dependency, so the web renderer bundles the
+    // same parser and fallback the checker script uses (cli.ts is bundled separately by
+    // scripts/build-a2ui-check.mjs and is deliberately not an entry here).
+    "src/a2ui/index.ts",
   ],
   format: ["esm"],
   target: "node24",

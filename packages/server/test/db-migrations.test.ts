@@ -3,6 +3,10 @@
  * 0.2.9 → 0.2.10 drop that is its first restart-only one, the additive column pair that
  * the user profile added to `users`, and the channels migration that is its first table
  * recreation.
+ * - Given existing Agent API settings and a key, upgrading adds unset session defaults without
+ *   changing the saved exposure, approvals or key; reopening keeps the selected defaults.
+ * - Given a machine row from before adoption times, upgrading leaves it without one (the
+ *   pre-existing-Sessions rule does not apply to it), and a rollback keeps the times written.
  *
  * Two properties carry everything else: a real 0.2.4 database reaches exactly the shape a
  * fresh one is created with (so a runtime older than the platform pushed onto it becomes
@@ -28,6 +32,9 @@ import path from "node:path";
 
 const sqlite = process.getBuiltinModule("node:sqlite");
 
+/** Upstream's migrations (its 10-19), which this fork runs after its own as 26-35. */
+const AFTER_OUTCOMES = MIGRATIONS.filter((m) => m.version > 25).map((m) => m.name);
+
 /**
  * The goal_state table as every release from 0.1.3 to 0.2.9 declared it (frozen: the live
  * schema no longer has it, and the migration that drops it must not learn a new shape).
@@ -48,6 +55,24 @@ const GOAL_STATE_DDL = `
   );
   CREATE INDEX idx_goal_session ON goal_state(session_id);
 `;
+
+/** Migration 13's table and index: a database stamped before it had neither. */
+function dropBrowserExtensions(db: DatabaseSync): void {
+  db.exec("DROP INDEX IF EXISTS idx_browser_extensions_user");
+  db.exec("DROP TABLE IF EXISTS browser_extensions");
+}
+
+/** Migration 14's two tables and index: a database stamped before it had none of them. */
+function dropAgentApi(db: DatabaseSync): void {
+  db.exec("DROP INDEX IF EXISTS idx_agent_api_keys_agent");
+  db.exec("DROP TABLE IF EXISTS agent_api_keys");
+  db.exec("DROP TABLE IF EXISTS agent_api");
+}
+
+/** Migration 15's table: a database stamped before it had none. */
+function dropMessagingConversations(db: DatabaseSync): void {
+  db.exec("DROP TABLE IF EXISTS messaging_conversations");
+}
 
 /** Every company-mode table the migrations add: a database from before them had none. */
 function dropCompanyModeTables(db: DatabaseSync): void {
@@ -169,6 +194,15 @@ function open8(): DatabaseSync {
   return db;
 }
 
+/** A database stamped at migration 25: every activity table, but no provider auth refresh tokens. */
+function open25(): DatabaseSync {
+  const db = new sqlite.DatabaseSync(":memory:");
+  db.exec(SCHEMA_SQL);
+  dropAfterOutcomes(db);
+  db.exec("PRAGMA user_version = 25");
+  return db;
+}
+
 /** A 0.2.9 database: everything 0.2.4 had plus what versions 1 and 2 added, and still goal_state. */
 function open029(): DatabaseSync {
   const db = new sqlite.DatabaseSync(":memory:");
@@ -283,6 +317,16 @@ function dropOutcomes(db: DatabaseSync): void {
     DROP TABLE IF EXISTS activity_run_outcomes;
     DROP TABLE IF EXISTS activity_outcome_recipes;
   `);
+  // Anything older than the outcome ledger is older than the tables 26-35 add too.
+  dropAfterOutcomes(db);
+}
+
+/** The tables migrations 26-35 add (upstream's 10-19), gone, for a database from before them. */
+function dropAfterOutcomes(db: DatabaseSync): void {
+  db.exec("DROP TABLE IF EXISTS model_provider_auth_tokens");
+  dropBrowserExtensions(db);
+  dropAgentApi(db);
+  dropMessagingConversations(db);
 }
 
 /** Column names of `users`, for the two cases that are about columns rather than whole shapes. */
@@ -636,20 +680,28 @@ describe("migration 7 → current: company-mode-desk-notices", () => {
 describe("migration 8 → current: model-promotions", () => {
   it("creates the promotions table, and its down drops it again", () => {
     const db = open8();
-    const tableExists = () =>
+    const promotionsTableExists = () =>
       db
         .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'model_promotions'")
+        .get();
+    const authTokensTableExists = () =>
+      db
+        .prepare(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'model_provider_auth_tokens'",
+        )
         .get();
     try {
       expect(migrate(db).applied).toEqual(
         MIGRATIONS.filter((m) => m.version > 8).map((m) => m.name),
       );
       expect(schemaVersion(db)).toBe(LATEST_VERSION);
-      expect(tableExists()).toEqual({ "1": 1 });
+      expect(promotionsTableExists()).toEqual({ "1": 1 });
+      expect(authTokensTableExists()).toEqual({ "1": 1 });
 
       rollbackTo(db, 8);
       expect(schemaVersion(db)).toBe(8);
-      expect(tableExists()).toBeUndefined();
+      expect(promotionsTableExists()).toBeUndefined();
+      expect(authTokensTableExists()).toBeUndefined();
     } finally {
       db.close();
     }
@@ -899,6 +951,7 @@ describe("migration 18 → current: usage-reported-cost", () => {
         "activity-deploy-runs",
         "activity-pipelines",
         "activity-outcomes",
+        ...AFTER_OUTCOMES,
       ]);
       expect(usageColumns(db)).toContain("reported_cost_usd");
       expect(db.prepare("SELECT total, reported_cost_usd FROM usage_records").all()).toEqual([
@@ -957,6 +1010,7 @@ describe("migration 19 → current: activity-product-tags", () => {
         "activity-deploy-runs",
         "activity-pipelines",
         "activity-outcomes",
+        ...AFTER_OUTCOMES,
       ]);
       expect(tables(db)).toContain("activity_product_tags");
       fresh.exec(SCHEMA_SQL);
@@ -978,6 +1032,7 @@ describe("migration 19 → current: activity-product-tags", () => {
         "activity-deploy-runs",
         "activity-pipelines",
         "activity-outcomes",
+        ...AFTER_OUTCOMES,
       ]);
     } finally {
       db.close();
@@ -1031,6 +1086,7 @@ describe("migration 20 → current: activity-versions", () => {
         "activity-deploy-runs",
         "activity-pipelines",
         "activity-outcomes",
+        ...AFTER_OUTCOMES,
       ]);
       expect(tables(db)).toContain("activity_versions");
       fresh.exec(SCHEMA_SQL);
@@ -1050,6 +1106,7 @@ describe("migration 20 → current: activity-versions", () => {
         "activity-deploy-runs",
         "activity-pipelines",
         "activity-outcomes",
+        ...AFTER_OUTCOMES,
       ]);
     } finally {
       db.close();
@@ -1123,6 +1180,7 @@ describe("migration 21 → current: activity-versions-draft-status", () => {
         "activity-deploy-runs",
         "activity-pipelines",
         "activity-outcomes",
+        ...AFTER_OUTCOMES,
       ]);
       expect(db.prepare("SELECT version_id, draft_status FROM activity_versions").all()).toEqual([
         { version_id: "v", draft_status: null },
@@ -1174,6 +1232,7 @@ describe("migration 22 → current: activity-deploy-runs", () => {
         "activity-deploy-runs",
         "activity-pipelines",
         "activity-outcomes",
+        ...AFTER_OUTCOMES,
       ]);
       expect(tables(db)).toContain("activity_deploy_runs");
       expect(tables(db)).toContain("activity_deploy_stages");
@@ -1244,6 +1303,7 @@ describe("migration 23 → current: activity-pipelines", () => {
       expect(migrate(db, { swapPath: true }).applied).toEqual([
         "activity-pipelines",
         "activity-outcomes",
+        ...AFTER_OUTCOMES,
       ]);
       fresh.exec(SCHEMA_SQL);
       expect(shape(db)).toBe(shape(fresh));
@@ -1296,7 +1356,10 @@ describe("migration 24 → current: activity-outcomes", () => {
     const db = open24();
     const fresh = new sqlite.DatabaseSync(":memory:");
     try {
-      expect(migrate(db, { swapPath: true }).applied).toEqual(["activity-outcomes"]);
+      expect(migrate(db, { swapPath: true }).applied).toEqual([
+        "activity-outcomes",
+        ...AFTER_OUTCOMES,
+      ]);
       fresh.exec(SCHEMA_SQL);
       expect(shape(db)).toBe(shape(fresh));
     } finally {
@@ -1565,6 +1628,475 @@ describe("opening a database older than the newest columns", () => {
         db?.close();
         fs.rmSync(path.dirname(file), { recursive: true, force: true });
       }
+    }
+  });
+});
+
+describe("migration 25 → current: model-provider-auth-tokens", () => {
+  it("creates the server-side refresh-token table, writable and rollback-safe", () => {
+    const db = open25();
+    const tableExists = () =>
+      db
+        .prepare(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'model_provider_auth_tokens'",
+        )
+        .get();
+    try {
+      expect(migrate(db).applied).toEqual([
+        "model-provider-auth-tokens",
+        "sessions-sandbox",
+        "machines-columns",
+        "browser-extensions",
+        "agent-api",
+        "messaging-conversations",
+        "sessions-kept-at",
+        "agent-api-session-settings",
+        "agent-api-concurrency",
+        "machines-adopted-at",
+      ]);
+      expect(schemaVersion(db)).toBe(LATEST_VERSION);
+      expect(tableExists()).toEqual({ "1": 1 });
+      db.exec(
+        "INSERT INTO users (user_id, password_hash, is_admin, created_at)" +
+          " VALUES ('owner', 'hash', 1, '2026-09-20T00:00:00.000Z')",
+      );
+      db.exec(
+        "INSERT INTO projects (project_id, owner_user_id, created_at)" +
+          " VALUES ('p1', 'owner', '2026-09-20T00:00:00.000Z')",
+      );
+      db.exec(
+        "INSERT INTO model_provider_auth_tokens (project_id, provider, refresh_token, access_token_expires_at, updated_at)" +
+          " VALUES ('p1', 'modelscope', 'refresh', '2026-09-20T00:00:00.000Z', '2026-09-20T00:00:00.000Z')",
+      );
+      expect(db.prepare("SELECT refresh_token FROM model_provider_auth_tokens").all()).toEqual([
+        { refresh_token: "refresh" },
+      ]);
+
+      rollbackTo(db, 25);
+      expect(schemaVersion(db)).toBe(25);
+      expect(tableExists()).toBeUndefined();
+    } finally {
+      db.close();
+    }
+  });
+});
+
+/** A database stamped at migration 28: everything before the Chrome pairings. */
+function open28(): DatabaseSync {
+  const db = new sqlite.DatabaseSync(":memory:");
+  db.exec(SCHEMA_SQL);
+  dropBrowserExtensions(db);
+  dropAgentApi(db);
+  dropMessagingConversations(db);
+  db.exec("PRAGMA user_version = 28");
+  return db;
+}
+
+describe("migration 28 → current: browser-extensions", () => {
+  it("creates the pairings table, which holds one row per token and cascades with its user", () => {
+    const db = open28();
+    try {
+      expect(migrate(db, { swapPath: true }).applied).toEqual([
+        "browser-extensions",
+        "agent-api",
+        "messaging-conversations",
+        "sessions-kept-at",
+        "agent-api-session-settings",
+        "agent-api-concurrency",
+        "machines-adopted-at",
+      ]);
+      expect(schemaVersion(db)).toBe(LATEST_VERSION);
+      db.exec("PRAGMA foreign_keys = ON");
+      db.exec(
+        "INSERT INTO users (user_id, password_hash, is_admin, created_at)" +
+          " VALUES ('alice', 'hash', 0, '2026-10-02T00:00:00.000Z')",
+      );
+      const insert = (id: string, hash: string) =>
+        db
+          .prepare(
+            "INSERT INTO browser_extensions (extension_id, user_id, token_hash, name, version, created_at)" +
+              " VALUES (?, 'alice', ?, 'Chrome 130 on Linux', '0.2.13', '2026-10-02T00:00:00.000Z')",
+          )
+          .run(id, hash);
+      insert("e1", "h1");
+      // A token hash names one pairing.
+      expect(() => insert("e2", "h1")).toThrow(/UNIQUE/);
+      db.exec("DELETE FROM users WHERE user_id = 'alice'");
+      expect(db.prepare("SELECT COUNT(*) AS n FROM browser_extensions").get()).toEqual({ n: 0 });
+    } finally {
+      db.close();
+    }
+  });
+
+  it("down drops the pairings, and a second up recreates the table empty", () => {
+    const db = open28();
+    const tableExists = () =>
+      db
+        .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'browser_extensions'")
+        .get();
+    try {
+      migrate(db);
+      rollbackTo(db, 28);
+      expect(schemaVersion(db)).toBe(28);
+      expect(tableExists()).toBeUndefined();
+      migrate(db);
+      expect(tableExists()).toEqual({ "1": 1 });
+    } finally {
+      db.close();
+    }
+  });
+});
+
+/** A database stamped at migration 29: everything before the Agent API. */
+function open29(): DatabaseSync {
+  const db = new sqlite.DatabaseSync(":memory:");
+  db.exec(SCHEMA_SQL);
+  dropAgentApi(db);
+  dropMessagingConversations(db);
+  db.exec("PRAGMA user_version = 29");
+  return db;
+}
+
+describe("migration 29 → current: agent-api", () => {
+  it("creates the settings table while a pushed platform boots: one row per Agent, keyed and allow-all unless set", () => {
+    const db = open29();
+    try {
+      expect(migrate(db, { swapPath: true }).applied).toEqual([
+        "agent-api",
+        "messaging-conversations",
+        "sessions-kept-at",
+        "agent-api-session-settings",
+        "agent-api-concurrency",
+        "machines-adopted-at",
+      ]);
+      expect(schemaVersion(db)).toBe(LATEST_VERSION);
+      const enable = () =>
+        db
+          .prepare(
+            "INSERT INTO agent_api (project_id, agent_id, enabled, updated_at)" +
+              " VALUES ('p1', 'coder', 1, '2026-10-07T00:00:00.000Z')",
+          )
+          .run();
+      enable();
+      expect(db.prepare("SELECT enabled, open, approval_mode FROM agent_api").all()).toEqual([
+        { enabled: 1, open: 0, approval_mode: "allow-all" },
+      ]);
+      // The (project, agent) pair is the key: a second row for the same Agent is refused.
+      expect(enable).toThrow(/UNIQUE/);
+    } finally {
+      db.close();
+    }
+  });
+
+  it("creates the keys table, which holds one key per token hash and only keys a user created", () => {
+    const db = open29();
+    try {
+      migrate(db);
+      db.exec("PRAGMA foreign_keys = ON");
+      db.exec(
+        "INSERT INTO users (user_id, password_hash, is_admin, created_at)" +
+          " VALUES ('alice', 'hash', 0, '2026-10-07T00:00:00.000Z')",
+      );
+      const insert = (keyId: string, hash: string, createdBy: string) =>
+        db
+          .prepare(
+            "INSERT INTO agent_api_keys (key_id, project_id, agent_id, token_hash, prefix, name, created_by, created_at)" +
+              " VALUES (?, 'p1', 'coder', ?, 'penguin_abcdefgh', 'ci', ?, '2026-10-07T00:00:00.000Z')",
+          )
+          .run(keyId, hash, createdBy);
+      insert("k1", "h1", "alice");
+      // A token hash names one key, so the lookup by hash is never ambiguous.
+      expect(() => insert("k2", "h1", "alice")).toThrow(/UNIQUE/);
+      expect(() => insert("k3", "h3", "ghost")).toThrow(/FOREIGN KEY/);
+      expect(db.prepare("SELECT key_id, last_used_at FROM agent_api_keys").all()).toEqual([
+        { key_id: "k1", last_used_at: null },
+      ]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it("down drops the settings and every key, and a second up recreates both empty", () => {
+    const db = open29();
+    const at29 = open29();
+    try {
+      migrate(db);
+      db.exec(
+        "INSERT INTO agent_api (project_id, agent_id, enabled, updated_at)" +
+          " VALUES ('p1', 'coder', 1, '2026-10-07T00:00:00.000Z')",
+      );
+      rollbackTo(db, 29);
+      expect(schemaVersion(db)).toBe(29);
+      expect(shape(db)).toBe(shape(at29));
+      migrate(db);
+      expect(db.prepare("SELECT COUNT(*) AS n FROM agent_api").get()).toEqual({ n: 0 });
+    } finally {
+      db.close();
+      at29.close();
+    }
+  });
+});
+
+/** A database stamped at migration 30: everything before the stored messaging conversations. */
+function open30(): DatabaseSync {
+  const db = new sqlite.DatabaseSync(":memory:");
+  db.exec(SCHEMA_SQL);
+  dropMessagingConversations(db);
+  db.exec("PRAGMA user_version = 30");
+  return db;
+}
+
+describe("migration 30 → current: messaging-conversations", () => {
+  it("creates one row per (channel, bot, chat) while a pushed platform boots, and its down drops them", () => {
+    const db = open30();
+    const at30 = open30();
+    try {
+      expect(migrate(db, { swapPath: true }).applied).toEqual([
+        "messaging-conversations",
+        "sessions-kept-at",
+        "agent-api-session-settings",
+        "agent-api-concurrency",
+        "machines-adopted-at",
+      ]);
+      expect(schemaVersion(db)).toBe(LATEST_VERSION);
+      const put = () =>
+        db
+          .prepare(
+            "INSERT INTO messaging_conversations (channel, account_id, chat_id, state_json, updated_at)" +
+              " VALUES ('wechat', 'bot_1', 'user_1', '{}', '2026-10-10T00:00:00.000Z')",
+          )
+          .run();
+      put();
+      expect(put).toThrow(/UNIQUE/);
+      rollbackTo(db, 30);
+      expect(shape(db)).toBe(shape(at30));
+    } finally {
+      db.close();
+      at30.close();
+    }
+  });
+});
+
+/** A database stamped at migration 31: Sessions carry no keep-in-sidebar mark yet. */
+function open31(): DatabaseSync {
+  const db = new sqlite.DatabaseSync(":memory:");
+  db.exec(SCHEMA_SQL);
+  db.exec("ALTER TABLE sessions DROP COLUMN kept_at");
+  db.exec("PRAGMA user_version = 31");
+  return db;
+}
+
+describe("migration 31 → current: sessions-kept-at", () => {
+  const insertSession = (db: DatabaseSync) =>
+    db.exec(
+      "INSERT INTO sessions (session_id, project_id, agent_id, provider, model_id, workspace, created_at)" +
+        " VALUES ('s1', 'p1', 'coder', 'openai', 'gpt', '/w', '2026-10-11T00:00:00.000Z')",
+    );
+
+  it("adds the mark while a pushed platform boots, leaving every existing Session unmarked", () => {
+    const db = open31();
+    try {
+      insertSession(db);
+      expect(migrate(db, { swapPath: true }).applied).toEqual([
+        "sessions-kept-at",
+        "agent-api-session-settings",
+        "agent-api-concurrency",
+        "machines-adopted-at",
+      ]);
+      expect(schemaVersion(db)).toBe(LATEST_VERSION);
+      expect(db.prepare("SELECT session_id, kept_at FROM sessions").all()).toEqual([
+        { session_id: "s1", kept_at: null },
+      ]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it("down keeps the column and the marks in it, so a kept Session stays kept", () => {
+    const db = open31();
+    try {
+      insertSession(db);
+      migrate(db);
+      db.exec("UPDATE sessions SET kept_at = '2026-10-11T01:00:00.000Z'");
+      rollbackTo(db, 31);
+      expect(schemaVersion(db)).toBe(31);
+      expect(db.prepare("SELECT kept_at FROM sessions").get()).toEqual({
+        kept_at: "2026-10-11T01:00:00.000Z",
+      });
+    } finally {
+      db.close();
+    }
+  });
+});
+
+/** A database stamped at migration 34: machine rows carry no adoption time yet. */
+function open34(): DatabaseSync {
+  const db = new sqlite.DatabaseSync(":memory:");
+  db.exec(SCHEMA_SQL);
+  db.exec("ALTER TABLE machines DROP COLUMN adopted_at");
+  db.exec("PRAGMA user_version = 34");
+  return db;
+}
+
+describe("migration 34 → current: machines-adopted-at", () => {
+  const insertMachine = (db: DatabaseSync) =>
+    db.exec(
+      "INSERT INTO machines (address, machine_id, version, installed_at) VALUES ('ssh:nas', 'm1', '0.2.16', '2026-10-14T00:00:00.000Z')",
+    );
+
+  it("adds the adoption time while a pushed platform boots, leaving a machine adopted before it without one", () => {
+    const db = open34();
+    try {
+      insertMachine(db);
+      expect(migrate(db, { swapPath: true }).applied).toEqual(["machines-adopted-at"]);
+      expect(db.prepare("SELECT address, adopted_at FROM machines").all()).toEqual([
+        { address: "ssh:nas", adopted_at: null },
+      ]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it("down keeps the column and the times in it", () => {
+    const db = open34();
+    try {
+      insertMachine(db);
+      migrate(db);
+      db.exec("UPDATE machines SET adopted_at = '2026-10-15T00:00:00.000Z'");
+      rollbackTo(db, 34);
+      expect(schemaVersion(db)).toBe(34);
+      expect(db.prepare("SELECT adopted_at FROM machines").get()).toEqual({
+        adopted_at: "2026-10-15T00:00:00.000Z",
+      });
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe("a machines table from before migration 4", () => {
+  /** The machines table as the machines line created it before release: forwards, no session, no platform. */
+  const ADOPTED_MACHINES_DDL = `
+    CREATE TABLE machines (
+      address      TEXT PRIMARY KEY,
+      machine_id   TEXT,
+      version      TEXT,
+      installed_at TEXT,
+      forward_port INTEGER,
+      forward_pid  INTEGER,
+      remote_port  INTEGER
+    );
+  `;
+
+  it("is adopted by migration 4 as it stands, and gains the columns the row writes at 28", () => {
+    // What a data root that ran the machines line before its migration holds: IF NOT EXISTS
+    // kept the table, and the first connect failed on the insert naming session_pid.
+    const db = open029();
+    try {
+      db.exec(ADOPTED_MACHINES_DDL);
+      db.exec("PRAGMA user_version = 3");
+      expect(migrate(db).applied).toEqual(
+        MIGRATIONS.filter((m) => m.version > 3).map((m) => m.name),
+      );
+      const columns = (db.prepare("PRAGMA table_info(machines)").all() as { name: string }[]).map(
+        (c) => c.name,
+      );
+      expect(columns).toEqual(expect.arrayContaining(["session_pid", "platform"]));
+      db.prepare(
+        "INSERT INTO machines (address, machine_id, version, installed_at, session_pid, remote_port, platform) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      ).run("ssh:nas", null, "9.9.9", "2026-09-04T00:00:00.000Z", 42, 7364, "linux");
+      // Idempotent: a table that already has them is left as it is.
+      expect(migrate(db).applied).toEqual([]);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe("migration 32 → current: Agent API session settings", () => {
+  it("preserves exposure, approvals and keys while adding defaults, and keeps later choices on re-open", () => {
+    const db = new sqlite.DatabaseSync(":memory:");
+    try {
+      db.exec(SCHEMA_SQL);
+      for (const column of [
+        "provider",
+        "model_id",
+        "thinking_level",
+        "workspace",
+        "max_concurrent_runs",
+      ]) {
+        db.exec(`ALTER TABLE agent_api DROP COLUMN ${column}`);
+      }
+      db.exec(`PRAGMA user_version = 32;
+        INSERT INTO users (user_id, password_hash, is_admin, created_at) VALUES ('owner', 'hash', 0, 'now');
+        INSERT INTO agent_api VALUES ('p', 'a', 1, 1, 'read-only', 'now');
+        INSERT INTO agent_api_keys VALUES ('key', 'p', 'a', 'hash', 'prefix', 'ci', 'owner', 'now', NULL);`);
+      migrate(db, { swapPath: true });
+      expect(db.prepare("SELECT * FROM agent_api").get()).toMatchObject({
+        enabled: 1,
+        open: 1,
+        approval_mode: "read-only",
+        provider: null,
+        model_id: null,
+        thinking_level: null,
+        workspace: null,
+        max_concurrent_runs: 4,
+      });
+      expect(db.prepare("SELECT token_hash FROM agent_api_keys").get()).toEqual({
+        token_hash: "hash",
+      });
+      db.exec(
+        "UPDATE agent_api SET provider = 'custom', model_id = 'chosen', thinking_level = 'high', workspace = '/work'",
+      );
+      migrate(db);
+      expect(
+        db.prepare("SELECT provider, model_id, thinking_level, workspace FROM agent_api").get(),
+      ).toEqual({
+        provider: "custom",
+        model_id: "chosen",
+        thinking_level: "high",
+        workspace: "/work",
+      });
+    } finally {
+      db.close();
+    }
+  });
+});
+
+// Given a database that already has session settings, the concurrency upgrade preserves them
+// and its key, starts with the old limit, and retains a changed limit across repeated startup.
+describe("migration 33 → current: API concurrency", () => {
+  it("preserves session settings and keys while adding the concurrency limit", () => {
+    const db = new sqlite.DatabaseSync(":memory:");
+    try {
+      db.exec(SCHEMA_SQL);
+      db.exec(`ALTER TABLE agent_api DROP COLUMN max_concurrent_runs;
+        PRAGMA user_version = 33;
+        INSERT INTO users (user_id, password_hash, is_admin, created_at) VALUES ('owner', 'hash', 0, 'now');
+        INSERT INTO agent_api (project_id, agent_id, enabled, open, approval_mode, provider, model_id, thinking_level, workspace, updated_at)
+          VALUES ('p', 'a', 1, 1, 'read-only', 'custom', 'chosen', 'high', '/work', 'now');
+        INSERT INTO agent_api_keys VALUES ('key', 'p', 'a', 'hash', 'prefix', 'ci', 'owner', 'now', NULL);`);
+      migrate(db, { swapPath: true });
+      expect(db.prepare("SELECT * FROM agent_api").get()).toMatchObject({
+        enabled: 1,
+        open: 1,
+        approval_mode: "read-only",
+        provider: "custom",
+        model_id: "chosen",
+        thinking_level: "high",
+        workspace: "/work",
+        max_concurrent_runs: 4,
+      });
+      expect(db.prepare("SELECT token_hash FROM agent_api_keys").get()).toEqual({
+        token_hash: "hash",
+      });
+      db.exec("UPDATE agent_api SET max_concurrent_runs = 9");
+      migrate(db);
+      expect(db.prepare("SELECT max_concurrent_runs FROM agent_api").get()).toEqual({
+        max_concurrent_runs: 9,
+      });
+    } finally {
+      db.close();
     }
   });
 });

@@ -1,25 +1,54 @@
 /**
- * Plugin registry tests: the shared index format (strict whole-document validation —
- * one malformed row fails the artifact, unlike a plugin list's per-entry tolerance),
- * the builtin registry serving the embedded four sandbox backends (readmes read from the
- * packages as npm shipped them), the HTTP registry
- * running a fetched document through the same validator (fetch stubbed, no network),
- * and GET /api/plugins behind the auth gate.
+ * The plugin registry: the catalogue a Project's plugin list is picked from.
+ *
+ * - The shared index format is validated whole: a flat array of per-version entries in order;
+ *   a non-array or one malformed entry fails the document, naming the source or the position
+ *   (unlike a plugin list's per-entry tolerance).
+ * - The builtin catalogue lists the sandbox backends that live in plugins/, each named,
+ *   versioned, titled, described and licensed as the package names itself, described in both languages
+ *   and drawn with the icon of its own package.json `penguin` block and icon.svg (which it
+ *   publishes), and serves each one's own shipped README.md; a listed package not on this
+ *   machine, a name it does not list and a remote registry have no readme.
+ * - A package on this machine describes itself in the listing over what its row says; one
+ *   without a penguin block or an icon, and a row whose package is not here, stay as the index
+ *   wrote them; an icon that is not a plain SVG is never sent.
+ * - The HTTP registry fetches its index URL and runs the document through the same validator;
+ *   an HTTP error, non-JSON and a malformed document fail it; a failed connection is tried
+ *   again, an answer is not. No network: fetch is the suite's fetch fake.
+ * - A remote entry never carries an icon (the page inlines it as SVG): the HTTP registry drops
+ *   it and keeps the rest of the row, and so does the route for a document a previous App
+ *   fetched and parked.
+ * - A published index may be slow or down without emptying the page: the cache and the
+ *   tolerant merge beside the builtin catalogue.
+ * - Nor without holding it: a document past its TTL is served at once while the refresh runs
+ *   behind it; a failed fetch with nothing cached is the answer, without another fetch, until the
+ *   retry window has passed; and the listing answers once its wait passes with the builtin
+ *   entries, naming a source still being read as pending, whose entries list on a later read.
+ * - GET /api/plugins/registry and its readme route need a session; the readme route refuses a
+ *   name the deployment does not list and needs the name.
  */
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PluginIndexEntry, PluginIndexResponse } from "../src/api/types.js";
 import type { PluginBase } from "../src/plugin/loader.js";
 import {
-  BUILTIN_REGISTRY_SOURCE,
+  INDEX_RETRY_MS,
+  NIGHTLY_INDEX_URL,
+  SOURCE_WAIT_MS,
   builtinPluginRegistry,
+  cachedRegistry,
   httpPluginRegistry,
+  mergeIndexes,
   parsePluginIndex,
 } from "../src/plugin/registry.js";
+import type { PluginRegistry } from "../src/plugin/registry.js";
+import { resolveServerConfig } from "../src/config.js";
+import { pluginRegistryRoutes } from "../src/http/routes/plugins.js";
+import { fakeFetch, fetchFailed, jsonResponse } from "./fixtures/fetch.js";
 import { apiClient, createTestApp, loginAdmin } from "./helpers.js";
 import type { TestApp } from "./helpers.js";
 
@@ -54,6 +83,10 @@ describe("parsePluginIndex", () => {
       { ...VALID_ENTRY, authors: "Example" },
       { ...VALID_ENTRY, keywords: [1] },
       { ...VALID_ENTRY, updatedAt: "yesterday" },
+      { ...VALID_ENTRY, icon: { svg: "<svg/>" } },
+      { ...VALID_ENTRY, descriptionZh: 1 },
+      { ...VALID_ENTRY, title: 1 },
+      { ...VALID_ENTRY, titleZh: [] },
     ]) {
       expect(() => parsePluginIndex([VALID_ENTRY, bad], "test")).toThrow(
         /malformed entry at index 1/,
@@ -62,46 +95,60 @@ describe("parsePluginIndex", () => {
   });
 });
 
-describe("builtinPluginRegistry", () => {
-  it("serves the four sandbox backends, valid under the shared format", async () => {
-    const registry = builtinPluginRegistry();
-    expect(registry.source).toBe(BUILTIN_REGISTRY_SOURCE);
-    const entries = await registry.index();
-    expect(entries.map((e) => e.name)).toEqual([
-      "@prismshadow/penguin-plugin-sandbox-bwrap",
-      "@prismshadow/penguin-plugin-sandbox-seatbelt",
-      "@prismshadow/penguin-plugin-sandbox-mxc",
-      "@prismshadow/penguin-plugin-sandbox-dsh",
-    ]);
-    for (const entry of entries) {
-      expect(entry.categories).toEqual(["sandbox"]);
-      expect(entry.license).toBe("Apache-2.0");
-    }
-  });
-});
-
 describe("httpPluginRegistry", () => {
   const url = "https://registry.example/index.json";
 
   it("fetches the index URL and validates the document with the shared parser", async () => {
-    const seen: string[] = [];
-    const fetchImpl: typeof fetch = async (input) => {
-      seen.push(String(input));
-      return new Response(JSON.stringify([VALID_ENTRY]), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
-    };
-    const entries = await httpPluginRegistry(url, fetchImpl).index();
-    expect(seen).toEqual([url]);
+    const registry = fakeFetch(() => jsonResponse([VALID_ENTRY]));
+    const entries = await httpPluginRegistry(url, registry.fetch).index();
+    expect(registry.calls.map((call) => call.url)).toEqual([url]);
     expect(entries).toEqual([VALID_ENTRY]);
   });
 
-  it("fails on an HTTP error status, on non-JSON, and on a malformed document", async () => {
-    const respond =
-      (body: string, status = 200) =>
-      async () =>
-        new Response(body, { status });
+  it("drops a remote entry's icon, an SVG the page would inline, and keeps the rest of the row", async () => {
+    const described: PluginIndexEntry = {
+      ...VALID_ENTRY,
+      title: "Demo",
+      titleZh: "示例",
+      descriptionZh: "一个示例插件。",
+      shortDescription: "Demo.",
+    };
+    const registry = fakeFetch(() =>
+      jsonResponse([{ ...described, icon: '<svg onload="alert(1)"></svg>' }]),
+    );
+    expect(await httpPluginRegistry(url, registry.fetch).index()).toEqual([described]);
+  });
+
+  it("tries a failed connection again, and names the last cause after the final attempt", async () => {
+    const flaky = fakeFetch((_call, index) => {
+      if (index < 2) throw new TypeError("fetch failed", { cause: new Error("ECONNRESET") });
+      return jsonResponse([VALID_ENTRY]);
+    });
+    const noWait = () => Promise.resolve();
+    const entries = await httpPluginRegistry(url, {
+      fetchImpl: flaky.fetch,
+      delay: noWait,
+    }).index();
+    expect(entries).toEqual([VALID_ENTRY]);
+    expect(flaky.calls).toHaveLength(3);
+
+    const dead = fakeFetch(() => {
+      throw new TypeError("fetch failed", { cause: new Error("ECONNRESET") });
+    });
+    await expect(
+      httpPluginRegistry(url, { fetchImpl: dead.fetch, attempts: 2, delay: noWait }).index(),
+    ).rejects.toThrow(/could not be fetched \(2 attempts\): fetch failed \(ECONNRESET\)/);
+    expect(dead.calls).toHaveLength(2);
+  });
+
+  it("fails, without retrying, on an HTTP error status, on non-JSON, and on a malformed document", async () => {
+    const respond = (body: string, status = 200) =>
+      fakeFetch(() => new Response(body, { status })).fetch;
+    const gone = fakeFetch(() => new Response("[]", { status: 404 }));
+    await expect(httpPluginRegistry(url, { fetchImpl: gone.fetch }).index()).rejects.toThrow(
+      /HTTP 404/,
+    );
+    expect(gone.calls).toHaveLength(1);
     await expect(httpPluginRegistry(url, respond("[]", 503)).index()).rejects.toThrow(/HTTP 503/);
     await expect(httpPluginRegistry(url, respond("not json")).index()).rejects.toThrow(
       /not valid JSON/,
@@ -109,27 +156,6 @@ describe("httpPluginRegistry", () => {
     await expect(httpPluginRegistry(url, respond('{"plugins":[]}')).index()).rejects.toThrow(
       /not an array/,
     );
-  });
-});
-
-describe("GET /api/plugins/registry", () => {
-  let t: TestApp;
-  beforeEach(async () => {
-    t = await createTestApp();
-  });
-  afterEach(async () => {
-    await t.cleanup();
-  });
-
-  it("requires auth, then serves the builtin index", async () => {
-    expect((await t.app.request("/api/plugins/registry")).status).toBe(401);
-
-    const admin = await loginAdmin(t.app);
-    const res = await apiClient(t.app, admin.cookie).get("/api/plugins/registry");
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as PluginIndexResponse;
-    expect(body.plugins).toHaveLength(4);
-    expect(body.plugins.every((p) => p.name.startsWith("@prismshadow/penguin-plugin-"))).toBe(true);
   });
 });
 
@@ -148,6 +174,15 @@ interface PackageManifest {
   description?: string;
   license?: string;
   files?: string[];
+  /** The product's own fields: what the package says of itself for its card. */
+  penguin?: {
+    title?: string;
+    title_zh?: string;
+    description_zh?: string;
+    short_description?: string;
+    short_description_zh?: string;
+    category?: string;
+  };
 }
 
 const packages = new Map<string, { dir: string; manifest: PackageManifest }>();
@@ -219,16 +254,60 @@ describe("plugin readmes", () => {
   it("a remote registry offers none", async () => {
     expect(await httpPluginRegistry("https://example.invalid/index.json").readme("x")).toBeNull();
   });
+
+  /**
+   * The sandbox backends follow the rule the Agent plugins do: `plugins/<dir>` is the npm
+   * package `@penguinharness/<dir>`. The release publishes by that name and a Project's
+   * `[plugins]` table names it, so a package that drifts from its directory is one nobody can
+   * find by either.
+   */
+  it("names every sandbox backend @penguinharness/<its directory>", () => {
+    const sandboxes = [...packages].filter(([, { dir }]) => dir.startsWith("sandbox-"));
+    expect(sandboxes).toHaveLength(4);
+    for (const [name, { dir }] of sandboxes) {
+      expect(name, `plugins/${dir}`).toBe(`@penguinharness/${dir}`);
+    }
+  });
 });
 
 describe("the builtin catalogue and the packages it lists", () => {
-  it("names each package as that package names itself", async () => {
-    for (const entry of await builtinPluginRegistry().index()) {
+  it("lists the sandbox backends in plugins/, each named as that package names itself", async () => {
+    const index = await builtinPluginRegistry().index();
+    // Valid under the format every registry is held to.
+    expect(parsePluginIndex(index, "builtin")).toEqual(index);
+    expect(index.length).toBeGreaterThan(0);
+    for (const entry of index) {
       const pkg = packages.get(entry.name);
       expect(pkg, `${entry.name} is listed but is no package in plugins/`).toBeDefined();
+      expect(entry.categories, entry.name).toHaveLength(1);
+      expect(entry.categories![0], entry.name).toBe("sandbox");
       expect(pkg!.manifest.version, entry.name).toBe(entry.version);
       expect(pkg!.manifest.description, entry.name).toBe(entry.description);
       expect(pkg!.manifest.license, entry.name).toBe(entry.license);
+    }
+  });
+
+  /**
+   * The row is the card on a server the package is not installed on, so it repeats what the
+   * package says of itself — its package.json's `penguin` block and its icon.svg — and the
+   * package publishes both, for the card of a server it is installed on.
+   */
+  it("describes each backend with the package's own penguin block and icon.svg", async () => {
+    for (const entry of await builtinPluginRegistry().index()) {
+      const { dir, manifest } = packages.get(entry.name)!;
+      expect(entry, entry.name).toMatchObject({
+        title: manifest.penguin?.title,
+        description: manifest.description,
+        shortDescription: manifest.penguin?.short_description,
+        icon: readFileSync(`${PLUGINS_DIR}${dir}/icon.svg`, "utf8"),
+        categories: [manifest.penguin?.category],
+      });
+      // English only: the index carries no Chinese copy of a backend's words.
+      expect(
+        Object.keys(entry).filter((key) => key.endsWith("Zh")),
+        entry.name,
+      ).toEqual([]);
+      expect(manifest.files, entry.name).toContain("icon.svg");
     }
   });
 
@@ -251,17 +330,27 @@ describe("the builtin catalogue and the packages it lists", () => {
   });
 });
 
-describe("GET /api/plugins/registry/readme", () => {
+describe("the registry routes", () => {
   let t: TestApp;
-  beforeEach(async () => {
+  beforeAll(async () => {
     t = await createTestApp();
   });
-  afterEach(async () => {
+  afterAll(async () => {
     await t.cleanup();
   });
 
+  it("requires auth, then serves the builtin index", async () => {
+    expect((await t.app.request("/api/plugins/registry")).status).toBe(401);
+
+    const admin = await loginAdmin(t.app);
+    const res = await apiClient(t.app, admin.cookie).get("/api/plugins/registry");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as PluginIndexResponse;
+    expect(body.plugins).toEqual(await builtinPluginRegistry().index());
+  });
+
   it("requires auth, then serves a listed entry's readme from the package on this machine", async () => {
-    const name = "@prismshadow/penguin-plugin-sandbox-bwrap";
+    const name = "@penguinharness/sandbox-bwrap";
     const url = `/api/plugins/registry/readme?name=${encodeURIComponent(name)}`;
     expect((await t.app.request(url)).status).toBe(401);
 
@@ -298,5 +387,359 @@ describe("GET /api/plugins/registry/readme", () => {
     expect((await apiClient(t.app, admin.cookie).get("/api/plugins/registry/readme")).status).toBe(
       400,
     );
+  });
+});
+
+/** A registry whose index() the test drives: counts calls, and can be made to fail. */
+function stubRegistry(source: string, entries: PluginIndexEntry[]) {
+  const state = { calls: 0, fail: null as string | null };
+  const registry: PluginRegistry = {
+    source,
+    index: () => {
+      state.calls += 1;
+      return state.fail === null ? Promise.resolve(entries) : Promise.reject(new Error(state.fail));
+    },
+    readme: () => Promise.resolve(null),
+  };
+  return { registry, state };
+}
+
+describe("cachedRegistry", () => {
+  it("fetches once per TTL, one fetch for concurrent callers, and again after it lapses", async () => {
+    const { registry, state } = stubRegistry("remote", [VALID_ENTRY]);
+    let clock = 1_000;
+    const cached = cachedRegistry(registry, { ttlMs: 60_000, now: () => clock });
+    // Four tabs opening the page at once must be one request, not four.
+    await Promise.all([cached.index(), cached.index(), cached.index(), cached.index()]);
+    clock += 59_999;
+    await cached.index();
+    expect(state.calls).toBe(1);
+    clock += 2;
+    await cached.index();
+    expect(state.calls).toBe(2);
+  });
+
+  it("serves the last good document when a refresh fails, and fails when it never had one", async () => {
+    const { registry, state } = stubRegistry("remote", [VALID_ENTRY]);
+    state.fail = "network down";
+    let clock = 0;
+    const cached = cachedRegistry(registry, { ttlMs: 10, retryMs: 50, now: () => clock });
+    await expect(cached.index()).rejects.toThrow(/network down/);
+    // The failed attempt is not cached as a good one.
+    state.fail = null;
+    clock += 50;
+    expect(await cached.index()).toHaveLength(1);
+    clock += 100;
+    state.fail = "network down";
+    // Stale beats empty: the page's job is to show what exists.
+    expect(await cached.index()).toEqual([VALID_ENTRY]);
+    // And the refresh that just failed is not tried again inside the retry window.
+    expect(await cached.index()).toEqual([VALID_ENTRY]);
+    expect(state.calls).toBe(3);
+  });
+
+  it("answers a read past the TTL at once with the document in hand, and a later read with the refreshed one", async () => {
+    const fresh = { ...VALID_ENTRY, version: "2.0.0" };
+    let answer!: (entries: PluginIndexEntry[]) => void;
+    const refreshed = new Promise<PluginIndexEntry[]>((resolve) => {
+      answer = resolve;
+    });
+    let calls = 0;
+    const slow: PluginRegistry = {
+      source: "remote",
+      index: () => {
+        calls += 1;
+        return refreshed;
+      },
+      readme: () => Promise.resolve(null),
+    };
+    const cached = cachedRegistry(slow, {
+      ttlMs: 10,
+      now: () => 100,
+      seed: { at: 0, entries: [VALID_ENTRY] },
+    });
+    // The refresh has not answered, and the read does not wait for it.
+    expect(await cached.index()).toEqual([VALID_ENTRY]);
+    answer([fresh]);
+    await refreshed;
+    expect(await cached.index()).toEqual([fresh]);
+    expect(calls).toBe(1);
+  });
+
+  it("answers with a failure at once until the retry window has passed, and only then fetches again", async () => {
+    const { registry, state } = stubRegistry("remote", [VALID_ENTRY]);
+    state.fail = "network down";
+    let clock = 0;
+    const cached = cachedRegistry(registry, { retryMs: 60_000, now: () => clock });
+    await expect(cached.index()).rejects.toThrow(/network down/);
+    state.fail = null;
+    clock += 59_999;
+    await expect(cached.index()).rejects.toThrow(/network down/);
+    expect(state.calls).toBe(1);
+    clock += 1;
+    expect(await cached.index()).toEqual([VALID_ENTRY]);
+    expect(state.calls).toBe(2);
+  });
+
+  it("starts from a parked document and hands it back for parking", async () => {
+    const { registry, state } = stubRegistry("remote", []);
+    state.fail = "network down";
+    const seed = { at: 0, entries: [VALID_ENTRY] };
+    let clock = 5;
+    const cached = cachedRegistry(registry, { ttlMs: 10, now: () => clock, seed });
+    // Within the TTL the seed is served without a fetch; past it a failed refresh falls back to it.
+    expect(await cached.index()).toEqual([VALID_ENTRY]);
+    expect(state.calls).toBe(0);
+    clock = 100;
+    expect(await cached.index()).toEqual([VALID_ENTRY]);
+    expect(state.calls).toBe(1);
+    expect(cached.snapshot()).toEqual(seed);
+  });
+});
+
+describe("mergeIndexes", () => {
+  const remoteEntry: PluginIndexEntry = {
+    ...VALID_ENTRY,
+    name: "@example/penguin-plugin-remote",
+  };
+
+  it("concatenates sources in order, the first source winning a name@version collision", async () => {
+    // What this deployment ships is the truth about it; a published index claiming the same
+    // specifier does not get to describe a package the operator already has.
+    const mine = { ...VALID_ENTRY, description: "the shipped one" };
+    const theirs = { ...VALID_ENTRY, description: "the published one" };
+    const { entries, failures } = await mergeIndexes([
+      stubRegistry("builtin", [mine]).registry,
+      stubRegistry("remote", [theirs, remoteEntry]).registry,
+    ]);
+    expect(entries.map((e) => [e.name, e.description])).toEqual([
+      [VALID_ENTRY.name, "the shipped one"],
+      [remoteEntry.name, remoteEntry.description],
+    ]);
+    expect(failures).toEqual([]);
+  });
+
+  it("keeps the other sources when one fails, and names the one that did", async () => {
+    const builtin = stubRegistry("builtin", [VALID_ENTRY]);
+    const remote = stubRegistry("remote", [remoteEntry]);
+    remote.state.fail = "index answered HTTP 503";
+    const { entries, failures } = await mergeIndexes([builtin.registry, remote.registry]);
+    // A dead remote shortens the listing; it does not empty it.
+    expect(entries.map((e) => e.name)).toEqual([VALID_ENTRY.name]);
+    expect(failures).toEqual([{ source: "remote", error: "index answered HTTP 503" }]);
+  });
+});
+
+describe("the published index source", () => {
+  it("is a release asset on a fixed tag; PENGUIN_PLUGIN_INDEX unset reads it, off reads none, a URL replaces it", () => {
+    // The tag is never re-pointed — a six-hourly workbench replaces the ASSET — so "latest
+    // nightly" is resolved by name and costs no unauthenticated API budget.
+    expect(NIGHTLY_INDEX_URL).toBe(
+      "https://github.com/Prism-Shadow/penguin-extensions/releases/download/nightly/index.json",
+    );
+    const at = (value: string | undefined) =>
+      resolveServerConfig({ ...(value === undefined ? {} : { PENGUIN_PLUGIN_INDEX: value }) })
+        .pluginIndexUrl;
+    expect(at(undefined)).toBe(NIGHTLY_INDEX_URL);
+    expect(at("")).toBe(NIGHTLY_INDEX_URL);
+    expect(at("off")).toBeNull();
+    expect(at("OFF")).toBeNull();
+    expect(at("https://example.invalid/index.json")).toBe("https://example.invalid/index.json");
+  });
+});
+
+describe("the route's own merge", () => {
+  // Called directly rather than through the App: the auth gate is app.ts's and is covered
+  // above, and what these assert is which sources reach the response body.
+  const published: PluginIndexEntry = {
+    ...VALID_ENTRY,
+    name: "@example/penguin-plugin-published",
+  };
+
+  it("merges the published entries in behind the builtin ones, and reports a dead source", async () => {
+    const dead = stubRegistry("dead", []);
+    dead.state.fail = "published index answered HTTP 404";
+    const routes = pluginRegistryRoutes({
+      registries: [
+        builtinPluginRegistry(),
+        stubRegistry("published", [published]).registry,
+        dead.registry,
+      ],
+    });
+    const body = (await (await routes.request("/")).json()) as PluginIndexResponse;
+    expect(body.plugins.at(-1)!.name).toBe(published.name);
+    // A dead source shortens the listing; it does not empty it.
+    expect(body.failures).toEqual([{ source: "dead", error: "published index answered HTTP 404" }]);
+  });
+
+  it("drops the icons of a published document a previous App fetched and parked", async () => {
+    const offline = fakeFetch(() => {
+      throw new TypeError("fetch failed");
+    });
+    const routes = pluginRegistryRoutes({
+      indexUrl: "https://registry.example/index.json",
+      fetchImpl: offline.fetch,
+      seed: { at: Date.now(), entries: [{ ...published, icon: '<svg onload="alert(1)"></svg>' }] },
+    });
+    const body = (await (await routes.request("/")).json()) as PluginIndexResponse;
+    expect(body.plugins.find((entry) => entry.name === published.name)).toEqual(published);
+  });
+
+  describe("with a published index on a slow or unreachable network", () => {
+    const url = "https://registry.example/index.json";
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+    /** One read of the listing, letting the route's wait for a source run out. */
+    const read = async (routes: ReturnType<typeof pluginRegistryRoutes>) => {
+      const res = routes.request("/");
+      await vi.advanceTimersByTimeAsync(SOURCE_WAIT_MS);
+      return (await (await res).json()) as PluginIndexResponse;
+    };
+
+    it("lists the builtin entries once the wait passes, names it pending, and lists its entries on a read after it answers", async () => {
+      let answer!: (res: Response) => void;
+      const remote = fakeFetch(
+        () =>
+          new Promise<Response>((resolve) => {
+            answer = resolve;
+          }),
+      );
+      const routes = pluginRegistryRoutes({ indexUrl: url, fetchImpl: remote.fetch });
+      const first = await read(routes);
+      expect(first.plugins).toEqual(await builtinPluginRegistry().index());
+      expect(first.pending).toEqual([url]);
+      expect(first.failures).toEqual([]);
+
+      answer(jsonResponse([published]));
+      const second = await read(routes);
+      expect(second.plugins.at(-1)!.name).toBe(published.name);
+      expect(second.pending).toEqual([]);
+      expect(remote.calls).toHaveLength(1);
+    });
+
+    it("once its fetch has failed, reports it unreachable without fetching again until the retry window has passed", async () => {
+      const remote = fakeFetch(() => {
+        throw fetchFailed("ETIMEDOUT");
+      });
+      const routes = pluginRegistryRoutes({ indexUrl: url, fetchImpl: remote.fetch });
+      expect((await read(routes)).plugins).toEqual(await builtinPluginRegistry().index());
+      // The fetch spends its attempts behind the answer.
+      await vi.runAllTimersAsync();
+      const fetched = remote.calls.length;
+
+      const second = await read(routes);
+      expect(second.failures.map((f) => f.source)).toEqual([url]);
+      expect(second.pending).toEqual([]);
+      expect(remote.calls).toHaveLength(fetched);
+
+      await vi.advanceTimersByTimeAsync(INDEX_RETRY_MS);
+      await read(routes);
+      expect(remote.calls.length).toBeGreaterThan(fetched);
+    });
+  });
+
+  it("with no published source configured, lists the builtin entries alone", async () => {
+    const routes = pluginRegistryRoutes({ indexUrl: null });
+    const res = await routes.request("/");
+    const body = (await res.json()) as PluginIndexResponse;
+    expect(body.plugins).toEqual(await builtinPluginRegistry().index());
+    expect(body.failures).toEqual([]);
+    expect(body.pending).toEqual([]);
+  });
+
+  it("lets a package on this machine describe itself over its row, and leaves a row whose package is not here as it is", async () => {
+    // A published row that carries only English and no icon, for a package an admin installed
+    // into the data root's prefix with its own penguin block and icon.svg; and one installed
+    // with neither, which keeps its row's text and the puzzle piece.
+    const installedHere: PluginIndexEntry = {
+      ...VALID_ENTRY,
+      name: "@example/penguin-plugin-here",
+      title: "Old title",
+      titleZh: "旧名称",
+    };
+    const bare: PluginIndexEntry = { ...VALID_ENTRY, name: "@example/penguin-plugin-bare" };
+    const elsewhere: PluginIndexEntry = { ...VALID_ENTRY, name: "@example/penguin-plugin-away" };
+    const prefix = await mkdtemp(path.join(tmpdir(), "penguin-prefix-"));
+    try {
+      await writeFile(path.join(prefix, "package.json"), '{"name":"prefix","private":true}');
+      const dir = path.join(prefix, "node_modules", "@example", "penguin-plugin-here");
+      await mkdir(dir, { recursive: true });
+      await writeFile(
+        path.join(dir, "package.json"),
+        JSON.stringify({
+          name: installedHere.name,
+          version: "1.0.0",
+          description: "A demo plugin.",
+          penguin: {
+            title: "Local demo",
+            title_zh: "本地示例",
+            description_zh: "一个示例插件。",
+            short_description: "Demo.",
+            short_description_zh: "示例。",
+          },
+        }),
+      );
+      await writeFile(path.join(dir, "icon.svg"), '<svg viewBox="0 0 24 24"></svg>\n');
+      const bareDir = path.join(prefix, "node_modules", "@example", "penguin-plugin-bare");
+      await mkdir(bareDir, { recursive: true });
+      await writeFile(
+        path.join(bareDir, "package.json"),
+        JSON.stringify({ name: bare.name, version: "1.0.0" }),
+      );
+      const routes = pluginRegistryRoutes({
+        registries: [stubRegistry("published", [installedHere, bare, elsewhere]).registry],
+        bases: () => [{ file: path.join(prefix, "package.json"), builtin: false }],
+      });
+      const body = (await (await routes.request("/")).json()) as PluginIndexResponse;
+      expect(body.plugins).toEqual([
+        {
+          ...installedHere,
+          title: "Local demo",
+          titleZh: "本地示例",
+          descriptionZh: "一个示例插件。",
+          shortDescription: "Demo.",
+          shortDescriptionZh: "示例。",
+          icon: '<svg viewBox="0 0 24 24"></svg>\n',
+        },
+        bare,
+        elsewhere,
+      ]);
+    } finally {
+      await rm(prefix, { recursive: true, force: true });
+    }
+  });
+
+  it("never sends the icon of a package on this machine that is not a plain SVG", async () => {
+    const entry: PluginIndexEntry = { ...VALID_ENTRY, name: "@example/penguin-plugin-risky" };
+    const prefix = await mkdtemp(path.join(tmpdir(), "penguin-prefix-"));
+    try {
+      await writeFile(path.join(prefix, "package.json"), '{"name":"prefix","private":true}');
+      const dir = path.join(prefix, "node_modules", "@example", "penguin-plugin-risky");
+      await mkdir(dir, { recursive: true });
+      await writeFile(
+        path.join(dir, "package.json"),
+        JSON.stringify({
+          name: entry.name,
+          version: "1.0.0",
+          penguin: { short_description: "Risky." },
+        }),
+      );
+      await writeFile(
+        path.join(dir, "icon.svg"),
+        '<svg viewBox="0 0 24 24"><script>fetch("https://example.invalid")</script></svg>\n',
+      );
+      const routes = pluginRegistryRoutes({
+        registries: [stubRegistry("published", [entry]).registry],
+        bases: () => [{ file: path.join(prefix, "package.json"), builtin: false }],
+      });
+      const body = (await (await routes.request("/")).json()) as PluginIndexResponse;
+      expect(body.plugins).toEqual([{ ...entry, shortDescription: "Risky." }]);
+    } finally {
+      await rm(prefix, { recursive: true, force: true });
+    }
   });
 });

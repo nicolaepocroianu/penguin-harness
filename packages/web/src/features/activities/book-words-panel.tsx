@@ -15,9 +15,7 @@ import type {
   AssetManifest,
   BookWordsState,
 } from "@prismshadow/penguin-server/api";
-import { Button } from "../../components/ui/button";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { InfoPopover } from "../../components/ui/info-popover";
+import { Button, ConfirmModal, InfoPopover } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { useActivityClient } from "./activity-client";
@@ -180,6 +178,7 @@ export function BookWordsPanel({
           )}
           {confirming && (
             <ConfirmModal
+              cancelLabel={S.common.cancel}
               open
               tone="primary"
               title={words.recordTitle}
@@ -208,7 +207,7 @@ export function BookWordsPanel({
             <section className="space-y-2" aria-label={words.proposal}>
               <h4 className="text-xs font-semibold">{words.proposal}</h4>
               {rows.length ? (
-                <ul className="space-y-0.5 text-xs">
+                <ul className="space-y-1 text-xs">
                   {rows.map((row) => (
                     <li key={row.normalizedWord}>
                       <span className="font-medium">{row.word}</span>: {row.sounds.join(" ")}

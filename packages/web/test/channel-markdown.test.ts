@@ -16,6 +16,7 @@ import {
 
 const reader = {
   names: new Map([["ceo", "Ada CEO"]]),
+  titles: new Map([["ceo", "Chief Executive"]]),
   me: "alice",
   employeeIds: new Set(["ceo"]),
 };
@@ -58,15 +59,17 @@ describe("channel message Markdown", () => {
 
 describe("mentions inside a message body", () => {
   it("resolves an employee's name and keeps the raw token in the tooltip", () => {
-    const html = render("@ceo 先看一下");
-    expect(html).toContain('title="@ceo"');
+    const html = render("@ceo take a look first");
+    expect(html).toContain('data-tooltip="@ceo"');
     expect(html).toContain("@Ada CEO");
+    // The title follows the name inside the chip, so the reader sees what the person does.
+    expect(html).toContain("(Chief Executive)");
     expect(html).not.toContain(en.company.channels.mentionsYou);
   });
 
   it("marks a mention that addresses the reader", () => {
-    const html = render("@user:alice 这条是给你的");
-    expect(html).toContain('title="@user:alice"');
+    const html = render("@user:alice this one is for you");
+    expect(html).toContain('data-tooltip="@user:alice"');
     expect(html).toContain(en.company.channels.mentionsYou);
   });
 

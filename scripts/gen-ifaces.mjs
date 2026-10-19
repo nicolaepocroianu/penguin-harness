@@ -37,7 +37,8 @@
  *     comparison, and the name is always qualified by the declaring package
  *   <Name>Slots companion interface      → the slots of <Name>; a property typed Slot<D, C>
  *                                          declares a code half
- *   classes, Map/Set, generics, rest parameters, unions mixing data with non-data → error
+ *   Map<K, V> / Set<T> (and the Readonly forms) → { map: [K, V] } / { set: T }
+ *   classes, WeakMap/WeakSet, generics, rest parameters, unions mixing data with non-data → error
  * A type that recurses into itself is cut at the cycle and compared by name (a warning).
  */
 import fs from "node:fs";
@@ -423,8 +424,14 @@ for (const project of projects) {
    * undefined must not pass. The checker can only strip both at once, so null is noted
    * here and put back on the projected definition by `orNull` / `exprOrNull`.
    */
+  // `getNonNullableType(unknown)` is `{}` — everything that is not null or undefined — so an
+  // optional `unknown` member (a JSON body, say) used to be projected as the empty object
+  // shape, which refuses `null`. `unknown` and `any` have nothing to strip: keep them.
   const sansUndefined = (type) => ({
-    type: checker.getNonNullableType(type),
+    type:
+      type.flags & (ts.TypeFlags.Unknown | ts.TypeFlags.Any)
+        ? type
+        : checker.getNonNullableType(type),
     nullable: type.isUnion() && hasNull(type),
   });
   const orNull = (def) =>
@@ -450,6 +457,14 @@ for (const project of projects) {
     symbol !== undefined &&
     (componentKeyBySymbol.has(symbol) ||
       (symbol.declarations ?? []).some((d) => isInterfaceClassDecl(d)));
+
+  /** The lib's keyed and unkeyed collections, by the expression that carries them. */
+  const COLLECTIONS = new Map([
+    ["Map", "map"],
+    ["ReadonlyMap", "map"],
+    ["Set", "set"],
+    ["ReadonlySet", "set"],
+  ]);
 
   const isHostDeclared = (symbol) =>
     symbol !== undefined &&
@@ -590,8 +605,14 @@ for (const project of projects) {
         }
         return elems;
       }
-      if (name === "Map" || name === "Set" || name === "WeakMap") {
-        fail(atNode, `${name} has no wire form; use an array or a record`);
+      if (COLLECTIONS.has(name) && isHostDeclared(symbol)) {
+        // A live collection is not data (an arktype definition has no form for it): exprOf
+        // projects it as { map } / { set }, element types compared like an array's.
+        notData = `'${name}' is a live collection`;
+        return null;
+      }
+      if (name === "WeakMap" || name === "WeakSet") {
+        fail(atNode, `${name} cannot be a contract type; its keys are object identities`);
         return "unknown";
       }
       if (type.getCallSignatures().length > 0) {
@@ -722,6 +743,12 @@ for (const project of projects) {
         out.returns = exprOf(r, atNode, stack);
       }
       return out;
+    }
+    if (COLLECTIONS.has(name) && isHostDeclared(symbol)) {
+      const [first, second] = checker.getTypeArguments(type);
+      return COLLECTIONS.get(name) === "map"
+        ? { map: [exprOf(first, atNode, stack), exprOf(second, atNode, stack)] }
+        : { set: exprOf(first, atNode, stack) };
     }
     const data = dataOf(type, atNode, stack);
     if (data !== null) return { data };

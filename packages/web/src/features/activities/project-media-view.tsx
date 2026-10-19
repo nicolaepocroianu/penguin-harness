@@ -7,15 +7,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { LibraryFile, ProjectMediaListing } from "@prismshadow/penguin-server/api";
 import { ApiError } from "../../api/client";
-import { Button, labelButtonClass } from "../../components/ui/button";
+import {
+  Button,
+  buttonClass,
+  EmptyState,
+  GlyphIcon,
+  ZoomableImage,
+  InfoPopover,
+  Input,
+  Segmented,
+  Select,
+  toastError,
+  ICON_SIZE,
+} from "@prismshadow/penguin-ui";
 import { ChipGroup } from "../../components/ui/chip-group";
-import { EmptyState } from "../../components/ui/empty-state";
-import { GlyphIcon } from "../../components/ui/glyph-icon";
-import { ZoomableImage } from "../../components/ui/image-zoom";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { Input } from "../../components/ui/input";
-import { Segmented } from "../../components/ui/segmented";
-import { Select } from "../../components/ui/select";
 import {
   TABLE,
   TABLE_HEAD_ROW,
@@ -24,9 +29,7 @@ import {
   TD,
   TH,
 } from "../../components/ui/table-classes";
-import { toastError } from "../../components/ui/toast";
 import { apiErrorText } from "../../lib/api-error";
-import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
 import { toneInk, toneStrip } from "../../lib/tone";
 import { downloadBundle } from "./download-bundle";
@@ -149,7 +152,7 @@ export function ProjectMediaView({
             {words.title}
             <InfoPopover label={words.title}>{words.about}</InfoPopover>
           </h1>
-          <Link to="/activities" className={labelButtonClass("secondary", "sm")}>
+          <Link to="/activities" className={buttonClass("secondary", "sm")}>
             {words.back}
           </Link>
         </header>
@@ -244,7 +247,7 @@ export function ProjectMediaView({
             <a
               href={fileUrl(projectId, chosen[0]!)}
               download={chosen[0]!.name}
-              className={labelButtonClass("primary", "sm")}
+              className={buttonClass("primary", "sm")}
             >
               {words.download(1)}
             </a>
@@ -287,7 +290,7 @@ export function ProjectMediaView({
                           : "border-gray-200 dark:border-gray-800"
                       }`}
                     >
-                      <span className="absolute left-2 top-2 rounded bg-white/90 p-0.5 dark:bg-gray-900/90">
+                      <span className="absolute left-2 top-2 rounded bg-white/90 p-1 dark:bg-gray-900/90">
                         {checkbox(file)}
                       </span>
                       <button
@@ -311,7 +314,7 @@ export function ProjectMediaView({
                             />
                           )}
                         </span>
-                        <span className="space-y-0.5 p-2">
+                        <span className="space-y-1 p-2">
                           <span className="block truncate text-xs font-medium">{file.name}</span>
                           <span className="block truncate text-xs text-gray-500">
                             {S.activities.mediaTypes[file.kind]} · {fileSizeText(file.byteLength)}
@@ -396,7 +399,7 @@ export function ProjectMediaView({
                     label={detail.name}
                   />
                 )}
-                <dl className="space-y-0.5 text-xs">
+                <dl className="space-y-1 text-xs">
                   <div className="flex gap-2">
                     <dt className="text-gray-500">{words.columns.name}</dt>
                     <dd className="min-w-0 break-all">{detail.name}</dd>
@@ -422,7 +425,7 @@ export function ProjectMediaView({
                 </dl>
                 <Link
                   to={`/activities/${encodeURIComponent(detail.activityId)}`}
-                  className={labelButtonClass("secondary", "sm")}
+                  className={buttonClass("secondary", "sm")}
                 >
                   {words.openActivity}
                 </Link>

@@ -1,6 +1,6 @@
 ---
 title: Agents
-description: Create agents, and configure their prompts, tools, Skills, hooks, memory, vault and scheduled tasks.
+description: Create agents, and configure their prompts, tools, Skills, hooks, memory, vault, scheduled tasks and API.
 ---
 
 An agent is a configured assistant in a Project. Each agent has its own instructions, runtime settings, tools, Skills, hook packages, memory, vault variables and scheduled tasks, stored together as its Agent State. You create agents and change their settings on the **Agents** page.
@@ -25,12 +25,18 @@ While these are the only agents, a card below them offers to create your first o
 
 Each agent card shows:
 
-- the agent's name, its id, its Agent State version (for example `v3`) and its description;
+- the agent's name, its id, its Agent State version (for example `v3`) and its description; an agent whose API is on carries an API icon after its name (**API access on**);
 - a row of counts: Sessions, tools, Skills, hook packages, memories, vault variables and scheduled tasks, plus when the agent was last modified. Select a count to open the matching settings tab;
 - the agent's Session activity over the last 30 days;
 - **New chat**, which starts a conversation with the agent; **Settings**, which opens its settings; an icon that opens its costs in **Cost Center**; and a delete button.
 
 When a newer kernel is available for some agents, their cards show **Kernel update needed**, and a notice at the top of the page offers **Update now** and **Dismiss**. See [Update the kernel](#update-the-kernel).
+
+### Agents on machines
+
+An agent belongs to the server it lives on. When the Project uses machines, each connected machine's own agents sit in the same list as this server's, in the list's order (oldest first), the way the sidebar lists machine workspaces beside local ones. Each machine card carries the machine after the agent's name, as in `[SSH: gpu-box]`. A machine's agent is never merged with one of this server's, even when the ids match: every machine has its own `default_agent`.
+
+Everything on such a card acts on that machine. **Settings** and the counts open the agent's settings there, and every change is saved there. **New chat** starts a conversation in that machine's temporary workspace, and delete removes the agent from that machine. **Cost Center** counts this server's agents only, so the card's costs button is off. While a machine is reconnecting or its server is stopped, the agents it last listed stay in the list, greyed, with an unplugged icon after the machine's name: point at it for the reason. Their buttons are off. Only admins see machines.
 
 You can also reach an agent from the sidebar. When conversations are grouped by agent, each agent's group header has a **New chat** button and an **Agent settings** button, and the sidebar has a **Create agent** button that opens the **Create agent** dialog.
 
@@ -58,12 +64,13 @@ The **Report-writing agent** example creates an agent with the id `report-writer
 ## Create an agent manually
 
 1. On the **Agents** page, select **Create manually**. The **Create agent** dialog opens.
-2. Optional: in **Name**, enter a name. An empty name uses the agent id.
-3. In **Agent id**, enter an id, or select **Generate with AI** beside the field to have the Project's default model derive one from the name, or from the description while the name is empty. An id is 2–64 characters long, starts with a lowercase letter, and uses only lowercase letters, digits and underscores. A proposal replaces what is in the box and stays editable. You cannot change the id later.
-4. Optional: fill in **Description**.
-5. Optional: in **Plugins**, select plugins from the plugin library to install on the new agent. Their Skills and hook packages are installed when the agent is created.
-6. Optional: in **Import Skills from a project directory**, select a directory. PenguinHarness reads the Skills under its `.agents/skills` and `.claude/skills` folders; select the ones to install. If a Skill from the directory has the same name as a Skill from a selected plugin, the directory's Skill is installed.
-7. Select **Create**. The new agent's settings open.
+2. Optional: when a machine is connected, in **Location**, select where the agent is created: **This server** or a machine. An agent created on a machine lives there: the plugins on offer come from that machine's library, the directory in step 7 is one on that machine, and the agent's settings open on that machine. Changing the location clears the plugins and the directory picked so far.
+3. Optional: in **Name**, enter a name. An empty name uses the agent id.
+4. In **Agent id**, enter an id, or select **Generate with AI** beside the field to have the Project's default model derive one from the name, or from the description while the name is empty. An id is 2–64 characters long, starts with a lowercase letter, and uses only lowercase letters, digits and underscores. A proposal replaces what is in the box and stays editable. You cannot change the id later.
+5. Optional: fill in **Description**.
+6. Optional: in **Plugins**, select plugins from the plugin library to install on the new agent. Their Skills and hook packages are installed when the agent is created.
+7. Optional: in **Import Skills from a project directory**, select a directory. PenguinHarness reads the Skills under its `.agents/skills` and `.claude/skills` folders; select the ones to install. If a Skill from the directory has the same name as a Skill from a selected plugin, the directory's Skill is installed.
+8. Select **Create**. The new agent's settings open.
 
 Any Project member can create an agent.
 
@@ -84,7 +91,7 @@ A snapshot package is an exported Agent State. You can create an agent from one,
 
 ## Delete an agent
 
-Only the Project owner can delete an agent. The built-in `default_agent` cannot be deleted.
+Only the Project owner can delete an agent. The built-in `default_agent` cannot be deleted, and neither can an employee of an organization: the **Company employees** section lists those, and an employee can be deleted once it leaves its organization in company mode (see [Employees are agents](/company-mode#employees-are-agents)).
 
 1. On the agent's card, select the delete button (**Delete agent**).
 2. Confirm.
@@ -107,8 +114,9 @@ To open an agent's settings, select **Settings** on its card, select one of its 
 | **Memory** | The agent's memories and the memory prompts |
 | **Vault** | Environment variables for the agent's commands |
 | **Schedules** | Scheduled tasks |
+| **API** | Whether programs may call the agent over the Agent API, the approval mode of their conversations, and the keys |
 
-Each tab has its own address, `/agents/<agentId>?tab=<tab>`, where `<tab>` is `overview`, `prompt`, `runtime`, `tools`, `skills`, `hooks`, `memory`, `vault` or `schedules`.
+Each tab has its own address, `/agents/<agentId>?tab=<tab>`, where `<tab>` is `overview`, `prompt`, `runtime`, `tools`, `skills`, `hooks`, `memory`, `vault`, `schedules` or `api`.
 
 ### Save changes
 
@@ -128,7 +136,8 @@ Any Project member can change most settings. These actions are for the Project o
 - turning **Enable hooks** on or off;
 - editing vault variables, the **Enable vault** switch and the **Vault prompt**;
 - creating, editing, enabling, disabling and deleting scheduled tasks, and editing the **Enable schedules** switch and the **Schedules prompt** (members can still use **Create with AI**);
-- importing memories.
+- importing memories;
+- everything on the **API** tab: the switch, the approval mode, keyless access and the keys.
 
 ## Overview tab
 
@@ -165,7 +174,7 @@ Tabs you have not customized are updated to the current built-in defaults. A tab
 > [!WARNING]
 > Restoring the default configuration cannot be undone.
 
-The agent's configuration is overwritten with the current defaults: the custom system prompt, tool list, model and compaction settings, and MCP servers are all replaced. Only the name, the description and the Agent State version are kept.
+The agent's configuration is overwritten with the current defaults: the custom system prompt, tool list, model and compaction settings, and MCP servers are all replaced. Only the name, the description and the Agent State version are kept. The MCP servers a plugin installed go too; **Manage installs** on the **Plugins** page puts them back.
 
 ## System Prompt tab
 
@@ -235,27 +244,36 @@ MCP servers add external tools to the agent. Their tools are named `mcp__<name>_
    - `sse`: the legacy HTTP+SSE transport, for servers that have not migrated.
 3. In **name**, enter the tool-name prefix. Use letters, digits, `_` and `-`, starting with a letter or digit.
 4. Fill in the connection fields:
-   - For `stdio`: **command**; **args**, one argument per line; **env**, one `KEY=value` per line; and **cwd**, which defaults to the Session's Workspace. The agent's vault variables are not passed to MCP server processes.
-   - For `http` and `sse`: **url**, and **headers**, one `Header-Name: value` per line, for example an `Authorization` header.
+   - For `stdio`: **command**; **args**, one argument per line; **env**, one `KEY=value` per line; and **cwd**, which defaults to the Session's Workspace. The agent's vault is not passed to MCP server processes as a whole; give a server a secret as a `${KEY}` reference, described below.
+   - For `http` and `sse`: **url**, and **headers**, one `Header-Name: value` per line, for example `Authorization: Bearer ${LINEAR_API_KEY}`.
 5. Choose **permission**:
    - **Auto (readOnlyHint)**: each tool is read-only if it declares the `readOnlyHint` annotation, and read & write otherwise.
    - **Read-only**: every tool of the server is treated as read-only.
    - **Read & write**: every tool of the server is treated as read & write.
 6. Optional: adjust **connectTimeoutMs** (connecting and discovering tools, 10000 by default), **timeoutMs** and **maxOutputLength**, which apply to every tool of the server.
-7. Optional: select **Test connection** to try the settings before you save. It reports the number of tools found and how long it took.
+7. Optional: select **Test connection** to try the settings before you save. It reports the number of tools found and how long it took. An entry that reads a value from the vault (`${KEY}`, described below) is tested only as saved: while it is new or changed, the test fills nothing in and says to save it first.
 8. Select **Save**.
 
 > [!NOTE]
 > The permission level matters only in the read-only approval mode; the other approval modes ignore it. It does not restrict what the server can do: marking a server read-only only skips the confirmation that mode would ask for.
 
+A value written as `${KEY}`, where `KEY` names a variable on the agent's [Vault tab](#vault-tab), is filled in from the vault when the server connects. The configuration keeps only the reference, so the secret never sits in `system_config.yaml`. A reference works in every field except the host of the URL; see [Vault references](/tools#vault-references).
+
 To change a server, select **Edit** on its row. To remove it, select **Remove** and confirm; its tools stop being available from the next Session. For more about MCP servers, see [MCP Servers](/tools#mcp-servers).
+
+Installing a plugin that carries MCP servers adds them to this list too; see [Install a plugin on an agent](/skills#install-a-plugin-on-an-agent). Such a row shows a puzzle icon after the name, and pointing at it tells which plugin installed the server. **Edit** keeps the entry tied to its plugin and notes that reinstalling the plugin replaces it. **Remove** asks first and says that **Manage installs** on the **Plugins** page can put the server back.
+
+A row may also show an icon for a server that cannot connect yet. A conversation skips that server, and its MCP connect row says why:
+
+- A key icon: the server needs setup, because the vault lacks keys its entry references. Point at it for their names. The Project owner adds them on the **Vault** tab, or with **Set up** in the plugin's **Manage installs** dialog.
+- A sign-in icon: the server signs in with OAuth, which this version does not support yet.
 
 ### Test MCP servers
 
-1. In the **MCP Servers** section, select **Test connection**.
+1. In the **MCP Servers** section, select **Test all** in the table's header.
 2. Select **Start test**.
 
-PenguinHarness connects to each server in turn and discovers its tools. Nothing is saved. Each row shows the number of tools and the time taken, or **Connection failed** with the reason.
+PenguinHarness connects to each server in turn and discovers its tools. Nothing is saved. Each row shows the number of tools and the time taken, or **Connection failed** with the reason. References to the vault are filled in first; a server whose keys the vault lacks fails with their names, without a connection attempt.
 
 ## Skills tab
 
@@ -318,7 +336,7 @@ The memory count on the agent's card opens this tab.
 
 ## Vault tab
 
-The vault holds environment variables for the agent, such as API keys. PenguinHarness passes them to the agent's shell commands. The model sees the variable names, never their values. Subagents use their own vaults and do not inherit this one. Changes take effect from the next Task; a Task that is already running is not affected.
+The vault holds environment variables for the agent, such as API keys. PenguinHarness passes them to the agent's shell commands, and gives an MCP server only the ones its entry references as `${KEY}`. The model sees the variable names, never their values. Subagents use their own vaults and do not inherit this one. Changes take effect from the next Task; a Task that is already running is not affected.
 
 Only the Project owner can change the vault. Members see the variable names with masked values.
 
@@ -359,9 +377,9 @@ Only the Project owner can create a task manually.
 1. On the **Schedules** tab, select **Create manually**. The **New scheduled task** dialog opens.
 2. In **Name**, enter the task's file name, without `.toml`. You cannot change it later.
 3. In **Period**, enter how often the task runs, such as `30m`, `12h` or `7d`. Leave it empty for a one-off task. The shortest period is 5 minutes.
-4. Set **Start at**, and optionally **End at**.
+4. Set **Start at**, and optionally **End at**. A one-off task needs a **Start at** that is still ahead, and **End at** cannot be in the past.
 5. Under **Target**, choose where the prompt goes:
-   - **New session each time**: every run starts a new Session. Optionally choose a **Model** (the Project default if you choose none) and a **Workspace** (a temporary Workspace if you leave it empty).
+   - **New session each time**: every run starts a new Session. Optionally choose a **Model** (the Project default if you choose none) and a **Workspace** (a temporary Workspace if you choose none).
    - **Bound Session**: every run goes to one existing Session. Choose it in **Session**.
 6. In **Prompt**, enter what to send.
 7. Leave **Enabled** selected to activate the task, then select **Create**.
@@ -370,7 +388,7 @@ To create a task by describing it instead, select **Create with AI**, or pick on
 
 ### Manage scheduled tasks
 
-The table shows each task's **Name**, **Status**, **Period**, **Target**, **Next / last fired** and **Queue**. The status is **Active**, **Disabled**, **Expired**, **Done**, **Missed** or **Invalid**; point at **Invalid** to see why.
+The table shows each task's **Name**, **Status**, **Period**, **Target**, **Next / last fired** and **Queue**. The status is **Active**, **Disabled**, **Expired**, **Done**, **Missed** or **Invalid**; point at **Invalid** to see why. Done, missed and expired tasks are archived and soon leave the table; see [Finished tasks are archived](/schedules#finished-tasks-are-archived).
 
 On each row, the owner can select **Disable** or **Enable**, **Edit**, or **Delete**. Files that cannot be parsed are listed under **Files that failed to parse (skipped by the scheduler)**.
 
@@ -378,6 +396,10 @@ On each row, the owner can select **Disable** or **Enable**, **Edit**, or **Dele
 
 - **Enable schedules** controls whether the scheduled tasks section enters the system prompt. With it off, tasks still run.
 - **Schedules prompt** is the text that the `{{SCHEDULES}}` placeholder expands to. It teaches the model to manage scheduled tasks with its file tools, and its `{{SCHEDULE_LIST}}` placeholder lists the task names.
+
+## API tab
+
+The **API** tab lets programs outside PenguinHarness talk to the agent over HTTP: **Enable API access**, the **Approval mode for API conversations**, the **Base URL** and **Agent ID** under **Connection**, the **Keys**, **Allow keyless access**, **Examples** of a call, and, for the Project's owner, **Try it**, which runs the agent once through the API and shows the stream a program would receive. There is no **Save** button: the switches and the approval mode apply when you change them, and turning the API off or deleting a key asks first. To set it up and call the agent, see [Agent API](/agent-api).
 
 ## How it works
 

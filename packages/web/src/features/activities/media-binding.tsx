@@ -7,10 +7,7 @@
  */
 import { useState } from "react";
 import type { AssetManifest, UploadedMedia } from "@prismshadow/penguin-server/api";
-import { Button, labelButtonClass } from "../../components/ui/button";
-import { HiddenFileInput } from "../../components/ui/hidden-file-input";
-import { Input } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
+import { Button, buttonClass, HiddenFileInput, Input, Select } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { UPLOAD_ACCEPT, isUploadPath, uploadKindFor } from "./media-library";
@@ -93,7 +90,7 @@ export function MediaBinding({
                 <p className="text-xs font-medium">{S.activities.uploadTitle}</p>
                 <p className="text-xs text-gray-500">{S.activities.uploadHint[kind]}</p>
                 <label
-                  className={`relative inline-flex items-center ${labelButtonClass("secondary", "sm")}`}
+                  className={`relative inline-flex items-center ${buttonClass("secondary", "sm")}`}
                 >
                   <HiddenFileInput
                     accept={UPLOAD_ACCEPT[kind]}

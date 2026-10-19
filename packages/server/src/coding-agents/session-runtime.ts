@@ -445,6 +445,8 @@ export class AcpRuntimeSession implements RuntimeSession {
         system_prompt: "",
         agent_state: agentState,
         workspace,
+        // A coding-agent Session is opened by a person from the app (createCodingAgentSession).
+        source: "user",
       }),
     );
     this.metaWritten = true;

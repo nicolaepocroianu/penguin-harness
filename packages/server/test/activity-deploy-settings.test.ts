@@ -27,7 +27,7 @@ function rejectedField(input: unknown): string | undefined {
   } catch (error) {
     expect(error).toBeInstanceOf(HttpError);
     expect((error as HttpError).code).toBe("invalid_deploy_setting");
-    return (error as HttpError).detail?.field;
+    return (error as HttpError).details?.field;
   }
   return undefined;
 }

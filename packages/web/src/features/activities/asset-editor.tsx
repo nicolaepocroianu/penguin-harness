@@ -15,10 +15,7 @@ import type {
   UploadedMedia,
   VoiceOption,
 } from "@prismshadow/penguin-server/api";
-import { Button } from "../../components/ui/button";
-import { toastSuccess } from "../../components/ui/toast";
-import { Textarea } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
+import { Button, toastSuccess, Textarea, Select } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneInk, toneSurface } from "../../lib/tone";
 import { ImagePreview } from "./image-preview";
@@ -69,7 +66,7 @@ const BINDING_LABEL: Record<Binding, () => string> = {
 function BindingBadge({ binding }: { binding: Binding }) {
   return (
     <span
-      title={binding === "placeholder" ? S.activities.placeholderMediaHint : undefined}
+      data-tooltip={binding === "placeholder" ? S.activities.placeholderMediaHint : undefined}
       className={`rounded px-2 py-0.5 text-xs ${BINDING_TONE[binding]}`}
     >
       {BINDING_LABEL[binding]()}

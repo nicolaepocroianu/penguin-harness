@@ -7,6 +7,9 @@
  * passed in, so the rules are testable without a DOM; the view owns the state and applies a
  * preset through the setters the rail, the panel and the map already use.
  */
+import { chordOf } from "../../lib/shortcuts/chord";
+import { currentPlatform } from "../../lib/shortcuts/platform";
+import type { KeyLike, Platform } from "../../lib/shortcuts/types";
 import { clampMapWidth } from "./map-split";
 import {
   SIDE_PANEL_DEFAULT_WIDTH,
@@ -355,18 +358,20 @@ export function currentPresetId(
 /**
  * The layout an Alt+number press picks (0-based), or null for any other key. Only Alt, so
  * the shortcut never shadows Ctrl or Cmd combinations; the physical digit key is read so a
- * layout where Alt changes the character still works.
+ * layout where Alt changes the character still works. The modifiers are read through the
+ * shortcut system's chord (lib/shortcuts/chord.ts), which applies the platform's mapping and
+ * leaves AltGr typing and IME composition alone.
  */
-export function shortcutIndex(event: {
-  key: string;
-  code?: string;
-  altKey: boolean;
-  ctrlKey: boolean;
-  metaKey: boolean;
-  shiftKey: boolean;
-}): number | null {
-  if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return null;
-  const digit = /^Digit([1-9])$/.exec(event.code ?? "")?.[1] ?? /^[1-9]$/.exec(event.key)?.[0];
+export function shortcutIndex(
+  event: Omit<KeyLike, "code"> & { code?: string },
+  platform: Platform = currentPlatform(),
+): number | null {
+  const chord = chordOf(
+    event.code === undefined ? { ...event, code: "" } : (event as KeyLike),
+    platform,
+  );
+  if (chord === null || !chord.alt || chord.mod || chord.ctrl || chord.shift) return null;
+  const digit = /^Digit([1-9])$/.exec(chord.code)?.[1] ?? /^[1-9]$/.exec(event.key)?.[0];
   return digit ? Number(digit) - 1 : null;
 }
 

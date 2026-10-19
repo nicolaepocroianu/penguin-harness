@@ -64,14 +64,14 @@ check below refuses all of that; the bench itself refuses anything outside its r
 `out_of_surface`.
 
 Commit the change alone: this is **commit 1**, the one the bench scores. For a skill-body change,
-raise `plugins/waf-authoring/plugin.json`'s dated version in the same commit (it is in the bench's
-surface, and CI's `scripts/check-plugin-versions.mjs` requires it). Then check it:
+raise the dated `version` in that skill's `SKILL.md` frontmatter in the same commit (it is in the
+bench's surface, and CI's `scripts/check-plugin-versions.mjs` requires it). Then check it:
 
 ```bash
 node scripts/activity-reflection/check-change.mjs origin/main HEAD
 ```
 
-It refuses a file outside the write set, a changed frontmatter, a manifest changed beyond its
+It refuses a file outside the write set, a frontmatter changed beyond its version, a manifest changed beyond its
 version, and any added character a reviewer cannot see: every format, control, private-use and
 line- or paragraph-separator character (soft hyphen, zero-width and joiner characters, direction
 marks, embeddings, overrides and isolates, the tag block that can spell a hidden prompt), and the

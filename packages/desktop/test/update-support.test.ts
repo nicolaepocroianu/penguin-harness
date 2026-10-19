@@ -7,7 +7,9 @@ describe("updateSupport", () => {
 
   it("supports packaged macOS and Windows builds", () => {
     for (const platform of ["darwin", "win32"] as const) {
-      expect(updateSupport({ ...releases, isPackaged: true, platform, env: {} })).toEqual({
+      expect(
+        updateSupport({ ...releases, isPackaged: true, profile: "release", platform, env: {} }),
+      ).toEqual({
         supported: true,
       });
     }
@@ -15,11 +17,21 @@ describe("updateSupport", () => {
 
   it("supports Linux only when running as an AppImage", () => {
     const env = { APPIMAGE: "/opt/PenguinHarness.AppImage" };
-    expect(updateSupport({ ...releases, isPackaged: true, platform: "linux", env })).toEqual({
+    expect(
+      updateSupport({ ...releases, isPackaged: true, profile: "release", platform: "linux", env }),
+    ).toEqual({
       supported: true,
     });
     // A deb install has no APPIMAGE: updating around dpkg would desync the two.
-    expect(updateSupport({ ...releases, isPackaged: true, platform: "linux", env: {} })).toEqual({
+    expect(
+      updateSupport({
+        ...releases,
+        isPackaged: true,
+        profile: "release",
+        platform: "linux",
+        env: {},
+      }),
+    ).toEqual({
       supported: false,
       reason: "linux-not-appimage",
     });
@@ -30,19 +42,37 @@ describe("updateSupport", () => {
       updateSupport({
         ...releases,
         isPackaged: false,
+        profile: "dev",
         platform: "darwin",
         env: { APPIMAGE: "/x" },
       }),
     ).toEqual({ supported: false, reason: "dev" });
   });
 
+  it("never updates a packaged build on the dev profile: the installation is the release instance's", () => {
+    for (const platform of ["darwin", "win32"] as const) {
+      expect(
+        updateSupport({ ...releases, isPackaged: true, profile: "dev", platform, env: {} }),
+      ).toEqual({
+        supported: false,
+        reason: "dev",
+      });
+    }
+  });
+
   it("never updates a build whose repository publishes no releases, in any form", () => {
     const forms = [
-      { isPackaged: true, platform: "win32", env: {} },
-      { isPackaged: true, platform: "darwin", env: {} },
-      { isPackaged: true, platform: "linux", env: { APPIMAGE: "/opt/PenguinHarness.AppImage" } },
-      { isPackaged: true, platform: "linux", env: {} },
-      { isPackaged: false, platform: "darwin", env: {} },
+      { isPackaged: true, profile: "release", platform: "win32", env: {} },
+      { isPackaged: true, profile: "release", platform: "darwin", env: {} },
+      {
+        isPackaged: true,
+        profile: "release",
+        platform: "linux",
+        env: { APPIMAGE: "/opt/PenguinHarness.AppImage" },
+      },
+      { isPackaged: true, profile: "release", platform: "linux", env: {} },
+      { isPackaged: true, profile: "dev", platform: "win32", env: {} },
+      { isPackaged: false, profile: "dev", platform: "darwin", env: {} },
     ] as const;
     for (const form of forms) {
       expect(updateSupport({ ...form, publishesReleases: false })).toEqual({
@@ -56,6 +86,7 @@ describe("updateSupport", () => {
     expect(
       updateSupport({
         isPackaged: true,
+        profile: "release",
         platform: "win32",
         env: {},
         publishesReleases: RELEASE_IDENTITY.publishesReleases,

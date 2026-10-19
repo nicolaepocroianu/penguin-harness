@@ -24,6 +24,7 @@
  * minutes anyway, and no key exists until the exchange runs).
  */
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { userAgent } from "@prismshadow/penguin-core";
 import { APP_URL, providerInfo } from "@prismshadow/penguin-core/model-catalog";
 import type { ModelProviderOAuth } from "@prismshadow/penguin-core/model-catalog";
 import { HttpError } from "../http/errors.js";
@@ -172,7 +173,7 @@ export async function exchangeCode(input: {
   try {
     res = await input.fetchImpl(input.exchangeUrl, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "user-agent": userAgent() },
       body: JSON.stringify({
         code: input.code,
         code_verifier: input.verifier,
@@ -200,7 +201,7 @@ export async function exchangeCode(input: {
   return { ok: true, key };
 }
 
-/** Writes a minted key onto every model of one provider group; returns how many it touched. */
+/** Writes a minted key as one provider group's key; returns how many of its rows use it. */
 export type ApplyGroupKey = (
   projectId: string,
   provider: string,

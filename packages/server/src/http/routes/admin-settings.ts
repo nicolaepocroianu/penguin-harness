@@ -3,14 +3,19 @@
  * GET|PUT /api/admin/settings — the server-global settings stored in server_settings:
  * the proxy settings (the "application uses the proxy" and "agent environment uses the
  * proxy" switches and their shared explicit address), the upload limits (the
- * per-file and per-message attachment caps, in whole MB) and the activity switches (the
- * scene-video experiment, and how long an activity run may work).
+ * per-file and per-message attachment caps, in whole MB), the company-mode switch, the
+ * switch that lets users drive their own Chrome through the extension, the Agent API
+ * switch and the activity switches (the scene-video experiment, and how long an activity
+ * run may work).
  * A PUT applies immediately: everything is validated first (a rejected request writes
  * nothing), then the persisted values are written, then the process dispatcher is
  * rebuilt so new outbound connections follow the change without a restart (the agent
  * switch needs no push — the command-subprocess policy getter re-reads the repo at
  * every spawn). The upload limits need no push either, for the same reason: the
  * attachment validators and the request body cap both read the repo per request.
+ * A PUT carrying `agentApiEnabled` takes a person's sign-in: the local API token is refused
+ * with 403 `human_required`, and nothing in that body is written. The token may change every
+ * other field.
  *
  * GET /api/admin/settings/proxy-probe names the model provider hosts the reachability probe
  * would request; POST .../proxy-probe/:provider measures one of them — unauthenticated, see
@@ -23,6 +28,7 @@ import type {
   ServerSettingsResponse,
 } from "../../api/types.js";
 import { HttpError } from "../errors.js";
+import { requireHuman } from "../../auth/middleware.js";
 import type { AppEnv } from "../../auth/middleware.js";
 import { optionalBoolean, readJson } from "../validate.js";
 import type { ProxyControl } from "../../hmr/capabilities.js";
@@ -107,6 +113,8 @@ export function adminSettingsRoutes(deps: AdminSettingsRouteDeps): Hono<AppEnv> 
         deps.serverSettingsRepo.get(VIDEO_EXPERIMENT_SETTING),
       ),
       activityRunLimitMinutes: readRunLimitMinutes(deps.serverSettingsRepo.get(RUN_LIMIT_SETTING)),
+      browserExtensionsEnabled: deps.serverSettingsRepo.getBrowserExtensionsEnabled(),
+      agentApiEnabled: deps.serverSettingsRepo.getAgentApiEnabled(),
     },
   });
 
@@ -114,6 +122,10 @@ export function adminSettingsRoutes(deps: AdminSettingsRouteDeps): Hono<AppEnv> 
 
   app.put("/", async (c) => {
     const body = await readJson(c);
+    // The Agent API switch decides whether any Agent can be reached from outside, so it takes a
+    // person's sign-in, never the local API token every tool subprocess holds (see
+    // requireHuman). Refused before any field is written.
+    if (body.agentApiEnabled !== undefined) requireHuman(c);
     // Validate every provided field before writing any: a partial PUT with one invalid
     // field must leave the others untouched too.
     const proxyForApp = optionalBoolean(body, "proxyForApp");
@@ -122,6 +134,8 @@ export function adminSettingsRoutes(deps: AdminSettingsRouteDeps): Hono<AppEnv> 
     const videoExperiment = optionalBoolean(body, "activityVideoExperiment");
     const runLimitProvided = body.activityRunLimitMinutes !== undefined;
     const runLimit = runLimitProvided ? parseRunLimitMinutes(body.activityRunLimitMinutes) : null;
+    const browserExtensionsEnabled = optionalBoolean(body, "browserExtensionsEnabled");
+    const agentApiEnabled = optionalBoolean(body, "agentApiEnabled");
     const proxyUrlProvided = body.proxyUrl !== undefined;
     const proxyUrl = proxyUrlProvided ? parseProxyUrl(body.proxyUrl) : null;
     const attachmentMaxMb =
@@ -154,6 +168,14 @@ export function adminSettingsRoutes(deps: AdminSettingsRouteDeps): Hono<AppEnv> 
       deps.serverSettingsRepo.set(VIDEO_EXPERIMENT_SETTING, JSON.stringify(videoExperiment));
     // Read on every pass over the running runs: no restart, and runs already working follow it.
     if (runLimitProvided) deps.serverSettingsRepo.set(RUN_LIMIT_SETTING, JSON.stringify(runLimit));
+    // The browser module watches this key: off closes every connected Chrome extension (4009)
+    // at once and refuses new ones; on lets them reconnect.
+    if (browserExtensionsEnabled !== undefined) {
+      deps.serverSettingsRepo.setBrowserExtensionsEnabled(browserExtensionsEnabled);
+    }
+    // Read per request by the /api/amsp/v1 gate: off refuses every Agent API call from the next
+    // request on (403 agent_api_disabled); each Agent's switch, approval mode and keys stay.
+    if (agentApiEnabled !== undefined) deps.serverSettingsRepo.setAgentApiEnabled(agentApiEnabled);
     if (proxyForApp !== undefined) deps.serverSettingsRepo.setProxyForApp(proxyForApp);
     if (proxyForAgent !== undefined) deps.serverSettingsRepo.setProxyForAgent(proxyForAgent);
     if (proxyUrlProvided) deps.serverSettingsRepo.setProxyUrl(proxyUrl);
@@ -164,8 +186,8 @@ export function adminSettingsRoutes(deps: AdminSettingsRouteDeps): Hono<AppEnv> 
     // Mirror the app switch + address into the process: rebuilds the global fetch
     // dispatcher (live change, no restart; a no-op when nothing effectively changed).
     // Through the claimed capability, not a direct import: this route runs inside the
-    // platform bundle, whose own copy of net/proxy.js drives a dispatcher that
-    // globalThis.fetch never routes through (see AppDeps.proxyControl).
+    // platform bundle, whose own copy of net/proxy.js never installed the process
+    // dispatcher and would only record the settings (see AppDeps.proxyControl).
     deps.proxyControl({
       proxyForApp: deps.serverSettingsRepo.getProxyForApp(),
       proxyUrl: deps.serverSettingsRepo.getProxyUrl(),
@@ -197,9 +219,9 @@ export function adminSettingsRoutes(deps: AdminSettingsRouteDeps): Hono<AppEnv> 
     if (target === null) {
       throw new HttpError(404, "probe_target_not_found", "No probe target with that provider id.");
     }
-    // Plain global fetch on purpose — that is the undici fetch the startup entry installed,
-    // and it resolves the proxy dispatcher per call. No credential is attached anywhere
-    // below, including from the process environment (see services/proxy-probe.ts).
+    // Plain global fetch on purpose — the runtime's fetch resolves, per call, the proxy
+    // dispatcher the startup entry installed. No credential is attached anywhere below,
+    // including from the process environment (see services/proxy-probe.ts).
     const probe = await probeProxyReachabilityOf(target);
     return c.json({ probe } satisfies ProxyProbeResponse);
   });

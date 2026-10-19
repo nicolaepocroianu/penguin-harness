@@ -11,7 +11,13 @@
  * Project provisioning at signup.
  */
 import fs from "node:fs/promises";
-import { DEFAULT_PROJECT_ID, projectDir, provisionProjectAgents } from "@prismshadow/penguin-core";
+import {
+  DEFAULT_PROJECT_ID,
+  projectDir,
+  provisionProjectAgents,
+  provisionProjectBenchmarks,
+  type BuiltinBenchmark,
+} from "@prismshadow/penguin-core";
 import type { MemberInfo, ProjectRole, ProjectSummary } from "../api/types.js";
 import { HttpError } from "../http/errors.js";
 import type { ProjectRow } from "../db/repos/projects.js";
@@ -39,6 +45,7 @@ import type { Schedules, SessionIndex } from "../mechanisms/sessions.js";
 import type { ErrorLog, UsageStore } from "../mechanisms/observability.js";
 import type { TraceIndex } from "../mechanisms/traces.js";
 import type { OrgCache } from "../mechanisms/organization.js";
+import type { AgentApi } from "../mechanisms/agent-api.js";
 
 /** Fallback timeout for waiting on runs to settle before deleting a Project. */
 const ABORT_SETTLE_TIMEOUT_MS = 5000;
@@ -85,6 +92,9 @@ export class ProjectService implements ProjectLifecycle {
   @Use() private readonly activityRuns!: ProjectActivityRuns;
   /** The previews that built those runs' modules, told the folders are gone. */
   @Use() private readonly previews!: ProjectPreviews;
+  /** The Project's Agents' API settings and keys (web.db): a destroyed Project exposes nothing. */
+  @Use() private readonly agentApi!: AgentApi;
+  @Use() private readonly benchmarkSeeds!: BuiltinBenchmarkSeeds;
 
   // Access control lives in ProjectAccess (services/project-access.ts); these delegate so
   // in-package callers keep one entry point.
@@ -111,8 +121,8 @@ export class ProjectService implements ProjectLifecycle {
   /**
    * Create a Project: the id is chosen by the creator (a semantic id, checked for
    * duplicates against both the DB and the directory — 409 if taken), the initial
-   * config is written (display name defaults to the id), and the built-in Agent is
-   * initialized.
+   * config is written (display name defaults to the id), the built-in Agent is
+   * initialized, and the Project's Benchmarks are written (the only time they are).
    * A non-admin's id is forced to be "<username>-<suffix>", where the suffix is
    * lowercase letters, digits, and underscores only — the hyphen is a reserved
    * separator, usernames never contain a hyphen, so the first hyphen is the
@@ -169,7 +179,7 @@ export class ProjectService implements ProjectLifecycle {
       // The presets' promotions live in web.db, keyed to the row inserted above (and removed
       // with it by the rollback below).
       await this.projectConfig.seedPresetPromotions(projectId);
-      await this.provisionBuiltinAgents(projectId);
+      await this.provisionProjectDefaults(projectId);
     } catch (err) {
       this.projects.delete(projectId);
       await fs
@@ -214,8 +224,9 @@ export class ProjectService implements ProjectLifecycle {
       return;
     }
     const projectId = DEFAULT_PROJECT_ID;
-    // Initialize the built-in Agent (loaded without overwriting if it already exists); this also ensures the directory exists.
-    await this.provisionBuiltinAgents(projectId);
+    // Initialize the built-in Agent (loaded without overwriting if it already exists) and write
+    // the Benchmarks the directory lacks; this also ensures the directory exists.
+    await this.provisionProjectDefaults(projectId);
     // Adopting an existing directory doesn't go through writeInitialConfig: preset
     // models and the default model are backfilled instead (only when there are no
     // models at all; a default_project already configured via the CLI is left
@@ -307,6 +318,9 @@ export class ProjectService implements ProjectLifecycle {
     this.usage.deleteByProject(projectId);
     this.errors.deleteByProject(projectId);
     this.schedules.deleteByProject(projectId);
+    // Before the owner's user row can go (deleteUser destroys their Projects first): a key
+    // names its creator.
+    this.agentApi.deleteByProject(projectId);
     this.orgCache.deleteProject(projectId);
     this.traceIndex.removeProject(projectId);
     // The run folders go first: their ids went with the rows, so if the Project dir cannot be
@@ -368,14 +382,15 @@ export class ProjectService implements ProjectLifecycle {
   }
 
   /**
-   * Ensures the Project's built-in Agent exists (the sole built-in Agent
-   * default_agent; initialized if the directory is empty, otherwise loaded without
-   * overwriting) and indexes it. createdAt increments by 1ms in preset order, so
-   * built-in Agents stably sort first; other Agents backfilled by directory
-   * scanning are sorted by their own createdAt and are outside the scope of this
-   * guarantee.
+   * The Project's built-in Agent and its Benchmarks; existing directories are adopted, never
+   * overwritten. The built-in Agent (the sole one, default_agent) is initialized if its
+   * directory is empty, otherwise loaded, and indexed: createdAt increments by 1ms in preset
+   * order, so built-in Agents stably sort first; other Agents backfilled by directory scanning
+   * are sorted by their own createdAt and are outside the scope of this guarantee. Then the
+   * example and the built-in Benchmarks are written, each only where its directory is missing
+   * — the one time they are written; a failure reaches the caller.
    */
-  private async provisionBuiltinAgents(projectId: string): Promise<void> {
+  private async provisionProjectDefaults(projectId: string): Promise<void> {
     const agentIds = await provisionProjectAgents({ root: this.root, projectId });
     const base = Date.now();
     agentIds.forEach((agentId, i) => {
@@ -385,31 +400,48 @@ export class ProjectService implements ProjectLifecycle {
         createdAt: new Date(base + i).toISOString(),
       });
     });
+    await provisionProjectBenchmarks(this.root, projectId, this.benchmarkSeeds.benchmarks);
   }
 }
 
+/**
+ * The built-in Benchmarks a new Project is written with, beside the example. Absent is the
+ * shipped catalog. A test stands in none: they are most of the files a Project is created with
+ * (several hundred), and only the scenarios about them read them.
+ */
+@Interface()
+export abstract class BuiltinBenchmarkSeeds {
+  abstract benchmarks?: readonly BuiltinBenchmark[];
+}
+@Component()
+export class ShippedBuiltinBenchmarkSeeds implements BuiltinBenchmarkSeeds {}
+
 /** What destroying a Project needs of the session runtime — declared at the consumer. */
-export abstract class ProjectRuns extends Interface<{
-  abortProject(projectId: string): Promise<void>[];
-}>() {}
+@Interface()
+export abstract class ProjectRuns {
+  abstract abortProject(projectId: string): Promise<void>[];
+}
 
 /**
  * What destroying a Project needs of the activity runs worked under the server's own controller
  * (media helpers, local audio, test reruns), which have no Session to abort — declared at the
  * consumer.
  */
-export abstract class ProjectServerRuns extends Interface<{
-  abortProject(projectId: string): Promise<void>[];
-}>() {}
+@Interface()
+export abstract class ProjectServerRuns {
+  abstract abortProject(projectId: string): Promise<void>[];
+}
 
 /** What destroying a Project needs of its activity runs' folders — declared at the consumer. */
-export abstract class ProjectActivityRuns extends Interface<{
-  projectRunIds(projectId: string): string[];
+@Interface()
+export abstract class ProjectActivityRuns {
+  abstract projectRunIds(projectId: string): string[];
   /** Never rejects: a folder that cannot be removed is left in place and logged. */
-  removeWorkspaces(runIds: string[]): Promise<void>;
-}>() {}
+  abstract removeWorkspaces(runIds: string[]): Promise<void>;
+}
 
 /** What destroying a Project needs of the activity previews — declared at the consumer. */
-export abstract class ProjectPreviews extends Interface<{
-  forgetRuns(runIds: string[]): void;
-}>() {}
+@Interface()
+export abstract class ProjectPreviews {
+  abstract forgetRuns(runIds: string[]): void;
+}

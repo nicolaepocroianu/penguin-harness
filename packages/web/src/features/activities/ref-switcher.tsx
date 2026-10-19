@@ -11,18 +11,28 @@ import { useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router";
 import type { ActivityDetail, ActivityRecord } from "@prismshadow/penguin-server/api";
 import { ApiError } from "../../api/client";
-import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { FieldLabel } from "../../components/ui/field";
-import { InfoPopover } from "../../components/ui/info-popover";
-import { Input } from "../../components/ui/input";
-import { Modal } from "../../components/ui/modal";
-import { Dropdown, menuItemClass } from "../../components/ui/dropdown";
-import { CheckIcon, ChevronDown, CloseIcon } from "../../components/ui/icons";
-import { Switch } from "../../components/ui/switch";
+import {
+  Badge,
+  Button,
+  ConfirmModal,
+  FieldLabel,
+  InfoPopover,
+  Input,
+  Modal,
+  Dropdown,
+  ChevronDown,
+  CloseIcon,
+  Menu,
+  MenuItem,
+  MenuLabel,
+  MenuRadioItem,
+  MenuSeparator,
+  Switch,
+  ICON_SIZE,
+  useGuardedClose,
+  useUnsavedChanges,
+} from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
-import { ICON_SIZE } from "../../lib/icon-scale";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { normalizeTagInput } from "./activity-tags";
@@ -109,6 +119,7 @@ export function RefSwitcher({
   const [numberError, setNumberError] = useState<string | null>(null);
   const [numberBusy, setNumberBusy] = useState(false);
   const stableId = useId();
+  const settingsScope = `ref-settings${useId()}`;
   // Whether this ref is the product's template, which is where new refs are made from.
   const [canonical, setCanonical] = useState(false);
   useEffect(() => {
@@ -153,6 +164,25 @@ export function RefSwitcher({
     activity.stable,
     activity.refNum,
   ]);
+
+  /** The settings form back to the ref as it is stored. */
+  function resetSettings() {
+    setName(activity.displayName ?? "");
+    setStable(activity.stable);
+    setTags([...(activity.tags ?? [])]);
+    setTagText("");
+    setTagError("");
+    setError(null);
+  }
+  // The settings dialog holds edits until Save; leaving it with some asks first.
+  const settingsDirty =
+    editing &&
+    (name !== (activity.displayName ?? "") ||
+      stable !== activity.stable ||
+      !sameTags(tags, activity.tags ?? []) ||
+      tagText.trim() !== "");
+  useUnsavedChanges(settingsDirty, { scope: settingsScope, discard: resetSettings });
+  const closeSettings = useGuardedClose(() => setEditing(false), settingsScope);
 
   const label = (entry: ActivityRecord) =>
     words.option(entry.refNum, entry.displayName, entry.stable);
@@ -247,12 +277,7 @@ export function RefSwitcher({
             key: "settings",
             label: words.settings,
             run: () => {
-              setName(activity.displayName ?? "");
-              setStable(activity.stable);
-              setTags([...(activity.tags ?? [])]);
-              setTagText("");
-              setTagError("");
-              setError(null);
+              resetSettings();
               setEditing(true);
             },
           },
@@ -297,70 +322,38 @@ export function RefSwitcher({
           </Button>
         }
       >
-        <div role="menu" aria-label={words.menu} className="max-h-[60vh] overflow-y-auto py-1">
+        <Menu label={words.menu} density="md" className="max-h-[60vh] overflow-y-auto py-1">
           {others && (
             <>
-              <p className="px-3.5 pt-1 pb-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">
-                {words.refs}
-              </p>
+              <MenuLabel>{words.refs}</MenuLabel>
               {refs.map((entry) => (
-                <button
+                <MenuRadioItem
                   key={entry.id}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={entry.id === activity.id}
-                  onClick={() =>
+                  checked={entry.id === activity.id}
+                  label={label(entry)}
+                  onSelect={() =>
                     choose(() => {
                       if (entry.id !== activity.id)
                         navigate(`/activities/${encodeURIComponent(entry.id)}`);
                     })
                   }
-                  className={`${menuItemClass} flex items-center gap-2`}
-                >
-                  <span className="min-w-0 flex-1 truncate">{label(entry)}</span>
-                  {entry.id === activity.id && <CheckIcon className="shrink-0 text-gray-500" />}
-                </button>
-              ))}
-              {(actions.length > 0 || onReload) && (
-                <div
-                  role="separator"
-                  className="my-1 border-t border-gray-100 dark:border-gray-800"
                 />
-              )}
+              ))}
+              {(actions.length > 0 || onReload) && <MenuSeparator />}
             </>
           )}
           {actions.map((entry) => (
-            <button
-              key={entry.key}
-              type="button"
-              role="menuitem"
-              onClick={() => choose(entry.run)}
-              className={menuItemClass}
-            >
-              {entry.label}
-            </button>
+            <MenuItem key={entry.key} label={entry.label} onSelect={() => choose(entry.run)} />
           ))}
           {onReload && (
             <>
-              {actions.length > 0 && (
-                <div
-                  role="separator"
-                  className="my-1 border-t border-gray-100 dark:border-gray-800"
-                />
-              )}
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => choose(onReload)}
-                className={menuItemClass}
-              >
-                {S.activities.reload}
-              </button>
+              {actions.length > 0 && <MenuSeparator />}
+              <MenuItem label={S.activities.reload} onSelect={() => choose(onReload)} />
             </>
           )}
-        </div>
+        </Menu>
       </Dropdown>
-      {activity.stable && <Badge tone="gray">{words.stable}</Badge>}
+      {activity.stable && <Badge tone="neutral">{words.stable}</Badge>}
       <Modal
         open={renumbering}
         title={words.changeNumberTitle(activity.productCode, activity.refNum)}
@@ -418,7 +411,7 @@ export function RefSwitcher({
       <Modal
         open={editing}
         title={words.settingsTitle(activity.productCode, activity.refNum)}
-        onClose={() => setEditing(false)}
+        onClose={closeSettings}
         footer={
           <>
             <Button size="sm" variant="ghost" onClick={() => setEditing(false)} disabled={saving}>
@@ -491,7 +484,7 @@ export function RefSwitcher({
                       type="button"
                       aria-label={tagWords.removeTag(tag)}
                       onClick={() => setTags((current) => current.filter((entry) => entry !== tag))}
-                      className="rounded-full p-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-800 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                      className="rounded-full p-px text-gray-500 hover:bg-gray-200 hover:text-gray-800 dark:hover:bg-gray-700 dark:hover:text-gray-100"
                     >
                       <CloseIcon size={ICON_SIZE.rowMark} />
                     </button>
@@ -522,6 +515,7 @@ export function RefSwitcher({
         </div>
       </Modal>
       <ConfirmModal
+        cancelLabel={S.common.cancel}
         open={confirmDelete}
         title={deleteWords.confirmTitle}
         confirmLabel={deleteWords.action}

@@ -9,20 +9,26 @@
  * electron-updater can only replace the forms it installed: the NSIS installer on
  * Windows, the app bundle on macOS, and an AppImage on Linux. A `.deb` belongs to the
  * system package manager — silently "updating" around dpkg would leave the two disagreeing
- * about what is installed — and a dev run has no installed artifact at all.
+ * about what is installed — and a dev run has no installed artifact at all. A packaged
+ * build on the dev profile (`--dev`) does have one, but it is the release instance's
+ * installation, possibly running beside it; replacing it from here would pull the files
+ * out from under that instance, so the dev profile stands down too.
  */
+import type { Profile } from "./app-identity.js";
+
 export type UpdateSupport =
   { supported: true } | { supported: false; reason: "fork" | "dev" | "linux-not-appimage" };
 
 export function updateSupport(opts: {
   isPackaged: boolean;
+  profile: Profile;
   platform: NodeJS.Platform;
   env: NodeJS.ProcessEnv;
   /** RELEASE_IDENTITY.publishesReleases. */
   publishesReleases: boolean;
 }): UpdateSupport {
   if (!opts.publishesReleases) return { supported: false, reason: "fork" };
-  if (!opts.isPackaged) return { supported: false, reason: "dev" };
+  if (!opts.isPackaged || opts.profile !== "release") return { supported: false, reason: "dev" };
   // The AppImage runtime exports APPIMAGE with the path of the running image; a deb
   // install (or an extracted tree) has no such variable, and that is exactly the
   // distinction electron-updater's Linux path depends on.

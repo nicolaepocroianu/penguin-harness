@@ -6,11 +6,8 @@
  */
 import { useEffect, useRef, useState } from "react";
 import type { LibraryFile, UploadedMedia } from "@prismshadow/penguin-server/api";
-import { Button } from "../../components/ui/button";
+import { Button, Input, Modal, toastSuccess } from "@prismshadow/penguin-ui";
 import { ChipGroup } from "../../components/ui/chip-group";
-import { Input } from "../../components/ui/input";
-import { Modal } from "../../components/ui/modal";
-import { toastSuccess } from "../../components/ui/toast";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
@@ -249,7 +246,7 @@ export function MediaLibraryModal({
             ) : (
               <>
                 <MediaPlayer kind={selected.kind} src={selected.src} label={selected.name} />
-                <dl className="space-y-0.5 text-xs">
+                <dl className="space-y-1 text-xs">
                   <div className="flex gap-2">
                     <dt className="text-gray-500">{S.activities.libraryFile}</dt>
                     <dd className="min-w-0 break-all">{selected.name}</dd>

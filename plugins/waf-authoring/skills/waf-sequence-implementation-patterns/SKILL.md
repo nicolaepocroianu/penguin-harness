@@ -1,6 +1,7 @@
 ---
 name: waf-sequence-implementation-patterns
 description: Use when implementing `src/sequence.js` for pipeline-generated WAF HTML modules. Follow the concrete middleware, interactivity, input-handoff, repeat-audio, and cleanup patterns already used by the working WAF sequence modules in this repo.
+version: 2026.10.10.1
 ---
 
 # WAF Sequence Implementation Patterns

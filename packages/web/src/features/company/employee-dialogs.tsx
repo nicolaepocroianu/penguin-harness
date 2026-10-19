@@ -1,43 +1,85 @@
 /**
  * The org chart's personnel dialogs. Hire a subordinate — in two sections: the Agent (an
  * existing one of the Project, or a new one: id, name, description, plugins defaulting to
- * agent-company and agent-development) and the position (title, duties, workspace, budget)
- * — the single-field edits, each showing the current value first: budget (a monthly cap,
- * typed in the reader's own currency and stored in USD, or unbounded) and reporting line
- * (anyone outside the employee's own subtree); and the desk renewal, which writes the
- * workspace and opens a fresh desk session in one confirm. Every single-field edit stops at
- * the shared ConfirmModal first (the confirmation names what the chart file will say), then
- * calls the API; the renewal is its own confirmation and needs no second one.
+ * agent-company and agent-development) and the position (the employee's name, title, duties,
+ * workspace, budget); the employee's profile — the name the organization calls it, written on
+ * Save, and its picture, written as it is picked; the single-field edits, each showing the
+ * current value first: budget (a monthly cap, typed in the reader's own currency and stored in
+ * USD, or unbounded), reporting line (anyone outside the employee's own subtree) and thinking
+ * level; and the desk renewal, which writes the workspace and opens a fresh desk session in one
+ * confirm. Hire and Save write at once: their button is live only once every required field is
+ * filled and nothing typed is malformed (said under the field as it is typed), and Save only once
+ * the value differs from the stored one. A hire asks first only when a new Agent's picked plugin
+ * brings a stdio MCP server, showing the command it runs on this server. The renewal is its own
+ * confirmation. Closing any of them with unsaved edits asks first.
+ *
+ * The thinking level is not the chart's: a desk reads it from the employee's Agent config at
+ * every new model context, and a ticket session opens on it, so that config is what the edit
+ * writes — the same write the development draft's picker makes. A level picked inside the desk
+ * session pins only that session, which then no longer follows the config; the dialog says so
+ * when the current desk is pinned.
  */
 import { useEffect, useState } from "react";
-import type { OrgEmployeeItem, OrgHireRequest } from "@prismshadow/penguin-server/api";
+import type { ChangeEvent } from "react";
+import type {
+  AgentModelConfigDto,
+  OrgEmployeeItem,
+  OrgHireRequest,
+  PluginItem,
+} from "@prismshadow/penguin-server/api";
+import {
+  Button,
+  buttonClass,
+  ConfirmModal,
+  FieldError,
+  FieldLabel,
+  FormPicker,
+  HiddenFileInput,
+  ICONS,
+  Input,
+  Modal,
+  RuledSection,
+  Segmented,
+  Select,
+  Textarea,
+  discardUnsaved,
+  toastError,
+  toastSuccess,
+  useFormDraft,
+  useGuardedClose,
+  useUnsavedChanges,
+} from "@prismshadow/penguin-ui";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
+import {
+  avatarDataUrlFromImage,
+  loadAvatarImage,
+  releaseAvatarImage,
+} from "../../lib/avatar-image";
+import type { AvatarCrop } from "../../lib/avatar-image";
 import { SEMANTIC_ID_PATTERN } from "../../lib/semantic-id";
 import { formatMoney } from "../../lib/format";
 import { useCompany } from "../../state/company";
 import { agentDisplayName, useProject } from "../../state/project";
 import { useTheme } from "../../state/theme";
-import { Button } from "../../components/ui/button";
-import { Input, Textarea } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
-import { Segmented } from "../../components/ui/segmented";
-import { Modal } from "../../components/ui/modal";
-import { ConfirmModal } from "../../components/ui/confirm-modal";
-import { FormPicker } from "../../components/ui/form-picker";
-import { FieldError, FieldHint, FieldLabel } from "../../components/ui/field";
-import { toastError, toastSuccess } from "../../components/ui/toast";
-import { PLUGIN_ICON } from "../../components/ui/icons";
+import { AvatarCropDialog } from "../../components/ui/avatar-crop-dialog";
 import { SkillPickList } from "../skills/skill-pick-list";
 import type { PickableItem } from "../skills/skill-pick-list";
 import { addSkillNames, removeSkillNames, toggleSkillName } from "../skills/skill-selection";
-import { OrgSection } from "./org-layout";
-import { MoneyPerMonthInput } from "./shared";
+import { StdioDisclosure } from "../plugins/plugin-mcp";
+import { stdioServers } from "../plugins/plugin-status";
+import { InfoFieldLabel, MoneyPerMonthInput } from "./shared";
 import { fromStoredUsd, isBudgetText, toStoredUsd } from "./budget-input";
 import { deskRenewPlan } from "./desk-renew";
+import { EmployeeAvatar } from "./employee-avatar";
 import { managerCandidates } from "./org-chart-tree";
+import {
+  SELECTABLE_THINKING_LEVELS,
+  effectiveThinkingLevel,
+  thinkingLevelLabel,
+} from "../chat/thinking-level";
 
 /** The plugins a new employee starts with: the organization procedures and the development skills. */
 const DEFAULT_EMPLOYEE_PLUGINS = ["agent-company", "agent-development"];
@@ -51,15 +93,26 @@ function CurrentValue({ value }: { value: string }) {
   );
 }
 
-export function HireDialog({
-  open,
-  projectId,
-  orgId,
-  manager,
-  employees,
-  onClose,
-  onHired,
-}: {
+/** A library plugin as a picker row, keeping what the hire confirmation reads: its title and its MCP servers. */
+type HirePluginItem = PickableItem & Pick<PluginItem, "title" | "titleZh" | "mcpServers">;
+
+/** The hire form's fields, as typed. */
+interface HireDraft {
+  source: "existing" | "new";
+  agentId: string;
+  newId: string;
+  newName: string;
+  newDescription: string;
+  plugins: string[];
+  /** What the organization calls the employee; for a new Agent its name stands in when empty. */
+  employeeName: string;
+  title: string;
+  duties: string;
+  workspace: string;
+  budget: string;
+}
+
+interface HireDialogProps {
   open: boolean;
   projectId: string;
   orgId: string;
@@ -68,45 +121,10 @@ export function HireDialog({
   employees: readonly OrgEmployeeItem[];
   onClose: () => void;
   onHired: () => void;
-}) {
-  const { agents } = useProject();
-  const { currency } = useTheme();
-  const company = useCompany();
-  const [source, setSource] = useState<"existing" | "new">("existing");
-  const [agentId, setAgentId] = useState("");
-  const [newId, setNewId] = useState("");
-  const [newName, setNewName] = useState("");
-  const [newDescription, setNewDescription] = useState("");
-  const [plugins, setPlugins] = useState<string[]>(DEFAULT_EMPLOYEE_PLUGINS);
-  const [pluginsOpen, setPluginsOpen] = useState(false);
-  const [library, setLibrary] = useState<PickableItem[] | null>(null);
-  const [title, setTitle] = useState("");
-  const [duties, setDuties] = useState("");
-  const [workspace, setWorkspace] = useState("");
-  const [budget, setBudget] = useState("");
-  const [errors, setErrors] = useState<{ agent?: string; title?: string; budget?: string }>({});
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
+}
 
-  /** Agents of the Project not yet in the organization. */
-  const employed = new Set(employees.map((e) => e.agentId));
-  const candidates = agents.filter((a) => !employed.has(a.agentId));
-
-  useEffect(() => {
-    if (!open) return;
-    setSource(candidates.length > 0 ? "existing" : "new");
-    setAgentId(candidates[0]?.agentId ?? "");
-    setNewId("");
-    setNewName("");
-    setNewDescription("");
-    setPlugins(DEFAULT_EMPLOYEE_PLUGINS);
-    setTitle("");
-    setDuties("");
-    setWorkspace("");
-    setBudget("");
-    setErrors({});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+export function HireDialog({ open, ...props }: HireDialogProps) {
+  const [library, setLibrary] = useState<HirePluginItem[] | null>(null);
 
   // The plugin library is fetched the first time the dialog opens, for the picker.
   useEffect(() => {
@@ -117,7 +135,7 @@ export function HireDialog({
       .then((res) => {
         if (cancelled) return;
         setLibrary(
-          res.groups.flatMap((g) => g.plugins.map((p) => ({ ...p, fallbackIcon: PLUGIN_ICON }))),
+          res.groups.flatMap((g) => g.plugins.map((p) => ({ ...p, fallbackIcon: ICONS.puzzle }))),
         );
       })
       .catch(() => {
@@ -127,6 +145,63 @@ export function HireDialog({
       cancelled = true;
     };
   }, [open, library]);
+
+  // The form is mounted only while the dialog is open, so every opening starts blank.
+  return open ? <HireForm {...props} library={library} /> : null;
+}
+
+function HireForm({
+  projectId,
+  orgId,
+  manager,
+  employees,
+  onClose,
+  onHired,
+  library,
+}: Omit<HireDialogProps, "open"> & { library: HirePluginItem[] | null }) {
+  const { agents } = useProject();
+  const { currency } = useTheme();
+  const company = useCompany();
+
+  /** Agents of the Project not yet in the organization. */
+  const employed = new Set(employees.map((e) => e.agentId));
+  const candidates = agents.filter((a) => !employed.has(a.agentId));
+
+  // Where the form opens: an existing Agent when there is one to pick, else a new one.
+  const [opening] = useState<HireDraft>(() => ({
+    source: candidates.length > 0 ? "existing" : "new",
+    agentId: candidates[0]?.agentId ?? "",
+    newId: "",
+    newName: "",
+    newDescription: "",
+    plugins: DEFAULT_EMPLOYEE_PLUGINS,
+    employeeName: "",
+    title: "",
+    duties: "",
+    workspace: "",
+    budget: "",
+  }));
+  const form = useFormDraft(opening, {
+    normalize: (d) => ({
+      ...d,
+      newId: d.newId.trim(),
+      newName: d.newName.trim(),
+      newDescription: d.newDescription.trim(),
+      plugins: [...d.plugins].sort(),
+      employeeName: d.employeeName.trim(),
+      title: d.title.trim(),
+      duties: d.duties.trim(),
+      workspace: d.workspace.trim(),
+      budget: d.budget.trim(),
+    }),
+  });
+  const { source, agentId, newId, newName, newDescription, plugins } = form.draft;
+  const { employeeName, title, duties, workspace, budget } = form.draft;
+  const [pluginsOpen, setPluginsOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  /** Hiring waits on the confirmation a new Agent's stdio MCP server asks for: the command it runs on this server. */
+  const [stdioConfirmOpen, setStdioConfirmOpen] = useState(false);
+  const requestClose = useGuardedClose(onClose, form.scope, { locked: busy });
 
   const picked = agents.find((a) => a.agentId === agentId);
   // Left empty, the server partitions the shared workspace by Agent id, so the placeholder
@@ -139,27 +214,38 @@ export function HireDialog({
         : agentId
       : newName.trim() || newId.trim();
 
-  const validate = (): boolean => {
-    const next: typeof errors = {};
-    if (source === "existing") {
-      if (!agentId) next.agent = S.common.requiredField;
-    } else if (!newId.trim()) {
-      next.agent = S.common.requiredField;
-    } else if (!SEMANTIC_ID_PATTERN.test(newId.trim())) {
-      next.agent = S.company.chart.agentIdHint;
-    }
-    if (!title.trim()) next.title = S.common.requiredField;
-    if (!isBudgetText(budget)) next.budget = S.company.chart.budgetHint;
-    setErrors(next);
-    return Object.keys(next).length === 0;
-  };
+  // Malformed values are said under their fields as they are typed; an empty required field is
+  // marked by its asterisk and holds Hire until it is filled.
+  const idBroken = newId.trim() !== "" && !SEMANTIC_ID_PATTERN.test(newId.trim());
+  const budgetBroken = !isBudgetText(budget);
+  const valid =
+    (source === "existing" ? agentId !== "" : newId.trim() !== "" && !idBroken) &&
+    title.trim() !== "" &&
+    !budgetBroken;
 
-  const hire = async () => {
+  /** The new Agent's picked plugins that carry a stdio MCP server: hiring runs their commands on this server. */
+  const stdioSeeds =
+    source === "new"
+      ? (library ?? []).filter(
+          (plugin) => plugins.includes(plugin.name) && stdioServers(plugin).length > 0,
+        )
+      : [];
+
+  /** `confirmed`: the stdio confirmation was answered, or nothing picked asks for one. */
+  const hire = async (confirmed = false) => {
+    if (!valid || busy) return;
+    // A new employee's plugin with a stdio MCP server runs a command on this server whenever a
+    // session of the Agent starts: said, and confirmed, before the Agent is created.
+    if (!confirmed && stdioSeeds.length > 0) {
+      setStdioConfirmOpen(true);
+      return;
+    }
     setBusy(true);
     try {
       // The box speaks the reader's currency; the chart file holds USD.
       const budgetUsd = toStoredUsd(budget, currency);
       const body: OrgHireRequest = {
+        ...(employeeName.trim() ? { name: employeeName.trim() } : {}),
         title: title.trim(),
         reportsTo: manager.agentId,
         ...(source === "existing"
@@ -182,10 +268,10 @@ export function HireDialog({
       // cannot be opened or bound until some later event happens to refresh the cache.
       void company.reloadOrgSessions();
       toastSuccess(S.company.chart.hired(hireName));
-      setConfirmOpen(false);
+      setStdioConfirmOpen(false);
       onHired();
     } catch (e) {
-      setConfirmOpen(false);
+      setStdioConfirmOpen(false);
       toastError(apiErrorText(e));
     } finally {
       setBusy(false);
@@ -195,30 +281,28 @@ export function HireDialog({
   return (
     <>
       <Modal
-        open={open}
+        open
         title={S.company.chart.hireTitle(manager.name)}
-        onClose={onClose}
+        onClose={requestClose}
         widthClass="sm:max-w-lg"
         footer={
           <>
-            <Button size="sm" onClick={onClose} disabled={busy}>
+            <Button size="sm" onClick={requestClose} disabled={busy}>
               {S.common.cancel}
             </Button>
             <Button
               size="sm"
               variant="primary"
-              disabled={busy}
-              onClick={() => {
-                if (validate()) setConfirmOpen(true);
-              }}
+              disabled={!valid || busy}
+              onClick={() => void hire()}
             >
               {S.company.chart.hire}
             </Button>
           </>
         }
       >
-        <div className="space-y-5">
-          <OrgSection title={S.company.chart.hireAgentSection}>
+        <div className="space-y-6">
+          <RuledSection level={3} title={S.company.chart.hireAgentSection}>
             <div className="space-y-3">
               <div>
                 <FieldLabel>{S.company.chart.hireSource}</FieldLabel>
@@ -228,33 +312,35 @@ export function HireDialog({
                     { value: "new" as const, label: S.company.chart.hireNew },
                   ]}
                   value={source}
-                  onChange={setSource}
+                  onChange={(next) => form.patch({ source: next })}
                   cols={2}
                 />
               </div>
               {source === "existing" ? (
-                <Select
-                  size="sm"
-                  label={S.company.chart.agent}
-                  required
-                  value={agentId}
-                  hint={S.company.chart.agentHint}
-                  {...(errors.agent !== undefined ? { error: errors.agent } : {})}
-                  onChange={(e) => {
-                    setAgentId(e.target.value);
-                    setErrors((p) => ({ ...p, agent: undefined }));
-                  }}
-                >
-                  {candidates.length === 0 ? (
-                    <option value="">{S.company.chart.noAgentsLeft}</option>
-                  ) : (
-                    candidates.map((a) => (
-                      <option key={a.agentId} value={a.agentId}>
-                        {agentDisplayName(a)} ({a.agentId})
-                      </option>
-                    ))
-                  )}
-                </Select>
+                <div>
+                  <InfoFieldLabel
+                    label={S.company.chart.agent}
+                    info={S.company.chart.agentHint}
+                    required
+                  />
+                  <Select
+                    size="sm"
+                    aria-label={S.company.chart.agent}
+                    required
+                    value={agentId}
+                    onChange={(e) => form.patch({ agentId: e.target.value })}
+                  >
+                    {candidates.length === 0 ? (
+                      <option value="">{S.company.chart.noAgentsLeft}</option>
+                    ) : (
+                      candidates.map((a) => (
+                        <option key={a.agentId} value={a.agentId}>
+                          {agentDisplayName(a)} ({a.agentId})
+                        </option>
+                      ))
+                    )}
+                  </Select>
+                </div>
               ) : (
                 <>
                   <Input
@@ -264,28 +350,28 @@ export function HireDialog({
                     value={newId}
                     className="font-mono"
                     hint={S.company.chart.agentIdHint}
-                    {...(errors.agent !== undefined ? { error: errors.agent } : {})}
-                    onChange={(e) => {
-                      setNewId(e.target.value);
-                      setErrors((p) => ({ ...p, agent: undefined }));
-                    }}
+                    {...(idBroken ? { error: S.company.chart.agentIdHint } : {})}
+                    onChange={(e) => form.patch({ newId: e.target.value })}
                   />
                   <Input
                     label={S.company.chart.agentName}
                     size="sm"
                     value={newName}
-                    hint={S.company.chart.agentNameHint}
-                    onChange={(e) => setNewName(e.target.value)}
+                    info={S.company.chart.agentNameHint}
+                    onChange={(e) => form.patch({ newName: e.target.value })}
                   />
                   <Textarea
                     label={S.company.chart.agentDescription}
                     size="sm"
                     rows={2}
                     value={newDescription}
-                    onChange={(e) => setNewDescription(e.target.value)}
+                    onChange={(e) => form.patch({ newDescription: e.target.value })}
                   />
                   <div>
-                    <FieldLabel>{S.company.chart.plugins}</FieldLabel>
+                    <InfoFieldLabel
+                      label={S.company.chart.plugins}
+                      info={S.company.chart.pluginsHint}
+                    />
                     <FormPicker
                       open={pluginsOpen}
                       setOpen={setPluginsOpen}
@@ -295,7 +381,6 @@ export function HireDialog({
                           : S.company.chart.pluginsPicked(plugins.length)
                       }
                       muted={plugins.length === 0}
-                      title={S.company.chart.plugins}
                       ariaLabel={S.company.chart.plugins}
                       disabled={busy}
                       menuClass="w-[26rem]"
@@ -303,10 +388,12 @@ export function HireDialog({
                       <SkillPickList
                         skills={library ?? []}
                         selected={plugins}
-                        onToggle={(name) => setPlugins((prev) => toggleSkillName(prev, name))}
-                        onSelectAll={(names) => setPlugins((prev) => addSkillNames(prev, names))}
+                        onToggle={(name) => form.patch({ plugins: toggleSkillName(plugins, name) })}
+                        onSelectAll={(names) =>
+                          form.patch({ plugins: addSkillNames(plugins, names) })
+                        }
                         onSelectNone={(names) =>
-                          setPlugins((prev) => removeSkillNames(prev, names))
+                          form.patch({ plugins: removeSkillNames(plugins, names) })
                         }
                         emptyHint={
                           library === null ? S.common.loading : S.company.chart.pluginsEmpty
@@ -314,78 +401,103 @@ export function HireDialog({
                         searchPlaceholder={S.plugins.searchPlaceholder}
                       />
                     </FormPicker>
-                    <FieldHint>{S.company.chart.pluginsHint}</FieldHint>
                   </div>
                 </>
               )}
             </div>
-          </OrgSection>
-          <OrgSection title={S.company.chart.hirePositionSection}>
+          </RuledSection>
+          <RuledSection level={3} title={S.company.chart.hirePositionSection}>
             <div className="space-y-3">
+              <Input
+                label={S.company.chart.employeeName}
+                size="sm"
+                value={employeeName}
+                maxLength={64}
+                hint={S.company.chart.employeeNameHireHint}
+                onChange={(e) => form.patch({ employeeName: e.target.value })}
+              />
               <Input
                 label={S.company.chart.employeeTitle}
                 required
                 size="sm"
                 value={title}
                 placeholder={S.company.chart.employeeTitlePlaceholder}
-                {...(errors.title !== undefined ? { error: errors.title } : {})}
-                onChange={(e) => {
-                  setTitle(e.target.value);
-                  setErrors((p) => ({ ...p, title: undefined }));
-                }}
+                onChange={(e) => form.patch({ title: e.target.value })}
               />
               <Textarea
                 label={S.company.chart.duties}
                 size="sm"
                 rows={2}
                 value={duties}
-                hint={S.company.chart.dutiesHint}
-                onChange={(e) => setDuties(e.target.value)}
+                info={S.company.chart.dutiesHint}
+                onChange={(e) => form.patch({ duties: e.target.value })}
               />
               <Input
                 label={S.company.chart.workspace}
                 size="sm"
                 value={workspace}
                 className="font-mono"
-                hint={S.company.chart.hireWorkspaceHint}
+                hint={S.company.chart.workspaceHint}
                 placeholder={hireAgentId}
-                onChange={(e) => setWorkspace(e.target.value)}
+                onChange={(e) => form.patch({ workspace: e.target.value })}
               />
               <MoneyPerMonthInput
                 label={S.company.chart.budget}
                 currency={currency}
                 value={budget}
-                placeholder={S.company.chart.budgetPlaceholder}
-                hint={S.company.chart.budgetHint}
-                {...(errors.budget !== undefined ? { error: errors.budget } : {})}
-                onChange={(text) => {
-                  setBudget(text);
-                  setErrors((p) => ({ ...p, budget: undefined }));
-                }}
+                placeholder={S.company.noBudget}
+                info={S.company.chart.budgetHint}
+                {...(budgetBroken ? { error: S.company.chart.budgetHint } : {})}
+                onChange={(text) => form.patch({ budget: text })}
               />
             </div>
-          </OrgSection>
+          </RuledSection>
         </div>
       </Modal>
+      {/* Only a new Agent whose picked plugin brings a stdio MCP server asks before the hire: that
+          server runs a command on this server whenever a session of the Agent starts, said here
+          before the Agent is created, as Create Agent asks. Any other hire writes at once. The
+          compact card has no title bar, so the body asks. */}
       <ConfirmModal
-        open={confirmOpen}
-        title={S.company.chart.hire}
+        open={stdioConfirmOpen}
+        title={S.company.chart.hireStdioQuestion(hireName)}
         tone="primary"
-        confirmLabel={S.common.confirm}
+        glyph={ICONS.terminalPrompt}
+        confirmLabel={S.company.chart.hire}
+        cancelLabel={S.common.cancel}
         busy={busy}
-        onClose={() => (busy ? undefined : setConfirmOpen(false))}
-        onConfirm={() => void hire()}
+        onClose={() => (busy ? undefined : setStdioConfirmOpen(false))}
+        onConfirm={() => void hire(true)}
       >
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          {S.company.chart.hireConfirm(hireName, manager.name)}
-        </p>
+        <div className="space-y-3">
+          <p className="text-sm font-medium">{S.company.chart.hireStdioQuestion(hireName)}</p>
+          <StdioDisclosure plugins={stdioSeeds} />
+        </div>
       </ConfirmModal>
     </>
   );
 }
 
 /** Which single-field edit a dialog performs. */
-export type EmployeeEdit = "budget" | "reportsTo";
+export type EmployeeEdit = "budget" | "reportsTo" | "thinkingLevel";
+
+/** What the thinking-level edit reads before it offers anything: the Agent's own level ("" = none), what that resolves to, and the desk's pin ("" = none). */
+interface ThinkingLevelReading {
+  own: string;
+  effective: string;
+  pinned: string;
+}
+
+/** A level as the reader sees it: the tier's name, the raw value for anything unknown. */
+const levelName = (level: string): string =>
+  thinkingLevelLabel(S.chat.thinkingLevelNames, level) ?? level;
+
+/** Where the menu starts for a level in effect: that level, or the default tier for one the menu does not offer ("none"). */
+const menuLevel = (effective: string): string =>
+  (SELECTABLE_THINKING_LEVELS as readonly string[]).includes(effective) ? effective : "medium";
+
+/** The single-field edit's typing: what its close asks about. */
+const EMPLOYEE_EDIT_SCOPE = "employee-edit";
 
 export function EmployeeEditDialog({
   edit,
@@ -406,65 +518,111 @@ export function EmployeeEditDialog({
   onSaved: () => void;
 }) {
   const { currency } = useTheme();
-  const [value, setValue] = useState("");
-  const [error, setError] = useState<string | undefined>(undefined);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
   const managers = managerCandidates(employees, employee.agentId);
+  /** The thinking-level edit's reading; null while it loads (or for the other edits). */
+  const [levels, setLevels] = useState<ThinkingLevelReading | null>(null);
+  /** The thinking-level edit before its reading has landed: nothing to offer, edit or save yet. */
+  const reading = edit === "thinkingLevel" && levels === null;
+  /**
+   * What the field opens with: the stored budget in the reader's currency, the current manager,
+   * or the level in effect once it has been read.
+   */
+  const opening =
+    edit === "budget"
+      ? fromStoredUsd(employee.budget, currency)
+      : edit === "thinkingLevel"
+        ? levels === null
+          ? ""
+          : menuLevel(levels.effective)
+        : (employee.reportsTo ?? managers[0]?.agentId ?? "");
+  const [value, setValue] = useState(opening);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (edit === null) return;
-    setError(undefined);
-    setValue(
-      edit === "budget"
-        ? fromStoredUsd(employee.budget, currency)
-        : (employee.reportsTo ?? managers[0]?.agentId ?? ""),
-    );
+    setValue(opening);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [edit, employee]);
+
+  // The thinking level lives in the Agent's config, the Project default stands in for an Agent
+  // without one, and the desk Session may carry a pin of its own: all three are read before
+  // anything is offered. Only the config is required; the other two degrade to "unknown".
+  useEffect(() => {
+    if (edit !== "thinkingLevel") return;
+    setLevels(null);
+    let cancelled = false;
+    const deskId = employee.desk?.sessionId;
+    Promise.all([
+      api.getAgentConfig(projectId, employee.agentId),
+      api.getChatDefaults(projectId).catch(() => null),
+      deskId === undefined ? null : api.getSession(deskId).catch(() => null),
+    ]).then(
+      ([config, defaults, desk]) => {
+        if (cancelled) return;
+        const own = config.config.model?.thinkingLevel ?? "";
+        const effective = effectiveThinkingLevel(own, defaults?.thinkingLevel);
+        const pin = desk?.session.thinkingLevel ?? "";
+        setLevels({
+          own,
+          effective,
+          pinned: thinkingLevelLabel(S.chat.thinkingLevelNames, pin) === null ? "" : pin,
+        });
+        setValue(menuLevel(effective));
+      },
+      (e: unknown) => {
+        if (cancelled) return;
+        toastError(apiErrorText(e));
+        onClose();
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edit, employee, projectId]);
+
+  /** The field holds an edit; a closed dialog, or a level still being read, holds none. */
+  const dirty = edit !== null && !reading && value.trim() !== opening.trim();
+  useUnsavedChanges(dirty, { scope: EMPLOYEE_EDIT_SCOPE, discard: () => setValue(opening) });
+  const requestClose = useGuardedClose(onClose, EMPLOYEE_EDIT_SCOPE, { locked: busy });
+  /** What is wrong with the value as it stands; said under the field once it has been edited. */
+  const problem =
+    edit === "budget" && !isBudgetText(value)
+      ? S.company.chart.budgetHint
+      : edit === "reportsTo" && !managers.some((m) => m.agentId === value)
+        ? S.company.chart.reportsToCycle
+        : undefined;
+  const shownProblem = dirty ? problem : undefined;
 
   const managerName = (id: string) => employees.find((e) => e.agentId === id)?.name ?? id;
   const title =
     edit === "budget"
       ? S.company.chart.budgetTitle(employee.name)
-      : S.company.chart.reportsToTitle(employee.name);
-  /** What the confirmation names: the typed amount as it will be stored, read back in the reader's currency. */
-  const budgetLabel = (raw: string) => {
-    const usd = toStoredUsd(raw, currency);
-    return usd === null ? S.company.noBudget : formatMoney(usd, currency);
-  };
-  const confirmText =
-    edit === "budget"
-      ? S.company.chart.budgetConfirm(employee.name, budgetLabel(value))
-      : S.company.chart.reportsToConfirm(employee.name, managerName(value));
-
-  const validate = (): boolean => {
-    if (edit === "budget" && !isBudgetText(value)) {
-      setError(S.company.chart.budgetHint);
-      return false;
-    }
-    if (edit === "reportsTo" && !managers.some((m) => m.agentId === value)) {
-      setError(S.company.chart.reportsToCycle);
-      return false;
-    }
-    return true;
-  };
+      : edit === "thinkingLevel"
+        ? S.company.chart.thinkingLevelTitle(employee.name)
+        : S.company.chart.reportsToTitle(employee.name);
 
   const save = async () => {
-    if (edit === null) return;
+    if (edit === null || reading || !dirty || problem !== undefined || busy) return;
     setBusy(true);
     try {
-      await api.patchOrgEmployee(
-        projectId,
-        orgId,
-        employee.agentId,
-        edit === "budget" ? { budget: toStoredUsd(value, currency) } : { reportsTo: value },
-      );
-      toastSuccess(S.company.chart.saved);
-      setConfirmOpen(false);
+      if (edit === "thinkingLevel") {
+        // The PUT carries only this key: the server merges it into the YAML, nothing else moves.
+        await api.putAgentConfig(projectId, employee.agentId, {
+          config: { model: { thinkingLevel: value as AgentModelConfigDto["thinkingLevel"] } },
+        });
+        toastSuccess(S.common.saved);
+      } else {
+        await api.patchOrgEmployee(
+          projectId,
+          orgId,
+          employee.agentId,
+          edit === "budget" ? { budget: toStoredUsd(value, currency) } : { reportsTo: value },
+        );
+        toastSuccess(S.company.chart.saved);
+      }
       onSaved();
     } catch (e) {
-      setConfirmOpen(false);
       toastError(apiErrorText(e));
     } finally {
       setBusy(false);
@@ -476,19 +634,17 @@ export function EmployeeEditDialog({
       <Modal
         open={edit !== null}
         title={title}
-        onClose={onClose}
+        onClose={requestClose}
         footer={
           <>
-            <Button size="sm" onClick={onClose} disabled={busy}>
+            <Button size="sm" onClick={requestClose} disabled={busy}>
               {S.common.cancel}
             </Button>
             <Button
               size="sm"
               variant="primary"
-              disabled={busy}
-              onClick={() => {
-                if (validate()) setConfirmOpen(true);
-              }}
+              disabled={busy || reading || !dirty || problem !== undefined}
+              onClick={() => void save()}
             >
               {S.common.save}
             </Button>
@@ -508,24 +664,18 @@ export function EmployeeEditDialog({
               label={S.company.chart.budget}
               currency={currency}
               value={value}
-              placeholder={S.company.chart.budgetPlaceholder}
-              hint={S.company.chart.budgetHint}
-              {...(error !== undefined ? { error } : {})}
+              placeholder={S.company.noBudget}
+              info={S.company.chart.budgetHint}
+              {...(shownProblem !== undefined ? { error: shownProblem } : {})}
               autoFocus
-              onChange={(text) => {
-                setValue(text);
-                setError(undefined);
-              }}
+              onChange={setValue}
             />
             <div className="flex justify-end">
               <Button
                 size="sm"
                 variant="ghost"
                 disabled={busy || value.trim() === ""}
-                onClick={() => {
-                  setValue("");
-                  setError(undefined);
-                }}
+                onClick={() => setValue("")}
               >
                 {S.company.chart.clearBudget}
               </Button>
@@ -538,16 +688,18 @@ export function EmployeeEditDialog({
               value={employee.reportsTo === null ? "—" : managerName(employee.reportsTo)}
             />
             <div>
+              <InfoFieldLabel
+                label={S.company.chart.manager}
+                info={S.company.chart.reportsToHint}
+                required
+              />
               <Select
                 size="sm"
-                label={S.company.chart.manager}
+                aria-label={S.company.chart.manager}
+                required
                 value={value}
-                hint={S.company.chart.reportsToHint}
-                {...(error !== undefined ? { error } : {})}
-                onChange={(e) => {
-                  setValue(e.target.value);
-                  setError(undefined);
-                }}
+                {...(shownProblem !== undefined ? { error: shownProblem } : {})}
+                onChange={(e) => setValue(e.target.value)}
               >
                 {managers.map((m) => (
                   <option key={m.agentId} value={m.agentId}>
@@ -559,19 +711,203 @@ export function EmployeeEditDialog({
             </div>
           </div>
         )}
+        {edit === "thinkingLevel" && (
+          <div className="space-y-3">
+            <CurrentValue
+              value={
+                levels === null
+                  ? "…"
+                  : levels.own === ""
+                    ? S.company.chart.thinkingLevelDefault(levelName(levels.effective))
+                    : levelName(levels.own)
+              }
+            />
+            <div>
+              <InfoFieldLabel
+                label={S.chat.thinkingLevel}
+                info={S.company.chart.thinkingLevelInfo}
+              />
+              <Select
+                size="sm"
+                aria-label={S.chat.thinkingLevel}
+                value={value}
+                disabled={levels === null}
+                onChange={(e) => setValue(e.target.value)}
+              >
+                {SELECTABLE_THINKING_LEVELS.map((level) => (
+                  <option key={level} value={level}>
+                    {levelName(level)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            {levels !== null && levels.pinned !== "" && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {S.company.chart.thinkingLevelPinned(levelName(levels.pinned))}
+              </p>
+            )}
+          </div>
+        )}
       </Modal>
-      <ConfirmModal
-        open={confirmOpen}
-        title={title}
-        tone="primary"
-        confirmLabel={S.common.save}
-        busy={busy}
-        onClose={() => (busy ? undefined : setConfirmOpen(false))}
-        onConfirm={() => void save()}
-      >
-        <p className="text-sm text-gray-600 dark:text-gray-300">{confirmText}</p>
-      </ConfirmModal>
     </>
+  );
+}
+
+/**
+ * What the organization calls an employee, and what it looks like: the chart entry's `name`
+ * and the picture in the organization's `avatars/`. Both are the organization's, not the
+ * Agent's — the same Agent may be someone else elsewhere. The picture is written as it is
+ * picked (the picker re-encodes it to fit, like a person's own): direct manipulation, with
+ * nothing to review first. The name is typed, so it waits for Save, live only while the trimmed
+ * name differs from the stored one; closing with an unsaved name asks first, and nothing closes
+ * the dialog while a write is in flight.
+ */
+interface EmployeeProfileDialogProps {
+  open: boolean;
+  projectId: string;
+  orgId: string;
+  employee: OrgEmployeeItem;
+  onClose: () => void;
+  /** The name or the picture was written: the caller re-reads the chart. */
+  onChanged: () => void;
+}
+
+export function EmployeeProfileDialog({ open, ...props }: EmployeeProfileDialogProps) {
+  // Mounted only while open, so every opening starts from the stored name; a re-read of the
+  // chart, which a picture write triggers, leaves a name still being typed alone.
+  return open ? <EmployeeProfileForm key={props.employee.agentId} {...props} /> : null;
+}
+
+function EmployeeProfileForm({
+  projectId,
+  orgId,
+  employee,
+  onClose,
+  onChanged,
+}: Omit<EmployeeProfileDialogProps, "open">) {
+  /** The typed name against the stored one; trimmed before comparing, as Save stores it. */
+  const form = useFormDraft(employee.givenName ?? "", { normalize: (value) => value.trim() });
+  const name = form.draft;
+  const [error, setError] = useState<string | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+  const requestClose = useGuardedClose(onClose, form.scope, { locked: busy });
+
+  const run = async (work: () => Promise<unknown>, done?: () => void) => {
+    setBusy(true);
+    setError(undefined);
+    try {
+      await work();
+      onChanged();
+      done?.();
+    } catch (e) {
+      setError(apiErrorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** The picked image, decoded and waiting for its crop to be chosen. */
+  const [cropping, setCropping] = useState<HTMLImageElement | null>(null);
+  const endCrop = () => {
+    if (cropping !== null) releaseAvatarImage(cropping);
+    setCropping(null);
+  };
+
+  const onPickFile = (e: ChangeEvent<HTMLInputElement>): void => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file === undefined) return;
+    setError(undefined);
+    loadAvatarImage(file).then(setCropping, () => setError(S.profile.avatarUnreadable));
+  };
+
+  const onCropped = (crop: AvatarCrop) => {
+    const image = cropping;
+    if (image === null) return;
+    void run(async () => {
+      const dataUrl = avatarDataUrlFromImage(image, crop);
+      if (dataUrl === null) throw new Error(S.profile.avatarTooLarge);
+      await api.putOrgEmployeeAvatar(projectId, orgId, employee.agentId, dataUrl);
+    }).finally(endCrop);
+  };
+
+  const save = () => {
+    if (!form.dirty || busy) return;
+    void run(
+      () =>
+        api.patchOrgEmployee(projectId, orgId, employee.agentId, {
+          name: name.trim() === "" ? null : name.trim(),
+        }),
+      () => {
+        toastSuccess(S.company.chart.saved);
+        onClose();
+      },
+    );
+  };
+
+  return (
+    <Modal
+      open
+      title={S.company.chart.profileTitle(employee.name)}
+      onClose={requestClose}
+      footer={
+        <>
+          <Button size="sm" onClick={requestClose} disabled={busy}>
+            {S.common.cancel}
+          </Button>
+          <Button size="sm" variant="primary" disabled={busy || !form.dirty} onClick={save}>
+            {S.common.save}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <EmployeeAvatar
+            id={employee.agentId}
+            name={employee.name}
+            size={48}
+            className="rounded-lg"
+          />
+          <label
+            className={`shrink-0 ${buttonClass("secondary", "sm")} ${busy ? "pointer-events-none opacity-60" : ""}`}
+          >
+            <HiddenFileInput
+              accept="image/png,image/jpeg,image/webp"
+              disabled={busy}
+              onChange={onPickFile}
+            />
+            {S.profile.changeAvatar}
+          </label>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="shrink-0"
+            disabled={busy || employee.avatarRev === undefined}
+            onClick={() =>
+              void run(() => api.putOrgEmployeeAvatar(projectId, orgId, employee.agentId, null))
+            }
+          >
+            {S.profile.restoreDefault}
+          </Button>
+        </div>
+        <AvatarCropDialog image={cropping} busy={busy} onCancel={endCrop} onConfirm={onCropped} />
+        <Input
+          label={S.company.chart.employeeName}
+          size="sm"
+          value={name}
+          maxLength={64}
+          disabled={busy}
+          placeholder={employee.agentId}
+          hint={S.company.chart.employeeNameHint(employee.agentId)}
+          {...(error !== undefined ? { error } : {})}
+          onChange={(e) => {
+            form.setDraft(e.target.value);
+            setError(undefined);
+          }}
+        />
+      </div>
+    </Modal>
   );
 }
 
@@ -587,15 +923,7 @@ export function EmployeeEditDialog({
  * that fails after the chart was already rewritten keeps the dialog open and asks the page to
  * reload, so what is on screen never disagrees with the file.
  */
-export function DeskRenewDialog({
-  open,
-  projectId,
-  orgId,
-  employee,
-  onClose,
-  onChartChanged,
-  onRenewed,
-}: {
+interface DeskRenewDialogProps {
   open: boolean;
   projectId: string;
   orgId: string;
@@ -605,23 +933,35 @@ export function DeskRenewDialog({
   onChartChanged: () => void;
   /** Both writes went through; carries the new desk session's id. */
   onRenewed: (sessionId: string) => void;
-}) {
-  const [workspace, setWorkspace] = useState("");
+}
+
+export function DeskRenewDialog({ open, ...props }: DeskRenewDialogProps) {
+  // Mounted only while open, so the field starts from the current spec every time.
+  return open ? <DeskRenewForm {...props} /> : null;
+}
+
+/**
+ * The renewal is valid untouched (a plain renewal), so its button waits only for a non-empty
+ * field; a changed workspace is an edit, which a close asks about.
+ */
+function DeskRenewForm({
+  projectId,
+  orgId,
+  employee,
+  onClose,
+  onChartChanged,
+  onRenewed,
+}: Omit<DeskRenewDialogProps, "open">) {
+  const form = useFormDraft(employee.workspace, { normalize: (value) => value.trim() });
+  const workspace = form.draft;
+  /** What the server refused about the workspace; cleared by the next keystroke. */
   const [error, setError] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setWorkspace(employee.workspace);
-    setError(undefined);
-  }, [open, employee]);
+  const requestClose = useGuardedClose(onClose, form.scope, { locked: busy });
+  const plan = deskRenewPlan(employee.workspace, workspace);
 
   const confirm = async () => {
-    const plan = deskRenewPlan(employee.workspace, workspace);
-    if (!plan.valid) {
-      setError(S.common.requiredField);
-      return;
-    }
+    if (!plan.valid || busy) return;
     setBusy(true);
     let patched = false;
     try {
@@ -645,6 +985,9 @@ export function DeskRenewDialog({
     try {
       const desk = await api.renewOrgDesk(projectId, orgId, employee.agentId);
       toastSuccess(S.company.chart.renewed);
+      // Saved: forget the form now, not at unmount. The page opens the new desk session next, and
+      // the leave guard would hold that over a form with nothing left unsaved.
+      discardUnsaved(form.scope);
       onRenewed(desk.sessionId);
     } catch (e) {
       toastError(apiErrorText(e));
@@ -656,26 +999,28 @@ export function DeskRenewDialog({
 
   return (
     <Modal
-      open={open}
+      open
       title={S.company.chart.renewDeskTitle(employee.name)}
-      onClose={() => (busy ? undefined : onClose())}
+      onClose={requestClose}
       footer={
         <>
-          <Button size="sm" onClick={onClose} disabled={busy}>
+          <Button size="sm" onClick={requestClose} disabled={busy}>
             {S.common.cancel}
           </Button>
-          <Button size="sm" variant="primary" disabled={busy} onClick={() => void confirm()}>
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={busy || !plan.valid}
+            onClick={() => void confirm()}
+          >
             {S.company.chart.renewDesk}
           </Button>
         </>
       }
     >
       <div className="space-y-3">
-        {/* This dialog is its own confirmation, so what it will do stays on screen instead of
-            hiding behind a "?" the reader would have to open before deciding. */}
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          {S.company.chart.renewDeskExplain}
-        </p>
+        {/* What confirming does sits behind the field's "?": the title and the button already
+            say a new desk session opens, and the only field is the workspace it writes. */}
         <Input
           label={S.company.chart.workspace}
           required
@@ -684,10 +1029,11 @@ export function DeskRenewDialog({
           className="font-mono"
           placeholder="."
           hint={S.company.chart.workspaceHint}
+          info={S.company.chart.renewDeskExplain}
           {...(error !== undefined ? { error } : {})}
           autoFocus
           onChange={(e) => {
-            setWorkspace(e.target.value);
+            form.setDraft(e.target.value);
             setError(undefined);
           }}
         />

@@ -12,8 +12,7 @@
  * the Storyboard never collapses the scenes under it.
  */
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Chevron } from "../../components/ui/chevron";
-import { ICON_SIZE } from "../../lib/icon-scale";
+import { Chevron, ICON_SIZE } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, type Tone } from "../../lib/tone";
 import type { MediaPreview } from "./media-preview";
@@ -152,7 +151,7 @@ export function StudioTreeView({
             aria-current={current ? "true" : undefined}
             aria-disabled={node.disabled || undefined}
             aria-expanded={branch ? open : undefined}
-            title={hint}
+            data-tooltip={hint}
             onClick={() => {
               if (node.disabled) return;
               if (node.target) onChoose(node.target);
@@ -193,7 +192,7 @@ export function StudioTreeView({
             <span
               role="img"
               aria-label={MARK_WORDS[node.mark]()}
-              title={MARK_WORDS[node.mark]()}
+              data-tooltip={MARK_WORDS[node.mark]()}
               className={`size-1.5 shrink-0 rounded-full ${toneDot.attention}`}
             />
           )}
@@ -227,7 +226,7 @@ export function StudioTreeView({
                 <li
                   role="none"
                   aria-hidden
-                  className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-gray-400 first:pt-1 dark:text-gray-500"
+                  className="px-2 pb-1 pt-3 text-xs font-medium text-gray-400 first:pt-1 dark:text-gray-500"
                 >
                   {S.activities.studioTree.phases[phase!]}
                 </li>
