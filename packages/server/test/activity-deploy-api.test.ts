@@ -394,6 +394,22 @@ describe("activity deploy routes", () => {
     expect(git.ops()).not.toContain("cloneFrom");
   });
 
+  it("refuses to deploy a module in a monorepo modules folder, and runs no git there", async () => {
+    const monorepo = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-deploy-monorepo-"));
+    cleanups.push(() => fs.rm(monorepo, { recursive: true, force: true }));
+    const modules = path.join(monorepo, "modules");
+    await fs.mkdir(path.join(modules, "waf-module-words"), { recursive: true });
+    vi.stubEnv("WAF_MODULES_DIR", modules);
+    const { client, endpoint, git, admin } = await setupWords({ checkout: { module: false } });
+    await fillSettings(admin);
+    // The product's files went into the monorepo's module, which was not made a repository.
+    expect(await fs.readdir(path.join(modules, "waf-module-words"))).toContain("generated");
+    const prepare = await client.post(`${endpoint}/deploy/clones`);
+    expect(prepare.status).toBe(409);
+    expect(await prepare.json()).toMatchObject({ error: { code: "deploy_monorepo_module" } });
+    expect(git.calls.filter((call) => call.dir.startsWith(monorepo))).toEqual([]);
+  });
+
   it("lets a project member read the context but not ask the remote or prepare clones", async () => {
     const { t, client, endpoint } = await setupWords();
     const member = await provisionUser(t.app, "deploy_reader");

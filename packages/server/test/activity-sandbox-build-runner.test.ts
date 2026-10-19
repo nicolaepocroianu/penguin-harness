@@ -8,7 +8,7 @@ import {
   spawnModuleBuild,
 } from "../src/activities/sandbox-build-runner.js";
 import type { StyleJob, StyleResult } from "../src/activities/module-builder.js";
-import { spawnCheckoutBuild } from "../src/activities/sandbox-checkout-build.js";
+import { packageDirs, spawnCheckoutBuild } from "../src/activities/sandbox-checkout-build.js";
 
 /** A stylesheet compiler that writes what it is given, or fails as told; it records each job. */
 function compiler(result: Partial<StyleResult> = {}) {
@@ -181,7 +181,9 @@ describe("building a checkout module", () => {
     // There is no webpack in this checkout, which the build then says.
     expect(outcome.ok).toBe(false);
     expect(outcome.log).toContain("Compiled res/default.scss");
-    expect(outcome.log).toContain("Neither the module nor the framework has webpack installed");
+    expect(outcome.log).toContain(
+      "Neither the module, its workspace nor the framework has webpack installed",
+    );
   });
 
   it("does not build when the stylesheet does not compile", async () => {
@@ -197,5 +199,125 @@ describe("building a checkout module", () => {
     const sass = compiler();
     await spawnCheckoutBuild(job, sass);
     expect(sass.jobs).toEqual([]);
+  });
+});
+
+describe("building a module in an npm workspace", () => {
+  const cleanups: (() => Promise<unknown>)[] = [];
+  afterEach(async () => {
+    for (const cleanup of cleanups.splice(0)) await cleanup();
+  });
+
+  async function write(file: string, content: unknown) {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, typeof content === "string" ? content : JSON.stringify(content));
+  }
+
+  /**
+   * A monorepo as waf-modules lays one out: its packages hoisted to the root's node_modules,
+   * one module that keeps a package of its own, and the framework in a checkout elsewhere.
+   * The webpack and TypeScript in it are stand-ins that record what they were given.
+   */
+  async function monorepo() {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-workspace-build-"));
+    cleanups.push(() => fs.rm(root, { recursive: true, force: true }));
+    const repo = path.join(root, "waf-modules");
+    const moduleRoot = path.join(repo, "modules", "waf-module-book");
+    const hoisted = path.join(repo, "node_modules");
+    const frameworkRoot = path.join(root, "waterford", "framework");
+    await write(path.join(repo, "package.json"), { workspaces: ["modules/waf-module-*"] });
+    await write(path.join(moduleRoot, "package.json"), { name: "wafmodule-book" });
+    await write(path.join(moduleRoot, "src", "index.ts"), "export {};");
+    await write(path.join(moduleRoot, "res", "style.css"), ".a {}");
+    await write(path.join(moduleRoot, "tsconfig.build.json"), {});
+    await write(path.join(moduleRoot, "node_modules", "@types", "node", "index.d.ts"), "");
+    for (const name of ["waf-utils", "pubsubsingleton", "input-manager-system"])
+      await write(path.join(hoisted, name, "package.json"), { name });
+    await write(path.join(hoisted, "webpack", "package.json"), {
+      name: "webpack",
+      main: "index.js",
+    });
+    await write(
+      path.join(hoisted, "webpack", "index.js"),
+      [
+        "const fs = require('fs');",
+        "const path = require('path');",
+        "module.exports = function (config, done) {",
+        "  fs.writeFileSync(path.join(config.output.path, 'config.json'), JSON.stringify({",
+        "    entry: config.entry, modules: config.resolve.modules, alias: config.resolve.alias,",
+        "    media: process.env.WAF_MEDIA_DIR || null,",
+        "  }));",
+        "  done(null, { toString: () => 'stand-in webpack', hasErrors: () => false });",
+        "};",
+        "module.exports.version = '5.0.0-stand-in';",
+        "module.exports.DefinePlugin = class {};",
+      ].join("\n"),
+    );
+    // TypeScript 7's package names an ES module as its compiler, and it is not bin/tsc.
+    await write(path.join(hoisted, "typescript", "package.json"), {
+      name: "typescript",
+      version: "7.0.0-stand-in",
+      type: "module",
+      bin: { tsc: "./bin/compiler.js" },
+    });
+    await write(
+      path.join(hoisted, "typescript", "bin", "compiler.js"),
+      [
+        "import fs from 'node:fs';",
+        "import path from 'node:path';",
+        "const outDir = process.argv[process.argv.indexOf('--outDir') + 1];",
+        "fs.mkdirSync(outDir, { recursive: true });",
+        "fs.writeFileSync(path.join(outDir, 'index.js'), 'export {};');",
+      ].join("\n"),
+    );
+    await fs.mkdir(path.join(frameworkRoot, "node_modules", "framework-only"), {
+      recursive: true,
+    });
+    return { root, repo, moduleRoot, hoisted, frameworkRoot };
+  }
+
+  it("finds packages from the module up to its workspace root, then the framework's", async () => {
+    const { moduleRoot, hoisted, frameworkRoot } = await monorepo();
+    expect(packageDirs(moduleRoot, frameworkRoot)).toEqual([
+      path.join(moduleRoot, "node_modules"),
+      hoisted,
+      path.join(frameworkRoot, "node_modules"),
+    ]);
+  });
+
+  it("builds with the hoisted webpack, TypeScript and dependencies, and names the media", async () => {
+    const { root, moduleRoot, hoisted, frameworkRoot } = await monorepo();
+    const media = path.join(root, "waterford", "media");
+    const job = {
+      moduleRoot,
+      outputRoot: path.join(root, "out"),
+      frameworkRoot,
+      moduleId: "book",
+      mediaRoot: media,
+    };
+    const outcome = await spawnCheckoutBuild(job, compiler());
+    expect(outcome.log).toContain("TypeScript 7.0.0-stand-in");
+    expect(outcome.ok).toBe(true);
+    const seen = JSON.parse(await fs.readFile(path.join(job.outputRoot, "config.json"), "utf8"));
+    expect(seen.entry).toBe(path.join(job.outputRoot, ".typescript-build", "index.js"));
+    expect(seen.modules).toEqual([...packageDirs(moduleRoot, frameworkRoot), "node_modules"]);
+    expect(seen.alias["waf-utils"]).toBe(path.join(hoisted, "waf-utils"));
+    expect(seen.media).toBe(media);
+    // The module is only read.
+    expect((await fs.readdir(moduleRoot)).sort()).toEqual(
+      ["node_modules", "package.json", "res", "src", "tsconfig.build.json"].sort(),
+    );
+  });
+
+  it("says first when the module asks for another Node than the server runs", async () => {
+    const { root, moduleRoot, repo, frameworkRoot } = await monorepo();
+    await fs.writeFile(path.join(repo, ".nvmrc"), "4.0.0\n");
+    const outcome = await spawnCheckoutBuild(
+      { moduleRoot, outputRoot: path.join(root, "out"), frameworkRoot, moduleId: "book" },
+      compiler(),
+    );
+    const first = outcome.log.split("\n")[0];
+    expect(first).toContain(`asks for Node 4.0.0 (${path.join("..", "..", ".nvmrc")})`);
+    expect(first).toContain(process.version);
   });
 });

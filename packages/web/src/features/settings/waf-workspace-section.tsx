@@ -1,7 +1,8 @@
 /**
  * WAF workspace (admin only, server-global): the checkouts activities are authored, played
  * and deployed from — framework, navbar, media and activity data — which Penguin clones and
- * keeps under its data folder, or an existing checkout it only reads. Prepare clones what is
+ * keeps under its data folder, or an existing checkout it only reads, and optionally a monorepo's
+ * modules folder product modules are also opened from. Prepare clones what is
  * missing on the server and takes minutes, so the page asks again every couple of seconds
  * while it runs. At the top, how activity runs work here (confined, and for how long), each saved
  * the moment it changes. Below, the remotes and branches it clones from; nothing is written until
@@ -145,6 +146,36 @@ export function WafWorkspaceSection() {
   useSaving(busy, SETTINGS_SCOPE);
   const view = status === null ? null : wafWorkspaceView(status);
   const hydrated = settings !== null;
+  /** A server folder: picked through the open project, or typed when none is open. */
+  const folderField = (
+    path: "externalRoot" | "modulesRoot",
+    label: string,
+    hint: string,
+    pick: string,
+    clear: string,
+  ) =>
+    projectId === null ? (
+      field(path, label, hint)
+    ) : (
+      <div>
+        <FieldLabel>{label}</FieldLabel>
+        <WorkspaceSelect
+          projectId={projectId}
+          workspace={form[path] ?? ""}
+          onChange={(dir) => setForm((current) => ({ ...current, [path]: dir }))}
+          variant="form"
+          fieldLabel={label}
+          emptyLabel={pick}
+          clearable
+          clearLabel={clear}
+        />
+        {fieldError === path ? (
+          <FieldError>{words.invalid}</FieldError>
+        ) : (
+          <FieldHint>{hint}</FieldHint>
+        )}
+      </div>
+    );
   const field = (path: string, label: string, hint?: string) => (
     <Input
       key={path}
@@ -190,6 +221,9 @@ export function WafWorkspaceSection() {
             {view.line}
           </p>
         )}
+        {view?.modules && (
+          <p className={`mt-3 text-sm ${toneInk[view.modules.tone]}`}>{view.modules.line}</p>
+        )}
         {view?.failure && (
           <p className={`mt-3 text-sm ${toneInk.danger}`}>{words.failed(view.failure)}</p>
         )}
@@ -228,27 +262,22 @@ export function WafWorkspaceSection() {
       </fieldset>
       <fieldset className="space-y-3">
         <legend className="mb-2 text-sm font-semibold">{words.existing}</legend>
-        {projectId === null ? (
-          field("externalRoot", words.externalRoot, words.externalRootHint)
-        ) : (
-          <div>
-            <FieldLabel>{words.externalRoot}</FieldLabel>
-            <WorkspaceSelect
-              projectId={projectId}
-              workspace={form.externalRoot ?? ""}
-              onChange={(path) => setForm((current) => ({ ...current, externalRoot: path }))}
-              variant="form"
-              fieldLabel={words.externalRoot}
-              emptyLabel={words.externalRootPick}
-              clearable
-              clearLabel={words.externalRootClear}
-            />
-            {fieldError === "externalRoot" ? (
-              <FieldError>{words.invalid}</FieldError>
-            ) : (
-              <FieldHint>{words.externalRootHint}</FieldHint>
-            )}
-          </div>
+        {folderField(
+          "externalRoot",
+          words.externalRoot,
+          words.externalRootHint,
+          words.externalRootPick,
+          words.externalRootClear,
+        )}
+      </fieldset>
+      <fieldset className="space-y-3">
+        <legend className="mb-2 text-sm font-semibold">{words.monorepo}</legend>
+        {folderField(
+          "modulesRoot",
+          words.modulesRoot,
+          words.modulesRootHint,
+          words.modulesRootPick,
+          words.modulesRootClear,
         )}
       </fieldset>
     </SettingsSection>

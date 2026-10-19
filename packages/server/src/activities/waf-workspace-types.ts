@@ -14,6 +14,12 @@ export interface WafRepoSetting {
 export interface WafWorkspaceSettings {
   /** An existing checkout Penguin reads instead of managing its own; empty when managed. */
   externalRoot: string;
+  /**
+   * A monorepo's modules folder (such as waf-modules/modules) Penguin also finds product modules
+   * in, beside the checkout's own `modules/`; empty for none. Only read: its modules are built
+   * and played, never cloned or deployed.
+   */
+  modulesRoot: string;
   repos: Record<WafRepoId, WafRepoSetting>;
   /** The remote of a product's module; `{module}` is replaced by its folder. */
   moduleRemote: string;
@@ -40,6 +46,10 @@ export interface WafWorkspaceStatus {
   /** False when an admin (or WAF_ROOT_DIR) named an existing checkout. */
   managed: boolean;
   root: string;
+  /** The monorepo modules folder in use (WAF_MODULES_DIR, else the setting); null for none. */
+  modulesRoot: string | null;
+  /** Whether that folder exists; null when there is none. */
+  modulesRootPresent: boolean | null;
   /** Whether authoring, the sandbox and deploys can use the workspace now. */
   ready: boolean;
   repos: WafRepoStatus[];

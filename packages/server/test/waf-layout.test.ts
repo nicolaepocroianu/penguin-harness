@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  childFolders,
   findWafRoot,
   mediaReference,
   mediaRepoPath,
@@ -17,6 +18,7 @@ import {
   parseRefFolderName,
   refMediaFolder,
   refSpecPath,
+  setMonorepoModuleRoots,
   WafLayout,
 } from "../src/activities/waf-layout.js";
 
@@ -44,11 +46,6 @@ describe("the WAF checkout", () => {
     ["modules", checkout.modulesDir, path.join(ROOT, "modules")],
     ["a module", checkout.moduleDir("waf-module-words"), MODULE],
     ["a module's repository", module.root, MODULE],
-    [
-      "the checkout of a module",
-      WafLayout.containing(MODULE).repo("framework"),
-      path.join(ROOT, "framework"),
-    ],
   ])("places %s", (_, actual, expected) => {
     expect(actual).toBe(expected);
   });
@@ -113,6 +110,113 @@ describe("the WAF checkout", () => {
     expect(await findWafRoot(child, child)).toBeNull();
     await fs.rm(path.join(root, "media"), { recursive: true });
     expect(await findWafRoot(child, root)).toBeNull();
+  });
+});
+
+/** A link to a folder: a junction on Windows, which needs no privilege; a symlink elsewhere. */
+async function linkFolder(target: string, link: string) {
+  await fs.mkdir(path.dirname(link), { recursive: true });
+  await fs.symlink(target, link, process.platform === "win32" ? "junction" : "dir");
+}
+
+describe("a monorepo modules root beside the checkout's", () => {
+  /** A checkout with one module of its own, and a monorepo with two, one of the same name. */
+  async function roots() {
+    const base = await directory();
+    const root = path.join(base, "waterford");
+    const monorepo = path.join(base, "waf-modules", "modules");
+    for (const dir of [
+      "waterford/modules/navbar/src",
+      "waterford/modules/waf-module-legacy/generated/legacy",
+      "waterford/modules/waf-module-both/generated/fromcheckout",
+      "waf-modules/modules/waf-module-m2ab01/generated/m2ab01",
+      "waf-modules/modules/waf-module-both/generated/frommonorepo",
+    ])
+      await fs.mkdir(path.join(base, dir), { recursive: true });
+    return { root, monorepo };
+  }
+
+  it("lists the products of both roots, a folder in both once, from the monorepo", async () => {
+    const { root, monorepo } = await roots();
+    expect(await new WafLayout(root, [monorepo]).products()).toEqual([
+      { moduleFolder: "waf-module-both", productCode: "frommonorepo" },
+      { moduleFolder: "waf-module-legacy", productCode: "legacy" },
+      { moduleFolder: "waf-module-m2ab01", productCode: "m2ab01" },
+    ]);
+  });
+
+  it("finds an existing folder in the monorepo first, and makes a new one in the checkout", async () => {
+    const { root, monorepo } = await roots();
+    const checkout = new WafLayout(root, [monorepo]);
+    expect(checkout.moduleDir("waf-module-m2ab01")).toBe(path.join(monorepo, "waf-module-m2ab01"));
+    expect(checkout.moduleDir("waf-module-both")).toBe(path.join(monorepo, "waf-module-both"));
+    expect(checkout.moduleDir("waf-module-legacy")).toBe(
+      path.join(root, "modules", "waf-module-legacy"),
+    );
+    expect(checkout.moduleDir("waf-module-new")).toBe(path.join(root, "modules", "waf-module-new"));
+    expect(checkout.repo("navbar")).toBe(path.join(root, "modules", "navbar"));
+    expect(checkout.inMonorepo("waf-module-m2ab01")).toBe(true);
+    expect(checkout.inMonorepo("waf-module-legacy")).toBe(false);
+    expect(checkout.inMonorepo("waf-module-new")).toBe(false);
+  });
+
+  it.each([
+    ["a parent", ".."],
+    ["a sibling of the monorepo's modules", "../package.json"],
+    ["an absolute path", path.resolve("/elsewhere/module")],
+    ["nothing", ""],
+  ])("keeps a module folder naming %s inside a modules root", async (_, folder) => {
+    const { root, monorepo } = await roots();
+    expect(new WafLayout(root, [monorepo]).moduleDir(folder)).toBeNull();
+  });
+
+  it("gives every layout of a checkout the monorepo the workspace set for it", async () => {
+    const { root, monorepo } = await roots();
+    setMonorepoModuleRoots(root, [monorepo]);
+    try {
+      expect(new WafLayout(root).monorepoModuleRoots).toEqual([monorepo]);
+      expect(new WafLayout(path.join(root, "..", "other")).monorepoModuleRoots).toEqual([]);
+    } finally {
+      setMonorepoModuleRoots(root, []);
+    }
+    expect(new WafLayout(root).monorepoModuleRoots).toEqual([]);
+  });
+});
+
+describe("linked folders", () => {
+  it("counts a link to a folder as a folder, and a link to a file or nowhere as none", async () => {
+    const base = await directory();
+    const dir = path.join(base, "dir");
+    await fs.mkdir(path.join(base, "elsewhere", "real"), { recursive: true });
+    await fs.mkdir(path.join(dir, "plain"), { recursive: true });
+    await fs.writeFile(path.join(base, "elsewhere", "file.txt"), "");
+    await linkFolder(path.join(base, "elsewhere", "real"), path.join(dir, "linked"));
+    await linkFolder(path.join(base, "elsewhere", "gone"), path.join(dir, "dangling"));
+    await fs.writeFile(path.join(dir, "file.txt"), "");
+    expect(await childFolders(dir)).toEqual(["linked", "plain"]);
+    expect(await childFolders(path.join(base, "missing"))).toEqual([]);
+  });
+
+  it("lists the products of linked module and product folders", async () => {
+    const base = await directory();
+    const root = path.join(base, "waf");
+    await fs.mkdir(path.join(base, "elsewhere", "waf-module-a", "generated", "a"), {
+      recursive: true,
+    });
+    await fs.mkdir(path.join(base, "products", "b"), { recursive: true });
+    await fs.mkdir(path.join(root, "modules", "waf-module-b", "generated"), { recursive: true });
+    await linkFolder(
+      path.join(base, "elsewhere", "waf-module-a"),
+      path.join(root, "modules", "waf-module-a"),
+    );
+    await linkFolder(
+      path.join(base, "products", "b"),
+      path.join(root, "modules", "waf-module-b", "generated", "b"),
+    );
+    expect(await new WafLayout(root).products()).toEqual([
+      { moduleFolder: "waf-module-a", productCode: "a" },
+      { moduleFolder: "waf-module-b", productCode: "b" },
+    ]);
   });
 });
 

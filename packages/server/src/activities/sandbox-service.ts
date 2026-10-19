@@ -17,6 +17,7 @@
 import type { ModuleDocument, ModuleDocuments } from "./module-documents.js";
 import type { MediaStat } from "./media-stats.js";
 import { randomBytes } from "node:crypto";
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Component, Interface, Use, type Opaque } from "@prismshadow/penguin-core/kernel";
@@ -548,11 +549,17 @@ export class ActivitySandboxService implements ActivitySandbox {
   private async buildCheckout(moduleRoot: string) {
     const moduleFolder = path.basename(moduleRoot);
     const definition = await readJsonFile(path.join(moduleRoot, "definition.json"));
+    // The framework and media are the checkout's, wherever the module is: a monorepo's module
+    // is not two folders below the checkout root.
+    const wafRoot = await this.wafWorkspace.root();
+    const checkout = new WafLayout(wafRoot ?? path.dirname(path.dirname(moduleRoot)));
+    const mediaRoot = checkout.repo("media");
     return this.moduleBuilder.buildCheckout({
       moduleRoot,
       outputRoot: checkoutOutputRoot(this.config.root, moduleFolder),
-      frameworkRoot: WafLayout.containing(moduleRoot).repo("framework"),
+      frameworkRoot: checkout.repo("framework"),
       moduleId: typeof definition?.id === "string" ? definition.id : moduleFolder,
+      ...(existsSync(mediaRoot) ? { mediaRoot } : {}),
     });
   }
 

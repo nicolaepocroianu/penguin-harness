@@ -12,10 +12,11 @@
  * TypeScript are the module's and the framework's own versions, loaded from the checkout,
  * and a build that exhausts memory or never returns must not take the server with it.
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import type { StyleCompiler } from "./module-builder.js";
+import { nodeRequirementNote } from "./node-requirement.js";
 import { clampLog } from "./run-program.js";
 import {
   BUILD_LOG_MAX,
@@ -34,6 +35,37 @@ export interface CheckoutBuildJob {
   frameworkRoot: string;
   /** The definition's id, compiled in as `MODULE_ID` as Loom does. */
   moduleId: string;
+  /** The media repository, handed to the build as WAF_MEDIA_DIR as Loom hands it; none when absent. */
+  mediaRoot?: string;
+}
+
+/** Whether a folder's package.json makes it an npm workspace root. */
+function isWorkspaceRoot(dir: string): boolean {
+  try {
+    const manifest = JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")) as unknown;
+    return Boolean(manifest && typeof manifest === "object" && "workspaces" in manifest);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Where a checkout module's packages are, nearest first: each `node_modules` from the module's
+ * folder up to its npm workspace's root (or the top of the disk, outside a workspace), where a
+ * monorepo hoists them, then the framework's.
+ */
+export function packageDirs(moduleRoot: string, frameworkRoot: string): string[] {
+  const found: string[] = [];
+  let dir = path.resolve(moduleRoot);
+  for (;;) {
+    const candidate = path.join(dir, "node_modules");
+    if (existsSync(candidate)) found.push(candidate);
+    if (isWorkspaceRoot(dir) || path.dirname(dir) === dir) break;
+    dir = path.dirname(dir);
+  }
+  const framework = path.join(path.resolve(frameworkRoot), "node_modules");
+  if (existsSync(framework) && !found.includes(framework)) found.push(framework);
+  return found;
 }
 
 /**
@@ -56,37 +88,35 @@ const job = JSON.parse(process.env.PENGUIN_CHECKOUT_BUILD);
 const moduleRoot = path.resolve(job.moduleRoot);
 const outputRoot = path.resolve(job.outputRoot);
 const frameworkRoot = path.resolve(job.frameworkRoot);
-const { moduleId, styleName, styleCompiled } = job;
+const { moduleId, styleName, styleCompiled, packageDirs } = job;
 
 function fail(message) {
     console.error(message);
     process.exit(1);
 }
 
-function requireFrom(base, name) {
-    return createRequire(path.join(base, 'package.json'))(name);
-}
-
 function isMissing(error, name) {
     return error && error.code === 'MODULE_NOT_FOUND' && String(error.message).includes("'" + name + "'");
 }
 
+// Node finds a package from the module up through its workspace's root, where npm hoists it.
 function loadWebpack() {
     for (const base of [moduleRoot, frameworkRoot]) {
         try {
-            const webpack = requireFrom(base, 'webpack');
-            console.log('webpack ' + webpack.version + ' from ' + (base === moduleRoot ? 'the module' : 'the framework'));
+            const at = createRequire(path.join(base, 'package.json')).resolve('webpack');
+            const webpack = require(at);
+            console.log('webpack ' + webpack.version + ' from ' + at);
             return webpack;
         } catch (error) {
             if (!isMissing(error, 'webpack')) throw error;
         }
     }
-    fail('Neither the module nor the framework has webpack installed. Run npm install in the module.');
+    fail('Neither the module, its workspace nor the framework has webpack installed. Run npm install in the module, or at its workspace root.');
 }
 
 function dependencyPath(name) {
-    for (const base of [moduleRoot, frameworkRoot]) {
-        const candidate = path.join(base, 'node_modules', name);
+    for (const dir of packageDirs) {
+        const candidate = path.join(dir, name);
         if (fs.existsSync(candidate)) return candidate;
     }
     return undefined;
@@ -126,14 +156,19 @@ function entryPath() {
     fail('The module has no src/index.ts or src/index.js to build.');
 }
 
+// The compiler is the one TypeScript's package.json names: TypeScript 7's bin/tsc is an ES
+// module that loads its native compiler, where older versions shipped the compiler itself.
 function compileTypeScript(entry) {
-    const typescript = createRequire(path.join(moduleRoot, 'package.json')).resolve('typescript/package.json');
-    const tsc = path.join(path.dirname(typescript), 'bin', 'tsc');
+    const manifestPath = createRequire(path.join(moduleRoot, 'package.json')).resolve('typescript/package.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const bin = typeof manifest.bin === 'string' ? manifest.bin : (manifest.bin && manifest.bin.tsc) || 'bin/tsc';
+    const tsc = path.resolve(path.dirname(manifestPath), bin);
+    console.log('TypeScript ' + manifest.version + ' from ' + tsc);
     const outDir = path.join(outputRoot, '.typescript-build');
     const result = childProcess.spawnSync(
         process.execPath,
         [tsc, '--project', 'tsconfig.build.json', '--outDir', outDir, '--rootDir', 'src'],
-        { cwd: moduleRoot, encoding: 'utf8' }
+        { cwd: moduleRoot, encoding: 'utf8', windowsHide: true }
     );
     process.stdout.write(result.stdout || '');
     process.stderr.write(result.stderr || '');
@@ -164,11 +199,7 @@ function config(webpack) {
         resolve: {
             extensions: ['.ts', '.js', '.json'],
             symlinks: false,
-            modules: [
-                path.join(moduleRoot, 'node_modules'),
-                path.join(frameworkRoot, 'node_modules'),
-                'node_modules',
-            ],
+            modules: [...packageDirs, 'node_modules'],
             alias: aliases(),
         },
         plugins: [new webpack.DefinePlugin({ MODULE_ID: JSON.stringify(moduleId) })],
@@ -225,6 +256,10 @@ export async function spawnCheckoutBuild(
   job: CheckoutBuildJob,
   options: { timeoutMs?: number; compileStyle: StyleCompiler },
 ): Promise<BuildOutcome> {
+  // A module that asks for another Node than the server's is still built with the server's,
+  // since Penguin installs no Node; the log says so first, so a failure is read with it.
+  const nodeNote = nodeRequirementNote(job.moduleRoot, process.version);
+  const notes = nodeNote ? `${nodeNote}\n` : "";
   const styleName = stylesheetName(job.moduleRoot);
   const scss = `res/${styleName}.scss`;
   const styleCompiled = existsSync(path.join(job.moduleRoot, scss));
@@ -237,15 +272,22 @@ export async function spawnCheckoutBuild(
       scss,
       css,
     );
-    if (!style.ok) return style;
+    if (!style.ok) return { ok: false, log: clampLog(notes + style.log, BUILD_LOG_MAX) };
     styleLog = style.log;
   }
+  const packages = packageDirs(job.moduleRoot, job.frameworkRoot);
   const built = await spawnNodeScript(
     CHECKOUT_BUILD_SCRIPT,
     {
       cwd: job.moduleRoot,
       env: {
-        PENGUIN_CHECKOUT_BUILD: JSON.stringify({ ...job, styleName, styleCompiled }),
+        PENGUIN_CHECKOUT_BUILD: JSON.stringify({
+          ...job,
+          styleName,
+          styleCompiled,
+          packageDirs: packages,
+        }),
+        ...(job.mediaRoot ? { WAF_MEDIA_DIR: job.mediaRoot } : {}),
         // Webpack 4, which Loom's modules pin, hashes with MD4; Node 17+ refuses it
         // without the legacy provider. Harmless to webpack 5.
         NODE_OPTIONS: [process.env.NODE_OPTIONS, "--openssl-legacy-provider"]
@@ -255,5 +297,5 @@ export async function spawnCheckoutBuild(
     },
     options,
   );
-  return { ok: built.ok, log: clampLog(styleLog + built.log, BUILD_LOG_MAX) };
+  return { ok: built.ok, log: clampLog(notes + styleLog + built.log, BUILD_LOG_MAX) };
 }

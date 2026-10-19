@@ -3767,6 +3767,14 @@ export const en: Strings = {
       externalRootClear: "Let Penguin manage its own",
       externalRootHint:
         "Leave empty to let Penguin manage its own. The folder must hold framework, modules and media. WAF_ROOT_DIR on the server takes precedence.",
+      monorepo: "Monorepo modules",
+      modulesRoot: "Modules folder",
+      modulesRootPick: "None: only the checkout's modules",
+      modulesRootClear: "Read only the checkout's modules",
+      modulesRootHint:
+        "A monorepo's modules folder, such as waf-modules/modules, to open product modules from beside the checkout's own. A module in both is opened from here. Its modules build with the packages installed at the monorepo's root and play with the checkout's framework and media; Penguin clones none of them and cannot deploy them yet. WAF_MODULES_DIR on the server takes precedence.",
+      modulesReading: (dir) => `Also opening product modules from ${dir}`,
+      modulesMissing: (dir) => `No modules folder at ${dir}, so only the checkout's modules open.`,
       invalid: "This value is not valid.",
     },
     accentNames: {

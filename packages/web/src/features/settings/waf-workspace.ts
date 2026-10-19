@@ -34,6 +34,8 @@ export interface WafWorkspaceView {
   tone: Tone;
   /** The state, in words: colour never carries it alone. */
   line: string;
+  /** The monorepo modules folder, and whether it is there; null when none is named. */
+  modules: { tone: Tone; line: string } | null;
   repos: WafRepoLine[];
   failure: string | null;
   log: string | null;
@@ -74,9 +76,16 @@ export function wafWorkspaceView(status: WafWorkspaceStatus): WafWorkspaceView {
         : words.notReady;
   const tone: Tone = status.preparing ? "busy" : status.ready ? "success" : "attention";
   const log = failure !== null && status.log.length ? status.log.join("\n") : null;
+  const modules =
+    status.modulesRoot === null
+      ? null
+      : status.modulesRootPresent
+        ? { tone: "success" as const, line: words.modulesReading(status.modulesRoot) }
+        : { tone: "attention" as const, line: words.modulesMissing(status.modulesRoot) };
   return {
     tone,
     line,
+    modules,
     repos,
     failure,
     log,
@@ -95,6 +104,7 @@ export type WafWorkspaceForm = Record<string, string>;
 export function wafFormFromSettings(settings: WafWorkspaceSettings): WafWorkspaceForm {
   const form: WafWorkspaceForm = {
     externalRoot: settings.externalRoot,
+    modulesRoot: settings.modulesRoot,
     moduleRemote: settings.moduleRemote,
   };
   for (const id of WAF_REPO_ORDER) {
