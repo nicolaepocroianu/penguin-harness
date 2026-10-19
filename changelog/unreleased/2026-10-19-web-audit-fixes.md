@@ -3,7 +3,7 @@
 - **Date:** 2026-10-19
 - **Type:** fix
 - **Scope:** `web`
-- **PR:** pending
+- **PR:** [#164](https://github.com/nicolaepocroianu/penguin-harness/pull/164)
 
 Fixes from the 2026-10-19 technical audit of the web app. Contrast was measured in the running app in both themes on the Activities list, an activity's studio, Chat, Agents, Models, Plugins, Usage, Benchmark and Machines, and no text there falls under 4.5:1.
 
