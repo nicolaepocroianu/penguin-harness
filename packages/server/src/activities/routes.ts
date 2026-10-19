@@ -15,7 +15,8 @@ import type { ModuleDocumentKind } from "./domain.js";
 import type { ActivitySummaries } from "./summary-service.js";
 import type { Config } from "../hmr/capabilities.js";
 import { hostOnly, requestAuthority, resolvePreviewTarget } from "../services/preview-token.js";
-import { playQueryString, readPlayQuery } from "./play-query.js";
+import { signedPlayLocation } from "./play-link.js";
+import { readPlayQuery } from "./play-query.js";
 import { playBase } from "./play-routes.js";
 import { requestOrigin } from "../http/routes/model-oauth.js";
 import { IMAGE_MODEL } from "./generated-image.js";
@@ -709,40 +710,15 @@ export class ActivityRoutes {
       if (query.sourceError) throw new HttpError(400, "play_source_invalid", query.sourceError);
       const mismatch = await this.sandbox.playLinkMismatch(projectId, activityId, query);
       if (mismatch) throw new HttpError(400, "play_link_mismatch", mismatch);
-      const target = resolvePreviewTarget(
-        c.req.url,
-        c.req.header("host"),
-        this.config.previewOrigin,
-        this.config,
-      );
-      // No separate preview origin: the page is served on the App's host, sandboxed.
-      const host = target?.host ?? hostOnly(requestAuthority(c.req.url, c.req.header("host")));
-      // The origin this author reached the App on: the only one the page may report its
-      // state to. Proxy headers count only where the deployment says a proxy sets them.
-      const parentOrigin = requestOrigin(
-        c.req.url,
-        {
-          ...(c.req.header("x-forwarded-proto") !== undefined
-            ? { proto: c.req.header("x-forwarded-proto")! }
-            : {}),
-          ...(c.req.header("x-forwarded-host") !== undefined
-            ? { host: c.req.header("x-forwarded-host")! }
-            : {}),
-        },
-        this.config.trustProxy,
-      );
-      const { token } = await this.sandbox.play(
-        projectId,
-        activityId,
-        host,
-        target === null,
-        parentOrigin,
-      );
-      const search = playQueryString(query, {
-        languageCode: Boolean(c.req.query("languageCode") ?? c.req.query("language")),
-      });
       return c.redirect(
-        `${target?.origin ?? ""}${playBase(token)}play${search ? `?${search}` : ""}`,
+        await signedPlayLocation(
+          c,
+          { config: this.config, sandbox: this.sandbox },
+          projectId,
+          activityId,
+          query,
+          Boolean(c.req.query("languageCode") ?? c.req.query("language")),
+        ),
         302,
       );
     };

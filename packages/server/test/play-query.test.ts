@@ -10,6 +10,7 @@ import {
   playQueryString,
   readPlayQuery,
 } from "../src/activities/play-query.js";
+import { pickPlayable } from "../src/activities/player-html-routes.js";
 
 const read = (query: string) => {
   const params = new URLSearchParams(query);
@@ -80,5 +81,47 @@ describe("a play link's query", () => {
     expect(playQueryString(read("language=fr-FR"), { languageCode: true })).toBe(
       "languageCode=en-US",
     );
+  });
+});
+
+describe("the ref a /player.html link names", () => {
+  const ref = (projectId: string, refNum: number, source: "monorepo" | "legacy" = "monorepo") => ({
+    projectId,
+    activityId: `act_${projectId}_${refNum}`,
+    refNum,
+    source,
+  });
+
+  it("is the one ref of that number, in the root the link names", () => {
+    const candidates = [ref("a", 1), ref("a", 2)];
+    expect(pickPlayable(candidates, "m2ab01", 2, null)).toEqual({ chosen: ref("a", 2) });
+    expect(pickPlayable(candidates, "m2ab01", 2, "monorepo")).toEqual({ chosen: ref("a", 2) });
+    expect(pickPlayable(candidates, "m2ab01", 2, "legacy")).toEqual({
+      status: 404,
+      message: 'Failed to load module metadata for "m2ab01".',
+    });
+  });
+
+  it("says so in Loom's words when the module or the ref is not there", () => {
+    expect(pickPlayable([], "m2ab01", 1, null)).toEqual({
+      status: 404,
+      message: 'Failed to load module metadata for "m2ab01".',
+    });
+    expect(pickPlayable([ref("a", 1)], "m2ab01", 3, null)).toEqual({
+      status: 404,
+      message: 'Ref #3 is not available for "m2ab01".',
+    });
+  });
+
+  it("names the projects, rather than guessing, when the ref is open in several", () => {
+    expect(pickPlayable([ref("a", 1), ref("b", 1)], "m2ab01", 1, null)).toEqual({
+      status: 409,
+      message:
+        '"m2ab01" ref 1 is open in more than one of your projects: a, b. Add project=<id> to the link to choose one.',
+    });
+    // A root the link names can tell them apart.
+    expect(pickPlayable([ref("a", 1), ref("b", 1, "legacy")], "m2ab01", 1, "legacy")).toEqual({
+      chosen: ref("b", 1, "legacy"),
+    });
   });
 });

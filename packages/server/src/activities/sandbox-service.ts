@@ -170,6 +170,14 @@ export interface SandboxMediaResponse {
 
 export type { SandboxBuildReport };
 
+/** One ref a Loom play link may name: where it is open, and which module root holds it. */
+export interface PlayCandidate {
+  projectId: string;
+  activityId: string;
+  refNum: number;
+  source: PlaySource;
+}
+
 export interface PayloadOptions {
   languageCode?: string | null;
   startSceneId?: string | null;
@@ -261,6 +269,11 @@ export abstract class ActivitySandbox extends Interface<{
     refNum: number,
     source: PlaySource | null,
   ): Promise<string>;
+  /**
+   * Every ref of product `productCode` open in these projects, with the module root its
+   * module is in: what Loom's `/player.html?module=` resolves among.
+   */
+  playCandidates(projectIds: string[], productCode: string): Promise<PlayCandidate[]>;
   /**
    * Why a play link's `module`, `ref` or `source` does not name this activity, in words;
    * null when they do, or name nothing. A link never switches the activity its token plays.
@@ -1036,6 +1049,20 @@ export class ActivitySandboxService implements ActivitySandbox {
         `${productCode} is not in the ${source === "monorepo" ? "monorepo" : "checkout's"} modules.`,
       );
     return activity.id;
+  }
+
+  async playCandidates(projectIds: string[], productCode: string): Promise<PlayCandidate[]> {
+    const found: PlayCandidate[] = [];
+    for (const projectId of projectIds)
+      for (const activity of await this.activities.listActivities(projectId))
+        if (activity.productCode === productCode)
+          found.push({
+            projectId,
+            activityId: activity.id,
+            refNum: activity.refNum,
+            source: await this.playSource(activity),
+          });
+    return found;
   }
 
   async playLinkMismatch(

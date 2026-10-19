@@ -127,6 +127,7 @@ import {
   ActivityModuleBuilds,
 } from "./activities/module-build-service.js";
 import { ActivityPlayRoutes } from "./activities/play-routes.js";
+import { ActivityPlayerHtmlRoutes } from "./activities/player-html-routes.js";
 import {
   ActivityCompositionRoutes,
   ActivityCompositionService,
@@ -523,6 +524,7 @@ export class CodingAgentsModule {}
     ActivityModuleBuildService,
     ActivityRoutes,
     ActivityPlayRoutes,
+    ActivityPlayerHtmlRoutes,
     ActivityCompositionService,
     ActivityCompositionRoutes,
     DefaultVideoRenderPorts,

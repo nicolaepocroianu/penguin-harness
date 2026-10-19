@@ -326,6 +326,100 @@ describe("playing an imported activity", () => {
     });
   });
 
+  describe("Loom's /player.html address", () => {
+    /** What /player.html answers this client with: where it sends them, or the page's words. */
+    async function player(get: (url: string) => Response | Promise<Response>, query: string) {
+      const response = await get(`/player.html?${query}`);
+      if (response.status === 302) {
+        const location = new URL(response.headers.get("location")!, "http://localhost");
+        return {
+          status: 302,
+          pathname: location.pathname,
+          query: Object.fromEntries(location.searchParams),
+        };
+      }
+      const html = await response.text();
+      return { status: response.status, message: /<p id="activity">([^<]*)<\/p>/.exec(html)?.[1] };
+    }
+
+    it("sends the ref a Loom link names to its signed play link, the query in Loom's names", async () => {
+      const s = await setup();
+      const sent = await player(
+        (url) => s.client.get(url),
+        `module=${CODE}&ref=1&languageCode=es-MX&startSceneId=intro&resolution=800x600&source=legacy`,
+      );
+      expect(sent).toMatchObject({
+        status: 302,
+        pathname: expect.stringMatching(/^\/preview\/activity\/[^/]+\/play$/),
+        query: {
+          module: CODE,
+          ref: "1",
+          languageCode: "es-MX",
+          startSceneId: "intro",
+          resolution: "800x600",
+          source: "legacy",
+        },
+      });
+      const token = sent.pathname!.split("/")[3]!;
+      const body = JSON.parse(
+        Buffer.from(token.slice(0, token.indexOf(".")), "base64url").toString(),
+      ) as { projectId: string; activityId: string };
+      expect(body).toMatchObject({ projectId: s.projectId, activityId: s.activityId });
+      // The signed page it leads to plays that ref, the query and all.
+      const page = await s.onPreview(
+        `${sent.pathname}?${new URLSearchParams(sent.query as Record<string, string>)}`,
+      );
+      expect(page.status).not.toBe(400);
+    });
+
+    it("sends a visitor who is not signed in to sign in, as the App's pages do", async () => {
+      const s = await setup();
+      const response = await s.t.app.request(`/player.html?module=${CODE}&ref=1`);
+      expect(response.status).toBe(302);
+      expect(response.headers.get("location")).toBe("/login");
+    });
+
+    it("answers a bad ref and an unknown module with Loom's player's words", async () => {
+      const s = await setup();
+      const get = (url: string) => s.client.get(url);
+      expect(await player(get, `module=${CODE}`)).toEqual({
+        status: 400,
+        message: "Ref is required. Use a non-negative whole number.",
+      });
+      expect(await player(get, `module=${CODE}&ref=-2`)).toEqual({
+        status: 400,
+        message: "Invalid ref &quot;-2&quot;. Use a non-negative whole number.",
+      });
+      expect(await player(get, "module=rpa02233&ref=1")).toEqual({
+        status: 404,
+        message: "Failed to load module metadata for &quot;rpa02233&quot;.",
+      });
+      expect(await player(get, `module=${CODE}&ref=4`)).toEqual({
+        status: 404,
+        message: `Ref #4 is not available for &quot;${CODE}&quot;.`,
+      });
+      // The product's module is in the checkout's own modules, not a monorepo.
+      expect(await player(get, `module=${CODE}&ref=1&source=monorepo`)).toMatchObject({
+        status: 404,
+      });
+    });
+
+    it("finds only refs in projects the visitor can see, and the one project= names", async () => {
+      const s = await setup();
+      const outsider = apiClient(s.t.app, (await provisionUser(s.t.app, "play_outsider")).cookie);
+      expect(await player((url) => outsider.get(url), `module=${CODE}&ref=1`)).toMatchObject({
+        status: 404,
+      });
+      const get = (url: string) => s.client.get(url);
+      expect(await player(get, `module=${CODE}&ref=1&project=${s.projectId}`)).toMatchObject({
+        status: 302,
+      });
+      expect(await player(get, `module=${CODE}&ref=1&project=elsewhere`)).toMatchObject({
+        status: 404,
+      });
+    });
+  });
+
   it("plays an assessment through, one part at a time", async () => {
     const { base, onPreview } = await setup({ usesAssessment: true });
     const at = `${base}assessment/v3/apps/a/assessments/sightWords/versions/1/orgs/o/students/s/assess`;
