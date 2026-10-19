@@ -135,13 +135,13 @@ import {
   modelHomepageUrl,
   providerInfo,
   unroutableVendorModel,
-} from "@prismshadow/penguin-core/model-catalog";
+} from "@prismshadow/penguin-server/model-catalog";
 import { canonicalClientType, groupKeyReaches } from "@prismshadow/penguin-core/model-connection";
 import type {
   FastModeProtocol,
   ModelProviderBridgeAuth,
   ModelProviderInfo,
-} from "@prismshadow/penguin-core/model-catalog";
+} from "@prismshadow/penguin-server/model-catalog";
 import {
   allGroupKeys,
   discountedPrice,
