@@ -5,19 +5,32 @@
 import { describe, expect, it } from "vitest";
 import sqlite from "node:sqlite";
 import { SCHEMA_SQL } from "../src/db/schema.js";
-import { LATEST_VERSION, migrate, rollbackTo, schemaVersion } from "../src/db/migrations.js";
+import { MIGRATIONS, appliedMigrations, migrate, rollbackTo } from "../src/db/migrations/index.js";
+import { namesThrough, record } from "./db-migrations-fixtures.js";
 import { defaultModuleFolder, normalizeModuleFolder } from "../src/activities/domain.js";
 
 function seeded() {
   const db = new sqlite.DatabaseSync(":memory:");
   db.exec(SCHEMA_SQL);
-  db.exec(`PRAGMA user_version = ${LATEST_VERSION}`);
+  record(
+    db,
+    MIGRATIONS.map((m) => m.name),
+  );
   db.exec(
     "INSERT INTO users (user_id, password_hash, is_admin, created_at) VALUES ('u', 'h', 0, 'now');" +
       "INSERT INTO projects VALUES ('p', 'u', 'now');" +
       "INSERT INTO activity_collections VALUES ('p', 'c', 'activities/c', 'now', 'now')",
   );
   return db;
+}
+
+/** The migration before the product level: rolling back to it leaves refs without a product. */
+const BEFORE_PRODUCT_LEVEL = "2026-09-22-activity-run-kind-column";
+
+/** Every declared migration is recorded: nothing is left for an open to apply. */
+function upToDate(db: sqlite.DatabaseSync): boolean {
+  const applied = new Set(appliedMigrations(db));
+  return MIGRATIONS.every((m) => applied.has(m.name));
 }
 
 /** Writes a ref the way a pre-product-level build would: no product, no name, no flag. */
@@ -45,16 +58,16 @@ describe("module folder naming", () => {
   });
 });
 
-describe("migration 18: giving existing refs a product", () => {
+describe("2026-09-22-activity-product-level: giving existing refs a product", () => {
   it("groups refs by product code and makes the earliest ref canonical", () => {
     const db = seeded();
     try {
-      rollbackTo(db, 17);
+      rollbackTo(db, BEFORE_PRODUCT_LEVEL);
       legacyRef(db, "a3", "sight-words", 3);
       legacyRef(db, "a1", "sight-words", 1);
       legacyRef(db, "b7", "letter-hunt", 7);
       migrate(db);
-      expect(schemaVersion(db)).toBe(LATEST_VERSION);
+      expect(upToDate(db)).toBe(true);
 
       const products = db
         .prepare(
@@ -85,7 +98,7 @@ describe("migration 18: giving existing refs a product", () => {
   it("leaves a ref whose collection is already unreachable rather than inventing a project", () => {
     const db = seeded();
     try {
-      rollbackTo(db, 17);
+      rollbackTo(db, BEFORE_PRODUCT_LEVEL);
       db.prepare(
         "INSERT INTO activities (id, collection_id, product_code, ref_num, title, activity_type, created_at, updated_at, archived) VALUES ('orphan', 'gone', 'ghost', 0, 'Ghost', 'standard', 'now', 'now', 0)",
       ).run();
@@ -102,7 +115,7 @@ describe("migration 18: giving existing refs a product", () => {
   it("carries the canonical ref's type onto the product", () => {
     const db = seeded();
     try {
-      rollbackTo(db, 17);
+      rollbackTo(db, BEFORE_PRODUCT_LEVEL);
       db.prepare(
         "INSERT INTO activities (id, collection_id, product_code, ref_num, title, activity_type, created_at, updated_at, archived) VALUES ('book1', 'c', 'reader', 1, 'Reader', 'book', 'now', 'now', 0)",
       ).run();
@@ -120,9 +133,10 @@ describe("migration 18: giving existing refs a product", () => {
     try {
       // No rollback: the schema already carries the product level, and migrate must not
       // fail trying to add what is there.
-      db.exec("PRAGMA user_version = 17");
+      db.exec("DELETE FROM schema_migrations");
+      record(db, namesThrough(BEFORE_PRODUCT_LEVEL));
       expect(() => migrate(db)).not.toThrow();
-      expect(schemaVersion(db)).toBe(LATEST_VERSION);
+      expect(upToDate(db)).toBe(true);
     } finally {
       db.close();
     }
@@ -131,11 +145,11 @@ describe("migration 18: giving existing refs a product", () => {
   it("rolls back to flat refs, keeping the product code that is the real address", () => {
     const db = seeded();
     try {
-      rollbackTo(db, 17);
+      rollbackTo(db, BEFORE_PRODUCT_LEVEL);
       legacyRef(db, "a1", "sight-words", 1);
       migrate(db);
-      rollbackTo(db, 17);
-      expect(schemaVersion(db)).toBe(17);
+      rollbackTo(db, BEFORE_PRODUCT_LEVEL);
+      expect(appliedMigrations(db)).toEqual(namesThrough(BEFORE_PRODUCT_LEVEL));
       const columns = (db.prepare("PRAGMA table_info(activities)").all() as { name: string }[]).map(
         (column) => column.name,
       );
