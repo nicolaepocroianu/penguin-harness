@@ -1,0 +1,2914 @@
+{
+  "$schema": "https://waterford.org/schemas/activity-state-machine-1.1.json",
+  "version": "1.1",
+  "id": "r1lt19L-v2",
+  "description": "WAF assessment-driven scene machine.",
+  "metadata": {
+    "generatedBy": "waf-loom"
+  },
+  "initial": "scene-1",
+  "states": {
+    "scene-1": {
+      "description": "Scene 1 state flow.",
+      "entry": {
+        "type": "initializeAssessment",
+        "params": {
+          "sceneId": "scene-1"
+        }
+      },
+      "exit": {
+        "type": "cleanupScene",
+        "params": {
+          "sceneId": "scene-1"
+        }
+      },
+      "on": {
+        "EFFECT.FAILED": {
+          "guard": {
+            "type": "isEventForScene",
+            "params": {
+              "sceneId": "scene-1"
+            }
+          },
+          "target": "#r1lt19L-v2.activity.failed"
+        }
+      },
+      "initial": "presenting",
+      "states": {
+        "presenting": {
+          "entry": {
+            "type": "scene.presentIntro",
+            "params": {
+              "sceneId": "scene-1",
+              "cues": [
+                {
+                  "kind": "video",
+                  "index": 0
+                }
+              ]
+            }
+          },
+          "on": {
+            "SCENE.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-1"
+                }
+              },
+              "target": "#r1lt19L-v2.scene-2"
+            }
+          }
+        }
+      }
+    },
+    "scene-2": {
+      "description": "Scene 2 state flow.",
+      "entry": {
+        "type": "initializeAssessment",
+        "params": {
+          "sceneId": "scene-2"
+        }
+      },
+      "exit": {
+        "type": "cleanupScene",
+        "params": {
+          "sceneId": "scene-2"
+        }
+      },
+      "on": {
+        "EFFECT.FAILED": {
+          "guard": {
+            "type": "isEventForScene",
+            "params": {
+              "sceneId": "scene-2"
+            }
+          },
+          "target": "#r1lt19L-v2.activity.failed"
+        }
+      },
+      "initial": "presenting",
+      "states": {
+        "presenting": {
+          "entry": {
+            "type": "scene.presentIntro",
+            "params": {
+              "sceneId": "scene-2",
+              "cues": [
+                {
+                  "kind": "audio",
+                  "index": 0
+                },
+                {
+                  "kind": "video",
+                  "index": 0
+                },
+                {
+                  "kind": "audio",
+                  "index": 1
+                },
+                {
+                  "kind": "video",
+                  "index": 1
+                },
+                {
+                  "kind": "audio",
+                  "index": 2
+                }
+              ]
+            }
+          },
+          "on": {
+            "SCENE.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-2"
+                }
+              },
+              "target": "#r1lt19L-v2.scene-3"
+            }
+          }
+        }
+      }
+    },
+    "scene-3": {
+      "description": "Scene 3 state flow.",
+      "entry": {
+        "type": "initializeAssessment",
+        "params": {
+          "sceneId": "scene-3"
+        }
+      },
+      "exit": {
+        "type": "cleanupScene",
+        "params": {
+          "sceneId": "scene-3"
+        }
+      },
+      "on": {
+        "EFFECT.FAILED": {
+          "guard": {
+            "type": "isEventForScene",
+            "params": {
+              "sceneId": "scene-3"
+            }
+          },
+          "target": "#r1lt19L-v2.activity.failed"
+        }
+      },
+      "initial": "presenting-item",
+      "states": {
+        "presenting-item": {
+          "entry": {
+            "type": "scene.presentChoice",
+            "params": {
+              "sceneId": "scene-3",
+              "assessmentItemOffset": 0,
+              "shuffleChoices": true
+            }
+          },
+          "on": {
+            "SCENE.PRESENTED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-3"
+                }
+              },
+              "target": "first-choice"
+            }
+          }
+        },
+        "first-choice": {
+          "entry": {
+            "type": "scene.enterFirstChoice",
+            "params": {
+              "sceneId": "scene-3"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-3"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-3"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-3"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-3"
+                  }
+                },
+                "target": "first-incorrect-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-3"
+                }
+              }
+            }
+          }
+        },
+        "first-incorrect-feedback": {
+          "entry": {
+            "type": "scene.playFirstIncorrectFeedback",
+            "params": {
+              "sceneId": "scene-3"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-3"
+                }
+              },
+              "target": "second-choice"
+            }
+          }
+        },
+        "second-choice": {
+          "entry": {
+            "type": "scene.enterSecondChoice",
+            "params": {
+              "sceneId": "scene-3"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-3"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-3"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-3"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureSecondIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-3"
+                  }
+                },
+                "target": "guided-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-3"
+                }
+              }
+            }
+          }
+        },
+        "guided-feedback": {
+          "entry": {
+            "type": "scene.playGuidedFeedback",
+            "params": {
+              "sceneId": "scene-3"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-3"
+                }
+              },
+              "target": "guided-choice"
+            }
+          }
+        },
+        "guided-choice": {
+          "entry": {
+            "type": "scene.enterGuidedChoice",
+            "params": {
+              "sceneId": "scene-3"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-3"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-3"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isUnexpectedGuidedChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-3"
+                  }
+                },
+                "actions": {
+                  "type": "input.reject",
+                  "params": {
+                    "sceneId": "scene-3"
+                  }
+                }
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-3"
+                }
+              }
+            }
+          }
+        },
+        "correct-feedback": {
+          "entry": {
+            "type": "scene.playCorrectFeedback",
+            "params": {
+              "sceneId": "scene-3"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-3"
+                }
+              },
+              "target": "completion"
+            }
+          }
+        },
+        "completion": {
+          "entry": {
+            "type": "scene.completeChoice",
+            "params": {
+              "sceneId": "scene-3",
+              "revealSceneId": "scene-3"
+            }
+          },
+          "on": {
+            "SCENE.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-3"
+                }
+              },
+              "target": "#r1lt19L-v2.scene-4"
+            }
+          }
+        }
+      }
+    },
+    "scene-4": {
+      "description": "Scene 4 state flow.",
+      "entry": {
+        "type": "initializeAssessment",
+        "params": {
+          "sceneId": "scene-4"
+        }
+      },
+      "exit": {
+        "type": "cleanupScene",
+        "params": {
+          "sceneId": "scene-4"
+        }
+      },
+      "on": {
+        "EFFECT.FAILED": {
+          "guard": {
+            "type": "isEventForScene",
+            "params": {
+              "sceneId": "scene-4"
+            }
+          },
+          "target": "#r1lt19L-v2.activity.failed"
+        }
+      },
+      "initial": "presenting-item",
+      "states": {
+        "presenting-item": {
+          "entry": {
+            "type": "scene.presentChoice",
+            "params": {
+              "sceneId": "scene-4",
+              "assessmentItemOffset": 1,
+              "shuffleChoices": true
+            }
+          },
+          "on": {
+            "SCENE.PRESENTED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-4"
+                }
+              },
+              "target": "first-choice"
+            }
+          }
+        },
+        "first-choice": {
+          "entry": {
+            "type": "scene.enterFirstChoice",
+            "params": {
+              "sceneId": "scene-4"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-4"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-4"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-4"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-4"
+                  }
+                },
+                "target": "first-incorrect-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-4"
+                }
+              }
+            }
+          }
+        },
+        "first-incorrect-feedback": {
+          "entry": {
+            "type": "scene.playFirstIncorrectFeedback",
+            "params": {
+              "sceneId": "scene-4"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-4"
+                }
+              },
+              "target": "second-choice"
+            }
+          }
+        },
+        "second-choice": {
+          "entry": {
+            "type": "scene.enterSecondChoice",
+            "params": {
+              "sceneId": "scene-4"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-4"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-4"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-4"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureSecondIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-4"
+                  }
+                },
+                "target": "guided-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-4"
+                }
+              }
+            }
+          }
+        },
+        "guided-feedback": {
+          "entry": {
+            "type": "scene.playGuidedFeedback",
+            "params": {
+              "sceneId": "scene-4"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-4"
+                }
+              },
+              "target": "guided-choice"
+            }
+          }
+        },
+        "guided-choice": {
+          "entry": {
+            "type": "scene.enterGuidedChoice",
+            "params": {
+              "sceneId": "scene-4"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-4"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-4"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isUnexpectedGuidedChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-4"
+                  }
+                },
+                "actions": {
+                  "type": "input.reject",
+                  "params": {
+                    "sceneId": "scene-4"
+                  }
+                }
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-4"
+                }
+              }
+            }
+          }
+        },
+        "correct-feedback": {
+          "entry": {
+            "type": "scene.playCorrectFeedback",
+            "params": {
+              "sceneId": "scene-4"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-4"
+                }
+              },
+              "target": "completion"
+            }
+          }
+        },
+        "completion": {
+          "entry": {
+            "type": "scene.completeChoice",
+            "params": {
+              "sceneId": "scene-4",
+              "revealSceneId": "scene-3"
+            }
+          },
+          "on": {
+            "SCENE.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-4"
+                }
+              },
+              "target": "#r1lt19L-v2.scene-5"
+            }
+          }
+        }
+      }
+    },
+    "scene-5": {
+      "description": "Scene 5 state flow.",
+      "entry": {
+        "type": "initializeAssessment",
+        "params": {
+          "sceneId": "scene-5"
+        }
+      },
+      "exit": {
+        "type": "cleanupScene",
+        "params": {
+          "sceneId": "scene-5"
+        }
+      },
+      "on": {
+        "EFFECT.FAILED": {
+          "guard": {
+            "type": "isEventForScene",
+            "params": {
+              "sceneId": "scene-5"
+            }
+          },
+          "target": "#r1lt19L-v2.activity.failed"
+        }
+      },
+      "initial": "presenting-item",
+      "states": {
+        "presenting-item": {
+          "entry": {
+            "type": "scene.presentChoice",
+            "params": {
+              "sceneId": "scene-5",
+              "assessmentItemOffset": 2,
+              "shuffleChoices": true
+            }
+          },
+          "on": {
+            "SCENE.PRESENTED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-5"
+                }
+              },
+              "target": "first-choice"
+            }
+          }
+        },
+        "first-choice": {
+          "entry": {
+            "type": "scene.enterFirstChoice",
+            "params": {
+              "sceneId": "scene-5"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-5"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-5"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-5"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-5"
+                  }
+                },
+                "target": "first-incorrect-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-5"
+                }
+              }
+            }
+          }
+        },
+        "first-incorrect-feedback": {
+          "entry": {
+            "type": "scene.playFirstIncorrectFeedback",
+            "params": {
+              "sceneId": "scene-5"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-5"
+                }
+              },
+              "target": "second-choice"
+            }
+          }
+        },
+        "second-choice": {
+          "entry": {
+            "type": "scene.enterSecondChoice",
+            "params": {
+              "sceneId": "scene-5"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-5"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-5"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-5"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureSecondIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-5"
+                  }
+                },
+                "target": "guided-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-5"
+                }
+              }
+            }
+          }
+        },
+        "guided-feedback": {
+          "entry": {
+            "type": "scene.playGuidedFeedback",
+            "params": {
+              "sceneId": "scene-5"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-5"
+                }
+              },
+              "target": "guided-choice"
+            }
+          }
+        },
+        "guided-choice": {
+          "entry": {
+            "type": "scene.enterGuidedChoice",
+            "params": {
+              "sceneId": "scene-5"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-5"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-5"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isUnexpectedGuidedChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-5"
+                  }
+                },
+                "actions": {
+                  "type": "input.reject",
+                  "params": {
+                    "sceneId": "scene-5"
+                  }
+                }
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-5"
+                }
+              }
+            }
+          }
+        },
+        "correct-feedback": {
+          "entry": {
+            "type": "scene.playCorrectFeedback",
+            "params": {
+              "sceneId": "scene-5"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-5"
+                }
+              },
+              "target": "completion"
+            }
+          }
+        },
+        "completion": {
+          "entry": {
+            "type": "scene.completeChoice",
+            "params": {
+              "sceneId": "scene-5",
+              "revealSceneId": "scene-3"
+            }
+          },
+          "on": {
+            "SCENE.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-5"
+                }
+              },
+              "target": "#r1lt19L-v2.scene-6"
+            }
+          }
+        }
+      }
+    },
+    "scene-6": {
+      "description": "Scene 6 state flow.",
+      "entry": {
+        "type": "initializeAssessment",
+        "params": {
+          "sceneId": "scene-6"
+        }
+      },
+      "exit": {
+        "type": "cleanupScene",
+        "params": {
+          "sceneId": "scene-6"
+        }
+      },
+      "on": {
+        "EFFECT.FAILED": {
+          "guard": {
+            "type": "isEventForScene",
+            "params": {
+              "sceneId": "scene-6"
+            }
+          },
+          "target": "#r1lt19L-v2.activity.failed"
+        }
+      },
+      "initial": "presenting-item",
+      "states": {
+        "presenting-item": {
+          "entry": {
+            "type": "scene.presentChoice",
+            "params": {
+              "sceneId": "scene-6",
+              "assessmentItemOffset": 3,
+              "shuffleChoices": true
+            }
+          },
+          "on": {
+            "SCENE.PRESENTED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-6"
+                }
+              },
+              "target": "first-choice"
+            }
+          }
+        },
+        "first-choice": {
+          "entry": {
+            "type": "scene.enterFirstChoice",
+            "params": {
+              "sceneId": "scene-6"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-6"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-6"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-6"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-6"
+                  }
+                },
+                "target": "first-incorrect-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-6"
+                }
+              }
+            }
+          }
+        },
+        "first-incorrect-feedback": {
+          "entry": {
+            "type": "scene.playFirstIncorrectFeedback",
+            "params": {
+              "sceneId": "scene-6"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-6"
+                }
+              },
+              "target": "second-choice"
+            }
+          }
+        },
+        "second-choice": {
+          "entry": {
+            "type": "scene.enterSecondChoice",
+            "params": {
+              "sceneId": "scene-6"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-6"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-6"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-6"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureSecondIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-6"
+                  }
+                },
+                "target": "guided-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-6"
+                }
+              }
+            }
+          }
+        },
+        "guided-feedback": {
+          "entry": {
+            "type": "scene.playGuidedFeedback",
+            "params": {
+              "sceneId": "scene-6"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-6"
+                }
+              },
+              "target": "guided-choice"
+            }
+          }
+        },
+        "guided-choice": {
+          "entry": {
+            "type": "scene.enterGuidedChoice",
+            "params": {
+              "sceneId": "scene-6"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-6"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-6"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isUnexpectedGuidedChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-6"
+                  }
+                },
+                "actions": {
+                  "type": "input.reject",
+                  "params": {
+                    "sceneId": "scene-6"
+                  }
+                }
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-6"
+                }
+              }
+            }
+          }
+        },
+        "correct-feedback": {
+          "entry": {
+            "type": "scene.playCorrectFeedback",
+            "params": {
+              "sceneId": "scene-6"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-6"
+                }
+              },
+              "target": "completion"
+            }
+          }
+        },
+        "completion": {
+          "entry": {
+            "type": "scene.completeChoice",
+            "params": {
+              "sceneId": "scene-6",
+              "revealSceneId": "scene-3"
+            }
+          },
+          "on": {
+            "SCENE.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-6"
+                }
+              },
+              "target": "#r1lt19L-v2.scene-7"
+            }
+          }
+        }
+      }
+    },
+    "scene-7": {
+      "description": "Scene 7 state flow.",
+      "entry": {
+        "type": "initializeAssessment",
+        "params": {
+          "sceneId": "scene-7"
+        }
+      },
+      "exit": {
+        "type": "cleanupScene",
+        "params": {
+          "sceneId": "scene-7"
+        }
+      },
+      "on": {
+        "EFFECT.FAILED": {
+          "guard": {
+            "type": "isEventForScene",
+            "params": {
+              "sceneId": "scene-7"
+            }
+          },
+          "target": "#r1lt19L-v2.activity.failed"
+        }
+      },
+      "initial": "presenting-item",
+      "states": {
+        "presenting-item": {
+          "entry": {
+            "type": "scene.presentChoice",
+            "params": {
+              "sceneId": "scene-7",
+              "assessmentItemOffset": 4,
+              "shuffleChoices": true
+            }
+          },
+          "on": {
+            "SCENE.PRESENTED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-7"
+                }
+              },
+              "target": "first-choice"
+            }
+          }
+        },
+        "first-choice": {
+          "entry": {
+            "type": "scene.enterFirstChoice",
+            "params": {
+              "sceneId": "scene-7"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-7"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-7"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-7"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-7"
+                  }
+                },
+                "target": "first-incorrect-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-7"
+                }
+              }
+            }
+          }
+        },
+        "first-incorrect-feedback": {
+          "entry": {
+            "type": "scene.playFirstIncorrectFeedback",
+            "params": {
+              "sceneId": "scene-7"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-7"
+                }
+              },
+              "target": "second-choice"
+            }
+          }
+        },
+        "second-choice": {
+          "entry": {
+            "type": "scene.enterSecondChoice",
+            "params": {
+              "sceneId": "scene-7"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-7"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-7"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-7"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureSecondIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-7"
+                  }
+                },
+                "target": "guided-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-7"
+                }
+              }
+            }
+          }
+        },
+        "guided-feedback": {
+          "entry": {
+            "type": "scene.playGuidedFeedback",
+            "params": {
+              "sceneId": "scene-7"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-7"
+                }
+              },
+              "target": "guided-choice"
+            }
+          }
+        },
+        "guided-choice": {
+          "entry": {
+            "type": "scene.enterGuidedChoice",
+            "params": {
+              "sceneId": "scene-7"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-7"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-7"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isUnexpectedGuidedChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-7"
+                  }
+                },
+                "actions": {
+                  "type": "input.reject",
+                  "params": {
+                    "sceneId": "scene-7"
+                  }
+                }
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-7"
+                }
+              }
+            }
+          }
+        },
+        "correct-feedback": {
+          "entry": {
+            "type": "scene.playCorrectFeedback",
+            "params": {
+              "sceneId": "scene-7"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-7"
+                }
+              },
+              "target": "completion"
+            }
+          }
+        },
+        "completion": {
+          "entry": {
+            "type": "scene.completeChoice",
+            "params": {
+              "sceneId": "scene-7",
+              "revealSceneId": "scene-3"
+            }
+          },
+          "on": {
+            "SCENE.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-7"
+                }
+              },
+              "target": "#r1lt19L-v2.scene-8"
+            }
+          }
+        }
+      }
+    },
+    "scene-8": {
+      "description": "Scene 8 state flow.",
+      "entry": {
+        "type": "initializeAssessment",
+        "params": {
+          "sceneId": "scene-8"
+        }
+      },
+      "exit": {
+        "type": "cleanupScene",
+        "params": {
+          "sceneId": "scene-8"
+        }
+      },
+      "on": {
+        "EFFECT.FAILED": {
+          "guard": {
+            "type": "isEventForScene",
+            "params": {
+              "sceneId": "scene-8"
+            }
+          },
+          "target": "#r1lt19L-v2.activity.failed"
+        }
+      },
+      "initial": "presenting-item",
+      "states": {
+        "presenting-item": {
+          "entry": {
+            "type": "scene.presentChoice",
+            "params": {
+              "sceneId": "scene-8",
+              "assessmentItemOffset": 5,
+              "shuffleChoices": true
+            }
+          },
+          "on": {
+            "SCENE.PRESENTED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-8"
+                }
+              },
+              "target": "first-choice"
+            }
+          }
+        },
+        "first-choice": {
+          "entry": {
+            "type": "scene.enterFirstChoice",
+            "params": {
+              "sceneId": "scene-8"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-8"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-8"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-8"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-8"
+                  }
+                },
+                "target": "first-incorrect-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-8"
+                }
+              }
+            }
+          }
+        },
+        "first-incorrect-feedback": {
+          "entry": {
+            "type": "scene.playFirstIncorrectFeedback",
+            "params": {
+              "sceneId": "scene-8"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-8"
+                }
+              },
+              "target": "second-choice"
+            }
+          }
+        },
+        "second-choice": {
+          "entry": {
+            "type": "scene.enterSecondChoice",
+            "params": {
+              "sceneId": "scene-8"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-8"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-8"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-8"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureSecondIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-8"
+                  }
+                },
+                "target": "guided-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-8"
+                }
+              }
+            }
+          }
+        },
+        "guided-feedback": {
+          "entry": {
+            "type": "scene.playGuidedFeedback",
+            "params": {
+              "sceneId": "scene-8"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-8"
+                }
+              },
+              "target": "guided-choice"
+            }
+          }
+        },
+        "guided-choice": {
+          "entry": {
+            "type": "scene.enterGuidedChoice",
+            "params": {
+              "sceneId": "scene-8"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-8"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-8"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isUnexpectedGuidedChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-8"
+                  }
+                },
+                "actions": {
+                  "type": "input.reject",
+                  "params": {
+                    "sceneId": "scene-8"
+                  }
+                }
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-8"
+                }
+              }
+            }
+          }
+        },
+        "correct-feedback": {
+          "entry": {
+            "type": "scene.playCorrectFeedback",
+            "params": {
+              "sceneId": "scene-8"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-8"
+                }
+              },
+              "target": "completion"
+            }
+          }
+        },
+        "completion": {
+          "entry": {
+            "type": "scene.completeChoice",
+            "params": {
+              "sceneId": "scene-8",
+              "revealSceneId": "scene-3"
+            }
+          },
+          "on": {
+            "SCENE.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-8"
+                }
+              },
+              "target": "#r1lt19L-v2.scene-9"
+            }
+          }
+        }
+      }
+    },
+    "scene-9": {
+      "description": "Scene 9 state flow.",
+      "entry": {
+        "type": "initializeAssessment",
+        "params": {
+          "sceneId": "scene-9"
+        }
+      },
+      "exit": {
+        "type": "cleanupScene",
+        "params": {
+          "sceneId": "scene-9"
+        }
+      },
+      "on": {
+        "EFFECT.FAILED": {
+          "guard": {
+            "type": "isEventForScene",
+            "params": {
+              "sceneId": "scene-9"
+            }
+          },
+          "target": "#r1lt19L-v2.activity.failed"
+        }
+      },
+      "initial": "presenting-item",
+      "states": {
+        "presenting-item": {
+          "entry": {
+            "type": "scene.presentChoice",
+            "params": {
+              "sceneId": "scene-9",
+              "assessmentItemOffset": 6,
+              "shuffleChoices": true
+            }
+          },
+          "on": {
+            "SCENE.PRESENTED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-9"
+                }
+              },
+              "target": "first-choice"
+            }
+          }
+        },
+        "first-choice": {
+          "entry": {
+            "type": "scene.enterFirstChoice",
+            "params": {
+              "sceneId": "scene-9"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-9"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-9"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-9"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-9"
+                  }
+                },
+                "target": "first-incorrect-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-9"
+                }
+              }
+            }
+          }
+        },
+        "first-incorrect-feedback": {
+          "entry": {
+            "type": "scene.playFirstIncorrectFeedback",
+            "params": {
+              "sceneId": "scene-9"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-9"
+                }
+              },
+              "target": "second-choice"
+            }
+          }
+        },
+        "second-choice": {
+          "entry": {
+            "type": "scene.enterSecondChoice",
+            "params": {
+              "sceneId": "scene-9"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-9"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-9"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-9"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureSecondIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-9"
+                  }
+                },
+                "target": "guided-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-9"
+                }
+              }
+            }
+          }
+        },
+        "guided-feedback": {
+          "entry": {
+            "type": "scene.playGuidedFeedback",
+            "params": {
+              "sceneId": "scene-9"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-9"
+                }
+              },
+              "target": "guided-choice"
+            }
+          }
+        },
+        "guided-choice": {
+          "entry": {
+            "type": "scene.enterGuidedChoice",
+            "params": {
+              "sceneId": "scene-9"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-9"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-9"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isUnexpectedGuidedChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-9"
+                  }
+                },
+                "actions": {
+                  "type": "input.reject",
+                  "params": {
+                    "sceneId": "scene-9"
+                  }
+                }
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-9"
+                }
+              }
+            }
+          }
+        },
+        "correct-feedback": {
+          "entry": {
+            "type": "scene.playCorrectFeedback",
+            "params": {
+              "sceneId": "scene-9"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-9"
+                }
+              },
+              "target": "completion"
+            }
+          }
+        },
+        "completion": {
+          "entry": {
+            "type": "scene.completeChoice",
+            "params": {
+              "sceneId": "scene-9",
+              "revealSceneId": "scene-3"
+            }
+          },
+          "on": {
+            "SCENE.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-9"
+                }
+              },
+              "target": "#r1lt19L-v2.scene-10"
+            }
+          }
+        }
+      }
+    },
+    "scene-10": {
+      "description": "Scene 10 state flow.",
+      "entry": {
+        "type": "initializeAssessment",
+        "params": {
+          "sceneId": "scene-10"
+        }
+      },
+      "exit": {
+        "type": "cleanupScene",
+        "params": {
+          "sceneId": "scene-10"
+        }
+      },
+      "on": {
+        "EFFECT.FAILED": {
+          "guard": {
+            "type": "isEventForScene",
+            "params": {
+              "sceneId": "scene-10"
+            }
+          },
+          "target": "#r1lt19L-v2.activity.failed"
+        }
+      },
+      "initial": "presenting-item",
+      "states": {
+        "presenting-item": {
+          "entry": {
+            "type": "scene.presentChoice",
+            "params": {
+              "sceneId": "scene-10",
+              "assessmentItemOffset": 7,
+              "shuffleChoices": true
+            }
+          },
+          "on": {
+            "SCENE.PRESENTED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-10"
+                }
+              },
+              "target": "first-choice"
+            }
+          }
+        },
+        "first-choice": {
+          "entry": {
+            "type": "scene.enterFirstChoice",
+            "params": {
+              "sceneId": "scene-10"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-10"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-10"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-10"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-10"
+                  }
+                },
+                "target": "first-incorrect-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-10"
+                }
+              }
+            }
+          }
+        },
+        "first-incorrect-feedback": {
+          "entry": {
+            "type": "scene.playFirstIncorrectFeedback",
+            "params": {
+              "sceneId": "scene-10"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-10"
+                }
+              },
+              "target": "second-choice"
+            }
+          }
+        },
+        "second-choice": {
+          "entry": {
+            "type": "scene.enterSecondChoice",
+            "params": {
+              "sceneId": "scene-10"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-10"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-10"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-10"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureSecondIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-10"
+                  }
+                },
+                "target": "guided-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-10"
+                }
+              }
+            }
+          }
+        },
+        "guided-feedback": {
+          "entry": {
+            "type": "scene.playGuidedFeedback",
+            "params": {
+              "sceneId": "scene-10"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-10"
+                }
+              },
+              "target": "guided-choice"
+            }
+          }
+        },
+        "guided-choice": {
+          "entry": {
+            "type": "scene.enterGuidedChoice",
+            "params": {
+              "sceneId": "scene-10"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-10"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-10"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isUnexpectedGuidedChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-10"
+                  }
+                },
+                "actions": {
+                  "type": "input.reject",
+                  "params": {
+                    "sceneId": "scene-10"
+                  }
+                }
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-10"
+                }
+              }
+            }
+          }
+        },
+        "correct-feedback": {
+          "entry": {
+            "type": "scene.playCorrectFeedback",
+            "params": {
+              "sceneId": "scene-10"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-10"
+                }
+              },
+              "target": "completion"
+            }
+          }
+        },
+        "completion": {
+          "entry": {
+            "type": "scene.completeChoice",
+            "params": {
+              "sceneId": "scene-10",
+              "revealSceneId": "scene-3"
+            }
+          },
+          "on": {
+            "SCENE.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-10"
+                }
+              },
+              "target": "#r1lt19L-v2.scene-11"
+            }
+          }
+        }
+      }
+    },
+    "scene-11": {
+      "description": "Scene 11 state flow.",
+      "entry": {
+        "type": "initializeAssessment",
+        "params": {
+          "sceneId": "scene-11"
+        }
+      },
+      "exit": {
+        "type": "cleanupScene",
+        "params": {
+          "sceneId": "scene-11"
+        }
+      },
+      "on": {
+        "EFFECT.FAILED": {
+          "guard": {
+            "type": "isEventForScene",
+            "params": {
+              "sceneId": "scene-11"
+            }
+          },
+          "target": "#r1lt19L-v2.activity.failed"
+        }
+      },
+      "initial": "presenting-item",
+      "states": {
+        "presenting-item": {
+          "entry": {
+            "type": "scene.presentChoice",
+            "params": {
+              "sceneId": "scene-11",
+              "assessmentItemOffset": 8,
+              "shuffleChoices": true
+            }
+          },
+          "on": {
+            "SCENE.PRESENTED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-11"
+                }
+              },
+              "target": "first-choice"
+            }
+          }
+        },
+        "first-choice": {
+          "entry": {
+            "type": "scene.enterFirstChoice",
+            "params": {
+              "sceneId": "scene-11"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-11"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-11"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-11"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-11"
+                  }
+                },
+                "target": "first-incorrect-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-11"
+                }
+              }
+            }
+          }
+        },
+        "first-incorrect-feedback": {
+          "entry": {
+            "type": "scene.playFirstIncorrectFeedback",
+            "params": {
+              "sceneId": "scene-11"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-11"
+                }
+              },
+              "target": "second-choice"
+            }
+          }
+        },
+        "second-choice": {
+          "entry": {
+            "type": "scene.enterSecondChoice",
+            "params": {
+              "sceneId": "scene-11"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-11"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-11"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-11"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureSecondIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-11"
+                  }
+                },
+                "target": "guided-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-11"
+                }
+              }
+            }
+          }
+        },
+        "guided-feedback": {
+          "entry": {
+            "type": "scene.playGuidedFeedback",
+            "params": {
+              "sceneId": "scene-11"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-11"
+                }
+              },
+              "target": "guided-choice"
+            }
+          }
+        },
+        "guided-choice": {
+          "entry": {
+            "type": "scene.enterGuidedChoice",
+            "params": {
+              "sceneId": "scene-11"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-11"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-11"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isUnexpectedGuidedChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-11"
+                  }
+                },
+                "actions": {
+                  "type": "input.reject",
+                  "params": {
+                    "sceneId": "scene-11"
+                  }
+                }
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-11"
+                }
+              }
+            }
+          }
+        },
+        "correct-feedback": {
+          "entry": {
+            "type": "scene.playCorrectFeedback",
+            "params": {
+              "sceneId": "scene-11"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-11"
+                }
+              },
+              "target": "completion"
+            }
+          }
+        },
+        "completion": {
+          "entry": {
+            "type": "scene.completeChoice",
+            "params": {
+              "sceneId": "scene-11",
+              "revealSceneId": "scene-3"
+            }
+          },
+          "on": {
+            "SCENE.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-11"
+                }
+              },
+              "target": "#r1lt19L-v2.scene-12"
+            }
+          }
+        }
+      }
+    },
+    "scene-12": {
+      "description": "Scene 12 state flow.",
+      "entry": {
+        "type": "initializeAssessment",
+        "params": {
+          "sceneId": "scene-12"
+        }
+      },
+      "exit": {
+        "type": "cleanupScene",
+        "params": {
+          "sceneId": "scene-12"
+        }
+      },
+      "on": {
+        "EFFECT.FAILED": {
+          "guard": {
+            "type": "isEventForScene",
+            "params": {
+              "sceneId": "scene-12"
+            }
+          },
+          "target": "#r1lt19L-v2.activity.failed"
+        }
+      },
+      "initial": "presenting-item",
+      "states": {
+        "presenting-item": {
+          "entry": {
+            "type": "scene.presentChoice",
+            "params": {
+              "sceneId": "scene-12",
+              "assessmentItemOffset": 9,
+              "shuffleChoices": false
+            }
+          },
+          "on": {
+            "SCENE.PRESENTED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-12"
+                }
+              },
+              "target": "first-choice"
+            }
+          }
+        },
+        "first-choice": {
+          "entry": {
+            "type": "scene.enterFirstChoice",
+            "params": {
+              "sceneId": "scene-12"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-12"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-12"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-12"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-12"
+                  }
+                },
+                "target": "first-incorrect-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-12"
+                }
+              }
+            }
+          }
+        },
+        "first-incorrect-feedback": {
+          "entry": {
+            "type": "scene.playFirstIncorrectFeedback",
+            "params": {
+              "sceneId": "scene-12"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-12"
+                }
+              },
+              "target": "second-choice"
+            }
+          }
+        },
+        "second-choice": {
+          "entry": {
+            "type": "scene.enterSecondChoice",
+            "params": {
+              "sceneId": "scene-12"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-12"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-12"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isIncorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-12"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureSecondIncorrectSelection",
+                  "params": {
+                    "sceneId": "scene-12"
+                  }
+                },
+                "target": "guided-feedback"
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-12"
+                }
+              }
+            }
+          }
+        },
+        "guided-feedback": {
+          "entry": {
+            "type": "scene.playGuidedFeedback",
+            "params": {
+              "sceneId": "scene-12"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-12"
+                }
+              },
+              "target": "guided-choice"
+            }
+          }
+        },
+        "guided-choice": {
+          "entry": {
+            "type": "scene.enterGuidedChoice",
+            "params": {
+              "sceneId": "scene-12"
+            }
+          },
+          "on": {
+            "CHOICE.SELECTED": [
+              {
+                "guard": {
+                  "type": "isCorrectChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-12"
+                  }
+                },
+                "actions": {
+                  "type": "round.captureCorrectSelection",
+                  "params": {
+                    "sceneId": "scene-12"
+                  }
+                },
+                "target": "correct-feedback"
+              },
+              {
+                "guard": {
+                  "type": "isUnexpectedGuidedChoiceForScene",
+                  "params": {
+                    "sceneId": "scene-12"
+                  }
+                },
+                "actions": {
+                  "type": "input.reject",
+                  "params": {
+                    "sceneId": "scene-12"
+                  }
+                }
+              }
+            ],
+            "NAVBAR.REPEAT": {
+              "actions": {
+                "type": "prompt.requestReplay",
+                "params": {
+                  "sceneId": "scene-12"
+                }
+              }
+            }
+          }
+        },
+        "correct-feedback": {
+          "entry": {
+            "type": "scene.playCorrectFeedback",
+            "params": {
+              "sceneId": "scene-12"
+            }
+          },
+          "on": {
+            "FEEDBACK.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-12"
+                }
+              },
+              "target": "completion"
+            }
+          }
+        },
+        "completion": {
+          "entry": {
+            "type": "scene.completeChoice",
+            "params": {
+              "sceneId": "scene-12",
+              "finaleVideoIndex": 0,
+              "finaleAudioDelayMs": 3000
+            }
+          },
+          "on": {
+            "SCENE.COMPLETED": {
+              "guard": {
+                "type": "isEventForScene",
+                "params": {
+                  "sceneId": "scene-12"
+                }
+              },
+              "target": "#r1lt19L-v2.activity.complete"
+            }
+          }
+        }
+      }
+    },
+    "activity": {
+      "initial": "running",
+      "states": {
+        "running": {},
+        "failed": {
+          "entry": {
+            "type": "finalizeActivity"
+          }
+        },
+        "complete": {
+          "entry": {
+            "type": "finalizeActivity"
+          },
+          "type": "final"
+        }
+      }
+    }
+  }
+}

@@ -12,6 +12,7 @@ import type { ActivitySandbox } from "./sandbox-service.js";
 import { videoMimeType } from "./video-render.js";
 import { sceneLooks } from "./scene-looks.js";
 import type { ModuleDocumentKind } from "./domain.js";
+import { checkStateMachine } from "./state-machine-validation.js";
 import type { ActivitySummaries } from "./summary-service.js";
 import type { Config } from "../hmr/capabilities.js";
 import { hostOnly, requestAuthority, resolvePreviewTarget } from "../services/preview-token.js";
@@ -80,6 +81,14 @@ function stageRunner(body: Record<string, unknown>): {
 function moduleDocumentKind(value: string | undefined): ModuleDocumentKind {
   if (value === "configuration" || value === "assessment" || value === "definition") return value;
   throw badRequest("kind must be configuration, assessment or definition.");
+}
+
+/** A request's machine, `{ definition }` as Loom took it; anything else is a bad request. */
+function stateMachineDefinition(body: Record<string, unknown>): Record<string, unknown> {
+  const definition = body.definition;
+  if (definition === null || typeof definition !== "object" || Array.isArray(definition))
+    throw badRequest("definition must be a JSON object.");
+  return definition as Record<string, unknown>;
 }
 
 /** A version id as the version store makes them. */
@@ -837,6 +846,58 @@ export class ActivityRoutes {
           requireValidId(c, "projectId"),
           pathParam(c, "activityId"),
           kind,
+          requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
+        ),
+      );
+    });
+    // The ref's state-machine.json, as Loom's GET and PUT had it: read with its problems, saved
+    // only when valid, kept in the draft and the module's file until it is discarded.
+    app.get("/:activityId/state-machine", async (c) => {
+      const projectId = requireValidId(c, "projectId");
+      return c.json(
+        await this.sandbox.stateMachine(
+          projectId,
+          pathParam(c, "activityId"),
+          this.access.find(c.var.user.userId, projectId)?.role === "owner",
+        ),
+      );
+    });
+    app.put("/:activityId/state-machine", async (c) => {
+      const body = await readJson(c);
+      const projectId = requireValidId(c, "projectId");
+      const activityId = pathParam(c, "activityId");
+      const definition = stateMachineDefinition(body);
+      const expectedRevision = requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 });
+      // The machine the author was editing: a problem it already had does not refuse the save.
+      const baseline = (await this.sandbox.stateMachine(projectId, activityId)).definition;
+      return c.json(
+        await this.activities.setModuleDocument(
+          projectId,
+          activityId,
+          "stateMachine",
+          definition,
+          expectedRevision,
+          baseline,
+        ),
+      );
+    });
+    // An unsaved machine's problems, so the editor shows them as the author types. `inherited`
+    // marks those the machine in effect already had, which do not refuse a save.
+    app.post("/:activityId/state-machine/check", async (c) => {
+      const definition = stateMachineDefinition(await readJson(c));
+      const projectId = requireValidId(c, "projectId");
+      const activityId = pathParam(c, "activityId");
+      const current = await this.sandbox.stateMachine(projectId, activityId);
+      const activity = await this.activities.getActivity(projectId, activityId);
+      return c.json(checkStateMachine(definition, activity.draft.spec, current.definition));
+    });
+    app.post("/:activityId/state-machine/discard", async (c) => {
+      const body = await readJson(c);
+      return c.json(
+        await this.activities.discardModuleDocument(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          "stateMachine",
           requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
         ),
       );

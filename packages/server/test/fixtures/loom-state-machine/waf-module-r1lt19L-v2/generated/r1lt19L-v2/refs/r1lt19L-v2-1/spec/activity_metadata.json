@@ -1,0 +1,17 @@
+{
+  "id": "r1lt19L-v2",
+  "title": "Name That Letter: Aa-Ee v2",
+  "moduleFolder": "waf-module-r1lt19L-v2",
+  "activityType": "standard",
+  "runtime": {
+    "engine": "html",
+    "layout": "mainOnly",
+    "theme": "park",
+    "resolution": "640x480",
+    "usesAssessment": false
+  },
+  "canonicalRefNum": 1,
+  "templateStable": false,
+  "refNum": 1,
+  "displayName": "Ref 1"
+}

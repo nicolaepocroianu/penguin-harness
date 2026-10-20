@@ -118,6 +118,7 @@ import {
   validateAssessment,
   validateConfiguration,
   validateDefinition,
+  validateStateMachineDocument,
 } from "./module-overrides.js";
 import { acceptedTags, normalizeTags } from "./tags.js";
 import type { ActivityPhonemes } from "./phonemes.js";
@@ -1225,7 +1226,7 @@ export class ActivityService implements ActivityAuthoring {
    * Save an author's edit of a module document. It replaces the generated document in the
    * preview and in every assembly until it is discarded. The assessment and the module
    * definition are shared by every ref of the product, so only the canonical ref may edit them. `baseline` is the document the
-   * author was editing; an assessment problem it already had does not refuse the save.
+   * author was editing; an assessment or state machine problem it already had does not refuse the save.
    */
   async setModuleDocument(
     projectId: string,
@@ -1235,24 +1236,29 @@ export class ActivityService implements ActivityAuthoring {
     expectedRevision: string,
     baseline?: unknown,
   ): Promise<ActivityDraft> {
+    // A state machine is checked against the draft's specification, under the lock below.
     const document =
       kind === "assessment"
         ? validateAssessment(value, baseline)
         : kind === "definition"
           ? validateDefinition(value)
-          : validateConfiguration(value);
-    // Loom reads a ref's configuration from the module's own file, so the edit is written there
-    // too, and what the file held before the first edit is kept, to be put back on a discard.
-    // Read, saved and written under the draft's lock, so the file and the draft agree.
+          : kind === "configuration"
+            ? validateConfiguration(value)
+            : null;
+    // Loom reads a ref's configuration and state machine from the module's own files, so the
+    // edit is written there too, and what the file held before the first edit is kept, to be
+    // put back on a discard. Read, saved and written under the draft's lock, so the file and
+    // the draft agree.
     return this.exclusive(projectId, activityId, async () => {
-      const file =
-        kind === "configuration"
-          ? this.configurationFile(
-              await this.getActivity(projectId, activityId),
-              await this.checkout(),
-            )
-          : null;
+      const file = writesModuleFile(kind)
+        ? this.moduleDocumentFile(
+            kind,
+            await this.getActivity(projectId, activityId),
+            await this.checkout(),
+          )
+        : null;
       const before = file ? await readText(file) : null;
+      let written = document;
       const changed = await this.change(
         projectId,
         activityId,
@@ -1264,12 +1270,21 @@ export class ActivityService implements ActivityAuthoring {
               "not_canonical",
               `The ${kind === "definition" ? "module definition" : "assessment"} is shared by every ref of this product. Edit it on the canonical ref.`,
             );
+          if (kind === "stateMachine") {
+            if (activity.activityType === "book")
+              throw new HttpError(
+                409,
+                "book_state_machine",
+                "A book plays the reader's own state machine, which is built with the book. It cannot be edited here.",
+              );
+            written = validateStateMachineDocument(value, draft.spec, baseline);
+          }
           // An edit saved before edits reached the module never wrote the file: it holds what
           // was there before, still.
           const earlier = draft.moduleDocuments?.[kind]?.replaced;
           const replaced = earlier !== undefined ? earlier : before;
           const override: ModuleDocumentOverride = {
-            value: document,
+            value: written!,
             basis: documentBasis(kind, draft),
             editedAt: new Date().toISOString(),
             ...(file ? { replaced } : {}),
@@ -1277,16 +1292,28 @@ export class ActivityService implements ActivityAuthoring {
           return { ...draft, moduleDocuments: { ...draft.moduleDocuments, [kind]: override } };
         },
       );
-      if (file) await writeFileAtomic(file, `${JSON.stringify(document, null, 2)}\n`);
+      if (file) await writeFileAtomic(file, `${JSON.stringify(written, null, 2)}\n`);
       return changed;
     });
   }
 
   /** The module's `configurations/<pc>-<ref>.json` for this ref. */
   private configurationFile(activity: ActivityRecord, checkout: WafLayout): string {
+    return this.moduleDocumentFile("configuration", activity, checkout);
+  }
+
+  /**
+   * The module's own file for a document of this ref: `configurations/<pc>-<ref>.json`, or the
+   * ref's `spec/state-machine.json`.
+   */
+  private moduleDocumentFile(
+    kind: ModuleDocumentKind,
+    activity: ActivityRecord,
+    checkout: WafLayout,
+  ): string {
     return checkout
       .module(this.moduleFolderOf(activity))
-      .document("configuration", activity.productCode, activity.refNum);
+      .document(kind, activity.productCode, activity.refNum);
   }
 
   /** Remove an author's edit, so the module's own document is used again. */
@@ -1305,11 +1332,12 @@ export class ActivityService implements ActivityAuthoring {
         // With nothing left the key goes too, so the draft's revision is what it was before.
         return Object.keys(kept).length ? { ...rest, moduleDocuments: kept } : rest;
       });
-      // The module's configuration file gets back what it held before the edit, as it was; a
-      // file that was not there goes again.
+      // The module's file gets back what it held before the edit, as it was; a file that was
+      // not there goes again.
       const replaced = discarded.override?.replaced;
-      if (kind === "configuration" && replaced !== undefined) {
-        const file = this.configurationFile(
+      if (writesModuleFile(kind) && replaced !== undefined) {
+        const file = this.moduleDocumentFile(
+          kind,
           await this.getActivity(projectId, activityId),
           await this.checkout(),
         );
@@ -3416,11 +3444,16 @@ export class ActivityService implements ActivityAuthoring {
   }
 }
 
+/** Whether an edit of `kind` is written to the module's own file too, which Loom reads. */
+function writesModuleFile(kind: ModuleDocumentKind): boolean {
+  return kind === "configuration" || kind === "stateMachine";
+}
+
 /** Whether a stored draft's module document edits have the shape this server writes. */
 function validModuleDocuments(value: unknown): boolean {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   // Only the kinds this server knows are checked; another kind is kept as it is and ignored.
-  return (["configuration", "assessment", "definition"] as const).every((kind) => {
+  return (["configuration", "assessment", "definition", "stateMachine"] as const).every((kind) => {
     const entry = (value as Record<string, unknown>)[kind] as Record<string, unknown> | undefined;
     return (
       entry === undefined ||

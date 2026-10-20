@@ -125,7 +125,11 @@ export interface ModuleDocumentOverride {
   replaced?: string | null;
 }
 
-export type ModuleDocumentKind = "configuration" | "assessment" | "definition";
+/**
+ * `stateMachine` is the ref's `spec/state-machine.json`, which the runtime boots from once it
+ * is synced into the configuration.
+ */
+export type ModuleDocumentKind = "configuration" | "assessment" | "definition" | "stateMachine";
 
 export type ModuleDocumentOverrides = Partial<Record<ModuleDocumentKind, ModuleDocumentOverride>>;
 

@@ -1,0 +1,160 @@
+Description
+
+usesAssessment=true
+An activity that helps students identify capital and lowercase letters through a treasure hunt.
+The activity contains a series of videos that are played one after another and the backdrop of each videos needs to remain visible until the next video starts playing.
+Beginning with scene 3 and up to scene 11, when the 5 letters are displayed, their place on each rock should be randomly chosen so that we don't end up with the same rock holding the same letter for each activity run. In scene 12 , don't display the letters randomly on rocks, display them in the order they are defined.
+In scenes 3 through 12, once a rock is selected, disable it so it cannot be selected again. Also in scenes 3 through 12  the animation of the correct letter should stop once the letter is selected, if the letter was being highlighted/animated at that point.
+
+Scene 1: Intro
+ <video> A video of a  colorful island with a treasure map, palm trees, and a glowing treasure chest in the distance.The treasure chest slowly opens and glows. </video>
+The video starts playing. As the video ends, the activity will transition to the next scene
+
+Scene 2: Getting Started
+The narrator says <audio> We are going on a treasure hunt. </audio>.
+A video of the treasure chest closing starts playing <video>The treasure chest gently closes.</video>
+
+The narrator says <audio> Each treasure is a letter. Listen carefully and find the right ones. </audio>.
+
+<video>A video showing chest opening and letter stones rising out and jumping in place is played </video>
+
+The narrator says <audio> In each group of stones, press and hold the correct letter to collect the treasure. </audio>.
+
+Scene 3: Letter d (lowercase)
+The following letters are displayed on the stones : d, b, a, D, e
+<audio>lowercase b !</audio>
+<audio>lowercase a !</audio>
+<audio>capital D!</audio>
+<audio>lowercase e!</audio>
+The narrator says <audio> Press and hold lowercase d. </audio>
+If the correct letter is selected (letter d), the narrator says : <audio> Yes! That’s lowercase d! </audio>
+if the incorrect letter is selected, the narrator says:
+<audio> That’s </audio>Play the audio for the letter corresponding to the incorrect letter selected</audio>Find lowercase d ! </audio>
+
+On the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narator says:  <audio> THIS is lowercase d. Press and hold lowercase d. </audio>
+<video>Rock 1</video>
+<video>Rock 2</video>
+<video>Rock 3</video>
+<video>Rock 4</video>
+<video>Rock 5</video>
+When the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos is played, corresponding to te index of the correct rock.
+
+Scene 4: Letter C (capital)
+The following letters are displayed on the stones: C,c,e,B, D
+<audio>lowercase c!</audio>
+<audio>lowercase e!</audio>
+<audio>capital B!</audio>
+<audio>capital D!</audio>
+
+The narrator says <audio> Press and hold capital C. </audio>
+If the correct letter is selected (letter C) the narrator says : <audio> Great! That’s capital C ! </audio>
+if the incorrect letter is selected, the narrator says:
+<audio> That’s </audio>Play the audio for the letter corresponding to the incorrect letter selected </audio>Find capital C ! </audio>
+On the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says:   <audio> Here it is. This is capital C. Press and hold capital C.</audio>
+When the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to the index of the correct rock.
+
+Scene 5: Letter a (lowercase)
+The following letters are displayed on the stones : a, E, e, A, b
+<audio>capital A!</audio>
+<audio>capital E!</audio>
+<audio>lowercase e!</audio>
+<audio>lowercase b!</audio>
+The narrator says <audio> Press and hold lowercase a. </audio>
+If the correct letter is selected (letter a), the narrator says : <audio> Yes!  Lowercase a ! </audio>
+if the incorrect letter is selected, the narrator says:
+<audio> That’s </audio> Play the audio for the letter corresponding to the incorrect letter selected</audio>Find lowercase a! </audio>
+On the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says:  <audio> THIS is lowercase a. Press and hold lowercase a.</audio>
+When the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.
+
+Scene 6: Letter E (capital)
+<audio>capital C !</audio>
+<audio>lowercase c !</audio>
+<audio>capital D !</audio>
+<audio>lowercase e!</audio>
+The following letters are displayed on the stones: E, C, c, D, e
+The narrator says <audio> Press and hold capital E. </audio>
+If the correct letter is selected (letter E), the narrator says: <audio> Nice! Capital E ! </audio>
+if the incorrect letter is selected, the narrator says:
+<audio> That’s </audio> Play the audio for the letter corresponding to the incorrect letter selected </audio>Find capital E !</audio>
+On the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says:  <audio> THIS is capital E. Press and hold capital E.</audio>
+When the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.
+
+Scene 7: Letter B (capital)
+<audio>lowercase b!</audio>
+<audio>capital D!</audio>
+<audio>capital A!</audio>
+<audio>lowercase c!</audio>
+The following letters are displayed on the stones: B, b, D, A, c
+The narrator says <audio> Press and hold capital B. </audio>
+If the correct letter is selected (letter B) the narrator says: <audio> Yes! Capital B! </audio>
+if the incorrect letter is selected, the narrator says:
+<audio> That’s </audio>Play the audio for the letter corresponding to the incorrect letter selected </audio>Find capital B !</audio>
+On the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narattor says: <audio> THIS is capital B. Press and hold capital B. </audio>
+When the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.
+
+Scene 8: Letter e (lowercase)
+<audio>lowercase a!</audio>
+<audio>capital C!</audio>
+<audio>capital E!</audio>
+<audio>lowercase d!</audio>
+The following letters are displayed on the stones: e, a, C, E, d
+The narrator says <audio> Press and hold lowercase e. </audio>
+If the correct letter is selected (letter e) the narrator says: <audio> Great! Lowercase e! </audio>
+if the incorrect letter is selected, the narrator says:
+<audio> That’s </audio> Play the audio for the letter corresponding to the incorrect letter selected</audio>Find lowercase e !</audio>
+On the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says: <audio> THIS is lowercase e. Press and hold lowercase e. </audio>
+When the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.
+
+Scene 9: Letter A (capital)
+<audio>capital D!</audio>
+<audio>lowercase a!</audio>
+<audio>capital B!</audio>
+<audio>lowercase e!</audio>
+The following letters are displayed on the stones: A, D, a, B, e
+The narrator says <audio> Press and hold capital A. </audio>
+If the correct letter is selected (letter A), the narrator says: <audio> Yes! Capital A! </audio>
+if the incorrect letter is selected, the narrator says:
+<audio> That’s </audio> Play the audio for the letter corresponding to the incorrect letter selected </audio>Find capital A ! </audio>
+On the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says: <audio> THIS is capital A. Press and hold capital A. </audio>
+When the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.
+
+Scene 10: Letter c (lowercase)
+<audio>lowercase e!</audio>
+<audio>lowercase a!</audio>
+<audio>capital D!</audio>
+<audio>capital C!</audio>
+The following letters are displayed on the stones: c, e, a, D, C
+The narrator says <audio> Press and hold lowercase c. </audio>
+If the correct letter is selected (letter c), the narrator says: <audio> Super! That’s lowercase c! </audio>
+if the incorrect letter is selected, the narrator says:
+<audio> That’s </audio> Play the audio for the letter corresponding to the incorrect letter selected </audio>Find lowercase c !</audio>
+On the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says: <audio> THIS is lowercase c. Press and hold lowercase c. </audio>
+When the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.
+
+Scene 11: Letter D (capital)
+<audio>capital B!</audio>
+<audio>lowercase d!</audio>
+<audio>capital E!</audio>
+<audio>lowercase b!</audio>
+The following letters are displayed on the stones: D, B, d, E, b
+The narrator says <audio> Press and hold capital D. </audio>
+If the correct letter is selected (letter D), the narrator says: <audio> Yes! That’s capital D! </audio>
+If the incorrect letter is selected, the narrator says:
+<audio> That’s </audio>Play the audio for the letter corresponding to the incorrect letter selected </audio>Find capital D !</audio>
+On the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says: <audio>THIS is capital D. Press and hold capital D. </audio>
+When the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.
+
+Scene 12: Letter b (lowercase)
+<audio>capital B!/audio>
+<audio>lowercase d!</audio>
+<audio>capital D!</audio>
+<audio>lowercase c!</audio>
+The following letters are displayed on the stones: B, d, D, c, b
+The narrator says <audio> Press and hold lowercase b. </audio>
+If the correct letter is selected (letter b), the narrator says: <audio> Great! Lowercase b! </audio>
+If the incorrect letter is selected, the narrator says:
+<audio> That’s </audio>Play the audio for the letter corresponding to the incorrect letter selected </audio>Find lowercase b!</audio>
+On the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says: <audio> THIS is lowercase b. Press and hold lowercase b. </audio>
+
+When the correct letter is selected, play <video> The jewel under Rock 5 jumps back into the chest,  the chest closes and then opens again and 10 jewels float above the chest. After a short while the jewels fall back into the chest and the chest closes</video>
+After a 3 seconds delay , play the following audio while the video is playing <audio>Great job! You collected all the letter treasures! </audio>

@@ -1,0 +1,903 @@
+{
+  "id": "r1lt19L-v2",
+  "moduleFolder": "waf-module-r1lt19L-v2",
+  "title": "Name That Letter: Aa-Ee v2",
+  "runtime": {
+    "engine": "html",
+    "layout": "mainOnly",
+    "theme": "park",
+    "resolution": "640x480",
+    "usesAssessment": true
+  },
+  "activityDescription": "Description\n\nusesAssessment=true\nAn activity that helps students identify capital and lowercase letters through a treasure hunt.\nThe activity contains a series of videos that are played one after another and the backdrop of each videos needs to remain visible until the next video starts playing.\nBeginning with scene 3 and up to scene 11, when the 5 letters are displayed, their place on each rock should be randomly chosen so that we don't end up with the same rock holding the same letter for each activity run. In scene 12 , don't display the letters randomly on rocks, display them in the order they are defined.\nIn scenes 3 through 12, once a rock is selected, disable it so it cannot be selected again. Also in scenes 3 through 12  the animation of the correct letter should stop once the letter is selected, if the letter was being highlighted/animated at that point.",
+  "audience": null,
+  "acceptance_criterias": [],
+  "scenes": [
+    {
+      "id": "scene-1",
+      "description": "Scene 1: Intro\n <video> A video of a  colorful island with a treasure map, palm trees, and a glowing treasure chest in the distance.The treasure chest slowly opens and glows. </video>\nThe video starts playing. As the video ends, the activity will transition to the next scene",
+      "role": null,
+      "media": {
+        "images": [
+          {
+            "key": "activity-cover",
+            "description": "Scene 1: Intro\n <video> A video of a  colorful island with a treasure map, palm trees, and a glowing treasure chest in the distance.The treasure chest slowly opens and glows. </video>\nThe video starts playing. As the video ends, the activity will transition to the next scene",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/images/english/activity-cover.jpg"
+          }
+        ],
+        "video": [
+          {
+            "key": "scene-1-video-island-treasure-chest",
+            "description": "A video of a  colorful island with a treasure map, palm trees, and a glowing treasure chest in the distance.The treasure chest slowly opens and glows.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-1-video-island-treasure-chest.mp4"
+          }
+        ],
+        "animations": []
+      },
+      "audio": {
+        "tracks": []
+      }
+    },
+    {
+      "id": "scene-2",
+      "description": "Scene 2: Getting Started\nThe narrator says <audio> We are going on a treasure hunt. </audio>.\nA video of the treasure chest closing starts playing <video>The treasure chest gently closes.</video>\n\nThe narrator says <audio> Each treasure is a letter. Listen carefully and find the right ones. </audio>.\n\n<video>A video showing chest opening and letter stones rising out and jumping in place is played </video>\n\nThe narrator says <audio> In each group of stones, press and hold the correct letter to collect the treasure. </audio>.",
+      "role": null,
+      "media": {
+        "images": [],
+        "video": [
+          {
+            "key": "scene-2-video-treasure-chest-closes",
+            "description": "The treasure chest gently closes.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-2-video-treasure-chest-closes.mp4"
+          },
+          {
+            "key": "scene-2-video-letter-stones-rise",
+            "description": "A video showing chest opening and letter stones rising out and jumping in place is played",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-2-video-letter-stones-rise.mp4"
+          }
+        ],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "scene-2-audio-treasure-hunt-narration",
+            "description": "Audio for scene scene-2.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-2-audio-treasure-hunt-narration.mp3",
+            "script": "We are going on a treasure hunt.",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-2-audio-letter-treasures-narration",
+            "description": "Audio for scene scene-2.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-2-audio-letter-treasures-narration.mp3",
+            "script": "Each treasure is a letter. Listen carefully and find the right ones.",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-2-audio-stones-instructions",
+            "description": "Audio for scene scene-2.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-2-audio-stones-instructions.mp3",
+            "script": "In each group of stones, press and hold the correct letter to collect the treasure.",
+            "interruptible": false,
+            "voice": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene-3",
+      "description": "Scene 3: Letter d (lowercase)\nThe following letters are displayed on the stones : d, b, a, D, e\n<audio>lowercase b !</audio>\n<audio>lowercase a !</audio>\n<audio>capital D!</audio>\n<audio>lowercase e!</audio>\nThe narrator says <audio> Press and hold lowercase d. </audio>\nIf the correct letter is selected (letter d), the narrator says : <audio> Yes! That\u2019s lowercase d! </audio>\nif the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio>Play the audio for the letter corresponding to the incorrect letter selected</audio>Find lowercase d ! </audio>\n\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narator says:  <audio> THIS is lowercase d. Press and hold lowercase d. </audio>\n<video>Rock 1</video>\n<video>Rock 2</video>\n<video>Rock 3</video>\n<video>Rock 4</video>\n<video>Rock 5</video>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos is played, corresponding to te index of the correct rock.",
+      "role": null,
+      "media": {
+        "images": [],
+        "video": [
+          {
+            "key": "scene-3-video-rock-one",
+            "description": "Rock 1",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-3-video-rock-one.mp4"
+          },
+          {
+            "key": "scene-3-video-rock-two",
+            "description": "Rock 2",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-3-video-rock-two.mp4"
+          },
+          {
+            "key": "scene-3-video-rock-three",
+            "description": "Rock 3",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-3-video-rock-three.mp4"
+          },
+          {
+            "key": "scene-3-video-rock-four",
+            "description": "Rock 4",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-3-video-rock-four.mp4"
+          },
+          {
+            "key": "scene-3-video-rock-five",
+            "description": "Rock 5",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-3-video-rock-five.mp4"
+          }
+        ],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "scene-3-audio-lowercase-b",
+            "description": "Audio for scene scene-3.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-3-audio-lowercase-b.mp3",
+            "script": "lowercase b !",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-3-audio-lowercase-a",
+            "description": "Audio for scene scene-3.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-3-audio-lowercase-a.mp3",
+            "script": "lowercase a !",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-3-audio-capital-d",
+            "description": "Audio for scene scene-3.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-3-audio-capital-d.mp3",
+            "script": "capital D!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-3-audio-lowercase-e",
+            "description": "Audio for scene scene-3.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-3-audio-lowercase-e.mp3",
+            "script": "lowercase e!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-3-audio-lowercase-d-prompt",
+            "description": "Audio for scene scene-3.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-3-audio-lowercase-d-prompt.mp3",
+            "script": "Press and hold lowercase d.",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-3-audio-lowercase-d-correct-feedback",
+            "description": "Audio for scene scene-3.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-3-audio-lowercase-d-correct-feedback.mp3",
+            "script": "Yes! That\u2019s lowercase d!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-3-audio-incorrect-prefix",
+            "description": "Audio for scene scene-3.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-3-audio-incorrect-prefix.mp3",
+            "script": "That\u2019s",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-3-audio-lowercase-d-retry-prompt",
+            "description": "Audio for scene scene-3.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-3-audio-lowercase-d-retry-prompt.mp3",
+            "script": "THIS is lowercase d. Press and hold lowercase d.",
+            "interruptible": false,
+            "voice": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene-4",
+      "description": "Scene 4: Letter C (capital)\nThe following letters are displayed on the stones: C,c,e,B, D\n<audio>lowercase c!</audio>\n<audio>lowercase e!</audio>\n<audio>capital B!</audio>\n<audio>capital D!</audio>\n\nThe narrator says <audio> Press and hold capital C. </audio>\nIf the correct letter is selected (letter C) the narrator says : <audio> Great! That\u2019s capital C ! </audio>\nif the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio>Play the audio for the letter corresponding to the incorrect letter selected </audio>Find capital C ! </audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says:   <audio> Here it is. This is capital C. Press and hold capital C.</audio>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to the index of the correct rock.",
+      "role": null,
+      "media": {
+        "images": [],
+        "video": [],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "scene-4-audio-lowercase-c",
+            "description": "Audio for scene scene-4.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-4-audio-lowercase-c.mp3",
+            "script": "lowercase c!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-4-audio-lowercase-e",
+            "description": "Audio for scene scene-4.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-4-audio-lowercase-e.mp3",
+            "script": "lowercase e!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-4-audio-capital-b",
+            "description": "Audio for scene scene-4.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-4-audio-capital-b.mp3",
+            "script": "capital B!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-4-audio-capital-d",
+            "description": "Audio for scene scene-4.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-4-audio-capital-d.mp3",
+            "script": "capital D!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-4-audio-capital-c-prompt",
+            "description": "Audio for scene scene-4.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-4-audio-capital-c-prompt.mp3",
+            "script": "Press and hold capital C.",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-4-audio-capital-c-correct-feedback",
+            "description": "Audio for scene scene-4.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-4-audio-capital-c-correct-feedback.mp3",
+            "script": "Great! That\u2019s capital C !",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-4-audio-incorrect-prefix",
+            "description": "Audio for scene scene-4.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-4-audio-incorrect-prefix.mp3",
+            "script": "That\u2019s",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-4-audio-capital-c-retry-prompt",
+            "description": "Audio for scene scene-4.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-4-audio-capital-c-retry-prompt.mp3",
+            "script": "Here it is. This is capital C. Press and hold capital C.",
+            "interruptible": false,
+            "voice": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene-5",
+      "description": "Scene 5: Letter a (lowercase)\nThe following letters are displayed on the stones : a, E, e, A, b\n<audio>capital A!</audio>\n<audio>capital E!</audio>\n<audio>lowercase e!</audio>\n<audio>lowercase b!</audio>\nThe narrator says <audio> Press and hold lowercase a. </audio>\nIf the correct letter is selected (letter a), the narrator says : <audio> Yes!  Lowercase a ! </audio>\nif the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio> Play the audio for the letter corresponding to the incorrect letter selected</audio>Find lowercase a! </audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says:  <audio> THIS is lowercase a. Press and hold lowercase a.</audio>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.",
+      "role": null,
+      "media": {
+        "images": [],
+        "video": [],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "scene-5-audio-capital-a",
+            "description": "Audio for scene scene-5.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-5-audio-capital-a.mp3",
+            "script": "capital A!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-5-audio-capital-e",
+            "description": "Audio for scene scene-5.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-5-audio-capital-e.mp3",
+            "script": "capital E!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-5-audio-lowercase-e",
+            "description": "Audio for scene scene-5.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-5-audio-lowercase-e.mp3",
+            "script": "lowercase e!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-5-audio-lowercase-b",
+            "description": "Audio for scene scene-5.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-5-audio-lowercase-b.mp3",
+            "script": "lowercase b!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-5-audio-lowercase-a-prompt",
+            "description": "Audio for scene scene-5.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-5-audio-lowercase-a-prompt.mp3",
+            "script": "Press and hold lowercase a.",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-5-audio-lowercase-a-correct-feedback",
+            "description": "Audio for scene scene-5.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-5-audio-lowercase-a-correct-feedback.mp3",
+            "script": "Yes!  Lowercase a !",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-5-audio-incorrect-prefix",
+            "description": "Audio for scene scene-5.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-5-audio-incorrect-prefix.mp3",
+            "script": "That\u2019s",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-5-audio-lowercase-a-retry-prompt",
+            "description": "Audio for scene scene-5.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-5-audio-lowercase-a-retry-prompt.mp3",
+            "script": "THIS is lowercase a. Press and hold lowercase a.",
+            "interruptible": false,
+            "voice": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene-6",
+      "description": "Scene 6: Letter E (capital)\n<audio>capital C !</audio>\n<audio>lowercase c !</audio>\n<audio>capital D !</audio>\n<audio>lowercase e!</audio>\nThe following letters are displayed on the stones: E, C, c, D, e\nThe narrator says <audio> Press and hold capital E. </audio>\nIf the correct letter is selected (letter E), the narrator says: <audio> Nice! Capital E ! </audio>\nif the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio> Play the audio for the letter corresponding to the incorrect letter selected </audio>Find capital E !</audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says:  <audio> THIS is capital E. Press and hold capital E.</audio>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.",
+      "role": null,
+      "media": {
+        "images": [],
+        "video": [],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "scene-6-audio-capital-c",
+            "description": "Audio for scene scene-6.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-6-audio-capital-c.mp3",
+            "script": "capital C !",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-6-audio-lowercase-c",
+            "description": "Audio for scene scene-6.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-6-audio-lowercase-c.mp3",
+            "script": "lowercase c !",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-6-audio-capital-d",
+            "description": "Audio for scene scene-6.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-6-audio-capital-d.mp3",
+            "script": "capital D !",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-6-audio-lowercase-e",
+            "description": "Audio for scene scene-6.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-6-audio-lowercase-e.mp3",
+            "script": "lowercase e!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-6-audio-capital-e-prompt",
+            "description": "Audio for scene scene-6.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-6-audio-capital-e-prompt.mp3",
+            "script": "Press and hold capital E.",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-6-audio-capital-e-correct-feedback",
+            "description": "Audio for scene scene-6.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-6-audio-capital-e-correct-feedback.mp3",
+            "script": "Nice! Capital E !",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-6-audio-incorrect-prefix",
+            "description": "Audio for scene scene-6.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-6-audio-incorrect-prefix.mp3",
+            "script": "That\u2019s",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-6-audio-capital-e-retry-prompt",
+            "description": "Audio for scene scene-6.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-6-audio-capital-e-retry-prompt.mp3",
+            "script": "THIS is capital E. Press and hold capital E.",
+            "interruptible": false,
+            "voice": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene-7",
+      "description": "Scene 7: Letter B (capital)\n<audio>lowercase b!</audio>\n<audio>capital D!</audio>\n<audio>capital A!</audio>\n<audio>lowercase c!</audio>\nThe following letters are displayed on the stones: B, b, D, A, c\nThe narrator says <audio> Press and hold capital B. </audio>\nIf the correct letter is selected (letter B) the narrator says: <audio> Yes! Capital B! </audio>\nif the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio>Play the audio for the letter corresponding to the incorrect letter selected </audio>Find capital B !</audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narattor says: <audio> THIS is capital B. Press and hold capital B. </audio>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.",
+      "role": null,
+      "media": {
+        "images": [],
+        "video": [],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "scene-7-audio-lowercase-b",
+            "description": "Audio for scene scene-7.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-7-audio-lowercase-b.mp3",
+            "script": "lowercase b!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-7-audio-capital-d",
+            "description": "Audio for scene scene-7.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-7-audio-capital-d.mp3",
+            "script": "capital D!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-7-audio-capital-a",
+            "description": "Audio for scene scene-7.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-7-audio-capital-a.mp3",
+            "script": "capital A!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-7-audio-lowercase-c",
+            "description": "Audio for scene scene-7.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-7-audio-lowercase-c.mp3",
+            "script": "lowercase c!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-7-audio-capital-b-prompt",
+            "description": "Audio for scene scene-7.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-7-audio-capital-b-prompt.mp3",
+            "script": "Press and hold capital B.",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-7-audio-capital-b-correct-feedback",
+            "description": "Audio for scene scene-7.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-7-audio-capital-b-correct-feedback.mp3",
+            "script": "Yes! Capital B!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-7-audio-incorrect-prefix",
+            "description": "Audio for scene scene-7.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-7-audio-incorrect-prefix.mp3",
+            "script": "That\u2019s",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-7-audio-capital-b-retry-prompt",
+            "description": "Audio for scene scene-7.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-7-audio-capital-b-retry-prompt.mp3",
+            "script": "THIS is capital B. Press and hold capital B.",
+            "interruptible": false,
+            "voice": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene-8",
+      "description": "Scene 8: Letter e (lowercase)\n<audio>lowercase a!</audio>\n<audio>capital C!</audio>\n<audio>capital E!</audio>\n<audio>lowercase d!</audio>\nThe following letters are displayed on the stones: e, a, C, E, d\nThe narrator says <audio> Press and hold lowercase e. </audio>\nIf the correct letter is selected (letter e) the narrator says: <audio> Great! Lowercase e! </audio>\nif the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio> Play the audio for the letter corresponding to the incorrect letter selected</audio>Find lowercase e !</audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says: <audio> THIS is lowercase e. Press and hold lowercase e. </audio>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.",
+      "role": null,
+      "media": {
+        "images": [],
+        "video": [],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "scene-8-audio-lowercase-a",
+            "description": "Audio for scene scene-8.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-8-audio-lowercase-a.mp3",
+            "script": "lowercase a!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-8-audio-capital-c",
+            "description": "Audio for scene scene-8.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-8-audio-capital-c.mp3",
+            "script": "capital C!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-8-audio-capital-e",
+            "description": "Audio for scene scene-8.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-8-audio-capital-e.mp3",
+            "script": "capital E!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-8-audio-lowercase-d",
+            "description": "Audio for scene scene-8.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-8-audio-lowercase-d.mp3",
+            "script": "lowercase d!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-8-audio-lowercase-e-prompt",
+            "description": "Audio for scene scene-8.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-8-audio-lowercase-e-prompt.mp3",
+            "script": "Press and hold lowercase e.",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-8-audio-lowercase-e-correct-feedback",
+            "description": "Audio for scene scene-8.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-8-audio-lowercase-e-correct-feedback.mp3",
+            "script": "Great! Lowercase e!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-8-audio-incorrect-prefix",
+            "description": "Audio for scene scene-8.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-8-audio-incorrect-prefix.mp3",
+            "script": "That\u2019s",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-8-audio-lowercase-e-retry-prompt",
+            "description": "Audio for scene scene-8.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-8-audio-lowercase-e-retry-prompt.mp3",
+            "script": "THIS is lowercase e. Press and hold lowercase e.",
+            "interruptible": false,
+            "voice": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene-9",
+      "description": "Scene 9: Letter A (capital)\n<audio>capital D!</audio>\n<audio>lowercase a!</audio>\n<audio>capital B!</audio>\n<audio>lowercase e!</audio>\nThe following letters are displayed on the stones: A, D, a, B, e\nThe narrator says <audio> Press and hold capital A. </audio>\nIf the correct letter is selected (letter A), the narrator says: <audio> Yes! Capital A! </audio>\nif the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio> Play the audio for the letter corresponding to the incorrect letter selected </audio>Find capital A ! </audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says: <audio> THIS is capital A. Press and hold capital A. </audio>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.",
+      "role": null,
+      "media": {
+        "images": [],
+        "video": [],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "scene-9-audio-capital-d",
+            "description": "Audio for scene scene-9.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-9-audio-capital-d.mp3",
+            "script": "capital D!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-9-audio-lowercase-a",
+            "description": "Audio for scene scene-9.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-9-audio-lowercase-a.mp3",
+            "script": "lowercase a!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-9-audio-capital-b",
+            "description": "Audio for scene scene-9.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-9-audio-capital-b.mp3",
+            "script": "capital B!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-9-audio-lowercase-e",
+            "description": "Audio for scene scene-9.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-9-audio-lowercase-e.mp3",
+            "script": "lowercase e!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-9-audio-capital-a-prompt",
+            "description": "Audio for scene scene-9.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-9-audio-capital-a-prompt.mp3",
+            "script": "Press and hold capital A.",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-9-audio-capital-a-correct-feedback",
+            "description": "Audio for scene scene-9.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-9-audio-capital-a-correct-feedback.mp3",
+            "script": "Yes! Capital A!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-9-audio-incorrect-prefix",
+            "description": "Audio for scene scene-9.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-9-audio-incorrect-prefix.mp3",
+            "script": "That\u2019s",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-9-audio-capital-a-retry-prompt",
+            "description": "Audio for scene scene-9.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-9-audio-capital-a-retry-prompt.mp3",
+            "script": "THIS is capital A. Press and hold capital A.",
+            "interruptible": false,
+            "voice": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene-10",
+      "description": "Scene 10: Letter c (lowercase)\n<audio>lowercase e!</audio>\n<audio>lowercase a!</audio>\n<audio>capital D!</audio>\n<audio>capital C!</audio>\nThe following letters are displayed on the stones: c, e, a, D, C\nThe narrator says <audio> Press and hold lowercase c. </audio>\nIf the correct letter is selected (letter c), the narrator says: <audio> Super! That\u2019s lowercase c! </audio>\nif the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio> Play the audio for the letter corresponding to the incorrect letter selected </audio>Find lowercase c !</audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says: <audio> THIS is lowercase c. Press and hold lowercase c. </audio>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.",
+      "role": null,
+      "media": {
+        "images": [],
+        "video": [],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "scene-10-audio-lowercase-e",
+            "description": "Audio for scene scene-10.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-10-audio-lowercase-e.mp3",
+            "script": "lowercase e!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-10-audio-lowercase-a",
+            "description": "Audio for scene scene-10.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-10-audio-lowercase-a.mp3",
+            "script": "lowercase a!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-10-audio-capital-d",
+            "description": "Audio for scene scene-10.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-10-audio-capital-d.mp3",
+            "script": "capital D!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-10-audio-capital-c",
+            "description": "Audio for scene scene-10.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-10-audio-capital-c.mp3",
+            "script": "capital C!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-10-audio-lowercase-c-prompt",
+            "description": "Audio for scene scene-10.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-10-audio-lowercase-c-prompt.mp3",
+            "script": "Press and hold lowercase c.",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-10-audio-lowercase-c-correct-feedback",
+            "description": "Audio for scene scene-10.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-10-audio-lowercase-c-correct-feedback.mp3",
+            "script": "Super! That\u2019s lowercase c!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-10-audio-incorrect-prefix",
+            "description": "Audio for scene scene-10.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-10-audio-incorrect-prefix.mp3",
+            "script": "That\u2019s",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-10-audio-lowercase-c-retry-prompt",
+            "description": "Audio for scene scene-10.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-10-audio-lowercase-c-retry-prompt.mp3",
+            "script": "THIS is lowercase c. Press and hold lowercase c.",
+            "interruptible": false,
+            "voice": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene-11",
+      "description": "Scene 11: Letter D (capital)\n<audio>capital B!</audio>\n<audio>lowercase d!</audio>\n<audio>capital E!</audio>\n<audio>lowercase b!</audio>\nThe following letters are displayed on the stones: D, B, d, E, b\nThe narrator says <audio> Press and hold capital D. </audio>\nIf the correct letter is selected (letter D), the narrator says: <audio> Yes! That\u2019s capital D! </audio>\nIf the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio>Play the audio for the letter corresponding to the incorrect letter selected </audio>Find capital D !</audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says: <audio>THIS is capital D. Press and hold capital D. </audio>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.",
+      "role": null,
+      "media": {
+        "images": [],
+        "video": [],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "scene-11-audio-capital-b",
+            "description": "Audio for scene scene-11.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-11-audio-capital-b.mp3",
+            "script": "capital B!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-11-audio-lowercase-d",
+            "description": "Audio for scene scene-11.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-11-audio-lowercase-d.mp3",
+            "script": "lowercase d!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-11-audio-capital-e",
+            "description": "Audio for scene scene-11.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-11-audio-capital-e.mp3",
+            "script": "capital E!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-11-audio-lowercase-b",
+            "description": "Audio for scene scene-11.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-11-audio-lowercase-b.mp3",
+            "script": "lowercase b!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-11-audio-capital-d-prompt",
+            "description": "Audio for scene scene-11.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-11-audio-capital-d-prompt.mp3",
+            "script": "Press and hold capital D.",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-11-audio-capital-d-correct-feedback",
+            "description": "Audio for scene scene-11.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-11-audio-capital-d-correct-feedback.mp3",
+            "script": "Yes! That\u2019s capital D!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-11-audio-incorrect-prefix",
+            "description": "Audio for scene scene-11.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-11-audio-incorrect-prefix.mp3",
+            "script": "That\u2019s",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-11-audio-capital-d-retry-prompt",
+            "description": "Audio for scene scene-11.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-11-audio-capital-d-retry-prompt.mp3",
+            "script": "THIS is capital D. Press and hold capital D.",
+            "interruptible": false,
+            "voice": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene-12",
+      "description": "Scene 12: Letter b (lowercase)\n<audio>capital B!/audio>\n<audio>lowercase d!</audio>\n<audio>capital D!</audio>\n<audio>lowercase c!</audio>\nThe following letters are displayed on the stones: B, d, D, c, b\nThe narrator says <audio> Press and hold lowercase b. </audio>\nIf the correct letter is selected (letter b), the narrator says: <audio> Great! Lowercase b! </audio>\nIf the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio>Play the audio for the letter corresponding to the incorrect letter selected </audio>Find lowercase b!</audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says: <audio> THIS is lowercase b. Press and hold lowercase b. </audio>\n\nWhen the correct letter is selected, play <video> The jewel under Rock 5 jumps back into the chest,  the chest closes and then opens again and 10 jewels float above the chest. After a short while the jewels fall back into the chest and the chest closes</video>\nAfter a 3 seconds delay , play the following audio while the video is playing <audio>Great job! You collected all the letter treasures! </audio>.",
+      "role": null,
+      "media": {
+        "images": [],
+        "video": [
+          {
+            "key": "scene-12-video-jewels-return-to-chest",
+            "description": "The jewel under Rock 5 jumps back into the chest,  the chest closes and then opens again and 10 jewels float above the chest. After a short while the jewels fall back into the chest and the chest closes",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-12-video-jewels-return-to-chest.mp4"
+          }
+        ],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "scene-12-audio-lowercase-d",
+            "description": "Audio for scene scene-12.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-12-audio-lowercase-d.mp3",
+            "script": "lowercase d!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-12-audio-capital-d",
+            "description": "Audio for scene scene-12.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-12-audio-capital-d.mp3",
+            "script": "capital D!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-12-audio-lowercase-c",
+            "description": "Audio for scene scene-12.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-12-audio-lowercase-c.mp3",
+            "script": "lowercase c!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-12-audio-lowercase-b-prompt",
+            "description": "Audio for scene scene-12.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-12-audio-lowercase-b-prompt.mp3",
+            "script": "Press and hold lowercase b.",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-12-audio-lowercase-b-correct-feedback",
+            "description": "Audio for scene scene-12.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-12-audio-lowercase-b-correct-feedback.mp3",
+            "script": "Great! Lowercase b!",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-12-audio-incorrect-prefix",
+            "description": "Audio for scene scene-12.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-12-audio-incorrect-prefix.mp3",
+            "script": "That\u2019s",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-12-audio-lowercase-b-retry-prompt",
+            "description": "Audio for scene scene-12.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-12-audio-lowercase-b-retry-prompt.mp3",
+            "script": "THIS is lowercase b. Press and hold lowercase b.",
+            "interruptible": false,
+            "voice": null
+          },
+          {
+            "key": "scene-12-audio-letter-treasures-completion",
+            "description": "Audio for scene scene-12.",
+            "targetPath": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-12-audio-letter-treasures-completion.mp3",
+            "script": "Great job! You collected all the letter treasures!",
+            "interruptible": false,
+            "voice": null
+          }
+        ]
+      }
+    }
+  ]
+}

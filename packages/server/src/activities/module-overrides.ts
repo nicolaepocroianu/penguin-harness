@@ -18,6 +18,7 @@ import {
   type ModuleDocumentOverride,
 } from "./domain.js";
 import { interactionType, isAssessmentData } from "./sandbox-assessment.js";
+import { checkStateMachine } from "./state-machine-validation.js";
 
 /** The largest document an author may save, serialized. */
 export const MODULE_DOCUMENT_MAX_BYTES = 1_000_000;
@@ -38,7 +39,8 @@ export function assessmentBasis(draft: Pick<ActivityDraft, "spec">): string | nu
 
 /**
  * What a document of `kind` is derived from. The definition, like the assessment, follows the
- * specification: its id, title and theme come from there.
+ * specification: its id, title and theme come from there. So does the state machine, which
+ * must name each of its scenes.
  */
 export function documentBasis(
   kind: ModuleDocumentKind,
@@ -52,7 +54,7 @@ export function documentBasis(
  * the module code, may edit it: the assessment and the module definition.
  */
 export function isSharedDocument(kind: ModuleDocumentKind): boolean {
-  return kind !== "configuration";
+  return kind === "assessment" || kind === "definition";
 }
 
 /** Whether what the edit was derived from has changed since. */
@@ -90,6 +92,42 @@ export function validateDefinition(value: unknown): Record<string, unknown> {
   )
     throw invalid(
       'A module definition needs engine "html", schemaVersion "2.0.0" and require.entry.url "entry.js".',
+    );
+  return document;
+}
+
+/** How many problems a refused state machine's message names, as Loom's does. */
+const MACHINE_PROBLEMS_SHOWN = 5;
+
+/**
+ * Validate a state machine an author saves, with Loom's checks: a 400 naming its first
+ * problems. `spec` names the scenes. `baseline` is the machine the author was editing, when
+ * there is one: a problem it already had is let through, as an assessment's is, because real
+ * Loom machines predate some of Loom's own rules (an `activity` entered at `running`) and
+ * still play. Only the problems the edit introduces refuse it.
+ */
+export function validateStateMachineDocument(
+  value: unknown,
+  spec: unknown,
+  baseline?: unknown,
+): Record<string, unknown> {
+  const document = plainObject(value);
+  withinSize(document);
+  const issues = checkStateMachine(document, spec, baseline).issues.filter(
+    (issue) => !issue.inherited,
+  );
+  if (issues.length)
+    throw new HttpError(
+      400,
+      "state_machine_invalid",
+      `Invalid activity state machine: ${issues
+        .slice(0, MACHINE_PROBLEMS_SHOWN)
+        .map((issue) => issue.message)
+        .join("; ")}${
+        issues.length > MACHINE_PROBLEMS_SHOWN
+          ? `; and ${issues.length - MACHINE_PROBLEMS_SHOWN} more`
+          : ""
+      }`,
     );
   return document;
 }
