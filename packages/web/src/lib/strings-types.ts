@@ -686,6 +686,8 @@ export type Strings = {
       blocked: string;
       /** How many media files the media stage checked. */
       mediaFiles: (n: number) => string;
+      /** How many media files the media stage re-encoded, and how much smaller they are. */
+      mediaOptimised: (n: number, saved: string) => string;
       qaTitle: string;
       qaStates: { notDeployed: string; deploying: string; onQa: string; failed: string };
       /** What a QA deploy does, under the QA card's status while it has not been deployed. */
@@ -836,6 +838,8 @@ export type Strings = {
         preflight_failed: (errors: number) => string;
         /** Media found nowhere: the first paths, and how many there are in all. */
         media_missing: (paths: string[], count: number) => string;
+        /** FFmpeg could not re-encode media: the first paths, and how many there are in all. */
+        media_optimise_failed: (paths: string[], count: number) => string;
         /** The activity deploy had not finished in time; `target` is absent for QA's. */
         deploy_timed_out: (minutes: number, target?: "qa" | "prod") => string;
         interrupted: string;

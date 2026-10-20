@@ -760,6 +760,7 @@ export const en: Strings = {
       phaseCount: (done, total) => `${done}/${total}`,
       blocked: "Blocked",
       mediaFiles: (n) => `${n} media ${n === 1 ? "file" : "files"}`,
+      mediaOptimised: (n, saved) => `${n} re-encoded, ${saved} smaller`,
       qaTitle: "QA",
       qaStates: {
         notDeployed: "Not deployed",
@@ -911,7 +912,7 @@ export const en: Strings = {
           `The module's repository ${remote} does not exist yet. Create it empty, then deploy again.`,
         command_missing: (command) => `${command} is not installed on this server.`,
         sandbox_unavailable:
-          "This stage runs the module's own install, builds and lint, which need a sandbox while Confine activity agents is on, and none is available. Enable a sandbox plugin for this project on the Plugins page (sandbox-dsh works on Windows, macOS and Linux), then try again. The log names the reason.",
+          "This stage runs programs that need a sandbox while Confine activity agents is on (the module's own install, builds and lint, or FFmpeg on the media), and none is available. Enable a sandbox plugin for this project on the Plugins page (sandbox-dsh works on Windows, macOS and Linux), then try again. The log names the reason.",
         jenkins_failed: (status) =>
           status ? `Jenkins refused the request (HTTP ${status}).` : "Jenkins did not answer.",
         build_failed: (result) => `The Jenkins build ended as ${result}.`,
@@ -928,6 +929,8 @@ export const en: Strings = {
           `The activity data failed its check: ${errors} ${errors === 1 ? "problem" : "problems"}. The activity data and media were not pushed.`,
         media_missing: (paths, count) =>
           `${count} media ${count === 1 ? "file is" : "files are"} neither in the draft nor in the media repository: ${paths.join(", ")}${count > paths.length ? ", …" : ""}. The activity data and media were not pushed.`,
+        media_optimise_failed: (paths, count) =>
+          `FFmpeg could not re-encode ${count} media ${count === 1 ? "file" : "files"}: ${paths.join(", ")}${count > paths.length ? ", …" : ""}. Each was left as it was, and the activity data and media were not pushed. The log shows why.`,
         deploy_timed_out: (minutes, target) =>
           `The ${target === "prod" ? "PROD" : "QA"} deploy had not finished within ${minutes} ${minutes === 1 ? "minute" : "minutes"}.`,
         interrupted: "The server stopped while this stage ran.",

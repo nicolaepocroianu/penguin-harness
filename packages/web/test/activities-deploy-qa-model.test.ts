@@ -59,11 +59,13 @@ describe("the QA deploy's words", () => {
       { code: "preflight_failed", errors: 2 },
       { code: "media_missing", paths: ["media/a.mp3", "media/b.png"], count: 3 },
       { code: "deploy_timed_out", minutes: 30 },
+      { code: "media_optimise_failed", paths: ["loom/a.mp3"], count: 1 },
     ];
     expect(errors.map(stageErrorText)).toEqual([
       "The activity data failed its check: 2 problems. The activity data and media were not pushed.",
       "3 media files are neither in the draft nor in the media repository: media/a.mp3, media/b.png, …. The activity data and media were not pushed.",
       "The QA deploy had not finished within 30 minutes.",
+      "FFmpeg could not re-encode 1 media file: loom/a.mp3. Each was left as it was, and the activity data and media were not pushed. The log shows why.",
     ]);
   });
 

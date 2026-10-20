@@ -294,6 +294,11 @@ export type DeployStageError =
    */
   | { code: "media_missing"; paths: string[]; count: number }
   /**
+   * FFmpeg could not read or re-encode media the exported data names; each original is as it
+   * was. `paths` are the first of them (paths in the media repository), `count` all of them.
+   */
+  | { code: "media_optimise_failed"; paths: string[]; count: number }
+  /**
    * The Jenkins activity deploy ran for the configured minutes and had not finished; `target`
    * is absent for a QA deploy's (as runs before PROD deploys existed recorded it).
    */
@@ -312,6 +317,27 @@ export type DeployStageError =
   | { code: "interrupted" }
   /** Something the stage did not expect; the log says what. */
   | { code: "unexpected" };
+
+/** What verify_media_assets re-encoded before publishing (`deploy-media-optimise.ts`). */
+export interface DeployMediaOptimised {
+  /** How many files were re-encoded, already as a deploy ships them, left alone, or failed. */
+  optimised: number;
+  alreadyOptimised: number;
+  skipped: number;
+  failed: number;
+  /** What the re-encoded files weighed before, and weigh now. */
+  bytesBefore: number;
+  bytesAfter: number;
+  /** The first files re-encoded or failed, each with its sizes (and why it failed). */
+  files: Array<{
+    path: string;
+    kind: "audio" | "video" | "other";
+    status: string;
+    bytesBefore?: number;
+    bytesAfter?: number;
+    reason?: string;
+  }>;
+}
 
 /** What a run found out, gathered from its stages. */
 export interface DeployRunMetadata {
@@ -358,6 +384,8 @@ export interface DeployRunMetadata {
   /** The first media files copied into the media clone, and how many were copied. */
   mediaCopied?: string[];
   mediaCopiedCount?: number;
+  /** What verify_media_assets re-encoded, and what that saved. */
+  mediaOptimised?: DeployMediaOptimised;
   /** The media commit pushed to main; absent when the repository already had every file. */
   mediaCommit?: string;
   /** The activity-data commit pushed; absent when nothing had changed. */

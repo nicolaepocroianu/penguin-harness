@@ -1,13 +1,17 @@
 /**
  * The QA deploy's six stages, each run against fakes: the clones and Jenkins answer from
- * memory, the clock waits no time, and the activity-data and media clones are temp dirs.
- * No test here runs git or makes a request, and nothing is written outside the temp dirs.
+ * memory, the clock waits no time, FFmpeg is a fake (`fake-ffmpeg.ts`), and the activity-data
+ * and media clones are temp dirs. No test here runs git, FFmpeg or makes a request, and nothing
+ * is written outside the temp dirs.
  */
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import type { SpawnConfiner } from "@prismshadow/penguin-core";
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeClones } from "./fake-clones.js";
+import { MP3_OPTIMISED, MP3_STEREO, fakeFfmpeg } from "./fake-ffmpeg.js";
+import type { DeployProcessOptions } from "../src/activities/deploy-process.js";
 import type { DeployJenkins, JenkinsBuildStatus } from "../src/activities/deploy-jenkins.js";
 import { moduleContentHash } from "../src/activities/deploy-service.js";
 import { defaultDeploySettings } from "../src/activities/deploy-settings.js";
@@ -118,9 +122,12 @@ function snapshot(): DeployActivitySnapshot {
 async function setup(
   overrides: Partial<DeployStageContext> = {},
   cloneOptions: Parameters<typeof fakeClones>[1] = {},
+  // Unless a test says otherwise, every file is already as a deploy ships it.
+  ffmpeg = fakeFfmpeg({}, { describe: MP3_OPTIMISED }),
 ) {
   const activityData = await tempDir("penguin-qa-data-");
   const media = await tempDir("penguin-qa-media-");
+  const mediaWork = path.join(await tempDir("penguin-qa-media-work-"), "waf-module-words");
   const clones = fakeClones({ activityData, media }, cloneOptions);
   const jenkins = fakeJenkins();
   const clock = fakeClock();
@@ -132,7 +139,8 @@ async function setup(
     clones,
     serial: clones.serial,
     jenkins: jenkins.jenkins,
-    process: { run: async () => ({ code: 0, tail: "" }) },
+    process: ffmpeg.process(),
+    ffmpeg: "ffmpeg",
     styles: async () => ({ code: 0, tail: "" }),
     confinement: () => null,
     clock: clock.clock,
@@ -151,7 +159,7 @@ async function setup(
     signal: new AbortController().signal,
     qa: {
       activityData: { dir: activityData },
-      media: { dir: media },
+      media: { dir: media, workDir: mediaWork },
       refNum: 1,
       target: {
         tier: "qa",
@@ -163,7 +171,7 @@ async function setup(
     },
     ...overrides,
   };
-  return { ctx, clones, jenkins, clock, lines, activityData, media };
+  return { ctx, clones, jenkins, clock, lines, activityData, media, mediaWork, ffmpeg };
 }
 
 const run = (stage: DeployStage, ctx: DeployStageContext) =>
@@ -357,6 +365,165 @@ describe("verify_activity_data and verify_media_assets", () => {
       paths.map((file) => file.slice("media/".length)).sort(),
     );
     expect(ctx.metadata.mediaCopiedCount).toBe(count);
+  });
+
+  it("re-encodes media not yet as a deploy ships it, and publishes it with what it saved", async () => {
+    const ffmpeg = fakeFfmpeg({ "hello.mp3": { describe: MP3_STEREO, writes: "smaller" } });
+    const { ctx, clones, media, lines } = await setup(
+      {},
+      { authored: ["loom/words/hello.mp3"] },
+      ffmpeg,
+    );
+    await fs.mkdir(path.join(media, "loom", "words"), { recursive: true });
+    await fs.writeFile(path.join(media, "loom", "words", "hello.mp3"), "a much larger sound");
+    await run("export_activity_data", ctx);
+    await run("verify_media_assets", ctx);
+    expect(await fs.readFile(path.join(media, "loom/words/hello.mp3"), "utf8")).toBe("smaller");
+    expect(ctx.metadata.mediaOptimised).toEqual({
+      optimised: 1,
+      alreadyOptimised: 0,
+      skipped: 0,
+      failed: 0,
+      bytesBefore: 19,
+      bytesAfter: 7,
+      files: [
+        {
+          path: "loom/words/hello.mp3",
+          kind: "audio",
+          status: "optimised",
+          bytesBefore: 19,
+          bytesAfter: 7,
+        },
+      ],
+    });
+    expect(lines).toContain("Optimised loom/words/hello.mp3: 19 B → 7 B (saved 12 B, 63%).");
+    expect(asked(clones, media).filter((call) => call[0] === "stage")).toEqual([
+      ["stage", ["loom/words/hello.mp3"], { sparse: true }],
+    ]);
+    expect(asked(clones, media).at(-1)).toEqual(["push", "main", {}]);
+
+    // The next deploy finds it already as a deploy ships it.
+    ctx.metadata = {};
+    await run("export_activity_data", ctx);
+    await run("verify_media_assets", ctx);
+    expect(ctx.metadata.mediaOptimised).toMatchObject({ optimised: 0, alreadyOptimised: 1 });
+    expect(ffmpeg.encodes()).toHaveLength(1);
+  });
+
+  it("publishes nothing when an encode fails, leaving the original as it was", async () => {
+    const ffmpeg = fakeFfmpeg({
+      "hello.mp3": { describe: MP3_STEREO, exitCode: 1, output: "Error while encoding\n" },
+    });
+    const { ctx, clones, media, lines } = await setup(
+      {},
+      { authored: ["loom/words/hello.mp3"] },
+      ffmpeg,
+    );
+    await fs.mkdir(path.join(media, "loom", "words"), { recursive: true });
+    await fs.writeFile(path.join(media, "loom", "words", "hello.mp3"), "original");
+    await run("export_activity_data", ctx);
+    expect(await failure(run("verify_media_assets", ctx))).toEqual({
+      code: "media_optimise_failed",
+      paths: ["loom/words/hello.mp3"],
+      count: 1,
+    });
+    expect(await fs.readFile(path.join(media, "loom/words/hello.mp3"), "utf8")).toBe("original");
+    expect(lines).toContain("Could not optimise loom/words/hello.mp3: Error while encoding");
+    expect(ctx.metadata.mediaOptimised).toMatchObject({ failed: 1 });
+    expect(asked(clones, media).some((call) => call[0] === "stage" || call[0] === "push")).toBe(
+      false,
+    );
+  });
+
+  it("fails naming ffmpeg, and publishes nothing, when there is no FFmpeg to run", async () => {
+    const ffmpeg = fakeFfmpeg({ "hello.mp3": { describe: MP3_STEREO } });
+    ffmpeg.remove();
+    const { ctx, clones, media, lines } = await setup(
+      {},
+      { authored: ["loom/words/hello.mp3"] },
+      ffmpeg,
+    );
+    await fs.mkdir(path.join(media, "loom", "words"), { recursive: true });
+    await fs.writeFile(path.join(media, "loom", "words", "hello.mp3"), "original");
+    await run("export_activity_data", ctx);
+    expect(await failure(run("verify_media_assets", ctx))).toEqual({
+      code: "command_missing",
+      command: "ffmpeg",
+    });
+    expect(lines.some((line) => /ffmpeg could not be run.*nothing was published/.test(line))).toBe(
+      true,
+    );
+    expect(asked(clones, media).some((call) => call[0] === "stage" || call[0] === "push")).toBe(
+      false,
+    );
+  });
+
+  it("runs FFmpeg confined, writable in a work folder outside the clone, with none of the server's environment", async () => {
+    const SECRET = "PENGUIN_DEPLOY_FFMPEG_PROBE";
+    const saved = process.env[SECRET];
+    process.env[SECRET] = "secret";
+    try {
+      const confined: Parameters<SpawnConfiner>[1][] = [];
+      const confiner: SpawnConfiner = (argv, opts) => {
+        confined.push(opts);
+        return { argv: ["sandbox-runner", ...argv] };
+      };
+      const ffmpeg = fakeFfmpeg({ "hello.mp3": { describe: MP3_STEREO } });
+      const seen: DeployProcessOptions[] = [];
+      const inner = ffmpeg.process();
+      const { ctx, media, mediaWork } = await setup(
+        {
+          confinement: () => confiner,
+          process: {
+            run: (command, args, options) => {
+              seen.push(options);
+              return inner.run(command, args, options);
+            },
+          },
+        },
+        { authored: ["loom/words/hello.mp3"] },
+        ffmpeg,
+      );
+      await fs.mkdir(path.join(media, "loom", "words"), { recursive: true });
+      await fs.writeFile(path.join(media, "loom", "words", "hello.mp3"), "sound");
+      // A folder a stopped server left behind is cleared away.
+      await fs.mkdir(path.join(mediaWork, "optimise-stale"), { recursive: true });
+      await run("export_activity_data", ctx);
+      await run("verify_media_assets", ctx);
+      expect(seen).toHaveLength(2);
+      for (const options of seen) {
+        expect(options.shell).toBe(false);
+        expect(options.env?.[SECRET]).toBeUndefined();
+        expect(path.dirname(options.cwd)).toBe(mediaWork);
+        expect(options.confine?.(["ffmpeg", "-i", "x"]).argv).toEqual([
+          "sandbox-runner",
+          "ffmpeg",
+          "-i",
+          "x",
+        ]);
+      }
+      expect(confined[0]).toMatchObject({ cwd: seen[0]!.cwd, workspaceDir: seen[0]!.cwd });
+      // The work folder is outside the media clone, and gone once the stage ends.
+      expect(path.relative(media, seen[0]!.cwd).startsWith("..")).toBe(true);
+      expect(await fs.readdir(mediaWork)).toEqual([]);
+    } finally {
+      if (saved === undefined) delete process.env[SECRET];
+      else process.env[SECRET] = saved;
+    }
+  });
+
+  it("does nothing while activity agents are to be confined and nothing can confine FFmpeg", async () => {
+    const { HttpError } = await import("../src/http/errors.js");
+    const { ctx, clones, media } = await setup({
+      confinement: () => {
+        throw new HttpError(503, "sandbox_unavailable", "No sandbox plugin is enabled.");
+      },
+    });
+    await run("export_activity_data", ctx);
+    expect(await failure(run("verify_media_assets", ctx))).toEqual({
+      code: "sandbox_unavailable",
+    });
+    expect(asked(clones, media).some((call) => call[0] === "push")).toBe(false);
   });
 
   it("pushes nothing when the repository already has every file", async () => {

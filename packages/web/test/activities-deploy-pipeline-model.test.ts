@@ -184,6 +184,27 @@ describe("the pipeline", () => {
     expect(phases[1]!.rows.map((row) => row.detail)).toEqual([null, null, "35 media files", null]);
     expect(stageRows(null, stored()).every((row) => row.detail === null)).toBe(true);
   });
+
+  it("says what re-encoding the media saved, once the media stage re-encoded some", () => {
+    const optimised = (count: number, before: number, after: number) => ({
+      optimised: count,
+      alreadyOptimised: 3,
+      skipped: 0,
+      failed: 0,
+      bytesBefore: before,
+      bytesAfter: after,
+      files: [],
+    });
+    const detail = (mediaOptimised: ReturnType<typeof optimised>) =>
+      stageRows(
+        null,
+        stored({ verify_media_assets: { metadata: { mediaChecked: 5, mediaOptimised } } }),
+      ).find((row) => row.stage === "verify_media_assets")!.detail;
+    expect(detail(optimised(2, 3 * 1024 * 1024, 1024 * 1024))).toBe(
+      "5 media files · 2 re-encoded, 2MB smaller",
+    );
+    expect(detail(optimised(0, 0, 0))).toBe("5 media files");
+  });
 });
 
 describe("what keeps Deploy to QA waiting", () => {
