@@ -3,6 +3,7 @@
 - **Date:** 2026-10-20
 - **Type:** feat
 - **Scope:** `server`, `web`
+- **PR:** [#169](https://github.com/nicolaepocroianu/penguin-harness/pull/169)
 
 The Publish the media stage (`verify_media_assets`) now re-encodes the audio and video the activity data names before it publishes them, with Loom's settings. A file already as a deploy ships it is left alone, so a second deploy re-encodes nothing. Re-encoded files replace the originals in the media clone and are committed with the rest of the referenced media.
 
