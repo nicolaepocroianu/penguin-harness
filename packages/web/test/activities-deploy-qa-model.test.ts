@@ -59,11 +59,24 @@ describe("the QA deploy's words", () => {
       { code: "preflight_failed", errors: 2 },
       { code: "media_missing", paths: ["media/a.mp3", "media/b.png"], count: 3 },
       { code: "deploy_timed_out", minutes: 30 },
+      { code: "media_optimise_failed", paths: ["loom/a.mp3"], count: 1 },
+      { code: "media_lfs_pointer", paths: ["loom/a.mp3", "loom/b.mp4"], count: 2 },
+      { code: "media_changed", paths: ["loom/a.mp3"], count: 1 },
+      {
+        code: "media_write_failed",
+        paths: ["loom/a.mp3"],
+        count: 1,
+        error: "EBUSY: resource busy or locked, rename 'x' -> 'y'",
+      },
     ];
     expect(errors.map(stageErrorText)).toEqual([
       "The activity data failed its check: 2 problems. The activity data and media were not pushed.",
       "3 media files are neither in the draft nor in the media repository: media/a.mp3, media/b.png, …. The activity data and media were not pushed.",
       "The QA deploy had not finished within 30 minutes.",
+      "FFmpeg could not re-encode 1 media file: loom/a.mp3. Each was left as it was, and the activity data and media were not pushed. The log shows why.",
+      "The media clone has only the Git LFS pointers, not the files, for 2 media files: loom/a.mp3, loom/b.mp4. They could not be checked or re-encoded, and the activity data and media were not pushed. Get the files into the media clone, then deploy again.",
+      "1 media file changed in the media clone while it was re-encoded, and was left as it is now: loom/a.mp3. The activity data and media were not pushed. Deploy again.",
+      "The re-encoded copy of loom/a.mp3 could not be put in the media clone: EBUSY: resource busy or locked, rename 'x' -> 'y'. The original is as before, and the activity data and media were not pushed.",
     ]);
   });
 

@@ -29,8 +29,10 @@
  *                            deploy list into it (`deploy-export.ts`)
  *   verify_activity_data     check what was written (`deploy-preflight.ts`); errors fail it
  *   verify_media_assets      bring the media clone's main up to origin around the authored media,
- *                            fail naming any file the data names that is nowhere, then commit the
- *                            new or changed ones and push main (`deploy-media.ts`)
+ *                            re-encode the audio and video the data names that are not yet as a
+ *                            deploy ships them (`deploy-media-optimise.ts`), fail naming any file
+ *                            that could not be or that is nowhere, then commit the new or changed
+ *                            ones and push main (`deploy-media.ts`)
  *   publish_activity_data    commit what export wrote and push the branch
  *   trigger_activity_deploy  note the newest activity deploy build, and start the activity
  *                            deploy job for the branch and this product's template
@@ -88,7 +90,7 @@ import {
   type Clones,
 } from "./clone.js";
 import { BASE_BRANCH, activityDataBranchName, deployBranchName } from "./deploy-git.js";
-import { moduleShortName } from "./waf-layout.js";
+import { mediaRepoPath, moduleShortName } from "./waf-layout.js";
 import type { DeployJenkins, JenkinsBuildStatus } from "./deploy-jenkins.js";
 import { JenkinsError } from "./deploy-jenkins.js";
 import type { DeployProcess, DeployProcessResult } from "./deploy-process.js";
@@ -103,6 +105,15 @@ import {
 } from "./deploy-export.js";
 import { runPreflight } from "./deploy-preflight.js";
 import { syncMedia } from "./deploy-media.js";
+import {
+  FfmpegStopped,
+  FfmpegUnavailable,
+  kindOf,
+  optimiseMedia,
+  type MediaProblem,
+  type MediaOptimiseReport,
+} from "./deploy-media-optimise.js";
+import { ffmpegPath } from "./ffmpeg.js";
 import { withinRoot } from "./sandbox-paths.js";
 import { RUN_BUILD_NPM_CACHE } from "./sandbox-source.js";
 import { runBuildEnv, runBuildSpawn, type RunBuildSpawn } from "./sandbox-build-runner.js";
@@ -228,8 +239,12 @@ export interface DeployActivitySnapshot {
 export interface DeployQaContext {
   /** The activity-data clone. */
   activityData: { dir: string };
-  /** The media clone. */
-  media: { dir: string };
+  /**
+   * The media clone, and the folder outside every clone where FFmpeg re-encodes its media: each
+   * run of the stage gets a folder of its own in it; whatever is there when one starts is a
+   * stopped server's.
+   */
+  media: { dir: string; workDir: string };
   /** The deploying ref's number, which the link to QA opens. */
   refNum: number;
   /** Where the deploy goes: the target's Jenkins job settings and the QA address. */
@@ -261,6 +276,8 @@ export interface DeployStageContext {
   process: DeployProcess;
   /** Compiles a module's stylesheet with the pinned Sass, as the preview does. */
   styles: StyleCompiler;
+  /** The FFmpeg to run, through `process`; absent, the server's (`ffmpegPath`). */
+  ffmpeg?: string;
   /**
    * How the module's own programs are to run, asked as a stage that runs them starts: the
    * session sandbox's confiner, or null once an admin turned confinement off. Throws the
@@ -1147,6 +1164,23 @@ const verifyMediaAssets: DeployStageDefinition = {
     await ctx.serial("media", async () => {
       await clone.fetch();
       await onMainCarryingWork(ctx, clone);
+      // Re-encoded files are changed in the working tree, so they are published with the rest.
+      const optimised = await optimiseReferenced(ctx, qa, report.media);
+      ctx.metadata.mediaOptimised = {
+        optimised: optimised.optimised,
+        rebranded: optimised.rebranded,
+        alreadyOptimised: optimised.alreadyOptimised,
+        skipped: optimised.skipped,
+        failed: optimised.failed,
+        bytesBefore: optimised.bytesBefore,
+        bytesAfter: optimised.bytesAfter,
+        files: optimised.files
+          .filter(
+            (file) => file.status !== "already_optimised" && !file.status.startsWith("skipped"),
+          )
+          .slice(0, PATHS_SHOWN),
+      };
+      if (optimised.failed) throw optimiseFailure(optimised);
       const result = await syncMedia(
         { dir: cwd, references: report.media },
         { clone, log: ctx.log },
@@ -1176,6 +1210,90 @@ const verifyMediaAssets: DeployStageDefinition = {
     });
   },
 };
+
+/**
+ * Re-encodes the audio and video the data names that the media clone's working tree has, as
+ * Loom's deploy did (`deploy-media-optimise.ts`). FFmpeg starts as the module's checks do: with
+ * none of this server's environment and, while activity agents are confined, through the
+ * session sandbox, writable alone in a folder of the stage's own outside every clone, removed
+ * once it ends however it ends. With no FFmpeg to run the stage fails, publishing nothing.
+ */
+async function optimiseReferenced(
+  ctx: DeployStageContext,
+  qa: DeployQaContext,
+  references: readonly string[],
+): Promise<MediaOptimiseReport> {
+  const paths = references.flatMap((reference) => mediaRepoPath(reference) ?? []);
+  // With no audio or video to look at, FFmpeg is never asked for, nor a sandbox for it.
+  if (!paths.some((file) => kindOf(file) !== null))
+    return optimiseMedia(
+      { dir: qa.media.dir, workDir: qa.media.workDir, paths },
+      { log: ctx.log, ffmpeg: () => Promise.reject(new Error("There is no media to re-encode.")) },
+    );
+  const confiner = moduleConfiner(ctx);
+  const root = qa.media.workDir;
+  await fs.mkdir(root, { recursive: true });
+  // Whatever is there was left by a stopped server.
+  for (const stale of await fs.readdir(root)) await removeCheckFolder(path.join(root, stale));
+  const workDir = await fs.mkdtemp(path.join(root, "optimise-"));
+  const spawn = runBuildSpawn(workDir, confiner);
+  const command = ctx.ffmpeg ?? ffmpegPath();
+  try {
+    return await optimiseMedia(
+      { dir: qa.media.dir, workDir, paths },
+      {
+        log: ctx.log,
+        ffmpeg: async (args, onOutput) =>
+          ctx.signal.aborted
+            ? { code: null, tail: "", error: "stopped" }
+            : ctx.process.run(command, args, {
+                cwd: workDir,
+                signal: ctx.signal,
+                onOutput,
+                // A path, which the shell would split at its spaces.
+                shell: false,
+                ...spawn,
+              }),
+      },
+    );
+  } catch (error) {
+    if (error instanceof FfmpegStopped) throw new DeployStopped();
+    if (error instanceof FfmpegUnavailable) {
+      ctx.log(`${error.message} The media was not re-encoded, and nothing was published.`);
+      throw new DeployStageFailure({ code: "command_missing", command: "ffmpeg" });
+    }
+    throw error;
+  } finally {
+    await removeCheckFolder(workDir);
+  }
+}
+
+/**
+ * Why the files that could not be re-encoded fail the stage, those of one kind named: a missing
+ * LFS file first, then a file changed meanwhile, then one that could not be written, then
+ * FFmpeg's failures. The log names every one of them.
+ */
+function optimiseFailure(report: MediaOptimiseReport): DeployStageFailure {
+  const failed = report.files.filter((file) => file.status === "failed");
+  const of = (problem: MediaProblem) => failed.filter((file) => file.problem === problem);
+  const named = (files: typeof failed) => ({
+    paths: files.slice(0, PATHS_SHOWN).map((file) => file.path),
+    count: files.length,
+  });
+  const pointers = of("lfs_pointer");
+  if (pointers.length)
+    return new DeployStageFailure({ code: "media_lfs_pointer", ...named(pointers) });
+  const changed = of("changed");
+  if (changed.length) return new DeployStageFailure({ code: "media_changed", ...named(changed) });
+  const unwritten = of("write");
+  if (unwritten.length)
+    return new DeployStageFailure({
+      code: "media_write_failed",
+      ...named(unwritten),
+      error: unwritten[0]!.reason ?? "",
+    });
+  return new DeployStageFailure({ code: "media_optimise_failed", ...named(failed) });
+}
 
 const publishActivityData: DeployStageDefinition = {
   id: "publish_activity_data",
