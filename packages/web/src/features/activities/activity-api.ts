@@ -36,6 +36,9 @@ import type {
   SceneLookSummary,
   SoundSetup,
   SpeechSetup,
+  TrimmedAudio,
+  TrimRange,
+  TrimSource,
   UploadedMedia,
   VersionDiff,
   VersionSaveResult,
@@ -182,6 +185,11 @@ export function activityApi(projectId: string, activityId: string, send: ApiSend
         call<ActivityDraft>("PUT", "media", { expectedRevision, manifest }),
       planMedia: (expectedRevision: string) =>
         call<ActivityDraft>("POST", "plan-media", { expectedRevision }),
+      /** Cut a stretch out of an asset's bound clip, in place. */
+      trimAudio: (
+        expectedRevision: string,
+        body: { language: string; assetKey: string } & TrimRange,
+      ) => call<ActivityDraft>("POST", "audio-trim", { ...body, expectedRevision }),
       addLanguage: (expectedRevision: string, language: string) =>
         call<ActivityDraft>("POST", "languages", { language, expectedRevision }),
       videoTimeline: (
@@ -298,6 +306,9 @@ export function activityApi(projectId: string, activityId: string, send: ApiSend
       uploads: () => get<{ media: UploadedMedia[] }>("media-uploads"),
       upload: (body: { name: string; dataBase64: string }) =>
         call<UploadedMedia>("POST", "media-uploads", body),
+      /** A clip with a stretch cut out, stored as an MP3 upload to review before it is saved. */
+      trimPreview: ({ kind, ...source }: TrimSource, range: TrimRange) =>
+        call<TrimmedAudio>("POST", "audio-trim-preview", { source: kind, ...source, ...range }),
       /** The saved draft's media stats, for a bound clip's file details. */
       stats: resource("media-stats", () => get<{ media: MediaStat[] }>("media-stats")),
       /** The paths this ref's videos and animations are bound to until real files replace them. */

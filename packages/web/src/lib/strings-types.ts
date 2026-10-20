@@ -1463,12 +1463,12 @@ export type Strings = {
       clear: string;
       working: string;
       failed: (reason: string) => string;
-      noAudio: string;
-      fetchFailed: (status: number) => string;
       remains: (length: string) => string;
       playRemaining: string;
       marked: (at: string) => string;
       keys: string;
+      handles: string;
+      savesInPlace: string;
     };
     waveformUnavailable: string;
     bulkSpeechTitle: string;

@@ -14,6 +14,8 @@ import type {
   ElevenLabsVoicesProblem,
   UploadedMedia,
   VoiceOption,
+  TrimRange,
+  TrimSource,
 } from "@prismshadow/penguin-server/api";
 import { Button, toastSuccess, Textarea, Select } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
@@ -196,6 +198,10 @@ export function AssetEditor({
   const savedManifest = draft.state.detail?.draft.mediaPlan?.manifest;
   const onChange = (value: AssetManifest) => draft.editManifest(value);
   const onAcceptAudio = (runId: string) => draft.acceptRun(runId, "accept-audio");
+  const onTrimPreview = (source: TrimSource, range: TrimRange) =>
+    draft.send((api) => api.media.trimPreview(source, range));
+  const onTrimAudio = (language: string, assetKey: string, range: TrimRange) =>
+    draft.trimAudio(language, assetKey, range);
   const onAcceptImage = (runId: string) => void draft.acceptRun(runId, "accept-image");
   const onAcceptText = (runId: string) => void draft.acceptRun(runId, "accept-media-text");
   const onAcceptVideo = (runId: string) => void draft.acceptRun(runId, "accept-video");
@@ -246,14 +252,13 @@ export function AssetEditor({
     `${endpoint}/runs/${encodeURIComponent(runId)}/image`;
   const videoUrl = (runId: string) => recordingUrl(endpoint, runId);
   /**
-   * Store a trimmed clip as an upload and bind the asset to it. The file is no longer the
-   * one a speech run produced, so the asset stops claiming that run's output.
+   * Cut a stretch out of the bound upload (on the server, as MP3) and bind the asset to the
+   * new upload. The file is no longer the one a speech run produced, so the asset stops
+   * claiming that run's output.
    */
-  async function trimTo(wav: Uint8Array) {
-    if (!asset) return;
-    const stored = await onUpload(
-      new File([wav as BlobPart], `${asset.key}-trimmed.wav`, { type: "audio/wav" }),
-    );
+  async function trimTo(range: TrimRange) {
+    if (!asset?.path) return;
+    const { media: stored } = await onTrimPreview({ kind: "upload", path: asset.path }, range);
     edit((entry) => {
       entry.path = stored.path;
       delete entry.generatedAudio;
@@ -502,6 +507,8 @@ export function AssetEditor({
               onAcceptText={onAcceptText}
               onTranslate={onTranslate}
               onUpload={onUpload}
+              onTrimPreview={onTrimPreview}
+              onTrimAudio={onTrimAudio}
               onMediaCopied={onMediaCopied}
             />
           </div>

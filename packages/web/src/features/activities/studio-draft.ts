@@ -15,6 +15,7 @@ import type {
   ActivityRecord,
   ActivityRun,
   AssetManifest,
+  TrimRange,
   VideoTimeline,
 } from "@prismshadow/penguin-server/api";
 import { ApiError } from "../../api/client";
@@ -540,6 +541,17 @@ export class StudioDraft {
       keep: "none",
       then: () => this.ports.toast(S.activities.saved),
     });
+  }
+
+  /**
+   * Cut a stretch out of an asset's bound clip, in place; settles once the draft has it.
+   * Refused while there are unsaved edits, since it trims the clip the saved draft binds.
+   */
+  trimAudio(language: string, assetKey: string, range: TrimRange): Promise<boolean> {
+    return this.change(
+      (api, revision) => api.draft.trimAudio(revision, { language, assetKey, ...range }),
+      { keep: "none", clean: true, then: () => this.ports.toast(S.activities.saved) },
+    );
   }
 
   /** Read the draft again, replacing every text. */

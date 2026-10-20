@@ -58,6 +58,7 @@ import {
   requireString,
   requireValidId,
 } from "../http/validate.js";
+import { parseTrimRange, parseTrimSource } from "./audio-trim.js";
 
 /**
  * Who runs an agent-driven stage: a Penguin agent's own model (`agentId`), or an external
@@ -937,6 +938,53 @@ export class ActivityRoutes {
           pathParam(c, "activityId"),
           requireString(body, "fromActivityId", { minLen: 1, maxLen: 128 }),
           requireString(body, "path", { minLen: 1, maxLen: 1024 }),
+        ),
+        201,
+      );
+    });
+    // Loom's three audio trims. Each cuts the selected stretch out of a clip and keeps the
+    // rest as MP3: the bound clip in place, or any clip into a new upload to review first.
+    app.post("/:activityId/audio-trim", async (c) => {
+      const body = await readJson(c);
+      return c.json(
+        await this.activities.trimAudio(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          {
+            language: requireString(body, "language", { minLen: 1, maxLen: 32 }),
+            assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 256 }),
+          },
+          parseTrimRange(body),
+          requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
+        ),
+      );
+    });
+    app.post("/:activityId/audio-trim-preview", async (c) => {
+      const body = await readJson(c);
+      return c.json(
+        await this.activities.trimAudioPreview(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          parseTrimSource(body),
+          parseTrimRange(body),
+        ),
+        201,
+      );
+    });
+    app.post("/:activityId/audio-trim-upload", async (c) => {
+      const body = await readJson(c);
+      const name = requireString(body, "name", { minLen: 1, maxLen: 255 });
+      const dataBase64 = requireString(body, "dataBase64", {
+        minLen: 1,
+        maxLen: Math.ceil(UPLOAD_MAX_BYTES / 3) * 4 + 8,
+      });
+      return c.json(
+        await this.activities.trimUploadedAudio(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          name,
+          Buffer.from(dataBase64, "base64"),
+          parseTrimRange(body),
         ),
         201,
       );

@@ -36,6 +36,7 @@ import {
   copyRefMedia,
   loomGenerationFingerprint,
   readdressMedia,
+  sidecarPath,
   uploadHome,
   wavToMp3,
   writeSidecar,
@@ -53,10 +54,23 @@ import {
   isUploadReference,
   listUploads,
   readUpload,
+  sniffUpload,
   storeUpload,
   uploadFile,
+  UPLOAD_MAX_BYTES,
   type UploadedMedia,
 } from "./upload.js";
+import {
+  audioSeconds,
+  cutAudio,
+  fitTrimRange,
+  readSidecarFields,
+  replaceFiles,
+  trimFailed,
+  trimmedSidecar,
+} from "./audio-trim.js";
+import type { TrimmedAudio, TrimRange, TrimSource } from "./audio-trim-types.js";
+import { FfmpegError } from "./ffmpeg.js";
 import { zipSync } from "fflate";
 import {
   BUNDLE_MAX_BYTES,
@@ -1836,6 +1850,174 @@ export class ActivityService implements ActivityAuthoring {
       await fs.writeFile(file, bytes, { flag: "wx" });
       copied.add(asset.path!);
     }
+  }
+  async trimAudio(
+    projectId: string,
+    activityId: string,
+    target: { language: string; assetKey: string },
+    range: TrimRange,
+    expectedRevision: string,
+  ): Promise<ActivityDraft> {
+    return this.change(projectId, activityId, expectedRevision, async (draft, activity) => {
+      const plan = draft.mediaPlan;
+      if (!plan)
+        throw new HttpError(409, "media_stale", "Build the media plan before trimming audio.");
+      const manifest = structuredClone(plan.manifest);
+      const asset = manifest.assets[target.language]?.find(
+        (entry) => entry.key === target.assetKey,
+      );
+      if (!asset || asset.type !== "audio")
+        throw new HttpError(
+          404,
+          "asset_not_found",
+          "No audio asset has that key in that language.",
+        );
+      if (!asset.path)
+        throw new HttpError(404, "audio_missing", "This asset has no saved audio to trim.");
+      const source = await this.clipBytes(activity, asset.path);
+      const trimmed = await this.cutClip(source.bytes, range);
+      // Kept where Loom keeps the asset's audio, as MP3, whatever the clip was before.
+      const reference = generatedMediaPath(activity, target.language, asset, "mp3");
+      const file = (await this.checkout()).mediaFile(reference);
+      if (!file) throw new HttpError(400, "media_path_invalid", "The media path is invalid.");
+      // The sidecar beside the clip described it; an upload has none.
+      const sidecar = sidecarPath(file);
+      const existing =
+        source.file && sidecarPath(source.file) === sidecar
+          ? await readSidecarFields(sidecar)
+          : null;
+      const fields = trimmedSidecar(
+        existing,
+        path.basename(file),
+        asset.script ?? "",
+        trimmed.durationMs,
+      );
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      await replaceFiles([
+        { file, bytes: trimmed.bytes },
+        { file: sidecar, bytes: Buffer.from(`${JSON.stringify(fields, null, 2)}\n`, "utf8") },
+      ]);
+      // No longer the take a run made, nor timed as it was. Its new length changes the
+      // draft's revision, so whatever was made from the untrimmed clip is out of date.
+      asset.path = reference;
+      delete asset.generatedAudio;
+      delete asset.wordTimings;
+      delete asset.phonemeTimings;
+      delete asset.wholeWordTiming;
+      asset.durationMs = trimmed.durationMs;
+      if (isBookWord(asset)) Object.assign(asset, recordingTimingFields(asset));
+      return { ...draft, mediaPlan: { ...plan, manifest } };
+    });
+  }
+  async trimAudioPreview(
+    projectId: string,
+    activityId: string,
+    source: TrimSource,
+    range: TrimRange,
+  ): Promise<TrimmedAudio> {
+    return this.exclusive(projectId, activityId, async () => {
+      const activity = await this.getActivity(projectId, activityId);
+      let bytes: Buffer;
+      let name: string;
+      if (source.kind === "bound") {
+        const asset = activity.draft.mediaPlan?.manifest.assets[source.language]?.find(
+          (entry) => entry.key === source.assetKey,
+        );
+        if (!asset || asset.type !== "audio" || !asset.path)
+          throw new HttpError(404, "audio_missing", "This asset has no saved audio to trim.");
+        bytes = (await this.clipBytes(activity, asset.path)).bytes;
+        name = `${asset.key}-${source.language}`;
+      } else if (source.kind === "run") {
+        bytes = await this.takeBytes(activity, source.runId);
+        name = source.runId;
+      } else {
+        bytes = (await readUpload(await this.uploads(activity), source.path)).bytes;
+        name = path.basename(source.path);
+      }
+      return this.storeTrimmed(activity, name, bytes, range);
+    });
+  }
+  async trimUploadedAudio(
+    projectId: string,
+    activityId: string,
+    name: string,
+    bytes: Buffer,
+    range: TrimRange,
+  ): Promise<TrimmedAudio> {
+    if (!bytes.byteLength) throw new HttpError(400, "media_empty", "The uploaded file is empty.");
+    if (bytes.byteLength > UPLOAD_MAX_BYTES)
+      throw new HttpError(413, "media_too_large", "An uploaded file may be at most 32 MiB.");
+    if (sniffUpload(bytes).kind !== "audio")
+      throw new HttpError(415, "media_unsupported", "Only an audio file can be trimmed.");
+    return this.exclusive(projectId, activityId, async () =>
+      this.storeTrimmed(await this.getActivity(projectId, activityId), name, bytes, range),
+    );
+  }
+  /** `bytes` with `range` cut out, stored as an MP3 upload of this ref. */
+  private async storeTrimmed(
+    activity: ActivityRecord,
+    name: string,
+    bytes: Buffer,
+    range: TrimRange,
+  ): Promise<TrimmedAudio> {
+    const trimmed = await this.cutClip(bytes, range);
+    const stem = name.replace(/\.[^.]*$/, "").replace(/-trimmed$/, "");
+    const media = await storeUpload(
+      await this.uploads(activity),
+      `${stem}-trimmed.mp3`,
+      trimmed.bytes,
+    );
+    return { media, durationMs: trimmed.durationMs };
+  }
+  /** A generated take's bytes, while it waits as a candidate or once it is bound. */
+  private async takeBytes(activity: ActivityDetail, runId: string): Promise<Buffer> {
+    for (const extension of ["mp3", "wav"]) {
+      const file = await this.generatedFile(activity, "generatedAudio", runId, extension);
+      if (await exists(file)) return Buffer.from(await readArtifactBytes(file, AUDIO_MAX_BYTES));
+    }
+    throw new HttpError(404, "audio_missing", "This take is no longer in the media repository.");
+  }
+  /** The bytes a binding names, and the file they are in when it is not an upload. */
+  private async clipBytes(
+    activity: ActivityRecord,
+    reference: string,
+  ): Promise<{ bytes: Buffer; file: string | null }> {
+    if (isUploadReference(reference))
+      return {
+        bytes: (await readUpload(await this.uploads(activity), reference)).bytes,
+        file: null,
+      };
+    const file = (await this.checkout()).mediaFile(reference);
+    if (!file) throw new HttpError(400, "media_path_invalid", "The media path is invalid.");
+    const stat = await fs.lstat(file).catch(() => null);
+    if (!stat || stat.isSymbolicLink() || !stat.isFile())
+      throw new HttpError(404, "audio_missing", "The bound audio is not in the media repository.");
+    if (stat.size > UPLOAD_MAX_BYTES)
+      throw new HttpError(413, "media_too_large", "The bound audio is larger than 32 MiB.");
+    return { bytes: await fs.readFile(file), file };
+  }
+  /**
+   * `bytes` with `range` cut out, as MP3, and how long the result plays. The range is checked
+   * against the clip's measured length. Nothing is written here, so a failed run changes nothing.
+   */
+  private async cutClip(
+    bytes: Uint8Array,
+    range: TrimRange,
+  ): Promise<{ bytes: Buffer; durationMs: number }> {
+    const seconds = await (this.audioEncode.audioSeconds ?? audioSeconds)(bytes);
+    if (seconds === null)
+      throw new HttpError(400, "audio_unreadable", "This clip could not be read as audio.");
+    const fitted = fitTrimRange(range, seconds);
+    let trimmed: Buffer;
+    try {
+      trimmed = await (this.audioEncode.trimAudio ?? cutAudio)(bytes, fitted);
+    } catch (error) {
+      if (error instanceof FfmpegError) throw trimFailed(error.message);
+      throw error;
+    }
+    if (!trimmed.length) throw trimFailed("ffmpeg wrote no audio.");
+    const kept = seconds - (fitted.endSeconds - fitted.startSeconds);
+    return { bytes: trimmed, durationMs: Math.round(kept * 1000) };
   }
   async exclusive<T>(
     projectId: string,

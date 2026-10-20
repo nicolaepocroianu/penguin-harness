@@ -12,20 +12,19 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, usePrefersReducedMotion } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
+import type { TrimRange } from "@prismshadow/penguin-server/api";
 import {
   clipTime,
-  encodeWav,
+  moveSelectionEdge,
   normalizePeaks,
   playedFraction,
-  remainingLength,
-  removeRange,
   selectionBetween,
+  selectionEdgeAt,
   seekTime,
   selectionFromDrag,
-  wavSampleRate,
   waveformPeaks,
 } from "./waveform";
-import { toneInk } from "../../lib/tone";
+import { WaveformTrimBar } from "./waveform-trim-bar";
 
 const COLUMN_WIDTH = 3;
 const COLUMN_GAP = 1;
@@ -38,6 +37,7 @@ export function WaveformPlayer({
   /** Drawn straight away, for the one clip an author is working on. */
   autoLoad = false,
   onTrim,
+  trimSavesInPlace = false,
   onDecoded,
   onTime,
 }: {
@@ -45,10 +45,12 @@ export function WaveformPlayer({
   label: string;
   autoLoad?: boolean;
   /**
-   * Offered the clip with a selected stretch removed, as a WAV file, to store and bind in
-   * place of this one. Absent where the clip cannot be replaced, which leaves no trimming.
+   * Asked to cut the selected stretch out of this clip (the server does it, as MP3). Absent
+   * where the clip cannot be replaced, which leaves no trimming.
    */
-  onTrim?: (wav: Uint8Array) => Promise<void>;
+  onTrim?: (range: TrimRange) => Promise<void>;
+  /** This is the bound clip, so saving a trim of it cuts the same stretch out in place. */
+  trimSavesInPlace?: boolean;
   /** Told the clip's length in seconds once it is decoded, so a caller need not measure it again. */
   onDecoded?: (seconds: number) => void;
   /** Told where playback is, in seconds, as it plays and after a seek (word highlighting). */
@@ -77,6 +79,8 @@ export function WaveformPlayer({
   const [trimming, setTrimming] = useState(false);
   const [trimError, setTrimError] = useState<string | null>(null);
   const dragFrom = useRef<number | null>(null);
+  // An edge of the selection being dragged, which moves only that edge.
+  const dragEdge = useRef<"start" | "end" | null>(null);
   const stopAt = useRef<number | null>(null);
   // Playing what a trim would keep jumps over the selection.
   const skip = useRef<{ start: number; end: number } | null>(null);
@@ -177,6 +181,12 @@ export function WaveformPlayer({
       context.fillStyle = index >= from && index < to ? selected : index < boundary ? played : rest;
       context.fillRect(index * (COLUMN_WIDTH + COLUMN_GAP), (height - bar) / 2, COLUMN_WIDTH, bar);
     }
+    // The selection's two edges are handles, drawn the whole height to be found and dragged.
+    if (selection) {
+      context.fillStyle = selected;
+      for (const at of [selection.start, selection.end])
+        context.fillRect(Math.round(playedFraction(at, duration) * width) - 1, 0, 2, height);
+    }
   }, [peaks, position, duration, selection]);
 
   function offset(clientX: number): { x: number; width: number } | null {
@@ -209,26 +219,8 @@ export function WaveformPlayer({
     setTrimming(true);
     setTrimError(null);
     try {
-      const Context =
-        window.AudioContext ??
-        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!Context) throw new Error(S.activities.waveformTrim.noAudio);
-      const response = await fetch(src, { credentials: "same-origin" });
-      if (!response.ok) throw new Error(S.activities.waveformTrim.fetchFailed(response.status));
-      const bytes = await response.arrayBuffer();
-      const rate = wavSampleRate(new Uint8Array(bytes));
-      const context = rate ? new Context({ sampleRate: rate }) : new Context();
-      try {
-        const decoded = await context.decodeAudioData(bytes);
-        const channels = Array.from({ length: decoded.numberOfChannels }, (_, index) =>
-          decoded.getChannelData(index),
-        );
-        const kept = removeRange(channels, decoded.sampleRate, selection.start, selection.end);
-        await onTrim(encodeWav(kept, decoded.sampleRate));
-        setSelection(null);
-      } finally {
-        void context.close();
-      }
+      await onTrim({ startSeconds: selection.start, endSeconds: selection.end });
+      setSelection(null);
     } catch (error) {
       setTrimError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -256,9 +248,28 @@ export function WaveformPlayer({
           aria-valuenow={Math.round(position)}
           aria-valuetext={`${clipTime(position)} / ${clipTime(duration)}`}
           onPointerDown={(event) => {
-            if (onTrim) dragFrom.current = event.clientX;
+            if (!onTrim) return;
+            const at = offset(event.clientX);
+            const edge =
+              at && selection ? selectionEdgeAt(at.x, at.width, duration, selection) : null;
+            if (edge) {
+              dragEdge.current = edge;
+              event.currentTarget.setPointerCapture?.(event.pointerId);
+            } else dragFrom.current = event.clientX;
+          }}
+          onPointerMove={(event) => {
+            const edge = dragEdge.current;
+            const at = offset(event.clientX);
+            if (!edge || !at || !selection) return;
+            setSelection(
+              moveSelectionEdge(selection, edge, seekTime(at.x, at.width, duration), duration),
+            );
           }}
           onPointerUp={(event) => {
+            if (dragEdge.current) {
+              dragEdge.current = null;
+              return;
+            }
             const from = dragFrom.current;
             dragFrom.current = null;
             const at = offset(event.clientX);
@@ -362,48 +373,20 @@ export function WaveformPlayer({
           {clipTime(position)} / {clipTime(duration)}
         </p>
       )}
-      {onTrim && peaks?.length ? (
-        selection ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <span aria-live="polite" className="text-xs text-gray-600 dark:text-gray-300">
-              {S.activities.waveformTrim.selected(
-                clipTime(selection.start),
-                clipTime(selection.end),
-              )}
-              {" · "}
-              {S.activities.waveformTrim.remains(clipTime(remainingLength(duration, selection)))}
-            </span>
-            <Button size="sm" variant="ghost" onClick={playSelection} disabled={trimming}>
-              {S.activities.waveformTrim.play}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={playRemaining} disabled={trimming}>
-              {S.activities.waveformTrim.playRemaining}
-            </Button>
-            <Button size="sm" onClick={() => void removeSelection()} disabled={trimming}>
-              {trimming ? S.activities.waveformTrim.working : S.activities.waveformTrim.remove}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setSelection(null)}
-              disabled={trimming}
-            >
-              {S.activities.waveformTrim.clear}
-            </Button>
-          </div>
-        ) : mark !== null ? (
-          <p aria-live="polite" className="text-xs text-gray-600 dark:text-gray-300">
-            {S.activities.waveformTrim.marked(clipTime(mark))}
-          </p>
-        ) : (
-          <p className="text-xs text-gray-500">{S.activities.waveformTrim.hint}</p>
-        )
+      {onTrim && (peaks?.length || trimError) ? (
+        <WaveformTrimBar
+          duration={duration}
+          selection={selection}
+          mark={mark}
+          trimming={trimming}
+          error={trimError}
+          savesInPlace={trimSavesInPlace}
+          onPlay={playSelection}
+          onPlayRemaining={playRemaining}
+          onRemove={() => void removeSelection()}
+          onClear={() => setSelection(null)}
+        />
       ) : null}
-      {trimError && (
-        <p role="alert" className={`text-xs ${toneInk.danger}`}>
-          {S.activities.waveformTrim.failed(trimError)}
-        </p>
-      )}
     </div>
   );
 }

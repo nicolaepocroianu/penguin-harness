@@ -7,6 +7,8 @@ import type {
   ActivityRunSummary,
   AssetManifest,
   MediaAsset,
+  TrimRange,
+  TrimSource,
 } from "@prismshadow/penguin-server/api";
 import { isUploadPath } from "./media-library";
 import type { RunsIndex } from "./runs-index";
@@ -41,6 +43,11 @@ export interface PendingAudio {
   path: string;
   /** The uploaded file's own name; a trimmed clip has none worth showing. */
   name?: string;
+  /**
+   * The stretch a trim of the bound clip cut out. Save then cuts it out of that clip in
+   * place, as Loom saves a trim; a trim of a candidate is saved by binding its file.
+   */
+  trimOfCurrent?: TrimRange;
 }
 
 /** What a card compares with its current audio, and what Save makes current. */
@@ -177,6 +184,41 @@ export function primaryAction({
   if (narration && language !== defaultLanguage && !script?.trim())
     return sourceScript?.trim() ? { action: "translate" } : { action: "blocked" };
   return { action: "generate", again: bound };
+}
+
+/**
+ * Where a trim of the card's current audio is cut from: the clip the saved draft binds, which
+ * a saved trim then cuts in place. An unsaved binding is trimmed as the upload it is, and one
+ * of the checkout's files only once it is saved.
+ */
+export function currentTrimSource(
+  asset: MediaAsset,
+  language: string,
+  savedPath: string | undefined,
+): TrimSource | null {
+  if (!asset.path) return null;
+  if (asset.path === savedPath) return { kind: "bound", language, assetKey: asset.key };
+  return isUploadPath(asset.path) ? { kind: "upload", path: asset.path } : null;
+}
+
+/** Where a trim of the card's candidate is cut from: its run's take, or its file. */
+export function candidateTrimSource(candidate: AudioCandidate): TrimSource {
+  return candidate.source === "generated"
+    ? { kind: "run", runId: candidate.runId }
+    : { kind: "upload", path: candidate.path };
+}
+
+/** What Save does with a card's candidate: accept a take, trim in place, or bind a file. */
+export function saveStep(
+  candidate: AudioCandidate,
+):
+  | { step: "accept"; runId: string }
+  | { step: "trim"; range: TrimRange }
+  | { step: "bind"; path: string } {
+  if (candidate.source === "generated") return { step: "accept", runId: candidate.runId };
+  if (candidate.source === "trim" && candidate.trimOfCurrent)
+    return { step: "trim", range: candidate.trimOfCurrent };
+  return { step: "bind", path: candidate.path };
 }
 
 /**
