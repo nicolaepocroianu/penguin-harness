@@ -21,7 +21,10 @@ const image = (key: string, extra: Json = {}): Json => ({
   ...extra,
 });
 const used = (key: string, extra: Json = {}) =>
-  image(key, { usages: [{ sceneId: "s1", sourceKey: key, occurrence: 1, sceneOccurrenceCount: 1 }], ...extra });
+  image(key, {
+    usages: [{ sceneId: "s1", sourceKey: key, occurrence: 1, sceneOccurrenceCount: 1 }],
+    ...extra,
+  });
 const intro: Json = {
   key: "book-intro-video",
   type: "video",
