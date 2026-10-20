@@ -119,9 +119,10 @@ export interface ModuleDocumentOverride {
   editedAt: string;
   /**
    * A configuration's edit is written to the module's own file, which Loom reads: what that
-   * file held before the first edit (null when there was none), put back when it is discarded.
+   * file held before the first edit, as text (null when there was none), put back as it was
+   * when the edit is discarded.
    */
-  replaced?: Record<string, unknown> | null;
+  replaced?: string | null;
 }
 
 export type ModuleDocumentKind = "configuration" | "assessment" | "definition";

@@ -264,6 +264,28 @@ describe("WAF workspace", () => {
     expect(s.clones.ops(path.join(modules, "waf-module-new"))).toEqual([]);
   });
 
+  it("never makes a new module's repository inside an existing checkout that is a repository", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-waf-monorepo-"));
+    cleanups.push(() => fs.rm(root, { recursive: true, force: true }));
+    await fs.mkdir(path.join(root, "framework", "src"), { recursive: true });
+    await fs.writeFile(path.join(root, "framework", "package.json"), "{}");
+    await fs.mkdir(path.join(root, "modules"), { recursive: true });
+    await fs.mkdir(path.join(root, "media"), { recursive: true });
+    // The checkout is one repository, as waf-modules is.
+    await fs.mkdir(path.join(root, ".git"), { recursive: true });
+    const s = await setup();
+    expect(
+      (await s.admin.put("/api/admin/waf-workspace/settings", { externalRoot: root })).status,
+    ).toBe(200);
+    await prepared(s);
+    await expect(s.workspace.authoringModule("waf-module-new")).rejects.toMatchObject({
+      status: 409,
+      code: "module_shared_repository",
+    });
+    expect(s.clones.ops()).not.toContain("create");
+    await expect(fs.stat(path.join(root, "modules", "waf-module-new"))).rejects.toThrow();
+  });
+
   it("uses an existing checkout as it is, and never clones into it", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-waf-external-"));
     cleanups.push(() => fs.rm(root, { recursive: true, force: true }));

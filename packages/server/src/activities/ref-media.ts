@@ -22,6 +22,7 @@ import path from "node:path";
 import { Component, Interface } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
 import { FfmpegError, runFfmpeg } from "./ffmpeg.js";
+import { ELEVENLABS_DEFAULT_VOICE } from "./voice-catalogue.js";
 import { refMediaFolder, WafLayout } from "./waf-layout.js";
 
 const RUN_ID = /^run_[a-f0-9]{32}$/;
@@ -69,7 +70,9 @@ const ELEVENLABS_OUTPUT_FORMAT = "mp3_44100_128";
  * the one it would use now, and always when a narration with its own voice has none, so a
  * clip Penguin accepted carries Loom's own. Null where Penguin cannot say what Loom would
  * compute: a voice it did not resolve, or a provider Loom speaks through another engine
- * (Kokoro, which Loom runs in Python and Penguin in kokoro-js).
+ * (Kokoro, which Loom runs in Python and Penguin in kokoro-js). The model is the one that made
+ * the clip: Loom compares it with its own configured model and makes the clip again when they
+ * differ, as it should for another model's recording (Penguin's Gemini model is not Loom's).
  *
  * - ElevenLabs: `{"modelId","outputFormat","provider":"elevenlabs","voiceId"}`, sorted, compact.
  * - Gemini: `gemini|<model>|<voice name>`.
@@ -80,7 +83,8 @@ export function loomGenerationFingerprint(spoken: {
   voice: string | undefined;
 }): string | null {
   const { provider, model, voice } = spoken;
-  if (!voice || voice === "default" || !model) return null;
+  // "default" and the unresolved ElevenLabs default name no voice that spoke a clip.
+  if (!voice || voice === "default" || voice === ELEVENLABS_DEFAULT_VOICE || !model) return null;
   let identity: string;
   if (provider === "elevenlabs")
     identity = JSON.stringify({

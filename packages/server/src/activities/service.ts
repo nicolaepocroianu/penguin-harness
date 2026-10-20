@@ -71,12 +71,15 @@ import { readBoundImage, type ImageRequest } from "./image.js";
 import type { WafWorkspace } from "./waf-workspace.js";
 import {
   ensureConfigurationFile,
+  exists,
   PENGUIN_FILE,
   readFeatureFile,
   readProductOwner,
   readProductTags,
   readRefDraft,
+  readText,
   REF_FEATURES_FILE,
+  REF_MANIFEST_FILE,
   REF_METADATA_FILE,
   writeFeatureFile,
   writeFileAtomic,
@@ -116,7 +119,7 @@ import {
   validateConfiguration,
   validateDefinition,
 } from "./module-overrides.js";
-import { normalizeTags } from "./tags.js";
+import { acceptedTags, normalizeTags } from "./tags.js";
 import type { ActivityPhonemes } from "./phonemes.js";
 import {
   cleanPhonemes,
@@ -167,6 +170,21 @@ export async function atomicJson(file: string, value: unknown): Promise<void> {
   } finally {
     await fs.rm(temp, { force: true });
   }
+}
+
+/** What a new ref is made from (createActivity). */
+export interface CreateActivityInput {
+  collectionId?: string;
+  productCode: unknown;
+  refNum: unknown;
+  title: string;
+  activityType?: "standard" | "book";
+  /** Only read when this is the product's first ref; later refs join what exists. */
+  moduleFolder?: unknown;
+  /** A book's reading mode; like the module folder, only read for the product's first ref. */
+  bookMode?: "decodable" | "readAlong";
+  /** What the learner does, in the author's words: the script starts with it. */
+  description?: string;
 }
 
 @Component()
@@ -861,20 +879,19 @@ export class ActivityService implements ActivityAuthoring {
 
   async createActivity(
     projectId: string,
-    input: {
-      collectionId?: string;
-      productCode: unknown;
-      refNum: unknown;
-      title: string;
-      activityType?: "standard" | "book";
-      /** Only read when this is the product's first ref; later refs join what exists. */
-      moduleFolder?: unknown;
-      /** A book's reading mode; like the module folder, only read for the product's first ref. */
-      bookMode?: "decodable" | "readAlong";
-      /** What the learner does, in the author's words: the script starts with it. */
-      description?: string;
-    },
+    input: CreateActivityInput,
   ): Promise<ActivityRecord & { draft: ActivityDraft }> {
+    return (await this.createRef(projectId, input)).activity;
+  }
+
+  /**
+   * createActivity, saying whether it made the module's configuration file for the ref, so a
+   * make that fails later removes it only then (discardCreatedRef).
+   */
+  private async createRef(
+    projectId: string,
+    input: CreateActivityInput,
+  ): Promise<{ activity: ActivityRecord & { draft: ActivityDraft }; madeConfiguration: boolean }> {
     let productCode: string, refNum: number;
     try {
       productCode = normalizeProductCode(input.productCode);
@@ -960,7 +977,7 @@ export class ActivityService implements ActivityAuthoring {
           updatedAt: now,
         };
         await this.writeDraft(activity, draft);
-        await this.ensureModuleConfiguration(activity);
+        const madeConfiguration = await this.ensureModuleConfiguration(activity);
         this.db.exec("BEGIN");
         try {
           this.db
@@ -997,10 +1014,12 @@ export class ActivityService implements ActivityAuthoring {
             recursive: true,
             force: true,
           });
+          if (madeConfiguration)
+            await fs.rm(this.configurationFile(activity, await this.checkout()), { force: true });
           throw error;
         }
         await this.syncProductFiles(activity.productId!);
-        return { ...activity, draft };
+        return { activity: { ...activity, draft }, madeConfiguration };
       });
     });
   }
@@ -1223,40 +1242,49 @@ export class ActivityService implements ActivityAuthoring {
           ? validateDefinition(value)
           : validateConfiguration(value);
     // Loom reads a ref's configuration from the module's own file, so the edit is written there
-    // too; what the file held before the first edit is kept, to be put back on a discard.
-    const file =
-      kind === "configuration" ? await this.configurationFile(projectId, activityId) : null;
-    const before = file ? await readJsonObjectFile(file) : null;
-    const changed = await this.change(
-      projectId,
-      activityId,
-      expectedRevision,
-      (draft, activity) => {
-        if (isSharedDocument(kind) && !this.isCanonicalRef(activity))
-          throw new HttpError(
-            409,
-            "not_canonical",
-            `The ${kind === "definition" ? "module definition" : "assessment"} is shared by every ref of this product. Edit it on the canonical ref.`,
-          );
-        const earlier = draft.moduleDocuments?.[kind];
-        const replaced = earlier ? earlier.replaced : before;
-        const override: ModuleDocumentOverride = {
-          value: document,
-          basis: documentBasis(kind, draft),
-          editedAt: new Date().toISOString(),
-          ...(file && replaced !== undefined ? { replaced } : {}),
-        };
-        return { ...draft, moduleDocuments: { ...draft.moduleDocuments, [kind]: override } };
-      },
-    );
-    if (file) await writeFileAtomic(file, `${JSON.stringify(document, null, 2)}\n`);
-    return changed;
+    // too, and what the file held before the first edit is kept, to be put back on a discard.
+    // Read, saved and written under the draft's lock, so the file and the draft agree.
+    return this.exclusive(projectId, activityId, async () => {
+      const file =
+        kind === "configuration"
+          ? this.configurationFile(
+              await this.getActivity(projectId, activityId),
+              await this.checkout(),
+            )
+          : null;
+      const before = file ? await readText(file) : null;
+      const changed = await this.change(
+        projectId,
+        activityId,
+        expectedRevision,
+        (draft, activity) => {
+          if (isSharedDocument(kind) && !this.isCanonicalRef(activity))
+            throw new HttpError(
+              409,
+              "not_canonical",
+              `The ${kind === "definition" ? "module definition" : "assessment"} is shared by every ref of this product. Edit it on the canonical ref.`,
+            );
+          // An edit saved before edits reached the module never wrote the file: it holds what
+          // was there before, still.
+          const earlier = draft.moduleDocuments?.[kind]?.replaced;
+          const replaced = earlier !== undefined ? earlier : before;
+          const override: ModuleDocumentOverride = {
+            value: document,
+            basis: documentBasis(kind, draft),
+            editedAt: new Date().toISOString(),
+            ...(file ? { replaced } : {}),
+          };
+          return { ...draft, moduleDocuments: { ...draft.moduleDocuments, [kind]: override } };
+        },
+      );
+      if (file) await writeFileAtomic(file, `${JSON.stringify(document, null, 2)}\n`);
+      return changed;
+    });
   }
 
   /** The module's `configurations/<pc>-<ref>.json` for this ref. */
-  private async configurationFile(projectId: string, activityId: string): Promise<string> {
-    const activity = await this.getActivity(projectId, activityId);
-    return (await this.checkout())
+  private configurationFile(activity: ActivityRecord, checkout: WafLayout): string {
+    return checkout
       .module(this.moduleFolderOf(activity))
       .document("configuration", activity.productCode, activity.refNum);
   }
@@ -1268,22 +1296,28 @@ export class ActivityService implements ActivityAuthoring {
     kind: ModuleDocumentKind,
     expectedRevision: string,
   ): Promise<ActivityDraft> {
-    const discarded: { override?: ModuleDocumentOverride } = {};
-    const changed = await this.change(projectId, activityId, expectedRevision, (draft) => {
-      const { moduleDocuments, ...rest } = draft;
-      const { [kind]: removed, ...kept } = moduleDocuments ?? {};
-      discarded.override = removed;
-      // With nothing left the key goes too, so the draft's revision is what it was before.
-      return Object.keys(kept).length ? { ...rest, moduleDocuments: kept } : rest;
+    return this.exclusive(projectId, activityId, async () => {
+      const discarded: { override?: ModuleDocumentOverride } = {};
+      const changed = await this.change(projectId, activityId, expectedRevision, (draft) => {
+        const { moduleDocuments, ...rest } = draft;
+        const { [kind]: removed, ...kept } = moduleDocuments ?? {};
+        discarded.override = removed;
+        // With nothing left the key goes too, so the draft's revision is what it was before.
+        return Object.keys(kept).length ? { ...rest, moduleDocuments: kept } : rest;
+      });
+      // The module's configuration file gets back what it held before the edit, as it was; a
+      // file that was not there goes again.
+      const replaced = discarded.override?.replaced;
+      if (kind === "configuration" && replaced !== undefined) {
+        const file = this.configurationFile(
+          await this.getActivity(projectId, activityId),
+          await this.checkout(),
+        );
+        if (replaced === null) await fs.rm(file, { force: true });
+        else await writeFileAtomic(file, replaced);
+      }
+      return changed;
     });
-    // The module's configuration file gets back what it held before the edit.
-    const replaced = discarded.override?.replaced;
-    if (kind === "configuration" && replaced !== undefined) {
-      const file = await this.configurationFile(projectId, activityId);
-      if (replaced === null) await fs.rm(file, { force: true });
-      else await writeFileAtomic(file, `${JSON.stringify(replaced, null, 2)}\n`);
-    }
-    return changed;
   }
 
   /**
@@ -2044,7 +2078,7 @@ export class ActivityService implements ActivityAuthoring {
    */
   private async writeDraft(activity: ActivityRecord, draft: ActivityDraft): Promise<void> {
     const dir = await this.draftFilesDir(activity);
-    await writeRefDraft(dir, draft, activity);
+    const { specCleared } = await writeRefDraft(dir, draft, activity);
     await writeRefMetadata(dir, {
       productCode: activity.productCode,
       refNum: activity.refNum,
@@ -2052,7 +2086,9 @@ export class ActivityService implements ActivityAuthoring {
       moduleFolder: this.moduleFolderOf(activity),
       displayName: activity.displayName,
       stable: activity.stable,
-      ...(draft.spec?.runtime !== undefined ? { runtime: draft.spec.runtime } : {}),
+      // The runtime is the specification's: it goes when Penguin's specification goes, and a
+      // Loom ref Penguin has no specification for keeps Loom's.
+      ...(draft.spec !== null || specCleared ? { runtime: draft.spec?.runtime } : {}),
     });
   }
 
@@ -2060,12 +2096,8 @@ export class ActivityService implements ActivityAuthoring {
    * The module's `configurations/<pc>-<ref>.json` for a ref made here: Loom lists a ref only
    * once it has one, so it starts as Loom's own empty `{}`.
    */
-  private async ensureModuleConfiguration(activity: ActivityRecord): Promise<void> {
-    await ensureConfigurationFile(
-      (await this.checkout())
-        .module(this.moduleFolderOf(activity))
-        .document("configuration", activity.productCode, activity.refNum),
-    );
+  private async ensureModuleConfiguration(activity: ActivityRecord): Promise<boolean> {
+    return ensureConfigurationFile(this.configurationFile(activity, await this.checkout()));
   }
 
   /**
@@ -2699,7 +2731,7 @@ export class ActivityService implements ActivityAuthoring {
           reference.startsWith(`${fromFolder}/`)
             ? `${toFolder}${reference.slice(fromFolder.length)}`
             : reference;
-        const created = await this.createActivity(projectId, {
+        const { activity: created, madeConfiguration } = await this.createRef(projectId, {
           collectionId: template.collectionId,
           productCode: template.productCode,
           refNum,
@@ -2741,6 +2773,19 @@ export class ActivityService implements ActivityAuthoring {
                 `Asset ${decision.assetKey} expects ${wanted} media, but ${decision.path} holds ${kind} media.`,
               );
           }
+          // The template's manifest is the new ref's to start from, so what Loom keeps there
+          // that Penguin does not hold (a book's intro, its page-turn sound) comes along, moved
+          // to the new ref's media folder as the plan is (mergeLoomManifest).
+          const templateManifest = await readText(
+            path.join(await this.draftFilesDir(template), REF_MANIFEST_FILE),
+          );
+          if (templateManifest !== null) {
+            const { assets } = JSON.parse(templateManifest) as { assets?: unknown };
+            await writeFileAtomic(
+              path.join(await this.draftFilesDir(created), REF_MANIFEST_FILE),
+              `${JSON.stringify({ productCode: template.productCode, refNum: template.refNum, assets }, null, 2)}\n`,
+            );
+          }
           await this.change(projectId, created.id, created.draft.contentRevision, (draft) => ({
             ...draft,
             ...planned,
@@ -2748,7 +2793,7 @@ export class ActivityService implements ActivityAuthoring {
           if (displayName) await this.setRefIdentity(projectId, created.id, { displayName });
           return await this.getActivity(projectId, created.id);
         } catch (error) {
-          await this.discardCreatedRef(projectId, created).catch(() => {});
+          await this.discardCreatedRef(projectId, created, madeConfiguration).catch(() => {});
           throw error;
         }
       }),
@@ -2756,7 +2801,11 @@ export class ActivityService implements ActivityAuthoring {
   }
 
   /** Remove a ref made moments ago whose making failed: its rows, then its files. */
-  private async discardCreatedRef(projectId: string, activity: ActivityRecord): Promise<void> {
+  private async discardCreatedRef(
+    projectId: string,
+    activity: ActivityRecord,
+    madeConfiguration: boolean,
+  ): Promise<void> {
     this.db.exec("BEGIN");
     try {
       this.db.prepare("DELETE FROM activity_drafts WHERE activity_id = ?").run(activity.id);
@@ -2771,9 +2820,10 @@ export class ActivityService implements ActivityAuthoring {
       { recursive: true, force: true },
     );
     await fs.rm(path.dirname(await this.draftFilesDir(activity)), { recursive: true, force: true });
-    const media = (await this.checkout()).mediaFile(
-      refMediaFolder(activity.productCode, activity.refNum),
-    );
+    const checkout = await this.checkout();
+    // The module's configuration goes only when the ref brought it; one already there stays.
+    if (madeConfiguration) await fs.rm(this.configurationFile(activity, checkout), { force: true });
+    const media = checkout.mediaFile(refMediaFolder(activity.productCode, activity.refNum));
     if (media) await fs.rm(media, { recursive: true, force: true });
   }
 
@@ -3067,8 +3117,8 @@ export class ActivityService implements ActivityAuthoring {
       const insert = this.db.prepare(
         "INSERT INTO activity_product_tags (product_id, tag, position) VALUES (?, ?, ?)",
       );
-      loomTags(await readProductTags(module.productSpecDir(productCode))).forEach((tag, position) =>
-        insert.run(product.productId, tag, position),
+      acceptedTags(await readProductTags(module.productSpecDir(productCode))).forEach(
+        (tag, position) => insert.run(product.productId, tag, position),
       );
     }
     const activityIds: string[] = [];
@@ -3384,45 +3434,4 @@ function validModuleDocuments(value: unknown): boolean {
         typeof entry.editedAt === "string")
     );
   });
-}
-
-/** Whether anything is at `file`. */
-async function exists(file: string): Promise<boolean> {
-  return fs.stat(file).then(
-    () => true,
-    () => false,
-  );
-}
-
-/**
- * Loom's product tags as Penguin keeps them: each one Penguin accepts, in order, once. A tag it
- * does not accept is left out rather than refusing the product.
- */
-function loomTags(tags: readonly unknown[]): string[] {
-  const kept: string[] = [];
-  for (const tag of tags) {
-    try {
-      for (const normalized of normalizeTags([tag]))
-        if (!kept.includes(normalized)) kept.push(normalized);
-    } catch {
-      // Not a tag Penguin accepts.
-    }
-  }
-  try {
-    return normalizeTags(kept);
-  } catch {
-    return [];
-  }
-}
-
-/** The JSON object in `file`, or null when there is none or it is not an object. */
-async function readJsonObjectFile(file: string): Promise<Record<string, unknown> | null> {
-  try {
-    const value = JSON.parse(await fs.readFile(file, "utf8")) as unknown;
-    return value && typeof value === "object" && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
 }

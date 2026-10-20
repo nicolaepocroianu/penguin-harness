@@ -131,6 +131,15 @@ describe("POST /:activityId/refs", () => {
       client.post(`${base}/${id}/refs`, body);
     const refsDir = (collectionId: string) =>
       path.join(projectDir(t.root, PROJECT), "activities", collectionId, "activities");
+    const configurationOf = (refNum: number) =>
+      path.join(
+        t.root,
+        "waf-checkout",
+        "modules",
+        "waf-module-words",
+        "configurations",
+        `words-${refNum}.json`,
+      );
     /** Nothing of the ref numbered `refNum` is left: no row, no draft files, no media folder. */
     const gone = async (refNum: number) => {
       const row = t.deps.db
@@ -139,6 +148,8 @@ describe("POST /:activityId/refs", () => {
       expect(row).toBeUndefined();
       await expect(fs.stat(path.dirname(refFilesDir(t.root, "words", refNum)))).rejects.toThrow();
       await expect(fs.stat(refMediaDir(t.root, "words", refNum))).rejects.toThrow();
+      // Nor the module configuration the ref was given for Loom to list it.
+      await expect(fs.stat(configurationOf(refNum))).rejects.toThrow();
       const dirs = await fs.readdir(refsDir(template.collectionId)).catch((): string[] => []);
       expect(dirs.every((id) => id === template.id)).toBe(true);
     };
@@ -156,6 +167,7 @@ describe("POST /:activityId/refs", () => {
       markStable,
       makeRef,
       gone,
+      configurationOf,
     };
   }
 
@@ -303,6 +315,53 @@ describe("POST /:activityId/refs", () => {
     expect(count()).toBe(before);
     // What was there is left alone.
     expect(await fs.readFile(path.join(stray, "kept.txt"), "utf8")).toBe("someone's");
+  });
+
+  it("keeps a configuration the module already had when the make fails", async () => {
+    const { template, makeRef, count, configurationOf } = await setup();
+    const before = count();
+    await fs.mkdir(path.dirname(configurationOf(26)), { recursive: true });
+    await fs.writeFile(configurationOf(26), '{"loom": true}');
+    const response = await makeRef(template.id, {
+      refNum: 26,
+      decisions: [
+        {
+          language: "en-US",
+          assetKey: "cat",
+          action: "bind",
+          path: "media/loom/words/words-12/uploads/none-1.png",
+        },
+      ],
+    });
+    expect(response.status).toBe(422);
+    expect(count()).toBe(before);
+    expect(await fs.readFile(configurationOf(26), "utf8")).toBe('{"loom": true}');
+  });
+
+  it("carries the template's Loom-only assets, addressed to the new ref", async () => {
+    const { t, template, makeRef } = await setup();
+    const file = path.join(refFilesDir(t.root, "words", 12), "asset_manifest.json");
+    const onDisk = JSON.parse(await fs.readFile(file, "utf8")) as {
+      assets: Record<string, Record<string, unknown>[]>;
+    };
+    const turn = {
+      key: "book-page-turn",
+      type: "audio",
+      description: "Original page-turn sound.",
+      path: "media/loom/words/words-12/audios/english/book-page-turn.mp3",
+      role: "bookPageTurn",
+    };
+    onDisk.assets["en-US"]!.push(turn);
+    await fs.writeFile(file, JSON.stringify(onDisk));
+    const response = await makeRef(template.id, { refNum: 27, decisions: [] });
+    expect(response.status, await response.clone().text()).toBe(201);
+    const made = JSON.parse(
+      await fs.readFile(path.join(refFilesDir(t.root, "words", 27), "asset_manifest.json"), "utf8"),
+    ) as { assets: Record<string, Record<string, unknown>[]> };
+    expect(made.assets["en-US"]).toContainEqual({
+      ...turn,
+      path: "media/loom/words/words-27/audios/english/book-page-turn.mp3",
+    });
   });
 
   it("refuses a plan naming what the template lacks, before any ref exists", async () => {

@@ -524,15 +524,7 @@ export class WafWorkspaceService implements WafWorkspace {
           "module_not_a_clone",
           `modules/${folder} exists but is not a git repository.`,
         );
-      // A repository made or cloned inside another one (the waf-modules monorepo, say) would
-      // be a module the other's git commands reach too, so none is.
-      const shared = enclosingRepository(dir, root);
-      if (shared)
-        throw new HttpError(
-          409,
-          "module_shared_repository",
-          `modules/${folder} would be inside the Git repository at ${shared}. A module needs a repository of its own, so none was made.`,
-        );
+      refuseInsideRepository(folder, dir, root);
       const remote = this.moduleRemote(folder);
       const clones = this.clones();
       let exists: boolean;
@@ -570,10 +562,13 @@ export class WafWorkspaceService implements WafWorkspace {
   async authoringModule(moduleFolder: string): Promise<string> {
     const folder = checkModuleFolder(moduleFolder);
     if (!this.external()) return this.ensureModule(folder);
-    const dir = new WafLayout(await this.requireRoot()).module(folder).root;
+    const root = await this.requireRoot();
+    const dir = new WafLayout(root).module(folder).root;
     return this.serial(moduleRepoKey(folder), async () => {
       // A module the checkout already has is its owner's, repository and all.
       if (fs.existsSync(dir)) return dir;
+      // Nor inside the checkout's own repository, when the checkout is one (waf-modules).
+      refuseInsideRepository(folder, dir, root);
       // A new one starts as Loom started one: an empty repository on main with origin set,
       // so a deploy can later push it. Nothing is fetched from the remote.
       await fsp.mkdir(dir, { recursive: true });
@@ -611,6 +606,21 @@ function safeJson(raw: string | null): unknown {
   } catch {
     return null;
   }
+}
+
+/**
+ * Refuses to make or clone module `folder`'s repository at `dir` when that would be inside
+ * another repository (the waf-modules monorepo, say): the other's git commands would reach the
+ * module too.
+ */
+function refuseInsideRepository(folder: string, dir: string, root: string): void {
+  const shared = enclosingRepository(dir, root);
+  if (shared)
+    throw new HttpError(
+      409,
+      "module_shared_repository",
+      `modules/${folder} would be inside the Git repository at ${shared}. A module needs a repository of its own, so none was made.`,
+    );
 }
 
 /**

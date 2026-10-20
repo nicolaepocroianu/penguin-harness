@@ -318,36 +318,43 @@ class GitClone implements Clone {
     if (this.options.signal?.aborted) throw new CloneStopped();
   }
 
-  private ownRepository?: Promise<void>;
+  /** Set once git has said the clone's folder is its repository's root. */
+  private ownRepository = false;
 
   /**
    * Refuses to change a clone whose folder is not its repository's root, as Loom's
    * `require_standalone_deploy_repository` does: a module folder inside another repository (the
    * waf-modules monorepo, say) has no `.git` of its own, and git run there would stage, stash,
-   * check out and clean the whole of that repository. Asked once per clone.
+   * check out and clean the whole of that repository. Only git's own answer lets a change
+   * through, and only that answer is remembered: git that timed out or was stopped is asked
+   * again next time. git that is not installed fails on the command itself.
    */
-  private requireOwnRepository(): Promise<void> {
-    this.ownRepository ??= (async () => {
-      const args = ["rev-parse", "--show-toplevel"];
-      const result = await this.git.run(args, this.dir, { timeoutMs: 30_000 });
-      // git that could not run at all says so on the command itself.
-      if (result.error) return;
-      if (result.code !== 0)
-        throw new HttpError(
-          409,
-          "module_not_repository",
-          `${this.dir} is not a Git repository. Deploying needs the module to be its own Git repository.`,
-        );
-      const real = (dir: string) => fs.realpath(dir).catch(() => path.resolve(dir));
-      const top = result.stdout.trim();
-      if ((await real(top)) !== (await real(this.dir)))
-        throw new HttpError(
-          409,
-          "module_shared_repository",
-          `${this.dir} belongs to a shared Git repository at ${top}. Deploying needs the module to be its own Git repository, so nothing was changed in the shared one.`,
-        );
-    })();
-    return this.ownRepository;
+  private async requireOwnRepository(): Promise<void> {
+    if (this.ownRepository) return;
+    const args = ["rev-parse", "--show-toplevel"];
+    const result = await this.git.run(args, this.dir, { timeoutMs: 30_000 });
+    if (result.error === "not_found") return;
+    if (result.error)
+      throw new HttpError(
+        503,
+        "module_repository_unknown",
+        `Could not tell whether ${this.dir} is its own Git repository (${gitError(result.stderr, result.error)}), so nothing was changed in it.`,
+      );
+    if (result.code !== 0)
+      throw new HttpError(
+        409,
+        "module_not_repository",
+        `${this.dir} is not a Git repository. Deploying needs the module to be its own Git repository.`,
+      );
+    const real = (dir: string) => fs.realpath(dir).catch(() => path.resolve(dir));
+    const top = result.stdout.trim();
+    if ((await real(top)) !== (await real(this.dir)))
+      throw new HttpError(
+        409,
+        "module_shared_repository",
+        `${this.dir} belongs to a shared Git repository at ${top}. Deploying needs the module to be its own Git repository, so nothing was changed in the shared one.`,
+      );
+    this.ownRepository = true;
   }
 
   private async run(args: string[], options: RunOptions = {}): Promise<DeployGitResult> {

@@ -45,12 +45,14 @@ function groupsOf(manifest: Json | null | undefined): Record<string, Json[]> {
  * Whether `field` is Penguin's to write on an asset. Loom marks any asset an author changed
  * as `customized`; Penguin's `customized` is a word pronunciation's alone. Loom gives a word
  * pronunciation the `sourceKey` of the narration it came from, which every word of that
- * narration shares; Penguin's words say where they are in `usages` and have none.
+ * narration shares; Penguin's words say where they are in `usages` and have none. A role only
+ * Loom's book reader knows (`bookIntro`, ...) is Loom's.
  */
 function penguinsField(field: string, asset: Json): boolean {
   if (!MEDIA_ASSET_FIELDS.has(field)) return false;
   const word = asset["role"] === BOOK_WORD_ROLE;
   if (field === "customized") return word;
+  if (field === "role") return asset["role"] === undefined || word;
   return field !== "sourceKey" || !word;
 }
 
@@ -60,12 +62,11 @@ function penguinFields(asset: Json): Json {
 }
 
 /**
- * Whether the asset is one Penguin holds: a role it knows (a word pronunciation, or none), and
- * the scenes it is used in, which every asset Penguin plans or carries records. An asset of
- * Loom's without them stays Loom's until Penguin carries it.
+ * Whether the asset is one Penguin holds: one with the scenes it is used in, which every asset
+ * Penguin plans or carries records and none of Loom's own has. An asset of Loom's stays Loom's
+ * until Penguin carries it.
  */
 function penguinHolds(asset: Json): boolean {
-  if (asset["role"] !== undefined && asset["role"] !== BOOK_WORD_ROLE) return false;
   return Array.isArray(asset["usages"]);
 }
 
@@ -105,39 +106,58 @@ export function penguinManifest(onDisk: unknown, fallback?: ActivityAddress): As
  */
 function mergeAsset(penguin: Json, loom: Json): Json {
   const merged: Json = { ...penguin };
+  // Whose a field is follows the role the written asset ends up with: Loom's, unless Penguin's.
+  const written = { ...loom, ...penguin, role: penguin["role"] ?? loom["role"] };
   for (const [field, value] of Object.entries(loom))
-    if (!penguinsField(field, penguin) && !(field in merged)) merged[field] = value;
+    if (!penguinsField(field, written) && !(field in merged)) merged[field] = value;
   return merged;
 }
 
-/** One language's assets: Penguin's, merged, with the assets it cannot hold back in place. */
-function mergeGroup(penguin: readonly Json[], loom: readonly Json[]): Json[] {
-  const byKey = new Map(loom.map((asset, index) => [asset["key"], index]));
+/** Where `asset` of Penguin's is in `loom`: by key, or for a word, by the word. -1 for nowhere. */
+function findLoom(asset: Json, loom: readonly Json[], taken: (index: number) => boolean): number {
+  const byKey = loom.findIndex((candidate) => candidate["key"] === asset["key"]);
+  if (byKey >= 0) return taken(byKey) ? -1 : byKey;
+  // Penguin keys a word pronunciation by its word; an older Loom one may be keyed otherwise.
+  if (asset["role"] !== BOOK_WORD_ROLE) return -1;
+  return loom.findIndex(
+    (candidate, at) =>
+      !taken(at) &&
+      candidate["role"] === BOOK_WORD_ROLE &&
+      candidate["normalizedWord"] === asset["normalizedWord"],
+  );
+}
+
+/**
+ * One language's assets: Penguin's, each with Loom's fields from the file (or, for one the file
+ * has lost, from `before`, Loom's copy taken at adoption), and the assets Penguin does not hold
+ * back after the asset they followed in the file. A key the file lists twice is the first one's.
+ */
+function mergeGroup(
+  penguin: readonly Json[],
+  loom: readonly Json[],
+  before: readonly Json[] = [],
+): Json[] {
   const matched = new Map<number, Json>();
   const merged = penguin.map((asset) => {
-    let index = byKey.get(asset["key"]);
-    // Penguin keys a word pronunciation by its word; an older Loom one may be keyed otherwise.
-    if (index === undefined && asset["role"] === BOOK_WORD_ROLE)
-      index = loom.findIndex(
-        (candidate, at) =>
-          !matched.has(at) &&
-          candidate["role"] === BOOK_WORD_ROLE &&
-          candidate["normalizedWord"] === asset["normalizedWord"],
-      );
-    if (index === undefined || index < 0 || matched.has(index)) return asset;
+    const index = findLoom(asset, loom, (at) => matched.has(at));
+    if (index < 0) {
+      const earlier = before[findLoom(asset, before, () => false)];
+      return earlier ? mergeAsset(asset, earlier) : asset;
+    }
     const result = mergeAsset(asset, loom[index]!);
     matched.set(index, result);
     return result;
   });
-  // An asset Penguin cannot hold goes back after the asset it followed in the file.
+  const mine = new Set(penguin.map((asset) => asset["key"]));
+  const seen = new Set<unknown>();
   loom.forEach((asset, index) => {
-    if (matched.has(index)) return;
-    if (penguin.some((mine) => mine["key"] === asset["key"])) return;
-    if (penguinHolds(asset)) return;
-    let before = -1;
-    for (let at = index - 1; at >= 0 && before < 0; at--)
-      if (matched.has(at)) before = merged.indexOf(matched.get(at)!);
-    merged.splice(before + 1, 0, asset);
+    const first = !seen.has(asset["key"]);
+    seen.add(asset["key"]);
+    if (matched.has(index) || !first || mine.has(asset["key"]) || penguinHolds(asset)) return;
+    let after = -1;
+    for (let at = index - 1; at >= 0 && after < 0; at--)
+      if (matched.has(at)) after = merged.indexOf(matched.get(at)!);
+    merged.splice(after + 1, 0, asset);
     matched.set(index, asset);
   });
   return merged;
@@ -162,10 +182,11 @@ function readdressedGroups(manifest: Json | null, to: ActivityAddress): Record<s
 
 /**
  * What Penguin writes over the manifest on disk (see the file comment). `penguin` null is a
- * draft with no media plan: only what Penguin cannot hold stays. `original` is Loom's manifest
- * as it was before Penguin first wrote it (`asset_manifest.loom.json`), if there is one: what
- * Penguin cannot hold and the disk has lost, and the Loom fields of an asset Penguin carried
- * back after a write that had not carried it yet, come from there.
+ * draft with no media plan: only what Penguin does not hold stays. `original` is Loom's
+ * manifest as it was when the ref was adopted (`asset_manifest.loom.json`), if there is one. It
+ * only fills in Loom's fields on an asset Penguin holds that the file has lost: one an earlier
+ * write of the same adoption left out before Loom's bindings were carried back onto the plan.
+ * It never puts back an asset the file no longer has.
  */
 export function mergeLoomManifest(
   onDisk: unknown,
@@ -176,15 +197,10 @@ export function mergeLoomManifest(
   const loom = isRecord(onDisk) ? onDisk : null;
   const loomGroups = readdressedGroups(loom, address);
   const before = readdressedGroups(isRecord(original) ? original : null, address);
-  for (const [language, list] of Object.entries(before)) {
-    const group = (loomGroups[language] ??= []);
-    const keys = new Set(group.map((asset) => asset["key"]));
-    for (const asset of list) if (!keys.has(asset["key"])) group.push(asset);
-  }
   const mine = (penguin?.assets ?? {}) as unknown as Record<string, Json[]>;
   const assets: Record<string, Json[]> = {};
   for (const [language, list] of Object.entries(loomGroups)) {
-    if (mine[language]) assets[language] = mergeGroup(mine[language], list);
+    if (mine[language]) assets[language] = mergeGroup(mine[language], list, before[language]);
     // A language Penguin does not support stays as Loom had it; one it does, Penguin removed.
     else if (!findLanguage(language)) assets[language] = list;
     else {
@@ -193,7 +209,7 @@ export function mergeLoomManifest(
     }
   }
   for (const [language, list] of Object.entries(mine))
-    if (!assets[language]) assets[language] = mergeGroup(list, []);
+    if (!assets[language]) assets[language] = mergeGroup(list, [], before[language]);
   if (!Object.keys(assets).length) assets[DEFAULT_LANGUAGE_CODE] = [];
   const merged: Json = {};
   for (const [field, value] of Object.entries(loom ?? {}))

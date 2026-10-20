@@ -656,4 +656,28 @@ describe("a module folder inside a shared repository", () => {
     // Questions that change nothing are still answered.
     expect((await clone.state()).branch).toBe("main");
   });
+
+  it("refuses when git cannot say where the repository is, and asks again next time", async () => {
+    const remote = await origin();
+    const dir = await remote.cloneOf("own");
+    await write(dir, "new.txt", "work");
+    let slow = true;
+    const timing: DeployGit = {
+      async run(args, cwd, options) {
+        if (slow && args[0] === "rev-parse" && args[1] === "--show-toplevel")
+          return { code: null, stdout: "", stderr: "", error: "timed_out" };
+        return spawnGit.run(args, cwd, options);
+      },
+    };
+    const clone = gitClones(timing).open(dir);
+    const refusal = (await clone.stage().then(
+      () => null,
+      (error: unknown) => error,
+    )) as { status?: number; code?: string } | null;
+    expect(refusal).toMatchObject({ status: 503, code: "module_repository_unknown" });
+    expect(git(dir, "diff", "--cached", "--name-only")).toBe("");
+    slow = false;
+    await clone.stage();
+    expect(git(dir, "diff", "--cached", "--name-only")).toBe("new.txt");
+  });
 });

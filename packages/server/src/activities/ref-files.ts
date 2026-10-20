@@ -32,6 +32,7 @@ import path from "node:path";
 import { renameOver } from "../internal/rename-over.js";
 import type { ActivityAddress, ActivityDraft, ModuleDocumentOverrides } from "./domain.js";
 import { mergeLoomManifest, penguinManifest } from "./loom-manifest.js";
+import { acceptedTags } from "./tags.js";
 
 export const REF_METADATA_FILE = "activity_metadata.json";
 export const REF_SPEC_FILE = "activity_spec.json";
@@ -73,6 +74,7 @@ export interface RefMetadata {
   moduleFolder: string;
   displayName: string | null;
   stable: boolean;
+  /** Present to write (undefined removes it); absent leaves the file's as it is. */
   runtime?: unknown;
 }
 
@@ -85,7 +87,6 @@ export interface ProductMetadata {
   bookMode: "decodable" | "readAlong" | null;
   canonicalRefNum: number | null;
   tags: string[];
-  runtime?: unknown;
 }
 
 /** Which Penguin project owns a product, as the product's `penguin.json` records it. */
@@ -108,7 +109,8 @@ export async function writeFileAtomic(file: string, text: string): Promise<void>
   }
 }
 
-async function exists(file: string): Promise<boolean> {
+/** Whether anything is at `file`. */
+export async function exists(file: string): Promise<boolean> {
   return fs.stat(file).then(
     () => true,
     () => false,
@@ -119,15 +121,19 @@ function json(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
-async function readJson(file: string): Promise<unknown | undefined> {
-  let text: string;
+/** What `file` holds, as it is; null when there is no such file. */
+export async function readText(file: string): Promise<string | null> {
   try {
-    text = await fs.readFile(file, "utf8");
+    return await fs.readFile(file, "utf8");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw error;
   }
-  return JSON.parse(text) as unknown;
+}
+
+async function readJson(file: string): Promise<unknown | undefined> {
+  const text = await readText(file);
+  return text === null ? undefined : (JSON.parse(text) as unknown);
 }
 
 /**
@@ -174,16 +180,17 @@ export async function writeRefDraft(
   specDir: string,
   draft: ActivityDraft,
   address: ActivityAddress,
-): Promise<void> {
+): Promise<{ specCleared: boolean }> {
   await fs.mkdir(specDir, { recursive: true });
   const specFile = path.join(specDir, REF_SPEC_FILE);
   const manifestFile = path.join(specDir, REF_MANIFEST_FILE);
   const previous = (await readJson(path.join(specDir, PENGUIN_FILE)).catch(() => undefined)) as
     PenguinRefState | undefined;
   const ours = !!previous && typeof previous === "object" && previous.schemaVersion === 1;
+  // The draft had a specification Penguin wrote, and has none now.
+  const specCleared = draft.spec === null && ours && !previous.noSpec;
   if (draft.spec !== null) await writeFileAtomic(specFile, json(draft.spec));
-  else if ((ours && !previous.noSpec) || !(await exists(specFile)))
-    await writeFileAtomic(specFile, json({}));
+  else if (specCleared || !(await exists(specFile))) await writeFileAtomic(specFile, json({}));
   const onDisk = await readJson(manifestFile).catch(() => undefined);
   if (draft.mediaPlan || (ours && previous.mediaPlan) || onDisk === undefined) {
     // An adopted ref's manifest as Loom left it (see loom-manifest.ts).
@@ -215,6 +222,7 @@ export async function writeRefDraft(
     updatedAt: draft.updatedAt,
   };
   await writeFileAtomic(path.join(specDir, PENGUIN_FILE), json(state));
+  return { specCleared };
 }
 
 /**
@@ -244,7 +252,7 @@ export async function writeRefMetadata(specDir: string, ref: RefMetadata): Promi
     id: ref.productCode,
     title: ref.title,
     moduleFolder: ref.moduleFolder,
-    ...(ref.runtime !== undefined ? { runtime: ref.runtime } : {}),
+    ...("runtime" in ref ? { runtime: ref.runtime } : {}),
     refNum: ref.refNum,
     displayName: ref.displayName ?? undefined,
     stable: ref.stable,
@@ -260,15 +268,19 @@ export async function writeProductFiles(
   product: ProductMetadata,
   owner: PenguinProductState,
 ): Promise<void> {
+  // Loom's tags stay as Loom wrote them, beyond Penguin's own limits, until the tags Penguin
+  // keeps are no longer the ones it took from them.
+  const onDisk = await readProductTags(spec);
+  const tags =
+    JSON.stringify(acceptedTags(onDisk)) === JSON.stringify(product.tags) ? onDisk : product.tags;
   await mergeJsonFile(path.join(spec, REF_METADATA_FILE), {
     id: product.productCode,
     title: product.title,
     moduleFolder: product.moduleFolder,
     activityType: product.activityType,
     bookMode: product.activityType === "book" && product.bookMode ? product.bookMode : undefined,
-    ...(product.runtime !== undefined ? { runtime: product.runtime } : {}),
     canonicalRefNum: product.canonicalRefNum ?? undefined,
-    tags: product.tags,
+    tags,
   });
   await writeFileAtomic(path.join(spec, PENGUIN_FILE), json(owner));
 }
@@ -283,10 +295,12 @@ export async function readProductTags(spec: string): Promise<unknown[]> {
 
 /**
  * The module's `configurations/<pc>-<ref>.json` as Loom's empty `{}` when there is none, so
- * Loom lists a ref made here; one already there is left as it is.
+ * Loom lists a ref made here; one already there is left as it is. Whether it was made.
  */
-export async function ensureConfigurationFile(file: string): Promise<void> {
-  if (!(await exists(file))) await writeFileAtomic(file, json({}));
+export async function ensureConfigurationFile(file: string): Promise<boolean> {
+  if (await exists(file)) return false;
+  await writeFileAtomic(file, json({}));
+  return true;
 }
 
 /** The product's owner from its `spec/`, or null when no Penguin project owns it yet. */
