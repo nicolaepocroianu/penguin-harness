@@ -15,6 +15,7 @@ import { JsonEditor } from "./json-editor";
 import { documentText } from "./module-document";
 import {
   checkable,
+  machineChanged,
   machineEditorView,
   type MachineCheckState,
   type MachineProblem,
@@ -25,6 +26,13 @@ import { useActivityClient } from "./activity-client";
 /** How long typing pauses before the text is checked. */
 const CHECK_DELAY_MS = 400;
 
+/** A new problem reads as one, a warning asks for attention, and an inherited one is muted. */
+function problemInk(problem: MachineProblem): string {
+  if (problem.warning) return toneInk.attention;
+  if (problem.inherited) return "text-gray-600 dark:text-gray-400";
+  return toneInk.danger;
+}
+
 function ProblemList({ problems }: { problems: readonly MachineProblem[] }) {
   const words = S.activities.stateMachineEditor;
   return (
@@ -32,9 +40,10 @@ function ProblemList({ problems }: { problems: readonly MachineProblem[] }) {
       {problems.map((problem, index) => (
         <li key={`${problem.where}:${index}`} className="flex gap-2">
           <code className="shrink-0 font-mono text-gray-500">{problem.where}</code>
-          <span className={problem.inherited ? "text-gray-600 dark:text-gray-400" : toneInk.danger}>
+          <span className={problemInk(problem)}>
             {problem.message}
             {problem.inherited && <span className="text-gray-500"> {words.inherited}</span>}
+            {problem.warning && <span className="text-gray-500"> {words.warning}</span>}
           </span>
         </li>
       ))}
@@ -91,8 +100,9 @@ export function StateMachineEditor({
   const saved = document?.definition ? documentText(document.definition) : "";
   // The server checks the text once typing pauses; only a check of the text on screen counts.
   useEffect(() => {
-    const definition = text !== saved ? checkable(text) : null;
-    if (!document || !definition) {
+    // Text laid out differently but saying what is saved needs no check.
+    const definition = document && machineChanged(text, document) ? checkable(text) : null;
+    if (!definition) {
       setCheck({ state: "idle" });
       return;
     }
@@ -112,7 +122,7 @@ export function StateMachineEditor({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [api, document, saved, text]);
+  }, [api, document, text]);
 
   const view = document ? machineEditorView(document, text, check, editable) : null;
   // The text is this editor's own, so closing its section throws it away: leaving asks first.
@@ -137,8 +147,9 @@ export function StateMachineEditor({
     setBusy(true);
     try {
       const draft = await api.stateMachine.save(definition, revision);
-      // The next read shows the machine as saved.
-      loaded.current = null;
+      // The next read shows the machine as saved, in place of the text that was saved, but
+      // never over anything typed since.
+      loaded.current = text;
       onSaved(draft, words.saved);
     } catch (cause) {
       setProblem(apiErrorText(cause));
@@ -152,8 +163,9 @@ export function StateMachineEditor({
     setBusy(true);
     try {
       const draft = await api.stateMachine.discard(revision);
-      // The module's own machine comes back on the next read; show it, not the edit.
-      loaded.current = null;
+      // The module's own machine comes back on the next read; show it in place of the edit,
+      // but never over anything typed since.
+      loaded.current = text;
       onSaved(draft, words.discarded);
     } catch (cause) {
       setProblem(apiErrorText(cause));
@@ -178,9 +190,9 @@ export function StateMachineEditor({
           role="status"
           aria-live="polite"
           className={
-            problems.pending || problems.list.every((entry) => entry.inherited)
-              ? "text-gray-600 dark:text-gray-400"
-              : toneInk.danger
+            problems.list.some((entry) => !entry.inherited && !entry.warning)
+              ? toneInk.danger
+              : "text-gray-600 dark:text-gray-400"
           }
         >
           {problems.summary}

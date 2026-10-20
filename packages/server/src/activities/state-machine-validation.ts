@@ -3,10 +3,13 @@
  * from Loom's `app/services/state_machine/validation.py` (non-strict, as an edit is checked)
  * and its `config/schemas/state_machine.schema.json`.
  *
- * Loom's checks cover every one `waf-state-machine`'s own `validateStateMachineDefinition`
- * makes when the player boots, and more: the schema refuses unknown keys, and the machine must
- * name each scene of the specification and nothing else, end in a final `activity.complete`,
- * and enter `activity` at `complete`. A machine that passes here boots in the player.
+ * With a leaf's `initial` added, these cover every structural check `waf-state-machine`'s own
+ * `validateStateMachineDefinition` makes when the player boots, and more: the schema refuses
+ * unknown keys, and the machine must name each scene of the specification and nothing else,
+ * end in a final `activity.complete`, and enter `activity` at `complete`. The one check they
+ * cannot make is the player's `implementation.missing`, which needs the module's registered
+ * actions, guards and services: implementationWarnings only warns of names its code never
+ * mentions. So a machine that passes here boots once its module registers what it names.
  *
  * Pure: no filesystem, no services.
  */
@@ -201,15 +204,15 @@ function unsupportedStates(states: unknown, parent = ""): StateMachineIssue[] {
   });
 }
 
-/** Every state by its dotted path. */
+/** Every state that is an object, by its dotted path; the schema reports the others. */
 function collectNodes(states: Json, parent = ""): Map<string, Json> {
   const nodes = new Map<string, Json>();
   for (const [name, state] of Object.entries(states)) {
+    if (!isRecord(state)) continue;
     const path = join(parent, name);
-    nodes.set(path, state as Json);
-    const children = (state as Json).states;
-    if (isRecord(children))
-      for (const [key, node] of collectNodes(children, path)) nodes.set(key, node);
+    nodes.set(path, state);
+    if (isRecord(state.states))
+      for (const [key, node] of collectNodes(state.states, path)) nodes.set(key, node);
   }
   return nodes;
 }
@@ -257,12 +260,21 @@ function inspectTransitions(
 }
 
 function inspectStates(states: Json, issues: StateMachineIssue[], targets: Target[], parent = "") {
-  for (const [name, raw] of Object.entries(states)) {
-    const state = raw as Json;
+  for (const [name, state] of Object.entries(states)) {
+    if (!isRecord(state)) continue;
     const path = join(parent, name);
     const children = state.states;
     const initial = state.initial;
     const type = state.type;
+    // A leaf naming an initial child: the player refuses it, though Loom's check let it by.
+    if (!isRecord(children) && initial !== undefined)
+      issues.push(
+        issue(
+          "state.initial.unknown",
+          `states.${path}.initial`,
+          `State "${path}" has unknown initial child "${String(initial)}".`,
+        ),
+      );
     if (isRecord(children)) {
       if (typeof initial !== "string")
         issues.push(
@@ -359,24 +371,29 @@ export function machineSceneIds(spec: unknown): Set<string> {
   return ids;
 }
 
-/** Every problem the machine has, none when it may be saved. `spec` names its scenes. */
+/**
+ * Every problem the machine has, none when it may be saved. `spec` names its scenes.
+ *
+ * Loom stops at the first stage that finds anything (unsupported states, then the schema).
+ * Every stage runs here, each skipping only what it cannot read, so a problem the saved
+ * machine already had can never hide a new one when problems are compared (checkStateMachine).
+ */
 export function validateStateMachine(value: unknown, spec: unknown): StateMachineIssue[] {
   if (!isRecord(value))
     return [issue("machine.type", "", "The state machine must be a JSON object.")];
-  const unsupported = unsupportedStates(value.states);
-  if (unsupported.length) return unsupported;
   const schema = new SchemaCheck();
   schema.machine(value);
-  if (schema.issues.length) return schema.issues;
+  const issues: StateMachineIssue[] = [...unsupportedStates(value.states), ...schema.issues];
+  if (!isRecord(value.states)) return issues;
 
-  const states = value.states as Json;
-  const id = value.id as string;
-  const initial = value.initial as string;
+  const states = value.states;
+  const id = typeof value.id === "string" ? value.id : "";
   const nodes = collectNodes(states);
-  const issues: StateMachineIssue[] = [];
   const targets: Target[] = [];
-  if (!(initial in states))
-    issues.push(issue("initial.unknown", "initial", `Initial state "${initial}" does not exist.`));
+  if (typeof value.initial === "string" && value.initial && !(value.initial in states))
+    issues.push(
+      issue("initial.unknown", "initial", `Initial state "${value.initial}" does not exist.`),
+    );
   inspectStates(states, issues, targets);
   for (const { source, target, path } of targets)
     if (!nodes.has(resolveTarget(id, nodes, source, target)))
@@ -424,21 +441,83 @@ export function validateStateMachine(value: unknown, spec: unknown): StateMachin
 }
 
 /**
+ * Every action, guard and service the machine names, each of which the module must register
+ * or the player refuses to boot it.
+ */
+export function machineImplementationNames(value: unknown): string[] {
+  const names = new Set<string>();
+  const reference = (entry: unknown) => {
+    if (typeof entry === "string" && entry) names.add(entry);
+    else if (isRecord(entry) && typeof entry.type === "string" && entry.type) names.add(entry.type);
+  };
+  const references = (entries: unknown) =>
+    (Array.isArray(entries) ? entries : [entries]).forEach(reference);
+  const transitions = (entries: unknown) => {
+    for (const entry of Array.isArray(entries) ? entries : [entries])
+      if (isRecord(entry)) {
+        reference(entry.guard);
+        references(entry.actions);
+      }
+  };
+  const visit = (states: unknown) => {
+    if (!isRecord(states)) return;
+    for (const state of Object.values(states)) {
+      if (!isRecord(state)) continue;
+      references(state.entry);
+      references(state.exit);
+      for (const group of [state.on, state.after])
+        if (isRecord(group)) Object.values(group).forEach(transitions);
+      if (isRecord(state.invoke)) {
+        reference(state.invoke.src);
+        transitions(state.invoke.onDone);
+        transitions(state.invoke.onError);
+      }
+      visit(state.states);
+    }
+  };
+  if (isRecord(value)) visit(value.states);
+  return [...names].sort();
+}
+
+/**
+ * A warning for each implementation the machine names that `source`, the module's own code,
+ * never mentions. Only a warning: which names the module registers is known only by running
+ * it, and the next assembly may add what an edit names.
+ */
+export function implementationWarnings(value: unknown, source: string): StateMachineIssue[] {
+  return machineImplementationNames(value)
+    .filter((name) => !source.includes(name))
+    .map((name) => ({
+      ...issue(
+        "implementation.missing",
+        name,
+        `The module's code does not mention "${name}". The player refuses a machine naming an action, guard or service its module does not register, so the next assembly must add it.`,
+      ),
+      warning: true,
+    }));
+}
+
+/**
  * An unsaved machine's problems, each marked `inherited` when `baseline`, the machine being
- * edited, already had it: a save is refused only for the others.
+ * edited, already had it: a save is refused only for the others. `warnings` follow them.
  */
 export function checkStateMachine(
   value: unknown,
   spec: unknown,
   baseline: unknown,
+  warnings: readonly StateMachineIssue[] = [],
 ): StateMachineCheck {
   const key = (found: StateMachineIssue) => `${found.code} ${found.path}`;
   const inherited = new Set(
     isRecord(baseline) ? validateStateMachine(baseline, spec).map(key) : [],
   );
-  const issues = validateStateMachine(value, spec).map((found) => ({
+  const problems = validateStateMachine(value, spec).map((found) => ({
     ...found,
     inherited: inherited.has(key(found)),
   }));
-  return { valid: issues.length === 0, savable: issues.every((found) => found.inherited), issues };
+  return {
+    valid: problems.length === 0,
+    savable: problems.every((found) => found.inherited),
+    issues: [...problems, ...warnings.map((found) => ({ ...found, inherited: false }))],
+  };
 }

@@ -7,8 +7,12 @@ import {
   activitySceneCatalog,
   syncStateMachineConfiguration,
 } from "../src/activities/state-machine-configuration.js";
-import { scaffoldModule, syncAssembledStateMachine } from "../src/activities/waf-module.js";
-import type { ActivityDetail } from "../src/activities/domain.js";
+import {
+  scaffoldModule,
+  syncAssembledStateMachine,
+  verifyMediaArtifacts,
+} from "../src/activities/waf-module.js";
+import type { ActivityDetail, ModuleDocumentOverride } from "../src/activities/domain.js";
 import { activitySpec } from "./activity-fixtures.js";
 
 const activity: ActivityDetail = {
@@ -79,7 +83,7 @@ describe("the state machine a ref's configuration carries", () => {
   it("is in every scaffolded configuration, in the form the runtime boots from", () => {
     const files = scaffoldModule(activity);
     const configuration = JSON.parse(files["configurations/P-12.json"]!).P;
-    const machine = JSON.parse(files["generated/P/refs/P-12/spec/state-machine.json"]!);
+    const machine = JSON.parse(files["generated/P/spec/state-machine.json"]!);
     expect(configuration.stateMachine).toEqual(machine);
     const { catalog } = boot(configuration);
     expect(catalog.sceneIds).toEqual(activitySpec.scenes.map((scene) => scene.id));
@@ -148,10 +152,7 @@ describe("the state machine a ref's configuration carries", () => {
       await fs.writeFile(file, source);
     }
     // An assembly that completed the machine, and an older one whose configuration had none.
-    const machineFile = path.join(
-      workspace,
-      "module/generated/P/refs/P-12/spec/state-machine.json",
-    );
+    const machineFile = path.join(workspace, "module/generated/P/spec/state-machine.json");
     const machine = JSON.parse(await fs.readFile(machineFile, "utf8"));
     machine.description = "completed by the assembly";
     await fs.writeFile(machineFile, JSON.stringify(machine));
@@ -162,5 +163,90 @@ describe("the state machine a ref's configuration carries", () => {
     const configuration = JSON.parse(await fs.readFile(configurationFile, "utf8")).P;
     expect(configuration.telemetry).toBe(false);
     expect(boot(configuration).definition).toEqual(machine);
+  });
+
+  describe("with an author's edit of the machine", () => {
+    const read = (file: string) => fs.readFile(file, "utf8");
+
+    /** The scaffold's machine with one scene's description changed, as an author edits it. */
+    function edited(): { activity: ActivityDetail; edit: Record<string, unknown> } {
+      const generated = JSON.parse(
+        scaffoldModule(activity)["generated/P/spec/state-machine.json"]!,
+      );
+      const edit = structuredClone(generated) as {
+        states: Record<string, Record<string, unknown>>;
+      };
+      edit.states[activitySpec.scenes[0]!.id]!.description = "Edited by the author.";
+      const override: ModuleDocumentOverride = {
+        value: edit,
+        basis: null,
+        editedAt: "",
+        removed: [JSON.stringify(["states", activitySpec.scenes[0]!.id, "exit"])],
+      };
+      delete edit.states[activitySpec.scenes[0]!.id]!.exit;
+      return {
+        activity: {
+          ...activity,
+          draft: { ...activity.draft, moduleDocuments: { stateMachine: override } },
+        },
+        edit,
+      };
+    }
+
+    async function assembled(withEdit: ActivityDetail) {
+      const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-machine-"));
+      dirs.push(workspace);
+      for (const [name, source] of Object.entries(scaffoldModule(withEdit))) {
+        const file = path.join(workspace, "module", name);
+        await fs.mkdir(path.dirname(file), { recursive: true });
+        await fs.writeFile(file, source);
+      }
+      return workspace;
+    }
+
+    const productFile = (workspace: string) =>
+      path.join(workspace, "module/generated/P/spec/state-machine.json");
+
+    it("is the machine the assembly starts from, and the one synced into the configuration", async () => {
+      const { activity: withEdit, edit } = edited();
+      const workspace = await assembled(withEdit);
+      expect(JSON.parse(await read(productFile(workspace)))).toEqual(edit);
+      await expect(verifyMediaArtifacts(workspace, withEdit, read)).resolves.toBeUndefined();
+      // The assembly completes it, as Loom's implement step does: an addition is kept.
+      const completed = { ...edit, description: "completed" };
+      await fs.writeFile(productFile(workspace), JSON.stringify(completed));
+      await expect(verifyMediaArtifacts(workspace, withEdit, read)).resolves.toBeUndefined();
+      await syncAssembledStateMachine(workspace, withEdit);
+      const configuration = JSON.parse(
+        await read(path.join(workspace, "module/configurations/P-12.json")),
+      ).P;
+      expect(boot(configuration).definition).toEqual(completed);
+    });
+
+    it("refuses an assembly whose product machine changed what the author wrote", async () => {
+      const { activity: withEdit, edit } = edited();
+      const workspace = await assembled(withEdit);
+      const changed = structuredClone(edit) as { states: Record<string, Record<string, unknown>> };
+      changed.states[activitySpec.scenes[0]!.id]!.description = "Rewritten by the agent.";
+      await fs.writeFile(productFile(workspace), JSON.stringify(changed));
+      await expect(verifyMediaArtifacts(workspace, withEdit, read)).rejects.toThrow(
+        "Assembly changed the edited state machine.",
+      );
+    });
+
+    it("checks the machine that is synced, not a ref copy beside it", async () => {
+      const { activity: withEdit, edit } = edited();
+      const workspace = await assembled(withEdit);
+      // The edit left untouched in the ref's copy, while the product's machine, which the
+      // configuration is synced from, puts back a handler the author removed.
+      const refCopy = path.join(workspace, "module/generated/P/refs/P-12/spec/state-machine.json");
+      await fs.writeFile(refCopy, JSON.stringify(edit));
+      const restored = structuredClone(edit) as { states: Record<string, Record<string, unknown>> };
+      restored.states[activitySpec.scenes[0]!.id]!.exit = { type: "cleanupScene" };
+      await fs.writeFile(productFile(workspace), JSON.stringify(restored));
+      await expect(verifyMediaArtifacts(workspace, withEdit, read)).rejects.toThrow(
+        "Assembly changed the edited state machine.",
+      );
+    });
   });
 });

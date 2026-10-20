@@ -88,21 +88,59 @@ export async function findStateMachine(
   };
 }
 
+/** The file extensions a module's own code is in. */
+const SOURCE_FILE = /\.(?:[cm]?[jt]s|tsx|jsx)$/;
+
+/**
+ * Everything in the `src` folder of the first of `roots` that has one, as one text, so the
+ * names a machine gives its actions, guards and services can be looked for in it; null when
+ * no root has code to look in.
+ */
+export async function moduleSourceText(roots: readonly string[]): Promise<string | null> {
+  for (const root of roots) {
+    const src = path.join(root, "src");
+    const entries = await fs
+      .readdir(src, { recursive: true, withFileTypes: true })
+      .catch(() => null);
+    if (!entries) continue;
+    const parts: string[] = [];
+    for (const entry of entries)
+      if (
+        entry.isFile() &&
+        SOURCE_FILE.test(entry.name) &&
+        !entry.parentPath.includes("node_modules")
+      )
+        parts.push(await fs.readFile(path.join(entry.parentPath, entry.name), "utf8"));
+    return parts.join("\n");
+  }
+  return null;
+}
+
 /** The document the Studio reads, from what was found and who is reading. */
 export function stateMachineDocument(
   found: FoundStateMachine,
-  context: { productCode: string; refNum: number; canEdit: boolean; book: boolean },
+  context: {
+    productCode: string;
+    refNum: number;
+    canEdit: boolean;
+    book: boolean;
+    canonicalRefNum: number | null;
+  },
 ): StateMachineDocument {
+  // A ref that is not the canonical one reads the product's machine but does not edit it.
+  const shared = context.canonicalRefNum !== null && context.canonicalRefNum !== context.refNum;
+  const locked = context.book ? "book" : shared ? "shared" : null;
   return {
     productCode: context.productCode,
     refNum: context.refNum,
     definition: found.definition,
-    validation: { valid: found.issues.length === 0, issues: found.issues },
+    validation: { valid: found.issues.every((issue) => issue.warning), issues: found.issues },
     source: found.source,
     file: found.file,
     edited: found.source === "draft",
     stale: found.stale ?? false,
-    editable: context.canEdit && !context.book,
-    locked: context.book ? "book" : null,
+    editable: context.canEdit && !locked,
+    locked,
+    canonicalRefNum: context.canonicalRefNum,
   };
 }

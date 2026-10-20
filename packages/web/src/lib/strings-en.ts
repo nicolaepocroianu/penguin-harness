@@ -1525,7 +1525,7 @@ export const en: Strings = {
     stateMachineEditor: {
       title: "State machine",
       about:
-        "The ref's spec/state-machine.json: the scenes and phases the module moves through and what moves it on. It is checked as Loom checks it, and saved only when it names each scene of the specification. Your edit is used in the preview and in every assembly until you discard it.",
+        "The product's spec/state-machine.json: the scenes and phases the module moves through and what moves it on. Every ref of the product shares it, so it is edited on the canonical ref. It is checked as Loom checks it, and saved only when it names each scene of the specification. Saving writes it as Loom does and syncs it into this ref's configuration. Your edit is used in the preview and in every assembly until you discard it.",
       field: "State machine JSON",
       savedSide: "Saved machine",
       saveLabel: "Save State Machine",
@@ -1533,15 +1533,17 @@ export const en: Strings = {
       unreadable: (reason: string) => `The state machine could not be read: ${reason}`,
       missing:
         "This ref has no state-machine.json yet. Assembling the module writes one from the specification.",
-      fromModule: (file: string) => `${file}, from the module.`,
-      fromProduct: (file: string) =>
-        `${file}, the product's machine. Your edit is saved as this ref's own.`,
+      fromModule: (file: string) =>
+        `${file}, this ref's own copy. Saving writes the product's machine instead and removes the copy, as Loom does.`,
+      fromProduct: (file: string) => `${file}, the product's machine, shared by every ref.`,
       fromDraft: (file: string) => `${file}, edited in this activity.`,
       edited: "Edited here: the preview and the next assembly use this machine.",
       stale:
-        "The specification changed after this was edited. Check the machine still names each scene.",
+        "The specification's scenes changed after this was edited. Check the machine still names each scene.",
       book: "A book plays the reader's own state machine, built with the book, so it is shown here but not edited.",
       readOnly: "Only the project's owner edits the state machine.",
+      shared: (ref: number) => `Shared by every ref. Edit it on ref ${ref}.`,
+      warning: "A warning only: it does not stop a save.",
       noProblems: "No problems found.",
       checking: "Checking…",
       checkFailed: (reason: string) => `The machine could not be checked: ${reason}`,

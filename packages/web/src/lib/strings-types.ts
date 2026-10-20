@@ -1379,6 +1379,8 @@ export type Strings = {
       stale: string;
       book: string;
       readOnly: string;
+      shared: (ref: number) => string;
+      warning: string;
       noProblems: string;
       checking: string;
       checkFailed: (reason: string) => string;

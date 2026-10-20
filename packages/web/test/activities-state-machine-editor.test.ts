@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { StateMachineCheck, StateMachineDocument } from "@prismshadow/penguin-server/api";
 import {
   checkable,
+  machineChanged,
   machineEditorView,
   machineOrigin,
   type MachineCheckState,
@@ -35,6 +36,7 @@ function document(overrides: Partial<StateMachineDocument> = {}): StateMachineDo
     stale: false,
     editable: true,
     locked: null,
+    canonicalRefNum: 1,
     ...overrides,
   };
 }
@@ -59,7 +61,14 @@ describe("the state machine editor", () => {
     expect(view.canEdit).toBe(true);
     expect(view.readOnly).toBeNull();
     expect(view.problems).toEqual({
-      list: [{ where: "states.activity.initial", message: inherited.message, inherited: true }],
+      list: [
+        {
+          where: "states.activity.initial",
+          message: inherited.message,
+          inherited: true,
+          warning: false,
+        },
+      ],
       unsaved: false,
       summary: words.problems(1, false),
       pending: false,
@@ -117,14 +126,27 @@ describe("the state machine editor", () => {
         },
         { code: "machine.type", path: "", message: "Whole file.", inherited: false },
         { ...inherited, inherited: true },
+        {
+          code: "implementation.missing",
+          path: "present",
+          message: "Not in the code.",
+          inherited: false,
+          warning: true,
+        },
       ],
     };
     const view = machineEditorView(document(), typed, { state: "done", text: typed, check }, true);
     expect(view.problems).toEqual({
       list: [
-        { where: "states.outro", message: "Unknown outro.", inherited: false },
-        { where: words.wholeFile, message: "Whole file.", inherited: false },
-        { where: "states.activity.initial", message: inherited.message, inherited: true },
+        { where: "states.outro", message: "Unknown outro.", inherited: false, warning: false },
+        { where: words.wholeFile, message: "Whole file.", inherited: false, warning: false },
+        {
+          where: "states.activity.initial",
+          message: inherited.message,
+          inherited: true,
+          warning: false,
+        },
+        { where: "present", message: "Not in the code.", inherited: false, warning: true },
       ],
       unsaved: true,
       summary: words.problems(3, true),
@@ -156,6 +178,44 @@ describe("the state machine editor", () => {
       true,
     );
     expect(view).toMatchObject({ edited: true, stale: true, canEdit: true });
+  });
+
+  it("counts no warning as a problem", () => {
+    const check: StateMachineCheck = {
+      valid: true,
+      savable: true,
+      issues: [
+        {
+          code: "implementation.missing",
+          path: "present",
+          message: "Not in the code.",
+          inherited: false,
+          warning: true,
+        },
+      ],
+    };
+    const view = machineEditorView(document(), typed, { state: "done", text: typed, check }, true);
+    expect(view.problems.summary).toBe(words.noProblems);
+    expect(view.problems.list).toEqual([
+      { where: "present", message: "Not in the code.", inherited: false, warning: true },
+    ]);
+  });
+
+  it("sends nothing to check while the text only lays the saved machine out differently", () => {
+    expect(machineChanged(JSON.stringify(machine), document())).toBe(false);
+    expect(machineChanged(typed, document())).toBe(true);
+    expect(machineChanged("", document({ definition: null }))).toBe(false);
+  });
+
+  it("keeps the machine every ref shares read-only on a ref that is not the canonical one", () => {
+    expect(
+      machineEditorView(
+        document({ editable: false, locked: "shared", canonicalRefNum: 3 }),
+        saved,
+        idle,
+        true,
+      ),
+    ).toMatchObject({ readOnly: words.shared(3), canEdit: false });
   });
 
   it("keeps a book's machine and a viewer who does not own the project read-only", () => {

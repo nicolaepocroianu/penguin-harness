@@ -1,0 +1,16 @@
+{
+  "id": "r1lt19L-v3",
+  "title": "r1lt19L-v3",
+  "moduleFolder": "waf-module-r1lt19L-v3",
+  "activityType": "standard",
+  "runtime": {
+    "engine": "html",
+    "layout": "mainOnly",
+    "theme": "park",
+    "resolution": "640x480",
+    "usesAssessment": true
+  },
+  "canonicalRefNum": 1,
+  "templateStable": false,
+  "tags": []
+}

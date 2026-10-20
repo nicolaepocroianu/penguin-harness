@@ -87,8 +87,8 @@ export function refSpecPath(productCode: string, refNum: number): string {
 
 /**
  * A module document as the module names it: `configurations/<pc>-<ref>.json`,
- * `assessments/<pc>-<ref>.json`, the module's one `definition.json`, or the ref's
- * `generated/<pc>/refs/<pc>-<ref>/spec/state-machine.json`.
+ * `assessments/<pc>-<ref>.json`, the module's one `definition.json`, or the product's
+ * `generated/<pc>/spec/state-machine.json`, shared by every ref, as Loom keeps it.
  */
 export function moduleDocumentPath(
   kind: ModuleDocumentKind,
@@ -96,7 +96,7 @@ export function moduleDocumentPath(
   refNum: number,
 ): string {
   if (kind === "definition") return "definition.json";
-  if (kind === "stateMachine") return `${refSpecPath(productCode, refNum)}/state-machine.json`;
+  if (kind === "stateMachine") return `generated/${productCode}/spec/state-machine.json`;
   const folder = kind === "configuration" ? "configurations" : "assessments";
   return `${folder}/${productCode}-${refNum}.json`;
 }

@@ -14,6 +14,8 @@ export interface MachineProblem {
   message: string;
   /** The saved machine already had it, so it does not stop a save. */
   inherited: boolean;
+  /** Only a warning (an implementation the module's code never mentions), which stops nothing. */
+  warning: boolean;
 }
 
 /** The check of the text on screen: none needed, running, done, or failed. */
@@ -55,14 +57,31 @@ export function machineOrigin(document: StateMachineDocument): string {
 }
 
 function problems(
-  issues: readonly { path: string; message: string; inherited?: boolean }[],
+  issues: readonly { path: string; message: string; inherited?: boolean; warning?: boolean }[],
   inheritedByDefault: boolean,
 ): MachineProblem[] {
   return issues.map((issue) => ({
     where: issue.path || S.activities.stateMachineEditor.wholeFile,
     message: issue.message,
-    inherited: issue.inherited ?? inheritedByDefault,
+    inherited: !issue.warning && (issue.inherited ?? inheritedByDefault),
+    warning: !!issue.warning,
   }));
+}
+
+/** The summary of a list: how many problems it has, warnings not counted. */
+function count(list: readonly MachineProblem[], unsaved: boolean): string {
+  const words = S.activities.stateMachineEditor;
+  const found = list.filter((entry) => !entry.warning).length;
+  return found ? words.problems(found, unsaved) : words.noProblems;
+}
+
+/** Why the machine cannot be edited here, or null when it can. */
+function lockedBecause(document: StateMachineDocument): string | null {
+  const words = S.activities.stateMachineEditor;
+  if (document.locked === "book") return words.book;
+  if (document.locked === "shared" && document.canonicalRefNum !== null)
+    return words.shared(document.canonicalRefNum);
+  return document.editable ? null : words.readOnly;
 }
 
 /**
@@ -78,21 +97,19 @@ export function machineEditorView(
 ): MachineEditorView {
   const words = S.activities.stateMachineEditor;
   const saved = document.definition ? documentText(document.definition) : "";
-  const readOnly =
-    document.locked === "book" ? words.book : !document.editable ? words.readOnly : null;
+  const readOnly = lockedBecause(document);
   const canEdit = viewerMayEdit && readOnly === null;
-  const unsaved = document.definition ? documentChanged(text, document.definition) : !!text.trim();
+  const unsaved = machineChanged(text, document);
   let list: MachineProblem[];
   let summary: string;
   let pending = false;
   if (!unsaved) {
     // The saved machine's own problems: none of them stops a save.
     list = problems(document.definition ? document.validation.issues : [], true);
-    if (list.length) summary = words.problems(list.length, false);
-    else summary = document.definition ? words.noProblems : "";
+    summary = document.definition ? count(list, false) : "";
   } else if (check.state === "done" && check.text === text) {
     list = problems(check.check.issues, false);
-    summary = list.length ? words.problems(list.length, true) : words.noProblems;
+    summary = count(list, true);
   } else if (check.state === "failed" && check.text === text) {
     list = [];
     summary = words.checkFailed(check.reason);
@@ -112,6 +129,14 @@ export function machineEditorView(
     canEdit,
     problems: { list, unsaved, summary, pending },
   };
+}
+
+/**
+ * Whether `text` says something other than the saved machine, ignoring layout: only then is it
+ * worth checking, and only then is it unsaved.
+ */
+export function machineChanged(text: string, document: StateMachineDocument): boolean {
+  return document.definition ? documentChanged(text, document.definition) : !!text.trim();
 }
 
 /** The machine `text` holds, when it is a JSON object worth checking; null otherwise. */

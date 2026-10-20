@@ -12,7 +12,6 @@ import type { ActivitySandbox } from "./sandbox-service.js";
 import { videoMimeType } from "./video-render.js";
 import { sceneLooks } from "./scene-looks.js";
 import type { ModuleDocumentKind } from "./domain.js";
-import { checkStateMachine } from "./state-machine-validation.js";
 import type { ActivitySummaries } from "./summary-service.js";
 import type { Config } from "../hmr/capabilities.js";
 import { hostOnly, requestAuthority, resolvePreviewTarget } from "../services/preview-token.js";
@@ -885,11 +884,13 @@ export class ActivityRoutes {
     // marks those the machine in effect already had, which do not refuse a save.
     app.post("/:activityId/state-machine/check", async (c) => {
       const definition = stateMachineDefinition(await readJson(c));
-      const projectId = requireValidId(c, "projectId");
-      const activityId = pathParam(c, "activityId");
-      const current = await this.sandbox.stateMachine(projectId, activityId);
-      const activity = await this.activities.getActivity(projectId, activityId);
-      return c.json(checkStateMachine(definition, activity.draft.spec, current.definition));
+      return c.json(
+        await this.sandbox.checkStateMachine(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          definition,
+        ),
+      );
     });
     app.post("/:activityId/state-machine/discard", async (c) => {
       const body = await readJson(c);

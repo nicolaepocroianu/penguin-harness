@@ -123,11 +123,22 @@ export interface ModuleDocumentOverride {
    * when the edit is discarded.
    */
   replaced?: string | null;
+  /**
+   * A state machine's edit writes several module files, as Loom's save does (the product's
+   * machine, the ref's copy it removes, the configuration it syncs): what each held before the
+   * first edit, by its path inside the module, null for none, put back as it was on a discard.
+   */
+  replacedFiles?: Record<string, string | null>;
+  /**
+   * The key paths (each a JSON array of keys) the author removed from the machine they edited,
+   * which an assembly may not put back.
+   */
+  removed?: string[];
 }
 
 /**
- * `stateMachine` is the ref's `spec/state-machine.json`, which the runtime boots from once it
- * is synced into the configuration.
+ * `stateMachine` is the product's `spec/state-machine.json`, which every ref shares, as Loom
+ * keeps it; the runtime boots from it once it is synced into a ref's configuration.
  */
 export type ModuleDocumentKind = "configuration" | "assessment" | "definition" | "stateMachine";
 
