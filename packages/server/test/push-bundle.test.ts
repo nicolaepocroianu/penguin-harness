@@ -10,6 +10,9 @@
  *
  * - Given an entry that imports @prismshadow/mmsp, compiled with the push's own options, the
  *   bundle imports nothing of it at run time and runs where no node_modules exists at all.
+ * - Given an entry that loads playwright-core lazily, as browser-session.ts does, the compile
+ *   succeeds and leaves playwright-core to be imported at run time (it requires a chromium-bidi
+ *   it does not ship, and finds its own files beside it).
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -55,5 +58,25 @@ describe("a pushed bundle", () => {
       env: { ...process.env, NODE_PATH: "" },
     });
     expect(ran.trim()).toBe("function");
+  }, 120_000);
+
+  it("leaves playwright-core to run time instead of inlining it", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-push-bundle-"));
+    dirs.push(dir);
+    const outfile = path.join(dir, "bundle.mjs");
+    const options = pushBundleOptions("entry.mjs", outfile);
+    delete options.entryPoints;
+    await compilePushBundle({
+      ...options,
+      stdin: {
+        contents: 'export const load = () => import("playwright-core");',
+        resolveDir: path.join(REPO, "packages", "server"),
+        loader: "js",
+      },
+    });
+
+    const code = fs.readFileSync(outfile, "utf8");
+    expect(code).toMatch(/\bimport\(\s*["']playwright-core["']\s*\)/);
+    expect(code).not.toContain("chromium-bidi");
   }, 120_000);
 });

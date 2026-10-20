@@ -3,16 +3,16 @@
  * file each — the same compile a source checkout's install image goes through, since that image is
  * packed by `deploy.mjs --out`.
  *
- * Self-contained is the point: `bundle: true` and no `external` inline every package the entry
- * imports statically, the gateway library (`@prismshadow/mmsp`) included. A pushed build lands in a
- * data root's store and runs on whatever program booted it — on a machine, a release's Node and
- * loader — and nothing it imports is looked up in that program's `node_modules`, which belongs to
- * another version: a build pushed onto release 0.2.13, whose `node_modules` holds
+ * Self-contained is the point: `bundle: true` with one `external` (below) inlines every package the
+ * entry imports statically, the gateway library (`@prismshadow/mmsp`) included. A pushed build
+ * lands in a data root's store and runs on whatever program booted it — on a machine, a release's
+ * Node and loader — and nothing it imports is looked up in that program's `node_modules`, which
+ * belongs to another version: a build pushed onto release 0.2.13, whose `node_modules` holds
  * `@prismshadow/agenthub` 0.4 and no mmsp, runs the mmsp it was compiled with. A dependency that
  * changes changes the bundle's bytes, so the build's hash, its version suffix and the "target
- * already has this build" check all move with it. What is left for run time is an optional
- * package a dependency imports dynamically and guards (the Bedrock client's credential providers);
- * native binaries travel beside the bundle as assets (node-pty, see deploy.mjs).
+ * already has this build" check all move with it. What is left for run time is an optional package
+ * a dependency imports dynamically and guards (the Bedrock client's credential providers) and
+ * `playwright-core`; native binaries travel beside the bundle as assets (node-pty, see deploy.mjs).
  *
  * A module of its own so that a test compiles with exactly these options.
  */
@@ -42,6 +42,13 @@ export function pushBundleOptions(entry, outfile) {
     outfile,
     logLevel: "silent",
     banner: { js: ESM_CJS_BANNER },
+    // The one package left to run time, as in packages/desktop/tsup.config.ts. playwright-core
+    // finds its browsers.json and injected scripts beside its own files, which a bundle has none
+    // of, and its bidi-over-CDP path requires `chromium-bidi`, which it does not ship, so esbuild
+    // cannot resolve it. The server only reaches it through a lazy `import()` when an activity
+    // wants a browser (browser-session.ts), and resolves it from disk there already
+    // (test-browser.ts).
+    external: ["playwright-core"],
     alias: {
       "@prismshadow/penguin-core/kernel": require.resolve("@prismshadow/penguin-core/kernel"),
     },
