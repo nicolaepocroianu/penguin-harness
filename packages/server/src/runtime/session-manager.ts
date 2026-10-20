@@ -3,11 +3,12 @@
  *
  * Responsibilities:
  *   - get-or-resume-or-heal: use it directly on an active-table hit; with a Trace,
- *     recover via `agent.resumeSession`; a stale Session that was created but never run
- *     and survived a process restart (no Trace) **self-heals** — recreated via
- *     createSession under its own id, from the index row's workspace/model, so everything
- *     that names the Session (a bot binding, a schedule, a desk, an activity run) still
- *     finds it;
+ *     recover via `agent.resumeSession`; a Session that was created but never run and has
+ *     lost its runtime object since (a process restart, an idle eviction) has no Trace and
+ *     **self-heals** — recreated via createSession from the index row's workspace and model,
+ *     under the row's own session_id, so everything keyed by that id (a messaging binding, a
+ *     terminal, the client's route) stays attached to it; the Task response body returns the
+ *     id the Session runs under;
  *   - Credential effectiveness: a Project's models/credentials change bumps every affected
  *     Agent's config generation (invalidateProjectRuntimes); runtimes built earlier are
  *     discarded on their next idle access and re-resumed, so the next Task runs with the
@@ -310,7 +311,7 @@ export interface RuntimeSession {
 export interface SessionLoader {
   /**
    * Load a runtime Session from an index row: recover (with a Trace) or self-heal
-   * rebuild (no Trace, under the row's id). Throws HttpError(409) for unrecoverable
+   * rebuild (no Trace, under the row's session_id). Throws HttpError(409) for unrecoverable
    * cases such as a missing Workspace.
    */
   load(row: SessionRow): Promise<RuntimeSession>;
@@ -386,8 +387,10 @@ export function createCoreSessionLoader(
           throw toUnrecoverableError(err);
         }
       }
-      // No Trace (created but never run, and the process has restarted since): self-heal
-      // rebuild. A missing Workspace → 409.
+      // No Trace (created but never run, and the runtime object is gone since): self-heal
+      // rebuild under the row's own id — a new one would leave behind everything keyed by the
+      // old (a messaging binding whose replies would never go out, a terminal, the client's
+      // route). A missing Workspace → 409.
       try {
         const stat = await fs.stat(row.workspace);
         if (!stat.isDirectory()) throw new Error("not a directory");
@@ -404,7 +407,6 @@ export function createCoreSessionLoader(
       const knownSource = sources?.get(row.sessionId) ?? unrunSource(row.client);
       try {
         return await agent.createSession({
-          // Rebuilt under its own id: everything that names the Session keeps finding it.
           sessionId: row.sessionId,
           workspaceDir: row.workspace,
           modelId: row.modelId,
@@ -2023,19 +2025,16 @@ export class SessionManager {
    * a Task arriving mid-load waits for this load instead of starting a second one.
    *
    * A Session that is gone or being deleted, alone or with its Agent, resolves quietly: there is
-   * nothing to warm and the caller has nothing to do about it. So does one with no Trace yet,
-   * because loading it is a self-heal REBUILD under a new session id — that would move the
-   * Session out from under the binding that asked, and earlier than any Task would. The row's
-   * `hasTrace` is a cache, so a row that has not caught up only misses the warm-up. Any other
-   * load failure rejects; the first Task meets the same failure and reports it where a person
-   * will see it.
+   * nothing to warm and the caller has nothing to do about it. One that never ran is rebuilt
+   * under its own id (see createCoreSessionLoader), so the binding that asked keeps its Session.
+   * Any other load failure rejects; the first Task meets the same failure and reports it where a
+   * person will see it.
    */
   async preload(sessionId: string): Promise<void> {
     await this.withLock(sessionId, async () => {
       if (this.closed || this.deletingSessions.has(sessionId)) return;
       const row = this.deps.sessions.findById(sessionId);
       if (!row || this.deletingAgents.has(agentKey(row.projectId, row.agentId))) return;
-      if (!this.entries.has(sessionId) && row.hasTrace !== true) return;
       try {
         await this.ensureEntry(sessionId);
       } catch (err) {

@@ -78,7 +78,7 @@ import type {
 import {
   createTempWorkspace,
   formatSessionId,
-  SESSION_ID_RE,
+  isSessionIdToken,
   mcpConnectOutcome,
   sessionEnvironment,
 } from "./internal/session-support.js";
@@ -285,10 +285,12 @@ export interface CreateSessionOptions {
    */
   source?: SessionSource;
   /**
-   * Rebuild a Session that has no Trace under its existing id — one created but never run,
-   * whose runtime was lost (a restart). Absent, a new id is minted. It must have the shape
-   * `createSession` gives ids, and no Trace may exist for it: a Session with one continues
-   * through `resumeSession`.
+   * The id to create the Session under; absent, a new one is minted. For a host that recorded a
+   * Session before its first run and has lost the runtime object since (a process restart): such
+   * a Session has no Trace to resume from, and recreating it under a new id would orphan
+   * everything the host keyed by the old one. The id must consist of letters, digits, `-` and
+   * `_` (every minted id does), and must have no Trace under this Agent yet: one that has is
+   * resumed with `resumeSession`, never created again.
    */
   sessionId?: string;
 }
@@ -736,7 +738,7 @@ export class Agent {
    * Docs: /docs/sessions-and-traces § "Run model".
    */
   async createSession(opts: CreateSessionOptions = {}): Promise<Session> {
-    if (opts.sessionId !== undefined) await this.checkRebuiltSessionId(opts.sessionId);
+    if (opts.sessionId !== undefined) await this.checkRecreatedSessionId(opts.sessionId);
     // Model is validated first (before creating the Workspace, so failure leaves no
     // temporary workspace behind): the reference must be the complete (provider, model_id)
     // pair — the config's unique key — and must name an entry in the Project config; a
@@ -769,6 +771,9 @@ export class Agent {
     // each context's clients resolve the credential of the entry the context runs on (see
     // buildRuntime's `credentialsFor`).
     checkEntryClient(modelEntry, this.projectConfig, opts);
+    // A given id is checked before the Workspace for the same reason as the model: a refusal
+    // must leave no temporary workspace behind.
+    if (opts.sessionId !== undefined) await this.checkRecreatedSessionId(opts.sessionId);
 
     // An explicit Workspace must already exist as a directory: if it
     // doesn't, throw rather than auto-create (to avoid a typo silently working in
@@ -821,19 +826,20 @@ export class Agent {
   }
 
   /**
-   * An id `createSession` may rebuild a Session under (CreateSessionOptions.sessionId): one of
-   * the shape it mints, with no Trace yet — a Session that has one is resumed, never rebuilt.
+   * The id a host recreates a Session under (CreateSessionOptions.sessionId) must name Trace
+   * files inside the Trace directory, and must have none yet: a second Writer under the id of a
+   * Session that has a Trace would write a new opening into a history it never read.
    */
-  private async checkRebuiltSessionId(sessionId: string): Promise<void> {
-    if (!SESSION_ID_RE.test(sessionId)) {
+  private async checkRecreatedSessionId(sessionId: string): Promise<void> {
+    if (!isSessionIdToken(sessionId)) {
       throw new Error(
-        `Not a Session id: ${sessionId} (expected session-YYYY-MM-DD-HH-mm-ss-<8 hex digits>).`,
+        `Cannot create a Session under the id ${JSON.stringify(sessionId)}: an id may contain only letters, digits, "-" and "_".`,
       );
     }
     const dir = tracesDir(this.state.root, this.state.projectId, this.state.agentId);
-    if (await findLatestTraceFile(dir, sessionId)) {
+    if ((await findLatestTraceFile(dir, sessionId)) !== null) {
       throw new Error(
-        `Session ${sessionId} already has a Trace; resume it with resumeSession instead of rebuilding it.`,
+        `Session ${sessionId} already has a Trace, so it cannot be created again; resume it instead.`,
       );
     }
   }
