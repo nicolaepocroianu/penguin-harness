@@ -49,3 +49,20 @@ function invalid(
 ): HttpError {
   return new HttpError(400, code, message);
 }
+
+/**
+ * The tags Penguin keeps of someone else's list (Loom's): each one normalizeTags accepts, in
+ * order and once, up to TAGS_MAX. One it refuses is left out, never the whole list.
+ */
+export function acceptedTags(value: readonly unknown[]): string[] {
+  const kept: string[] = [];
+  for (const entry of value) {
+    if (kept.length >= TAGS_MAX) break;
+    try {
+      kept.splice(0, kept.length, ...normalizeTags([...kept, entry]));
+    } catch {
+      // Not a tag Penguin accepts.
+    }
+  }
+  return kept;
+}

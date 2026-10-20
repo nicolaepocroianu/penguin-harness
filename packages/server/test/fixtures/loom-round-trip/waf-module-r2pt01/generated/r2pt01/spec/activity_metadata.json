@@ -1,0 +1,19 @@
+{
+  "id": "r2pt01",
+  "title": "Decodable Books",
+  "moduleFolder": "waf-module-r2pt01",
+  "activityType": "book",
+  "bookMode": "decodable",
+  "runtime": {
+    "engine": "html",
+    "layout": "mainOnly",
+    "theme": "park",
+    "resolution": "640x480",
+    "usesAssessment": false
+  },
+  "canonicalRefNum": 150,
+  "templateStable": true,
+  "tags": ["Decodables"],
+  "deploymentName": "r2pt01-module-150",
+  "deploymentSource": "legacy"
+}

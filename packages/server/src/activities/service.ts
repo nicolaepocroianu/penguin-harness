@@ -34,6 +34,7 @@ import { seedMediaPlaceholders } from "./media-placeholder.js";
 import {
   candidateReference,
   copyRefMedia,
+  loomGenerationFingerprint,
   readdressMedia,
   uploadHome,
   wavToMp3,
@@ -69,13 +70,19 @@ import type { BundleItem, LibraryFile, ProjectMediaListing } from "./media-libra
 import { readBoundImage, type ImageRequest } from "./image.js";
 import type { WafWorkspace } from "./waf-workspace.js";
 import {
+  ensureConfigurationFile,
+  exists,
   PENGUIN_FILE,
   readFeatureFile,
   readProductOwner,
+  readProductTags,
   readRefDraft,
+  readText,
   REF_FEATURES_FILE,
+  REF_MANIFEST_FILE,
   REF_METADATA_FILE,
   writeFeatureFile,
+  writeFileAtomic,
   writeProductFiles,
   writeRefDraft,
   writeRefMetadata,
@@ -112,7 +119,7 @@ import {
   validateConfiguration,
   validateDefinition,
 } from "./module-overrides.js";
-import { normalizeTags } from "./tags.js";
+import { acceptedTags, normalizeTags } from "./tags.js";
 import type { ActivityPhonemes } from "./phonemes.js";
 import {
   cleanPhonemes,
@@ -163,6 +170,21 @@ export async function atomicJson(file: string, value: unknown): Promise<void> {
   } finally {
     await fs.rm(temp, { force: true });
   }
+}
+
+/** What a new ref is made from (createActivity). */
+export interface CreateActivityInput {
+  collectionId?: string;
+  productCode: unknown;
+  refNum: unknown;
+  title: string;
+  activityType?: "standard" | "book";
+  /** Only read when this is the product's first ref; later refs join what exists. */
+  moduleFolder?: unknown;
+  /** A book's reading mode; like the module folder, only read for the product's first ref. */
+  bookMode?: "decodable" | "readAlong";
+  /** What the learner does, in the author's words: the script starts with it. */
+  description?: string;
 }
 
 @Component()
@@ -857,20 +879,19 @@ export class ActivityService implements ActivityAuthoring {
 
   async createActivity(
     projectId: string,
-    input: {
-      collectionId?: string;
-      productCode: unknown;
-      refNum: unknown;
-      title: string;
-      activityType?: "standard" | "book";
-      /** Only read when this is the product's first ref; later refs join what exists. */
-      moduleFolder?: unknown;
-      /** A book's reading mode; like the module folder, only read for the product's first ref. */
-      bookMode?: "decodable" | "readAlong";
-      /** What the learner does, in the author's words: the script starts with it. */
-      description?: string;
-    },
+    input: CreateActivityInput,
   ): Promise<ActivityRecord & { draft: ActivityDraft }> {
+    return (await this.createRef(projectId, input)).activity;
+  }
+
+  /**
+   * createActivity, saying whether it made the module's configuration file for the ref, so a
+   * make that fails later removes it only then (discardCreatedRef).
+   */
+  private async createRef(
+    projectId: string,
+    input: CreateActivityInput,
+  ): Promise<{ activity: ActivityRecord & { draft: ActivityDraft }; madeConfiguration: boolean }> {
     let productCode: string, refNum: number;
     try {
       productCode = normalizeProductCode(input.productCode);
@@ -956,6 +977,7 @@ export class ActivityService implements ActivityAuthoring {
           updatedAt: now,
         };
         await this.writeDraft(activity, draft);
+        const madeConfiguration = await this.ensureModuleConfiguration(activity);
         this.db.exec("BEGIN");
         try {
           this.db
@@ -992,10 +1014,12 @@ export class ActivityService implements ActivityAuthoring {
             recursive: true,
             force: true,
           });
+          if (madeConfiguration)
+            await fs.rm(this.configurationFile(activity, await this.checkout()), { force: true });
           throw error;
         }
         await this.syncProductFiles(activity.productId!);
-        return { ...activity, draft };
+        return { activity: { ...activity, draft }, madeConfiguration };
       });
     });
   }
@@ -1217,20 +1241,52 @@ export class ActivityService implements ActivityAuthoring {
         : kind === "definition"
           ? validateDefinition(value)
           : validateConfiguration(value);
-    return this.change(projectId, activityId, expectedRevision, (draft, activity) => {
-      if (isSharedDocument(kind) && !this.isCanonicalRef(activity))
-        throw new HttpError(
-          409,
-          "not_canonical",
-          `The ${kind === "definition" ? "module definition" : "assessment"} is shared by every ref of this product. Edit it on the canonical ref.`,
-        );
-      const override: ModuleDocumentOverride = {
-        value: document,
-        basis: documentBasis(kind, draft),
-        editedAt: new Date().toISOString(),
-      };
-      return { ...draft, moduleDocuments: { ...draft.moduleDocuments, [kind]: override } };
+    // Loom reads a ref's configuration from the module's own file, so the edit is written there
+    // too, and what the file held before the first edit is kept, to be put back on a discard.
+    // Read, saved and written under the draft's lock, so the file and the draft agree.
+    return this.exclusive(projectId, activityId, async () => {
+      const file =
+        kind === "configuration"
+          ? this.configurationFile(
+              await this.getActivity(projectId, activityId),
+              await this.checkout(),
+            )
+          : null;
+      const before = file ? await readText(file) : null;
+      const changed = await this.change(
+        projectId,
+        activityId,
+        expectedRevision,
+        (draft, activity) => {
+          if (isSharedDocument(kind) && !this.isCanonicalRef(activity))
+            throw new HttpError(
+              409,
+              "not_canonical",
+              `The ${kind === "definition" ? "module definition" : "assessment"} is shared by every ref of this product. Edit it on the canonical ref.`,
+            );
+          // An edit saved before edits reached the module never wrote the file: it holds what
+          // was there before, still.
+          const earlier = draft.moduleDocuments?.[kind]?.replaced;
+          const replaced = earlier !== undefined ? earlier : before;
+          const override: ModuleDocumentOverride = {
+            value: document,
+            basis: documentBasis(kind, draft),
+            editedAt: new Date().toISOString(),
+            ...(file ? { replaced } : {}),
+          };
+          return { ...draft, moduleDocuments: { ...draft.moduleDocuments, [kind]: override } };
+        },
+      );
+      if (file) await writeFileAtomic(file, `${JSON.stringify(document, null, 2)}\n`);
+      return changed;
     });
+  }
+
+  /** The module's `configurations/<pc>-<ref>.json` for this ref. */
+  private configurationFile(activity: ActivityRecord, checkout: WafLayout): string {
+    return checkout
+      .module(this.moduleFolderOf(activity))
+      .document("configuration", activity.productCode, activity.refNum);
   }
 
   /** Remove an author's edit, so the module's own document is used again. */
@@ -1240,11 +1296,27 @@ export class ActivityService implements ActivityAuthoring {
     kind: ModuleDocumentKind,
     expectedRevision: string,
   ): Promise<ActivityDraft> {
-    return this.change(projectId, activityId, expectedRevision, (draft) => {
-      const { moduleDocuments, ...rest } = draft;
-      const { [kind]: _removed, ...kept } = moduleDocuments ?? {};
-      // With nothing left the key goes too, so the draft's revision is what it was before.
-      return Object.keys(kept).length ? { ...rest, moduleDocuments: kept } : rest;
+    return this.exclusive(projectId, activityId, async () => {
+      const discarded: { override?: ModuleDocumentOverride } = {};
+      const changed = await this.change(projectId, activityId, expectedRevision, (draft) => {
+        const { moduleDocuments, ...rest } = draft;
+        const { [kind]: removed, ...kept } = moduleDocuments ?? {};
+        discarded.override = removed;
+        // With nothing left the key goes too, so the draft's revision is what it was before.
+        return Object.keys(kept).length ? { ...rest, moduleDocuments: kept } : rest;
+      });
+      // The module's configuration file gets back what it held before the edit, as it was; a
+      // file that was not there goes again.
+      const replaced = discarded.override?.replaced;
+      if (kind === "configuration" && replaced !== undefined) {
+        const file = this.configurationFile(
+          await this.getActivity(projectId, activityId),
+          await this.checkout(),
+        );
+        if (replaced === null) await fs.rm(file, { force: true });
+        else await writeFileAtomic(file, replaced);
+      }
+      return changed;
     });
   }
 
@@ -1715,6 +1787,14 @@ export class ActivityService implements ActivityAuthoring {
       delete asset.phonemeTimings;
       delete asset.wholeWordTiming;
       if (isBookWord(asset)) Object.assign(asset, recordingTimingFields(asset));
+      // Loom's fingerprint of the voice that spoke it, so Loom does not make it again.
+      const fingerprint = target.sound
+        ? null
+        : loomGenerationFingerprint({
+            provider: target.provider ?? "gemini",
+            model: target.model,
+            voice: target.voiceId ?? target.voice,
+          });
       await this.acceptCandidate(
         activity,
         result.runId,
@@ -1724,6 +1804,7 @@ export class ActivityService implements ActivityAuthoring {
           text: asset.script ?? "",
           model: "Penguin Harness",
           ...(asset.voice ? { voice: asset.voice } : {}),
+          ...(fingerprint ? { generationFingerprint: fingerprint } : {}),
           ...(asset.wordTimings ? { wordTimings: asset.wordTimings } : {}),
           ...(asset.durationMs !== undefined ? { durationMs: asset.durationMs } : {}),
         },
@@ -1908,6 +1989,7 @@ export class ActivityService implements ActivityAuthoring {
       );
       const legacy = await this.moveLegacyMedia(activity, workspace, JSON.parse(text));
       await this.writeDraft(activity, legacy);
+      await this.ensureModuleConfiguration(activity);
       this.db
         .prepare("UPDATE activity_drafts SET content_revision = ? WHERE draft_id = ?")
         .run(legacy.contentRevision, draftId);
@@ -1996,7 +2078,7 @@ export class ActivityService implements ActivityAuthoring {
    */
   private async writeDraft(activity: ActivityRecord, draft: ActivityDraft): Promise<void> {
     const dir = await this.draftFilesDir(activity);
-    await writeRefDraft(dir, draft);
+    const { specCleared } = await writeRefDraft(dir, draft, activity);
     await writeRefMetadata(dir, {
       productCode: activity.productCode,
       refNum: activity.refNum,
@@ -2004,8 +2086,18 @@ export class ActivityService implements ActivityAuthoring {
       moduleFolder: this.moduleFolderOf(activity),
       displayName: activity.displayName,
       stable: activity.stable,
-      ...(draft.spec?.runtime !== undefined ? { runtime: draft.spec.runtime } : {}),
+      // The runtime is the specification's: it goes when Penguin's specification goes, and a
+      // Loom ref Penguin has no specification for keeps Loom's.
+      ...(draft.spec !== null || specCleared ? { runtime: draft.spec?.runtime } : {}),
     });
+  }
+
+  /**
+   * The module's `configurations/<pc>-<ref>.json` for a ref made here: Loom lists a ref only
+   * once it has one, so it starts as Loom's own empty `{}`.
+   */
+  private async ensureModuleConfiguration(activity: ActivityRecord): Promise<boolean> {
+    return ensureConfigurationFile(this.configurationFile(activity, await this.checkout()));
   }
 
   /**
@@ -2639,7 +2731,7 @@ export class ActivityService implements ActivityAuthoring {
           reference.startsWith(`${fromFolder}/`)
             ? `${toFolder}${reference.slice(fromFolder.length)}`
             : reference;
-        const created = await this.createActivity(projectId, {
+        const { activity: created, madeConfiguration } = await this.createRef(projectId, {
           collectionId: template.collectionId,
           productCode: template.productCode,
           refNum,
@@ -2681,6 +2773,19 @@ export class ActivityService implements ActivityAuthoring {
                 `Asset ${decision.assetKey} expects ${wanted} media, but ${decision.path} holds ${kind} media.`,
               );
           }
+          // The template's manifest is the new ref's to start from, so what Loom keeps there
+          // that Penguin does not hold (a book's intro, its page-turn sound) comes along, moved
+          // to the new ref's media folder as the plan is (mergeLoomManifest).
+          const templateManifest = await readText(
+            path.join(await this.draftFilesDir(template), REF_MANIFEST_FILE),
+          );
+          if (templateManifest !== null) {
+            const { assets } = JSON.parse(templateManifest) as { assets?: unknown };
+            await writeFileAtomic(
+              path.join(await this.draftFilesDir(created), REF_MANIFEST_FILE),
+              `${JSON.stringify({ productCode: template.productCode, refNum: template.refNum, assets }, null, 2)}\n`,
+            );
+          }
           await this.change(projectId, created.id, created.draft.contentRevision, (draft) => ({
             ...draft,
             ...planned,
@@ -2688,7 +2793,7 @@ export class ActivityService implements ActivityAuthoring {
           if (displayName) await this.setRefIdentity(projectId, created.id, { displayName });
           return await this.getActivity(projectId, created.id);
         } catch (error) {
-          await this.discardCreatedRef(projectId, created).catch(() => {});
+          await this.discardCreatedRef(projectId, created, madeConfiguration).catch(() => {});
           throw error;
         }
       }),
@@ -2696,7 +2801,11 @@ export class ActivityService implements ActivityAuthoring {
   }
 
   /** Remove a ref made moments ago whose making failed: its rows, then its files. */
-  private async discardCreatedRef(projectId: string, activity: ActivityRecord): Promise<void> {
+  private async discardCreatedRef(
+    projectId: string,
+    activity: ActivityRecord,
+    madeConfiguration: boolean,
+  ): Promise<void> {
     this.db.exec("BEGIN");
     try {
       this.db.prepare("DELETE FROM activity_drafts WHERE activity_id = ?").run(activity.id);
@@ -2711,9 +2820,10 @@ export class ActivityService implements ActivityAuthoring {
       { recursive: true, force: true },
     );
     await fs.rm(path.dirname(await this.draftFilesDir(activity)), { recursive: true, force: true });
-    const media = (await this.checkout()).mediaFile(
-      refMediaFolder(activity.productCode, activity.refNum),
-    );
+    const checkout = await this.checkout();
+    // The module's configuration goes only when the ref brought it; one already there stays.
+    if (madeConfiguration) await fs.rm(this.configurationFile(activity, checkout), { force: true });
+    const media = checkout.mediaFile(refMediaFolder(activity.productCode, activity.refNum));
     if (media) await fs.rm(media, { recursive: true, force: true });
   }
 
@@ -2983,7 +3093,7 @@ export class ActivityService implements ActivityAuthoring {
       createdAt: now,
       updatedAt: now,
     };
-    if (!reopened)
+    if (!reopened) {
       this.db
         .prepare(
           `INSERT INTO activity_products
@@ -3003,6 +3113,14 @@ export class ActivityService implements ActivityAuthoring {
           now,
           now,
         );
+      // Loom's tags become the product's, so writing its metadata back keeps them.
+      const insert = this.db.prepare(
+        "INSERT INTO activity_product_tags (product_id, tag, position) VALUES (?, ?, ?)",
+      );
+      acceptedTags(await readProductTags(module.productSpecDir(productCode))).forEach(
+        (tag, position) => insert.run(product.productId, tag, position),
+      );
+    }
     const activityIds: string[] = [];
     for (const mapped of pending) {
       const specDir = module.refSpecDir(productCode, mapped.refNum);
@@ -3162,6 +3280,12 @@ export class ActivityService implements ActivityAuthoring {
     );
     for (const [language, bindings] of Object.entries(media)) {
       const byKey = new Map(bindings.map((binding) => [binding.key, binding]));
+      // A word the plan made keeps the key Loom gave it, which the configuration names.
+      const byWord = new Map(
+        bindings.flatMap((binding) =>
+          binding.bookWord ? [[binding.bookWord.normalizedWord, binding] as const] : [],
+        ),
+      );
       const listed = (asset: MediaAsset) =>
         byKey.has(asset.key) || (!!asset.sourceKey && byKey.has(asset.sourceKey));
       const base =
@@ -3183,10 +3307,20 @@ export class ActivityService implements ActivityAuthoring {
               return rest;
             });
       manifest.assets[language] = base.map((asset) => {
-        const binding = byKey.get(asset.key) ?? (asset.sourceKey && byKey.get(asset.sourceKey));
+        const binding =
+          byKey.get(asset.key) ??
+          (asset.sourceKey && byKey.get(asset.sourceKey)) ??
+          (isBookWord(asset) && asset.normalizedWord
+            ? byWord.get(asset.normalizedWord)
+            : undefined);
         if (!binding) return asset;
         return {
           ...asset,
+          ...(binding.bookWord ? { key: binding.key } : {}),
+          ...(binding.description ? { description: binding.description } : {}),
+          ...(asset.type === "audio" && !asset.kind && binding.voice
+            ? { voice: binding.voice }
+            : {}),
           ...(binding.path ? { path: binding.path } : {}),
           ...(asset.type === "audio" && binding.script !== undefined
             ? { script: binding.script }
@@ -3214,13 +3348,14 @@ export class ActivityService implements ActivityAuthoring {
           key: binding.key,
           type: "audio",
           role: "bookWord",
-          description: `Pronunciation of “${word.word}”.`,
+          description: binding.description ?? `Pronunciation of “${word.word}”.`,
           word: word.word,
           normalizedWord: word.normalizedWord,
           ...(word.phonemes
             ? { phonemes: word.phonemes, phonemeSource: word.customized ? "author" : "espeak" }
             : {}),
           ...(word.customized ? { customized: true } : {}),
+          ...(binding.voice ? { voice: binding.voice } : {}),
           ...(binding.path ? { path: binding.path } : {}),
           ...(binding.script !== undefined ? { script: binding.script } : {}),
           ...(binding.wordTimings ? { wordTimings: binding.wordTimings } : {}),
@@ -3233,6 +3368,48 @@ export class ActivityService implements ActivityAuthoring {
               usage.sceneOccurrenceCount >= usage.occurrence,
           ),
         });
+      }
+      // An asset Loom bound that the plan does not make (one only a scene's own fields name,
+      // say) is carried as Loom had it, when Penguin's manifest can hold it. One it cannot
+      // stays in Loom's file all the same (loom-manifest.ts).
+      for (const asset of manifest.assets[language]!)
+        if (asset.sourceKey) present.add(asset.sourceKey);
+      for (const binding of bindings) {
+        if (binding.bookWord || present.has(binding.key) || !binding.type) continue;
+        if (!binding.description || !binding.path) continue;
+        const extra: MediaAsset = {
+          key: binding.key,
+          type: binding.type,
+          description: binding.description,
+          path: binding.path,
+          ...(binding.type === "audio" && binding.script !== undefined
+            ? { script: binding.script }
+            : {}),
+          ...(binding.type === "audio" && binding.voice && !binding.playback
+            ? { voice: binding.voice }
+            : {}),
+          ...(binding.type === "audio" && binding.wordTimings
+            ? { wordTimings: binding.wordTimings }
+            : {}),
+          ...(binding.type === "audio" && binding.durationMs !== undefined
+            ? { durationMs: binding.durationMs }
+            : {}),
+          ...(binding.type === "audio" && binding.playback ? binding.playback : {}),
+          usages: [],
+        };
+        try {
+          validateManifest(
+            { ...planned.mediaPlan!.manifest, assets: { [language]: [extra] } },
+            {
+              productCode: planned.mediaPlan!.manifest.productCode,
+              refNum: planned.mediaPlan!.manifest.refNum,
+            },
+          );
+        } catch {
+          continue;
+        }
+        present.add(binding.key);
+        manifest.assets[language]!.push(extra);
       }
     }
     return this.applyMedia(projectId, activityId, manifest, planned.contentRevision);
@@ -3257,12 +3434,4 @@ function validModuleDocuments(value: unknown): boolean {
         typeof entry.editedAt === "string")
     );
   });
-}
-
-/** Whether anything is at `file`. */
-async function exists(file: string): Promise<boolean> {
-  return fs.stat(file).then(
-    () => true,
-    () => false,
-  );
 }

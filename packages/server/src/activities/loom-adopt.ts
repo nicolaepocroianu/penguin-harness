@@ -3,10 +3,12 @@
  * in place (service.claimModuleProduct).
  *
  * Loom's specification is used as it is, with one repair. The media plan is made again from
- * it, as Penguin makes every plan, and Loom's bindings (paths, scripts, timings, playback,
- * book words) are carried onto it; Loom's own manifest is kept beside Penguin's as
- * `asset_manifest.loom.json`. Everything that cannot be carried is named, so an author
- * sees what was lost rather than finding it by eye.
+ * it, as Penguin makes every plan, and Loom's bindings (paths, scripts, descriptions, voices,
+ * timings, playback, book words, and assets the plan does not make) are carried onto it.
+ * Loom's own manifest stays where it is, Penguin's plan merged into it (loom-manifest.ts), so
+ * what Penguin's plan has no field for is still Loom's; a copy is kept as
+ * `asset_manifest.loom.json`. Everything that cannot be carried is named, so an author sees
+ * what was lost rather than finding it by eye.
  */
 import { validateActivitySpec } from "./domain.js";
 import { DEFAULT_LANGUAGE_CODE, findLanguage } from "./languages.js";
@@ -70,6 +72,11 @@ export interface MappedActivity {
 /** What Loom bound one asset to, as far as Penguin's manifest can keep it. */
 export interface CarriedBinding {
   key: string;
+  /** Absent for an asset in a role only Loom's book reader knows, which is never carried. */
+  type?: "image" | "audio" | "video" | "animation";
+  description?: string;
+  /** A narration's voice, as Loom spoke it. */
+  voice?: string;
   path?: string;
   script?: string;
   wordTimings?: WordTiming[];
@@ -79,8 +86,8 @@ export interface CarriedBinding {
   targetDurationMs?: number;
   /**
    * A decodable book's word pronunciation, which no specification plans: its word, sounds,
-   * whether the author made it their own, and the scenes that show it. Its key is re-derived
-   * from the word, so it matches the key a refresh would give it.
+   * whether the author made it their own, and the scenes that show it. It keeps Loom's key,
+   * which the module's configuration names; a refresh finds a word by the word, not the key.
    */
   bookWord?: {
     word: string;
@@ -99,14 +106,13 @@ export interface CarriedBinding {
 /** A path Penguin's manifest accepts: relative, under media/, no traversal. */
 const MEDIA_PATH = /^media\/[A-Za-z0-9_./ -]+$/;
 
-/**
- * Authored per-asset facts Loom keeps and Penguin's manifest has no field for. Named when
- * dropped. Loom's own bookkeeping (roles, normalised words, ownership flags) is derived,
- * not authored, and goes unmentioned.
- */
-const UNCARRIED: Record<string, string> = {
-  voice: "voices",
-};
+/** A key Penguin's manifest accepts. */
+const SAFE_KEY = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
+
+/** A voice Penguin's manifest accepts. */
+const VOICE = /^[A-Za-z0-9 _.-]{1,64}$/;
+
+const MEDIA_TYPES = new Set(["image", "audio", "video", "animation"]);
 
 /** Loom's word pronunciation, as Penguin keeps it, or null for anything else. */
 function carriedWord(asset: Record<string, unknown>): CarriedBinding["bookWord"] | null {
@@ -168,16 +174,27 @@ export function carriedBindings(
       if (!entry || typeof entry !== "object") return [];
       const asset = entry as Record<string, unknown>;
       if (typeof asset.key !== "string" || !asset.key) return [];
-      for (const [field, name] of Object.entries(UNCARRIED))
-        if (asset[field] !== undefined) lost[name] = (lost[name] ?? 0) + 1;
       // Sounds are IPA, and portable; they are kept on a word pronunciation, where they
       // belong, and named as dropped anywhere else or when they are not sounds.
       const word = carriedWord(asset);
       if (asset.phonemes !== undefined && !word?.phonemes)
         lost["phonemes"] = (lost["phonemes"] ?? 0) + 1;
       const binding: CarriedBinding = word
-        ? { key: wordAssetKey(word.normalizedWord), bookWord: word }
+        ? {
+            key: SAFE_KEY.test(asset.key) ? asset.key : wordAssetKey(word.normalizedWord),
+            bookWord: word,
+          }
         : { key: asset.key };
+      // An asset in a role only Loom's book reader knows stays Loom's (loom-manifest.ts).
+      const loomRole = asset.role !== undefined && asset.role !== "bookWord";
+      if (!loomRole && typeof asset.type === "string" && MEDIA_TYPES.has(asset.type))
+        binding.type = asset.type as CarriedBinding["type"];
+      if (
+        typeof asset.description === "string" &&
+        asset.description.trim() &&
+        asset.description.length <= 10000
+      )
+        binding.description = asset.description;
       if (typeof asset.path === "string" && asset.path) {
         if (MEDIA_PATH.test(asset.path) && !asset.path.split("/").includes(".."))
           binding.path = asset.path;
@@ -204,6 +221,11 @@ export function carriedBindings(
         binding.durationMs = asset.durationMs as number;
       const playback = asset.type === "audio" ? importedPlayback(asset) : null;
       if (playback) binding.playback = playback;
+      // A voice is a narration's; music and effects have none.
+      if (asset.type === "audio" && !playback && typeof asset.voice === "string") {
+        if (VOICE.test(asset.voice)) binding.voice = asset.voice;
+        else lost["voices"] = (lost["voices"] ?? 0) + 1;
+      }
       // Loom asks for a length with its tag's `duration`, in seconds; a manifest entry may
       // carry it as a field too.
       if (playback) {

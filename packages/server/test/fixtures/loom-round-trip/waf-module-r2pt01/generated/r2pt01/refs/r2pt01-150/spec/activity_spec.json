@@ -1,0 +1,117 @@
+{
+  "id": "r2pt01",
+  "moduleFolder": "waf-module-r2pt01",
+  "title": "Decodable Books",
+  "runtime": {
+    "engine": "html",
+    "layout": "mainOnly",
+    "theme": "park",
+    "resolution": "640x480",
+    "usesAssessment": false
+  },
+  "activityDescription": "The Ant Lab, trimmed to three scenes for a round-trip test.",
+  "audience": null,
+  "acceptance_criterias": [],
+  "scenes": [
+    {
+      "id": "scene-1",
+      "description": "Scene 1: Cover\n\n<image>A full-page landscape cover background viewed from directly above: an orange picnic blanket spread on green grass, with a red field notebook in the center, a yellow magnifying glass, a pencil, a black marker, and a child’s ant sketches arranged around it. Warm natural daylight and realistic photographic texture, with clear open space on the notebook for an HTML title. Do not include lettering, logos, credits, buttons, or other text in the image.</image>\n\n<audio voice=\"ehiTRHLcT9mKtdi7oaju\">The Ant Lab\nWritten by Olivia Semeria</audio>\n\n<audio voice=\"ehiTRHLcT9mKtdi7oaju\">Do you know what an ant lab is? Let's read to find out.  FIRST, read each page on your own. Tap a word if you need help. THEN, press the play button to read along with the reader and check your reading.</audio>",
+      "role": null,
+      "media": {
+        "images": [
+          {
+            "key": "scene-1-image-cover-ant-lab",
+            "description": "A full-page landscape cover background viewed from directly above: an orange picnic blanket spread on green grass, with a red field notebook in the center, a yellow magnifying glass, a pencil, a black marker, and a child’s ant sketches arranged around it. Warm natural daylight and realistic photographic texture, with clear open space on the notebook for an HTML title. Do not include lettering, logos, credits, buttons, or other text in the image.",
+            "targetPath": "media/loom/r2pt01/r2pt01-150/images/english/scene-1-image-cover-ant-lab.jpeg"
+          }
+        ],
+        "video": [],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "scene-1-audio-title-credit",
+            "description": "Audio for scene scene-1.",
+            "targetPath": "media/loom/r2pt01/r2pt01-150/audios/english/scene-1-audio-title-credit.mp3",
+            "script": "The Ant Lab\nWritten by Olivia Semeria",
+            "interruptible": false
+          },
+          {
+            "key": "scene-1-audio-reading-directions",
+            "description": "Audio for scene scene-1.",
+            "targetPath": "media/loom/r2pt01/r2pt01-150/audios/english/scene-1-audio-reading-directions.mp3",
+            "script": "Do you know what an ant lab is? Let's read to find out.  FIRST, read each page on your own. Tap a word if you need help. THEN, press the play button to read along with the reader and check your reading.",
+            "interruptible": false,
+            "voice": "ehiTRHLcT9mKtdi7oaju"
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene-2",
+      "description": "Scene 2: Story Page 1\n\n<image>A realistic landscape photograph of Sam, a smiling elementary-age girl with shoulder-length dark hair, sitting cross-legged on green grass beside a large sandy anthill in a sunny park. An orange field mat in front of her holds a red notebook, magnifying glass, pencil, and loose observation papers. Trees and an open meadow fill the softly focused background. Do not include captions, labels, page numbers, buttons, or other text in the image.</image>\n\n<audio voice=\"ehiTRHLcT9mKtdi7oaju\">Sam has a lab.\nThe lab is on a flat mat.</audio>",
+      "role": null,
+      "media": {
+        "images": [
+          {
+            "key": "scene-2-image-sam-ant-lab",
+            "description": "A realistic landscape photograph of Sam, a smiling elementary-age girl with shoulder-length dark hair, sitting cross-legged on green grass beside a large sandy anthill in a sunny park. An orange field mat in front of her holds a red notebook, magnifying glass, pencil, and loose observation papers. Trees and an open meadow fill the softly focused background. Do not include captions, labels, page numbers, buttons, or other text in the image.",
+            "targetPath": "media/loom/r2pt01/r2pt01-150/images/english/scene-2-image-sam-ant-lab.jpeg"
+          }
+        ],
+        "video": [],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "scene-2-audio-narration-sam-lab",
+            "description": "Audio for scene scene-2.",
+            "targetPath": "media/loom/r2pt01/r2pt01-150/audios/english/scene-2-audio-narration-sam-lab.mp3",
+            "script": "Sam has a lab. The lab is on a flat mat.",
+            "interruptible": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene-4",
+      "description": "Scene 4: Story Page 3\n\n<image>A realistic landscape photograph of Sam and her friend Kat kneeling together beside a sandy anthill in a sunny park. Kat, wearing a purple shirt, holds a yellow magnifying glass while Sam watches closely. Their orange observation mat and field notes rest beside them. Show the two children studying the ants with curiosity. Do not include captions, labels, page numbers, buttons, or other text in the image.</image>\n\n<audio voice=\"ehiTRHLcT9mKtdi7oaju\">Sam and Kat see the ant.\nThe ant can grab sand.</audio>",
+      "role": null,
+      "media": {
+        "images": [
+          {
+            "key": "scene-4-image-sam-kat-study-ant",
+            "description": "A realistic landscape photograph of Sam and her friend Kat kneeling together beside a sandy anthill in a sunny park. Kat, wearing a purple shirt, holds a yellow magnifying glass while Sam watches closely. Their orange observation mat and field notes rest beside them. Show the two children studying the ants with curiosity. Do not include captions, labels, page numbers, buttons, or other text in the image.",
+            "targetPath": "media/loom/r2pt01/r2pt01-150/images/english/scene-4-image-sam-kat-study-ant.jpeg"
+          }
+        ],
+        "video": [],
+        "animations": []
+      },
+      "audio": {
+        "tracks": [
+          {
+            "key": "scene-4-audio-narration-ant-grabs-sand",
+            "description": "Audio for scene scene-4.",
+            "targetPath": "media/loom/r2pt01/r2pt01-150/audios/english/scene-4-audio-narration-ant-grabs-sand.mp3",
+            "script": "Sam and Kat see the ant. The ant can grab sand.",
+            "interruptible": false
+          }
+        ]
+      },
+      "bookPresentation": {
+        "pageOverlays": [
+          {
+            "imageKey": "scene-4-image-magnifier-inset",
+            "x": -36.7639,
+            "y": 41.3411,
+            "width": 87.7371,
+            "height": 67.7187
+          }
+        ]
+      }
+    }
+  ]
+}
