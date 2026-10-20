@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import { buildReadiness } from "./build-readiness.js";
-import type { GeneratedAudioFormat, MediaAsset } from "./media.js";
 import {
   IMPLEMENTATION_FEATURES,
   normalizeFeatureSelection,
@@ -28,6 +27,8 @@ import {
   validateManifest,
   validateMediaCoverage,
   type AssetManifest,
+  type GeneratedAudioFormat,
+  type MediaAsset,
 } from "./media.js";
 import { inspectVideo, readVideoFile } from "./video-render.js";
 import { captionsPath, parseTimeline } from "./video-timeline.js";
