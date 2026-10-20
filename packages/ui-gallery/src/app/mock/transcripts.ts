@@ -203,6 +203,15 @@ rank("How do I configure hooks?", index)[0].source;
 // => "corpus/claude-code-docs/hooks.md"
 \`\`\`
 
+Retrieval on the test questions, before and after:
+
+| Question | Top result | Before | After | Score | Recall@5 | What changed |
+| --- | --- | --- | --- | --- | --- | --- |
+| How do I configure hooks? | \`corpus/claude-code-docs/hooks.md\` | 7 | 1 | 0.92 | 100% | The file is indexed now, so it outranks the settings page that only mentions hooks |
+| Which events can a hook block? | \`corpus/claude-code-docs/hooks.md\` | — | 1 | 0.88 | 100% | Answered from the events table instead of the overview |
+| Where do MCP servers go? | \`corpus/claude-code-docs/mcp.md\` | 1 | 1 | 0.95 | 100% | Unchanged |
+| How are slash commands named? | \`corpus/claude-code-docs/slash-commands.md\` | 2 | 2 | 0.71 | 80% | Unchanged; the CLI reference still ranks first |
+
 Nothing else in the corpus changed, so the index rebuild took 12.4 ms [1].
 
 [1] corpus/claude-code-docs/hooks.md`,
