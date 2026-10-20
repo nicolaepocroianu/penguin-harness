@@ -9,7 +9,10 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { MediaAsset } from "@prismshadow/penguin-server/api";
 import {
+  boundAudioUrl,
+  candidateId,
   candidateTrimSource,
+  candidateUrl,
   cardCandidate,
   currentTrimSource,
   saveStep,
@@ -94,11 +97,7 @@ describe("where a trim is cut from and how it is saved", () => {
   const upload = "media/loom/words/words-12/uploads/take-0123456789abcdef.mp3";
 
   it("cuts the current audio from the saved binding", () => {
-    expect(currentTrimSource(asset(loomPath), "en-US", loomPath)).toEqual({
-      kind: "bound",
-      language: "en-US",
-      assetKey: "welcome",
-    });
+    expect(currentTrimSource(asset(loomPath), "en-US", loomPath)).toEqual({ kind: "bound" });
     // Not saved yet: an upload is cut as itself, a checkout file not at all.
     expect(currentTrimSource(asset(upload), "en-US", loomPath)).toEqual({
       kind: "upload",
@@ -108,7 +107,7 @@ describe("where a trim is cut from and how it is saved", () => {
     expect(currentTrimSource(asset(), "en-US", undefined)).toBeNull();
   });
 
-  it("cuts a candidate from its take or its file", () => {
+  it("cuts a candidate from its take, its file or its preview", () => {
     expect(candidateTrimSource({ source: "generated", runId: "run_1" })).toEqual({
       kind: "run",
       runId: "run_1",
@@ -117,21 +116,43 @@ describe("where a trim is cut from and how it is saved", () => {
       kind: "upload",
       path: upload,
     });
+    expect(candidateTrimSource({ source: "trim", token: "abc", savesInPlace: true })).toEqual({
+      kind: "preview",
+      token: "abc",
+    });
   });
 
-  it("saves a trim of the current audio in place, and anything else by binding it", () => {
-    const range = { startSeconds: 0.5, endSeconds: 1 };
-    const trimmedCurrent = cardCandidate(undefined, {
-      source: "trim",
-      path: upload,
-      trimOfCurrent: range,
-    })!;
-    expect(saveStep(trimmedCurrent)).toEqual({ step: "trim", range });
-    expect(saveStep({ source: "trim", path: upload })).toEqual({ step: "bind", path: upload });
+  it("saves a trim of the current audio in place, attaches any other trim, binds an upload", () => {
+    const inPlace = cardCandidate(undefined, { source: "trim", token: "abc", savesInPlace: true })!;
+    expect(saveStep(inPlace)).toEqual({ step: "trim", token: "abc" });
+    expect(saveStep({ source: "trim", token: "abc", savesInPlace: false })).toEqual({
+      step: "attach",
+      token: "abc",
+    });
     expect(saveStep({ source: "upload", path: upload })).toEqual({ step: "bind", path: upload });
     expect(saveStep({ source: "generated", runId: "run_1" })).toEqual({
       step: "accept",
       runId: "run_1",
     });
+  });
+
+  it("plays a trim from its preview, never from the media repository", () => {
+    const candidate = { source: "trim", token: "abc", savesInPlace: true } as const;
+    expect(candidateUrl(candidate, "/e")).toBe("/e/audio-trim-previews/abc");
+    expect(candidateId(candidate)).toBe("abc");
+  });
+
+  it("names the bound clip by its length, so a trim in place loads the new clip", () => {
+    const before = boundAudioUrl({ path: loomPath, durationMs: 2000 }, "/e");
+    const after = boundAudioUrl({ path: loomPath, durationMs: 1500 }, "/e");
+    expect(before).toBe("/e/sandbox/media/loom/words/words-12/audios/english/welcome.mp3?v=2000");
+    expect(after).not.toBe(before);
+    // A clip with no recorded length, an upload and a take keep their plain addresses.
+    expect(boundAudioUrl({ path: loomPath }, "/e")).toBe(
+      "/e/sandbox/media/loom/words/words-12/audios/english/welcome.mp3",
+    );
+    expect(boundAudioUrl({ path: upload, durationMs: 1500 }, "/e")).toBe(
+      `/e/media-upload?path=${encodeURIComponent(upload)}`,
+    );
   });
 });

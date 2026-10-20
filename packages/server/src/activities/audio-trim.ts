@@ -2,15 +2,19 @@
  * Trimming a speech clip, as Loom trims one: the author selects a stretch and it is cut out,
  * the audio either side joined, and the result kept as MP3 (libmp3lame, VBR quality 2, no
  * metadata), the format Loom writes. Everything here runs FFmpeg through ffmpeg.ts.
+ *
+ * A trim is previewed before it is saved. Previews live in Penguin's own data root, never in
+ * the media repository, and only the newest of each card is kept, as Loom keeps one preview
+ * per clip. Saving one either replaces the bound clip in place or attaches it as an upload.
  */
 import { randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { HttpError } from "../http/errors.js";
-import { FfmpegError, runFfmpeg } from "./ffmpeg.js";
 import { requireEnum, requireString } from "../http/validate.js";
-import type { TrimRange, TrimSource } from "./audio-trim-types.js";
+import { FfmpegError, runFfmpeg } from "./ffmpeg.js";
+import type { TrimRange, TrimSource, TrimTarget } from "./audio-trim-types.js";
 
 /** The shortest stretch a trim removes, as in Loom. */
 export const TRIM_MIN_SECONDS = 0.05;
@@ -18,6 +22,8 @@ export const TRIM_MIN_SECONDS = 0.05;
 export const TRIM_MIN_REMAINING_SECONDS = 0.001;
 /** How long one trim, or one measurement, may take: Loom's two minutes. */
 export const TRIM_TIMEOUT_MS = 120_000;
+/** How long an unsaved preview is kept, at most. */
+export const TRIM_PREVIEW_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const PURPOSE = "to trim audio";
 
@@ -41,17 +47,22 @@ export function parseTrimRange(body: Record<string, unknown>): TrimRange {
   return { startSeconds, endSeconds };
 }
 
+/** The card a trim request is for. */
+export function parseTrimTarget(body: Record<string, unknown>): TrimTarget {
+  return {
+    language: requireString(body, "language", { minLen: 1, maxLen: 32 }),
+    assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 256 }),
+  };
+}
+
 /** The clip a trim preview request names, from its `source` and that source's fields. */
 export function parseTrimSource(body: Record<string, unknown>): TrimSource {
-  const kind = requireEnum(body, "source", ["bound", "run", "upload"] as const);
-  if (kind === "bound")
-    return {
-      kind,
-      language: requireString(body, "language", { minLen: 1, maxLen: 32 }),
-      assetKey: requireString(body, "assetKey", { minLen: 1, maxLen: 256 }),
-    };
+  const kind = requireEnum(body, "source", ["bound", "run", "upload", "preview"] as const);
+  if (kind === "bound") return { kind };
   if (kind === "run")
     return { kind, runId: requireString(body, "runId", { minLen: 1, maxLen: 128 }) };
+  if (kind === "preview")
+    return { kind, token: requireString(body, "token", { minLen: 1, maxLen: 64 }) };
   return { kind, path: requireString(body, "path", { minLen: 1, maxLen: 1024 }) };
 }
 
@@ -60,7 +71,7 @@ export function parseTrimSource(body: Record<string, unknown>): TrimSource {
  * as Loom reads it, and a trim that starts past the end or would leave nothing is refused.
  */
 export function fitTrimRange(range: TrimRange, seconds: number): TrimRange {
-  const { startSeconds } = parseTrimRange({ ...range });
+  const { startSeconds } = range;
   if (startSeconds >= seconds) throw rangeError("The trim must start before the clip ends.");
   const endSeconds = Math.min(range.endSeconds, seconds);
   if (endSeconds - startSeconds < TRIM_MIN_SECONDS)
@@ -70,34 +81,42 @@ export function fitTrimRange(range: TrimRange, seconds: number): TrimRange {
   return { startSeconds, endSeconds };
 }
 
-/** The rate a clip is decoded at to be measured: one channel of 16-bit samples. */
-const MEASURE_RATE = 48_000;
+/**
+ * The rate a clip is decoded at to be measured: one 8-bit channel at 1 kHz, so each byte is a
+ * millisecond and a half-hour clip is under 2 MB in memory.
+ */
+const MEASURE_RATE = 1000;
 
 /**
- * How long a clip plays, measured by decoding all of it to samples and counting them (a
- * header's estimate is not always there for MP3). Null when FFmpeg could not read the bytes
- * as audio.
+ * How long a clip plays, measured by decoding all of it and counting the samples (a header's
+ * estimate is not always there for MP3). Null when FFmpeg could not read the bytes as audio.
  */
 export async function audioSeconds(bytes: Uint8Array): Promise<number | null> {
   let samples: Buffer;
   try {
     samples = await runFfmpeg(
-      ["-hide_banner", "-loglevel", "error", "-i", "pipe:0", "-vn"].concat([
+      [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-i",
+        "pipe:0",
+        "-vn",
         "-ac",
         "1",
         "-ar",
         String(MEASURE_RATE),
         "-f",
-        "s16le",
+        "u8",
         "pipe:1",
-      ]),
+      ],
       { purpose: PURPOSE, timeoutMs: TRIM_TIMEOUT_MS, input: bytes },
     );
   } catch (error) {
     if (error instanceof FfmpegError) return null;
     throw error;
   }
-  const seconds = samples.length / 2 / MEASURE_RATE;
+  const seconds = samples.length / MEASURE_RATE;
   return seconds > 0 ? seconds : null;
 }
 
@@ -161,10 +180,10 @@ export function trimFailed(cause: string): HttpError {
 /**
  * The sidecar a trimmed clip keeps, as Loom's `_trimmed_metadata` writes it: the clip's own
  * sidecar, when it had one, with its file name and script brought up to date and the word
- * timings dropped, since they described the untrimmed recording. Everything else stays,
- * `generationFingerprint` included: a trim keeps the voice and script, so Loom must not
- * speak the line again over it. Without a sidecar it is Loom's sidecar of an upload. The
- * length is the trimmed clip's (Loom drops it; Penguin knows it).
+ * timings dropped, since they described the untrimmed recording (Loom aligns the words again;
+ * Penguin has no aligner). Everything else stays, `generationFingerprint` included: a trim
+ * keeps the voice and script, so Loom must not speak the line again over it. Without a
+ * sidecar it is Loom's sidecar of an upload. The length is the trimmed clip's, as measured.
  */
 export function trimmedSidecar(
   existing: Record<string, unknown> | null,
@@ -191,22 +210,140 @@ export async function readSidecarFields(file: string): Promise<Record<string, un
   }
 }
 
+/** Files swapped into place, kept undoable until the change they belong to is written. */
+export interface FileSwap {
+  /** The change was written: the files it replaced or removed are gone for good. */
+  commit(): Promise<void>;
+  /** The change was not written: every file is put back as it was. */
+  rollback(): Promise<void>;
+}
+
 /**
- * Puts each file's new bytes in place all at once, so a reader never sees a half-written
- * one: every file is written beside its target first, and only once all are written is
- * each renamed over its target. A failure before the renames leaves every target as it was.
+ * Puts each file's new bytes in place and takes `removes` away, undoably. Every new file is
+ * written beside its target first; only then is each file there moved aside to a backup and
+ * the new one renamed in. A failure on the way puts everything back, as `rollback` does later:
+ * a reader never sees a half-written file, and until `commit` the old files are still there.
  */
-export async function replaceFiles(files: { file: string; bytes: Uint8Array }[]): Promise<void> {
-  const suffix = `.trim-${randomBytes(6).toString("hex")}.tmp`;
-  const written: string[] = [];
+export async function swapFiles(
+  writes: { file: string; bytes: Uint8Array }[],
+  removes: string[] = [],
+): Promise<FileSwap> {
+  const suffix = `.trim-${randomBytes(6).toString("hex")}`;
+  const staged: string[] = [];
+  const moved: { file: string; backup: string }[] = [];
+  const placed: string[] = [];
+  const undo = async () => {
+    for (const file of placed.splice(0)) await fs.rm(file, { force: true });
+    for (const { file, backup } of moved.splice(0)) await fs.rename(backup, file);
+    for (const temp of staged.splice(0)) await fs.rm(temp, { force: true });
+  };
   try {
-    for (const { file, bytes } of files) {
-      await fs.writeFile(`${file}${suffix}`, bytes, { flag: "wx" });
-      written.push(`${file}${suffix}`);
+    for (const { file, bytes } of writes) {
+      await fs.writeFile(`${file}${suffix}.tmp`, bytes, { flag: "wx" });
+      staged.push(`${file}${suffix}.tmp`);
+    }
+    for (const file of [...writes.map((write) => write.file), ...removes]) {
+      const backup = `${file}${suffix}.bak`;
+      const done = await fs.rename(file, backup).then(
+        () => true,
+        (error: NodeJS.ErrnoException) => {
+          if (error.code === "ENOENT") return false;
+          throw error;
+        },
+      );
+      if (done) moved.push({ file, backup });
+    }
+    for (const { file } of writes) {
+      await fs.rename(`${file}${suffix}.tmp`, file);
+      staged.splice(staged.indexOf(`${file}${suffix}.tmp`), 1);
+      placed.push(file);
     }
   } catch (error) {
-    await Promise.all(written.map((temp) => fs.rm(temp, { force: true })));
+    await undo();
     throw error;
   }
-  for (const { file } of files) await fs.rename(`${file}${suffix}`, file);
+  return {
+    commit: async () => {
+      for (const { backup } of moved.splice(0)) await fs.rm(backup, { force: true });
+      placed.length = 0;
+    },
+    rollback: undo,
+  };
+}
+
+/** What a preview records beside its clip. */
+export interface TrimPreviewRecord {
+  token: string;
+  target: TrimTarget;
+  durationMs: number;
+  /**
+   * The bound clip a chain of trims started from, by content: saving the preview replaces
+   * that clip, and only while it is still the one bound.
+   */
+  origin?: { path: string; sha256: string };
+  createdAt: string;
+}
+
+const TOKEN = /^[a-f0-9]{24}$/;
+
+function previewMissing(): HttpError {
+  return new HttpError(
+    404,
+    "trim_preview_missing",
+    "This trim preview is gone. Trim the clip again.",
+  );
+}
+
+/** One activity's trim previews, in Penguin's data root. */
+export class TrimPreviews {
+  constructor(readonly dir: string) {}
+
+  private file(token: string, extension: "mp3" | "json"): string {
+    if (!TOKEN.test(token)) throw previewMissing();
+    return path.join(this.dir, `${token}.${extension}`);
+  }
+
+  /** Keeps a new preview, and drops the card's older ones and any past their age. */
+  async store(
+    bytes: Uint8Array,
+    record: Omit<TrimPreviewRecord, "token" | "createdAt">,
+  ): Promise<TrimPreviewRecord> {
+    await fs.mkdir(this.dir, { recursive: true });
+    const now = Date.now();
+    for (const name of await fs.readdir(this.dir).catch(() => [] as string[])) {
+      if (!name.endsWith(".json")) continue;
+      const old = (await readSidecarFields(path.join(this.dir, name))) as TrimPreviewRecord | null;
+      const sameCard =
+        old?.target?.language === record.target.language &&
+        old?.target?.assetKey === record.target.assetKey;
+      const stale = !old || now - Date.parse(old.createdAt) > TRIM_PREVIEW_MAX_AGE_MS;
+      if (sameCard || stale) await this.remove(name.slice(0, -".json".length));
+    }
+    const full: TrimPreviewRecord = {
+      ...record,
+      token: randomBytes(12).toString("hex"),
+      createdAt: new Date(now).toISOString(),
+    };
+    await fs.writeFile(this.file(full.token, "mp3"), bytes, { flag: "wx" });
+    await fs.writeFile(this.file(full.token, "json"), JSON.stringify(full), { flag: "wx" });
+    return full;
+  }
+
+  async read(token: string): Promise<{ bytes: Buffer; record: TrimPreviewRecord }> {
+    try {
+      const record = JSON.parse(
+        await fs.readFile(this.file(token, "json"), "utf8"),
+      ) as TrimPreviewRecord;
+      return { bytes: await fs.readFile(this.file(token, "mp3")), record };
+    } catch (error) {
+      if (error instanceof HttpError) throw error;
+      throw previewMissing();
+    }
+  }
+
+  async remove(token: string): Promise<void> {
+    if (!TOKEN.test(token)) return;
+    await fs.rm(this.file(token, "mp3"), { force: true });
+    await fs.rm(this.file(token, "json"), { force: true });
+  }
 }

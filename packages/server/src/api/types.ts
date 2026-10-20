@@ -7336,7 +7336,13 @@ export type {
 } from "../activities/speech-types.js";
 export type { MediaAsset, AssetManifest } from "../activities/media.js";
 export type { UploadedMedia, UploadKind } from "../activities/upload.js";
-export type { TrimmedAudio, TrimRange, TrimSource } from "../activities/audio-trim-types.js";
+export type {
+  TrimCut,
+  TrimmedAudio,
+  TrimRange,
+  TrimSource,
+  TrimTarget,
+} from "../activities/audio-trim-types.js";
 export type {
   LibraryFile,
   ProjectMediaListing,

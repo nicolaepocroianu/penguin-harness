@@ -569,3 +569,29 @@ describe("the field-level merge", () => {
     expect(draft.state.changed).toBe(false);
   });
 });
+
+describe("saving a trim in place", () => {
+  it("waits for unsaved edits, and says so in the trim's own words", async () => {
+    const { draft, calls } = studio();
+    draft.edit("description", "Unsaved");
+    expect(await draft.trimAudio("en-US", "hello", "abc")).toBe(false);
+    expect(calls.filter((call) => call.path === "audio-trim")).toEqual([]);
+    expect(draft.state.error).toBe(S.activities.waveformTrim.saveEditsFirst);
+  });
+
+  it("sends the preview it was cut from, with the draft's revision", async () => {
+    const { draft, calls, toasts } = studio();
+    const saving = draft.trimAudio("en-US", "hello", "abc");
+    expect(calls).toMatchObject([
+      {
+        path: "audio-trim",
+        method: "POST",
+        body: { language: "en-US", assetKey: "hello", previewToken: "abc", expectedRevision: "r1" },
+      },
+    ]);
+    calls[0]!.answer(draftAt("r2"));
+    expect(await saving).toBe(true);
+    expect(draft.revision).toBe("r2");
+    expect(toasts).toEqual([S.activities.saved]);
+  });
+});

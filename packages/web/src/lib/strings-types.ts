@@ -1469,6 +1469,7 @@ export type Strings = {
       keys: string;
       handles: string;
       savesInPlace: string;
+      saveEditsFirst: string;
     };
     waveformUnavailable: string;
     bulkSpeechTitle: string;

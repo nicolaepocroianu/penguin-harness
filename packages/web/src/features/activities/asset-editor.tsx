@@ -16,6 +16,7 @@ import type {
   VoiceOption,
   TrimRange,
   TrimSource,
+  TrimTarget,
 } from "@prismshadow/penguin-server/api";
 import { Button, toastSuccess, Textarea, Select } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
@@ -198,10 +199,12 @@ export function AssetEditor({
   const savedManifest = draft.state.detail?.draft.mediaPlan?.manifest;
   const onChange = (value: AssetManifest) => draft.editManifest(value);
   const onAcceptAudio = (runId: string) => draft.acceptRun(runId, "accept-audio");
-  const onTrimPreview = (source: TrimSource, range: TrimRange) =>
-    draft.send((api) => api.media.trimPreview(source, range));
-  const onTrimAudio = (language: string, assetKey: string, range: TrimRange) =>
-    draft.trimAudio(language, assetKey, range);
+  const onTrimPreview = (target: TrimTarget, source: TrimSource, range: TrimRange) =>
+    draft.send((api) => api.media.trimPreview(target, source, range));
+  const onTrimAudio = (language: string, assetKey: string, previewToken: string) =>
+    draft.trimAudio(language, assetKey, previewToken);
+  const onAttachTrim = (previewToken: string) =>
+    draft.send((api) => api.media.attachTrim(previewToken));
   const onAcceptImage = (runId: string) => void draft.acceptRun(runId, "accept-image");
   const onAcceptText = (runId: string) => void draft.acceptRun(runId, "accept-media-text");
   const onAcceptVideo = (runId: string) => void draft.acceptRun(runId, "accept-video");
@@ -258,7 +261,12 @@ export function AssetEditor({
    */
   async function trimTo(range: TrimRange) {
     if (!asset?.path) return;
-    const { media: stored } = await onTrimPreview({ kind: "upload", path: asset.path }, range);
+    const trimmed = await onTrimPreview(
+      { language, assetKey: asset.key },
+      { kind: "upload", path: asset.path },
+      range,
+    );
+    const stored = await onAttachTrim(trimmed.token);
     edit((entry) => {
       entry.path = stored.path;
       delete entry.generatedAudio;
@@ -509,6 +517,8 @@ export function AssetEditor({
               onUpload={onUpload}
               onTrimPreview={onTrimPreview}
               onTrimAudio={onTrimAudio}
+              onAttachTrim={onAttachTrim}
+              draftDirty={draft.state.dirty}
               onMediaCopied={onMediaCopied}
             />
           </div>

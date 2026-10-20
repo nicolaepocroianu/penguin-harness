@@ -446,7 +446,7 @@ async function fixture(page) {
         (candidate) => candidate.key === body.assetKey,
       );
       asset.path = `media/loom/words/words-12/audios/english/${asset.key}.mp3`;
-      asset.durationMs = Math.round((body.endSeconds - body.startSeconds) * 1000);
+      asset.durationMs = 1000;
       delete asset.generatedAudio;
       activity.draft.contentRevision = String(++revision);
       return json(activity.draft);
@@ -4637,26 +4637,18 @@ test("trims a stretch out of a narration into a candidate, and Save trims the cu
     const p = new URL(request.url()).pathname;
     if (p === `${base}/act_test/media-upload`)
       return route.fulfill({ contentType: "audio/wav", body: clip });
-    // The server cuts the clip (FFmpeg, MP3); here it answers as it would.
+    // The server cuts the clip (FFmpeg, MP3) and keeps it as a preview; here it answers as
+    // it would.
     if (p === `${base}/act_test/audio-trim-preview`) {
       previews.push(request.postDataJSON());
       return route.fulfill({
         status: 201,
         contentType: "application/json",
-        body: JSON.stringify({
-          media: {
-            path: "media/loom/words/words-1/uploads/hello-en-us-trimmed-1234abcd.mp3",
-            name: "hello-en-us-trimmed-1234abcd.mp3",
-            kind: "audio",
-            mimeType: "audio/mpeg",
-            byteLength: 4000,
-            sha256: "b".repeat(64),
-            updatedAt: "2026-09-23T10:00:00.000Z",
-          },
-          durationMs: 1000,
-        }),
+        body: JSON.stringify({ token: "a".repeat(24), durationMs: 1000, savesInPlace: true }),
       });
     }
+    if (p === `${base}/act_test/audio-trim-previews/${"a".repeat(24)}`)
+      return route.fulfill({ contentType: "audio/wav", body: clip });
     if (p === `${base}/act_test/audio-trim`) trims.push(request.postDataJSON());
     return route.fallback();
   });
@@ -4693,17 +4685,19 @@ test("trims a stretch out of a narration into a candidate, and Save trims the cu
   await page.keyboard.press("Shift+ArrowRight");
   await page.keyboard.press("Enter");
   await expect(page.getByText(/ remains$/)).toBeVisible();
+  // A selection of the bound clip says what saving its trim will do.
+  await expect(card.getByText("Saving replaces the current audio", { exact: false })).toBeVisible();
   await page.getByRole("button", { name: "Remove selection", exact: true }).click();
   await expect.poll(() => previews.length).toBe(1);
   // A trim of the bound clip, from its start to a second in, cut on the server.
   expect(previews[0]).toMatchObject({ source: "bound", language: "en-US", assetKey: "hello" });
   expect(previews[0].startSeconds).toBe(0);
   expect(previews[0].endSeconds).toBeCloseTo(1, 1);
-  // The shorter clip is a candidate: heard in place of the current one, saved only on Save.
+  // The shorter clip is a candidate, heard from its preview; nothing is saved until Save.
   const trimmed = card.locator('audio[aria-label="Trimmed candidate"]');
   await expect(trimmed).toHaveAttribute(
     "src",
-    `${base}/act_test/media-upload?path=${encodeURIComponent("media/loom/words/words-1/uploads/hello-en-us-trimmed-1234abcd.mp3")}`,
+    `${base}/act_test/audio-trim-previews/${"a".repeat(24)}`,
   );
   await page.getByRole("button", { name: "Advanced", exact: true }).click();
   const path = card.getByRole("textbox", { name: /^Media path/ });
@@ -4711,11 +4705,11 @@ test("trims a stretch out of a narration into a candidate, and Save trims the cu
   await card.getByRole("button", { name: "Save", exact: true }).click();
   // Save cuts the same stretch out of the current clip, which is kept as MP3 at its own path.
   await expect.poll(() => trims.length).toBe(1);
+  // The preview the author heard is what is saved.
   expect(trims[0]).toMatchObject({
     language: "en-US",
     assetKey: "hello",
-    startSeconds: previews[0].startSeconds,
-    endSeconds: previews[0].endSeconds,
+    previewToken: "a".repeat(24),
   });
   await expect(path).toHaveValue(inPlace);
   await expect(

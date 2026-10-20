@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import { buildReadiness } from "./build-readiness.js";
 import type { GeneratedAudioFormat, MediaAsset } from "./media.js";
@@ -26,6 +27,7 @@ import {
   planMedia,
   validateManifest,
   validateMediaCoverage,
+  type AssetManifest,
 } from "./media.js";
 import { inspectVideo, readVideoFile } from "./video-render.js";
 import { captionsPath, parseTimeline } from "./video-timeline.js";
@@ -65,11 +67,20 @@ import {
   cutAudio,
   fitTrimRange,
   readSidecarFields,
-  replaceFiles,
+  swapFiles,
   trimFailed,
   trimmedSidecar,
+  TrimPreviews,
+  type FileSwap,
+  type TrimPreviewRecord,
 } from "./audio-trim.js";
-import type { TrimmedAudio, TrimRange, TrimSource } from "./audio-trim-types.js";
+import type {
+  TrimCut,
+  TrimmedAudio,
+  TrimRange,
+  TrimSource,
+  TrimTarget,
+} from "./audio-trim-types.js";
 import { FfmpegError } from "./ffmpeg.js";
 import { zipSync } from "fflate";
 import {
@@ -199,6 +210,40 @@ export interface CreateActivityInput {
   bookMode?: "decodable" | "readAlong";
   /** What the learner does, in the author's words: the script starts with it. */
   description?: string;
+}
+
+/** The SHA-256 of some bytes, as hex. */
+function sha256Hex(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+/** The bound clip changed under a trim. */
+function audioChanged(): HttpError {
+  return new HttpError(
+    409,
+    "audio_changed",
+    "The current audio changed after this trim was made. Trim it again.",
+  );
+}
+
+/**
+ * The audio asset a trim is for, with a bound clip. A language is looked up as the
+ * manifest's own key only, so "__proto__" or "toString" is simply not one.
+ */
+function boundAudioAsset(manifest: AssetManifest | undefined, target: TrimTarget): MediaAsset {
+  if (!manifest)
+    throw new HttpError(409, "media_stale", "Build the media plan before trimming audio.");
+  const group = Object.hasOwn(manifest.assets, target.language)
+    ? manifest.assets[target.language]
+    : undefined;
+  const asset = Array.isArray(group)
+    ? group.find((entry) => entry.key === target.assetKey)
+    : undefined;
+  if (!asset || asset.type !== "audio")
+    throw new HttpError(404, "asset_not_found", "No audio asset has that key in that language.");
+  if (!asset.path)
+    throw new HttpError(404, "audio_missing", "This asset has no saved audio to trim.");
+  return asset;
 }
 
 @Component()
@@ -1854,93 +1899,122 @@ export class ActivityService implements ActivityAuthoring {
   async trimAudio(
     projectId: string,
     activityId: string,
-    target: { language: string; assetKey: string },
-    range: TrimRange,
+    target: TrimTarget,
+    cut: TrimCut,
     expectedRevision: string,
   ): Promise<ActivityDraft> {
-    return this.change(projectId, activityId, expectedRevision, async (draft, activity) => {
-      const plan = draft.mediaPlan;
-      if (!plan)
-        throw new HttpError(409, "media_stale", "Build the media plan before trimming audio.");
-      const manifest = structuredClone(plan.manifest);
-      const asset = manifest.assets[target.language]?.find(
-        (entry) => entry.key === target.assetKey,
-      );
-      if (!asset || asset.type !== "audio")
+    // The clip and its cut are made outside the lock; the lock is held only to check that the
+    // clip is still the one bound and to swap the files in.
+    const before = await this.getActivity(projectId, activityId);
+    const bound = boundAudioAsset(before.draft.mediaPlan?.manifest, target);
+    const source = await this.clipBytes(before, bound.path!);
+    const sourceSha256 = sha256Hex(source.bytes);
+    const previews = this.trimPreviews(projectId, activityId);
+    let trimmed: { bytes: Buffer; durationMs: number };
+    if ("previewToken" in cut) {
+      const { bytes, record } = await previews.read(cut.previewToken);
+      if (
+        !record.origin ||
+        record.target.language !== target.language ||
+        record.target.assetKey !== target.assetKey
+      )
         throw new HttpError(
-          404,
-          "asset_not_found",
-          "No audio asset has that key in that language.",
+          409,
+          "trim_preview_mismatch",
+          "This trim was not cut from this asset's current audio.",
         );
-      if (!asset.path)
-        throw new HttpError(404, "audio_missing", "This asset has no saved audio to trim.");
-      const source = await this.clipBytes(activity, asset.path);
-      const trimmed = await this.cutClip(source.bytes, range);
-      // Kept where Loom keeps the asset's audio, as MP3, whatever the clip was before.
-      const reference = generatedMediaPath(activity, target.language, asset, "mp3");
-      const file = (await this.checkout()).mediaFile(reference);
-      if (!file) throw new HttpError(400, "media_path_invalid", "The media path is invalid.");
-      // The sidecar beside the clip described it; an upload has none.
-      const sidecar = sidecarPath(file);
-      const existing =
-        source.file && sidecarPath(source.file) === sidecar
-          ? await readSidecarFields(sidecar)
-          : null;
-      const fields = trimmedSidecar(
-        existing,
-        path.basename(file),
-        asset.script ?? "",
-        trimmed.durationMs,
+      if (record.origin.path !== bound.path || record.origin.sha256 !== sourceSha256)
+        throw audioChanged();
+      trimmed = { bytes, durationMs: record.durationMs };
+    } else trimmed = await this.cutClip(source.bytes, cut.range);
+    let swap: FileSwap | undefined;
+    try {
+      const draft = await this.change(
+        projectId,
+        activityId,
+        expectedRevision,
+        async (draft, activity) => {
+          const plan = draft.mediaPlan!;
+          const manifest = structuredClone(plan.manifest);
+          const asset = boundAudioAsset(manifest, target);
+          if (asset.path !== bound.path) throw audioChanged();
+          const now = await this.clipBytes(activity, asset.path!);
+          if (sha256Hex(now.bytes) !== sourceSha256) throw audioChanged();
+          // Kept where Loom keeps the asset's audio, as MP3, whatever the clip was before.
+          const reference = generatedMediaPath(activity, target.language, asset, "mp3");
+          const file = (await this.checkout()).mediaFile(reference);
+          if (!file) throw new HttpError(400, "media_path_invalid", "The media path is invalid.");
+          // The sidecar beside the clip described it; an upload has none. A clip of another
+          // format at the same key (a WAV take) shares the sidecar, and goes with the trim.
+          const sidecar = sidecarPath(file);
+          const sameKey = !!now.file && sidecarPath(now.file) === sidecar;
+          const existing = sameKey ? await readSidecarFields(sidecar) : null;
+          const fields = trimmedSidecar(
+            existing,
+            path.basename(file),
+            asset.script ?? "",
+            trimmed.durationMs,
+          );
+          await fs.mkdir(path.dirname(file), { recursive: true });
+          swap = await swapFiles(
+            [
+              { file, bytes: trimmed.bytes },
+              { file: sidecar, bytes: Buffer.from(`${JSON.stringify(fields, null, 2)}\n`, "utf8") },
+            ],
+            sameKey && now.file !== file ? [now.file!] : [],
+          );
+          // No longer the take a run made, nor timed as it was. Its new length changes the
+          // draft's revision, so whatever was made from the untrimmed clip is out of date.
+          asset.path = reference;
+          delete asset.generatedAudio;
+          delete asset.wordTimings;
+          delete asset.phonemeTimings;
+          delete asset.wholeWordTiming;
+          asset.durationMs = trimmed.durationMs;
+          if (isBookWord(asset)) Object.assign(asset, recordingTimingFields(asset));
+          return { ...draft, mediaPlan: { ...plan, manifest } };
+        },
       );
-      await fs.mkdir(path.dirname(file), { recursive: true });
-      await replaceFiles([
-        { file, bytes: trimmed.bytes },
-        { file: sidecar, bytes: Buffer.from(`${JSON.stringify(fields, null, 2)}\n`, "utf8") },
-      ]);
-      // No longer the take a run made, nor timed as it was. Its new length changes the
-      // draft's revision, so whatever was made from the untrimmed clip is out of date.
-      asset.path = reference;
-      delete asset.generatedAudio;
-      delete asset.wordTimings;
-      delete asset.phonemeTimings;
-      delete asset.wholeWordTiming;
-      asset.durationMs = trimmed.durationMs;
-      if (isBookWord(asset)) Object.assign(asset, recordingTimingFields(asset));
-      return { ...draft, mediaPlan: { ...plan, manifest } };
-    });
+      await swap?.commit();
+      if ("previewToken" in cut) await previews.remove(cut.previewToken);
+      return draft;
+    } catch (error) {
+      await swap?.rollback();
+      throw error;
+    }
   }
   async trimAudioPreview(
     projectId: string,
     activityId: string,
+    target: TrimTarget,
     source: TrimSource,
     range: TrimRange,
   ): Promise<TrimmedAudio> {
-    return this.exclusive(projectId, activityId, async () => {
-      const activity = await this.getActivity(projectId, activityId);
-      let bytes: Buffer;
-      let name: string;
-      if (source.kind === "bound") {
-        const asset = activity.draft.mediaPlan?.manifest.assets[source.language]?.find(
-          (entry) => entry.key === source.assetKey,
-        );
-        if (!asset || asset.type !== "audio" || !asset.path)
-          throw new HttpError(404, "audio_missing", "This asset has no saved audio to trim.");
-        bytes = (await this.clipBytes(activity, asset.path)).bytes;
-        name = `${asset.key}-${source.language}`;
-      } else if (source.kind === "run") {
-        bytes = await this.takeBytes(activity, source.runId);
-        name = source.runId;
-      } else {
-        bytes = (await readUpload(await this.uploads(activity), source.path)).bytes;
-        name = path.basename(source.path);
-      }
-      return this.storeTrimmed(activity, name, bytes, range);
-    });
+    // Nothing in the draft or the media repository changes, so no lock is held.
+    const activity = await this.getActivity(projectId, activityId);
+    const previews = this.trimPreviews(projectId, activityId);
+    let bytes: Buffer;
+    let origin: TrimPreviewRecord["origin"];
+    if (source.kind === "bound") {
+      const asset = boundAudioAsset(activity.draft.mediaPlan?.manifest, target);
+      bytes = (await this.clipBytes(activity, asset.path!)).bytes;
+      origin = { path: asset.path!, sha256: sha256Hex(bytes) };
+    } else if (source.kind === "run") {
+      bytes = await this.takeBytes(activity, source.runId);
+    } else if (source.kind === "preview") {
+      const earlier = await previews.read(source.token);
+      bytes = earlier.bytes;
+      // A second cut of a trim of the bound clip still saves over that clip.
+      origin = earlier.record.origin;
+    } else {
+      bytes = (await readUpload(await this.uploads(activity), source.path)).bytes;
+    }
+    return this.storeTrimmed(previews, target, bytes, range, origin);
   }
   async trimUploadedAudio(
     projectId: string,
     activityId: string,
-    name: string,
+    target: TrimTarget,
     bytes: Buffer,
     range: TrimRange,
   ): Promise<TrimmedAudio> {
@@ -1949,25 +2023,54 @@ export class ActivityService implements ActivityAuthoring {
       throw new HttpError(413, "media_too_large", "An uploaded file may be at most 32 MiB.");
     if (sniffUpload(bytes).kind !== "audio")
       throw new HttpError(415, "media_unsupported", "Only an audio file can be trimmed.");
-    return this.exclusive(projectId, activityId, async () =>
-      this.storeTrimmed(await this.getActivity(projectId, activityId), name, bytes, range),
+    await this.getActivity(projectId, activityId);
+    return this.storeTrimmed(this.trimPreviews(projectId, activityId), target, bytes, range);
+  }
+  async trimPreviewContent(
+    projectId: string,
+    activityId: string,
+    token: string,
+  ): Promise<Uint8Array> {
+    await this.getActivity(projectId, activityId);
+    return (await this.trimPreviews(projectId, activityId).read(token)).bytes;
+  }
+  async attachTrimPreview(
+    projectId: string,
+    activityId: string,
+    token: string,
+  ): Promise<UploadedMedia> {
+    const previews = this.trimPreviews(projectId, activityId);
+    const { bytes, record } = await previews.read(token);
+    const stored = await this.uploadMedia(
+      projectId,
+      activityId,
+      `${record.target.assetKey}-${record.target.language}-trimmed.mp3`,
+      bytes,
+    );
+    await previews.remove(token);
+    return stored;
+  }
+  /** One activity's unsaved trims, in Penguin's own data root rather than the media repository. */
+  private trimPreviews(projectId: string, activityId: string): TrimPreviews {
+    return new TrimPreviews(
+      path.join(projectDir(this.config.root, projectId), "activity-audio-trims", activityId),
     );
   }
-  /** `bytes` with `range` cut out, stored as an MP3 upload of this ref. */
+  /** `bytes` with `range` cut out, kept as the card's preview. */
   private async storeTrimmed(
-    activity: ActivityRecord,
-    name: string,
+    previews: TrimPreviews,
+    target: TrimTarget,
     bytes: Buffer,
     range: TrimRange,
+    origin?: TrimPreviewRecord["origin"],
   ): Promise<TrimmedAudio> {
     const trimmed = await this.cutClip(bytes, range);
-    const stem = name.replace(/\.[^.]*$/, "").replace(/-trimmed$/, "");
-    const media = await storeUpload(
-      await this.uploads(activity),
-      `${stem}-trimmed.mp3`,
-      trimmed.bytes,
-    );
-    return { media, durationMs: trimmed.durationMs };
+    const record = await previews.store(trimmed.bytes, {
+      target,
+      durationMs: trimmed.durationMs,
+      ...(origin ? { origin } : {}),
+    });
+    return { token: record.token, durationMs: record.durationMs, savesInPlace: !!origin };
   }
   /** A generated take's bytes, while it waits as a candidate or once it is bound. */
   private async takeBytes(activity: ActivityDetail, runId: string): Promise<Buffer> {
@@ -2004,7 +2107,8 @@ export class ActivityService implements ActivityAuthoring {
     bytes: Uint8Array,
     range: TrimRange,
   ): Promise<{ bytes: Buffer; durationMs: number }> {
-    const seconds = await (this.audioEncode.audioSeconds ?? audioSeconds)(bytes);
+    const measure = this.audioEncode.audioSeconds ?? audioSeconds;
+    const seconds = await measure(bytes);
     if (seconds === null)
       throw new HttpError(400, "audio_unreadable", "This clip could not be read as audio.");
     const fitted = fitTrimRange(range, seconds);
@@ -2015,8 +2119,9 @@ export class ActivityService implements ActivityAuthoring {
       if (error instanceof FfmpegError) throw trimFailed(error.message);
       throw error;
     }
-    if (!trimmed.length) throw trimFailed("ffmpeg wrote no audio.");
-    const kept = seconds - (fitted.endSeconds - fitted.startSeconds);
+    // Measured from what FFmpeg wrote, as Loom measures a trimmed clip.
+    const kept = trimmed.length ? await measure(trimmed) : null;
+    if (kept === null) throw trimFailed("ffmpeg wrote no audio.");
     return { bytes: trimmed, durationMs: Math.round(kept * 1000) };
   }
   async exclusive<T>(

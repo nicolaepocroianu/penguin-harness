@@ -15,7 +15,6 @@ import type {
   ActivityRecord,
   ActivityRun,
   AssetManifest,
-  TrimRange,
   VideoTimeline,
 } from "@prismshadow/penguin-server/api";
 import { ApiError } from "../../api/client";
@@ -252,6 +251,9 @@ export function readManifest(text: string): AssetManifest | null {
     : null;
 }
 
+/** A change the draft refuses itself, worded for the author rather than read from the server. */
+export class DraftRefusal extends Error {}
+
 /** One request to the activity's routes, naming the draft's revision where the route takes it. */
 export type DraftCall<R> = (api: ActivityApi, revision: string) => Promise<R>;
 
@@ -261,6 +263,8 @@ interface CommitOptions<R> {
   draftOf?: (result: R) => ActivityDraft;
   /** Refuse while the author has unsaved text, which the change would not see. */
   clean?: boolean;
+  /** What the refusal says, when not the proposal's wording. */
+  cleanMessage?: string;
 }
 
 export class StudioDraft {
@@ -486,7 +490,7 @@ export class StudioDraft {
       await operation();
       return true;
     } catch (e) {
-      if (this.live) this.set({ error: apiErrorText(e) });
+      if (this.live) this.set({ error: e instanceof DraftRefusal ? e.message : apiErrorText(e) });
       return false;
     } finally {
       if (this.live) this.set({ busy: false });
@@ -503,7 +507,7 @@ export class StudioDraft {
     options: CommitOptions<R>,
   ): Promise<R | null> {
     if (!this.state.detail || (options.clean && this.state.dirty))
-      throw new Error(S.activities.studioProposal.saveFirst);
+      throw new DraftRefusal(options.cleanMessage ?? S.activities.studioProposal.saveFirst);
     const result = await this.send(call);
     if (!this.live) return null;
     const draftOf = options.draftOf ?? ((value: R) => value as unknown as ActivityDraft);
@@ -544,13 +548,18 @@ export class StudioDraft {
   }
 
   /**
-   * Cut a stretch out of an asset's bound clip, in place; settles once the draft has it.
-   * Refused while there are unsaved edits, since it trims the clip the saved draft binds.
+   * Save a trim preview of an asset's bound clip over that clip; settles once the draft has
+   * it. Refused while there are unsaved edits, since it replaces the clip the saved draft binds.
    */
-  trimAudio(language: string, assetKey: string, range: TrimRange): Promise<boolean> {
+  trimAudio(language: string, assetKey: string, previewToken: string): Promise<boolean> {
     return this.change(
-      (api, revision) => api.draft.trimAudio(revision, { language, assetKey, ...range }),
-      { keep: "none", clean: true, then: () => this.ports.toast(S.activities.saved) },
+      (api, revision) => api.draft.trimAudio(revision, { language, assetKey, previewToken }),
+      {
+        keep: "none",
+        clean: true,
+        cleanMessage: S.activities.waveformTrim.saveEditsFirst,
+        then: () => this.ports.toast(S.activities.saved),
+      },
     );
   }
 
@@ -594,7 +603,7 @@ export class StudioDraft {
    */
   async land(change: ProposalChange): Promise<void> {
     const detail = this.state.detail;
-    if (!detail || this.state.dirty) throw new Error(S.activities.studioProposal.saveFirst);
+    if (!detail || this.state.dirty) throw new DraftRefusal(S.activities.studioProposal.saveFirst);
     let call: DraftCall<ActivityDraft>;
     if (change.target === "description")
       call = (api, revision) => api.draft.description(revision, change.text);
@@ -624,7 +633,7 @@ export class StudioDraft {
     const refuse = () => new ApiError(409, "draft_conflict", S.errors.byCode.draft_conflict);
     if (savesConflict(part, this.state.conflicts)) throw refuse();
     const send = async () => {
-      if (!this.state.detail) throw new Error(S.activities.studioProposal.saveFirst);
+      if (!this.state.detail) throw new DraftRefusal(S.activities.studioProposal.saveFirst);
       const draft = await this.send(call);
       if (!this.live) return null;
       this.applyDraft(draft, "unsaved", writes(part));

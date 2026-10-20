@@ -7,7 +7,7 @@
  * Simplified shows what most lines need: voice, script and a player. Advanced adds the audio
  * type, provider and model, the current audio beside the candidate, and the binding tools.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   ActivityRunSummary,
   AssetManifest,
@@ -20,6 +20,7 @@ import type {
   TrimmedAudio,
   TrimRange,
   TrimSource,
+  TrimTarget,
   UploadedMedia,
   VoiceOption,
 } from "@prismshadow/penguin-server/api";
@@ -151,10 +152,18 @@ interface Shared {
   onAcceptText: (runId: string) => void;
   onTranslate?: (language: string, assetKey: string) => void;
   onUpload: (file: File) => Promise<UploadedMedia>;
-  /** A clip with a stretch cut out, stored as an upload for the card to hold as its candidate. */
-  onTrimPreview: (source: TrimSource, range: TrimRange) => Promise<TrimmedAudio>;
-  /** Cut a stretch out of the bound clip in place; true once the draft has it. */
-  onTrimAudio: (language: string, assetKey: string, range: TrimRange) => Promise<boolean>;
+  /** A clip with a stretch cut out, kept on the server as the card's preview. */
+  onTrimPreview: (
+    target: TrimTarget,
+    source: TrimSource,
+    range: TrimRange,
+  ) => Promise<TrimmedAudio>;
+  /** Save a trim preview of the bound clip over that clip; true once the draft has it. */
+  onTrimAudio: (language: string, assetKey: string, previewToken: string) => Promise<boolean>;
+  /** Store a trim preview as an upload, to bind. */
+  onAttachTrim: (previewToken: string) => Promise<UploadedMedia>;
+  /** The draft has edits not saved yet, which saving a trim in place must wait for. */
+  draftDirty: boolean;
   onMediaCopied?: () => void;
 }
 
@@ -253,6 +262,8 @@ function AudioCard({
   onUpload,
   onTrimPreview,
   onTrimAudio,
+  onAttachTrim,
+  draftDirty,
   onMediaCopied,
 }: Shared & {
   asset: MediaAsset;
@@ -375,9 +386,18 @@ function AudioCard({
       return;
     }
     setAccepting(true);
+    setError("");
     try {
       if (step.step === "accept") await onAcceptAudio(step.runId);
-      else if (await onTrimAudio(language, asset.key, step.range)) setPending(null);
+      else if (step.step === "trim") {
+        if (await onTrimAudio(language, asset.key, step.token)) setPending(null);
+      } else {
+        const stored = await onAttachTrim(step.token);
+        onEdit((entry) => bindCandidateFile(entry, stored.path));
+        setPending(null);
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setAccepting(false);
     }
@@ -399,20 +419,22 @@ function AudioCard({
   }
 
   /**
-   * A trim of either clip, cut on the server and stored as an MP3 upload, becomes the card's
-   * candidate. One of the bound clip remembers its stretch, so Save cuts it in place.
+   * A trim of either clip, cut on the server and kept there as a preview, becomes the card's
+   * candidate. One cut from the bound clip is saved over that clip.
    */
   function trimmer(source: TrimSource | null) {
     if (locked || !source) return undefined;
     return async (range: TrimRange) => {
-      const trimmed = await onTrimPreview(source, range);
-      setPending({
-        source: "trim",
-        path: trimmed.media.path,
-        ...(source.kind === "bound" ? { trimOfCurrent: range } : {}),
-      });
+      const trimmed = await onTrimPreview({ language, assetKey: asset.key }, source, range);
+      setPending({ source: "trim", token: trimmed.token, savesInPlace: trimmed.savesInPlace });
     };
   }
+  // A trim was cut from the clip bound then; once another is bound it no longer applies.
+  useEffect(() => {
+    setPending((held) => (held?.source === "trim" ? null : held));
+  }, [asset.path, asset.durationMs]);
+  const saveWaits =
+    !!candidate && candidate.source === "trim" && candidate.savesInPlace && draftDirty;
   const savedPath = savedManifest?.assets[language]?.find((entry) => entry.key === asset.key)?.path;
   const currentTrim = currentTrimSource(asset, language, savedPath);
 
@@ -458,7 +480,10 @@ function AudioCard({
         label={label}
         autoLoad
         onTrim={trimmer(trimSource)}
-        trimSavesInPlace={trimSource?.kind === "bound"}
+        trimSavesInPlace={
+          trimSource?.kind === "bound" ||
+          (trimSource?.kind === "preview" && pending?.source === "trim" && pending.savesInPlace)
+        }
         onDecoded={(seconds) => setLengths((known) => ({ ...known, [src]: seconds }))}
         onTime={onTime}
       />
@@ -486,7 +511,7 @@ function AudioCard({
     return (
       <div key={candidateId(chosen)} className="space-y-2">
         {player(src, candidateLabel(chosen), candidateTrimSource(chosen))}
-        {details(src, chosen.source === "generated" ? null : chosen.path)}
+        {details(src, chosen.source === "upload" ? chosen.path : null)}
       </div>
     );
   }
@@ -604,6 +629,7 @@ function AudioCard({
                 !candidate ||
                 accepting ||
                 disabled ||
+                saveWaits ||
                 (candidate.source === "generated" && !canAccept)
               }
               onClick={() => void save()}
@@ -629,6 +655,9 @@ function AudioCard({
       </div>
       {editable && primary.action === "blocked" && (
         <p className="text-xs text-gray-500">{words.needsSource(defaultName)}</p>
+      )}
+      {saveWaits && (
+        <p className="text-xs text-gray-500">{S.activities.waveformTrim.saveEditsFirst}</p>
       )}
       {(error || runError) && (
         <p role="alert" className={`break-words text-xs ${toneInk.danger}`}>
