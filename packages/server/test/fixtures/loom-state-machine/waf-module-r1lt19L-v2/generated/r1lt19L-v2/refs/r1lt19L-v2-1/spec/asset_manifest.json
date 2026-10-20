@@ -1,0 +1,2350 @@
+{
+  "productCode": "r1lt19L-v2",
+  "refNum": 1,
+  "assets": {
+    "en-US": [
+      {
+        "key": "scene-1-video-island-treasure-chest",
+        "type": "video",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-1-video-1.mp4",
+        "description": "A video of a  colorful island with a treasure map, palm trees, and a glowing treasure chest in the distance.The treasure chest slowly opens and glows."
+      },
+      {
+        "key": "scene-2-video-treasure-chest-closes",
+        "type": "video",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-2-video-1.mp4",
+        "description": "The treasure chest gently closes."
+      },
+      {
+        "key": "scene-2-video-letter-stones-rise",
+        "type": "video",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-2-video-2.mp4",
+        "description": "A video showing chest opening and letter stones rising out and jumping in place is played"
+      },
+      {
+        "key": "scene-3-video-rock-one",
+        "type": "video",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-3-video-1.mp4",
+        "description": "Rock 1"
+      },
+      {
+        "key": "scene-3-video-rock-two",
+        "type": "video",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-3-video-2.mp4",
+        "description": "Rock 2"
+      },
+      {
+        "key": "scene-3-video-rock-three",
+        "type": "video",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-3-video-3.mp4",
+        "description": "Rock 3"
+      },
+      {
+        "key": "scene-3-video-rock-four",
+        "type": "video",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-3-video-4.mp4",
+        "description": "Rock 4"
+      },
+      {
+        "key": "scene-3-video-rock-five",
+        "type": "video",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-3-video-5.mp4",
+        "description": "Rock 5"
+      },
+      {
+        "key": "scene-12-video-jewels-return-to-chest",
+        "type": "video",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/videos/english/scene-12-video-1.mp4",
+        "description": "The jewel under Rock 5 jumps back into the chest,  the chest closes and then opens again and 10 jewels float above the chest. After a short while the jewels fall back into the chest and the chest closes"
+      },
+      {
+        "key": "scene-2-audio-treasure-hunt-narration",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-2-audio-treasure-hunt-narration.mp3",
+        "description": "Audio for scene scene-2.",
+        "wordTimings": [
+          {
+            "word": "We",
+            "startMs": 0,
+            "endMs": 240
+          },
+          {
+            "word": "are",
+            "startMs": 300,
+            "endMs": 480
+          },
+          {
+            "word": "going",
+            "startMs": 547,
+            "endMs": 880
+          },
+          {
+            "word": "on",
+            "startMs": 960,
+            "endMs": 1120
+          },
+          {
+            "word": "a",
+            "startMs": 1160,
+            "endMs": 1200
+          },
+          {
+            "word": "treasure",
+            "startMs": 1244,
+            "endMs": 1600
+          },
+          {
+            "word": "hunt",
+            "startMs": 1680,
+            "endMs": 2000
+          }
+        ],
+        "durationMs": 2320
+      },
+      {
+        "key": "scene-2-audio-letter-treasures-narration",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-2-audio-letter-treasures-narration.mp3",
+        "description": "Audio for scene scene-2.",
+        "wordTimings": [
+          {
+            "word": "Each",
+            "startMs": 0,
+            "endMs": 240
+          },
+          {
+            "word": "treasure",
+            "startMs": 284,
+            "endMs": 640
+          },
+          {
+            "word": "is",
+            "startMs": 720,
+            "endMs": 880
+          },
+          {
+            "word": "a",
+            "startMs": 920,
+            "endMs": 960
+          },
+          {
+            "word": "letter",
+            "startMs": 1017,
+            "endMs": 1360
+          },
+          {
+            "word": "Listen",
+            "startMs": 1554,
+            "endMs": 2240
+          },
+          {
+            "word": "carefully",
+            "startMs": 2296,
+            "endMs": 2800
+          },
+          {
+            "word": "and",
+            "startMs": 2860,
+            "endMs": 3040
+          },
+          {
+            "word": "find",
+            "startMs": 3104,
+            "endMs": 3360
+          },
+          {
+            "word": "the",
+            "startMs": 3380,
+            "endMs": 3440
+          },
+          {
+            "word": "right",
+            "startMs": 3480,
+            "endMs": 3680
+          },
+          {
+            "word": "ones",
+            "startMs": 3776,
+            "endMs": 4160
+          }
+        ],
+        "durationMs": 4480
+      },
+      {
+        "key": "scene-2-audio-stones-instructions",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-2-audio-stones-instructions.mp3",
+        "description": "Audio for scene scene-2.",
+        "wordTimings": [
+          {
+            "word": "In",
+            "startMs": 0,
+            "endMs": 80
+          },
+          {
+            "word": "each",
+            "startMs": 112,
+            "endMs": 240
+          },
+          {
+            "word": "group",
+            "startMs": 280,
+            "endMs": 480
+          },
+          {
+            "word": "of",
+            "startMs": 507,
+            "endMs": 560
+          },
+          {
+            "word": "stones",
+            "startMs": 651,
+            "endMs": 1200
+          },
+          {
+            "word": "press",
+            "startMs": 1560,
+            "endMs": 1760
+          },
+          {
+            "word": "and",
+            "startMs": 1800,
+            "endMs": 1920
+          },
+          {
+            "word": "hold",
+            "startMs": 1984,
+            "endMs": 2240
+          },
+          {
+            "word": "the",
+            "startMs": 2260,
+            "endMs": 2320
+          },
+          {
+            "word": "correct",
+            "startMs": 2370,
+            "endMs": 2720
+          },
+          {
+            "word": "letter",
+            "startMs": 2766,
+            "endMs": 3040
+          },
+          {
+            "word": "to",
+            "startMs": 3093,
+            "endMs": 3200
+          },
+          {
+            "word": "collect",
+            "startMs": 3250,
+            "endMs": 3600
+          },
+          {
+            "word": "the",
+            "startMs": 3620,
+            "endMs": 3680
+          },
+          {
+            "word": "treasure",
+            "startMs": 3742,
+            "endMs": 4240
+          }
+        ],
+        "durationMs": 4480
+      },
+      {
+        "key": "scene-3-audio-lowercase-b",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-3-audio-lowercase-b.mp3",
+        "description": "Audio for scene scene-3.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 560
+          },
+          {
+            "word": "b",
+            "startMs": 760,
+            "endMs": 960
+          }
+        ],
+        "durationMs": 1360
+      },
+      {
+        "key": "scene-3-audio-lowercase-a",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-3-audio-lowercase-a.mp3",
+        "description": "Audio for scene scene-3.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 480
+          },
+          {
+            "word": "a",
+            "startMs": 680,
+            "endMs": 880
+          }
+        ],
+        "durationMs": 1520
+      },
+      {
+        "key": "scene-3-audio-capital-d",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-3-audio-capital-d.mp3",
+        "description": "Audio for scene scene-3.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 480
+          },
+          {
+            "word": "D",
+            "startMs": 720,
+            "endMs": 960
+          }
+        ],
+        "durationMs": 1040
+      },
+      {
+        "key": "scene-3-audio-lowercase-e",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-3-audio-lowercase-e.mp3",
+        "description": "Audio for scene scene-3.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 640
+          },
+          {
+            "word": "e",
+            "startMs": 840,
+            "endMs": 1040
+          }
+        ],
+        "durationMs": 1120
+      },
+      {
+        "key": "scene-3-audio-lowercase-d-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-3-audio-lowercase-d-prompt.mp3",
+        "description": "Audio for scene scene-3.",
+        "wordTimings": [
+          {
+            "word": "Press",
+            "startMs": 0,
+            "endMs": 240
+          },
+          {
+            "word": "and",
+            "startMs": 280,
+            "endMs": 400
+          },
+          {
+            "word": "hold",
+            "startMs": 464,
+            "endMs": 720
+          },
+          {
+            "word": "lowercase",
+            "startMs": 792,
+            "endMs": 1440
+          },
+          {
+            "word": "d",
+            "startMs": 1640,
+            "endMs": 1840
+          }
+        ],
+        "durationMs": 2080
+      },
+      {
+        "key": "scene-3-audio-lowercase-d-correct-feedback",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-3-audio-lowercase-d-correct-feedback.mp3",
+        "description": "Audio for scene scene-3.",
+        "wordTimings": [
+          {
+            "word": "Yes",
+            "startMs": 0,
+            "endMs": 320
+          },
+          {
+            "word": "That\u2019s",
+            "startMs": 608,
+            "endMs": 1120
+          },
+          {
+            "word": "lowercase",
+            "startMs": 1152,
+            "endMs": 1440
+          },
+          {
+            "word": "d",
+            "startMs": 1640,
+            "endMs": 1840
+          }
+        ],
+        "durationMs": 2240
+      },
+      {
+        "key": "scene-3-audio-incorrect-prefix",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-3-audio-incorrect-prefix.mp3",
+        "description": "Audio for scene scene-3.",
+        "wordTimings": [
+          {
+            "word": "That\u2019s",
+            "startMs": 0,
+            "endMs": 800
+          }
+        ],
+        "durationMs": 800
+      },
+      {
+        "key": "scene-3-audio-lowercase-d-retry-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-3-audio-lowercase-d-retry-prompt.mp3",
+        "description": "Audio for scene scene-3.",
+        "wordTimings": [
+          {
+            "word": "THIS",
+            "startMs": 0,
+            "endMs": 240
+          },
+          {
+            "word": "is",
+            "startMs": 293,
+            "endMs": 400
+          },
+          {
+            "word": "lowercase",
+            "startMs": 472,
+            "endMs": 1120
+          },
+          {
+            "word": "d",
+            "startMs": 1320,
+            "endMs": 1520
+          },
+          {
+            "word": "Press",
+            "startMs": 1893,
+            "endMs": 2160
+          },
+          {
+            "word": "and",
+            "startMs": 2180,
+            "endMs": 2240
+          },
+          {
+            "word": "hold",
+            "startMs": 2304,
+            "endMs": 2560
+          },
+          {
+            "word": "lowercase",
+            "startMs": 2616,
+            "endMs": 3120
+          },
+          {
+            "word": "d",
+            "startMs": 3320,
+            "endMs": 3520
+          }
+        ],
+        "durationMs": 3680
+      },
+      {
+        "key": "scene-4-audio-lowercase-c",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-4-audio-lowercase-c.mp3",
+        "description": "Audio for scene scene-4.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 560
+          },
+          {
+            "word": "c",
+            "startMs": 760,
+            "endMs": 960
+          }
+        ],
+        "durationMs": 2160
+      },
+      {
+        "key": "scene-4-audio-lowercase-e",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-4-audio-lowercase-e.mp3",
+        "description": "Audio for scene scene-4.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 480
+          },
+          {
+            "word": "e",
+            "startMs": 680,
+            "endMs": 880
+          }
+        ],
+        "durationMs": 960
+      },
+      {
+        "key": "scene-4-audio-capital-b",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-4-audio-capital-b.mp3",
+        "description": "Audio for scene scene-4.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 400
+          },
+          {
+            "word": "B",
+            "startMs": 600,
+            "endMs": 800
+          }
+        ],
+        "durationMs": 960
+      },
+      {
+        "key": "scene-4-audio-capital-d",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-4-audio-capital-d.mp3",
+        "description": "Audio for scene scene-4.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 560
+          },
+          {
+            "word": "D",
+            "startMs": 800,
+            "endMs": 1040
+          }
+        ],
+        "durationMs": 1120
+      },
+      {
+        "key": "scene-4-audio-capital-c-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-4-audio-capital-c-prompt.mp3",
+        "description": "Audio for scene scene-4.",
+        "wordTimings": [
+          {
+            "word": "Press",
+            "startMs": 0,
+            "endMs": 240
+          },
+          {
+            "word": "and",
+            "startMs": 260,
+            "endMs": 320
+          },
+          {
+            "word": "hold",
+            "startMs": 400,
+            "endMs": 720
+          },
+          {
+            "word": "capital",
+            "startMs": 790,
+            "endMs": 1280
+          },
+          {
+            "word": "C",
+            "startMs": 1520,
+            "endMs": 1760
+          }
+        ],
+        "durationMs": 2000
+      },
+      {
+        "key": "scene-4-audio-capital-c-correct-feedback",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-4-audio-capital-c-correct-feedback.mp3",
+        "description": "Audio for scene scene-4.",
+        "wordTimings": [
+          {
+            "word": "Great",
+            "startMs": 0,
+            "endMs": 320
+          },
+          {
+            "word": "That\u2019s",
+            "startMs": 496,
+            "endMs": 960
+          },
+          {
+            "word": "capital",
+            "startMs": 1010,
+            "endMs": 1360
+          },
+          {
+            "word": "C",
+            "startMs": 1600,
+            "endMs": 1840
+          }
+        ],
+        "durationMs": 2000
+      },
+      {
+        "key": "scene-4-audio-incorrect-prefix",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-4-audio-incorrect-prefix.mp3",
+        "description": "Audio for scene scene-4.",
+        "wordTimings": [
+          {
+            "word": "That\u2019s",
+            "startMs": 0,
+            "endMs": 640
+          }
+        ],
+        "durationMs": 640
+      },
+      {
+        "key": "scene-4-audio-capital-c-retry-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-4-audio-capital-c-retry-prompt.mp3",
+        "description": "Audio for scene scene-4.",
+        "wordTimings": [
+          {
+            "word": "Here",
+            "startMs": 0,
+            "endMs": 80
+          },
+          {
+            "word": "it",
+            "startMs": 133,
+            "endMs": 240
+          },
+          {
+            "word": "is",
+            "startMs": 347,
+            "endMs": 560
+          },
+          {
+            "word": "This",
+            "startMs": 992,
+            "endMs": 1280
+          },
+          {
+            "word": "is",
+            "startMs": 1360,
+            "endMs": 1520
+          },
+          {
+            "word": "capital",
+            "startMs": 1580,
+            "endMs": 2000
+          },
+          {
+            "word": "C",
+            "startMs": 2240,
+            "endMs": 2480
+          },
+          {
+            "word": "Press",
+            "startMs": 2900,
+            "endMs": 3200
+          },
+          {
+            "word": "and",
+            "startMs": 3240,
+            "endMs": 3360
+          },
+          {
+            "word": "hold",
+            "startMs": 3424,
+            "endMs": 3680
+          },
+          {
+            "word": "capital",
+            "startMs": 3740,
+            "endMs": 4160
+          },
+          {
+            "word": "C",
+            "startMs": 4360,
+            "endMs": 4560
+          }
+        ],
+        "durationMs": 4800
+      },
+      {
+        "key": "scene-5-audio-capital-a",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-5-audio-capital-a.mp3",
+        "description": "Audio for scene scene-5.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 400
+          },
+          {
+            "word": "A",
+            "startMs": 640,
+            "endMs": 880
+          }
+        ],
+        "durationMs": 1360
+      },
+      {
+        "key": "scene-5-audio-capital-e",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-5-audio-capital-e.mp3",
+        "description": "Audio for scene scene-5.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 560
+          },
+          {
+            "word": "E",
+            "startMs": 800,
+            "endMs": 1040
+          }
+        ],
+        "durationMs": 1120
+      },
+      {
+        "key": "scene-5-audio-lowercase-e",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-5-audio-lowercase-e.mp3",
+        "description": "Audio for scene scene-5.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 720
+          },
+          {
+            "word": "e",
+            "startMs": 920,
+            "endMs": 1120
+          }
+        ],
+        "durationMs": 1200
+      },
+      {
+        "key": "scene-5-audio-lowercase-b",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-5-audio-lowercase-b.mp3",
+        "description": "Audio for scene scene-5.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 640
+          },
+          {
+            "word": "b",
+            "startMs": 800,
+            "endMs": 960
+          }
+        ],
+        "durationMs": 1040
+      },
+      {
+        "key": "scene-5-audio-lowercase-a-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-5-audio-lowercase-a-prompt.mp3",
+        "description": "Audio for scene scene-5.",
+        "wordTimings": [
+          {
+            "word": "Press",
+            "startMs": 0,
+            "endMs": 240
+          },
+          {
+            "word": "and",
+            "startMs": 260,
+            "endMs": 320
+          },
+          {
+            "word": "hold",
+            "startMs": 384,
+            "endMs": 640
+          },
+          {
+            "word": "lowercase",
+            "startMs": 704,
+            "endMs": 1280
+          },
+          {
+            "word": "a",
+            "startMs": 1480,
+            "endMs": 1680
+          }
+        ],
+        "durationMs": 2000
+      },
+      {
+        "key": "scene-5-audio-lowercase-a-correct-feedback",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-5-audio-lowercase-a-correct-feedback.mp3",
+        "description": "Audio for scene scene-5.",
+        "wordTimings": [
+          {
+            "word": "Yes",
+            "startMs": 0,
+            "endMs": 480
+          },
+          {
+            "word": "Lowercase",
+            "startMs": 933,
+            "endMs": 1440
+          },
+          {
+            "word": "a",
+            "startMs": 1600,
+            "endMs": 1760
+          }
+        ],
+        "durationMs": 2080
+      },
+      {
+        "key": "scene-5-audio-incorrect-prefix",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-5-audio-incorrect-prefix.mp3",
+        "description": "Audio for scene scene-5.",
+        "wordTimings": [
+          {
+            "word": "That\u2019s",
+            "startMs": 0,
+            "endMs": 800
+          }
+        ],
+        "durationMs": 800
+      },
+      {
+        "key": "scene-5-audio-lowercase-a-retry-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-5-audio-lowercase-a-retry-prompt.mp3",
+        "description": "Audio for scene scene-5.",
+        "wordTimings": [
+          {
+            "word": "THIS",
+            "startMs": 0,
+            "endMs": 320
+          },
+          {
+            "word": "is",
+            "startMs": 400,
+            "endMs": 560
+          },
+          {
+            "word": "lowercase",
+            "startMs": 616,
+            "endMs": 1120
+          },
+          {
+            "word": "a",
+            "startMs": 1320,
+            "endMs": 1520
+          },
+          {
+            "word": "Press",
+            "startMs": 1707,
+            "endMs": 2240
+          },
+          {
+            "word": "and",
+            "startMs": 2260,
+            "endMs": 2320
+          },
+          {
+            "word": "hold",
+            "startMs": 2384,
+            "endMs": 2640
+          },
+          {
+            "word": "lowercase",
+            "startMs": 2696,
+            "endMs": 3200
+          },
+          {
+            "word": "a",
+            "startMs": 3400,
+            "endMs": 3600
+          }
+        ],
+        "durationMs": 3920
+      },
+      {
+        "key": "scene-6-audio-capital-c",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-6-audio-capital-c.mp3",
+        "description": "Audio for scene scene-6.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 400
+          },
+          {
+            "word": "C",
+            "startMs": 600,
+            "endMs": 800
+          }
+        ],
+        "durationMs": 1440
+      },
+      {
+        "key": "scene-6-audio-lowercase-c",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-6-audio-lowercase-c.mp3",
+        "description": "Audio for scene scene-6.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 640
+          },
+          {
+            "word": "c",
+            "startMs": 840,
+            "endMs": 1040
+          }
+        ],
+        "durationMs": 1440
+      },
+      {
+        "key": "scene-6-audio-capital-d",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-6-audio-capital-d.mp3",
+        "description": "Audio for scene scene-6.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 400
+          },
+          {
+            "word": "D",
+            "startMs": 600,
+            "endMs": 800
+          }
+        ],
+        "durationMs": 1600
+      },
+      {
+        "key": "scene-6-audio-lowercase-e",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-6-audio-lowercase-e.mp3",
+        "description": "Audio for scene scene-6.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 560
+          },
+          {
+            "word": "e",
+            "startMs": 760,
+            "endMs": 960
+          }
+        ],
+        "durationMs": 1040
+      },
+      {
+        "key": "scene-6-audio-capital-e-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-6-audio-capital-e-prompt.mp3",
+        "description": "Audio for scene scene-6.",
+        "wordTimings": [
+          {
+            "word": "Press",
+            "startMs": 0,
+            "endMs": 240
+          },
+          {
+            "word": "and",
+            "startMs": 280,
+            "endMs": 400
+          },
+          {
+            "word": "hold",
+            "startMs": 464,
+            "endMs": 720
+          },
+          {
+            "word": "capital",
+            "startMs": 800,
+            "endMs": 1360
+          },
+          {
+            "word": "E",
+            "startMs": 1600,
+            "endMs": 1840
+          }
+        ],
+        "durationMs": 2080
+      },
+      {
+        "key": "scene-6-audio-capital-e-correct-feedback",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-6-audio-capital-e-correct-feedback.mp3",
+        "description": "Audio for scene scene-6.",
+        "wordTimings": [
+          {
+            "word": "Nice",
+            "startMs": 0,
+            "endMs": 560
+          },
+          {
+            "word": "Capital",
+            "startMs": 720,
+            "endMs": 1280
+          },
+          {
+            "word": "E",
+            "startMs": 1520,
+            "endMs": 1760
+          }
+        ],
+        "durationMs": 2000
+      },
+      {
+        "key": "scene-6-audio-incorrect-prefix",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-6-audio-incorrect-prefix.mp3",
+        "description": "Audio for scene scene-6.",
+        "wordTimings": [
+          {
+            "word": "That\u2019s",
+            "startMs": 0,
+            "endMs": 640
+          }
+        ],
+        "durationMs": 640
+      },
+      {
+        "key": "scene-6-audio-capital-e-retry-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-6-audio-capital-e-retry-prompt.mp3",
+        "description": "Audio for scene scene-6.",
+        "wordTimings": [
+          {
+            "word": "THIS",
+            "startMs": 0,
+            "endMs": 320
+          },
+          {
+            "word": "is",
+            "startMs": 427,
+            "endMs": 640
+          },
+          {
+            "word": "capital",
+            "startMs": 700,
+            "endMs": 1120
+          },
+          {
+            "word": "E",
+            "startMs": 1360,
+            "endMs": 1600
+          },
+          {
+            "word": "Press",
+            "startMs": 1813,
+            "endMs": 2480
+          },
+          {
+            "word": "and",
+            "startMs": 2540,
+            "endMs": 2720
+          },
+          {
+            "word": "hold",
+            "startMs": 2800,
+            "endMs": 3120
+          },
+          {
+            "word": "capital",
+            "startMs": 3200,
+            "endMs": 3760
+          },
+          {
+            "word": "E",
+            "startMs": 3960,
+            "endMs": 4160
+          }
+        ],
+        "durationMs": 4480
+      },
+      {
+        "key": "scene-7-audio-lowercase-b",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-7-audio-lowercase-b.mp3",
+        "description": "Audio for scene scene-7.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 560
+          },
+          {
+            "word": "b",
+            "startMs": 760,
+            "endMs": 960
+          }
+        ],
+        "durationMs": 1040
+      },
+      {
+        "key": "scene-7-audio-capital-d",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-7-audio-capital-d.mp3",
+        "description": "Audio for scene scene-7.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 560
+          },
+          {
+            "word": "D",
+            "startMs": 840,
+            "endMs": 1120
+          }
+        ],
+        "durationMs": 1200
+      },
+      {
+        "key": "scene-7-audio-capital-a",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-7-audio-capital-a.mp3",
+        "description": "Audio for scene scene-7.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 400
+          },
+          {
+            "word": "A",
+            "startMs": 600,
+            "endMs": 800
+          }
+        ],
+        "durationMs": 880
+      },
+      {
+        "key": "scene-7-audio-lowercase-c",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-7-audio-lowercase-c.mp3",
+        "description": "Audio for scene scene-7.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 560
+          },
+          {
+            "word": "c",
+            "startMs": 760,
+            "endMs": 960
+          }
+        ],
+        "durationMs": 1040
+      },
+      {
+        "key": "scene-7-audio-capital-b-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-7-audio-capital-b-prompt.mp3",
+        "description": "Audio for scene scene-7.",
+        "wordTimings": [
+          {
+            "word": "Press",
+            "startMs": 0,
+            "endMs": 160
+          },
+          {
+            "word": "and",
+            "startMs": 200,
+            "endMs": 320
+          },
+          {
+            "word": "hold",
+            "startMs": 384,
+            "endMs": 640
+          },
+          {
+            "word": "capital",
+            "startMs": 720,
+            "endMs": 1280
+          },
+          {
+            "word": "B",
+            "startMs": 1520,
+            "endMs": 1760
+          }
+        ],
+        "durationMs": 2000
+      },
+      {
+        "key": "scene-7-audio-capital-b-correct-feedback",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-7-audio-capital-b-correct-feedback.mp3",
+        "description": "Audio for scene scene-7.",
+        "wordTimings": [
+          {
+            "word": "Yes",
+            "startMs": 0,
+            "endMs": 320
+          },
+          {
+            "word": "Capital",
+            "startMs": 480,
+            "endMs": 1040
+          },
+          {
+            "word": "B",
+            "startMs": 1240,
+            "endMs": 1440
+          }
+        ],
+        "durationMs": 1520
+      },
+      {
+        "key": "scene-7-audio-incorrect-prefix",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-7-audio-incorrect-prefix.mp3",
+        "description": "Audio for scene scene-7.",
+        "wordTimings": [
+          {
+            "word": "That\u2019s",
+            "startMs": 0,
+            "endMs": 1120
+          }
+        ],
+        "durationMs": 1120
+      },
+      {
+        "key": "scene-7-audio-capital-b-retry-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-7-audio-capital-b-retry-prompt.mp3",
+        "description": "Audio for scene scene-7.",
+        "wordTimings": [
+          {
+            "word": "THIS",
+            "startMs": 0,
+            "endMs": 240
+          },
+          {
+            "word": "is",
+            "startMs": 373,
+            "endMs": 640
+          },
+          {
+            "word": "capital",
+            "startMs": 710,
+            "endMs": 1200
+          },
+          {
+            "word": "B",
+            "startMs": 1440,
+            "endMs": 1680
+          },
+          {
+            "word": "Press",
+            "startMs": 1893,
+            "endMs": 2560
+          },
+          {
+            "word": "and",
+            "startMs": 2600,
+            "endMs": 2720
+          },
+          {
+            "word": "hold",
+            "startMs": 2800,
+            "endMs": 3120
+          },
+          {
+            "word": "capital",
+            "startMs": 3190,
+            "endMs": 3680
+          },
+          {
+            "word": "B",
+            "startMs": 3880,
+            "endMs": 4080
+          }
+        ],
+        "durationMs": 4480
+      },
+      {
+        "key": "scene-8-audio-lowercase-a",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-8-audio-lowercase-a.mp3",
+        "description": "Audio for scene scene-8.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 720
+          },
+          {
+            "word": "a",
+            "startMs": 960,
+            "endMs": 1200
+          }
+        ],
+        "durationMs": 1280
+      },
+      {
+        "key": "scene-8-audio-capital-c",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-8-audio-capital-c.mp3",
+        "description": "Audio for scene scene-8.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 400
+          },
+          {
+            "word": "C",
+            "startMs": 640,
+            "endMs": 880
+          }
+        ],
+        "durationMs": 960
+      },
+      {
+        "key": "scene-8-audio-capital-e",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-8-audio-capital-e.mp3",
+        "description": "Audio for scene scene-8.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 480
+          },
+          {
+            "word": "E",
+            "startMs": 760,
+            "endMs": 1040
+          }
+        ],
+        "durationMs": 1120
+      },
+      {
+        "key": "scene-8-audio-lowercase-d",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-8-audio-lowercase-d.mp3",
+        "description": "Audio for scene scene-8.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 720
+          },
+          {
+            "word": "d",
+            "startMs": 960,
+            "endMs": 1200
+          }
+        ],
+        "durationMs": 1280
+      },
+      {
+        "key": "scene-8-audio-lowercase-e-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-8-audio-lowercase-e-prompt.mp3",
+        "description": "Audio for scene scene-8.",
+        "wordTimings": [
+          {
+            "word": "Press",
+            "startMs": 0,
+            "endMs": 240
+          },
+          {
+            "word": "and",
+            "startMs": 280,
+            "endMs": 400
+          },
+          {
+            "word": "hold",
+            "startMs": 464,
+            "endMs": 720
+          },
+          {
+            "word": "lowercase",
+            "startMs": 800,
+            "endMs": 1520
+          },
+          {
+            "word": "e",
+            "startMs": 1760,
+            "endMs": 2000
+          }
+        ],
+        "durationMs": 2160
+      },
+      {
+        "key": "scene-8-audio-lowercase-e-correct-feedback",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-8-audio-lowercase-e-correct-feedback.mp3",
+        "description": "Audio for scene scene-8.",
+        "wordTimings": [
+          {
+            "word": "Great",
+            "startMs": 0,
+            "endMs": 480
+          },
+          {
+            "word": "Lowercase",
+            "startMs": 653,
+            "endMs": 1440
+          },
+          {
+            "word": "e",
+            "startMs": 1640,
+            "endMs": 1840
+          }
+        ],
+        "durationMs": 2240
+      },
+      {
+        "key": "scene-8-audio-incorrect-prefix",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-8-audio-incorrect-prefix.mp3",
+        "description": "Audio for scene scene-8.",
+        "wordTimings": [
+          {
+            "word": "That\u2019s",
+            "startMs": 0,
+            "endMs": 960
+          }
+        ],
+        "durationMs": 960
+      },
+      {
+        "key": "scene-8-audio-lowercase-e-retry-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-8-audio-lowercase-e-retry-prompt.mp3",
+        "description": "Audio for scene scene-8.",
+        "wordTimings": [
+          {
+            "word": "THIS",
+            "startMs": 0,
+            "endMs": 240
+          },
+          {
+            "word": "is",
+            "startMs": 293,
+            "endMs": 400
+          },
+          {
+            "word": "lowercase",
+            "startMs": 464,
+            "endMs": 1040
+          },
+          {
+            "word": "e",
+            "startMs": 1200,
+            "endMs": 1360
+          },
+          {
+            "word": "Press",
+            "startMs": 1587,
+            "endMs": 2320
+          },
+          {
+            "word": "and",
+            "startMs": 2340,
+            "endMs": 2400
+          },
+          {
+            "word": "hold",
+            "startMs": 2464,
+            "endMs": 2720
+          },
+          {
+            "word": "lowercase",
+            "startMs": 2776,
+            "endMs": 3280
+          },
+          {
+            "word": "e",
+            "startMs": 3440,
+            "endMs": 3600
+          }
+        ],
+        "durationMs": 3920
+      },
+      {
+        "key": "scene-9-audio-capital-d",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-9-audio-capital-d.mp3",
+        "description": "Audio for scene scene-9.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 400
+          },
+          {
+            "word": "D",
+            "startMs": 600,
+            "endMs": 800
+          }
+        ],
+        "durationMs": 1360
+      },
+      {
+        "key": "scene-9-audio-lowercase-a",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-9-audio-lowercase-a.mp3",
+        "description": "Audio for scene scene-9.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 560
+          },
+          {
+            "word": "a",
+            "startMs": 760,
+            "endMs": 960
+          }
+        ],
+        "durationMs": 1040
+      },
+      {
+        "key": "scene-9-audio-capital-b",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-9-audio-capital-b.mp3",
+        "description": "Audio for scene scene-9.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 400
+          },
+          {
+            "word": "B",
+            "startMs": 600,
+            "endMs": 800
+          }
+        ],
+        "durationMs": 1280
+      },
+      {
+        "key": "scene-9-audio-lowercase-e",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-9-audio-lowercase-e.mp3",
+        "description": "Audio for scene scene-9.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 560
+          },
+          {
+            "word": "e",
+            "startMs": 720,
+            "endMs": 880
+          }
+        ],
+        "durationMs": 960
+      },
+      {
+        "key": "scene-9-audio-capital-a-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-9-audio-capital-a-prompt.mp3",
+        "description": "Audio for scene scene-9.",
+        "wordTimings": [
+          {
+            "word": "Press",
+            "startMs": 0,
+            "endMs": 240
+          },
+          {
+            "word": "and",
+            "startMs": 260,
+            "endMs": 320
+          },
+          {
+            "word": "hold",
+            "startMs": 384,
+            "endMs": 640
+          },
+          {
+            "word": "capital",
+            "startMs": 700,
+            "endMs": 1120
+          },
+          {
+            "word": "A",
+            "startMs": 1360,
+            "endMs": 1600
+          }
+        ],
+        "durationMs": 1920
+      },
+      {
+        "key": "scene-9-audio-capital-a-correct-feedback",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-9-audio-capital-a-correct-feedback.mp3",
+        "description": "Audio for scene scene-9.",
+        "wordTimings": [
+          {
+            "word": "Yes",
+            "startMs": 0,
+            "endMs": 400
+          },
+          {
+            "word": "Capital",
+            "startMs": 570,
+            "endMs": 1200
+          },
+          {
+            "word": "A",
+            "startMs": 1360,
+            "endMs": 1520
+          }
+        ],
+        "durationMs": 2080
+      },
+      {
+        "key": "scene-9-audio-incorrect-prefix",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-9-audio-incorrect-prefix.mp3",
+        "description": "Audio for scene scene-9.",
+        "wordTimings": [
+          {
+            "word": "That\u2019s",
+            "startMs": 0,
+            "endMs": 960
+          }
+        ],
+        "durationMs": 960
+      },
+      {
+        "key": "scene-9-audio-capital-a-retry-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-9-audio-capital-a-retry-prompt.mp3",
+        "description": "Audio for scene scene-9.",
+        "wordTimings": [
+          {
+            "word": "THIS",
+            "startMs": 0,
+            "endMs": 240
+          },
+          {
+            "word": "is",
+            "startMs": 347,
+            "endMs": 560
+          },
+          {
+            "word": "capital",
+            "startMs": 620,
+            "endMs": 1040
+          },
+          {
+            "word": "A",
+            "startMs": 1240,
+            "endMs": 1440
+          },
+          {
+            "word": "Press",
+            "startMs": 1640,
+            "endMs": 2240
+          },
+          {
+            "word": "and",
+            "startMs": 2260,
+            "endMs": 2320
+          },
+          {
+            "word": "hold",
+            "startMs": 2400,
+            "endMs": 2720
+          },
+          {
+            "word": "capital",
+            "startMs": 2780,
+            "endMs": 3200
+          },
+          {
+            "word": "A",
+            "startMs": 3400,
+            "endMs": 3600
+          }
+        ],
+        "durationMs": 3920
+      },
+      {
+        "key": "scene-10-audio-lowercase-e",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-10-audio-lowercase-e.mp3",
+        "description": "Audio for scene scene-10.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 800
+          },
+          {
+            "word": "e",
+            "startMs": 1040,
+            "endMs": 1280
+          }
+        ],
+        "durationMs": 1360
+      },
+      {
+        "key": "scene-10-audio-lowercase-a",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-10-audio-lowercase-a.mp3",
+        "description": "Audio for scene scene-10.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 560
+          },
+          {
+            "word": "a",
+            "startMs": 760,
+            "endMs": 960
+          }
+        ],
+        "durationMs": 1040
+      },
+      {
+        "key": "scene-10-audio-capital-d",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-10-audio-capital-d.mp3",
+        "description": "Audio for scene scene-10.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 400
+          },
+          {
+            "word": "D",
+            "startMs": 600,
+            "endMs": 800
+          }
+        ],
+        "durationMs": 1280
+      },
+      {
+        "key": "scene-10-audio-capital-c",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-10-audio-capital-c.mp3",
+        "description": "Audio for scene scene-10.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 400
+          },
+          {
+            "word": "C",
+            "startMs": 640,
+            "endMs": 880
+          }
+        ],
+        "durationMs": 960
+      },
+      {
+        "key": "scene-10-audio-lowercase-c-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-10-audio-lowercase-c-prompt.mp3",
+        "description": "Audio for scene scene-10.",
+        "wordTimings": [
+          {
+            "word": "Press",
+            "startMs": 0,
+            "endMs": 320
+          },
+          {
+            "word": "and",
+            "startMs": 360,
+            "endMs": 480
+          },
+          {
+            "word": "hold",
+            "startMs": 560,
+            "endMs": 880
+          },
+          {
+            "word": "lowercase",
+            "startMs": 960,
+            "endMs": 1680
+          },
+          {
+            "word": "c",
+            "startMs": 1880,
+            "endMs": 2080
+          }
+        ],
+        "durationMs": 2480
+      },
+      {
+        "key": "scene-10-audio-lowercase-c-correct-feedback",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-10-audio-lowercase-c-correct-feedback.mp3",
+        "description": "Audio for scene scene-10.",
+        "wordTimings": [
+          {
+            "word": "Super",
+            "startMs": 0,
+            "endMs": 560
+          },
+          {
+            "word": "That\u2019s",
+            "startMs": 752,
+            "endMs": 960
+          },
+          {
+            "word": "lowercase",
+            "startMs": 1024,
+            "endMs": 1600
+          },
+          {
+            "word": "c",
+            "startMs": 1800,
+            "endMs": 2000
+          }
+        ],
+        "durationMs": 2320
+      },
+      {
+        "key": "scene-10-audio-incorrect-prefix",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-10-audio-incorrect-prefix.mp3",
+        "description": "Audio for scene scene-10.",
+        "wordTimings": [
+          {
+            "word": "That\u2019s",
+            "startMs": 0,
+            "endMs": 720
+          }
+        ],
+        "durationMs": 720
+      },
+      {
+        "key": "scene-10-audio-lowercase-c-retry-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-10-audio-lowercase-c-retry-prompt.mp3",
+        "description": "Audio for scene scene-10.",
+        "wordTimings": [
+          {
+            "word": "THIS",
+            "startMs": 0,
+            "endMs": 240
+          },
+          {
+            "word": "is",
+            "startMs": 293,
+            "endMs": 400
+          },
+          {
+            "word": "lowercase",
+            "startMs": 472,
+            "endMs": 1120
+          },
+          {
+            "word": "c",
+            "startMs": 1400,
+            "endMs": 1680
+          },
+          {
+            "word": "Press",
+            "startMs": 1907,
+            "endMs": 2640
+          },
+          {
+            "word": "and",
+            "startMs": 2680,
+            "endMs": 2800
+          },
+          {
+            "word": "hold",
+            "startMs": 2896,
+            "endMs": 3280
+          },
+          {
+            "word": "lowercase",
+            "startMs": 3344,
+            "endMs": 3920
+          },
+          {
+            "word": "c",
+            "startMs": 4160,
+            "endMs": 4400
+          }
+        ],
+        "durationMs": 4480
+      },
+      {
+        "key": "scene-11-audio-capital-b",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-11-audio-capital-b.mp3",
+        "description": "Audio for scene scene-11.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 400
+          },
+          {
+            "word": "B",
+            "startMs": 640,
+            "endMs": 880
+          }
+        ],
+        "durationMs": 960
+      },
+      {
+        "key": "scene-11-audio-lowercase-d",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-11-audio-lowercase-d.mp3",
+        "description": "Audio for scene scene-11.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 640
+          },
+          {
+            "word": "d",
+            "startMs": 880,
+            "endMs": 1120
+          }
+        ],
+        "durationMs": 1200
+      },
+      {
+        "key": "scene-11-audio-capital-e",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-11-audio-capital-e.mp3",
+        "description": "Audio for scene scene-11.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 480
+          },
+          {
+            "word": "E",
+            "startMs": 680,
+            "endMs": 880
+          }
+        ],
+        "durationMs": 1360
+      },
+      {
+        "key": "scene-11-audio-lowercase-b",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-11-audio-lowercase-b.mp3",
+        "description": "Audio for scene scene-11.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 560
+          },
+          {
+            "word": "b",
+            "startMs": 720,
+            "endMs": 880
+          }
+        ],
+        "durationMs": 960
+      },
+      {
+        "key": "scene-11-audio-capital-d-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-11-audio-capital-d-prompt.mp3",
+        "description": "Audio for scene scene-11.",
+        "wordTimings": [
+          {
+            "word": "Press",
+            "startMs": 0,
+            "endMs": 320
+          },
+          {
+            "word": "and",
+            "startMs": 360,
+            "endMs": 480
+          },
+          {
+            "word": "hold",
+            "startMs": 560,
+            "endMs": 880
+          },
+          {
+            "word": "capital",
+            "startMs": 960,
+            "endMs": 1520
+          },
+          {
+            "word": "D",
+            "startMs": 1720,
+            "endMs": 1920
+          }
+        ],
+        "durationMs": 2080
+      },
+      {
+        "key": "scene-11-audio-capital-d-correct-feedback",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-11-audio-capital-d-correct-feedback.mp3",
+        "description": "Audio for scene scene-11.",
+        "wordTimings": [
+          {
+            "word": "Yes",
+            "startMs": 0,
+            "endMs": 320
+          },
+          {
+            "word": "That\u2019s",
+            "startMs": 480,
+            "endMs": 1040
+          },
+          {
+            "word": "capital",
+            "startMs": 1070,
+            "endMs": 1280
+          },
+          {
+            "word": "D",
+            "startMs": 1480,
+            "endMs": 1680
+          }
+        ],
+        "durationMs": 1920
+      },
+      {
+        "key": "scene-11-audio-incorrect-prefix",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-11-audio-incorrect-prefix.mp3",
+        "description": "Audio for scene scene-11.",
+        "wordTimings": [
+          {
+            "word": "That\u2019s",
+            "startMs": 0,
+            "endMs": 560
+          }
+        ],
+        "durationMs": 560
+      },
+      {
+        "key": "scene-11-audio-capital-d-retry-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-11-audio-capital-d-retry-prompt.mp3",
+        "description": "Audio for scene scene-11.",
+        "wordTimings": [
+          {
+            "word": "THIS",
+            "startMs": 0,
+            "endMs": 240
+          },
+          {
+            "word": "is",
+            "startMs": 347,
+            "endMs": 560
+          },
+          {
+            "word": "capital",
+            "startMs": 630,
+            "endMs": 1120
+          },
+          {
+            "word": "D",
+            "startMs": 1320,
+            "endMs": 1520
+          },
+          {
+            "word": "Press",
+            "startMs": 1940,
+            "endMs": 2240
+          },
+          {
+            "word": "and",
+            "startMs": 2260,
+            "endMs": 2320
+          },
+          {
+            "word": "hold",
+            "startMs": 2400,
+            "endMs": 2720
+          },
+          {
+            "word": "capital",
+            "startMs": 2780,
+            "endMs": 3200
+          },
+          {
+            "word": "D",
+            "startMs": 3440,
+            "endMs": 3680
+          }
+        ],
+        "durationMs": 3920
+      },
+      {
+        "key": "scene-12-audio-lowercase-d",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-12-audio-lowercase-d.mp3",
+        "description": "Audio for scene scene-12.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 640
+          },
+          {
+            "word": "d",
+            "startMs": 840,
+            "endMs": 1040
+          }
+        ],
+        "durationMs": 1120
+      },
+      {
+        "key": "scene-12-audio-capital-d",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-12-audio-capital-d.mp3",
+        "description": "Audio for scene scene-12.",
+        "wordTimings": [
+          {
+            "word": "capital",
+            "startMs": 0,
+            "endMs": 400
+          },
+          {
+            "word": "D",
+            "startMs": 680,
+            "endMs": 960
+          }
+        ],
+        "durationMs": 1040
+      },
+      {
+        "key": "scene-12-audio-lowercase-c",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-12-audio-lowercase-c.mp3",
+        "description": "Audio for scene scene-12.",
+        "wordTimings": [
+          {
+            "word": "lowercase",
+            "startMs": 0,
+            "endMs": 480
+          },
+          {
+            "word": "c",
+            "startMs": 640,
+            "endMs": 800
+          }
+        ],
+        "durationMs": 1360
+      },
+      {
+        "key": "scene-12-audio-lowercase-b-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-12-audio-lowercase-b-prompt.mp3",
+        "description": "Audio for scene scene-12.",
+        "wordTimings": [
+          {
+            "word": "Press",
+            "startMs": 0,
+            "endMs": 240
+          },
+          {
+            "word": "and",
+            "startMs": 280,
+            "endMs": 400
+          },
+          {
+            "word": "hold",
+            "startMs": 464,
+            "endMs": 720
+          },
+          {
+            "word": "lowercase",
+            "startMs": 784,
+            "endMs": 1360
+          },
+          {
+            "word": "b",
+            "startMs": 1600,
+            "endMs": 1840
+          }
+        ],
+        "durationMs": 2160
+      },
+      {
+        "key": "scene-12-audio-lowercase-b-correct-feedback",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-12-audio-lowercase-b-correct-feedback.mp3",
+        "description": "Audio for scene scene-12.",
+        "wordTimings": [
+          {
+            "word": "Great",
+            "startMs": 0,
+            "endMs": 400
+          },
+          {
+            "word": "Lowercase",
+            "startMs": 727,
+            "endMs": 1200
+          },
+          {
+            "word": "b",
+            "startMs": 1400,
+            "endMs": 1600
+          }
+        ],
+        "durationMs": 1840
+      },
+      {
+        "key": "scene-12-audio-incorrect-prefix",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-12-audio-incorrect-prefix.mp3",
+        "description": "Audio for scene scene-12.",
+        "wordTimings": [
+          {
+            "word": "That\u2019s",
+            "startMs": 0,
+            "endMs": 720
+          }
+        ],
+        "durationMs": 720
+      },
+      {
+        "key": "scene-12-audio-lowercase-b-retry-prompt",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-12-audio-lowercase-b-retry-prompt.mp3",
+        "description": "Audio for scene scene-12.",
+        "wordTimings": [
+          {
+            "word": "THIS",
+            "startMs": 0,
+            "endMs": 320
+          },
+          {
+            "word": "is",
+            "startMs": 427,
+            "endMs": 640
+          },
+          {
+            "word": "lowercase",
+            "startMs": 696,
+            "endMs": 1200
+          },
+          {
+            "word": "b",
+            "startMs": 1400,
+            "endMs": 1600
+          },
+          {
+            "word": "Press",
+            "startMs": 1787,
+            "endMs": 2320
+          },
+          {
+            "word": "and",
+            "startMs": 2340,
+            "endMs": 2400
+          },
+          {
+            "word": "hold",
+            "startMs": 2480,
+            "endMs": 2800
+          },
+          {
+            "word": "lowercase",
+            "startMs": 2864,
+            "endMs": 3440
+          },
+          {
+            "word": "b",
+            "startMs": 3640,
+            "endMs": 3840
+          }
+        ],
+        "durationMs": 4080
+      },
+      {
+        "key": "scene-12-audio-letter-treasures-completion",
+        "type": "audio",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/audios/english/scene-12-audio-letter-treasures-completion.mp3",
+        "description": "Audio for scene scene-12.",
+        "wordTimings": [
+          {
+            "word": "Great",
+            "startMs": 0,
+            "endMs": 240
+          },
+          {
+            "word": "job",
+            "startMs": 360,
+            "endMs": 720
+          },
+          {
+            "word": "You",
+            "startMs": 900,
+            "endMs": 1200
+          },
+          {
+            "word": "collected",
+            "startMs": 1248,
+            "endMs": 1680
+          },
+          {
+            "word": "all",
+            "startMs": 1760,
+            "endMs": 2000
+          },
+          {
+            "word": "the",
+            "startMs": 2040,
+            "endMs": 2160
+          },
+          {
+            "word": "letter",
+            "startMs": 2194,
+            "endMs": 2400
+          },
+          {
+            "word": "treasures",
+            "startMs": 2464,
+            "endMs": 3040
+          }
+        ],
+        "durationMs": 3120
+      },
+      {
+        "key": "activity-cover",
+        "type": "image",
+        "path": "media/loom/r1lt19L-v2/r1lt19L-v2-1/images/english/activity-cover.jpg",
+        "description": "Scene 1: Intro\n <video> A video of a  colorful island with a treasure map, palm trees, and a glowing treasure chest in the distance.The treasure chest slowly opens and glows. </video>\nThe video starts playing. As the video ends, the activity will transition to the next scene"
+      }
+    ]
+  }
+}

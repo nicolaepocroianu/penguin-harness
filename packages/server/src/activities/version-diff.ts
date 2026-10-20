@@ -27,6 +27,7 @@ export function versionTexts(manifest: VersionManifest): Record<VersionFileName,
     configuration: pretty(draft.moduleDocuments?.configuration?.value),
     assessment: pretty(draft.moduleDocuments?.assessment?.value),
     definition: pretty(draft.moduleDocuments?.definition?.value),
+    stateMachine: pretty(draft.moduleDocuments?.stateMachine?.value),
     features: pretty(manifest.implementationFeatures),
   };
 }
@@ -38,6 +39,7 @@ const ORDER: readonly VersionFileName[] = [
   "configuration",
   "assessment",
   "definition",
+  "stateMachine",
   "features",
 ];
 

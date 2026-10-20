@@ -163,7 +163,8 @@ describe("native WAF module boundary", () => {
     });
     expect(JSON.parse(files["package.json"]!).scripts.buildDebug).toContain("webpack");
     expect(files["configurations/P-12.json"]).toBeDefined();
-    expect(JSON.parse(files["generated/P/refs/P-12/spec/state-machine.json"]!).initial).toBe(
+    // The product's machine, where Loom keeps it and the waf-state-machine skill edits it.
+    expect(JSON.parse(files["generated/P/spec/state-machine.json"]!).initial).toBe(
       activitySpec.scenes[0]!.id,
     );
     const assessment = scaffoldModule({
@@ -218,6 +219,8 @@ describe("native WAF module boundary", () => {
     expect(files["src/book-reader/controller.ts"]).toContain("class BookReaderController");
     expect(files["src/book-reader/view.ts"]).toContain("createBookReaderView");
     expect(files["src/book-reader/adapter.ts"]).toContain("narrationEventsFromScene");
+    // A book's reader machine stays its ref's own, as Loom keeps a book's.
+    expect(files["generated/P/spec/state-machine.json"]).toBeUndefined();
     expect(JSON.parse(files["generated/P/refs/P-12/spec/state-machine.json"]!)).toMatchObject({
       initial: "reading",
       states: {
@@ -231,7 +234,7 @@ describe("native WAF module boundary", () => {
     expect(generic["src/book-reader/model.ts"]).toBeUndefined();
     expect(generic["src/book-reader/view.ts"]).toBeUndefined();
     expect(generic["src/book-reader/adapter.ts"]).toBeUndefined();
-    expect(JSON.parse(generic["generated/P/refs/P-12/spec/state-machine.json"]!).initial).toBe(
+    expect(JSON.parse(generic["generated/P/spec/state-machine.json"]!).initial).toBe(
       activitySpec.scenes[0]!.id,
     );
   });

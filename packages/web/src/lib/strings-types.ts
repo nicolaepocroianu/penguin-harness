@@ -29,6 +29,7 @@ export type Strings = {
         | "configurationData"
         | "assessmentData"
         | "moduleDefinition"
+        | "stateMachine"
         | "audios"
         | "scenes"
         | "activityStats"
@@ -64,6 +65,8 @@ export type Strings = {
       silent: string;
       map: {
         toggle: string;
+        /** Opens the state machine's editor from the map. */
+        edit: string;
         scene: string;
         loading: string;
         none: string;
@@ -279,6 +282,7 @@ export type Strings = {
         configuration: string;
         assessment: string;
         definition: string;
+        stateMachine: string;
         features: string;
       };
       mediaTitle: string;
@@ -1283,6 +1287,7 @@ export type Strings = {
       | "speech"
       | "library"
       | "module"
+      | "stateMachine"
       | "history"
       | "deploy"
       | "newRef",
@@ -1367,6 +1372,38 @@ export type Strings = {
     };
     assessmentRun: string;
     /** Loom's Configuration Data and Assessment Data: the module's own documents, editable in place. */
+    /** The ref's `spec/state-machine.json`, edited in place as Loom's editor did. */
+    stateMachineEditor: {
+      title: string;
+      about: string;
+      field: string;
+      savedSide: string;
+      saveLabel: string;
+      loading: string;
+      unreadable: (reason: string) => string;
+      missing: string;
+      fromModule: (file: string) => string;
+      fromProduct: (file: string) => string;
+      fromDraft: (file: string) => string;
+      edited: string;
+      stale: string;
+      book: string;
+      readOnly: string;
+      shared: (ref: number) => string;
+      warning: string;
+      noProblems: string;
+      checking: string;
+      checkFailed: (reason: string) => string;
+      /** How many problems the saved machine has, or the unsaved text would have. */
+      problems: (n: number, unsaved: boolean) => string;
+      inherited: string;
+      problemsLabel: string;
+      wholeFile: string;
+      saved: string;
+      discard: string;
+      discardConfirm: string;
+      discarded: string;
+    };
     moduleDocuments: {
       /** The panel titles and save labels, by document. */
       title: Record<"configuration" | "assessment" | "definition", string>;

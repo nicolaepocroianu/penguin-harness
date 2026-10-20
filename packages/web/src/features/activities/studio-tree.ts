@@ -102,6 +102,7 @@ export type StudioLabel =
   | "configurationData"
   | "assessmentData"
   | "moduleDefinition"
+  | "stateMachine"
   | "audios"
   | "scenes"
   | "activityStats"
@@ -256,6 +257,7 @@ export function buildStudioTree(
     sectionRow("audios", "audios", "speech", sections, trails),
     sectionRow("library", "mediaLibrary", "library", sections, trails),
     sectionRow("module", "moduleDefinition", "module", sections, trails),
+    sectionRow("stateMachine", "stateMachine", "stateMachine", sections, trails),
     sectionRow("configuration", "configurationData", "configuration", sections, trails),
     sectionRow("assessment", "assessmentData", "assessment", sections, trails),
     sectionRow("deploy", "deploy", "deploy", sections, trails),

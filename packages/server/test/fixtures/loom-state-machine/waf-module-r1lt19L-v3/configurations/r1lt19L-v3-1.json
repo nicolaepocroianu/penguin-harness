@@ -1,0 +1,4124 @@
+{
+  "r1lt19L-v3": {
+    "telemetry": true,
+    "stateMachine": {
+      "$schema": "https://waterford.org/schemas/activity-state-machine-1.1.json",
+      "version": "1.1",
+      "id": "r1lt19L-v3",
+      "initial": "scene-1-intro",
+      "states": {
+        "scene-1-intro": {
+          "type": "compound",
+          "entry": {
+            "type": "initializeAssessment",
+            "params": {
+              "sceneId": "scene-1-intro"
+            }
+          },
+          "exit": {
+            "type": "cleanupScene",
+            "params": {
+              "sceneId": "scene-1-intro"
+            }
+          },
+          "initial": "presenting",
+          "states": {
+            "presenting": {
+              "entry": {
+                "type": "presentIntro",
+                "params": {
+                  "sceneId": "scene-1-intro"
+                }
+              },
+              "on": {
+                "SCENE.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-1-intro"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.scene-2-getting-started"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-1-intro"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            }
+          }
+        },
+        "scene-2-getting-started": {
+          "type": "compound",
+          "entry": {
+            "type": "initializeAssessment",
+            "params": {
+              "sceneId": "scene-2-getting-started"
+            }
+          },
+          "exit": {
+            "type": "cleanupScene",
+            "params": {
+              "sceneId": "scene-2-getting-started"
+            }
+          },
+          "initial": "presenting",
+          "states": {
+            "presenting": {
+              "entry": {
+                "type": "presentInstructions",
+                "params": {
+                  "sceneId": "scene-2-getting-started"
+                }
+              },
+              "on": {
+                "SCENE.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-2-getting-started"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.scene-3-letter-d-lowercase"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-2-getting-started"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "120000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            }
+          }
+        },
+        "scene-3-letter-d-lowercase": {
+          "type": "compound",
+          "entry": {
+            "type": "initializeAssessment",
+            "params": {
+              "sceneId": "scene-3-letter-d-lowercase"
+            }
+          },
+          "exit": {
+            "type": "cleanupScene",
+            "params": {
+              "sceneId": "scene-3-letter-d-lowercase"
+            }
+          },
+          "initial": "loading-item",
+          "states": {
+            "loading-item": {
+              "entry": {
+                "type": "assessment.loadItem",
+                "params": {
+                  "sceneId": "scene-3-letter-d-lowercase",
+                  "itemOffset": 0,
+                  "randomize": true
+                }
+              },
+              "on": {
+                "ASSESSMENT.ITEM.READY": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-3-letter-d-lowercase"
+                    }
+                  },
+                  "target": "prompting"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-3-letter-d-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "prompting": {
+              "entry": {
+                "type": "assessment.playPrompt",
+                "params": {
+                  "sceneId": "scene-3-letter-d-lowercase",
+                  "letterRole": "lowercase-d"
+                }
+              },
+              "on": {
+                "PROMPT.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-3-letter-d-lowercase"
+                    }
+                  },
+                  "target": "first-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-3-letter-d-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "first-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-3-letter-d-lowercase",
+                  "letterRole": "lowercase-d",
+                  "mode": "first"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-3-letter-d-lowercase"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-3-letter-d-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-3-letter-d-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-3-letter-d-lowercase"
+                      }
+                    },
+                    "target": "first-incorrect-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-3-letter-d-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-3-letter-d-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-3-letter-d-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "first-incorrect-feedback": {
+              "entry": {
+                "type": "assessment.playFirstIncorrectFeedback",
+                "params": {
+                  "sceneId": "scene-3-letter-d-lowercase",
+                  "letterRole": "lowercase-d"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-3-letter-d-lowercase"
+                    }
+                  },
+                  "target": "second-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-3-letter-d-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "second-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-3-letter-d-lowercase",
+                  "letterRole": "lowercase-d",
+                  "mode": "second"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-3-letter-d-lowercase"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-3-letter-d-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-3-letter-d-lowercase"
+                      }
+                    },
+                    "target": "guided-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-3-letter-d-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-3-letter-d-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "guided-feedback": {
+              "entry": {
+                "type": "assessment.playGuidedFeedback",
+                "params": {
+                  "sceneId": "scene-3-letter-d-lowercase",
+                  "letterRole": "lowercase-d"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-3-letter-d-lowercase"
+                    }
+                  },
+                  "target": "guided-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-3-letter-d-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "guided-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-3-letter-d-lowercase",
+                  "letterRole": "lowercase-d",
+                  "mode": "guided"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-3-letter-d-lowercase"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-3-letter-d-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isRejectedGuidedChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-3-letter-d-lowercase"
+                      }
+                    },
+                    "actions": [
+                      {
+                        "type": "input.reject"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "correct-feedback": {
+              "entry": {
+                "type": "assessment.playCorrectFeedback",
+                "params": {
+                  "sceneId": "scene-3-letter-d-lowercase",
+                  "letterRole": "lowercase-d",
+                  "collectionVideoSceneId": "scene-3-letter-d-lowercase"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-3-letter-d-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.scene-4-letter-c-capital"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-3-letter-d-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            }
+          }
+        },
+        "scene-4-letter-c-capital": {
+          "type": "compound",
+          "entry": {
+            "type": "initializeAssessment",
+            "params": {
+              "sceneId": "scene-4-letter-c-capital"
+            }
+          },
+          "exit": {
+            "type": "cleanupScene",
+            "params": {
+              "sceneId": "scene-4-letter-c-capital"
+            }
+          },
+          "initial": "loading-item",
+          "states": {
+            "loading-item": {
+              "entry": {
+                "type": "assessment.loadItem",
+                "params": {
+                  "sceneId": "scene-4-letter-c-capital",
+                  "itemOffset": 1,
+                  "randomize": true
+                }
+              },
+              "on": {
+                "ASSESSMENT.ITEM.READY": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-4-letter-c-capital"
+                    }
+                  },
+                  "target": "prompting"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-4-letter-c-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "prompting": {
+              "entry": {
+                "type": "assessment.playPrompt",
+                "params": {
+                  "sceneId": "scene-4-letter-c-capital",
+                  "letterRole": "capital-c"
+                }
+              },
+              "on": {
+                "PROMPT.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-4-letter-c-capital"
+                    }
+                  },
+                  "target": "first-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-4-letter-c-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "first-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-4-letter-c-capital",
+                  "letterRole": "capital-c",
+                  "mode": "first"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-4-letter-c-capital"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-4-letter-c-capital"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-4-letter-c-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-4-letter-c-capital"
+                      }
+                    },
+                    "target": "first-incorrect-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-4-letter-c-capital"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-4-letter-c-capital"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-4-letter-c-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "first-incorrect-feedback": {
+              "entry": {
+                "type": "assessment.playFirstIncorrectFeedback",
+                "params": {
+                  "sceneId": "scene-4-letter-c-capital",
+                  "letterRole": "capital-c"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-4-letter-c-capital"
+                    }
+                  },
+                  "target": "second-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-4-letter-c-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "second-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-4-letter-c-capital",
+                  "letterRole": "capital-c",
+                  "mode": "second"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-4-letter-c-capital"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-4-letter-c-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-4-letter-c-capital"
+                      }
+                    },
+                    "target": "guided-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-4-letter-c-capital"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-4-letter-c-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "guided-feedback": {
+              "entry": {
+                "type": "assessment.playGuidedFeedback",
+                "params": {
+                  "sceneId": "scene-4-letter-c-capital",
+                  "letterRole": "capital-c"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-4-letter-c-capital"
+                    }
+                  },
+                  "target": "guided-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-4-letter-c-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "guided-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-4-letter-c-capital",
+                  "letterRole": "capital-c",
+                  "mode": "guided"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-4-letter-c-capital"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-4-letter-c-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isRejectedGuidedChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-4-letter-c-capital"
+                      }
+                    },
+                    "actions": [
+                      {
+                        "type": "input.reject"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "correct-feedback": {
+              "entry": {
+                "type": "assessment.playCorrectFeedback",
+                "params": {
+                  "sceneId": "scene-4-letter-c-capital",
+                  "letterRole": "capital-c",
+                  "collectionVideoSceneId": "scene-3-letter-d-lowercase"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-4-letter-c-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.scene-5-letter-a-lowercase"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-4-letter-c-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            }
+          }
+        },
+        "scene-5-letter-a-lowercase": {
+          "type": "compound",
+          "entry": {
+            "type": "initializeAssessment",
+            "params": {
+              "sceneId": "scene-5-letter-a-lowercase"
+            }
+          },
+          "exit": {
+            "type": "cleanupScene",
+            "params": {
+              "sceneId": "scene-5-letter-a-lowercase"
+            }
+          },
+          "initial": "loading-item",
+          "states": {
+            "loading-item": {
+              "entry": {
+                "type": "assessment.loadItem",
+                "params": {
+                  "sceneId": "scene-5-letter-a-lowercase",
+                  "itemOffset": 2,
+                  "randomize": true
+                }
+              },
+              "on": {
+                "ASSESSMENT.ITEM.READY": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-5-letter-a-lowercase"
+                    }
+                  },
+                  "target": "prompting"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-5-letter-a-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "prompting": {
+              "entry": {
+                "type": "assessment.playPrompt",
+                "params": {
+                  "sceneId": "scene-5-letter-a-lowercase",
+                  "letterRole": "lowercase-a"
+                }
+              },
+              "on": {
+                "PROMPT.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-5-letter-a-lowercase"
+                    }
+                  },
+                  "target": "first-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-5-letter-a-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "first-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-5-letter-a-lowercase",
+                  "letterRole": "lowercase-a",
+                  "mode": "first"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-5-letter-a-lowercase"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-5-letter-a-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-5-letter-a-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-5-letter-a-lowercase"
+                      }
+                    },
+                    "target": "first-incorrect-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-5-letter-a-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-5-letter-a-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-5-letter-a-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "first-incorrect-feedback": {
+              "entry": {
+                "type": "assessment.playFirstIncorrectFeedback",
+                "params": {
+                  "sceneId": "scene-5-letter-a-lowercase",
+                  "letterRole": "lowercase-a"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-5-letter-a-lowercase"
+                    }
+                  },
+                  "target": "second-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-5-letter-a-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "second-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-5-letter-a-lowercase",
+                  "letterRole": "lowercase-a",
+                  "mode": "second"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-5-letter-a-lowercase"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-5-letter-a-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-5-letter-a-lowercase"
+                      }
+                    },
+                    "target": "guided-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-5-letter-a-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-5-letter-a-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "guided-feedback": {
+              "entry": {
+                "type": "assessment.playGuidedFeedback",
+                "params": {
+                  "sceneId": "scene-5-letter-a-lowercase",
+                  "letterRole": "lowercase-a"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-5-letter-a-lowercase"
+                    }
+                  },
+                  "target": "guided-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-5-letter-a-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "guided-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-5-letter-a-lowercase",
+                  "letterRole": "lowercase-a",
+                  "mode": "guided"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-5-letter-a-lowercase"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-5-letter-a-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isRejectedGuidedChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-5-letter-a-lowercase"
+                      }
+                    },
+                    "actions": [
+                      {
+                        "type": "input.reject"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "correct-feedback": {
+              "entry": {
+                "type": "assessment.playCorrectFeedback",
+                "params": {
+                  "sceneId": "scene-5-letter-a-lowercase",
+                  "letterRole": "lowercase-a",
+                  "collectionVideoSceneId": "scene-3-letter-d-lowercase"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-5-letter-a-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.scene-6-letter-e-capital"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-5-letter-a-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            }
+          }
+        },
+        "scene-6-letter-e-capital": {
+          "type": "compound",
+          "entry": {
+            "type": "initializeAssessment",
+            "params": {
+              "sceneId": "scene-6-letter-e-capital"
+            }
+          },
+          "exit": {
+            "type": "cleanupScene",
+            "params": {
+              "sceneId": "scene-6-letter-e-capital"
+            }
+          },
+          "initial": "loading-item",
+          "states": {
+            "loading-item": {
+              "entry": {
+                "type": "assessment.loadItem",
+                "params": {
+                  "sceneId": "scene-6-letter-e-capital",
+                  "itemOffset": 3,
+                  "randomize": true
+                }
+              },
+              "on": {
+                "ASSESSMENT.ITEM.READY": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-6-letter-e-capital"
+                    }
+                  },
+                  "target": "prompting"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-6-letter-e-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "prompting": {
+              "entry": {
+                "type": "assessment.playPrompt",
+                "params": {
+                  "sceneId": "scene-6-letter-e-capital",
+                  "letterRole": "capital-e"
+                }
+              },
+              "on": {
+                "PROMPT.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-6-letter-e-capital"
+                    }
+                  },
+                  "target": "first-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-6-letter-e-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "first-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-6-letter-e-capital",
+                  "letterRole": "capital-e",
+                  "mode": "first"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-6-letter-e-capital"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-6-letter-e-capital"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-6-letter-e-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-6-letter-e-capital"
+                      }
+                    },
+                    "target": "first-incorrect-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-6-letter-e-capital"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-6-letter-e-capital"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-6-letter-e-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "first-incorrect-feedback": {
+              "entry": {
+                "type": "assessment.playFirstIncorrectFeedback",
+                "params": {
+                  "sceneId": "scene-6-letter-e-capital",
+                  "letterRole": "capital-e"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-6-letter-e-capital"
+                    }
+                  },
+                  "target": "second-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-6-letter-e-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "second-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-6-letter-e-capital",
+                  "letterRole": "capital-e",
+                  "mode": "second"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-6-letter-e-capital"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-6-letter-e-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-6-letter-e-capital"
+                      }
+                    },
+                    "target": "guided-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-6-letter-e-capital"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-6-letter-e-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "guided-feedback": {
+              "entry": {
+                "type": "assessment.playGuidedFeedback",
+                "params": {
+                  "sceneId": "scene-6-letter-e-capital",
+                  "letterRole": "capital-e"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-6-letter-e-capital"
+                    }
+                  },
+                  "target": "guided-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-6-letter-e-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "guided-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-6-letter-e-capital",
+                  "letterRole": "capital-e",
+                  "mode": "guided"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-6-letter-e-capital"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-6-letter-e-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isRejectedGuidedChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-6-letter-e-capital"
+                      }
+                    },
+                    "actions": [
+                      {
+                        "type": "input.reject"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "correct-feedback": {
+              "entry": {
+                "type": "assessment.playCorrectFeedback",
+                "params": {
+                  "sceneId": "scene-6-letter-e-capital",
+                  "letterRole": "capital-e",
+                  "collectionVideoSceneId": "scene-3-letter-d-lowercase"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-6-letter-e-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.scene-7-letter-b-capital"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-6-letter-e-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            }
+          }
+        },
+        "scene-7-letter-b-capital": {
+          "type": "compound",
+          "entry": {
+            "type": "initializeAssessment",
+            "params": {
+              "sceneId": "scene-7-letter-b-capital"
+            }
+          },
+          "exit": {
+            "type": "cleanupScene",
+            "params": {
+              "sceneId": "scene-7-letter-b-capital"
+            }
+          },
+          "initial": "loading-item",
+          "states": {
+            "loading-item": {
+              "entry": {
+                "type": "assessment.loadItem",
+                "params": {
+                  "sceneId": "scene-7-letter-b-capital",
+                  "itemOffset": 4,
+                  "randomize": true
+                }
+              },
+              "on": {
+                "ASSESSMENT.ITEM.READY": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-7-letter-b-capital"
+                    }
+                  },
+                  "target": "prompting"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-7-letter-b-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "prompting": {
+              "entry": {
+                "type": "assessment.playPrompt",
+                "params": {
+                  "sceneId": "scene-7-letter-b-capital",
+                  "letterRole": "capital-b"
+                }
+              },
+              "on": {
+                "PROMPT.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-7-letter-b-capital"
+                    }
+                  },
+                  "target": "first-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-7-letter-b-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "first-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-7-letter-b-capital",
+                  "letterRole": "capital-b",
+                  "mode": "first"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-7-letter-b-capital"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-7-letter-b-capital"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-7-letter-b-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-7-letter-b-capital"
+                      }
+                    },
+                    "target": "first-incorrect-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-7-letter-b-capital"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-7-letter-b-capital"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-7-letter-b-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "first-incorrect-feedback": {
+              "entry": {
+                "type": "assessment.playFirstIncorrectFeedback",
+                "params": {
+                  "sceneId": "scene-7-letter-b-capital",
+                  "letterRole": "capital-b"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-7-letter-b-capital"
+                    }
+                  },
+                  "target": "second-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-7-letter-b-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "second-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-7-letter-b-capital",
+                  "letterRole": "capital-b",
+                  "mode": "second"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-7-letter-b-capital"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-7-letter-b-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-7-letter-b-capital"
+                      }
+                    },
+                    "target": "guided-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-7-letter-b-capital"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-7-letter-b-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "guided-feedback": {
+              "entry": {
+                "type": "assessment.playGuidedFeedback",
+                "params": {
+                  "sceneId": "scene-7-letter-b-capital",
+                  "letterRole": "capital-b"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-7-letter-b-capital"
+                    }
+                  },
+                  "target": "guided-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-7-letter-b-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "guided-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-7-letter-b-capital",
+                  "letterRole": "capital-b",
+                  "mode": "guided"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-7-letter-b-capital"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-7-letter-b-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isRejectedGuidedChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-7-letter-b-capital"
+                      }
+                    },
+                    "actions": [
+                      {
+                        "type": "input.reject"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "correct-feedback": {
+              "entry": {
+                "type": "assessment.playCorrectFeedback",
+                "params": {
+                  "sceneId": "scene-7-letter-b-capital",
+                  "letterRole": "capital-b",
+                  "collectionVideoSceneId": "scene-3-letter-d-lowercase"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-7-letter-b-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.scene-8-letter-e-lowercase"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-7-letter-b-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            }
+          }
+        },
+        "scene-8-letter-e-lowercase": {
+          "type": "compound",
+          "entry": {
+            "type": "initializeAssessment",
+            "params": {
+              "sceneId": "scene-8-letter-e-lowercase"
+            }
+          },
+          "exit": {
+            "type": "cleanupScene",
+            "params": {
+              "sceneId": "scene-8-letter-e-lowercase"
+            }
+          },
+          "initial": "loading-item",
+          "states": {
+            "loading-item": {
+              "entry": {
+                "type": "assessment.loadItem",
+                "params": {
+                  "sceneId": "scene-8-letter-e-lowercase",
+                  "itemOffset": 5,
+                  "randomize": true
+                }
+              },
+              "on": {
+                "ASSESSMENT.ITEM.READY": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-8-letter-e-lowercase"
+                    }
+                  },
+                  "target": "prompting"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-8-letter-e-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "prompting": {
+              "entry": {
+                "type": "assessment.playPrompt",
+                "params": {
+                  "sceneId": "scene-8-letter-e-lowercase",
+                  "letterRole": "lowercase-e"
+                }
+              },
+              "on": {
+                "PROMPT.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-8-letter-e-lowercase"
+                    }
+                  },
+                  "target": "first-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-8-letter-e-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "first-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-8-letter-e-lowercase",
+                  "letterRole": "lowercase-e",
+                  "mode": "first"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-8-letter-e-lowercase"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-8-letter-e-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-8-letter-e-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-8-letter-e-lowercase"
+                      }
+                    },
+                    "target": "first-incorrect-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-8-letter-e-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-8-letter-e-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-8-letter-e-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "first-incorrect-feedback": {
+              "entry": {
+                "type": "assessment.playFirstIncorrectFeedback",
+                "params": {
+                  "sceneId": "scene-8-letter-e-lowercase",
+                  "letterRole": "lowercase-e"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-8-letter-e-lowercase"
+                    }
+                  },
+                  "target": "second-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-8-letter-e-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "second-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-8-letter-e-lowercase",
+                  "letterRole": "lowercase-e",
+                  "mode": "second"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-8-letter-e-lowercase"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-8-letter-e-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-8-letter-e-lowercase"
+                      }
+                    },
+                    "target": "guided-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-8-letter-e-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-8-letter-e-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "guided-feedback": {
+              "entry": {
+                "type": "assessment.playGuidedFeedback",
+                "params": {
+                  "sceneId": "scene-8-letter-e-lowercase",
+                  "letterRole": "lowercase-e"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-8-letter-e-lowercase"
+                    }
+                  },
+                  "target": "guided-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-8-letter-e-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "guided-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-8-letter-e-lowercase",
+                  "letterRole": "lowercase-e",
+                  "mode": "guided"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-8-letter-e-lowercase"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-8-letter-e-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isRejectedGuidedChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-8-letter-e-lowercase"
+                      }
+                    },
+                    "actions": [
+                      {
+                        "type": "input.reject"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "correct-feedback": {
+              "entry": {
+                "type": "assessment.playCorrectFeedback",
+                "params": {
+                  "sceneId": "scene-8-letter-e-lowercase",
+                  "letterRole": "lowercase-e",
+                  "collectionVideoSceneId": "scene-3-letter-d-lowercase"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-8-letter-e-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.scene-9-letter-a-capital"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-8-letter-e-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            }
+          }
+        },
+        "scene-9-letter-a-capital": {
+          "type": "compound",
+          "entry": {
+            "type": "initializeAssessment",
+            "params": {
+              "sceneId": "scene-9-letter-a-capital"
+            }
+          },
+          "exit": {
+            "type": "cleanupScene",
+            "params": {
+              "sceneId": "scene-9-letter-a-capital"
+            }
+          },
+          "initial": "loading-item",
+          "states": {
+            "loading-item": {
+              "entry": {
+                "type": "assessment.loadItem",
+                "params": {
+                  "sceneId": "scene-9-letter-a-capital",
+                  "itemOffset": 6,
+                  "randomize": true
+                }
+              },
+              "on": {
+                "ASSESSMENT.ITEM.READY": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-9-letter-a-capital"
+                    }
+                  },
+                  "target": "prompting"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-9-letter-a-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "prompting": {
+              "entry": {
+                "type": "assessment.playPrompt",
+                "params": {
+                  "sceneId": "scene-9-letter-a-capital",
+                  "letterRole": "capital-a"
+                }
+              },
+              "on": {
+                "PROMPT.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-9-letter-a-capital"
+                    }
+                  },
+                  "target": "first-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-9-letter-a-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "first-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-9-letter-a-capital",
+                  "letterRole": "capital-a",
+                  "mode": "first"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-9-letter-a-capital"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-9-letter-a-capital"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-9-letter-a-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-9-letter-a-capital"
+                      }
+                    },
+                    "target": "first-incorrect-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-9-letter-a-capital"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-9-letter-a-capital"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-9-letter-a-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "first-incorrect-feedback": {
+              "entry": {
+                "type": "assessment.playFirstIncorrectFeedback",
+                "params": {
+                  "sceneId": "scene-9-letter-a-capital",
+                  "letterRole": "capital-a"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-9-letter-a-capital"
+                    }
+                  },
+                  "target": "second-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-9-letter-a-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "second-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-9-letter-a-capital",
+                  "letterRole": "capital-a",
+                  "mode": "second"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-9-letter-a-capital"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-9-letter-a-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-9-letter-a-capital"
+                      }
+                    },
+                    "target": "guided-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-9-letter-a-capital"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-9-letter-a-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "guided-feedback": {
+              "entry": {
+                "type": "assessment.playGuidedFeedback",
+                "params": {
+                  "sceneId": "scene-9-letter-a-capital",
+                  "letterRole": "capital-a"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-9-letter-a-capital"
+                    }
+                  },
+                  "target": "guided-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-9-letter-a-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "guided-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-9-letter-a-capital",
+                  "letterRole": "capital-a",
+                  "mode": "guided"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-9-letter-a-capital"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-9-letter-a-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isRejectedGuidedChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-9-letter-a-capital"
+                      }
+                    },
+                    "actions": [
+                      {
+                        "type": "input.reject"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "correct-feedback": {
+              "entry": {
+                "type": "assessment.playCorrectFeedback",
+                "params": {
+                  "sceneId": "scene-9-letter-a-capital",
+                  "letterRole": "capital-a",
+                  "collectionVideoSceneId": "scene-3-letter-d-lowercase"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-9-letter-a-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.scene-10-letter-c-lowercase"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-9-letter-a-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            }
+          }
+        },
+        "scene-10-letter-c-lowercase": {
+          "type": "compound",
+          "entry": {
+            "type": "initializeAssessment",
+            "params": {
+              "sceneId": "scene-10-letter-c-lowercase"
+            }
+          },
+          "exit": {
+            "type": "cleanupScene",
+            "params": {
+              "sceneId": "scene-10-letter-c-lowercase"
+            }
+          },
+          "initial": "loading-item",
+          "states": {
+            "loading-item": {
+              "entry": {
+                "type": "assessment.loadItem",
+                "params": {
+                  "sceneId": "scene-10-letter-c-lowercase",
+                  "itemOffset": 7,
+                  "randomize": true
+                }
+              },
+              "on": {
+                "ASSESSMENT.ITEM.READY": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-10-letter-c-lowercase"
+                    }
+                  },
+                  "target": "prompting"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-10-letter-c-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "prompting": {
+              "entry": {
+                "type": "assessment.playPrompt",
+                "params": {
+                  "sceneId": "scene-10-letter-c-lowercase",
+                  "letterRole": "lowercase-c"
+                }
+              },
+              "on": {
+                "PROMPT.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-10-letter-c-lowercase"
+                    }
+                  },
+                  "target": "first-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-10-letter-c-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "first-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-10-letter-c-lowercase",
+                  "letterRole": "lowercase-c",
+                  "mode": "first"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-10-letter-c-lowercase"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-10-letter-c-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-10-letter-c-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-10-letter-c-lowercase"
+                      }
+                    },
+                    "target": "first-incorrect-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-10-letter-c-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-10-letter-c-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-10-letter-c-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "first-incorrect-feedback": {
+              "entry": {
+                "type": "assessment.playFirstIncorrectFeedback",
+                "params": {
+                  "sceneId": "scene-10-letter-c-lowercase",
+                  "letterRole": "lowercase-c"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-10-letter-c-lowercase"
+                    }
+                  },
+                  "target": "second-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-10-letter-c-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "second-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-10-letter-c-lowercase",
+                  "letterRole": "lowercase-c",
+                  "mode": "second"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-10-letter-c-lowercase"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-10-letter-c-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-10-letter-c-lowercase"
+                      }
+                    },
+                    "target": "guided-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-10-letter-c-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-10-letter-c-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "guided-feedback": {
+              "entry": {
+                "type": "assessment.playGuidedFeedback",
+                "params": {
+                  "sceneId": "scene-10-letter-c-lowercase",
+                  "letterRole": "lowercase-c"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-10-letter-c-lowercase"
+                    }
+                  },
+                  "target": "guided-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-10-letter-c-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "guided-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-10-letter-c-lowercase",
+                  "letterRole": "lowercase-c",
+                  "mode": "guided"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-10-letter-c-lowercase"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-10-letter-c-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isRejectedGuidedChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-10-letter-c-lowercase"
+                      }
+                    },
+                    "actions": [
+                      {
+                        "type": "input.reject"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "correct-feedback": {
+              "entry": {
+                "type": "assessment.playCorrectFeedback",
+                "params": {
+                  "sceneId": "scene-10-letter-c-lowercase",
+                  "letterRole": "lowercase-c",
+                  "collectionVideoSceneId": "scene-3-letter-d-lowercase"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-10-letter-c-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.scene-11-letter-d-capital"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-10-letter-c-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            }
+          }
+        },
+        "scene-11-letter-d-capital": {
+          "type": "compound",
+          "entry": {
+            "type": "initializeAssessment",
+            "params": {
+              "sceneId": "scene-11-letter-d-capital"
+            }
+          },
+          "exit": {
+            "type": "cleanupScene",
+            "params": {
+              "sceneId": "scene-11-letter-d-capital"
+            }
+          },
+          "initial": "loading-item",
+          "states": {
+            "loading-item": {
+              "entry": {
+                "type": "assessment.loadItem",
+                "params": {
+                  "sceneId": "scene-11-letter-d-capital",
+                  "itemOffset": 8,
+                  "randomize": true
+                }
+              },
+              "on": {
+                "ASSESSMENT.ITEM.READY": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-11-letter-d-capital"
+                    }
+                  },
+                  "target": "prompting"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-11-letter-d-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "prompting": {
+              "entry": {
+                "type": "assessment.playPrompt",
+                "params": {
+                  "sceneId": "scene-11-letter-d-capital",
+                  "letterRole": "capital-d"
+                }
+              },
+              "on": {
+                "PROMPT.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-11-letter-d-capital"
+                    }
+                  },
+                  "target": "first-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-11-letter-d-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "first-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-11-letter-d-capital",
+                  "letterRole": "capital-d",
+                  "mode": "first"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-11-letter-d-capital"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-11-letter-d-capital"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-11-letter-d-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-11-letter-d-capital"
+                      }
+                    },
+                    "target": "first-incorrect-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-11-letter-d-capital"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-11-letter-d-capital"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-11-letter-d-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "first-incorrect-feedback": {
+              "entry": {
+                "type": "assessment.playFirstIncorrectFeedback",
+                "params": {
+                  "sceneId": "scene-11-letter-d-capital",
+                  "letterRole": "capital-d"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-11-letter-d-capital"
+                    }
+                  },
+                  "target": "second-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-11-letter-d-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "second-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-11-letter-d-capital",
+                  "letterRole": "capital-d",
+                  "mode": "second"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-11-letter-d-capital"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-11-letter-d-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-11-letter-d-capital"
+                      }
+                    },
+                    "target": "guided-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-11-letter-d-capital"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-11-letter-d-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "guided-feedback": {
+              "entry": {
+                "type": "assessment.playGuidedFeedback",
+                "params": {
+                  "sceneId": "scene-11-letter-d-capital",
+                  "letterRole": "capital-d"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-11-letter-d-capital"
+                    }
+                  },
+                  "target": "guided-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-11-letter-d-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "guided-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-11-letter-d-capital",
+                  "letterRole": "capital-d",
+                  "mode": "guided"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-11-letter-d-capital"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-11-letter-d-capital"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isRejectedGuidedChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-11-letter-d-capital"
+                      }
+                    },
+                    "actions": [
+                      {
+                        "type": "input.reject"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "correct-feedback": {
+              "entry": {
+                "type": "assessment.playCorrectFeedback",
+                "params": {
+                  "sceneId": "scene-11-letter-d-capital",
+                  "letterRole": "capital-d",
+                  "collectionVideoSceneId": "scene-3-letter-d-lowercase"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-11-letter-d-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.scene-12-letter-b-lowercase"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-11-letter-d-capital"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            }
+          }
+        },
+        "scene-12-letter-b-lowercase": {
+          "type": "compound",
+          "entry": {
+            "type": "initializeAssessment",
+            "params": {
+              "sceneId": "scene-12-letter-b-lowercase"
+            }
+          },
+          "exit": {
+            "type": "cleanupScene",
+            "params": {
+              "sceneId": "scene-12-letter-b-lowercase"
+            }
+          },
+          "initial": "loading-item",
+          "states": {
+            "loading-item": {
+              "entry": {
+                "type": "assessment.loadItem",
+                "params": {
+                  "sceneId": "scene-12-letter-b-lowercase",
+                  "itemOffset": 9,
+                  "randomize": false
+                }
+              },
+              "on": {
+                "ASSESSMENT.ITEM.READY": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-12-letter-b-lowercase"
+                    }
+                  },
+                  "target": "prompting"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-12-letter-b-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "prompting": {
+              "entry": {
+                "type": "assessment.playPrompt",
+                "params": {
+                  "sceneId": "scene-12-letter-b-lowercase",
+                  "letterRole": "lowercase-b"
+                }
+              },
+              "on": {
+                "PROMPT.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-12-letter-b-lowercase"
+                    }
+                  },
+                  "target": "first-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-12-letter-b-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "first-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-12-letter-b-lowercase",
+                  "letterRole": "lowercase-b",
+                  "mode": "first"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-12-letter-b-lowercase"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-12-letter-b-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-12-letter-b-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-12-letter-b-lowercase"
+                      }
+                    },
+                    "target": "first-incorrect-feedback",
+                    "actions": [
+                      {
+                        "type": "round.captureFirstSelection",
+                        "params": {
+                          "sceneId": "scene-12-letter-b-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-12-letter-b-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-12-letter-b-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "first-incorrect-feedback": {
+              "entry": {
+                "type": "assessment.playFirstIncorrectFeedback",
+                "params": {
+                  "sceneId": "scene-12-letter-b-lowercase",
+                  "letterRole": "lowercase-b"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-12-letter-b-lowercase"
+                    }
+                  },
+                  "target": "second-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-12-letter-b-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "second-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-12-letter-b-lowercase",
+                  "letterRole": "lowercase-b",
+                  "mode": "second"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-12-letter-b-lowercase"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-12-letter-b-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isIncorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-12-letter-b-lowercase"
+                      }
+                    },
+                    "target": "guided-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-12-letter-b-lowercase"
+                        }
+                      },
+                      {
+                        "type": "round.incrementIncorrectAttempts",
+                        "params": {
+                          "sceneId": "scene-12-letter-b-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "guided-feedback": {
+              "entry": {
+                "type": "assessment.playGuidedFeedback",
+                "params": {
+                  "sceneId": "scene-12-letter-b-lowercase",
+                  "letterRole": "lowercase-b"
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-12-letter-b-lowercase"
+                    }
+                  },
+                  "target": "guided-choice"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-12-letter-b-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "30000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            },
+            "guided-choice": {
+              "entry": {
+                "type": "input.armChoices",
+                "params": {
+                  "sceneId": "scene-12-letter-b-lowercase",
+                  "letterRole": "lowercase-b",
+                  "mode": "guided"
+                }
+              },
+              "on": {
+                "CHOICE.SELECTED": [
+                  {
+                    "guard": {
+                      "type": "isCorrectChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-12-letter-b-lowercase"
+                      }
+                    },
+                    "target": "correct-feedback",
+                    "actions": [
+                      {
+                        "type": "round.disableSelected",
+                        "params": {
+                          "sceneId": "scene-12-letter-b-lowercase"
+                        }
+                      },
+                      {
+                        "type": "clearChoiceRepeat"
+                      }
+                    ]
+                  },
+                  {
+                    "guard": {
+                      "type": "isRejectedGuidedChoiceForScene",
+                      "params": {
+                        "sceneId": "scene-12-letter-b-lowercase"
+                      }
+                    },
+                    "actions": [
+                      {
+                        "type": "input.reject"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "correct-feedback": {
+              "entry": {
+                "type": "assessment.playCorrectFeedback",
+                "params": {
+                  "sceneId": "scene-12-letter-b-lowercase",
+                  "letterRole": "lowercase-b",
+                  "completionVideo": true
+                }
+              },
+              "on": {
+                "FEEDBACK.COMPLETED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-12-letter-b-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.complete"
+                },
+                "EFFECT.FAILED": {
+                  "guard": {
+                    "type": "isEventForScene",
+                    "params": {
+                      "sceneId": "scene-12-letter-b-lowercase"
+                    }
+                  },
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              },
+              "after": {
+                "60000": {
+                  "target": "#r1lt19L-v3.activity.failed"
+                }
+              }
+            }
+          }
+        },
+        "activity": {
+          "type": "compound",
+          "initial": "complete",
+          "states": {
+            "failed": {
+              "entry": {
+                "type": "failActivity"
+              }
+            },
+            "complete": {
+              "entry": {
+                "type": "finalizeActivity"
+              },
+              "type": "final"
+            }
+          }
+        }
+      }
+    },
+    "activityScenes": [
+      {
+        "animationKeys": [],
+        "audioKeys": [],
+        "description": "Scene 1: Intro\n <video> A video of a  colorful island with a treasure map, palm trees, and a glowing treasure chest in the distance.The treasure chest slowly opens and glows. </video>\nThe video starts playing. As the video ends, the activity will transition to the next scene",
+        "id": "scene-1-intro",
+        "imageKeys": [
+          "activity-cover"
+        ],
+        "videoKeys": [
+          "scene-1-video-island-treasure-chest"
+        ]
+      },
+      {
+        "animationKeys": [],
+        "audioKeys": [
+          "scene-2-audio-treasure-hunt-narration",
+          "scene-2-audio-letter-treasures-narration",
+          "scene-2-audio-stone-instructions-narration"
+        ],
+        "description": "Scene 2: Getting Started\nThe narrator says <audio> We are going on a treasure hunt. </audio>.\nA video of the treasure chest closing starts playing <video>The treasure chest gently closes.</video>\n\nThe narrator says <audio> Each treasure is a letter. Listen carefully and find the right ones. </audio>.\n\n<video>A video showing chest opening and letter stones rising out and jumping in place is played </video>\n\nThe narrator says <audio> In each group of stones, press and hold the correct letter to collect the treasure. </audio>.",
+        "id": "scene-2-getting-started",
+        "imageKeys": [],
+        "videoKeys": [
+          "scene-2-video-treasure-chest-closes",
+          "scene-2-video-letter-stones-rise"
+        ]
+      },
+      {
+        "animationKeys": [],
+        "audioKeys": [
+          "scene-3-audio-lowercase-b",
+          "scene-3-audio-lowercase-a",
+          "scene-3-audio-capital-d",
+          "scene-3-audio-lowercase-e",
+          "scene-3-audio-prompt-lowercase-d",
+          "scene-3-audio-correct-lowercase-d",
+          "scene-3-audio-incorrect-prefix",
+          "scene-3-audio-hint-lowercase-d"
+        ],
+        "description": "Scene 3: Letter d (lowercase)\nThe following letters are displayed on the stones : d, b, a, D, e\n<audio>lowercase b !</audio>\n<audio>lowercase a !</audio>\n<audio>capital D!</audio>\n<audio>lowercase e!</audio>\nThe narrator says <audio> Press and hold lowercase d. </audio>\nIf the correct letter is selected (letter d), the narrator says : <audio> Yes! That\u2019s lowercase d! </audio>\nif the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio>Play the audio for the letter corresponding to the incorrect letter selected</audio>Find lowercase d ! </audio>\n\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narator says:  <audio> THIS is lowercase d. Press and hold lowercase d. </audio>\n<video>Rock 1</video>\n<video>Rock 2</video>\n<video>Rock 3</video>\n<video>Rock 4</video>\n<video>Rock 5</video>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos is played, corresponding to te index of the correct rock.",
+        "id": "scene-3-letter-d-lowercase",
+        "imageKeys": [],
+        "videoKeys": [
+          "scene-3-video-rock-1",
+          "scene-3-video-rock-2",
+          "scene-3-video-rock-3",
+          "scene-3-video-rock-4",
+          "scene-3-video-rock-5"
+        ]
+      },
+      {
+        "animationKeys": [],
+        "audioKeys": [
+          "scene-4-audio-lowercase-c",
+          "scene-4-audio-lowercase-e",
+          "scene-4-audio-capital-b",
+          "scene-4-audio-capital-d",
+          "scene-4-audio-prompt-capital-c",
+          "scene-4-audio-correct-capital-c",
+          "scene-4-audio-incorrect-prefix",
+          "scene-4-audio-hint-capital-c"
+        ],
+        "description": "Scene 4: Letter C (capital)\nThe following letters are displayed on the stones: C,c,e,B, D\n<audio>lowercase c!</audio>\n<audio>lowercase e!</audio>\n<audio>capital B!</audio>\n<audio>capital D!</audio>\n\nThe narrator says <audio> Press and hold capital C. </audio>\nIf the correct letter is selected (letter C) the narrator says : <audio> Great! That\u2019s capital C ! </audio>\nif the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio>Play the audio for the letter corresponding to the incorrect letter selected </audio>Find capital C ! </audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says:   <audio> Here it is. This is capital C. Press and hold capital C.</audio>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to the index of the correct rock.",
+        "id": "scene-4-letter-c-capital",
+        "imageKeys": [],
+        "videoKeys": []
+      },
+      {
+        "animationKeys": [],
+        "audioKeys": [
+          "scene-5-audio-capital-a",
+          "scene-5-audio-capital-e",
+          "scene-5-audio-lowercase-e",
+          "scene-5-audio-lowercase-b",
+          "scene-5-audio-prompt-lowercase-a",
+          "scene-5-audio-correct-lowercase-a",
+          "scene-5-audio-incorrect-prefix",
+          "scene-5-audio-hint-lowercase-a"
+        ],
+        "description": "Scene 5: Letter a (lowercase)\nThe following letters are displayed on the stones : a, E, e, A, b\n<audio>capital A!</audio>\n<audio>capital E!</audio>\n<audio>lowercase e!</audio>\n<audio>lowercase b!</audio>\nThe narrator says <audio> Press and hold lowercase a. </audio>\nIf the correct letter is selected (letter a), the narrator says : <audio> Yes!  Lowercase a ! </audio>\nif the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio> Play the audio for the letter corresponding to the incorrect letter selected</audio>Find lowercase a! </audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says:  <audio> THIS is lowercase a. Press and hold lowercase a.</audio>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.",
+        "id": "scene-5-letter-a-lowercase",
+        "imageKeys": [],
+        "videoKeys": []
+      },
+      {
+        "animationKeys": [],
+        "audioKeys": [
+          "scene-6-audio-capital-c",
+          "scene-6-audio-lowercase-c",
+          "scene-6-audio-capital-d",
+          "scene-6-audio-lowercase-e",
+          "scene-6-audio-prompt-capital-e",
+          "scene-6-audio-correct-capital-e",
+          "scene-6-audio-incorrect-prefix",
+          "scene-6-audio-hint-capital-e"
+        ],
+        "description": "Scene 6: Letter E (capital)\n<audio>capital C !</audio>\n<audio>lowercase c !</audio>\n<audio>capital D !</audio>\n<audio>lowercase e!</audio>\nThe following letters are displayed on the stones: E, C, c, D, e\nThe narrator says <audio> Press and hold capital E. </audio>\nIf the correct letter is selected (letter E), the narrator says: <audio> Nice! Capital E ! </audio>\nif the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio> Play the audio for the letter corresponding to the incorrect letter selected </audio>Find capital E !</audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says:  <audio> THIS is capital E. Press and hold capital E.</audio>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.",
+        "id": "scene-6-letter-e-capital",
+        "imageKeys": [],
+        "videoKeys": []
+      },
+      {
+        "animationKeys": [],
+        "audioKeys": [
+          "scene-7-audio-lowercase-b",
+          "scene-7-audio-capital-d",
+          "scene-7-audio-capital-a",
+          "scene-7-audio-lowercase-c",
+          "scene-7-audio-prompt-capital-b",
+          "scene-7-audio-correct-capital-b",
+          "scene-7-audio-incorrect-prefix",
+          "scene-7-audio-hint-capital-b"
+        ],
+        "description": "Scene 7: Letter B (capital)\n<audio>lowercase b!</audio>\n<audio>capital D!</audio>\n<audio>capital A!</audio>\n<audio>lowercase c!</audio>\nThe following letters are displayed on the stones: B, b, D, A, c\nThe narrator says <audio> Press and hold capital B. </audio>\nIf the correct letter is selected (letter B) the narrator says: <audio> Yes! Capital B! </audio>\nif the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio>Play the audio for the letter corresponding to the incorrect letter selected </audio>Find capital B !</audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narattor says: <audio> THIS is capital B. Press and hold capital B. </audio>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.",
+        "id": "scene-7-letter-b-capital",
+        "imageKeys": [],
+        "videoKeys": []
+      },
+      {
+        "animationKeys": [],
+        "audioKeys": [
+          "scene-8-audio-lowercase-a",
+          "scene-8-audio-capital-c",
+          "scene-8-audio-capital-e",
+          "scene-8-audio-lowercase-d",
+          "scene-8-audio-prompt-lowercase-e",
+          "scene-8-audio-correct-lowercase-e",
+          "scene-8-audio-incorrect-prefix",
+          "scene-8-audio-hint-lowercase-e"
+        ],
+        "description": "Scene 8: Letter e (lowercase)\n<audio>lowercase a!</audio>\n<audio>capital C!</audio>\n<audio>capital E!</audio>\n<audio>lowercase d!</audio>\nThe following letters are displayed on the stones: e, a, C, E, d\nThe narrator says <audio> Press and hold lowercase e. </audio>\nIf the correct letter is selected (letter e) the narrator says: <audio> Great! Lowercase e! </audio>\nif the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio> Play the audio for the letter corresponding to the incorrect letter selected</audio>Find lowercase e !</audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says: <audio> THIS is lowercase e. Press and hold lowercase e. </audio>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.",
+        "id": "scene-8-letter-e-lowercase",
+        "imageKeys": [],
+        "videoKeys": []
+      },
+      {
+        "animationKeys": [],
+        "audioKeys": [
+          "scene-9-audio-capital-d",
+          "scene-9-audio-lowercase-a",
+          "scene-9-audio-capital-b",
+          "scene-9-audio-lowercase-e",
+          "scene-9-audio-prompt-capital-a",
+          "scene-9-audio-correct-capital-a",
+          "scene-9-audio-incorrect-prefix",
+          "scene-9-audio-hint-capital-a"
+        ],
+        "description": "Scene 9: Letter A (capital)\n<audio>capital D!</audio>\n<audio>lowercase a!</audio>\n<audio>capital B!</audio>\n<audio>lowercase e!</audio>\nThe following letters are displayed on the stones: A, D, a, B, e\nThe narrator says <audio> Press and hold capital A. </audio>\nIf the correct letter is selected (letter A), the narrator says: <audio> Yes! Capital A! </audio>\nif the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio> Play the audio for the letter corresponding to the incorrect letter selected </audio>Find capital A ! </audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says: <audio> THIS is capital A. Press and hold capital A. </audio>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.",
+        "id": "scene-9-letter-a-capital",
+        "imageKeys": [],
+        "videoKeys": []
+      },
+      {
+        "animationKeys": [],
+        "audioKeys": [
+          "scene-10-audio-lowercase-e",
+          "scene-10-audio-lowercase-a",
+          "scene-10-audio-capital-d",
+          "scene-10-audio-capital-c",
+          "scene-10-audio-prompt-lowercase-c",
+          "scene-10-audio-correct-lowercase-c",
+          "scene-10-audio-incorrect-prefix",
+          "scene-10-audio-hint-lowercase-c"
+        ],
+        "description": "Scene 10: Letter c (lowercase)\n<audio>lowercase e!</audio>\n<audio>lowercase a!</audio>\n<audio>capital D!</audio>\n<audio>capital C!</audio>\nThe following letters are displayed on the stones: c, e, a, D, C\nThe narrator says <audio> Press and hold lowercase c. </audio>\nIf the correct letter is selected (letter c), the narrator says: <audio> Super! That\u2019s lowercase c! </audio>\nif the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio> Play the audio for the letter corresponding to the incorrect letter selected </audio>Find lowercase c !</audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says: <audio> THIS is lowercase c. Press and hold lowercase c. </audio>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.",
+        "id": "scene-10-letter-c-lowercase",
+        "imageKeys": [],
+        "videoKeys": []
+      },
+      {
+        "animationKeys": [],
+        "audioKeys": [
+          "scene-11-audio-capital-b",
+          "scene-11-audio-lowercase-d",
+          "scene-11-audio-capital-e",
+          "scene-11-audio-lowercase-b",
+          "scene-11-audio-prompt-capital-d",
+          "scene-11-audio-correct-capital-d",
+          "scene-11-audio-incorrect-prefix",
+          "scene-11-audio-hint-capital-d"
+        ],
+        "description": "Scene 11: Letter D (capital)\n<audio>capital B!</audio>\n<audio>lowercase d!</audio>\n<audio>capital E!</audio>\n<audio>lowercase b!</audio>\nThe following letters are displayed on the stones: D, B, d, E, b\nThe narrator says <audio> Press and hold capital D. </audio>\nIf the correct letter is selected (letter D), the narrator says: <audio> Yes! That\u2019s capital D! </audio>\nIf the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio>Play the audio for the letter corresponding to the incorrect letter selected </audio>Find capital D !</audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says: <audio>THIS is capital D. Press and hold capital D. </audio>\nWhen the correct letter is selected, after the audio for the correct selection is played, one of the Rock 1, Rock 2, Rock 3,Rock 4 or Rock 5 videos define in Scene 3 is played, corresponding to te index of the correct rock.",
+        "id": "scene-11-letter-d-capital",
+        "imageKeys": [],
+        "videoKeys": []
+      },
+      {
+        "animationKeys": [],
+        "audioKeys": [
+          "scene-12-audio-lowercase-d",
+          "scene-12-audio-capital-d",
+          "scene-12-audio-lowercase-c",
+          "scene-12-audio-prompt-lowercase-b",
+          "scene-12-audio-correct-lowercase-b",
+          "scene-12-audio-incorrect-prefix",
+          "scene-12-audio-hint-lowercase-b",
+          "scene-12-audio-completion-narration"
+        ],
+        "description": "Scene 12: Letter b (lowercase)\n<audio>capital B!/audio>\n<audio>lowercase d!</audio>\n<audio>capital D!</audio>\n<audio>lowercase c!</audio>\nThe following letters are displayed on the stones: B, d, D, c, b\nThe narrator says <audio> Press and hold lowercase b. </audio>\nIf the correct letter is selected (letter b), the narrator says: <audio> Great! Lowercase b! </audio>\nIf the incorrect letter is selected, the narrator says:\n<audio> That\u2019s </audio>Play the audio for the letter corresponding to the incorrect letter selected </audio>Find lowercase b!</audio>\nOn the second incorrect attempt, the correct letter is highlighted with a scaling animation, all other letters get disabled and stay disabled. The audio for the corresponding incorrect letter plays. Then the narrator says: <audio> THIS is lowercase b. Press and hold lowercase b. </audio>\n\nWhen the correct letter is selected, play <video> The jewel under Rock 5 jumps back into the chest,  the chest closes and then opens again and 10 jewels float above the chest. After a short while the jewels fall back into the chest and the chest closes</video>\nAfter a 3 seconds delay , play the following audio while the video is playing <audio>Great job! You collected all the letter treasures! </audio>.",
+        "id": "scene-12-letter-b-lowercase",
+        "imageKeys": [],
+        "videoKeys": [
+          "scene-12-video-jewels-return-to-chest"
+        ]
+      }
+    ],
+    "en-US": {
+      "scene-2-audio-treasure-hunt-narration": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-2-audio-treasure-hunt-narration.mp3",
+      "scene-2-audio-letter-treasures-narration": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-2-audio-letter-treasures-narration.mp3",
+      "scene-2-audio-stone-instructions-narration": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-2-audio-stone-instructions-narration.mp3",
+      "scene-3-audio-lowercase-b": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-3-audio-lowercase-b.mp3",
+      "scene-3-audio-lowercase-a": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-3-audio-lowercase-a.mp3",
+      "scene-3-audio-capital-d": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-3-audio-capital-d.mp3",
+      "scene-3-audio-lowercase-e": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-3-audio-lowercase-e.mp3",
+      "scene-3-audio-prompt-lowercase-d": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-3-audio-prompt-lowercase-d.mp3",
+      "scene-3-audio-correct-lowercase-d": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-3-audio-correct-lowercase-d.mp3",
+      "scene-3-audio-incorrect-prefix": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-3-audio-incorrect-prefix.mp3",
+      "scene-3-audio-hint-lowercase-d": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-3-audio-hint-lowercase-d.mp3",
+      "scene-4-audio-lowercase-c": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-4-audio-lowercase-c.mp3",
+      "scene-4-audio-lowercase-e": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-4-audio-lowercase-e.mp3",
+      "scene-4-audio-capital-b": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-4-audio-capital-b.mp3",
+      "scene-4-audio-capital-d": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-4-audio-capital-d.mp3",
+      "scene-4-audio-prompt-capital-c": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-4-audio-prompt-capital-c.mp3",
+      "scene-4-audio-correct-capital-c": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-4-audio-correct-capital-c.mp3",
+      "scene-4-audio-incorrect-prefix": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-4-audio-incorrect-prefix.mp3",
+      "scene-4-audio-hint-capital-c": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-4-audio-hint-capital-c.mp3",
+      "scene-5-audio-capital-a": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-5-audio-capital-a.mp3",
+      "scene-5-audio-capital-e": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-5-audio-capital-e.mp3",
+      "scene-5-audio-lowercase-e": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-5-audio-lowercase-e.mp3",
+      "scene-5-audio-lowercase-b": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-5-audio-lowercase-b.mp3",
+      "scene-5-audio-prompt-lowercase-a": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-5-audio-prompt-lowercase-a.mp3",
+      "scene-5-audio-correct-lowercase-a": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-5-audio-correct-lowercase-a.mp3",
+      "scene-5-audio-incorrect-prefix": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-5-audio-incorrect-prefix.mp3",
+      "scene-5-audio-hint-lowercase-a": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-5-audio-hint-lowercase-a.mp3",
+      "scene-6-audio-capital-c": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-6-audio-capital-c.mp3",
+      "scene-6-audio-lowercase-c": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-6-audio-lowercase-c.mp3",
+      "scene-6-audio-capital-d": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-6-audio-capital-d.mp3",
+      "scene-6-audio-lowercase-e": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-6-audio-lowercase-e.mp3",
+      "scene-6-audio-prompt-capital-e": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-6-audio-prompt-capital-e.mp3",
+      "scene-6-audio-correct-capital-e": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-6-audio-correct-capital-e.mp3",
+      "scene-6-audio-incorrect-prefix": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-6-audio-incorrect-prefix.mp3",
+      "scene-6-audio-hint-capital-e": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-6-audio-hint-capital-e.mp3",
+      "scene-7-audio-lowercase-b": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-7-audio-lowercase-b.mp3",
+      "scene-7-audio-capital-d": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-7-audio-capital-d.mp3",
+      "scene-7-audio-capital-a": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-7-audio-capital-a.mp3",
+      "scene-7-audio-lowercase-c": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-7-audio-lowercase-c.mp3",
+      "scene-7-audio-prompt-capital-b": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-7-audio-prompt-capital-b.mp3",
+      "scene-7-audio-correct-capital-b": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-7-audio-correct-capital-b.mp3",
+      "scene-7-audio-incorrect-prefix": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-7-audio-incorrect-prefix.mp3",
+      "scene-7-audio-hint-capital-b": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-7-audio-hint-capital-b.mp3",
+      "scene-8-audio-lowercase-a": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-8-audio-lowercase-a.mp3",
+      "scene-8-audio-capital-c": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-8-audio-capital-c.mp3",
+      "scene-8-audio-capital-e": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-8-audio-capital-e.mp3",
+      "scene-8-audio-lowercase-d": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-8-audio-lowercase-d.mp3",
+      "scene-8-audio-prompt-lowercase-e": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-8-audio-prompt-lowercase-e.mp3",
+      "scene-8-audio-correct-lowercase-e": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-8-audio-correct-lowercase-e.mp3",
+      "scene-8-audio-incorrect-prefix": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-8-audio-incorrect-prefix.mp3",
+      "scene-8-audio-hint-lowercase-e": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-8-audio-hint-lowercase-e.mp3",
+      "scene-9-audio-capital-d": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-9-audio-capital-d.mp3",
+      "scene-9-audio-lowercase-a": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-9-audio-lowercase-a.mp3",
+      "scene-9-audio-capital-b": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-9-audio-capital-b.mp3",
+      "scene-9-audio-lowercase-e": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-9-audio-lowercase-e.mp3",
+      "scene-9-audio-prompt-capital-a": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-9-audio-prompt-capital-a.mp3",
+      "scene-9-audio-correct-capital-a": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-9-audio-correct-capital-a.mp3",
+      "scene-9-audio-incorrect-prefix": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-9-audio-incorrect-prefix.mp3",
+      "scene-9-audio-hint-capital-a": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-9-audio-hint-capital-a.mp3",
+      "scene-10-audio-lowercase-e": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-10-audio-lowercase-e.mp3",
+      "scene-10-audio-lowercase-a": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-10-audio-lowercase-a.mp3",
+      "scene-10-audio-capital-d": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-10-audio-capital-d.mp3",
+      "scene-10-audio-capital-c": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-10-audio-capital-c.mp3",
+      "scene-10-audio-prompt-lowercase-c": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-10-audio-prompt-lowercase-c.mp3",
+      "scene-10-audio-correct-lowercase-c": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-10-audio-correct-lowercase-c.mp3",
+      "scene-10-audio-incorrect-prefix": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-10-audio-incorrect-prefix.mp3",
+      "scene-10-audio-hint-lowercase-c": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-10-audio-hint-lowercase-c.mp3",
+      "scene-11-audio-capital-b": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-11-audio-capital-b.mp3",
+      "scene-11-audio-lowercase-d": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-11-audio-lowercase-d.mp3",
+      "scene-11-audio-capital-e": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-11-audio-capital-e.mp3",
+      "scene-11-audio-lowercase-b": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-11-audio-lowercase-b.mp3",
+      "scene-11-audio-prompt-capital-d": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-11-audio-prompt-capital-d.mp3",
+      "scene-11-audio-correct-capital-d": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-11-audio-correct-capital-d.mp3",
+      "scene-11-audio-incorrect-prefix": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-11-audio-incorrect-prefix.mp3",
+      "scene-11-audio-hint-capital-d": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-11-audio-hint-capital-d.mp3",
+      "scene-12-audio-lowercase-d": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-12-audio-lowercase-d.mp3",
+      "scene-12-audio-capital-d": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-12-audio-capital-d.mp3",
+      "scene-12-audio-lowercase-c": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-12-audio-lowercase-c.mp3",
+      "scene-12-audio-prompt-lowercase-b": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-12-audio-prompt-lowercase-b.mp3",
+      "scene-12-audio-correct-lowercase-b": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-12-audio-correct-lowercase-b.mp3",
+      "scene-12-audio-incorrect-prefix": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-12-audio-incorrect-prefix.mp3",
+      "scene-12-audio-hint-lowercase-b": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-12-audio-hint-lowercase-b.mp3",
+      "scene-12-audio-completion-narration": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/audios/english/scene-12-audio-completion-narration.mp3",
+      "activity-cover": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/images/english/activity-cover.jpg",
+      "scene-1-video-island-treasure-chest": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/videos/english/scene-1-video-island-treasure-chest.mp4",
+      "scene-2-video-treasure-chest-closes": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/videos/english/scene-2-video-treasure-chest-closes.mp4",
+      "scene-2-video-letter-stones-rise": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/videos/english/scene-2-video-letter-stones-rise.mp4",
+      "scene-3-video-rock-1": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/videos/english/scene-3-video-rock-1.mp4",
+      "scene-3-video-rock-2": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/videos/english/scene-3-video-rock-2.mp4",
+      "scene-3-video-rock-3": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/videos/english/scene-3-video-rock-3.mp4",
+      "scene-3-video-rock-4": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/videos/english/scene-3-video-rock-4.mp4",
+      "scene-3-video-rock-5": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/videos/english/scene-3-video-rock-5.mp4",
+      "scene-12-video-jewels-return-to-chest": "{{MEDIA}}/loom/r1lt19L-v3/r1lt19L-v3-1/videos/english/scene-12-video-jewels-return-to-chest.mp4"
+    }
+  }
+}

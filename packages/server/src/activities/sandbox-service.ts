@@ -15,6 +15,18 @@
  * every manifest path that is not an upload points.
  */
 import type { ModuleDocument, ModuleDocuments } from "./module-documents.js";
+import {
+  findStateMachine,
+  moduleSourceText,
+  stateMachineDocument,
+  type FoundStateMachine,
+} from "./state-machine-document.js";
+import type { StateMachineCheck, StateMachineDocument } from "./state-machine-types.js";
+import {
+  checkStateMachine,
+  implementationWarnings,
+  validateStateMachine,
+} from "./state-machine-validation.js";
 import type { MediaStat } from "./media-stats.js";
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -215,6 +227,25 @@ export abstract class ActivitySandbox extends Interface<{
     activityId: string,
     canEdit?: boolean,
   ): Promise<ModuleDocuments>;
+  /**
+   * The ref's state machine and its problems: the author's edit, else the module's own, read
+   * from the module the preview plays and then the checkout; `canEdit` as for the documents.
+   */
+  stateMachine(
+    projectId: string,
+    activityId: string,
+    canEdit?: boolean,
+  ): Promise<StateMachineDocument>;
+  /**
+   * An unsaved machine's problems against the ref's specification, each marked when the machine
+   * in effect already had it, and a warning for each implementation the module's code never
+   * mentions.
+   */
+  checkStateMachine(
+    projectId: string,
+    activityId: string,
+    definition: Record<string, unknown>,
+  ): Promise<StateMachineCheck>;
   /** The module's own assessment for a ref, as its files have it: an author's edit is ignored. */
   ownAssessment(projectId: string, activityId: string): Promise<unknown>;
   /**
@@ -472,7 +503,7 @@ export class ActivitySandboxService implements ActivitySandbox {
       definition: canEdit && canonical,
     };
     const roots = source ? [source.root] : [];
-    const document = async (kind: ModuleDocumentKind): Promise<ModuleDocument | null> => {
+    const document = async (kind: keyof typeof editable): Promise<ModuleDocument | null> => {
       const found = await this.moduleSources.document(projectId, activity, kind, roots);
       return found ? { ...found, editable: editable[kind] } : null;
     };
@@ -495,6 +526,77 @@ export class ActivitySandboxService implements ActivitySandbox {
       definition,
       canonicalRefNum,
     };
+  }
+
+  async stateMachine(
+    projectId: string,
+    activityId: string,
+    canEdit = true,
+  ): Promise<StateMachineDocument> {
+    const { activity, found, source } = await this.machineInEffect(projectId, activityId);
+    const warnings =
+      found.definition && source !== null ? implementationWarnings(found.definition, source) : [];
+    return stateMachineDocument(
+      { ...found, issues: [...found.issues, ...warnings] },
+      {
+        productCode: activity.productCode,
+        refNum: activity.refNum,
+        canEdit,
+        book: activity.activityType === "book",
+        canonicalRefNum: this.activities.productOf(activity)?.canonicalRefNum ?? null,
+      },
+    );
+  }
+
+  async checkStateMachine(
+    projectId: string,
+    activityId: string,
+    definition: Record<string, unknown>,
+  ): Promise<StateMachineCheck> {
+    const { activity, found, source } = await this.machineInEffect(projectId, activityId);
+    return checkStateMachine(
+      definition,
+      activity.draft.spec,
+      found.definition,
+      source === null ? [] : implementationWarnings(definition, source),
+    );
+  }
+
+  /**
+   * The ref's machine in effect: the author's edit, else the module's own, read from the module
+   * the preview plays and then the checkout's module folder, where Loom keeps it. With it, the
+   * module's own code from the first of those that has any, null when none does.
+   */
+  private async machineInEffect(projectId: string, activityId: string) {
+    const activity = await this.activities.getActivity(projectId, activityId);
+    const roots: string[] = [];
+    const playing = await this.moduleSource(projectId, activity);
+    if (playing) roots.push(playing.root);
+    const product = this.activities.productOf(activity);
+    const wafRoot = product ? await this.wafWorkspace.root() : null;
+    const checkout =
+      product && wafRoot ? new WafLayout(wafRoot).moduleDir(product.moduleFolder) : null;
+    if (checkout && !roots.includes(checkout)) roots.push(checkout);
+    const source = await moduleSourceText(roots);
+    const edit = await this.activities.effectiveModuleDocument(projectId, activity, "stateMachine");
+    if (!edit) {
+      const found = await findStateMachine(
+        roots,
+        activity.productCode,
+        activity.refNum,
+        activity.draft.spec,
+      );
+      return { activity, found, source };
+    }
+    const definition = edit.value as Record<string, unknown>;
+    const found: FoundStateMachine = {
+      definition,
+      issues: validateStateMachine(definition, activity.draft.spec),
+      source: "draft",
+      file: moduleDocumentPath("stateMachine", activity.productCode, activity.refNum),
+      stale: edit.stale,
+    };
+    return { activity, found, source };
   }
 
   /** The checkout's navigation bar module, or null when the checkout has none. */
@@ -742,10 +844,18 @@ export class ActivitySandboxService implements ActivitySandbox {
     // The machine and scene catalog as Loom keeps them synced, so an assembly made before
     // Penguin synced them, or an edit that predates them, still boots its state machine.
     // A book's configuration carries its reader's own catalog, compiled with the book.
+    // An author's edit of the machine stands in for the module's own, as the configuration's
+    // does, but not in a play of one module run: that plays, and checks, the machine the run built.
+    const edited =
+      activity.activityType === "book" || options.runId
+        ? undefined
+        : ((await this.moduleSources.document(projectId, activity, "stateMachine", []))?.value as
+            Record<string, unknown> | undefined);
     const machine =
       activity.activityType === "book"
         ? null
-        : await readModuleStateMachine(workspace, activity.productCode, activity.refNum);
+        : (edited ??
+          (await readModuleStateMachine(workspace, activity.productCode, activity.refNum)));
     if (machine) {
       const holder: Record<string, unknown> = { product: structuredClone(configuration) };
       syncStateMachineConfiguration(holder, "product", machine, spec);

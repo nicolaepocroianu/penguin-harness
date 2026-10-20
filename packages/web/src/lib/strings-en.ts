@@ -28,6 +28,7 @@ export const en: Strings = {
         configurationData: "Configuration",
         assessmentData: "Assessment",
         moduleDefinition: "Module",
+        stateMachine: "State machine",
         audios: "Audio",
         scenes: "Storyboard",
         activityStats: "Stats",
@@ -69,6 +70,7 @@ export const en: Strings = {
         "This module does not report its state. Modules built on Loom's state machine do; older ones, like this one, don't.",
       map: {
         toggle: "Behavior map",
+        edit: "Edit machine",
         scene: "Scene",
         loading: "Reading the module's state machine…",
         none: "This module has no state machine, so there is no behavior map to draw.",
@@ -295,6 +297,7 @@ export const en: Strings = {
         configuration: "Configuration",
         assessment: "Assessment",
         definition: "Module",
+        stateMachine: "State machine",
         features: "Features",
       },
       mediaTitle: "Media files",
@@ -1444,6 +1447,7 @@ export const en: Strings = {
       speech: "Audio",
       library: "Library",
       module: "Module",
+      stateMachine: "State machine",
       history: "History",
       deploy: "Deploy",
       newRef: "New ref",
@@ -1527,6 +1531,41 @@ export const en: Strings = {
       },
     },
     assessmentRun: "Assessment",
+    stateMachineEditor: {
+      title: "State machine",
+      about:
+        "The product's spec/state-machine.json: the scenes and phases the module moves through and what moves it on. Every ref of the product shares it, so it is edited on the canonical ref. It is checked as Loom checks it, and saved only when it names each scene of the specification. Saving writes it as Loom does and syncs it into this ref's configuration. Your edit is used in the preview and in every assembly until you discard it.",
+      field: "State machine JSON",
+      savedSide: "Saved machine",
+      saveLabel: "Save State Machine",
+      loading: "Reading the state machine…",
+      unreadable: (reason: string) => `The state machine could not be read: ${reason}`,
+      missing:
+        "This ref has no state-machine.json yet. Assembling the module writes one from the specification.",
+      fromModule: (file: string) =>
+        `${file}, this ref's own copy. Saving writes the product's machine instead and removes the copy, as Loom does.`,
+      fromProduct: (file: string) => `${file}, the product's machine, shared by every ref.`,
+      fromDraft: (file: string) => `${file}, edited in this activity.`,
+      edited: "Edited here: the preview and the next assembly use this machine.",
+      stale:
+        "The specification's scenes changed after this was edited. Check the machine still names each scene.",
+      book: "A book plays the reader's own state machine, built with the book, so it is shown here but not edited.",
+      readOnly: "Only the project's owner edits the state machine.",
+      shared: (ref: number) => `Shared by every ref. Edit it on ref ${ref}.`,
+      warning: "A warning only: it does not stop a save.",
+      noProblems: "No problems found.",
+      checking: "Checking…",
+      checkFailed: (reason: string) => `The machine could not be checked: ${reason}`,
+      problems: (n: number, unsaved: boolean) =>
+        `${n} ${n === 1 ? "problem" : "problems"} ${unsaved ? "in your edit" : "in the saved machine"}`,
+      inherited: "Already in the saved machine, so it does not stop a save.",
+      problemsLabel: "State machine problems",
+      wholeFile: "Whole file",
+      saved: "Saved the state machine.",
+      discard: "Discard edit",
+      discardConfirm: "Go back to the module's own state machine? Your edit is removed.",
+      discarded: "Discarded the edit.",
+    },
     moduleDocuments: {
       title: {
         configuration: "Configuration",

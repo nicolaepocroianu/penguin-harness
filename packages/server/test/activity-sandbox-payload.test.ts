@@ -61,7 +61,11 @@ async function sandbox(options: {
   moduleFolder?: string | null;
   canonical?: boolean;
   /** An author's edits, as the authoring service would report them for this ref. */
-  edits?: Partial<Record<"configuration" | "assessment", { value: unknown; stale: boolean }>>;
+  edits?: Partial<
+    Record<"configuration" | "assessment" | "stateMachine", { value: unknown; stale: boolean }>
+  >;
+  /** The product machine each build left, if any. */
+  machine?: (runId: string) => unknown;
   /** What a module build answers. */
   build?: { ok: boolean; log: string };
   /** The module builder, when not one whose builds answer `build` at once. */
@@ -89,6 +93,11 @@ async function sandbox(options: {
       JSON.stringify({ version: "3.0.0" }),
       "utf8",
     );
+    if (options.machine) {
+      const machineFile = path.join(moduleDir, "generated/sight-words/spec/state-machine.json");
+      await fs.mkdir(path.dirname(machineFile), { recursive: true });
+      await fs.writeFile(machineFile, JSON.stringify(options.machine(run.runId)), "utf8");
+    }
     await fs.writeFile(
       path.join(moduleDir, "configurations", "sight-words-1.json"),
       JSON.stringify(options.configuration ?? { sightWords: { intro: "Hello" } }),
@@ -124,7 +133,12 @@ async function sandbox(options: {
   const service = wiredSandbox({
     activities,
     // The real query returns only succeeded module runs; the module source filters them again.
-    generation: { list: async () => runs, moduleBuilds: async () => runs },
+    generation: {
+      list: async () => runs,
+      moduleBuilds: async () => runs,
+      run: async (_project: string, _activity: string, runId: string) =>
+        runs.find((run) => run.runId === runId) ?? null,
+    },
     root,
     wafRoot: options.wafRoot ?? null,
     builder: options.builder ?? builds.builder,
@@ -625,6 +639,30 @@ describe("the payload a preview serves", () => {
     expect(documents.assessment).toMatchObject({ edited: true, editable: false });
     expect(documents.configuration).toMatchObject({ edited: false, editable: true });
     expect(documents.canonicalRefNum).toBe(1);
+  });
+
+  it("plays an edited machine in the preview, and a named run's own machine in that run's play", async () => {
+    const machine = (description: string) => ({
+      version: "1.1",
+      id: "sight-words",
+      description,
+      initial: "intro",
+      states: {
+        intro: { on: { NEXT: "#sight-words.activity.complete" } },
+        activity: { initial: "complete", states: { complete: { type: "final" } } },
+      },
+    });
+    const { service } = await build({
+      machine: (runId) => machine(`built by ${runId}`),
+      edits: { stateMachine: { value: machine("edited"), stale: false } },
+    });
+    const preview = await service.payload(PROJECT, ACTIVITY, {});
+    const booted = (payload: { configuration: Record<string, unknown> }) =>
+      (payload.configuration.sightWords as Record<string, unknown>).stateMachine;
+    expect(booted(preview)).toEqual(machine("edited"));
+    // A play link that names the run plays, and checks, the machine that run built.
+    const played = await service.payload(PROJECT, ACTIVITY, { runId: "run_new" });
+    expect(booted(played)).toEqual(machine("built by run_new"));
   });
 
   it("serves an edited configuration in the payload", async () => {

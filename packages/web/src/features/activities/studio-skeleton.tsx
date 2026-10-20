@@ -23,6 +23,7 @@ const SHAPE: Record<WorkspaceSection, Shape> = {
   specification: "editor",
   configuration: "editor",
   module: "editor",
+  stateMachine: "editor",
   features: "list",
   assessment: "list",
   stats: "list",

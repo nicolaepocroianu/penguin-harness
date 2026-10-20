@@ -18,6 +18,7 @@ import {
   type ModuleDocumentOverride,
 } from "./domain.js";
 import { interactionType, isAssessmentData } from "./sandbox-assessment.js";
+import { checkStateMachine, machineSceneIds } from "./state-machine-validation.js";
 
 /** The largest document an author may save, serialized. */
 export const MODULE_DOCUMENT_MAX_BYTES = 1_000_000;
@@ -37,6 +38,14 @@ export function assessmentBasis(draft: Pick<ActivityDraft, "spec">): string | nu
 }
 
 /**
+ * What a state machine is derived from: the specification's scenes, each of which it must
+ * name. A change to a scene's words or media leaves it as it is.
+ */
+export function machineBasis(draft: Pick<ActivityDraft, "spec">): string | null {
+  return draft.spec ? contentRevision([...machineSceneIds(draft.spec)].sort()) : null;
+}
+
+/**
  * What a document of `kind` is derived from. The definition, like the assessment, follows the
  * specification: its id, title and theme come from there.
  */
@@ -44,12 +53,15 @@ export function documentBasis(
   kind: ModuleDocumentKind,
   draft: Pick<ActivityDraft, "spec" | "mediaPlan">,
 ): string | null {
-  return kind === "configuration" ? configurationBasis(draft) : assessmentBasis(draft);
+  if (kind === "configuration") return configurationBasis(draft);
+  if (kind === "stateMachine") return machineBasis(draft);
+  return assessmentBasis(draft);
 }
 
 /**
  * Whether every ref of a product shares the document, so only the canonical ref, which owns
- * the module code, may edit it: the assessment and the module definition.
+ * the module code, may edit it: the assessment, the module definition and the product's state
+ * machine.
  */
 export function isSharedDocument(kind: ModuleDocumentKind): boolean {
   return kind !== "configuration";
@@ -90,6 +102,42 @@ export function validateDefinition(value: unknown): Record<string, unknown> {
   )
     throw invalid(
       'A module definition needs engine "html", schemaVersion "2.0.0" and require.entry.url "entry.js".',
+    );
+  return document;
+}
+
+/** How many problems a refused state machine's message names, as Loom's does. */
+const MACHINE_PROBLEMS_SHOWN = 5;
+
+/**
+ * Validate a state machine an author saves, with Loom's checks: a 400 naming its first
+ * problems. `spec` names the scenes. `baseline` is the machine the author was editing, when
+ * there is one: a problem it already had is let through, as an assessment's is, because real
+ * Loom machines predate some of Loom's own rules (an `activity` entered at `running`) and
+ * still play. Only the problems the edit introduces refuse it.
+ */
+export function validateStateMachineDocument(
+  value: unknown,
+  spec: unknown,
+  baseline?: unknown,
+): Record<string, unknown> {
+  const document = plainObject(value);
+  withinSize(document);
+  const issues = checkStateMachine(document, spec, baseline).issues.filter(
+    (issue) => !issue.inherited,
+  );
+  if (issues.length)
+    throw new HttpError(
+      400,
+      "state_machine_invalid",
+      `Invalid activity state machine: ${issues
+        .slice(0, MACHINE_PROBLEMS_SHOWN)
+        .map((issue) => issue.message)
+        .join("; ")}${
+        issues.length > MACHINE_PROBLEMS_SHOWN
+          ? `; and ${issues.length - MACHINE_PROBLEMS_SHOWN} more`
+          : ""
+      }`,
     );
   return document;
 }
@@ -224,6 +272,78 @@ export function validateAssessment(value: unknown, baseline?: unknown): Record<s
     );
   }
   return document;
+}
+
+type Json = Record<string, unknown>;
+
+function isJson(value: unknown): value is Json {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+/** Every key path in `value`, through objects only, each as a JSON array of keys. */
+function keyPaths(value: unknown, prefix: string[] = []): string[] {
+  if (!isJson(value)) return [];
+  return Object.entries(value).flatMap(([key, item]) => {
+    const at = [...prefix, key];
+    return [JSON.stringify(at), ...keyPaths(item, at)];
+  });
+}
+
+function hasPath(value: unknown, path: readonly string[]): boolean {
+  let current = value;
+  for (const key of path) {
+    if (!isJson(current) || !Object.hasOwn(current, key)) return false;
+    current = current[key];
+  }
+  return true;
+}
+
+/**
+ * The key paths an author has removed from the machine: those of `baseline`, the machine they
+ * edited, that `value` lacks, with what they removed before (`earlier`), less what `value`
+ * has again. Each is a JSON array of keys.
+ */
+export function removedKeys(
+  baseline: unknown,
+  value: unknown,
+  earlier: readonly string[] = [],
+): string[] {
+  const removed = new Set(earlier);
+  for (const path of keyPaths(baseline)) removed.add(path);
+  return (
+    [...removed]
+      .filter((path) => !hasPath(value, JSON.parse(path) as string[]))
+      // A removed key's own keys go with it; only the outermost is kept.
+      .filter((path, _, all) => {
+        const keys = JSON.parse(path) as string[];
+        return !all.some((other) => {
+          const outer = JSON.parse(other) as string[];
+          return outer.length < keys.length && outer.every((key, index) => keys[index] === key);
+        });
+      })
+      .sort()
+  );
+}
+
+/**
+ * Whether an assembled machine kept the author's edit: everything the edit says, nothing the
+ * author removed put back, though the assembly may add to it as Loom's implement step does.
+ * A scene the specification no longer has may go, with everything in it.
+ */
+export function keepsMachineEdit(
+  written: unknown,
+  edit: ModuleDocumentOverride,
+  spec: unknown,
+): boolean {
+  const scenes = machineSceneIds(spec);
+  const kept = structuredClone(edit.value) as Json;
+  const states = isJson(kept.states) ? kept.states : {};
+  for (const name of Object.keys(states))
+    if (name !== "activity" && !scenes.has(name)) delete states[name];
+  return (
+    keepsEdit(written, kept) &&
+    (edit.removed ?? []).every((path) => !hasPath(written, JSON.parse(path) as string[]))
+  );
 }
 
 /**

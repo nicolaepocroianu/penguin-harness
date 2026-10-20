@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import templates from "./waf-templates.json" with { type: "json" };
 import type { ActivityDetail, ModuleDocumentKind } from "./domain.js";
 import { contentRevision, validateActivitySpec } from "./domain.js";
-import { keepsEdit } from "./module-overrides.js";
+import { keepsEdit, keepsMachineEdit } from "./module-overrides.js";
 import { DEFAULT_LANGUAGE_CODE, findLanguage } from "./languages.js";
 import {
   mediaConfiguration,
@@ -240,16 +240,27 @@ export function scaffoldModule(
     };
   }
   const refDir = refSpecPath(activity.productCode, activity.refNum);
+  // An author's edit of the machine is the one the assembly implements, as written.
+  const edits = activity.draft.moduleDocuments;
   const machine = bookMode
     ? bookStateMachineDefinition(String(spec.id))
-    : {
-        $schema: "https://waterford.org/schemas/activity-state-machine-1.1.json",
-        version: "1.1",
-        id: spec.id,
-        initial: scenes[0]!.id,
-        states,
-      };
-  json(`${refDir}/state-machine.json`, machine);
+    : edits?.stateMachine && activity.activityType !== "book"
+      ? structuredClone(edits.stateMachine.value)
+      : {
+          $schema: "https://waterford.org/schemas/activity-state-machine-1.1.json",
+          version: "1.1",
+          id: spec.id,
+          initial: scenes[0]!.id,
+          states,
+        };
+  // A book's reader machine is its ref's own; any other machine is the product's, every ref
+  // sharing it, where Loom keeps it and the waf-state-machine skill tells the agent to edit it.
+  json(
+    bookMode || activity.activityType === "book"
+      ? `${refDir}/state-machine.json`
+      : moduleDocumentPath("stateMachine", activity.productCode, activity.refNum),
+    machine,
+  );
   json(`${refDir}/activity_spec.json`, spec);
   const plan = activity.draft.mediaPlan;
   if (plan && plan.specRevision !== contentRevision(spec))
@@ -263,7 +274,6 @@ export function scaffoldModule(
   if (manifest) json(`${refDir}/asset_manifest.json`, wafManifest(manifest));
   // An author's edit replaces the generated document until they discard it. Assembly is the
   // canonical ref's, so its assessment is the one every ref of the product shares.
-  const edits = activity.draft.moduleDocuments;
   const configuration = structuredClone(
     edits?.configuration
       ? edits.configuration.value
@@ -450,6 +460,18 @@ export async function verifyMediaArtifacts(
     !keepsEdit(JSON.parse(await read(moduleFile("definition"))), edits.definition.value)
   )
     throw new Error("Assembly changed the edited module definition.");
+  // The assembly implements the edited machine's behavior; it may add to the machine, as
+  // Loom's implement step completes it, but never change what the author wrote. What is
+  // checked is the machine the configuration is synced from, whichever file holds it.
+  if (edits?.stateMachine && !bookMode && activity.activityType !== "book") {
+    const synced = await readModuleStateMachine(
+      path.join(workspace, "module"),
+      activity.productCode,
+      activity.refNum,
+    );
+    if (!keepsMachineEdit(synced, edits.stateMachine, activity.draft.spec))
+      throw new Error("Assembly changed the edited state machine.");
+  }
   if (!activity.draft.mediaPlan) return;
   const manifest = validateManifest(
     JSON.parse(

@@ -107,6 +107,7 @@ import {
   REF_FEATURES_FILE,
   REF_MANIFEST_FILE,
   REF_METADATA_FILE,
+  STATE_MACHINE_FILE,
   writeFeatureFile,
   writeFileAtomic,
   writeProductFiles,
@@ -135,6 +136,7 @@ import {
   type CollectionManifest,
   type ModuleDocumentKind,
   type ModuleDocumentOverride,
+  type ModuleDocumentOverrides,
   validateActivitySpec,
 } from "./domain.js";
 import {
@@ -144,6 +146,8 @@ import {
   validateAssessment,
   validateConfiguration,
   validateDefinition,
+  removedKeys,
+  validateStateMachineDocument,
 } from "./module-overrides.js";
 import { acceptedTags, normalizeTags } from "./tags.js";
 import type { ActivityPhonemes } from "./phonemes.js";
@@ -167,7 +171,15 @@ import {
 } from "./ref-template.js";
 import { adoptLoomProduct, describeAdoption, type CarriedBinding } from "./loom-adopt.js";
 import { mapProductMetadata, readLoomProduct } from "./loom-read.js";
-import { mediaSparsePath, parseRefFolderName, refMediaFolder, WafLayout } from "./waf-layout.js";
+import {
+  mediaSparsePath,
+  moduleDocumentPath,
+  parseRefFolderName,
+  refMediaFolder,
+  refSpecPath,
+  WafLayout,
+} from "./waf-layout.js";
+import { syncStateMachineConfiguration } from "./state-machine-configuration.js";
 import type { ClaimModuleProductResponse, ModuleProduct } from "./module-product-types.js";
 
 /** A run's id, as a pinned module build names one. */
@@ -1075,7 +1087,9 @@ export class ActivityService implements ActivityAuthoring {
             force: true,
           });
           if (madeConfiguration)
-            await fs.rm(this.configurationFile(activity, await this.checkout()), { force: true });
+            await fs.rm(this.moduleDocumentFile("configuration", activity, await this.checkout()), {
+              force: true,
+            });
           throw error;
         }
         await this.syncProductFiles(activity.productId!);
@@ -1283,9 +1297,10 @@ export class ActivityService implements ActivityAuthoring {
   }
   /**
    * Save an author's edit of a module document. It replaces the generated document in the
-   * preview and in every assembly until it is discarded. The assessment and the module
-   * definition are shared by every ref of the product, so only the canonical ref may edit them. `baseline` is the document the
-   * author was editing; an assessment problem it already had does not refuse the save.
+   * preview and in every assembly until it is discarded. The assessment, the module definition
+   * and the state machine are shared by every ref of the product, so only the canonical ref may
+   * edit them. `baseline` is the document the author was editing; an assessment or state
+   * machine problem it already had does not refuse the save.
    */
   async setModuleDocument(
     projectId: string,
@@ -1295,24 +1310,22 @@ export class ActivityService implements ActivityAuthoring {
     expectedRevision: string,
     baseline?: unknown,
   ): Promise<ActivityDraft> {
+    // A state machine is checked against the draft's specification, under the lock below.
     const document =
       kind === "assessment"
         ? validateAssessment(value, baseline)
         : kind === "definition"
           ? validateDefinition(value)
-          : validateConfiguration(value);
-    // Loom reads a ref's configuration from the module's own file, so the edit is written there
-    // too, and what the file held before the first edit is kept, to be put back on a discard.
-    // Read, saved and written under the draft's lock, so the file and the draft agree.
+          : kind === "configuration"
+            ? validateConfiguration(value)
+            : null;
+    // Loom reads a ref's configuration and the product's state machine from the module's own
+    // files, so the edit is written there too, and what each file held before the first edit
+    // is kept, to be put back on a discard. Read, saved and written under the draft's lock, so
+    // the files and the draft agree.
     return this.exclusive(projectId, activityId, async () => {
-      const file =
-        kind === "configuration"
-          ? this.configurationFile(
-              await this.getActivity(projectId, activityId),
-              await this.checkout(),
-            )
-          : null;
-      const before = file ? await readText(file) : null;
+      const files = await this.moduleFiles(kind, await this.getActivity(projectId, activityId));
+      let written = document;
       const changed = await this.change(
         projectId,
         activityId,
@@ -1322,31 +1335,129 @@ export class ActivityService implements ActivityAuthoring {
             throw new HttpError(
               409,
               "not_canonical",
-              `The ${kind === "definition" ? "module definition" : "assessment"} is shared by every ref of this product. Edit it on the canonical ref.`,
+              `The ${SHARED_DOCUMENT_NAMES[kind]} is shared by every ref of this product. Edit it on the canonical ref.`,
             );
-          // An edit saved before edits reached the module never wrote the file: it holds what
-          // was there before, still.
-          const earlier = draft.moduleDocuments?.[kind]?.replaced;
-          const replaced = earlier !== undefined ? earlier : before;
+          const earlier = draft.moduleDocuments?.[kind];
+          let removed: string[] | undefined;
+          if (kind === "stateMachine") {
+            if (activity.activityType === "book")
+              throw new HttpError(
+                409,
+                "book_state_machine",
+                "A book plays the reader's own state machine, which is built with the book. It cannot be edited here.",
+              );
+            written = validateStateMachineDocument(value, draft.spec, baseline);
+            removed = removedKeys(baseline ?? earlier?.value, written, earlier?.removed);
+          }
           const override: ModuleDocumentOverride = {
-            value: document,
+            value: written!,
             basis: documentBasis(kind, draft),
             editedAt: new Date().toISOString(),
-            ...(file ? { replaced } : {}),
+            ...(files ? originalsOf(kind, earlier, files) : {}),
+            ...(removed?.length ? { removed } : {}),
           };
           return { ...draft, moduleDocuments: { ...draft.moduleDocuments, [kind]: override } };
         },
       );
-      if (file) await writeFileAtomic(file, `${JSON.stringify(document, null, 2)}\n`);
+      if (files) await this.writeModuleEdit(kind, files, written!, changed.spec);
       return changed;
     });
   }
 
-  /** The module's `configurations/<pc>-<ref>.json` for this ref. */
-  private configurationFile(activity: ActivityRecord, checkout: WafLayout): string {
+  /**
+   * The module's own files an edit of `kind` writes, with what each holds now, by its path
+   * inside the module; null for a document kept only in the draft. A configuration edit
+   * writes `configurations/<pc>-<ref>.json`. A state machine edit writes what Loom's save
+   * does: the product's `spec/state-machine.json`, the ref's copy, which it removes, and the
+   * ref's configuration, whose machine and scene catalog it syncs.
+   */
+  private async moduleFiles(
+    kind: ModuleDocumentKind,
+    activity: ActivityRecord,
+  ): Promise<ModuleFiles | null> {
+    if (kind !== "configuration" && kind !== "stateMachine") return null;
+    const module = (await this.checkout()).module(this.moduleFolderOf(activity));
+    const { productCode, refNum } = activity;
+    const configuration = moduleDocumentPath("configuration", productCode, refNum);
+    const paths =
+      kind === "configuration"
+        ? { configuration }
+        : {
+            machine: moduleDocumentPath("stateMachine", productCode, refNum),
+            refCopy: `${refSpecPath(productCode, refNum)}/${STATE_MACHINE_FILE}`,
+            configuration,
+          };
+    const texts: Record<string, string | null> = {};
+    for (const relative of Object.values(paths))
+      texts[relative] = await readText(path.join(module.root, relative));
+    if (kind === "stateMachine") {
+      // Loom refuses before writing anything when the configuration is not an object.
+      const text = texts[configuration] ?? null;
+      let parsed: unknown = {};
+      try {
+        parsed = text === null ? {} : JSON.parse(text);
+      } catch {
+        parsed = null;
+      }
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+        throw new HttpError(
+          400,
+          "configuration_invalid",
+          `Module configuration "${configuration}" must be an object.`,
+        );
+    }
+    return { root: module.root, productCode, ...paths, texts };
+  }
+
+  /** Write an edit to the module's files, as Loom's save does (see moduleFiles). */
+  private async writeModuleEdit(
+    kind: ModuleDocumentKind,
+    files: ModuleFiles,
+    value: Record<string, unknown>,
+    spec: unknown,
+  ): Promise<void> {
+    const at = (relative: string) => path.join(files.root, relative);
+    const json = (data: unknown) => `${JSON.stringify(data, null, 2)}\n`;
+    if (kind === "configuration") {
+      await writeFileAtomic(at(files.configuration), json(value));
+      return;
+    }
+    await writeFileAtomic(at(files.machine!), json(value));
+    await fs.rm(at(files.refCopy!), { force: true });
+    const text = await readText(at(files.configuration));
+    const configuration = (text === null ? {} : JSON.parse(text)) as Record<string, unknown>;
+    syncStateMachineConfiguration(configuration, files.productCode, value, spec);
+    await writeFileAtomic(at(files.configuration), json(configuration));
+  }
+
+  /** Put the module's files back as they were before an edit, a file that was not there going again. */
+  private async restoreModuleFiles(
+    kind: ModuleDocumentKind,
+    activity: ActivityRecord,
+    override: ModuleDocumentOverride | undefined,
+  ): Promise<void> {
+    const originals = override ? replacedFilesOf(kind, override, activity) : null;
+    if (!originals) return;
+    const module = (await this.checkout()).module(this.moduleFolderOf(activity));
+    for (const [relative, text] of Object.entries(originals)) {
+      const file = path.join(module.root, relative);
+      if (text === null) await fs.rm(file, { force: true });
+      else await writeFileAtomic(file, text);
+    }
+  }
+
+  /**
+   * The module's own file for a document of this ref: `configurations/<pc>-<ref>.json`, or the
+   * product's `spec/state-machine.json`.
+   */
+  private moduleDocumentFile(
+    kind: ModuleDocumentKind,
+    activity: ActivityRecord,
+    checkout: WafLayout,
+  ): string {
     return checkout
       .module(this.moduleFolderOf(activity))
-      .document("configuration", activity.productCode, activity.refNum);
+      .document(kind, activity.productCode, activity.refNum);
   }
 
   /** Remove an author's edit, so the module's own document is used again. */
@@ -1365,17 +1476,11 @@ export class ActivityService implements ActivityAuthoring {
         // With nothing left the key goes too, so the draft's revision is what it was before.
         return Object.keys(kept).length ? { ...rest, moduleDocuments: kept } : rest;
       });
-      // The module's configuration file gets back what it held before the edit, as it was; a
-      // file that was not there goes again.
-      const replaced = discarded.override?.replaced;
-      if (kind === "configuration" && replaced !== undefined) {
-        const file = this.configurationFile(
-          await this.getActivity(projectId, activityId),
-          await this.checkout(),
-        );
-        if (replaced === null) await fs.rm(file, { force: true });
-        else await writeFileAtomic(file, replaced);
-      }
+      await this.restoreModuleFiles(
+        kind,
+        await this.getActivity(projectId, activityId),
+        discarded.override,
+      );
       return changed;
     });
   }
@@ -2147,6 +2252,55 @@ export class ActivityService implements ActivityAuthoring {
     expectedRevision: string,
     staleSpec = false,
   ): Promise<ActivityDraft> {
+    return this.exclusive(projectId, activityId, async () => {
+      // An edit Loom reads from the module's files is written there, or the files put back as
+      // they were, as a save or a discard of it does. The state machine is the canonical
+      // ref's, and never a book's.
+      const current = await this.getActivity(projectId, activityId);
+      const previous = current.draft.moduleDocuments ?? {};
+      const kinds = (["configuration", "stateMachine"] as const).filter(
+        (kind) =>
+          (previous[kind] || content.moduleDocuments?.[kind]) &&
+          (kind === "configuration" ||
+            (this.isCanonicalRef(current) && current.activityType !== "book")),
+      );
+      const files = new Map<ModuleDocumentKind, ModuleFiles>();
+      for (const kind of kinds)
+        if (content.moduleDocuments?.[kind]) {
+          const found = await this.moduleFiles(kind, current);
+          if (found) files.set(kind, found);
+        }
+      const changed = await this.replaceDraftContent(
+        projectId,
+        activityId,
+        content,
+        expectedRevision,
+        staleSpec,
+        (documents) => {
+          for (const [kind, found] of files) {
+            const { replaced: _replaced, replacedFiles: _files, ...rest } = documents[kind]!;
+            documents[kind] = { ...rest, ...originalsOf(kind, previous[kind], found) };
+          }
+        },
+      );
+      for (const kind of kinds) {
+        const next = changed.moduleDocuments?.[kind];
+        const found = files.get(kind);
+        if (next && found) await this.writeModuleEdit(kind, found, next.value, changed.spec);
+        else if (!next) await this.restoreModuleFiles(kind, current, previous[kind]);
+      }
+      return changed;
+    });
+  }
+
+  private async replaceDraftContent(
+    projectId: string,
+    activityId: string,
+    content: Pick<ActivityDraft, "description" | "spec" | "mediaPlan" | "moduleDocuments">,
+    expectedRevision: string,
+    staleSpec: boolean,
+    keepFiles: (documents: ModuleDocumentOverrides) => void,
+  ): Promise<ActivityDraft> {
     return this.change(projectId, activityId, expectedRevision, (draft, activity) => {
       const { mediaPlan: _plan, moduleDocuments: _documents, ...rest } = draft;
       const next: ActivityDraft = {
@@ -2182,7 +2336,10 @@ export class ActivityService implements ActivityAuthoring {
         }
         next.mediaPlan = plan;
       }
-      if (content.moduleDocuments) next.moduleDocuments = structuredClone(content.moduleDocuments);
+      if (content.moduleDocuments) {
+        next.moduleDocuments = structuredClone(content.moduleDocuments);
+        keepFiles(next.moduleDocuments);
+      }
       return next;
     });
   }
@@ -2385,7 +2542,9 @@ export class ActivityService implements ActivityAuthoring {
    * once it has one, so it starts as Loom's own empty `{}`.
    */
   private async ensureModuleConfiguration(activity: ActivityRecord): Promise<boolean> {
-    return ensureConfigurationFile(this.configurationFile(activity, await this.checkout()));
+    return ensureConfigurationFile(
+      this.moduleDocumentFile("configuration", activity, await this.checkout()),
+    );
   }
 
   /**
@@ -3110,7 +3269,8 @@ export class ActivityService implements ActivityAuthoring {
     await fs.rm(path.dirname(await this.draftFilesDir(activity)), { recursive: true, force: true });
     const checkout = await this.checkout();
     // The module's configuration goes only when the ref brought it; one already there stays.
-    if (madeConfiguration) await fs.rm(this.configurationFile(activity, checkout), { force: true });
+    if (madeConfiguration)
+      await fs.rm(this.moduleDocumentFile("configuration", activity, checkout), { force: true });
     const media = checkout.mediaFile(refMediaFolder(activity.productCode, activity.refNum));
     if (media) await fs.rm(media, { recursive: true, force: true });
   }
@@ -3704,11 +3864,63 @@ export class ActivityService implements ActivityAuthoring {
   }
 }
 
+/** The module files an edit writes, by their paths inside the module (see moduleFiles). */
+interface ModuleFiles {
+  root: string;
+  productCode: string;
+  configuration: string;
+  machine?: string;
+  refCopy?: string;
+  /** What each file holds now; null when it is not there. */
+  texts: Record<string, string | null>;
+}
+
+/** What a refusal calls a document every ref shares. */
+const SHARED_DOCUMENT_NAMES: Record<ModuleDocumentKind, string> = {
+  configuration: "configuration",
+  assessment: "assessment",
+  definition: "module definition",
+  stateMachine: "state machine",
+};
+
+/**
+ * What an edit keeps of the module's files as they were before the first edit: once kept, it
+ * stays through later saves. A configuration keeps its one file's text; an edit saved before
+ * edits reached the module never wrote the file, so it holds what was there before, still.
+ */
+function originalsOf(
+  kind: ModuleDocumentKind,
+  earlier: ModuleDocumentOverride | undefined,
+  files: ModuleFiles,
+): Pick<ModuleDocumentOverride, "replaced" | "replacedFiles"> {
+  if (kind === "configuration")
+    return {
+      replaced:
+        earlier?.replaced !== undefined ? earlier.replaced : files.texts[files.configuration]!,
+    };
+  return { replacedFiles: earlier?.replacedFiles ?? files.texts };
+}
+
+/** The files an edit put back on a discard, by their paths inside the module; null for none. */
+function replacedFilesOf(
+  kind: ModuleDocumentKind,
+  override: ModuleDocumentOverride,
+  activity: ActivityRecord,
+): Record<string, string | null> | null {
+  if (kind === "stateMachine") return override.replacedFiles ?? null;
+  if (kind === "configuration" && override.replaced !== undefined)
+    return {
+      [moduleDocumentPath("configuration", activity.productCode, activity.refNum)]:
+        override.replaced,
+    };
+  return null;
+}
+
 /** Whether a stored draft's module document edits have the shape this server writes. */
 function validModuleDocuments(value: unknown): boolean {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   // Only the kinds this server knows are checked; another kind is kept as it is and ignored.
-  return (["configuration", "assessment", "definition"] as const).every((kind) => {
+  return (["configuration", "assessment", "definition", "stateMachine"] as const).every((kind) => {
     const entry = (value as Record<string, unknown>)[kind] as Record<string, unknown> | undefined;
     return (
       entry === undefined ||

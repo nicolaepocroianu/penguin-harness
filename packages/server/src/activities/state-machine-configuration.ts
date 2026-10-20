@@ -17,7 +17,7 @@ export const STATE_MACHINE_CONFIGURATION_KEY = "stateMachine";
 export const ACTIVITY_SCENES_CONFIGURATION_KEY = "activityScenes";
 const LEGACY_ACTIVITY_MACHINE_CONFIGURATION_KEY = "activityMachine";
 const GENERAL_SCENE_ID = "general";
-const SCAFFOLD_PLACEHOLDER_SCENE_ID = "scaffold-placeholder";
+export const SCAFFOLD_PLACEHOLDER_SCENE_ID = "scaffold-placeholder";
 
 type Json = Record<string, unknown>;
 
@@ -33,7 +33,7 @@ function keys(value: unknown): string[] {
     : [];
 }
 
-function isGeneralScene(scene: Json): boolean {
+export function isGeneralScene(scene: Json): boolean {
   const role = String(scene.role ?? "")
     .trim()
     .toLowerCase();

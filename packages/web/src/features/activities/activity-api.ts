@@ -26,6 +26,8 @@ import type {
   ModuleBuildDiff,
   ModuleBuildList,
   ModuleDocuments,
+  StateMachineCheck,
+  StateMachineDocument,
   ModuleProductsResponse,
   ProductRefNumber,
   PipelineState,
@@ -243,6 +245,16 @@ export function activityApi(projectId: string, activityId: string, send: ApiSend
         call<ActivityDraft>("PUT", `module-documents/${kind}`, { value, expectedRevision }),
       discard: (kind: ModuleDocumentKind, expectedRevision: string) =>
         call<ActivityDraft>("POST", `module-documents/${kind}/discard`, { expectedRevision }),
+    },
+    /** The ref's `spec/state-machine.json`: read with its problems, checked as typed, saved, discarded. */
+    stateMachine: {
+      read: () => get<StateMachineDocument>("state-machine"),
+      check: (definition: Record<string, unknown>) =>
+        call<StateMachineCheck>("POST", "state-machine/check", { definition }),
+      save: (definition: Record<string, unknown>, expectedRevision: string) =>
+        call<ActivityDraft>("PUT", "state-machine", { definition, expectedRevision }),
+      discard: (expectedRevision: string) =>
+        call<ActivityDraft>("POST", "state-machine/discard", { expectedRevision }),
     },
     moduleBuilds: {
       list: () => get<Partial<ModuleBuildList>>("module-builds"),

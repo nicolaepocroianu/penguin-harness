@@ -36,6 +36,9 @@ packages/server/src/activities/animation-placeholder.json
 # Loom's waf-state-machine package, kept byte for byte with waf-loom/packages/waf-state-machine
 packages/waf-state-machine/
 
+# Real Loom modules the state machine tests save over and discard back, kept byte for byte
+packages/server/test/fixtures/loom-state-machine/
+
 # third-party agent skills, kept byte for byte so skills-lock.json's hashes and `npx skills update` hold
 .agents/skills/impeccable/
 .agents/skills/web-design-guidelines/
