@@ -17,6 +17,7 @@ export type WorkspaceSection =
   | "speech"
   | "library"
   | "module"
+  | "stateMachine"
   | "history"
   | "deploy"
   | "newRef";
@@ -66,6 +67,8 @@ export function workspaceSections(state: WorkspaceState): WorkspaceSectionEntry[
     // Reachable once there is a specification to assemble from: the Build stage that
     // assembles the first module lives in this section, as planning media lives in Scenes.
     { key: "module", enabled: state.hasModule || state.hasSpec },
+    // The machine the module runs, which can be written before the first assembly uses it.
+    { key: "stateMachine", enabled: state.hasModule || state.hasSpec },
     // The module's own documents, read from whichever module the player would play.
     { key: "configuration", enabled: state.hasModule },
     { key: "assessment", enabled: state.hasModule || !!state.usesAssessment },
@@ -82,6 +85,7 @@ export function workspaceSections(state: WorkspaceState): WorkspaceSectionEntry[
   const needs: Partial<Record<WorkspaceSection, SectionPrerequisite>> = {
     speech: !state.hasSpec ? "spec" : "plan",
     module: "spec",
+    stateMachine: "spec",
     configuration: "module",
     assessment: "module",
     deploy: "module",
@@ -105,6 +109,7 @@ const PHASE_OF: Record<Exclude<WorkspaceSection, "newRef">, StudioPhase> = {
   speech: "media",
   library: "media",
   module: "build",
+  stateMachine: "build",
   configuration: "build",
   assessment: "build",
   deploy: "build",

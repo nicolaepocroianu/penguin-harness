@@ -432,6 +432,8 @@ function SceneGraph({
 }
 
 export function StateMapView({
+  revision,
+  onEdit,
   language,
   reportedScene,
   reportedPhase,
@@ -443,6 +445,10 @@ export function StateMapView({
   onOutline,
   onPin,
 }: {
+  /** The draft's revision: a saved edit of the machine is drawn again. */
+  revision?: string;
+  /** Opens the state machine's editor; absent when it cannot be opened here. */
+  onEdit?: () => void;
   /** Whether the map is shown; the header stays either way, so it can be shown again. */
   open: boolean;
   onToggle: () => void;
@@ -487,7 +493,7 @@ export function StateMapView({
     return () => {
       cancelled = true;
     };
-  }, [api, language, open]);
+  }, [api, language, open, revision]);
   // A scene change in the player takes the map with it; a scene the author picked holds
   // until then.
   useEffect(() => setChoice(null), [reportedScene]);
@@ -514,6 +520,11 @@ export function StateMapView({
         >
           {words.toggle}
         </button>
+        {onEdit && (
+          <Button size="sm" variant="ghost" onClick={onEdit}>
+            {words.edit}
+          </Button>
+        )}
         {machine && scenes.length > 0 && (
           <div role="group" aria-label={words.zoom} className="flex items-center">
             <Button

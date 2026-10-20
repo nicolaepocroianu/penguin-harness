@@ -44,6 +44,7 @@ describe("workspace sections", () => {
       "speech",
       "library",
       "module",
+      "stateMachine",
       "configuration",
       "assessment",
       "deploy",
@@ -67,6 +68,7 @@ describe("workspace sections", () => {
       "build",
       "build",
       "build",
+      "build",
       "more",
       "more",
     ]);
@@ -83,6 +85,8 @@ describe("workspace sections", () => {
       scenes: true,
       speech: false,
       module: false,
+      // The machine names the specification's scenes, so it waits for one.
+      stateMachine: false,
       library: true,
       history: true,
       // There is nothing to deploy until there is a module.

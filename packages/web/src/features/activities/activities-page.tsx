@@ -89,6 +89,7 @@ import { placeholderAssets, storyboardFrames, type StoryboardFrame } from "./sto
 import { mediaPreview } from "./media-preview";
 import { Storyboard } from "./storyboard-view";
 import { ChecksPanel } from "./checks-panel";
+import { StateMachineEditor } from "./state-machine-editor";
 import { ModuleDocumentView } from "./module-document-view";
 import { ActivityStatsView } from "./activity-stats-view";
 import { RefSwitcher } from "./ref-switcher";
@@ -1209,6 +1210,11 @@ function ActivityEditor({
                 spec={detail.draft.spec}
                 languages={languages}
                 hasMedia={!!editedManifest?.assets[language]?.length}
+                onEditMachine={
+                  sections.some((entry) => entry.key === "stateMachine" && entry.enabled)
+                    ? () => setSection("stateMachine")
+                    : undefined
+                }
                 play={{
                   scenes: scenesPlayed,
                   pick: linePick,
@@ -1820,6 +1826,18 @@ function ActivityEditor({
               }}
               onChange={(text) => draft.edit("spec", text)}
               onSave={() => void draft.save("spec")}
+            />
+          </section>
+        ) : section === "stateMachine" ? (
+          <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <StateMachineEditor
+              revision={detail.draft.contentRevision}
+              editable={editable && available}
+              onSaved={(saved, text) => {
+                // Only the draft changed; unsaved script or specification text stays.
+                draft.applyDraft(saved, "unsaved");
+                announce({ kind: "success", text });
+              }}
             />
           </section>
         ) : section === "configuration" || section === "assessment" || section === "module" ? (

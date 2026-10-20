@@ -89,6 +89,7 @@ export function SandboxPanel({
   onPick,
   hasMedia = true,
   play = NO_PLAY,
+  onEditMachine,
 }: {
   projectId: string;
   activityId: string;
@@ -102,6 +103,8 @@ export function SandboxPanel({
   /** Whether the activity has a media plan, without which there is nothing to pick. */
   hasMedia?: boolean;
   play?: PlayLink;
+  /** Opens the state machine's editor, when the author may open it. */
+  onEditMachine?: () => void;
 }) {
   const { api } = useActivityClient();
   const base = `${api.endpoint}/sandbox`;
@@ -203,6 +206,7 @@ export function SandboxPanel({
           onPick={onPick}
           hasMedia={hasMedia}
           play={play}
+          onEditMachine={onEditMachine}
         />
       )}
       {log && (
@@ -236,6 +240,7 @@ function SandboxPlayer({
   onPick,
   hasMedia,
   play,
+  onEditMachine,
 }: {
   projectId: string;
   activityId: string;
@@ -245,6 +250,7 @@ function SandboxPlayer({
   onPick?: OnPick;
   hasMedia: boolean;
   play: PlayLink;
+  onEditMachine?: () => void;
 }) {
   const own = parseResolution((spec?.runtime as Record<string, unknown> | undefined)?.resolution);
   // Another screen to try the activity at; empty plays it at its own resolution.
@@ -686,6 +692,8 @@ function SandboxPlayer({
             onLine={play.onLine}
           />
           <StateMapView
+            revision={revision}
+            onEdit={onEditMachine}
             open={showMap}
             onToggle={toggleMap}
             language={language}

@@ -17,6 +17,7 @@
 import type { ModuleDocument, ModuleDocuments } from "./module-documents.js";
 import { findStateMachine, stateMachineDocument } from "./state-machine-document.js";
 import type { StateMachineDocument } from "./state-machine-types.js";
+import { validateStateMachine } from "./state-machine-validation.js";
 import type { MediaStat } from "./media-stats.js";
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -521,16 +522,19 @@ export class ActivitySandboxService implements ActivitySandbox {
       book: activity.activityType === "book",
     };
     const edit = await this.activities.effectiveModuleDocument(projectId, activity, "stateMachine");
-    if (edit)
+    if (edit) {
+      const definition = edit.value as Record<string, unknown>;
       return stateMachineDocument(
         {
-          definition: edit.value,
-          spec: activity.draft.spec,
+          definition,
+          issues: validateStateMachine(definition, activity.draft.spec),
+          source: "draft",
           file: moduleDocumentPath("stateMachine", activity.productCode, activity.refNum),
           stale: edit.stale,
         },
         context,
       );
+    }
     // What plays first, then the checkout's module folder, where Loom keeps the machine.
     const roots: string[] = [];
     const source = await this.moduleSource(projectId, activity);

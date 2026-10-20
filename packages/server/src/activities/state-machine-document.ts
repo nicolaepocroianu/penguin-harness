@@ -10,12 +10,14 @@ import type { StateMachineDocument, StateMachineIssue } from "./state-machine-ty
 import { validateStateMachine } from "./state-machine-validation.js";
 import { moduleDocumentPath, ModuleLayout } from "./waf-layout.js";
 
-/** What was found in a module for a ref's machine. */
+/** What was found for a ref's machine: in a module, or the author's edit in the draft. */
 export interface FoundStateMachine {
   definition: Record<string, unknown> | null;
   issues: StateMachineIssue[];
-  source: "ref" | "product" | null;
+  source: "ref" | "product" | "draft" | null;
   file: string;
+  /** An edit that predates the current specification. */
+  stale?: boolean;
 }
 
 const MISSING: StateMachineIssue = {
@@ -88,22 +90,18 @@ export async function findStateMachine(
 
 /** The document the Studio reads, from what was found and who is reading. */
 export function stateMachineDocument(
-  found:
-    | FoundStateMachine
-    | { definition: Record<string, unknown>; spec: unknown; file: string; stale: boolean },
+  found: FoundStateMachine,
   context: { productCode: string; refNum: number; canEdit: boolean; book: boolean },
 ): StateMachineDocument {
-  const edited = "spec" in found;
-  const issues = edited ? validateStateMachine(found.definition, found.spec) : found.issues;
   return {
     productCode: context.productCode,
     refNum: context.refNum,
     definition: found.definition,
-    validation: { valid: issues.length === 0, issues },
-    source: edited ? "draft" : found.source,
+    validation: { valid: found.issues.length === 0, issues: found.issues },
+    source: found.source,
     file: found.file,
-    edited,
-    stale: edited ? found.stale : false,
+    edited: found.source === "draft",
+    stale: found.stale ?? false,
     editable: context.canEdit && !context.book,
     locked: context.book ? "book" : null,
   };

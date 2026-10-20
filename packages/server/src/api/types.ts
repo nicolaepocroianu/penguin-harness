@@ -6890,6 +6890,11 @@ export type {
   SummaryMilestone,
 } from "../activities/activity-summary.js";
 export type { ModuleDocument, ModuleDocuments } from "../activities/module-documents.js";
+export type {
+  StateMachineCheck,
+  StateMachineDocument,
+  StateMachineIssue,
+} from "../activities/state-machine-types.js";
 export type { MediaStat } from "../activities/media-stats.js";
 export type { ImplementationFeature } from "../activities/implementation-features.js";
 export type {
