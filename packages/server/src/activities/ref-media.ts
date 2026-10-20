@@ -195,6 +195,13 @@ export async function copyRefMedia(wafRoot: string, from: string, to: string): P
 /** Converting audio for the media repository; a test replaces it so nothing runs ffmpeg. */
 export abstract class AudioEncodePorts extends Interface<{
   wavToMp3?: (wav: Uint8Array) => Promise<Buffer>;
+  /** A clip with a stretch cut out, as MP3 (see audio-trim.ts). */
+  trimAudio?: (
+    bytes: Uint8Array,
+    range: { startSeconds: number; endSeconds: number },
+  ) => Promise<Buffer>;
+  /** How long a clip plays, in seconds; null when it cannot be read as audio. */
+  audioSeconds?: (bytes: Uint8Array) => Promise<number | null>;
 }>() {}
 
 @Component()

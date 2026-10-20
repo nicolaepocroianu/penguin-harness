@@ -58,6 +58,7 @@ import {
   requireString,
   requireValidId,
 } from "../http/validate.js";
+import { parseTrimRange, parseTrimSource, parseTrimTarget } from "./audio-trim.js";
 
 /**
  * Who runs an agent-driven stage: a Penguin agent's own model (`agentId`), or an external
@@ -1003,6 +1004,81 @@ export class ActivityRoutes {
         201,
       );
     });
+    // Loom's three audio trims. Each cuts the selected stretch out of a clip and keeps the
+    // rest as MP3: a preview first, outside the media repository, then the bound clip in place
+    // (or the preview attached as an upload).
+    app.post("/:activityId/audio-trim", async (c) => {
+      const body = await readJson(c);
+      const previewToken = optionalString(body, "previewToken", { minLen: 1, maxLen: 64 });
+      return c.json(
+        await this.activities.trimAudio(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          parseTrimTarget(body),
+          previewToken ? { previewToken } : { range: parseTrimRange(body) },
+          requireString(body, "expectedRevision", { minLen: 1, maxLen: 128 }),
+        ),
+      );
+    });
+    app.post("/:activityId/audio-trim-preview", async (c) => {
+      const body = await readJson(c);
+      return c.json(
+        await this.activities.trimAudioPreview(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          parseTrimTarget(body),
+          parseTrimSource(body),
+          parseTrimRange(body),
+        ),
+        201,
+      );
+    });
+    // Loom's trim of a file not uploaded yet. The Studio uploads first and trims the upload,
+    // so it has no caller there; it is kept for parity with Loom's API.
+    app.post("/:activityId/audio-trim-upload", async (c) => {
+      const body = await readJson(c);
+      const dataBase64 = requireString(body, "dataBase64", {
+        minLen: 1,
+        maxLen: Math.ceil(UPLOAD_MAX_BYTES / 3) * 4 + 8,
+      });
+      return c.json(
+        await this.activities.trimUploadedAudio(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          parseTrimTarget(body),
+          Buffer.from(dataBase64, "base64"),
+          parseTrimRange(body),
+        ),
+        201,
+      );
+    });
+    app.get("/:activityId/audio-trim-previews/:token", async (c) => {
+      const bytes = await this.activities.trimPreviewContent(
+        requireValidId(c, "projectId"),
+        pathParam(c, "activityId"),
+        pathParam(c, "token"),
+      );
+      return new Response(new Uint8Array(bytes), {
+        headers: {
+          "Content-Type": "audio/mpeg",
+          "Content-Length": String(bytes.byteLength),
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+          "Content-Security-Policy": "default-src 'none'; sandbox",
+          "Cross-Origin-Resource-Policy": "same-origin",
+        },
+      });
+    });
+    app.post("/:activityId/audio-trim-previews/:token/attach", async (c) =>
+      c.json(
+        await this.activities.attachTrimPreview(
+          requireValidId(c, "projectId"),
+          pathParam(c, "activityId"),
+          pathParam(c, "token"),
+        ),
+        201,
+      ),
+    );
     app.get("/:activityId/media-uploads", async (c) =>
       c.json({
         media: await this.activities.listMedia(

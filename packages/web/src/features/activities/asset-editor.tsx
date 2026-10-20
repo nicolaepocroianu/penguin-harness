@@ -14,6 +14,9 @@ import type {
   ElevenLabsVoicesProblem,
   UploadedMedia,
   VoiceOption,
+  TrimRange,
+  TrimSource,
+  TrimTarget,
 } from "@prismshadow/penguin-server/api";
 import { Button, toastSuccess, Textarea, Select } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
@@ -196,6 +199,12 @@ export function AssetEditor({
   const savedManifest = draft.state.detail?.draft.mediaPlan?.manifest;
   const onChange = (value: AssetManifest) => draft.editManifest(value);
   const onAcceptAudio = (runId: string) => draft.acceptRun(runId, "accept-audio");
+  const onTrimPreview = (target: TrimTarget, source: TrimSource, range: TrimRange) =>
+    draft.send((api) => api.media.trimPreview(target, source, range));
+  const onTrimAudio = (language: string, assetKey: string, previewToken: string) =>
+    draft.trimAudio(language, assetKey, previewToken);
+  const onAttachTrim = (previewToken: string) =>
+    draft.send((api) => api.media.attachTrim(previewToken));
   const onAcceptImage = (runId: string) => void draft.acceptRun(runId, "accept-image");
   const onAcceptText = (runId: string) => void draft.acceptRun(runId, "accept-media-text");
   const onAcceptVideo = (runId: string) => void draft.acceptRun(runId, "accept-video");
@@ -246,14 +255,18 @@ export function AssetEditor({
     `${endpoint}/runs/${encodeURIComponent(runId)}/image`;
   const videoUrl = (runId: string) => recordingUrl(endpoint, runId);
   /**
-   * Store a trimmed clip as an upload and bind the asset to it. The file is no longer the
-   * one a speech run produced, so the asset stops claiming that run's output.
+   * Cut a stretch out of the bound upload (on the server, as MP3) and bind the asset to the
+   * new upload. The file is no longer the one a speech run produced, so the asset stops
+   * claiming that run's output.
    */
-  async function trimTo(wav: Uint8Array) {
-    if (!asset) return;
-    const stored = await onUpload(
-      new File([wav as BlobPart], `${asset.key}-trimmed.wav`, { type: "audio/wav" }),
+  async function trimTo(range: TrimRange) {
+    if (!asset?.path) return;
+    const trimmed = await onTrimPreview(
+      { language, assetKey: asset.key },
+      { kind: "upload", path: asset.path },
+      range,
     );
+    const stored = await onAttachTrim(trimmed.token);
     edit((entry) => {
       entry.path = stored.path;
       delete entry.generatedAudio;
@@ -502,6 +515,10 @@ export function AssetEditor({
               onAcceptText={onAcceptText}
               onTranslate={onTranslate}
               onUpload={onUpload}
+              onTrimPreview={onTrimPreview}
+              onTrimAudio={onTrimAudio}
+              onAttachTrim={onAttachTrim}
+              draftDirty={draft.state.dirty}
               onMediaCopied={onMediaCopied}
             />
           </div>

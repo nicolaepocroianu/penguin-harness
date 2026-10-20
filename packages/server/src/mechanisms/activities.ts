@@ -22,6 +22,13 @@ import type { MediaTextTarget } from "../activities/media-text.js";
 import type { AssistProposal, ProposalChange } from "../activities/assist.js";
 import type { UploadedMedia } from "../activities/upload.js";
 import type {
+  TrimCut,
+  TrimmedAudio,
+  TrimRange,
+  TrimSource,
+  TrimTarget,
+} from "../activities/audio-trim-types.js";
+import type {
   ClaimModuleProductResponse,
   ModuleProduct,
 } from "../activities/module-product-types.js";
@@ -375,6 +382,38 @@ export abstract class ActivityAuthoring extends Interface<{
   ): Promise<{ bytes: Buffer; mimeType: string }>;
   /** Every upload of the project's live activities, newest first, with the activity that owns it. */
   projectMedia(projectId: string): Promise<ProjectMediaListing>;
+  /**
+   * Cut a stretch out of an audio asset's bound clip, in place: the clip is kept as MP3 at the
+   * asset's own path with its sidecar brought up to date, as Loom's trim of a saved clip. The
+   * cut is a preview the author heard, refused once the bound clip has changed, or a range.
+   */
+  trimAudio(
+    projectId: string,
+    activityId: string,
+    target: TrimTarget,
+    cut: TrimCut,
+    expectedRevision: string,
+  ): Promise<ActivityDraft>;
+  /** A clip with `range` cut out, kept as the card's preview outside the media repository. */
+  trimAudioPreview(
+    projectId: string,
+    activityId: string,
+    target: TrimTarget,
+    source: TrimSource,
+    range: TrimRange,
+  ): Promise<TrimmedAudio>;
+  /** A file the author has not stored yet, with `range` cut out, kept as a preview. */
+  trimUploadedAudio(
+    projectId: string,
+    activityId: string,
+    target: TrimTarget,
+    bytes: Buffer,
+    range: TrimRange,
+  ): Promise<TrimmedAudio>;
+  /** A trim preview's MP3. */
+  trimPreviewContent(projectId: string, activityId: string, token: string): Promise<Uint8Array>;
+  /** Stores a trim preview as an upload of the ref, to bind, and drops the preview. */
+  attachTrimPreview(projectId: string, activityId: string, token: string): Promise<UploadedMedia>;
   /** Copy another activity's upload into this activity's own uploads. */
   copyUpload(
     projectId: string,
