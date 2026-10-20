@@ -12,6 +12,11 @@
  *           <pc>-<ref>/                    one ref's media (see ref-media.ts)
  *       waf-activity-data/                 the activity-data repository deploys publish to
  *
+ * Product modules may also sit in a second modules root: a monorepo's `modules/` folder (such
+ * as waf-modules), whose modules share one repository and one `node_modules` at its root. An
+ * existing module folder is found there first, as Loom's module roots find it; a new one is
+ * made in the checkout's own `modules/`.
+ *
  *     <module>/
  *       definition.json
  *       configurations/<pc>-<ref>.json     the module documents a ref plays with
@@ -25,6 +30,7 @@
  * are relative with forward slashes; paths on disk are joined to a root here and nowhere
  * else, and a folder or media path chosen by stored data is checked to stay inside it.
  */
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { HttpError } from "../http/errors.js";
@@ -161,13 +167,53 @@ export interface ModuleProductPlace {
   productCode: string;
 }
 
+/**
+ * The folders in `dir`, by name, a link to a folder (a symlink, or a junction on Windows)
+ * included; none when `dir` cannot be read.
+ */
+export async function childFolders(dir: string): Promise<string[]> {
+  const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+  const folders = await Promise.all(
+    entries.map(async (entry) => {
+      if (entry.isDirectory()) return entry.name;
+      if (!entry.isSymbolicLink()) return null;
+      const target = await fs.stat(path.join(dir, entry.name)).catch(() => null);
+      return target?.isDirectory() ? entry.name : null;
+    }),
+  );
+  return folders.filter((name): name is string => name !== null).sort();
+}
+
+/**
+ * The monorepo modules folders each checkout's modules may also be in, by checkout root. The
+ * WAF workspace sets them whenever it hands out its root (see `WafWorkspace.root`), so every
+ * `new WafLayout(root)` of that root sees the same roots.
+ */
+const monorepoRoots = new Map<string, readonly string[]>();
+
+export function setMonorepoModuleRoots(wafRoot: string, roots: readonly string[]): void {
+  const key = path.resolve(wafRoot);
+  if (roots.length)
+    monorepoRoots.set(
+      key,
+      roots.map((root) => path.resolve(root)),
+    );
+  else monorepoRoots.delete(key);
+}
+
 /** One WAF checkout, at its root. */
 export class WafLayout {
-  constructor(readonly root: string) {}
+  /** Monorepo modules folders searched before `<root>/modules`. */
+  readonly monorepoModuleRoots: readonly string[];
 
-  /** The checkout a module in its `modules/` belongs to: two folders up from the module. */
-  static containing(moduleDir: string): WafLayout {
-    return new WafLayout(path.dirname(path.dirname(moduleDir)));
+  constructor(
+    readonly root: string,
+    monorepoModuleRoots?: readonly string[],
+  ) {
+    this.monorepoModuleRoots =
+      monorepoModuleRoots?.map((dir) => path.resolve(dir)) ??
+      monorepoRoots.get(path.resolve(root)) ??
+      [];
   }
 
   /** A shared repository's directory. */
@@ -180,9 +226,33 @@ export class WafLayout {
     return path.join(this.root, MODULES_DIR);
   }
 
-  /** `<root>/modules/<folder>`, or null when the folder would leave `modules/`. */
+  /** Every modules root, in the order a module folder is looked for: monorepos first. */
+  get moduleRoots(): string[] {
+    return [...this.monorepoModuleRoots, this.modulesDir];
+  }
+
+  /**
+   * A module folder's directory: the first modules root that has it, else `<root>/modules/
+   * <folder>`, where a new module is made. Null when the folder would leave its root.
+   */
   moduleDir(folder: string): string | null {
-    return withinRoot(this.modulesDir, folder) ? path.join(this.modulesDir, folder) : null;
+    if (!withinRoot(this.modulesDir, folder)) return null;
+    for (const root of this.monorepoModuleRoots) {
+      const dir = withinRoot(root, folder);
+      if (dir && existsSync(dir)) return dir;
+    }
+    return path.join(this.modulesDir, folder);
+  }
+
+  /**
+   * Whether a module folder is in a monorepo modules root: it shares that monorepo's
+   * repository, so Penguin neither clones it nor runs git in it.
+   */
+  inMonorepo(folder: string): boolean {
+    const dir = this.moduleDir(folder);
+    return (
+      dir !== null && this.monorepoModuleRoots.some((root) => withinRoot(root, folder) === dir)
+    );
   }
 
   /** The module repository in `modules/<folder>`; 400 `module_folder_invalid` when it would leave. */
@@ -199,18 +269,17 @@ export class WafLayout {
   }
 
   /**
-   * Every product in the checkout's modules, by folder then code. One module folder may hold
-   * several product codes; a folder without `generated/` is not a module and holds none.
+   * Every product in every modules root, by folder then code. One module folder may hold
+   * several product codes; a folder without `generated/` is not a module and holds none. A
+   * folder in two roots is listed once, from the root `moduleDir` finds it in.
    */
   async products(): Promise<ModuleProductPlace[]> {
-    const folders = async (dir: string) =>
-      (await fs.readdir(dir, { withFileTypes: true }).catch(() => []))
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => entry.name)
-        .sort();
+    const moduleFolders = new Set<string>();
+    for (const root of this.moduleRoots)
+      for (const folder of await childFolders(root)) moduleFolders.add(folder);
     const found: ModuleProductPlace[] = [];
-    for (const moduleFolder of await folders(this.modulesDir))
-      for (const productCode of await folders(this.module(moduleFolder).generatedDir))
+    for (const moduleFolder of [...moduleFolders].sort())
+      for (const productCode of await childFolders(this.module(moduleFolder).generatedDir))
         found.push({ moduleFolder, productCode });
     return found;
   }

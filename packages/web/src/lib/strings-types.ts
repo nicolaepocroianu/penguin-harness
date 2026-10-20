@@ -2875,6 +2875,13 @@ export type Strings = {
       externalRootMenuHint: string;
       externalRootClear: string;
       externalRootHint: string;
+      monorepo: string;
+      modulesRoot: string;
+      modulesRootPick: string;
+      modulesRootClear: string;
+      modulesRootHint: string;
+      modulesReading: (dir: string) => string;
+      modulesMissing: (dir: string) => string;
       invalid: string;
     };
     accentNames: Record<string, string>;

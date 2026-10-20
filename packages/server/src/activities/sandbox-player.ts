@@ -40,7 +40,7 @@ const sandbox = JSON.parse(document.getElementById('penguin-sandbox').textConten
 Logging.setTransport(new SandboxTransport());
 
 const pubSub = new PubSub();
-patchConfigurationRequests(sandbox.languageCode, sandbox.startSceneId);
+patchConfigurationRequests(sandbox.languageCode, sandbox.startSceneId, sandbox.playResolution);
 
 globals.initialize(pubSub);
 Services.initialize(pubSub);
@@ -309,7 +309,7 @@ function isConfigurationPath(pathname) {
     return /\/activity\/v[23]\/configuration\/activities\/(mapping|[^/]+\/version\/[^/]+)$/.test(pathname);
 }
 
-function withPreviewParams(input, languageCode, startSceneId) {
+function withPreviewParams(input, languageCode, startSceneId, resolution) {
     if (typeof input !== 'string' && !(input instanceof URL)) return input;
     try {
         const original = String(input);
@@ -317,26 +317,28 @@ function withPreviewParams(input, languageCode, startSceneId) {
         if (url.origin !== window.location.origin || !isConfigurationPath(url.pathname)) return input;
         if (languageCode) url.searchParams.set('languageCode', languageCode);
         if (startSceneId) url.searchParams.set('startSceneId', startSceneId);
+        if (resolution) url.searchParams.set('resolution', resolution);
         return /^[a-z][a-z\d+.-]*:/i.test(original) ? url.toString() : url.pathname + url.search + url.hash;
     } catch {
         return input;
     }
 }
 
-// The framework asks for "the activity"; the preview's language and start scene ride along
-// on that one request, which is where the server scopes the configuration.
-function patchConfigurationRequests(languageCode, startSceneId) {
-    if (!languageCode && !startSceneId) return;
+// The framework asks for "the activity"; the preview's language, start scene and resolution
+// ride along on that one request, which is where the server scopes the configuration, as
+// Loom's patchPreviewAwareRequests does.
+function patchConfigurationRequests(languageCode, startSceneId, resolution) {
+    if (!languageCode && !startSceneId && !resolution) return;
     const nativeFetch = window.fetch.bind(window);
     window.fetch = function fetchWithPreview(input, init) {
         if (input instanceof Request) {
-            return nativeFetch(new Request(withPreviewParams(input.url, languageCode, startSceneId), input), init);
+            return nativeFetch(new Request(withPreviewParams(input.url, languageCode, startSceneId, resolution), input), init);
         }
-        return nativeFetch(withPreviewParams(input, languageCode, startSceneId), init);
+        return nativeFetch(withPreviewParams(input, languageCode, startSceneId, resolution), init);
     };
     const nativeOpen = window.XMLHttpRequest.prototype.open;
     window.XMLHttpRequest.prototype.open = function openWithPreview(method, url, ...rest) {
-        return nativeOpen.call(this, method, withPreviewParams(url, languageCode, startSceneId), ...rest);
+        return nativeOpen.call(this, method, withPreviewParams(url, languageCode, startSceneId, resolution), ...rest);
     };
 }
 
@@ -438,6 +440,8 @@ export interface PlayerPageInput {
   refNum: number;
   hasAssessment: boolean;
   resolution: string | null;
+  /** The resolution the link asked for, which the configuration request carries; null for none. */
+  playResolution?: string | null;
   languageCode: string | null;
   startSceneId: string | null;
   /** When the page's link stops working, epoch milliseconds; null when it does not. */

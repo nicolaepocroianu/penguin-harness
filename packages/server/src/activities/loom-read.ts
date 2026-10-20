@@ -27,7 +27,12 @@ import {
   REF_SPEC_FILE,
   STATE_MACHINE_FILE,
 } from "./ref-files.js";
-import { parseRefFolderName, type ModuleLayout, type WafLayout } from "./waf-layout.js";
+import {
+  childFolders,
+  parseRefFolderName,
+  type ModuleLayout,
+  type WafLayout,
+} from "./waf-layout.js";
 
 /** What a product's metadata says, with Loom's names translated to Penguin's. */
 export interface LoomProductMetadata {
@@ -220,14 +225,13 @@ export async function readLoomProduct(
     moduleFolder,
     await readJson(path.join(productSpec, REF_METADATA_FILE), problems, "Product metadata"),
   );
-  let entries: string[] = [];
-  try {
-    entries = (await fs.readdir(module.refsDir(productCode), { withFileTypes: true }))
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name);
-  } catch {
-    problems.push("This product has no refs directory.");
-  }
+  const refsDir = module.refsDir(productCode);
+  const hasRefs = await fs
+    .stat(refsDir)
+    .then((stat) => stat.isDirectory())
+    .catch(() => false);
+  if (!hasRefs) problems.push("This product has no refs directory.");
+  const entries = hasRefs ? await childFolders(refsDir) : [];
   const refNums = entries
     .map((name) => parseRefFolderName(productCode, name))
     .filter((refNum): refNum is number => refNum !== null)

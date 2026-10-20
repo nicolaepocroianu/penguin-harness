@@ -194,6 +194,8 @@ export function buildActivityAdmin(now: number): ActivityAdminFixtures {
     wafWorkspace: {
       managed: true,
       root: "/var/lib/penguin/waf",
+      modulesRoot: null,
+      modulesRootPresent: null,
       ready: true,
       repos: (
         [
@@ -219,6 +221,7 @@ export function buildActivityAdmin(now: number): ActivityAdminFixtures {
     },
     wafSettings: {
       externalRoot: "",
+      modulesRoot: "",
       repos: {
         framework: { remote: "git@github.com:waterford/waf-framework.git", branch: "main" },
         navbar: { remote: "git@github.com:waterford/waf-navbar.git", branch: "main" },

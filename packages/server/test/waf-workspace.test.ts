@@ -18,6 +18,7 @@ import {
   defaultWafWorkspaceSettings,
   type WafWorkspaceStatus,
 } from "../src/activities/waf-workspace.js";
+import { WafLayout } from "../src/activities/waf-layout.js";
 import { FakeClones } from "./fake-clones.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser } from "./helpers.js";
 
@@ -33,6 +34,7 @@ describe("WAF workspace", () => {
     options: { autoPrepare?: boolean; diverged?: Set<string> } = {},
   ) {
     vi.stubEnv("WAF_ROOT_DIR", "");
+    vi.stubEnv("WAF_MODULES_DIR", "");
     const clones = new FakeClones();
     clones.existingRemotes = new Set(existing ?? []);
     if (options.diverged) clones.cloned = { diverged: [...options.diverged] };
@@ -268,12 +270,51 @@ describe("WAF workspace", () => {
     expect(await s.workspace.root()).toBe(await fs.realpath(root));
     expect(s.clones.ops()).not.toContain("cloneFrom");
   });
+
+  it("reads product modules from a monorepo modules folder too, and clones none of them", async () => {
+    const base = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-waf-monorepo-"));
+    cleanups.push(() => fs.rm(base, { recursive: true, force: true }));
+    const modules = path.join(base, "waf-modules", "modules");
+    await fs.mkdir(path.join(modules, "waf-module-m2ab01", "generated", "m2ab01"), {
+      recursive: true,
+    });
+    const s = await setup();
+    await prepared(s);
+    expect(
+      (await s.admin.put("/api/admin/waf-workspace/settings", { modulesRoot: modules })).status,
+    ).toBe(200);
+    const status = (await (await s.admin.get("/api/admin/waf-workspace")).json()) as {
+      status: WafWorkspaceStatus;
+    };
+    expect(status.status).toMatchObject({ modulesRoot: modules, modulesRootPresent: true });
+    const root = (await s.workspace.root())!;
+    expect(await new WafLayout(root).products()).toEqual([
+      { moduleFolder: "waf-module-m2ab01", productCode: "m2ab01" },
+    ]);
+    const before = s.clones.ops().length;
+    expect(await s.workspace.authoringModule("waf-module-m2ab01")).toBe(
+      path.join(modules, "waf-module-m2ab01"),
+    );
+    expect(s.clones.ops().length).toBe(before);
+    // A module the monorepo does not have is still the checkout's own.
+    expect(await s.workspace.authoringModule("waf-module-new")).toBe(
+      path.join(root, "modules", "waf-module-new"),
+    );
+
+    // WAF_MODULES_DIR names the folder ahead of the setting.
+    const elsewhere = path.join(base, "elsewhere");
+    vi.stubEnv("WAF_MODULES_DIR", elsewhere);
+    expect((await s.workspace.status()).modulesRoot).toBe(elsewhere);
+    expect((await s.workspace.status()).modulesRootPresent).toBe(false);
+    expect(new WafLayout((await s.workspace.root())!).monorepoModuleRoots).toEqual([]);
+  });
 });
 
 describe("WAF workspace settings", () => {
   it("rejects a relative checkout, a bad branch, and a password in a remote", () => {
     const base = defaultWafWorkspaceSettings();
     expect(() => normalizeWafWorkspaceSettings(base, { externalRoot: "waf" })).toThrow();
+    expect(() => normalizeWafWorkspaceSettings(base, { modulesRoot: "waf-modules" })).toThrow();
     expect(() =>
       normalizeWafWorkspaceSettings(base, { repos: { media: { branch: "a..b" } } }),
     ).toThrow();

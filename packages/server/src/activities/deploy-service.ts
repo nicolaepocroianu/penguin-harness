@@ -248,6 +248,22 @@ export class ActivityDeployService implements ActivityDeploys {
     return this.wafWorkspace.requireRoot();
   }
 
+  /**
+   * A product module's directory to deploy from. A module in a monorepo modules folder is
+   * refused, as Loom refuses one: it has no repository of its own, and git there would act on
+   * the whole monorepo.
+   */
+  private async deployModuleDir(folder: string): Promise<string> {
+    const checkout = new WafLayout(await this.requireWafRoot());
+    if (checkout.inMonorepo(folder))
+      throw new HttpError(
+        409,
+        "deploy_monorepo_module",
+        `${folder} is in the monorepo modules folder, which shares one repository. Penguin cannot deploy it yet.`,
+      );
+    return checkout.module(folder).root;
+  }
+
   private clones(): Clones {
     return this.ports.clones ?? gitClones();
   }
@@ -377,7 +393,7 @@ export class ActivityDeployService implements ActivityDeploys {
         );
       // The clones are the WAF workspace's: its shared repositories come from preparing it
       // (an admin's action); this adds the product's module and its media folder.
-      await this.requireWafRoot();
+      await this.deployModuleDir(facts.product.moduleFolder);
       await this.wafWorkspace.ensureModule(facts.product.moduleFolder);
       await this.wafWorkspace.ensureMedia([mediaSparsePath(facts.activity.productCode)]);
       return await this.context(projectId, activityId);
@@ -532,6 +548,7 @@ export class ActivityDeployService implements ActivityDeploys {
     const settings = this.stored();
     const secrets = this.secrets();
     const run = this.ports.runProcess;
+    const moduleDir = await this.deployModuleDir(folder);
     const checkout = new WafLayout(await this.requireWafRoot());
     const activity = facts.activity;
     // The runner checks again: another start may have begun while this one read the clones.
@@ -563,7 +580,7 @@ export class ActivityDeployService implements ActivityDeploys {
         productCode: activity.productCode,
         module: {
           folder,
-          dir: checkout.module(folder).root,
+          dir: moduleDir,
           checkDir: this.checkDir(folder),
           source,
           contentHash,
@@ -650,7 +667,7 @@ export class ActivityDeployService implements ActivityDeploys {
         productCode: facts.activity.productCode,
         module: {
           folder: product.moduleFolder,
-          dir: new WafLayout(await this.requireWafRoot()).module(product.moduleFolder).root,
+          dir: await this.deployModuleDir(product.moduleFolder),
           checkDir: this.checkDir(product.moduleFolder),
           source: null,
         },

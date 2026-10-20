@@ -472,6 +472,7 @@ router
     const repos = record(patch.repos);
     const next = { ...a.wafSettings, repos: { ...a.wafSettings.repos } };
     if (typeof patch.externalRoot === "string") next.externalRoot = patch.externalRoot.trim();
+    if (typeof patch.modulesRoot === "string") next.modulesRoot = patch.modulesRoot.trim();
     if (typeof patch.moduleRemote === "string") next.moduleRemote = patch.moduleRemote;
     for (const id of Object.keys(next.repos) as (keyof typeof next.repos)[]) {
       const r = record(repos[id]);
@@ -485,6 +486,8 @@ router
       ...a.wafWorkspace,
       managed: next.externalRoot === "",
       root: next.externalRoot || "/var/lib/penguin/waf",
+      modulesRoot: next.modulesRoot || null,
+      modulesRootPresent: next.modulesRoot ? true : null,
       repos: a.wafWorkspace.repos.map((repo) => ({
         ...repo,
         remoteMatches: next.externalRoot !== "" || repo.remote === next.repos[repo.id].remote,

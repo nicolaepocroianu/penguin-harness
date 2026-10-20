@@ -17,6 +17,7 @@
 import type { ModuleDocument, ModuleDocuments } from "./module-documents.js";
 import type { MediaStat } from "./media-stats.js";
 import { randomBytes } from "node:crypto";
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Component, Interface, Use, type Opaque } from "@prismshadow/penguin-core/kernel";
@@ -27,7 +28,13 @@ import type { Settings } from "../mechanisms/settings.js";
 import type { Config } from "../hmr/capabilities.js";
 import { Sandbox, SandboxModule } from "../sandbox/service.js";
 import { runConfinement } from "./run-sandbox.js";
-import type { ActivityDraft, ActivityRecord, ModuleDocumentKind } from "./domain.js";
+import {
+  defaultModuleFolder,
+  type ActivityDraft,
+  type ActivityRecord,
+  type ModuleDocumentKind,
+} from "./domain.js";
+import type { PlaySource } from "./play-query.js";
 import type { ModuleBuilder } from "./module-builder.js";
 import type { ActivityModuleSource, ModuleRef } from "./module-source.js";
 import type { ActivityRuns } from "./run-store.js";
@@ -163,9 +170,19 @@ export interface SandboxMediaResponse {
 
 export type { SandboxBuildReport };
 
+/** One ref a Loom play link may name: where it is open, and which module root holds it. */
+export interface PlayCandidate {
+  projectId: string;
+  activityId: string;
+  refNum: number;
+  source: PlaySource;
+}
+
 export interface PayloadOptions {
   languageCode?: string | null;
   startSceneId?: string | null;
+  /** `<width>x<height>` to play at instead of the specification's, as Loom's `resolution`. */
+  resolution?: string | null;
   /**
    * The path every sandbox route of this activity hangs off, ending in a slash. Defaults to
    * the authenticated API's; a played preview passes its own token-bearing path.
@@ -241,6 +258,31 @@ export abstract class ActivitySandbox extends Interface<{
   ): Promise<{ token: string; expiresAt: number }>;
   /** What a play token grants, or null when it is forged, expired or for another host. */
   verifyPlay(token: string, host: string): PlayTarget | null;
+  /**
+   * The activity a Loom play link names: product `productCode`, ref `refNum`, in the module
+   * root `source` when it names one. 404 `play_ref_not_open` when this project has no such
+   * ref open, 404 `play_source_mismatch` when the product's module is in the other root.
+   */
+  findPlayable(
+    projectId: string,
+    productCode: string,
+    refNum: number,
+    source: PlaySource | null,
+  ): Promise<string>;
+  /**
+   * Every ref of product `productCode` open in these projects, with the module root its
+   * module is in: what Loom's `/player.html?module=` resolves among.
+   */
+  playCandidates(projectIds: string[], productCode: string): Promise<PlayCandidate[]>;
+  /**
+   * Why a play link's `module`, `ref` or `source` does not name this activity, in words;
+   * null when they do, or name nothing. A link never switches the activity its token plays.
+   */
+  playLinkMismatch(
+    projectId: string,
+    activityId: string,
+    named: { module: string | null; ref: number | null; source: PlaySource | null },
+  ): Promise<string | null>;
   playerPage(
     projectId: string,
     activityId: string,
@@ -548,11 +590,17 @@ export class ActivitySandboxService implements ActivitySandbox {
   private async buildCheckout(moduleRoot: string) {
     const moduleFolder = path.basename(moduleRoot);
     const definition = await readJsonFile(path.join(moduleRoot, "definition.json"));
+    // The framework and media are the checkout's, wherever the module is: a monorepo's module
+    // is not two folders below the checkout root.
+    const wafRoot = await this.wafWorkspace.root();
+    const checkout = new WafLayout(wafRoot ?? path.dirname(path.dirname(moduleRoot)));
+    const mediaRoot = checkout.repo("media");
     return this.moduleBuilder.buildCheckout({
       moduleRoot,
       outputRoot: checkoutOutputRoot(this.config.root, moduleFolder),
-      frameworkRoot: WafLayout.containing(moduleRoot).repo("framework"),
+      frameworkRoot: checkout.repo("framework"),
       moduleId: typeof definition?.id === "string" ? definition.id : moduleFolder,
+      ...(existsSync(mediaRoot) ? { mediaRoot } : {}),
     });
   }
 
@@ -718,7 +766,7 @@ export class ActivitySandboxService implements ActivitySandbox {
       moduleId: declaration.id,
       title: String(spec.title ?? activity.title),
       layout: String(runtime.layout ?? "mainOnly"),
-      resolution: String(runtime.resolution ?? "640x480"),
+      resolution: options.resolution ?? String(runtime.resolution ?? "640x480"),
       declaration: resolveMediaToken(overlaid, mediaBase) as { id: string },
       navBarDeclaration: navbar.declaration,
       navBarConfiguration: navbar.configuration,
@@ -970,6 +1018,78 @@ export class ActivitySandboxService implements ActivitySandbox {
     return this.links.verify(token, host);
   }
 
+  /** The checkout's layout, read once for a request that asks about several products. */
+  private async playLayout(): Promise<WafLayout | null> {
+    const root = await this.wafWorkspace.root();
+    return root ? new WafLayout(root) : null;
+  }
+
+  /** The module root a product's module is in, as Loom's `source` names it. */
+  private playSource(activity: ActivityRecord, layout: WafLayout | null): PlaySource {
+    const folder =
+      this.activities.productOf(activity)?.moduleFolder ??
+      defaultModuleFolder(activity.productCode);
+    return layout?.inMonorepo(folder) ? "monorepo" : "legacy";
+  }
+
+  async findPlayable(
+    projectId: string,
+    productCode: string,
+    refNum: number,
+    source: PlaySource | null,
+  ): Promise<string> {
+    const activity = (await this.activities.listActivities(projectId)).find(
+      (each) => each.productCode === productCode && each.refNum === refNum,
+    );
+    if (!activity)
+      throw new HttpError(
+        404,
+        "play_ref_not_open",
+        `${productCode} ref ${refNum} is not open in this project. Open the product from the modules first.`,
+      );
+    if (source && this.playSource(activity, await this.playLayout()) !== source)
+      throw new HttpError(
+        404,
+        "play_source_mismatch",
+        `${productCode} is not in the ${source === "monorepo" ? "monorepo" : "checkout's"} modules.`,
+      );
+    return activity.id;
+  }
+
+  async playCandidates(projectIds: string[], productCode: string): Promise<PlayCandidate[]> {
+    const found: PlayCandidate[] = [];
+    const layout = await this.playLayout();
+    for (const projectId of projectIds)
+      for (const activity of await this.activities.listActivities(projectId))
+        if (activity.productCode === productCode)
+          found.push({
+            projectId,
+            activityId: activity.id,
+            refNum: activity.refNum,
+            source: this.playSource(activity, layout),
+          });
+    return found;
+  }
+
+  async playLinkMismatch(
+    projectId: string,
+    activityId: string,
+    named: { module: string | null; ref: number | null; source: PlaySource | null },
+  ): Promise<string | null> {
+    const activity = await this.activities.getActivity(projectId, activityId);
+    const plays = `This link plays ${activity.productCode} ref ${activity.refNum}`;
+    if (named.module !== null && named.module !== activity.productCode)
+      return `${plays}, not ${named.module}.`;
+    if (named.ref !== null && named.ref !== activity.refNum)
+      return `${plays}, not ref ${named.ref}.`;
+    if (
+      named.source !== null &&
+      this.playSource(activity, await this.playLayout()) !== named.source
+    )
+      return `${plays}, whose module is not in the ${named.source === "monorepo" ? "monorepo" : "checkout's"} modules.`;
+    return null;
+  }
+
   /**
    * The page that plays this activity.
    *
@@ -1056,7 +1176,10 @@ export class ActivitySandboxService implements ActivitySandbox {
           productCode: activity.productCode,
           refNum: activity.refNum,
           hasAssessment: runtime.usesAssessment === true,
-          resolution: typeof runtime.resolution === "string" ? runtime.resolution : null,
+          resolution:
+            options.resolution ??
+            (typeof runtime.resolution === "string" ? runtime.resolution : null),
+          playResolution: options.resolution ?? null,
           languageCode: options.languageCode ?? null,
           startSceneId: options.startSceneId ?? null,
           expiresAt,

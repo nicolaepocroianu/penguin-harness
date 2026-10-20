@@ -112,7 +112,8 @@ describe("playing an imported activity", () => {
     expect(redirect.status).toBe(302);
     expect(location.hostname).toBe("127.0.0.1");
     expect(location.pathname).toMatch(/^\/preview\/activity\/[^/]+\/play$/);
-    expect(location.searchParams.get("language")).toBe("en-US");
+    // The older `language` is read, and carried on under Loom's name.
+    expect(location.searchParams.get("languageCode")).toBe("en-US");
   });
 
   it("signs the App origin that asked into the link, for the page to report its state to", async () => {
@@ -190,6 +191,240 @@ describe("playing an imported activity", () => {
     const page = await onPreview(location.pathname);
     expect(page.status).toBe(500);
     expect(await page.text()).toContain("did not build");
+  });
+
+  describe("Loom's player.html query", () => {
+    /** Where the authenticated entry sends this query, or its refusal. */
+    async function play(
+      s: Awaited<ReturnType<typeof setup>>,
+      query: string,
+      at = `/api/projects/${s.projectId}/activities/${s.activityId}/sandbox/play`,
+    ) {
+      const response = await s.client.get(`${at}?${query}`);
+      if (response.status !== 302)
+        return { status: response.status, error: ((await response.json()) as any).error };
+      const location = new URL(response.headers.get("location")!);
+      return {
+        status: 302,
+        token: location.pathname.split("/")[3]!,
+        query: Object.fromEntries(location.searchParams),
+      };
+    }
+
+    it("keeps a listed languageCode, takes any other as the default, and reads `language` too", async () => {
+      const s = await setup();
+      expect((await play(s, "languageCode=es-MX")).query).toEqual({ languageCode: "es-MX" });
+      expect((await play(s, "languageCode=fr-FR")).query).toEqual({ languageCode: "en-US" });
+      expect((await play(s, "language=ro-RO")).query).toEqual({ languageCode: "ro-RO" });
+      expect((await play(s, "")).query).toEqual({});
+      expect((await play(s, "languageCode=")).query).toEqual({});
+    });
+
+    it("carries startSceneId, read from `scene` on older links", async () => {
+      const s = await setup();
+      expect((await play(s, "startSceneId=intro")).query).toEqual({ startSceneId: "intro" });
+      expect((await play(s, "scene=outro")).query).toEqual({ startSceneId: "outro" });
+    });
+
+    it("carries a resolution of the form WxH, and drops any other", async () => {
+      const s = await setup();
+      expect((await play(s, "resolution=1024x768")).query).toEqual({ resolution: "1024x768" });
+      for (const bad of ["1024", "9x9", "123456x10", "20000x100", "1024x768px"])
+        expect((await play(s, `resolution=${bad}`)).query).toEqual({});
+    });
+
+    it("refuses a ref that is not a non-negative whole number, as Loom does", async () => {
+      const s = await setup();
+      for (const bad of ["-1", "1.5", "x"])
+        expect(await play(s, `ref=${bad}`)).toMatchObject({
+          status: 400,
+          error: { code: "play_ref_invalid", message: expect.stringContaining(`"${bad}"`) },
+        });
+      expect((await play(s, "ref=1")).query).toEqual({ ref: "1" });
+    });
+
+    it("never lets module, ref or source switch the activity a link plays", async () => {
+      const s = await setup();
+      expect(await play(s, "ref=2")).toMatchObject({
+        status: 400,
+        error: { code: "play_link_mismatch", message: `This link plays ${CODE} ref 1, not ref 2.` },
+      });
+      expect(await play(s, "module=other")).toMatchObject({
+        status: 400,
+        error: { code: "play_link_mismatch" },
+      });
+      // The product is in the checkout's own modules, Loom's `legacy` root.
+      expect((await play(s, `module=${CODE}&ref=1&source=legacy`)).query).toEqual({
+        module: CODE,
+        ref: "1",
+        source: "legacy",
+      });
+      expect(await play(s, "source=monorepo")).toMatchObject({
+        status: 400,
+        error: { code: "play_link_mismatch" },
+      });
+      expect(await play(s, "source=elsewhere")).toMatchObject({
+        status: 400,
+        error: { code: "play_source_invalid" },
+      });
+    });
+
+    it("finds the activity a Loom link names by module and ref, in this project", async () => {
+      const s = await setup();
+      const at = `/api/projects/${s.projectId}/activities/sandbox/play`;
+      const found = await play(s, `module=${CODE}&ref=1&languageCode=es-MX`, at);
+      expect(found).toMatchObject({
+        status: 302,
+        query: { module: CODE, ref: "1", languageCode: "es-MX" },
+      });
+      const body = JSON.parse(
+        Buffer.from(found.token!.slice(0, found.token!.indexOf(".")), "base64url").toString(),
+      ) as { activityId: string };
+      expect(body.activityId).toBe(s.activityId);
+      expect(await play(s, `module=${CODE}&ref=1&source=legacy`, at)).toMatchObject({
+        status: 302,
+      });
+      expect(await play(s, `module=${CODE}&ref=1&source=monorepo`, at)).toMatchObject({
+        status: 404,
+        error: { code: "play_source_mismatch" },
+      });
+      expect(await play(s, `module=${CODE}&ref=7`, at)).toMatchObject({
+        status: 404,
+        error: { code: "play_ref_not_open" },
+      });
+      expect(await play(s, `module=${CODE}`, at)).toMatchObject({
+        status: 400,
+        error: { code: "play_ref_invalid", message: expect.stringContaining("Ref is required") },
+      });
+      expect(await play(s, "ref=1", at)).toMatchObject({
+        status: 400,
+        error: { code: "play_module_required" },
+      });
+    });
+
+    it("refuses on the signed page too a query that names another ref", async () => {
+      const { location, onPreview } = await setup();
+      const page = await onPreview(`${location.pathname}?ref=3`);
+      expect(page.status).toBe(400);
+      expect(await page.text()).toBe(`This link plays ${CODE} ref 1, not ref 3.`);
+      const bad = await onPreview(`${location.pathname}?ref=abc`);
+      expect(bad.status).toBe(400);
+      expect(await bad.text()).toContain('Invalid ref "abc"');
+    });
+
+    it("plays the configuration at the resolution the request carries, as Loom does", async () => {
+      const { base, onPreview } = await setup();
+      const at = `${base}activity/v3/configuration/activities/sightWords/version/1`;
+      const resolution = async (query: string) =>
+        (
+          (await (await onPreview(`${at}${query}`)).json()) as {
+            data: { attributes: { activity: { configuration: { resolution: string } } } };
+          }
+        ).data.attributes.activity.configuration.resolution;
+      expect(await resolution("?resolution=1280x720")).toBe("1280x720");
+      expect(await resolution("?resolution=huge")).toBe("640x480");
+      expect(await resolution("")).toBe("640x480");
+    });
+  });
+
+  describe("Loom's /player.html address", () => {
+    /** What /player.html answers this client with: where it sends them, or the page's words. */
+    async function player(get: (url: string) => Response | Promise<Response>, query: string) {
+      const response = await get(`/player.html?${query}`);
+      if (response.status === 302) {
+        const location = new URL(response.headers.get("location")!, "http://localhost");
+        return {
+          status: 302,
+          pathname: location.pathname,
+          query: Object.fromEntries(location.searchParams),
+        };
+      }
+      const html = await response.text();
+      return { status: response.status, message: /<p id="activity">([^<]*)<\/p>/.exec(html)?.[1] };
+    }
+
+    it("sends the ref a Loom link names to its signed play link, the query in Loom's names", async () => {
+      const s = await setup();
+      const sent = await player(
+        (url) => s.client.get(url),
+        `module=${CODE}&ref=1&languageCode=es-MX&startSceneId=intro&resolution=800x600&source=legacy`,
+      );
+      expect(sent).toMatchObject({
+        status: 302,
+        pathname: expect.stringMatching(/^\/preview\/activity\/[^/]+\/play$/),
+        query: {
+          module: CODE,
+          ref: "1",
+          languageCode: "es-MX",
+          startSceneId: "intro",
+          resolution: "800x600",
+          source: "legacy",
+        },
+      });
+      const token = sent.pathname!.split("/")[3]!;
+      const body = JSON.parse(
+        Buffer.from(token.slice(0, token.indexOf(".")), "base64url").toString(),
+      ) as { projectId: string; activityId: string };
+      expect(body).toMatchObject({ projectId: s.projectId, activityId: s.activityId });
+      // The signed page it leads to plays that ref, the query and all.
+      const page = await s.onPreview(
+        `${sent.pathname}?${new URLSearchParams(sent.query as Record<string, string>)}`,
+      );
+      // Past every check of the query: this fixture has no webpack, so the page says so.
+      expect(page.status).toBe(500);
+      expect(await page.text()).toContain("The module did not build.");
+      // An empty languageCode is absent here as on the API's own entry.
+      expect(
+        (await player((url) => s.client.get(url), `module=${CODE}&ref=1&languageCode=`)).query,
+      ).toEqual({ module: CODE, ref: "1" });
+    });
+
+    it("sends a visitor who is not signed in to sign in, as the App's pages do", async () => {
+      const s = await setup();
+      const response = await s.t.app.request(`/player.html?module=${CODE}&ref=1`);
+      expect(response.status).toBe(302);
+      expect(response.headers.get("location")).toBe("/login");
+    });
+
+    it("answers a bad ref and an unknown module with Loom's player's words", async () => {
+      const s = await setup();
+      const get = (url: string) => s.client.get(url);
+      expect(await player(get, `module=${CODE}`)).toEqual({
+        status: 400,
+        message: "Ref is required. Use a non-negative whole number.",
+      });
+      expect(await player(get, `module=${CODE}&ref=-2`)).toEqual({
+        status: 400,
+        message: "Invalid ref &quot;-2&quot;. Use a non-negative whole number.",
+      });
+      expect(await player(get, "module=rpa02233&ref=1")).toEqual({
+        status: 404,
+        message: "Failed to load module metadata for &quot;rpa02233&quot;.",
+      });
+      expect(await player(get, `module=${CODE}&ref=4`)).toEqual({
+        status: 404,
+        message: `Ref #4 is not available for &quot;${CODE}&quot;.`,
+      });
+      // The product's module is in the checkout's own modules, not a monorepo.
+      expect(await player(get, `module=${CODE}&ref=1&source=monorepo`)).toMatchObject({
+        status: 404,
+      });
+    });
+
+    it("finds only refs in projects the visitor can see, and the one project= names", async () => {
+      const s = await setup();
+      const outsider = apiClient(s.t.app, (await provisionUser(s.t.app, "play_outsider")).cookie);
+      expect(await player((url) => outsider.get(url), `module=${CODE}&ref=1`)).toMatchObject({
+        status: 404,
+      });
+      const get = (url: string) => s.client.get(url);
+      expect(await player(get, `module=${CODE}&ref=1&project=${s.projectId}`)).toMatchObject({
+        status: 302,
+      });
+      expect(await player(get, `module=${CODE}&ref=1&project=elsewhere`)).toMatchObject({
+        status: 404,
+      });
+    });
   });
 
   it("plays an assessment through, one part at a time", async () => {

@@ -30,6 +30,8 @@ function status(over: Partial<WafWorkspaceStatus> = {}): WafWorkspaceStatus {
   return {
     managed: true,
     root: "/home/waf",
+    modulesRoot: null,
+    modulesRootPresent: null,
     ready: true,
     repos: [repo("activityData"), repo("media"), repo("navbar"), repo("framework")],
     preparing: false,
@@ -44,6 +46,7 @@ function defaultSettingsForTest(): WafWorkspaceSettings {
   const github = (name: string) => `git@github.com:waterfordresearchinstitute/${name}.git`;
   return {
     externalRoot: "",
+    modulesRoot: "",
     repos: {
       framework: { remote: github("waf-framework"), branch: "v2" },
       navbar: { remote: github("waf-module-navbar"), branch: "main" },
@@ -98,14 +101,30 @@ describe("the WAF workspace page", () => {
     expect(view.canPrepare).toBe(false);
   });
 
+  it("says which monorepo modules folder it also opens, or that it is not there", () => {
+    expect(wafWorkspaceView(status()).modules).toBeNull();
+    expect(
+      wafWorkspaceView(status({ modulesRoot: "C:/waf-modules/modules", modulesRootPresent: true }))
+        .modules,
+    ).toEqual({
+      tone: "success",
+      line: "Also opening product modules from C:/waf-modules/modules",
+    });
+    expect(
+      wafWorkspaceView(status({ modulesRoot: "C:/gone", modulesRootPresent: false })).modules?.tone,
+    ).toBe("attention");
+  });
+
   it("sends only what changed, with a repository's fields grouped under it", () => {
     const saved = defaultSettingsForTest();
     const form = wafFormFromSettings(saved);
     expect(wafWorkspaceUpdate(form, saved)).toBeNull();
     form["repos.framework.branch"] = " v3 ";
     form.externalRoot = "C:/waterford";
+    form.modulesRoot = "C:/waf-modules/modules";
     expect(wafWorkspaceUpdate(form, saved)).toEqual({
       externalRoot: "C:/waterford",
+      modulesRoot: "C:/waf-modules/modules",
       repos: { framework: { branch: "v3" } },
     });
   });

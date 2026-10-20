@@ -37,7 +37,7 @@ describe("the link that plays an activity", () => {
   it("names the activity, and carries only the overrides an author chose", () => {
     expect(playUrl("p 1", "act_1")).toBe("/api/projects/p%201/activities/act_1/sandbox/play");
     expect(playUrl("p", "a", { language: "es-MX", scene: "intro" })).toBe(
-      "/api/projects/p/activities/a/sandbox/play?language=es-MX&scene=intro",
+      "/api/projects/p/activities/a/sandbox/play?languageCode=es-MX&startSceneId=intro",
     );
   });
 });

@@ -246,6 +246,7 @@ describe("previewing a module from the WAF checkout", () => {
         outputRoot: checkoutOutputRoot(penguin, FOLDER),
         frameworkRoot: path.join(waf, "framework"),
         moduleId: "sightWords",
+        mediaRoot: path.join(waf, "media"),
       },
     ]);
     expect(builds.runs).toEqual([]);

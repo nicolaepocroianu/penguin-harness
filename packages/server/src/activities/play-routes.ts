@@ -14,6 +14,7 @@
 import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
 import { Hono, type Context } from "hono";
 import { hostOnly, requestAuthority } from "../services/preview-token.js";
+import { readPlayQuery } from "./play-query.js";
 import type { ActivitySandbox, FrameworkResource, PlayTarget } from "./sandbox-service.js";
 
 /** The base every played activity's paths hang off, for one token. */
@@ -90,13 +91,26 @@ export class ActivityPlayRoutes {
 
     app.get("/:token/play", async (c) => {
       const target = c.get("target");
+      // Loom's player.html query (see play-query.ts). The token names the activity: a
+      // `module`, `ref` or `source` that names another is refused, never followed.
+      const query = readPlayQuery((name) => c.req.query(name));
+      const refused =
+        query.refError ??
+        query.sourceError ??
+        (await this.sandbox.playLinkMismatch(target.projectId, target.activityId, query));
+      if (refused)
+        return c.text(refused, 400, {
+          "Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff",
+        });
       const page = await this.sandbox.playerPage(
         target.projectId,
         target.activityId,
         playBase(c.req.param("token")),
         {
-          languageCode: c.req.query("language") ?? null,
-          startSceneId: c.req.query("scene") ?? null,
+          languageCode: query.languageCode,
+          startSceneId: query.startSceneId,
+          resolution: query.resolution,
           runId: target.runId ?? null,
         },
         target.expiresAt,
@@ -157,12 +171,14 @@ export class ActivityPlayRoutes {
 
     // The framework's configuration request, in both API versions and both shapes: by
     // product mapping and by activity version. Whatever ids it sends, the token names the
-    // activity; the language and start scene ride on the query, set by the player.
+    // activity; the language, start scene and resolution ride on the query, set by the player.
     const configuration = async (c: Context<{ Variables: { target: PlayTarget } }>) => {
       const target = c.get("target");
+      const query = readPlayQuery((name) => c.req.query(name));
       const activity = await this.sandbox.payload(target.projectId, target.activityId, {
-        languageCode: c.req.query("languageCode") ?? null,
-        startSceneId: c.req.query("startSceneId") ?? null,
+        languageCode: query.languageCode,
+        startSceneId: query.startSceneId,
+        resolution: query.resolution,
         base: playBase(c.req.param("token") ?? ""),
         runId: target.runId ?? null,
       });

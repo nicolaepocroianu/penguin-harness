@@ -8,6 +8,10 @@
  * server may be started with WAF_ROOT_DIR); then Penguin only reads its state and never
  * clones, installs or fetches into it.
  *
+ * Product modules may also come from a monorepo's modules folder (the `modulesRoot` setting,
+ * or WAF_MODULES_DIR), read beside the checkout's own `modules/`, as Loom reads its two module
+ * roots. Those modules share the monorepo's repository, so none of them is cloned here.
+ *
  * Media is large and in Git LFS, so its clone is partial and sparse: it starts with no
  * folders and gains a product's folder when that product needs it, fetching only that
  * folder's LFS objects (the approach of the media-workspaces prototype).
@@ -26,7 +30,7 @@ import { CloneDiverged, CloneError, gitClones, type Clones } from "./clone.js";
 import { sameRemote } from "./deploy-git.js";
 import { spawnDeployProcess, type DeployProcess } from "./deploy-process.js";
 import { DEPLOY_SETTINGS_KEY, normalizeRemote } from "./deploy-settings.js";
-import { findWafRoot, WAF_REPO_PATHS, WafLayout } from "./waf-layout.js";
+import { findWafRoot, setMonorepoModuleRoots, WAF_REPO_PATHS, WafLayout } from "./waf-layout.js";
 import type {
   WafRepoId,
   WafRepoStatus,
@@ -72,6 +76,7 @@ export function defaultWafWorkspaceSettings(): WafWorkspaceSettings {
   const github = (name: string) => `git@github.com:waterfordresearchinstitute/${name}.git`;
   return {
     externalRoot: "",
+    modulesRoot: "",
     repos: {
       // v2 is the framework line modules build against; the repository's default is not.
       framework: { remote: github("waf-framework"), branch: "v2" },
@@ -97,6 +102,7 @@ export function readWafWorkspaceSettings(raw: string | null): WafWorkspaceSettin
     stored = {};
   }
   if (typeof stored.externalRoot === "string") out.externalRoot = stored.externalRoot;
+  if (typeof stored.modulesRoot === "string") out.modulesRoot = stored.modulesRoot;
   if (typeof stored.moduleRemote === "string") out.moduleRemote = stored.moduleRemote;
   const repos = asGroup(stored.repos);
   for (const id of WAF_REPO_IDS) {
@@ -130,6 +136,12 @@ export function normalizeWafWorkspaceSettings(
     const root = body.externalRoot.trim();
     if (root && !path.isAbsolute(root)) throw invalid("externalRoot", "must be an absolute path.");
     out.externalRoot = root;
+  }
+  if (body.modulesRoot !== undefined) {
+    if (typeof body.modulesRoot !== "string") throw invalid("modulesRoot", "must be text.");
+    const root = body.modulesRoot.trim();
+    if (root && !path.isAbsolute(root)) throw invalid("modulesRoot", "must be an absolute path.");
+    out.modulesRoot = root;
   }
   if (body.moduleRemote !== undefined) {
     if (typeof body.moduleRemote !== "string") throw invalid("moduleRemote", "must be text.");
@@ -283,6 +295,21 @@ export class WafWorkspaceService implements WafWorkspace {
     return process.env.WAF_ROOT_DIR || this.settings().externalRoot || null;
   }
 
+  /** The monorepo modules folder when one is named, else null: WAF_MODULES_DIR, then the setting. */
+  private monorepoModules(): string | null {
+    const dir = process.env.WAF_MODULES_DIR || this.settings().modulesRoot;
+    return dir ? path.resolve(dir) : null;
+  }
+
+  /** Hands out a checkout root, with its monorepo modules folder set for every layout of it. */
+  private withModuleRoots(root: string | null): string | null {
+    if (root) {
+      const modules = this.monorepoModules();
+      setMonorepoModuleRoots(root, modules && fs.existsSync(modules) ? [modules] : []);
+    }
+    return root;
+  }
+
   private managedRoot(): string {
     return path.join(this.config.root, WAF_WORKSPACE_DIR);
   }
@@ -315,7 +342,7 @@ export class WafWorkspaceService implements WafWorkspace {
 
   async root(): Promise<string | null> {
     const external = this.external();
-    if (external) return findWafRoot(external, external);
+    if (external) return this.withModuleRoots(await findWafRoot(external, external));
     // Called on every request that needs the checkout, so only the disk is looked at; a
     // clone of the wrong remote is caught by status() and prepare(), never made by Penguin.
     const root = this.managedRoot();
@@ -325,7 +352,7 @@ export class WafWorkspaceService implements WafWorkspace {
     const ready = WAF_REPO_IDS.every(
       (id) => has(id, ".git") && (!INSTALLED.has(id) || has(id, "node_modules")),
     );
-    return ready ? root : null;
+    return this.withModuleRoots(ready ? root : null);
   }
 
   private async repoStatus(root: string, id: WafRepoId, managed: boolean): Promise<WafRepoStatus> {
@@ -374,9 +401,12 @@ export class WafWorkspaceService implements WafWorkspace {
     const ready = external
       ? (await findWafRoot(external, external)) !== null
       : WAF_REPO_IDS.every(usable);
+    const modulesRoot = this.monorepoModules();
     return {
       managed: !external,
       root,
+      modulesRoot,
+      modulesRootPresent: modulesRoot === null ? null : fs.existsSync(modulesRoot),
       ready,
       repos,
       preparing: this.preparing !== null,
@@ -560,6 +590,10 @@ export class WafWorkspaceService implements WafWorkspace {
 
   async authoringModule(moduleFolder: string): Promise<string> {
     const folder = checkModuleFolder(moduleFolder);
+    // A monorepo's module is authored where it is: it has no repository of its own to clone.
+    const root = await this.root();
+    const checkout = root ? new WafLayout(root) : null;
+    if (checkout?.inMonorepo(folder)) return checkout.module(folder).root;
     if (!this.external()) return this.ensureModule(folder);
     const dir = new WafLayout(await this.requireRoot()).module(folder).root;
     return this.serial(moduleRepoKey(folder), async () => {
