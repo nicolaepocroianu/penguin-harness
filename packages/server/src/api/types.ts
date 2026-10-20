@@ -7047,6 +7047,7 @@ export type {
   DeployPreflightIssue,
   DeployPreflightReport,
   DeployRun,
+  DeployMediaOptimised,
   DeployRunMetadata,
   DeployRunResponse,
   DeployRunStage,

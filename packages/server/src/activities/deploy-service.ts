@@ -216,6 +216,11 @@ export class ActivityDeployService implements ActivityDeploys {
     return path.join(this.config.root, "activity-deploy", "checks", folder);
   }
 
+  /** Where FFmpeg re-encodes a module's media at deploy: outside every clone. */
+  private mediaWorkDir(folder: string): string {
+    return path.join(this.config.root, "activity-deploy", "media-work", folder);
+  }
+
   /** A QA or PROD deploy finished: whoever keeps track of deployed versions is told. */
   private deployed({ projectId, run, stage, metadata }: DeployStageDone) {
     const at =
@@ -588,7 +593,7 @@ export class ActivityDeployService implements ActivityDeploys {
         },
         qa: {
           activityData: { dir: checkout.repo("activityData") },
-          media: { dir: checkout.repo("media") },
+          media: { dir: checkout.repo("media"), workDir: this.mediaWorkDir(folder) },
           refNum: activity.refNum,
           target: {
             tier: settings.qa.tier,

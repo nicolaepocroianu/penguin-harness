@@ -15,11 +15,13 @@ import type {
   DeployProductionState,
   DeployRepo,
   DeployRun,
+  DeployRunMetadata,
   DeployStage,
   DeployStageError,
   DeployStageState,
   DeployStageStatus,
 } from "@prismshadow/penguin-server/api";
+import { formatBytes } from "../../lib/format";
 import { S } from "../../lib/strings";
 import type { Tone } from "../../lib/tone";
 
@@ -353,6 +355,14 @@ export function stageErrorText(error: DeployStageError): string {
       return words.preflight_failed(error.errors);
     case "media_missing":
       return words.media_missing(error.paths, error.count);
+    case "media_optimise_failed":
+      return words.media_optimise_failed(error.paths, error.count);
+    case "media_lfs_pointer":
+      return words.media_lfs_pointer(error.paths, error.count);
+    case "media_changed":
+      return words.media_changed(error.paths, error.count);
+    case "media_write_failed":
+      return words.media_write_failed(error.paths, error.count, error.error);
     case "deploy_timed_out":
       return words.deploy_timed_out(error.minutes, error.target);
     case "module_repository_missing":
@@ -473,10 +483,20 @@ export function stageRows(run: DeployRun | null, stages: readonly DeployStageSta
       blocker,
       detail:
         state.stage === "verify_media_assets" && typeof state.metadata.mediaChecked === "number"
-          ? words.mediaFiles(state.metadata.mediaChecked)
+          ? mediaDetail(state.metadata)
           : null,
     };
   });
+}
+
+/** How many media files the media stage checked, and what re-encoding them saved. */
+function mediaDetail(metadata: DeployRunMetadata): string {
+  const words = S.activities.deploy;
+  const checked = words.mediaFiles(metadata.mediaChecked ?? 0);
+  const optimised = metadata.mediaOptimised;
+  if (!optimised?.optimised) return checked;
+  const saved = Math.max(0, optimised.bytesBefore - optimised.bytesAfter);
+  return `${checked} · ${words.mediaOptimised(optimised.optimised, formatBytes(saved))}`;
 }
 
 /**
