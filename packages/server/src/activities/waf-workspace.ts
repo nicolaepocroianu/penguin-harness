@@ -554,6 +554,7 @@ export class WafWorkspaceService implements WafWorkspace {
           "module_not_a_clone",
           `modules/${folder} exists but is not a git repository.`,
         );
+      refuseInsideRepository(folder, dir, root);
       const remote = this.moduleRemote(folder);
       const clones = this.clones();
       let exists: boolean;
@@ -595,10 +596,13 @@ export class WafWorkspaceService implements WafWorkspace {
     const checkout = root ? new WafLayout(root) : null;
     if (checkout?.inMonorepo(folder)) return checkout.module(folder).root;
     if (!this.external()) return this.ensureModule(folder);
-    const dir = new WafLayout(await this.requireRoot()).module(folder).root;
+    const root = await this.requireRoot();
+    const dir = new WafLayout(root).module(folder).root;
     return this.serial(moduleRepoKey(folder), async () => {
       // A module the checkout already has is its owner's, repository and all.
       if (fs.existsSync(dir)) return dir;
+      // Nor inside the checkout's own repository, when the checkout is one (waf-modules).
+      refuseInsideRepository(folder, dir, root);
       // A new one starts as Loom started one: an empty repository on main with origin set,
       // so a deploy can later push it. Nothing is fetched from the remote.
       await fsp.mkdir(dir, { recursive: true });
@@ -635,5 +639,33 @@ function safeJson(raw: string | null): unknown {
     return raw === null ? null : JSON.parse(raw);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Refuses to make or clone module `folder`'s repository at `dir` when that would be inside
+ * another repository (the waf-modules monorepo, say): the other's git commands would reach the
+ * module too.
+ */
+function refuseInsideRepository(folder: string, dir: string, root: string): void {
+  const shared = enclosingRepository(dir, root);
+  if (shared)
+    throw new HttpError(
+      409,
+      "module_shared_repository",
+      `modules/${folder} would be inside the Git repository at ${shared}. A module needs a repository of its own, so none was made.`,
+    );
+}
+
+/**
+ * The folder above `dir`, up to and including the WAF root, that holds a `.git`: a repository
+ * `dir` is inside. Null when there is none. Only the checkout is looked at, so a WAF root that
+ * is itself inside a larger repository is not refused for it.
+ */
+function enclosingRepository(dir: string, root: string): string | null {
+  const top = path.resolve(root);
+  for (let at = path.dirname(path.resolve(dir)); ; at = path.dirname(at)) {
+    if (fs.existsSync(path.join(at, ".git"))) return at;
+    if (at === top || path.dirname(at) === at || !at.startsWith(top)) return null;
   }
 }

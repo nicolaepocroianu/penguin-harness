@@ -158,7 +158,11 @@ describe("drafts saved before activities moved into modules", () => {
       await fs.writeFile(path.join(workspace, "draft.json"), JSON.stringify(draft));
       await fs.rm(refMediaDir(t.root, "words", 1), { recursive: true, force: true });
       // Either nothing is in the module yet, or the draft is, still binding the old paths.
-      if (movedAlready) await writeRefDraft(refFilesDir(t.root, "words", 1), draft);
+      if (movedAlready)
+        await writeRefDraft(refFilesDir(t.root, "words", 1), draft, {
+          productCode: "words",
+          refNum: 1,
+        });
       else await fs.rm(path.dirname(refFilesDir(t.root, "words", 1)), { recursive: true });
 
       const read = await client.get(endpoint);

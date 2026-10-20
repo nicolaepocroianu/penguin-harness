@@ -16,11 +16,13 @@
  *
  * Audio is kept as MP3, as Loom kept it: a WAV take (Gemini speech) is converted with ffmpeg.
  */
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Component, Interface } from "@prismshadow/penguin-core/kernel";
 import { HttpError } from "../http/errors.js";
 import { FfmpegError, runFfmpeg } from "./ffmpeg.js";
+import { ELEVENLABS_DEFAULT_VOICE } from "./voice-catalogue.js";
 import { refMediaFolder, WafLayout } from "./waf-layout.js";
 
 const RUN_ID = /^run_[a-f0-9]{32}$/;
@@ -55,6 +57,45 @@ export interface MediaSidecar {
   voice?: string;
   wordTimings?: unknown;
   durationMs?: number;
+  /** Loom's fingerprint of the voice profile that spoke a narration (see loomGenerationFingerprint). */
+  generationFingerprint?: string;
+}
+
+/** The ElevenLabs format every narration is asked for, as Loom asked for it too. */
+const ELEVENLABS_OUTPUT_FORMAT = "mp3_44100_128";
+
+/**
+ * Loom's `generationFingerprint` of a narration: the SHA-256 of its provider client's
+ * `generation_identity`. Loom makes a clip again when its sidecar's fingerprint differs from
+ * the one it would use now, and always when a narration with its own voice has none, so a
+ * clip Penguin accepted carries Loom's own. Null where Penguin cannot say what Loom would
+ * compute: a voice it did not resolve, or a provider Loom speaks through another engine
+ * (Kokoro, which Loom runs in Python and Penguin in kokoro-js). The model is the one that made
+ * the clip: Loom compares it with its own configured model and makes the clip again when they
+ * differ, as it should for another model's recording (Penguin's Gemini model is not Loom's).
+ *
+ * - ElevenLabs: `{"modelId","outputFormat","provider":"elevenlabs","voiceId"}`, sorted, compact.
+ * - Gemini: `gemini|<model>|<voice name>`.
+ */
+export function loomGenerationFingerprint(spoken: {
+  provider: string;
+  model: string;
+  voice: string | undefined;
+}): string | null {
+  const { provider, model, voice } = spoken;
+  // "default" and the unresolved ElevenLabs default name no voice that spoke a clip.
+  if (!voice || voice === "default" || voice === ELEVENLABS_DEFAULT_VOICE || !model) return null;
+  let identity: string;
+  if (provider === "elevenlabs")
+    identity = JSON.stringify({
+      modelId: model,
+      outputFormat: ELEVENLABS_OUTPUT_FORMAT,
+      provider: "elevenlabs",
+      voiceId: voice,
+    });
+  else if (provider === "gemini") identity = ["gemini", model, voice].join("|");
+  else return null;
+  return createHash("sha256").update(identity, "utf8").digest("hex");
 }
 
 /** Where the sidecar of an accepted `<key>.<ext>` is: `<key>.json` beside it. */
@@ -73,6 +114,9 @@ export async function writeSidecar(file: string, sidecar: MediaSidecar): Promise
     ...(sidecar.wordTimings !== undefined ? { wordTimings: sidecar.wordTimings } : {}),
     ...(sidecar.durationMs !== undefined ? { durationMs: sidecar.durationMs } : {}),
     ...(sidecar.voice && sidecar.voice !== "default" ? { voice: sidecar.voice } : {}),
+    ...(sidecar.generationFingerprint
+      ? { generationFingerprint: sidecar.generationFingerprint }
+      : {}),
   };
   await fs.writeFile(target, `${JSON.stringify(body, null, 2)}\n`, "utf8");
 }
