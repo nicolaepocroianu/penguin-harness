@@ -439,6 +439,18 @@ async function fixture(page) {
       activity.draft.contentRevision = String(++revision);
       return json(activity.draft);
     }
+    if (p === `${base}/act_test/audio-trim`) {
+      // The bound clip, trimmed in place: kept as MP3 at the asset's own path.
+      const body = request.postDataJSON();
+      const asset = activity.draft.mediaPlan.manifest.assets[body.language].find(
+        (candidate) => candidate.key === body.assetKey,
+      );
+      asset.path = `media/loom/words/words-12/audios/english/${asset.key}.mp3`;
+      asset.durationMs = Math.round((body.endSeconds - body.startSeconds) * 1000);
+      delete asset.generatedAudio;
+      activity.draft.contentRevision = String(++revision);
+      return json(activity.draft);
+    }
     if (p.endsWith("/accept-image")) {
       const run = runs.find((candidate) => p.includes(`/${candidate.runId}/`));
       const asset = activity.draft.mediaPlan.manifest.assets[run.image.language].find(
@@ -4586,13 +4598,15 @@ function toneWav(seconds, rate = 8000) {
   return bytes;
 }
 
-test("trims a stretch out of a narration into a candidate, and Save binds the shorter clip", async ({
+test("trims a stretch out of a narration into a candidate, and Save trims the current clip in place", async ({
   page,
 }) => {
   const f = await fixture(page);
   await create(page);
   const clip = toneWav(2);
-  const stored = [];
+  const previews = [];
+  const trims = [];
+  const inPlace = "media/loom/words/words-12/audios/english/hello.mp3";
   await page.route(`**${base}/act_test/plan-media`, (route) =>
     route.fallback({
       postData: JSON.stringify({
@@ -4618,29 +4632,32 @@ test("trims a stretch out of a narration into a candidate, and Save binds the sh
       }),
     }),
   );
-  await page.route("**/*", (route) => {
+  await page.route("**/*", async (route) => {
     const request = route.request();
     const p = new URL(request.url()).pathname;
     if (p === `${base}/act_test/media-upload`)
       return route.fulfill({ contentType: "audio/wav", body: clip });
-    if (p === `${base}/act_test/media-uploads` && request.method() === "POST") {
-      const input = request.postDataJSON();
-      const record = {
-        path: "media/loom/words/words-1/uploads/hello-trimmed-1234abcd.wav",
-        name: input.name,
-        kind: "audio",
-        mimeType: "audio/wav",
-        byteLength: Buffer.from(input.dataBase64, "base64").byteLength,
-        sha256: "b".repeat(64),
-        updatedAt: "2026-09-23T10:00:00.000Z",
-      };
-      stored.push(record);
+    // The server cuts the clip (FFmpeg, MP3); here it answers as it would.
+    if (p === `${base}/act_test/audio-trim-preview`) {
+      previews.push(request.postDataJSON());
       return route.fulfill({
         status: 201,
         contentType: "application/json",
-        body: JSON.stringify(record),
+        body: JSON.stringify({
+          media: {
+            path: "media/loom/words/words-1/uploads/hello-en-us-trimmed-1234abcd.mp3",
+            name: "hello-en-us-trimmed-1234abcd.mp3",
+            kind: "audio",
+            mimeType: "audio/mpeg",
+            byteLength: 4000,
+            sha256: "b".repeat(64),
+            updatedAt: "2026-09-23T10:00:00.000Z",
+          },
+          durationMs: 1000,
+        }),
       });
     }
+    if (p === `${base}/act_test/audio-trim`) trims.push(request.postDataJSON());
     return route.fallback();
   });
   await openSection(page, "Specification");
@@ -4677,21 +4694,30 @@ test("trims a stretch out of a narration into a candidate, and Save binds the sh
   await page.keyboard.press("Enter");
   await expect(page.getByText(/ remains$/)).toBeVisible();
   await page.getByRole("button", { name: "Remove selection", exact: true }).click();
-  await expect.poll(() => stored.length).toBe(1);
-  // Half the clip is gone, at the clip's own rate: a second of an 8 kHz, 16-bit mono tone.
-  expect(stored[0].byteLength).toBeGreaterThan(44 + 7000 * 2);
-  expect(stored[0].byteLength).toBeLessThan(44 + 9000 * 2);
-  // The shorter clip is a candidate: heard in place of the current one, bound only on Save.
+  await expect.poll(() => previews.length).toBe(1);
+  // A trim of the bound clip, from its start to a second in, cut on the server.
+  expect(previews[0]).toMatchObject({ source: "bound", language: "en-US", assetKey: "hello" });
+  expect(previews[0].startSeconds).toBe(0);
+  expect(previews[0].endSeconds).toBeCloseTo(1, 1);
+  // The shorter clip is a candidate: heard in place of the current one, saved only on Save.
   const trimmed = card.locator('audio[aria-label="Trimmed candidate"]');
   await expect(trimmed).toHaveAttribute(
     "src",
-    `${base}/act_test/media-upload?path=${encodeURIComponent(stored[0].path)}`,
+    `${base}/act_test/media-upload?path=${encodeURIComponent("media/loom/words/words-1/uploads/hello-en-us-trimmed-1234abcd.mp3")}`,
   );
   await page.getByRole("button", { name: "Advanced", exact: true }).click();
   const path = card.getByRole("textbox", { name: /^Media path/ });
   await expect(path).toHaveValue("media/loom/words/words-1/uploads/hello-00000000.wav");
   await card.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(path).toHaveValue("media/loom/words/words-1/uploads/hello-trimmed-1234abcd.wav");
+  // Save cuts the same stretch out of the current clip, which is kept as MP3 at its own path.
+  await expect.poll(() => trims.length).toBe(1);
+  expect(trims[0]).toMatchObject({
+    language: "en-US",
+    assetKey: "hello",
+    startSeconds: previews[0].startSeconds,
+    endSeconds: previews[0].endSeconds,
+  });
+  await expect(path).toHaveValue(inPlace);
   await expect(
     card.getByText("Generate or upload a candidate to compare before saving."),
   ).toBeVisible();
