@@ -3,7 +3,7 @@
 - **Date:** 2026-10-20
 - **Type:** feat
 - **Scope:** `server`, `web`
-- **PR:** pending
+- **PR:** [#170](https://github.com/nicolaepocroianu/penguin-harness/pull/170)
 
 Trimming a speech clip in the Studio now happens on the server, through FFmpeg, and keeps the result as MP3 (libmp3lame, VBR quality 2, no metadata), the format Loom writes. Until now the browser decoded the clip, cut it and uploaded a WAV. Saving a trim of the current audio cuts the same stretch out of that clip at the asset's own path, as Loom's trim of a saved clip does, and keeps its sidecar right.
 
