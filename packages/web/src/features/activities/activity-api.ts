@@ -36,6 +36,10 @@ import type {
   SceneLookSummary,
   SoundSetup,
   SpeechSetup,
+  TrimmedAudio,
+  TrimRange,
+  TrimSource,
+  TrimTarget,
   UploadedMedia,
   VersionDiff,
   VersionSaveResult,
@@ -182,6 +186,9 @@ export function activityApi(projectId: string, activityId: string, send: ApiSend
         call<ActivityDraft>("PUT", "media", { expectedRevision, manifest }),
       planMedia: (expectedRevision: string) =>
         call<ActivityDraft>("POST", "plan-media", { expectedRevision }),
+      /** Save a trim preview of an asset's bound clip over that clip, in place. */
+      trimAudio: (expectedRevision: string, body: TrimTarget & { previewToken: string }) =>
+        call<ActivityDraft>("POST", "audio-trim", { ...body, expectedRevision }),
       addLanguage: (expectedRevision: string, language: string) =>
         call<ActivityDraft>("POST", "languages", { language, expectedRevision }),
       videoTimeline: (
@@ -298,6 +305,17 @@ export function activityApi(projectId: string, activityId: string, send: ApiSend
       uploads: () => get<{ media: UploadedMedia[] }>("media-uploads"),
       upload: (body: { name: string; dataBase64: string }) =>
         call<UploadedMedia>("POST", "media-uploads", body),
+      /** A clip with a stretch cut out, kept as the card's preview until it is saved. */
+      trimPreview: (target: TrimTarget, { kind, ...source }: TrimSource, range: TrimRange) =>
+        call<TrimmedAudio>("POST", "audio-trim-preview", {
+          ...target,
+          source: kind,
+          ...source,
+          ...range,
+        }),
+      /** Store a trim preview as an upload of the ref, to bind. */
+      attachTrim: (token: string) =>
+        call<UploadedMedia>("POST", `audio-trim-previews/${encodeURIComponent(token)}/attach`, {}),
       /** The saved draft's media stats, for a bound clip's file details. */
       stats: resource("media-stats", () => get<{ media: MediaStat[] }>("media-stats")),
       /** The paths this ref's videos and animations are bound to until real files replace them. */

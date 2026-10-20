@@ -76,9 +76,10 @@ describe("the audio editor's language cards", () => {
   it("holds an uploaded or trimmed file over a take until it is saved or replaced", () => {
     const take = run({ runId: "take" });
     expect(cardCandidate(take, null)).toEqual({ source: "generated", runId: "take" });
-    expect(cardCandidate(take, { source: "trim", path: "media/x.wav" })).toEqual({
+    expect(cardCandidate(take, { source: "trim", token: "t", savesInPlace: false })).toEqual({
       source: "trim",
-      path: "media/x.wav",
+      token: "t",
+      savesInPlace: false,
     });
     expect(cardCandidate(undefined, null)).toBeNull();
   });

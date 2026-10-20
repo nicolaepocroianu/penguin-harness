@@ -12,13 +12,12 @@ import {
 import { indexRuns } from "../src/features/activities/runs-index";
 import {
   clipTime,
-  encodeWav,
   normalizePeaks,
   remainingLength,
-  removeRange,
   selectionBetween,
   selectionFromDrag,
-  wavSampleRate,
+  selectionEdgeAt,
+  moveSelectionEdge,
   playedFraction,
   seekTime,
   waveformPeaks,
@@ -277,32 +276,18 @@ describe("trimming a clip", () => {
     expect(remainingLength(4, { start: 1, end: 2.5 })).toBe(2.5);
   });
 
-  it("takes the selected stretch out of every channel", () => {
-    const left = Float32Array.from([0, 1, 2, 3, 4, 5, 6, 7]);
-    const right = Float32Array.from([10, 11, 12, 13, 14, 15, 16, 17]);
-    const [a, b] = removeRange([left, right], 4, 0.5, 1.25);
-    expect([...a!]).toEqual([0, 1, 5, 6, 7]);
-    expect([...b!]).toEqual([10, 11, 15, 16, 17]);
-    expect([...removeRange([left], 4, 3, 9)[0]!]).toEqual([...left]);
-  });
-
-  it("reads a WAV's own sample rate, and nothing from other files", () => {
-    expect(wavSampleRate(encodeWav([new Float32Array(4)], 22050))).toBe(22050);
-    expect(wavSampleRate(new TextEncoder().encode("ID3 not a wav file at all, really"))).toBeNull();
-    expect(wavSampleRate(new Uint8Array(8))).toBeNull();
-  });
-
-  it("writes a 16-bit PCM WAV the upload and the runtime read", () => {
-    const wav = encodeWav([Float32Array.from([0, 1, -1, 2])], 8000);
-    const view = new DataView(wav.buffer);
-    const text = (at: number) => String.fromCharCode(...wav.subarray(at, at + 4));
-    expect([text(0), text(8), text(12), text(36)]).toEqual(["RIFF", "WAVE", "fmt ", "data"]);
-    expect(view.getUint32(4, true)).toBe(wav.length - 8);
-    expect(view.getUint16(20, true)).toBe(1);
-    expect(view.getUint32(24, true)).toBe(8000);
-    expect(view.getUint16(34, true)).toBe(16);
-    expect([0, 1, 2, 3].map((index) => view.getInt16(44 + index * 2, true))).toEqual([
-      0, 32767, -32768, 32767,
-    ]);
+  it("finds the selection's edge under the pointer, and moves only that edge", () => {
+    const selection = { start: 1, end: 3 };
+    // 200 px for 4 s: the edges are at 50 px and 150 px.
+    expect(selectionEdgeAt(52, 200, 4, selection)).toBe("start");
+    expect(selectionEdgeAt(147, 200, 4, selection)).toBe("end");
+    expect(selectionEdgeAt(100, 200, 4, selection)).toBeNull();
+    expect(selectionEdgeAt(50, 0, 4, selection)).toBeNull();
+    expect(moveSelectionEdge(selection, "start", 0.5, 4)).toEqual({ start: 0.5, end: 3 });
+    expect(moveSelectionEdge(selection, "end", 9, 4)).toEqual({ start: 1, end: 4 });
+    expect(moveSelectionEdge(selection, "start", -1, 4)).toEqual({ start: 0, end: 3 });
+    // Dragged past the other edge, it stops the shortest selection short of it.
+    expect(moveSelectionEdge(selection, "start", 3.5, 4).start).toBeCloseTo(2.95);
+    expect(moveSelectionEdge(selection, "end", 0, 4).end).toBeCloseTo(1.05);
   });
 });

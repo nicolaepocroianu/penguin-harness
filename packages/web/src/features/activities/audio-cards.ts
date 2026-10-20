@@ -7,6 +7,7 @@ import type {
   ActivityRunSummary,
   AssetManifest,
   MediaAsset,
+  TrimSource,
 } from "@prismshadow/penguin-server/api";
 import { isUploadPath } from "./media-library";
 import type { RunsIndex } from "./runs-index";
@@ -35,17 +36,27 @@ export function cardLanguages(
     .sort((a, b) => (a === defaultLanguage ? -1 : b === defaultLanguage ? 1 : a.localeCompare(b)));
 }
 
-/** A file the author uploaded or trimmed, held on the card until it is saved or replaced. */
-export interface PendingAudio {
-  source: "upload" | "trim";
-  path: string;
-  /** The uploaded file's own name; a trimmed clip has none worth showing. */
-  name?: string;
-}
+/**
+ * A file the author uploaded, or a trim previewed, held on the card until it is saved or
+ * replaced. A trim is kept outside the media repository until then (see TrimmedAudio).
+ */
+export type PendingAudio =
+  | {
+      source: "upload";
+      path: string;
+      /** The uploaded file's own name. */
+      name?: string;
+    }
+  | {
+      source: "trim";
+      /** The preview's token on the server. */
+      token: string;
+      /** Cut from the bound clip: Save replaces that clip in place, as Loom saves a trim. */
+      savesInPlace: boolean;
+    };
 
 /** What a card compares with its current audio, and what Save makes current. */
-export type AudioCandidate =
-  { source: "generated"; runId: string } | ({ source: "upload" | "trim" } & PendingAudio);
+export type AudioCandidate = { source: "generated"; runId: string } | PendingAudio;
 
 /**
  * The newest take that could replace the bound audio of one language: succeeded, with a file,
@@ -124,30 +135,39 @@ export function runAudioUrl(endpoint: string, runId: string): string {
   return `${endpoint}/runs/${encodeURIComponent(runId)}/audio`;
 }
 
+export function trimPreviewUrl(endpoint: string, token: string): string {
+  return `${endpoint}/audio-trim-previews/${encodeURIComponent(token)}`;
+}
+
 /**
  * Where an asset's bound audio plays from: the accepted run, an upload, or sandbox media.
- * Null when nothing is bound, or when it is bound somewhere this page cannot play.
+ * Null when nothing is bound, or when it is bound somewhere this page cannot play. A file in
+ * the media repository is named with its length: a trim rewrites the file at the same path,
+ * and always shortens it, so the address changes and the player loads the trimmed clip.
  */
 export function boundAudioUrl(
-  asset: Pick<MediaAsset, "path" | "generatedAudio">,
+  asset: Pick<MediaAsset, "path" | "generatedAudio" | "durationMs">,
   endpoint: string,
 ): string | null {
   if (!asset.path) return null;
   if (asset.generatedAudio) return runAudioUrl(endpoint, asset.generatedAudio.runId);
   if (isUploadPath(asset.path)) return uploadUrl(endpoint, asset.path);
-  if (asset.path.startsWith("media/")) return sandboxMediaUrl(endpoint, asset.path);
-  return null;
+  if (!asset.path.startsWith("media/")) return null;
+  const url = sandboxMediaUrl(endpoint, asset.path);
+  return asset.durationMs === undefined ? url : `${url}?v=${asset.durationMs}`;
 }
 
 export function candidateUrl(candidate: AudioCandidate, endpoint: string): string {
-  return candidate.source === "generated"
-    ? runAudioUrl(endpoint, candidate.runId)
-    : uploadUrl(endpoint, candidate.path);
+  if (candidate.source === "generated") return runAudioUrl(endpoint, candidate.runId);
+  if (candidate.source === "trim") return trimPreviewUrl(endpoint, candidate.token);
+  return uploadUrl(endpoint, candidate.path);
 }
 
 /** A stable identity for a candidate, to key its player by. */
 export function candidateId(candidate: AudioCandidate): string {
-  return candidate.source === "generated" ? candidate.runId : candidate.path;
+  if (candidate.source === "generated") return candidate.runId;
+  if (candidate.source === "trim") return candidate.token;
+  return candidate.path;
 }
 
 /**
@@ -177,6 +197,45 @@ export function primaryAction({
   if (narration && language !== defaultLanguage && !script?.trim())
     return sourceScript?.trim() ? { action: "translate" } : { action: "blocked" };
   return { action: "generate", again: bound };
+}
+
+/**
+ * Where a trim of the card's current audio is cut from: the clip the saved draft binds, which
+ * a saved trim then cuts in place. An unsaved binding is trimmed as the upload it is, and one
+ * of the checkout's files only once it is saved.
+ */
+export function currentTrimSource(
+  asset: MediaAsset,
+  language: string,
+  savedPath: string | undefined,
+): TrimSource | null {
+  if (!asset.path) return null;
+  if (asset.path === savedPath) return { kind: "bound" };
+  return isUploadPath(asset.path) ? { kind: "upload", path: asset.path } : null;
+}
+
+/** Where a trim of the card's candidate is cut from: its run's take, its file, or its preview. */
+export function candidateTrimSource(candidate: AudioCandidate): TrimSource {
+  if (candidate.source === "generated") return { kind: "run", runId: candidate.runId };
+  if (candidate.source === "trim") return { kind: "preview", token: candidate.token };
+  return { kind: "upload", path: candidate.path };
+}
+
+/**
+ * What Save does with a card's candidate: accept a take, save a trim of the bound clip in
+ * place, attach any other trim as an upload and bind it, or bind an upload.
+ */
+export function saveStep(
+  candidate: AudioCandidate,
+):
+  | { step: "accept"; runId: string }
+  | { step: "trim"; token: string }
+  | { step: "attach"; token: string }
+  | { step: "bind"; path: string } {
+  if (candidate.source === "generated") return { step: "accept", runId: candidate.runId };
+  if (candidate.source === "trim")
+    return { step: candidate.savesInPlace ? "trim" : "attach", token: candidate.token };
+  return { step: "bind", path: candidate.path };
 }
 
 /**
