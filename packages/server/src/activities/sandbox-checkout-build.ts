@@ -12,11 +12,12 @@
  * TypeScript are the module's and the framework's own versions, loaded from the checkout,
  * and a build that exhausts memory or never returns must not take the server with it.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import type { StyleCompiler } from "./module-builder.js";
 import { nodeRequirementNote } from "./node-requirement.js";
+import { moduleToolchainFolders } from "./npm-workspace.js";
 import { clampLog } from "./run-program.js";
 import {
   BUILD_LOG_MAX,
@@ -39,30 +40,15 @@ export interface CheckoutBuildJob {
   mediaRoot?: string;
 }
 
-/** Whether a folder's package.json makes it an npm workspace root. */
-function isWorkspaceRoot(dir: string): boolean {
-  try {
-    const manifest = JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")) as unknown;
-    return Boolean(manifest && typeof manifest === "object" && "workspaces" in manifest);
-  } catch {
-    return false;
-  }
-}
-
 /**
- * Where a checkout module's packages are, nearest first: each `node_modules` from the module's
- * folder up to its npm workspace's root (or the top of the disk, outside a workspace), where a
- * monorepo hoists them, then the framework's.
+ * Where a checkout module's packages are, nearest first: the module's own `node_modules`, each
+ * one up to its npm workspace's root when it is in one (where a monorepo hoists them), then
+ * the framework's. Nothing above a module outside a workspace counts (see npm-workspace.ts).
  */
 export function packageDirs(moduleRoot: string, frameworkRoot: string): string[] {
-  const found: string[] = [];
-  let dir = path.resolve(moduleRoot);
-  for (;;) {
-    const candidate = path.join(dir, "node_modules");
-    if (existsSync(candidate)) found.push(candidate);
-    if (isWorkspaceRoot(dir) || path.dirname(dir) === dir) break;
-    dir = path.dirname(dir);
-  }
+  const found = moduleToolchainFolders(moduleRoot)
+    .map((dir) => path.join(dir, "node_modules"))
+    .filter((dir) => existsSync(dir));
   const framework = path.join(path.resolve(frameworkRoot), "node_modules");
   if (existsSync(framework) && !found.includes(framework)) found.push(framework);
   return found;

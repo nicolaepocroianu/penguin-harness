@@ -63,6 +63,16 @@ describe("a play link's query", () => {
     });
   });
 
+  it("treats an empty name as absent, reading the older one then", () => {
+    expect(read("languageCode=&language=es-MX&startSceneId=&scene=b")).toMatchObject({
+      languageCode: "es-MX",
+      languageAsked: true,
+      startSceneId: "b",
+    });
+    expect(read("languageCode=")).toMatchObject({ languageCode: "en-US", languageAsked: false });
+    expect(playQueryString(read("languageCode="))).toBe("");
+  });
+
   it("names a module root as monorepo or legacy, and says why anything else is refused", () => {
     expect(read("source=monorepo")).toMatchObject({ source: "monorepo", sourceError: null });
     expect(read("source=legacy")).toMatchObject({ source: "legacy", sourceError: null });
@@ -75,12 +85,8 @@ describe("a play link's query", () => {
 
   it("carries on, in Loom's names, only what was asked for", () => {
     const query = read("module=m2ab01&ref=1&scene=intro&resolution=bad&source=monorepo");
-    expect(playQueryString(query, { languageCode: false })).toBe(
-      "module=m2ab01&ref=1&startSceneId=intro&source=monorepo",
-    );
-    expect(playQueryString(read("language=fr-FR"), { languageCode: true })).toBe(
-      "languageCode=en-US",
-    );
+    expect(playQueryString(query)).toBe("module=m2ab01&ref=1&startSceneId=intro&source=monorepo");
+    expect(playQueryString(read("language=fr-FR"))).toBe("languageCode=en-US");
   });
 });
 

@@ -21,6 +21,8 @@ export interface PlayQuery {
   refError: string | null;
   /** Always one of the activity languages: an unknown or missing code is the default. */
   languageCode: string;
+  /** Whether the link named a language at all; one that did not is carried on without one. */
+  languageAsked: boolean;
   startSceneId: string | null;
   /** `<width>x<height>`; null when absent or not one. */
   resolution: string | null;
@@ -35,6 +37,15 @@ type Read = (name: string) => string | null | undefined;
 function optional(value: string | null | undefined): string | null {
   const text = String(value ?? "").trim();
   return text || null;
+}
+
+/** The first of these parameters with a value: an empty one counts as absent. */
+function first(read: Read, ...names: string[]): string | null {
+  for (const name of names) {
+    const value = optional(read(name));
+    if (value !== null) return value;
+  }
+  return null;
 }
 
 /** Loom's `normalizeLanguageCode`: a listed code is kept, anything else is the default. */
@@ -69,6 +80,7 @@ export function parsePlayRef(
 
 export function readPlayQuery(read: Read): PlayQuery {
   const refText = optional(read("ref"));
+  const language = first(read, "languageCode", "language");
   const ref = refText === null ? null : parsePlayRef(refText);
   const sourceText = optional(read("source"));
   const source = sourceText === "monorepo" || sourceText === "legacy" ? sourceText : null;
@@ -76,8 +88,9 @@ export function readPlayQuery(read: Read): PlayQuery {
     module: optional(read("module")),
     ref: ref && "ref" in ref ? ref.ref : null,
     refError: ref && "error" in ref ? ref.error : null,
-    languageCode: normalizePlayLanguage(read("languageCode") ?? read("language")),
-    startSceneId: optional(read("startSceneId") ?? read("scene")),
+    languageCode: normalizePlayLanguage(language),
+    languageAsked: language !== null,
+    startSceneId: first(read, "startSceneId", "scene"),
     resolution: parsePlayResolution(read("resolution")),
     source,
     sourceError:
@@ -88,11 +101,11 @@ export function readPlayQuery(read: Read): PlayQuery {
 }
 
 /** The query a play link carries on, in Loom's names; only what was asked for. */
-export function playQueryString(query: PlayQuery, asked: { languageCode: boolean }): string {
+export function playQueryString(query: PlayQuery): string {
   const params = new URLSearchParams();
   if (query.module) params.set("module", query.module);
   if (query.ref !== null) params.set("ref", String(query.ref));
-  if (asked.languageCode) params.set("languageCode", query.languageCode);
+  if (query.languageAsked) params.set("languageCode", query.languageCode);
   if (query.startSceneId) params.set("startSceneId", query.startSceneId);
   if (query.resolution) params.set("resolution", query.resolution);
   if (query.source) params.set("source", query.source);

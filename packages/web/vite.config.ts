@@ -61,6 +61,8 @@ export function devProxy(env: Record<string, string | undefined> = process.env) 
       ws: true,
     },
     [MACHINE_API_PATH]: { target, changeOrigin: false },
+    // Loom's play address, which the backend answers with a redirect to a signed play link.
+    "/player.html": { target, changeOrigin: false },
   };
 }
 

@@ -71,6 +71,11 @@ describe("a module's Node requirement", () => {
     expect(nodeRequirementNote(dir, "v24.19.0")).toBeNull();
   });
 
+  it("reads no .nvmrc above a module that is not in a workspace", async () => {
+    const dir = await module({ ".nvmrc": "4\n", "modules/m/package.json": "{}" });
+    expect(nodeRequirementNote(dir, "v24.19.0")).toBeNull();
+  });
+
   it("leaves an nvm alias alone", async () => {
     expect(
       nodeRequirementNote(await module({ "modules/m/.nvmrc": "lts/*\n" }), "v24.19.0"),

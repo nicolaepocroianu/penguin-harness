@@ -9,6 +9,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { moduleToolchainFolders } from "./npm-workspace.js";
 
 type Version = [number, number, number];
 
@@ -92,17 +93,17 @@ function readText(file: string): string | null {
   }
 }
 
-/** The nearest `.nvmrc` from the module up to its npm workspace's root, with where it is. */
+/**
+ * The nearest `.nvmrc`: the module's own, or one up to its npm workspace's root when it is in
+ * one (see npm-workspace.ts), with where it is.
+ */
 function nearestNvmrc(moduleRoot: string): { file: string; version: string } | null {
-  let dir = path.resolve(moduleRoot);
-  for (;;) {
+  for (const dir of moduleToolchainFolders(moduleRoot)) {
     const file = path.join(dir, ".nvmrc");
     const text = existsSync(file) ? readText(file)?.trim() : undefined;
     if (text) return { file, version: text.split(/\s+/)[0]! };
-    const manifest = readText(path.join(dir, "package.json"));
-    if ((manifest && /"workspaces"\s*:/.test(manifest)) || path.dirname(dir) === dir) return null;
-    dir = path.dirname(dir);
   }
+  return null;
 }
 
 /**

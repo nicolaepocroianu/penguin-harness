@@ -16,7 +16,7 @@ import type { ActivitySummaries } from "./summary-service.js";
 import type { Config } from "../hmr/capabilities.js";
 import { hostOnly, requestAuthority, resolvePreviewTarget } from "../services/preview-token.js";
 import { signedPlayLocation } from "./play-link.js";
-import { readPlayQuery } from "./play-query.js";
+import { readPlayQuery, type PlayQuery } from "./play-query.js";
 import { playBase } from "./play-routes.js";
 import { requestOrigin } from "../http/routes/model-oauth.js";
 import { IMAGE_MODEL } from "./generated-image.js";
@@ -704,12 +704,21 @@ export class ActivityRoutes {
     // short-lived link (see play-routes.ts), so the module's code never runs with the
     // author's session; this route is where an authorised author is handed that link.
     // Loom's player.html query (see play-query.ts); `language` and `scene` are the older names.
-    const playLink = async (c: Context, projectId: string, activityId: string) => {
-      const query = readPlayQuery((name) => c.req.query(name));
+    // A link to an activity checks its query against it; one the query itself found
+    // (`findPlayable`) already matches, and is not looked up twice.
+    const playLink = async (
+      c: Context,
+      projectId: string,
+      activityId: string,
+      query: PlayQuery,
+      found = false,
+    ) => {
       if (query.refError) throw new HttpError(400, "play_ref_invalid", query.refError);
       if (query.sourceError) throw new HttpError(400, "play_source_invalid", query.sourceError);
-      const mismatch = await this.sandbox.playLinkMismatch(projectId, activityId, query);
-      if (mismatch) throw new HttpError(400, "play_link_mismatch", mismatch);
+      if (!found) {
+        const mismatch = await this.sandbox.playLinkMismatch(projectId, activityId, query);
+        if (mismatch) throw new HttpError(400, "play_link_mismatch", mismatch);
+      }
       return c.redirect(
         await signedPlayLocation(
           c,
@@ -717,7 +726,6 @@ export class ActivityRoutes {
           projectId,
           activityId,
           query,
-          Boolean(c.req.query("languageCode") ?? c.req.query("language")),
         ),
         302,
       );
@@ -742,10 +750,15 @@ export class ActivityRoutes {
         query.ref,
         query.source,
       );
-      return playLink(c, projectId, activityId);
+      return playLink(c, projectId, activityId, query, true);
     });
     app.get("/:activityId/sandbox/play", async (c) =>
-      playLink(c, requireValidId(c, "projectId"), pathParam(c, "activityId")),
+      playLink(
+        c,
+        requireValidId(c, "projectId"),
+        pathParam(c, "activityId"),
+        readPlayQuery((name) => c.req.query(name)),
+      ),
     );
     app.get("/:activityId/sandbox/status", async (c) => {
       return c.json(

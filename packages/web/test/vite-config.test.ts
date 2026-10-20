@@ -50,6 +50,11 @@ describe("apiProxyTarget", () => {
 describe("the dev server's proxy table", () => {
   const table = devProxy({ PORT: "27480" });
 
+  it("hands Loom's /player.html address to the backend, and keeps the SPA's own pages", () => {
+    expect(proxiedBy(table, "/player.html?module=rpa02233&ref=1")).toBe("http://127.0.0.1:27480");
+    expect(proxiedBy(table, "/activities")).toBeNull();
+  });
+
   it("hands a machine's API calls to the backend, as it does the backend's own", () => {
     for (const url of [
       "/server/Oge9N-anHqSz0x3E/api/projects/default_project/agents",

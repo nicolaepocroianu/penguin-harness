@@ -217,6 +217,7 @@ describe("playing an imported activity", () => {
       expect((await play(s, "languageCode=fr-FR")).query).toEqual({ languageCode: "en-US" });
       expect((await play(s, "language=ro-RO")).query).toEqual({ languageCode: "ro-RO" });
       expect((await play(s, "")).query).toEqual({});
+      expect((await play(s, "languageCode=")).query).toEqual({});
     });
 
     it("carries startSceneId, read from `scene` on older links", async () => {
@@ -369,7 +370,13 @@ describe("playing an imported activity", () => {
       const page = await s.onPreview(
         `${sent.pathname}?${new URLSearchParams(sent.query as Record<string, string>)}`,
       );
-      expect(page.status).not.toBe(400);
+      // Past every check of the query: this fixture has no webpack, so the page says so.
+      expect(page.status).toBe(500);
+      expect(await page.text()).toContain("The module did not build.");
+      // An empty languageCode is absent here as on the API's own entry.
+      expect(
+        (await player((url) => s.client.get(url), `module=${CODE}&ref=1&languageCode=`)).query,
+      ).toEqual({ module: CODE, ref: "1" });
     });
 
     it("sends a visitor who is not signed in to sign in, as the App's pages do", async () => {

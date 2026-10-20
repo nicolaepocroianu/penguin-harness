@@ -276,6 +276,26 @@ describe("building a module in an npm workspace", () => {
     return { root, repo, moduleRoot, hoisted, frameworkRoot };
   }
 
+  it("does not walk up from a module outside a workspace, past a stray node_modules", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-legacy-build-"));
+    cleanups.push(() => fs.rm(root, { recursive: true, force: true }));
+    const moduleRoot = path.join(root, "waterford", "modules", "waf-module-words");
+    const frameworkRoot = path.join(root, "waterford", "framework");
+    await write(path.join(moduleRoot, "package.json"), { name: "wafmodule-words" });
+    // A stray copy above the checkout, and one at the checkout's root: neither is the module's.
+    await write(path.join(root, "node_modules", "waf-utils", "package.json"), { name: "stray" });
+    await write(path.join(root, "waterford", "node_modules", "waf-utils", "package.json"), {});
+    await write(path.join(frameworkRoot, "node_modules", "waf-utils", "package.json"), {});
+    expect(packageDirs(moduleRoot, frameworkRoot)).toEqual([
+      path.join(frameworkRoot, "node_modules"),
+    ]);
+    // Nor up from one in a workspace whose patterns do not take it in.
+    await write(path.join(root, "waterford", "package.json"), { workspaces: ["packages/*"] });
+    expect(packageDirs(moduleRoot, frameworkRoot)).toEqual([
+      path.join(frameworkRoot, "node_modules"),
+    ]);
+  });
+
   it("finds packages from the module up to its workspace root, then the framework's", async () => {
     const { moduleRoot, hoisted, frameworkRoot } = await monorepo();
     expect(packageDirs(moduleRoot, frameworkRoot)).toEqual([

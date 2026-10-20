@@ -29,20 +29,18 @@ function escapeHtml(value: string): string {
   );
 }
 
-/** A plain page saying why nothing plays, in the words Loom's player uses where it has them. */
-function refusal(status: number, message: string): Response {
-  return new Response(
+/**
+ * A plain page saying why nothing plays, in the words Loom's player uses where it has them.
+ * Answered through the context, so a sign-in the request renewed keeps its cookie.
+ */
+function refusal(c: Context<AppEnv>, status: 400 | 404 | 409, message: string): Response {
+  c.header("Cache-Control", "no-store");
+  c.header("X-Content-Type-Options", "nosniff");
+  return c.html(
     `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Activity failed to load</title>
 <style>body{font:14px/1.5 system-ui,sans-serif;margin:24px;color:#1f2933}</style>
 </head><body><p id="activity">${escapeHtml(message)}</p></body></html>`,
-    {
-      status,
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "no-store",
-        "X-Content-Type-Options": "nosniff",
-      },
-    },
+    status,
   );
 }
 
@@ -56,7 +54,7 @@ export function pickPlayable(
   moduleId: string,
   ref: number,
   source: PlaySource | null,
-): { chosen: PlayCandidate } | { status: number; message: string } {
+): { chosen: PlayCandidate } | { status: 404 | 409; message: string } {
   const product = candidates.filter((each) => source === null || each.source === source);
   if (!moduleId || !product.length)
     return { status: 404, message: `Failed to load module metadata for "${moduleId}".` };
@@ -108,20 +106,21 @@ export class ActivityPlayerHtmlRoutes {
 
   private async play(c: Context<AppEnv>): Promise<Response> {
     const query = readPlayQuery((name) => c.req.query(name));
-    // Loom's player checks the ref first, with these words.
+    // Loom's player asks for the module first, then the ref, in these words.
+    if (!query.module) return refusal(c, 400, "Missing module id in player URL.");
     if (query.ref === null)
-      return refusal(400, query.refError ?? "Ref is required. Use a non-negative whole number.");
-    if (query.sourceError) return refusal(400, query.sourceError);
+      return refusal(c, 400, query.refError ?? "Ref is required. Use a non-negative whole number.");
+    if (query.sourceError) return refusal(c, 400, query.sourceError);
     const visible = this.access.accessibleProjectIds(c.var.user.userId);
     const asked = c.req.query("project")?.trim();
     const projects = asked ? visible.filter((id) => id === asked) : visible;
     const picked = pickPlayable(
-      query.module ? await this.sandbox.playCandidates(projects, query.module) : [],
-      query.module ?? "",
+      await this.sandbox.playCandidates(projects, query.module),
+      query.module,
       query.ref,
       query.source,
     );
-    if ("message" in picked) return refusal(picked.status, picked.message);
+    if ("message" in picked) return refusal(c, picked.status, picked.message);
     const chosen = picked.chosen;
     return c.redirect(
       await signedPlayLocation(
@@ -130,7 +129,6 @@ export class ActivityPlayerHtmlRoutes {
         chosen.projectId,
         chosen.activityId,
         query,
-        c.req.query("languageCode") !== undefined || c.req.query("language") !== undefined,
       ),
       302,
     );

@@ -1018,13 +1018,18 @@ export class ActivitySandboxService implements ActivitySandbox {
     return this.links.verify(token, host);
   }
 
-  /** The module root a product's module is in, as Loom's `source` names it. */
-  private async playSource(activity: ActivityRecord): Promise<PlaySource> {
+  /** The checkout's layout, read once for a request that asks about several products. */
+  private async playLayout(): Promise<WafLayout | null> {
     const root = await this.wafWorkspace.root();
+    return root ? new WafLayout(root) : null;
+  }
+
+  /** The module root a product's module is in, as Loom's `source` names it. */
+  private playSource(activity: ActivityRecord, layout: WafLayout | null): PlaySource {
     const folder =
       this.activities.productOf(activity)?.moduleFolder ??
       defaultModuleFolder(activity.productCode);
-    return root && new WafLayout(root).inMonorepo(folder) ? "monorepo" : "legacy";
+    return layout?.inMonorepo(folder) ? "monorepo" : "legacy";
   }
 
   async findPlayable(
@@ -1042,7 +1047,7 @@ export class ActivitySandboxService implements ActivitySandbox {
         "play_ref_not_open",
         `${productCode} ref ${refNum} is not open in this project. Open the product from the modules first.`,
       );
-    if (source && (await this.playSource(activity)) !== source)
+    if (source && this.playSource(activity, await this.playLayout()) !== source)
       throw new HttpError(
         404,
         "play_source_mismatch",
@@ -1053,6 +1058,7 @@ export class ActivitySandboxService implements ActivitySandbox {
 
   async playCandidates(projectIds: string[], productCode: string): Promise<PlayCandidate[]> {
     const found: PlayCandidate[] = [];
+    const layout = await this.playLayout();
     for (const projectId of projectIds)
       for (const activity of await this.activities.listActivities(projectId))
         if (activity.productCode === productCode)
@@ -1060,7 +1066,7 @@ export class ActivitySandboxService implements ActivitySandbox {
             projectId,
             activityId: activity.id,
             refNum: activity.refNum,
-            source: await this.playSource(activity),
+            source: this.playSource(activity, layout),
           });
     return found;
   }
@@ -1076,7 +1082,10 @@ export class ActivitySandboxService implements ActivitySandbox {
       return `${plays}, not ${named.module}.`;
     if (named.ref !== null && named.ref !== activity.refNum)
       return `${plays}, not ref ${named.ref}.`;
-    if (named.source !== null && (await this.playSource(activity)) !== named.source)
+    if (
+      named.source !== null &&
+      this.playSource(activity, await this.playLayout()) !== named.source
+    )
       return `${plays}, whose module is not in the ${named.source === "monorepo" ? "monorepo" : "checkout's"} modules.`;
     return null;
   }

@@ -17,8 +17,6 @@ export async function signedPlayLocation(
   projectId: string,
   activityId: string,
   query: PlayQuery,
-  /** Whether the link asked for a language; one that did not is carried on without one. */
-  askedLanguage: boolean,
 ): Promise<string> {
   const target = resolvePreviewTarget(
     c.req.url,
@@ -49,6 +47,6 @@ export async function signedPlayLocation(
     target === null,
     parentOrigin,
   );
-  const search = playQueryString(query, { languageCode: askedLanguage });
+  const search = playQueryString(query);
   return `${target?.origin ?? ""}${playBase(token)}play${search ? `?${search}` : ""}`;
 }
