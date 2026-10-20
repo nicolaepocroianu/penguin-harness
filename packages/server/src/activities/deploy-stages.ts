@@ -108,7 +108,9 @@ import { syncMedia } from "./deploy-media.js";
 import {
   FfmpegStopped,
   FfmpegUnavailable,
+  kindOf,
   optimiseMedia,
+  type MediaProblem,
   type MediaOptimiseReport,
 } from "./deploy-media-optimise.js";
 import { ffmpegPath } from "./ffmpeg.js";
@@ -1166,23 +1168,19 @@ const verifyMediaAssets: DeployStageDefinition = {
       const optimised = await optimiseReferenced(ctx, qa, report.media);
       ctx.metadata.mediaOptimised = {
         optimised: optimised.optimised,
+        rebranded: optimised.rebranded,
         alreadyOptimised: optimised.alreadyOptimised,
         skipped: optimised.skipped,
         failed: optimised.failed,
         bytesBefore: optimised.bytesBefore,
         bytesAfter: optimised.bytesAfter,
         files: optimised.files
-          .filter((file) => file.status === "optimised" || file.status === "failed")
+          .filter(
+            (file) => file.status !== "already_optimised" && !file.status.startsWith("skipped"),
+          )
           .slice(0, PATHS_SHOWN),
       };
-      if (optimised.failed) {
-        const failed = optimised.files.filter((file) => file.status === "failed");
-        throw new DeployStageFailure({
-          code: "media_optimise_failed",
-          paths: failed.slice(0, PATHS_SHOWN).map((file) => file.path),
-          count: failed.length,
-        });
-      }
+      if (optimised.failed) throw optimiseFailure(optimised);
       const result = await syncMedia(
         { dir: cwd, references: report.media },
         { clone, log: ctx.log },
@@ -1225,6 +1223,13 @@ async function optimiseReferenced(
   qa: DeployQaContext,
   references: readonly string[],
 ): Promise<MediaOptimiseReport> {
+  const paths = references.flatMap((reference) => mediaRepoPath(reference) ?? []);
+  // With no audio or video to look at, FFmpeg is never asked for, nor a sandbox for it.
+  if (!paths.some((file) => kindOf(file) !== null))
+    return optimiseMedia(
+      { dir: qa.media.dir, workDir: qa.media.workDir, paths },
+      { log: ctx.log, ffmpeg: () => Promise.reject(new Error("There is no media to re-encode.")) },
+    );
   const confiner = moduleConfiner(ctx);
   const root = qa.media.workDir;
   await fs.mkdir(root, { recursive: true });
@@ -1235,11 +1240,7 @@ async function optimiseReferenced(
   const command = ctx.ffmpeg ?? ffmpegPath();
   try {
     return await optimiseMedia(
-      {
-        dir: qa.media.dir,
-        workDir,
-        paths: references.flatMap((reference) => mediaRepoPath(reference) ?? []),
-      },
+      { dir: qa.media.dir, workDir, paths },
       {
         log: ctx.log,
         ffmpeg: async (args, onOutput) =>
@@ -1265,6 +1266,33 @@ async function optimiseReferenced(
   } finally {
     await removeCheckFolder(workDir);
   }
+}
+
+/**
+ * Why the files that could not be re-encoded fail the stage, those of one kind named: a missing
+ * LFS file first, then a file changed meanwhile, then one that could not be written, then
+ * FFmpeg's failures. The log names every one of them.
+ */
+function optimiseFailure(report: MediaOptimiseReport): DeployStageFailure {
+  const failed = report.files.filter((file) => file.status === "failed");
+  const of = (problem: MediaProblem) => failed.filter((file) => file.problem === problem);
+  const named = (files: typeof failed) => ({
+    paths: files.slice(0, PATHS_SHOWN).map((file) => file.path),
+    count: files.length,
+  });
+  const pointers = of("lfs_pointer");
+  if (pointers.length)
+    return new DeployStageFailure({ code: "media_lfs_pointer", ...named(pointers) });
+  const changed = of("changed");
+  if (changed.length) return new DeployStageFailure({ code: "media_changed", ...named(changed) });
+  const unwritten = of("write");
+  if (unwritten.length)
+    return new DeployStageFailure({
+      code: "media_write_failed",
+      ...named(unwritten),
+      error: unwritten[0]!.reason ?? "",
+    });
+  return new DeployStageFailure({ code: "media_optimise_failed", ...named(failed) });
 }
 
 const publishActivityData: DeployStageDefinition = {

@@ -381,6 +381,7 @@ describe("verify_activity_data and verify_media_assets", () => {
     expect(await fs.readFile(path.join(media, "loom/words/hello.mp3"), "utf8")).toBe("smaller");
     expect(ctx.metadata.mediaOptimised).toEqual({
       optimised: 1,
+      rebranded: 0,
       alreadyOptimised: 0,
       skipped: 0,
       failed: 0,
@@ -510,6 +511,70 @@ describe("verify_activity_data and verify_media_assets", () => {
       if (saved === undefined) delete process.env[SECRET];
       else process.env[SECRET] = saved;
     }
+  });
+
+  it("asks for no sandbox, and runs no FFmpeg, when the data names no audio or video", async () => {
+    const { HttpError } = await import("../src/http/errors.js");
+    const ffmpeg = fakeFfmpeg();
+    const { ctx, clones, media } = await setup(
+      {
+        confinement: () => {
+          throw new HttpError(503, "sandbox_unavailable", "No sandbox plugin is enabled.");
+        },
+      },
+      { tracked: ["loom/words/hello.png"] },
+      ffmpeg,
+    );
+    const pictures = snapshot();
+    pictures.refs[0]!.assets = [
+      { key: "hello", type: "image", path: "media/loom/words/hello.png" },
+    ];
+    ctx.qa!.snapshot = async () => pictures;
+    await run("export_activity_data", ctx);
+    await run("verify_media_assets", ctx);
+    expect(ffmpeg.calls).toEqual([]);
+    expect(ctx.metadata.mediaOptimised).toMatchObject({ optimised: 0, skipped: 1 });
+    expect(asked(clones, media).some((call) => call[0] === "push")).toBe(false);
+  });
+
+  it("fails naming the media the clone has only as Git LFS pointers, publishing nothing", async () => {
+    const { ctx, clones, media } = await setup({}, { authored: ["loom/words/hello.mp3"] });
+    await fs.mkdir(path.join(media, "loom", "words"), { recursive: true });
+    await fs.writeFile(
+      path.join(media, "loom", "words", "hello.mp3"),
+      "version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 9\n",
+    );
+    await run("export_activity_data", ctx);
+    expect(await failure(run("verify_media_assets", ctx))).toEqual({
+      code: "media_lfs_pointer",
+      paths: ["loom/words/hello.mp3"],
+      count: 1,
+    });
+    expect(asked(clones, media).some((call) => call[0] === "stage" || call[0] === "push")).toBe(
+      false,
+    );
+  });
+
+  it("fails naming the media that changed while it was re-encoded, publishing nothing", async () => {
+    const ffmpeg = fakeFfmpeg({
+      "hello.mp3": {
+        describe: MP3_STEREO,
+        meanwhile: (source) => fs.writeFile(source, "a take accepted meanwhile"),
+      },
+    });
+    const { ctx, clones, media } = await setup({}, { authored: ["loom/words/hello.mp3"] }, ffmpeg);
+    await fs.mkdir(path.join(media, "loom", "words"), { recursive: true });
+    await fs.writeFile(path.join(media, "loom", "words", "hello.mp3"), "the old take");
+    await run("export_activity_data", ctx);
+    expect(await failure(run("verify_media_assets", ctx))).toEqual({
+      code: "media_changed",
+      paths: ["loom/words/hello.mp3"],
+      count: 1,
+    });
+    expect(await fs.readFile(path.join(media, "loom/words/hello.mp3"), "utf8")).toBe(
+      "a take accepted meanwhile",
+    );
+    expect(asked(clones, media).some((call) => call[0] === "push")).toBe(false);
   });
 
   it("does nothing while activity agents are to be confined and nothing can confine FFmpeg", async () => {

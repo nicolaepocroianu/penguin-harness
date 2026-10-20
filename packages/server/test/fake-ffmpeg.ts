@@ -57,6 +57,8 @@ export interface FakeMedia {
   output?: string;
   /** What the re-encode writes; absent, a little audio, or an .mp4's boxes. */
   writes?: Buffer | string;
+  /** Something else done while the re-encode runs, given the input's path. */
+  meanwhile?: (source: string) => Promise<void>;
 }
 
 /**
@@ -92,6 +94,7 @@ export function fakeFfmpeg(media: Record<string, FakeMedia> = {}, fallback: Fake
       onOutput(said);
       return { code: 1, tail: said };
     }
+    await entry.meanwhile?.(source);
     if (entry.exitCode) {
       const said = entry.output ?? "Conversion failed!\n";
       onOutput(said);

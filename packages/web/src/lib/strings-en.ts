@@ -929,6 +929,12 @@ export const en: Strings = {
           `The activity data failed its check: ${errors} ${errors === 1 ? "problem" : "problems"}. The activity data and media were not pushed.`,
         media_missing: (paths, count) =>
           `${count} media ${count === 1 ? "file is" : "files are"} neither in the draft nor in the media repository: ${paths.join(", ")}${count > paths.length ? ", …" : ""}. The activity data and media were not pushed.`,
+        media_lfs_pointer: (paths, count) =>
+          `The media clone has only the Git LFS ${count === 1 ? "pointer" : "pointers"}, not the ${count === 1 ? "file" : "files"}, for ${count} media ${count === 1 ? "file" : "files"}: ${paths.join(", ")}${count > paths.length ? ", …" : ""}. They could not be checked or re-encoded, and the activity data and media were not pushed. Get the files into the media clone, then deploy again.`,
+        media_changed: (paths, count) =>
+          `${count} media ${count === 1 ? "file" : "files"} changed in the media clone while ${count === 1 ? "it was" : "they were"} re-encoded, and ${count === 1 ? "was" : "were"} left as ${count === 1 ? "it is" : "they are"} now: ${paths.join(", ")}${count > paths.length ? ", …" : ""}. The activity data and media were not pushed. Deploy again.`,
+        media_write_failed: (paths, count, error) =>
+          `The re-encoded copy of ${paths.join(", ")}${count > paths.length ? ", …" : ""} could not be put in the media clone: ${error}${error.endsWith(".") ? "" : "."} The original${count === 1 ? " is" : "s are"} as before, and the activity data and media were not pushed.`,
         media_optimise_failed: (paths, count) =>
           `FFmpeg could not re-encode ${count} media ${count === 1 ? "file" : "files"}: ${paths.join(", ")}${count > paths.length ? ", …" : ""}. Each was left as it was, and the activity data and media were not pushed. The log shows why.`,
         deploy_timed_out: (minutes, target) =>

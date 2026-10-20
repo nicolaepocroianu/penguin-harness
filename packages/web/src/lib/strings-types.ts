@@ -840,6 +840,12 @@ export type Strings = {
         media_missing: (paths: string[], count: number) => string;
         /** FFmpeg could not re-encode media: the first paths, and how many there are in all. */
         media_optimise_failed: (paths: string[], count: number) => string;
+        /** Media the clone has only LFS pointers of: the first paths, and how many in all. */
+        media_lfs_pointer: (paths: string[], count: number) => string;
+        /** Media changed while it was re-encoded: the first paths, and how many in all. */
+        media_changed: (paths: string[], count: number) => string;
+        /** Re-encoded media that could not be written: the first paths, how many, the error. */
+        media_write_failed: (paths: string[], count: number, error: string) => string;
         /** The activity deploy had not finished in time; `target` is absent for QA's. */
         deploy_timed_out: (minutes: number, target?: "qa" | "prod") => string;
         interrupted: string;

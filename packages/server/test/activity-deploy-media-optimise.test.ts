@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   FfmpegUnavailable,
   audioIsOptimised,
+  brandsOk,
   optimiseMedia,
   parseProbe,
   videoArgs,
@@ -270,6 +271,165 @@ describe("deploy media optimisation", () => {
   });
 });
 
+describe("what may go wrong around an encode", () => {
+  it("never overwrites a file that changed in the clone while it was re-encoded", async () => {
+    const { dir, workDir } = await setup();
+    await put(dir, "loom/w/take.mp3", "the old take");
+    const ffmpeg = fakeFfmpeg({
+      "take.mp3": {
+        describe: MP3_STEREO,
+        // An accepted take is written into the clone while FFmpeg works on the old one.
+        meanwhile: (source) => fs.writeFile(source, "the take accepted meanwhile"),
+      },
+    });
+    const report = await optimiseMedia(
+      { dir, workDir, paths: ["loom/w/take.mp3"] },
+      { ffmpeg: ffmpeg.ffmpeg, log: () => {} },
+    );
+    expect(report.files[0]).toMatchObject({ status: "failed", problem: "changed" });
+    expect(report.files[0]!.reason).toMatch(/changed in the media clone while it was re-encoded/);
+    expect((await read(dir, "loom/w/take.mp3")).toString()).toBe("the take accepted meanwhile");
+    expect(await fs.readdir(path.join(dir, "loom/w"))).toEqual(["take.mp3"]);
+  });
+
+  it("gives an otherwise optimised .mp4 the validator's brands by copying its streams, never encoding it again", async () => {
+    const { dir, workDir } = await setup();
+    await put(dir, "loom/w/plain.mp4", mp4Bytes(["isom", "iso2", "avc1", "mp41"], 500));
+    const ffmpeg = fakeFfmpeg({ "plain.mp4": { describe: MP4_OPTIMISED } });
+    const lines: string[] = [];
+    const ports = { ffmpeg: ffmpeg.ffmpeg, log: (text: string) => lines.push(text) };
+    const input = { dir, workDir, paths: ["loom/w/plain.mp4"] };
+    const report = await optimiseMedia(input, ports);
+    expect(report).toMatchObject({ optimised: 0, rebranded: 1, failed: 0 });
+    expect(report.files[0]!.status).toBe("rebranded");
+    const remux = ffmpeg.calls.at(-1)!;
+    expect(remux).toContain("copy");
+    expect(remux).not.toContain("libx264");
+    expect(remux).toContain("compatible_brands=mp42iso2avc1mp41");
+    expect(brandsOk(await read(dir, "loom/w/plain.mp4"))).toBe(true);
+    expect(lines).toContain("Gave loom/w/plain.mp4 the validator's MP4 brands.");
+    // Once branded it is left alone.
+    expect((await optimiseMedia(input, ports)).alreadyOptimised).toBe(1);
+    expect(ffmpeg.encodes()).toHaveLength(1);
+    // A .mov is never given MP4 brands.
+    await put(dir, "loom/w/plain.mov", mp4Bytes(["qt  "], 500));
+    const mov = fakeFfmpeg({ "plain.mov": { describe: MP4_OPTIMISED } });
+    const movReport = await optimiseMedia(
+      { dir, workDir, paths: ["loom/w/plain.mov"] },
+      { ffmpeg: mov.ffmpeg, log: () => {} },
+    );
+    expect(movReport.alreadyOptimised).toBe(1);
+  });
+
+  it("fails a file the clone has only as a Git LFS pointer, without asking FFmpeg", async () => {
+    const { dir, workDir } = await setup();
+    await put(
+      dir,
+      "loom/w/pointer.mp3",
+      "version https://git-lfs.github.com/spec/v1\noid sha256:4d7a214614ab2935c943f9e0ff69d22eadbb8f32b1258daaa5e2ca24d17e2393\nsize 12345\n",
+    );
+    const ffmpeg = fakeFfmpeg({}, { describe: MP3_STEREO });
+    const report = await optimiseMedia(
+      { dir, workDir, paths: ["loom/w/pointer.mp3"] },
+      { ffmpeg: ffmpeg.ffmpeg, log: () => {} },
+    );
+    expect(report.files[0]).toMatchObject({ status: "failed", problem: "lfs_pointer" });
+    expect(ffmpeg.calls).toEqual([]);
+  });
+
+  it.skipIf(process.getuid?.() === 0)(
+    "names the OS error when the re-encoded copy cannot be put in place, and keeps the original",
+    async () => {
+      const { dir, workDir } = await setup();
+      await put(dir, "loom/w/locked.mp3", "original");
+      const folder = path.join(dir, "loom", "w");
+      const file = path.join(folder, "locked.mp3");
+      // Windows refuses to rename over a read-only file; elsewhere the folder is made read-only.
+      const lock = (on: boolean) =>
+        process.platform === "win32"
+          ? fs.chmod(file, on ? 0o444 : 0o666)
+          : fs.chmod(folder, on ? 0o555 : 0o755);
+      const ffmpeg = fakeFfmpeg({
+        "locked.mp3": { describe: MP3_STEREO, meanwhile: () => lock(true) },
+      });
+      try {
+        const report = await optimiseMedia(
+          { dir, workDir, paths: ["loom/w/locked.mp3"] },
+          { ffmpeg: ffmpeg.ffmpeg, log: () => {} },
+        );
+        expect(report.files[0]).toMatchObject({ status: "failed", problem: "write" });
+        expect(report.files[0]!.reason).toMatch(/^(EPERM|EACCES): /);
+      } finally {
+        await lock(false);
+      }
+      expect((await read(dir, "loom/w/locked.mp3")).toString()).toBe("original");
+      expect(await fs.readdir(folder)).toEqual(["locked.mp3"]);
+    },
+  );
+
+  it("keeps a failure's reason short, its progress lines broken at their carriage returns", async () => {
+    const { dir, workDir } = await setup();
+    await put(dir, "loom/w/noisy.mp3", "original");
+    const progress = Array.from({ length: 3000 }, (_, i) => `frame=${i} size=${i}kB\r`).join("");
+    const ffmpeg = fakeFfmpeg({
+      "noisy.mp3": {
+        describe: MP3_STEREO,
+        exitCode: 1,
+        output: `${progress}\nError while encoding\n`,
+      },
+    });
+    const report = await optimiseMedia(
+      { dir, workDir, paths: ["loom/w/noisy.mp3"] },
+      { ffmpeg: ffmpeg.ffmpeg, log: () => {} },
+    );
+    const reason = report.files[0]!.reason!;
+    expect(reason.length).toBeLessThanOrEqual(2001);
+    expect(reason).not.toContain("\r");
+    expect(reason.endsWith("Error while encoding")).toBe(true);
+    // FFmpeg is told to write no progress and only its errors while it encodes.
+    const encode = ffmpeg.calls.at(-1)!;
+    expect(encode.slice(0, 6)).toEqual([
+      "-hide_banner",
+      "-nostdin",
+      "-nostats",
+      "-loglevel",
+      "error",
+      "-y",
+    ]);
+  });
+
+  it("fails a re-encoded .mp4 whose ftyp box claims more than the file holds", async () => {
+    const { dir, workDir } = await setup();
+    await put(dir, "loom/w/v.mp4", mp4Bytes(undefined, 100));
+    const broken = mp4Bytes();
+    broken.writeUInt32BE(0xfffffff0, 0);
+    const ffmpeg = fakeFfmpeg({ "v.mp4": { describe: MP4_LARGE, writes: broken } });
+    const report = await optimiseMedia(
+      { dir, workDir, paths: ["loom/w/v.mp4"] },
+      { ffmpeg: ffmpeg.ffmpeg, log: () => {} },
+    );
+    expect(report.files[0]).toMatchObject({ status: "failed", problem: "ffmpeg" });
+    expect(report.files[0]!.reason).toMatch(/cannot be right/);
+    expect(await read(dir, "loom/w/v.mp4")).toEqual(mp4Bytes(undefined, 100));
+  });
+});
+
+describe("the validator's MP4 brands", () => {
+  it("are major brand mp42 and compatible brands mp42 iso2 avc1 mp41, in that order, empty slots aside", () => {
+    const patched = mp4Bytes(["mp42", "iso2", "avc1", "mp41", "\0\0\0\0"]);
+    patched.write("mp42", 8, "latin1");
+    expect(brandsOk(patched)).toBe(true);
+    expect(brandsOk(mp4Bytes())).toBe(false); // major brand isom
+    const reordered = mp4Bytes(["iso2", "mp42", "avc1", "mp41"]);
+    reordered.write("mp42", 8, "latin1");
+    expect(brandsOk(reordered)).toBe(false);
+    const extra = mp4Bytes(["mp42", "iso2", "avc1", "mp41", "dash"]);
+    extra.write("mp42", 8, "latin1");
+    expect(brandsOk(extra)).toBe(false);
+    expect(brandsOk(Buffer.from("not an mp4"))).toBe(false);
+  });
+});
+
 describe("what counts as already optimised (Loom's limits)", () => {
   const plain = Buffer.from("plain audio frames");
 
@@ -372,6 +532,35 @@ describe.skipIf(!ffmpeg)("deploy media optimisation with the real FFmpeg", () =>
       "192k",
       path.join(dir, "loom", "tone.mp3"),
     ]);
+    // Already as a deploy ships it, but with FFmpeg's own brands.
+    make([
+      "-f",
+      "lavfi",
+      "-i",
+      "testsrc=size=160x120:rate=30000/1001:duration=1",
+      "-f",
+      "lavfi",
+      "-i",
+      "sine=frequency=440:duration=1",
+      "-c:v",
+      "libx264",
+      "-b:v",
+      "300k",
+      "-pix_fmt",
+      "yuv420p",
+      "-movflags",
+      "+faststart",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "64k",
+      "-ac",
+      "1",
+      "-ar",
+      "44100",
+      "-shortest",
+      path.join(dir, "loom", "plain.mp4"),
+    ]);
     make([
       "-f",
       "lavfi",
@@ -397,17 +586,20 @@ describe.skipIf(!ffmpeg)("deploy media optimisation with the real FFmpeg", () =>
         spawnDeployProcess.run(ffmpeg!, args, { cwd: workDir, shell: false, onOutput }),
       log: () => {},
     };
-    const input = { dir, workDir, paths: ["loom/tone.mp3", "loom/clip.mp4"] };
+    const input = { dir, workDir, paths: ["loom/tone.mp3", "loom/clip.mp4", "loom/plain.mp4"] };
     const first = await optimiseMedia(input, ports);
     expect(first.files.map((file) => [file.path, file.status, file.reason])).toEqual([
       ["loom/tone.mp3", "optimised", undefined],
       ["loom/clip.mp4", "optimised", undefined],
+      ["loom/plain.mp4", "rebranded", undefined],
     ]);
+    expect(brandsOk(await read(dir, "loom/plain.mp4"))).toBe(true);
     expect(first.files[0]!.bytesAfter!).toBeLessThan(first.files[0]!.bytesBefore!);
     const clip = await read(dir, "loom/clip.mp4");
     expect(clip.subarray(8, 12).toString("latin1")).toBe("mp42");
     const second = await optimiseMedia(input, ports);
     expect(second.files.map((file) => file.status)).toEqual([
+      "already_optimised",
       "already_optimised",
       "already_optimised",
     ]);

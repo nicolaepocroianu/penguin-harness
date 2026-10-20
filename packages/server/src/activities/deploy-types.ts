@@ -299,6 +299,21 @@ export type DeployStageError =
    */
   | { code: "media_optimise_failed"; paths: string[]; count: number }
   /**
+   * The media clone has only the Git LFS pointers of media the data names, not their content,
+   * so they could not be checked or re-encoded: the first of them, and how many in all.
+   */
+  | { code: "media_lfs_pointer"; paths: string[]; count: number }
+  /**
+   * Media changed in the media clone while FFmpeg re-encoded them (a take accepted meanwhile),
+   * and was left as it now is: the first of them, and how many in all.
+   */
+  | { code: "media_changed"; paths: string[]; count: number }
+  /**
+   * A re-encoded copy could not be put in the media clone's place: the first of them, how many
+   * in all, and the first one's OS error.
+   */
+  | { code: "media_write_failed"; paths: string[]; count: number; error: string }
+  /**
    * The Jenkins activity deploy ran for the configured minutes and had not finished; `target`
    * is absent for a QA deploy's (as runs before PROD deploys existed recorded it).
    */
@@ -320,21 +335,26 @@ export type DeployStageError =
 
 /** What verify_media_assets re-encoded before publishing (`deploy-media-optimise.ts`). */
 export interface DeployMediaOptimised {
-  /** How many files were re-encoded, already as a deploy ships them, left alone, or failed. */
+  /**
+   * How many files were re-encoded, given only the validator's MP4 brands, already as a deploy
+   * ships them, left alone, or failed.
+   */
   optimised: number;
+  rebranded?: number;
   alreadyOptimised: number;
   skipped: number;
   failed: number;
   /** What the re-encoded files weighed before, and weigh now. */
   bytesBefore: number;
   bytesAfter: number;
-  /** The first files re-encoded or failed, each with its sizes (and why it failed). */
+  /** The first files re-encoded, rebranded or failed, each with its sizes (and why it failed). */
   files: Array<{
     path: string;
     kind: "audio" | "video" | "other";
     status: string;
     bytesBefore?: number;
     bytesAfter?: number;
+    problem?: string;
     reason?: string;
   }>;
 }

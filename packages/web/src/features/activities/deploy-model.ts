@@ -357,6 +357,12 @@ export function stageErrorText(error: DeployStageError): string {
       return words.media_missing(error.paths, error.count);
     case "media_optimise_failed":
       return words.media_optimise_failed(error.paths, error.count);
+    case "media_lfs_pointer":
+      return words.media_lfs_pointer(error.paths, error.count);
+    case "media_changed":
+      return words.media_changed(error.paths, error.count);
+    case "media_write_failed":
+      return words.media_write_failed(error.paths, error.count, error.error);
     case "deploy_timed_out":
       return words.deploy_timed_out(error.minutes, error.target);
     case "module_repository_missing":
