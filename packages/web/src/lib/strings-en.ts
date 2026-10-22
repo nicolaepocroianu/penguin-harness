@@ -62,14 +62,16 @@ export const en: Strings = {
     studioPlayer: {
       waiting: "The activity has not reported its state yet.",
       pick: "Pick",
-      picking: "Click something in the preview",
+      picking: "Click something in the preview to open it.",
       opened: (name: string) => `Opened ${name}.`,
       noMatch: (id: string) => `Nothing in this activity is named ${id}.`,
       noMedia: "Plan media first: picking opens an asset, and this activity has none yet.",
       silent:
         "This module does not report its state. Modules built on Loom's state machine do; older ones, like this one, don't.",
       map: {
-        toggle: "Behavior map",
+        title: "Behavior map",
+        show: "Show the behavior map",
+        hide: "Hide the behavior map",
         edit: "Edit machine",
         scene: "Scene",
         loading: "Reading the module's state machine…",
@@ -210,7 +212,7 @@ export const en: Strings = {
       settings: "Ref settings",
       settingsTitle: (productCode: string, refNum: number) => `${productCode}, ref ${refNum}`,
       displayName: "Display name",
-      displayNameHint: "Up to 64 characters. Leave empty to show the ref's number.",
+      displayNameHint: "Leave empty to show the ref's number.",
       changeNumber: "Change number",
       changeNumberTitle: (productCode: string, refNum: number) =>
         `Change the number of ${productCode}, ref ${refNum}`,
@@ -269,11 +271,8 @@ export const en: Strings = {
       columns: {
         version: "Version",
         name: "Name",
-        kind: "Kind",
         created: "Created",
-        author: "By",
         media: "Media",
-        current: "Draft",
         actions: "Actions",
       },
       kinds: { manual: "Saved", auto: "Automatic", restore: "Restore", deploy: "Deploy" },
@@ -394,13 +393,12 @@ export const en: Strings = {
     createRef: {
       title: "New ref from this template",
       about:
-        "The new ref starts as a copy of this one: its script, specification, media plan, generated media, uploads and implementation features. Media in the WAF checkout stays shared rather than copied. Anything you mark to regenerate is generated after the ref is made, as a speech and images run you can follow in the new ref. The assessment is shared by every ref and is not copied.",
+        "The new ref starts as a copy of this one: its script, specification, media plan, generated media, uploads and implementation features. Media in the WAF checkout stays shared rather than copied. Anything you mark to regenerate is generated after the ref is made, as a speech and images run you can follow in the new ref.",
       newRef: "New ref",
       refNum: "Ref number",
       refNumHint:
         "A whole number no other ref of this product uses. The next free one is filled in.",
       name: "Name",
-      nameHint: "Up to 64 characters.",
       language: "Language",
       voiceForAll: "Voice for all narration",
       voiceUnchanged: "Each narration's own voice",
@@ -408,7 +406,6 @@ export const en: Strings = {
       regenerateImages: "Regenerate all images",
       columns: {
         asset: "Asset",
-        type: "Type",
         current: "Current",
         action: "Action",
         details: "Details",
@@ -470,11 +467,8 @@ export const en: Strings = {
       sortLabel: "Sort",
       sort: { recent: "Recent", code: "A–Z" },
       refs: (count: number) => (count === 1 ? "1 ref" : `${count} refs`),
-      attention: (count: number) => (count === 1 ? "1 needs attention" : `${count} need attention`),
-      refLine: (refNum: number, when: string) => `ref ${refNum} · ${when}`,
       canonical: "Canonical ref",
       progress: (done: number, total: number) => `${done} of ${total} milestones`,
-      newRef: "New ref",
       newRefUnavailable: "Plan the canonical ref's media first; a new ref copies its media plan.",
       status: {
         running: (what: string) => `${what} running`,
@@ -484,12 +478,6 @@ export const en: Strings = {
       },
       lensLabel: "Show",
       lenses: { all: "All", progress: "In progress", attention: "Needs you", built: "Built" },
-      columns: {
-        activity: "Activity",
-        milestones: "Milestones",
-        status: "Status",
-        edited: "Edited",
-      },
       ref: (refNum: number) => `ref ${refNum}`,
       milestones: { spec: "Specification", mediaPlan: "Media plan", module: "Module" },
       milestone: (name: string, done: boolean) => `${name}: ${done ? "done" : "not yet"}`,
@@ -2387,9 +2375,9 @@ export const en: Strings = {
     previewScene: "Start scene",
     previewSceneDefault: "Module default",
     previewLanguageDefault: "Default language",
-    previewResolution: (dimensions: string) => `${dimensions} viewport`,
+    previewResolution: (dimensions: string) => dimensions,
     previewResolutionLabel: "Preview resolution",
-    previewResolutionOwn: (dimensions: string) => `${dimensions} (the activity's own)`,
+    previewResolutionOwn: (dimensions: string) => `${dimensions} (own size)`,
     newActivity: "New activity",
     openFromModules: {
       title: "Open from modules",
@@ -2596,13 +2584,6 @@ export const en: Strings = {
       },
       readiness: {
         title: "Before QA",
-        summary: (blockers: number, recommendations: number) =>
-          [
-            blockers ? `${blockers} ${blockers === 1 ? "blocker" : "blockers"}` : "",
-            recommendations ? `${recommendations} recommended` : "",
-          ]
-            .filter(Boolean)
-            .join(", "),
         blocker: "Blocks the deploy",
         recommendation: "Recommended",
         none: "Nothing stands between this activity and QA.",

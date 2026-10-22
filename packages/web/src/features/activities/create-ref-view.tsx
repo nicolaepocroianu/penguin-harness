@@ -75,8 +75,8 @@ import { useHeldWork, useUnsavedWork } from "./unsaved-work-context";
 
 const ACTIONS: readonly RowAction[] = ["keep", "regenerate", "upload", "library"];
 
-/** The narrowest the five columns read in: an action row and its details need this much. */
-const TABLE_MIN = 880;
+/** The narrowest the four columns read in: an action row and its details need this much. */
+const TABLE_MIN = 800;
 
 /** What an asset says or shows, which names it before its key. */
 function rowWords(row: RefPlanRow): string | null {
@@ -297,7 +297,7 @@ export function CreateRefView({
     );
   }
 
-  /** An asset's words, its key underneath, and its scenes: the head of its row either way. */
+  /** An asset's words, its key underneath, then its type and scenes: the head of its row. */
   function assetName(row: RefPlanRow) {
     const said = rowWords(row);
     return (
@@ -309,7 +309,7 @@ export function CreateRefView({
           </span>
         )}
         <span className="block text-xs text-gray-500">
-          {row.scenes.length ? words.scenes(row.scenes.join(", ")) : words.noScene}
+          {`${typeName(row)} · ${row.scenes.length ? words.scenes(row.scenes.join(", ")) : words.noScene}`}
         </span>
       </>
     );
@@ -435,7 +435,6 @@ export function CreateRefView({
           <Input
             size="sm"
             label={words.name}
-            hint={words.nameHint}
             maxLength={64}
             value={name}
             disabled={creating}
@@ -504,10 +503,7 @@ export function CreateRefView({
               {groupRows(rows).flatMap((group) =>
                 group.rows.map((row) => (
                   <li key={row.key} className="space-y-2 px-3 py-2.5 text-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">{assetName(row)}</div>
-                      <span className="shrink-0 text-xs text-gray-500">{typeName(row)}</span>
-                    </div>
+                    <div className="min-w-0">{assetName(row)}</div>
                     <div className="max-w-sm">{current(row)}</div>
                     {actions(row)}
                     {row.editable ? details(row) : null}
@@ -521,7 +517,6 @@ export function CreateRefView({
                 <thead>
                   <tr className={TABLE_HEAD_ROW}>
                     <th className={TH}>{words.columns.asset}</th>
-                    <th className={TH}>{words.columns.type}</th>
                     <th className={TH}>{words.columns.current}</th>
                     <th className={TH}>{words.columns.action}</th>
                     <th className={TH}>{words.columns.details}</th>
@@ -532,7 +527,6 @@ export function CreateRefView({
                     group.rows.map((row) => (
                       <tr key={row.key}>
                         <td className={`${TD} max-w-72`}>{assetName(row)}</td>
-                        <td className={`${TD} whitespace-nowrap text-xs`}>{typeName(row)}</td>
                         <td className={`${TD} min-w-40`}>{current(row)}</td>
                         <td className={TD}>{actions(row)}</td>
                         <td className={`${TD} min-w-56`}>{row.editable ? details(row) : null}</td>
@@ -552,7 +546,7 @@ export function CreateRefView({
         </Button>
       </p>
       {found.length > 0 && (
-        <div role="status" className={`rounded-md border p-3 text-xs ${toneStrip.danger}`}>
+        <div role="status" className={`rounded-md border p-3 text-xs ${toneStrip.attention}`}>
           <p className="font-medium">{words.blockersTitle}</p>
           <ul className="mt-1 list-disc space-y-1 pl-4">
             {found.map((blocker) => (

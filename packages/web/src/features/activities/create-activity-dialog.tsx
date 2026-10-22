@@ -124,7 +124,8 @@ export function CreateActivityDialog({
           size="sm"
           rows={4}
           label={words.learner}
-          hint={words.learnerHint}
+          info={<p>{words.learnerHint}</p>}
+          infoLabel={words.learner}
           placeholder={words.learnerPlaceholder}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -182,7 +183,8 @@ export function CreateActivityDialog({
             size="sm"
             label={S.activities.readingMode}
             aria-label={S.activities.readingMode}
-            hint={S.activities.readingModeHint}
+            info={<p>{S.activities.readingModeHint}</p>}
+            infoLabel={S.activities.readingMode}
             value={bookMode}
             onChange={(e) => setBookMode(e.target.value as typeof bookMode)}
             required

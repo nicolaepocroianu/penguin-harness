@@ -3,7 +3,7 @@ import type { SandboxBuildReport, SandboxStatus } from "@prismshadow/penguin-ser
 import { StateMapView } from "./state-map-view";
 import { S } from "../../lib/strings";
 import { toneStrip } from "../../lib/tone";
-import { Button, Select } from "@prismshadow/penguin-ui";
+import { Button, GlyphIcon, ICON_SIZE, ICONS, Select } from "@prismshadow/penguin-ui";
 import { PREVIEW_RESOLUTIONS, fitScale, parseResolution, sceneIds } from "./preview";
 import { useActivityClient } from "./activity-client";
 import { playUrl } from "./sandbox";
@@ -166,7 +166,6 @@ export function SandboxPanel({
 
   if (!status && !error) return null;
   const failed = report?.ok === false;
-  const log = failed ? report.log : null;
 
   return (
     <section className="space-y-3">
@@ -186,6 +185,14 @@ export function SandboxPanel({
       {failed && (
         <div role="alert" className={`space-y-2 rounded-md border p-3 text-xs ${toneStrip.danger}`}>
           <p>{report.message}</p>
+          {report.log && (
+            <details open>
+              <summary className="cursor-pointer">{S.activities.sandboxLog}</summary>
+              <pre className="mt-2 max-h-64 overflow-auto rounded-md border border-gray-200 bg-white p-3 whitespace-pre-wrap text-gray-800 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-200">
+                {report.log}
+              </pre>
+            </details>
+          )}
           <Button size="sm" onClick={() => void build(true)} disabled={building}>
             {S.activities.sandboxBuildAgain}
           </Button>
@@ -208,16 +215,6 @@ export function SandboxPanel({
           play={play}
           onEditMachine={onEditMachine}
         />
-      )}
-      {log && (
-        <details open>
-          <summary className="cursor-pointer text-xs text-gray-500">
-            {S.activities.sandboxLog}
-          </summary>
-          <pre className="mt-2 max-h-64 overflow-auto rounded-md border border-gray-200 bg-gray-50 p-3 text-xs whitespace-pre-wrap dark:border-gray-800 dark:bg-gray-900">
-            {log}
-          </pre>
-        </details>
       )}
     </section>
   );
@@ -565,15 +562,17 @@ function SandboxPlayer({
           </Select>
         )}
         {onPick && (
-          <Button size="sm" aria-pressed={picking} onClick={togglePicking}>
-            {picking ? S.activities.studioPlayer.picking : S.activities.studioPlayer.pick}
+          <Button
+            size="sm"
+            variant={picking ? "primary" : "secondary"}
+            aria-pressed={picking}
+            onClick={togglePicking}
+          >
+            {S.activities.studioPlayer.pick}
           </Button>
         )}
-        <a className="text-xs underline" target="_blank" rel="noopener noreferrer" href={url}>
-          {S.activities.sandboxOpen}
-        </a>
         <span className="flex-1" />
-        <div className="w-56">
+        <div className="w-40">
           <Select
             size="sm"
             aria-label={S.activities.previewResolutionLabel}
@@ -592,6 +591,16 @@ function SandboxPlayer({
             )}
           </Select>
         </div>
+        <a
+          target="_blank"
+          rel="noopener noreferrer"
+          href={url}
+          aria-label={S.activities.sandboxOpen}
+          data-tooltip={S.activities.sandboxOpen}
+          className="rounded-md p-1.5 text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+        >
+          <GlyphIcon d={ICONS.externalLink} size={ICON_SIZE.iconButton} />
+        </a>
       </div>
       <div
         ref={areaRef}
@@ -607,9 +616,7 @@ function SandboxPlayer({
       >
         <div ref={boxRef} className={`min-w-0 ${stage ? "flex flex-col justify-center" : ""}`}>
           <div
-            className={`mx-auto max-w-full overflow-hidden border border-gray-200 bg-white dark:border-gray-800 dark:bg-black ${
-              stage ? "rounded-xl shadow-lg" : "rounded-lg"
-            }`}
+            className="mx-auto max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-black"
             style={{
               height: Math.round(viewport.height * scale),
               width: Math.round(viewport.width * scale) + 2,
@@ -638,9 +645,9 @@ function SandboxPlayer({
               onRestart={() => setReloadKey((value) => value + 1)}
               onJump={playFrom}
             />
-            {picked && (
-              <p role="status" className="text-sm text-gray-600 dark:text-gray-300">
-                {picked}
+            {(picking || picked) && (
+              <p role="status" className="text-xs text-gray-600 dark:text-gray-300">
+                {picking ? S.activities.studioPlayer.picking : picked}
               </p>
             )}
           </div>
@@ -661,10 +668,10 @@ function SandboxPlayer({
             onPointerCancel={() => endDrag(true)}
             onLostPointerCapture={() => endDrag(true)}
             onKeyDown={onDividerKey}
-            className={`min-h-24 cursor-col-resize touch-none rounded-sm outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-400/60 ${
+            className={`relative min-h-24 cursor-col-resize touch-none rounded-sm outline-none transition-colors duration-150 after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:transition-colors after:duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-400/60 ${
               dragging
-                ? "bg-gray-300 dark:bg-gray-600"
-                : "bg-gray-100 hover:bg-gray-200 dark:bg-gray-900 dark:hover:bg-gray-700"
+                ? "bg-gray-200 after:bg-gray-400 dark:bg-gray-800 dark:after:bg-gray-500"
+                : "after:bg-gray-200 hover:bg-gray-100 hover:after:bg-gray-300 dark:after:bg-gray-800 dark:hover:bg-gray-900 dark:hover:after:bg-gray-700"
             }`}
           />
         )}

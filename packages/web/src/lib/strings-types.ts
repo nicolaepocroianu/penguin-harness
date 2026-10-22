@@ -64,7 +64,11 @@ export type Strings = {
       noMedia: string;
       silent: string;
       map: {
-        toggle: string;
+        /** The map's section title. */
+        title: string;
+        /** The fold button's name while the map is hidden, and while it is shown. */
+        show: string;
+        hide: string;
         /** Opens the state machine's editor from the map. */
         edit: string;
         scene: string;
@@ -256,11 +260,8 @@ export type Strings = {
       columns: {
         version: string;
         name: string;
-        kind: string;
         created: string;
-        author: string;
         media: string;
-        current: string;
         actions: string;
       };
       kinds: { manual: string; auto: string; restore: string; deploy: string };
@@ -370,13 +371,12 @@ export type Strings = {
       refNum: string;
       refNumHint: string;
       name: string;
-      nameHint: string;
       language: string;
       voiceForAll: string;
       voiceUnchanged: string;
       keepAll: string;
       regenerateImages: string;
-      columns: { asset: string; type: string; current: string; action: string; details: string };
+      columns: { asset: string; current: string; action: string; details: string };
       actions: { keep: string; regenerate: string; upload: string; library: string };
       actionsFor: (key: string) => string;
       types: {
@@ -429,11 +429,8 @@ export type Strings = {
       sortLabel: string;
       sort: { recent: string; code: string };
       refs: (count: number) => string;
-      attention: (count: number) => string;
-      refLine: (refNum: number, when: string) => string;
       canonical: string;
       progress: (done: number, total: number) => string;
-      newRef: string;
       newRefUnavailable: string;
       status: {
         running: (what: string) => string;
@@ -444,9 +441,8 @@ export type Strings = {
       /** The list's lenses, by what an activity needs (activity-groups.ts). */
       lensLabel: string;
       lenses: { all: string; progress: string; attention: string; built: string };
-      columns: { activity: string; milestones: string; status: string; edited: string };
       ref: (refNum: number) => string;
-      /** The milestone bar's steps, named on hover and to a reader. */
+      /** The milestones, named in the status's hover and to a reader. */
       milestones: { spec: string; mediaPlan: string; module: string };
       milestone: (name: string, done: boolean) => string;
       /** A row's menu: open it, or make a new ref of its product. */
@@ -2284,7 +2280,6 @@ export type Strings = {
       /** The list the button opens. */
       readiness: {
         title: string;
-        summary: (blockers: number, recommendations: number) => string;
         blocker: string;
         recommendation: string;
         none: string;

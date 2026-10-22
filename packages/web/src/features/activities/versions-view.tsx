@@ -1,8 +1,10 @@
 /**
  * The activity's saved versions: Save version (with an optional name), the table of every
- * version, newest first, naming the one the draft holds now and the ones that went to QA or
- * PROD, Compare (a version against the current draft, part by part and media file by media
- * file) and Restore. Under the heading, whether QA and PROD hold what the draft holds now.
+ * version, newest first, Compare (a version against the current draft, part by part and media
+ * file by media file) and Restore. The ones that went to QA or PROD are labelled beside the
+ * number and the one the draft holds now beside the name; kind and author sit under name and
+ * date rather than in columns of their own. Under the heading, whether QA and PROD hold what the
+ * draft holds now.
  */
 import { useEffect, useId, useRef, useState } from "react";
 import type {
@@ -14,12 +16,12 @@ import type {
 } from "@prismshadow/penguin-server/api";
 import { ApiError } from "../../api/client";
 import {
-  Badge,
   Button,
   ConfirmModal,
   InfoPopover,
   Input,
   Modal,
+  Pill,
   Tabs,
   useGuardedClose,
   useUnsavedChanges,
@@ -262,11 +264,8 @@ export function VersionsView({
               <tr className={TABLE_HEAD_ROW}>
                 <th className={TH}>{words.columns.version}</th>
                 <th className={TH}>{words.columns.name}</th>
-                <th className={TH}>{words.columns.kind}</th>
                 <th className={TH}>{words.columns.created}</th>
-                <th className={TH}>{words.columns.author}</th>
                 <th className={TH}>{words.columns.media}</th>
-                <th className={TH}>{words.columns.current}</th>
                 <th className={TH}>
                   <span className="sr-only">{words.columns.actions}</span>
                 </th>
@@ -285,25 +284,26 @@ export function VersionsView({
                           aria-label={badge.name}
                           data-tooltip={badge.name}
                         >
-                          <Badge tone="info">{badge.label}</Badge>
+                          <Pill tone="info">{badge.label}</Pill>
                         </span>
                       ))}
                     </span>
                   </td>
                   <td className={`${TD} break-words`}>
-                    {row.name ?? <span className="text-gray-500">{words.unnamed}</span>}
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      {row.name ?? <span className="text-gray-500">{words.unnamed}</span>}
+                      {/* The version the draft holds now, as a label rather than a column. */}
+                      {row.current && <Pill>{words.current}</Pill>}
+                    </span>
+                    <span className="block text-xs text-gray-500 dark:text-gray-400">
+                      {row.kind}
+                    </span>
                   </td>
-                  <td className={`${TD} whitespace-nowrap`}>
-                    <Badge tone="neutral">{row.kind}</Badge>
-                  </td>
-                  <td className={`${TD} whitespace-nowrap text-xs text-gray-500`}>
+                  <td className={`${TD} whitespace-nowrap text-xs`}>
                     <time dateTime={row.createdAt}>{new Date(row.createdAt).toLocaleString()}</time>
+                    <span className="block text-gray-500 dark:text-gray-400">{row.author}</span>
                   </td>
-                  <td className={`${TD} whitespace-nowrap text-xs`}>{row.author}</td>
                   <td className={`${TD} whitespace-nowrap text-xs`}>{row.size}</td>
-                  <td className={`${TD} whitespace-nowrap text-xs font-medium`}>
-                    {row.current ? words.current : ""}
-                  </td>
                   <td className={`${TD} whitespace-nowrap`}>
                     <div className="flex justify-end gap-2">
                       <Button

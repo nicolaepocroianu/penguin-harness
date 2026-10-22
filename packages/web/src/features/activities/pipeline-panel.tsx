@@ -109,14 +109,16 @@ export function continueRequest(
   return { ...inputs, stage: { from }, ...pipeline.scope };
 }
 
-/** What the run is doing, or how it ended, in one line. */
+/**
+ * What the run is doing, or how it ended, in one line. A running stage's own count stays on its
+ * row: beside the line's count of stages, a second "n of m" would read as the same measure.
+ */
 function summary(pipeline: PipelineState): { text: string; tone: Tone } {
   const words = S.activities.studioRun;
   if (pipeline.status === "running") {
     const step = pipeline.steps.find((entry) => entry.status === "running");
     const label = step ? words.steps[step.step] : words.status.running;
-    const count = step?.total ? ` ${words.progress(step.done, step.total)}` : "";
-    return { text: `${words.running(label)}${count}`, tone: "busy" };
+    return { text: words.running(label), tone: "busy" };
   }
   if (pipeline.status === "succeeded") return { text: words.finished, tone: "success" };
   if (pipeline.status === "cancelled") return { text: words.stopped, tone: "muted" };

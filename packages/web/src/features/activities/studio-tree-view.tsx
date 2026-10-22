@@ -1,8 +1,8 @@
 /**
  * The hierarchy panel, drawn the way Loom draws it: text rows, thin guides for depth, and
- * the names first. What a row says about its state sits after the name, small: a dot for
- * media that still needs a real file, missing or a placeholder (a closed scene carries its
- * children's dot so it is not lost when folded), a section's unsaved edits or validity, how
+ * the names first. What a row says about its state sits after the name, small: an alert mark
+ * for media that still needs a real file, missing or a placeholder (a closed scene carries its
+ * children's mark so it is not lost when folded), a section's unsaved edits or invalidity, how
  * many scenes or narrations it holds, and what a section that cannot open yet is waiting
  * for. Scenes go by the script's titles, and a picture or video row leads with a small
  * picture of its file.
@@ -12,9 +12,10 @@
  * the Storyboard never collapses the scenes under it.
  */
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Chevron, ICON_SIZE } from "@prismshadow/penguin-ui";
+import { Chevron, GlyphIcon, ICON_SIZE } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
-import { toneDot, toneInk, type Tone } from "../../lib/tone";
+import { toneInk, type Tone } from "../../lib/tone";
+import { MARK_PATH } from "./journey-header";
 import type { MediaPreview } from "./media-preview";
 import { MediaThumb } from "./media-thumb";
 import type { SceneAssetSelection } from "./scene-asset-tree";
@@ -53,13 +54,16 @@ const MARK_WORDS: Record<NonNullable<StudioNode["mark"]>, () => string> = {
   placeholder: () => S.activities.studioTree.placeholder,
 };
 
-const TRAIL_TONE: Record<Exclude<SectionTrail["kind"], "count">, Tone> = {
+const TRAIL_TONE: Record<Exclude<SectionTrail["kind"], "count" | "valid">, Tone> = {
   unsaved: "attention",
   invalid: "danger",
-  valid: "success",
 };
 
-/** A section's state beside its name: unsaved edits, validity, or how many it holds. */
+/**
+ * A section's state beside its name: unsaved edits, validity, or how many it holds. The word
+ * is the mark, in its tone. A valid section is the settled case, which the journey's
+ * Specification step already shows, so its word goes to a reader only.
+ */
 function Trail({ trail }: { trail: SectionTrail }) {
   const words = S.activities.studioTree.trail;
   if (trail.kind === "count")
@@ -68,12 +72,10 @@ function Trail({ trail }: { trail: SectionTrail }) {
         {trail.count}
       </span>
     );
-  const tone = TRAIL_TONE[trail.kind];
+  if (trail.kind === "valid") return <span className="sr-only">{words.valid}</span>;
   return (
-    <span className={`ml-2 inline-flex shrink-0 items-center gap-1 text-xs ${toneInk[tone]}`}>
-      <span aria-hidden className={`size-1.5 rounded-full ${toneDot[tone]}`} />
-      {/* A valid section only needs its dot; the word is for whoever cannot see it. */}
-      <span className={trail.kind === "valid" ? "sr-only" : ""}>{words[trail.kind]}</span>
+    <span className={`ml-2 shrink-0 text-xs ${toneInk[TRAIL_TONE[trail.kind]]}`}>
+      {words[trail.kind]}
     </span>
   );
 }
@@ -193,8 +195,10 @@ export function StudioTreeView({
               role="img"
               aria-label={MARK_WORDS[node.mark]()}
               data-tooltip={MARK_WORDS[node.mark]()}
-              className={`size-1.5 shrink-0 rounded-full ${toneDot.attention}`}
-            />
+              className={`ml-1.5 shrink-0 ${toneInk.attention}`}
+            >
+              <GlyphIcon d={MARK_PATH.attention} size={ICON_SIZE.rowMark} />
+            </span>
           )}
         </div>
         {open && (

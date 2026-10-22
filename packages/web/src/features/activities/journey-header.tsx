@@ -1,6 +1,7 @@
 /**
  * The journey in the activity header: six steps from the script to a deploy, each saying where
- * it stands in a mark and in words, and beside them the one next-step button, which opens the
+ * it stands in a mark, and in words while it still has work left (a finished step keeps its
+ * words for a reader and its hint), and beside them the one next-step button, which opens the
  * readiness list — what stands between the activity and QA, blockers first, each with the press
  * that goes where it is fixed.
  *
@@ -31,7 +32,7 @@ import type {
 const RING = "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z";
 
 /** Each mark's shape: the state reads without its colour. */
-const MARK_PATH: Record<Exclude<StepMark, "busy">, string> = {
+export const MARK_PATH: Record<Exclude<StepMark, "busy">, string> = {
   done: `${RING} M8.5 12.5l2.5 2.5 4.5-5`,
   attention: `${RING} M12 7.5v5.5 M12 16.5h.01`,
   blocked: "M6.5 11h11v9h-11z M9 11V8.5a3 3 0 0 1 6 0V11",
@@ -74,6 +75,8 @@ export function JourneySteps({
       >
         {steps.map((step, index) => {
           const on = step.key === current;
+          // A finished step says so with its tick; only the steps with work left speak.
+          const settled = step.mark === "done";
           return (
             <li key={step.key} className="flex min-w-0 items-center">
               {index > 0 && (
@@ -87,6 +90,8 @@ export function JourneySteps({
                 disabled={!canGo(step.go)}
                 aria-current={on ? "step" : undefined}
                 data-tooltip={`${step.label}: ${step.state}`}
+                // A finished step's state is never on screen, so its hint says something new.
+                data-tooltip-extra={settled}
                 onClick={() => onGo(step.go)}
                 className={`flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left disabled:cursor-default @max-lg:px-0.5 ${
                   on
@@ -97,7 +102,11 @@ export function JourneySteps({
                 <StepMarkIcon mark={step.mark} tone={step.tone} label={step.label} />
                 <span className="grid min-w-0 text-xs leading-tight">
                   <span className="truncate font-medium @max-xl:sr-only">{step.label}</span>
-                  <span className={`truncate @max-3xl:sr-only ${inkOf(step.tone)}`}>
+                  <span
+                    className={
+                      settled ? "sr-only" : `truncate @max-3xl:sr-only ${inkOf(step.tone)}`
+                    }
+                  >
                     {step.state}
                   </span>
                 </span>
@@ -159,14 +168,7 @@ export function NextStepButton({
       }
     >
       <section role="dialog" aria-label={words.readiness.title} className="px-1.5 pb-1">
-        <div className="flex items-baseline justify-between gap-3 px-2.5 pt-1.5 pb-1">
-          <h2 className="text-xs font-semibold">{words.readiness.title}</h2>
-          {items.length > 0 && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {words.readiness.summary(next.blockers, next.recommendations)}
-            </span>
-          )}
-        </div>
+        <h2 className="px-2.5 pt-1.5 pb-1 text-xs font-semibold">{words.readiness.title}</h2>
         {note && <p className="px-2.5 py-1.5 text-xs text-gray-600 dark:text-gray-300">{note}</p>}
         <ReadinessGroup title={words.readiness.blocker} items={blockers} first onGo={go} />
         <ReadinessGroup
@@ -207,8 +209,9 @@ function readinessNote(next: NextStep, count: number): string | null {
 }
 
 /**
- * One kind of item under its heading. The first item of the list's first group carries the
- * primary press: it is the one to do first.
+ * One kind of item under its heading, which names the kind, so an item carries no mark of its
+ * own. The first item of the list's first group carries the primary press: it is the one to do
+ * first.
  */
 function ReadinessGroup({
   title,
@@ -228,13 +231,6 @@ function ReadinessGroup({
       <ul aria-label={title}>
         {items.map((item, index) => (
           <li key={item.id} className="flex gap-3 rounded-md px-2.5 py-2">
-            <span className="mt-px">
-              <StepMarkIcon
-                mark={item.kind === "blocker" ? "blocked" : "attention"}
-                tone={item.kind === "blocker" ? "attention" : "muted"}
-                label={item.title}
-              />
-            </span>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium">{item.title}</p>
               <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{item.detail}</p>

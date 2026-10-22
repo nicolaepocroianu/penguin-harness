@@ -12,7 +12,6 @@ import { useNavigate } from "react-router";
 import type { ActivityDetail, ActivityRecord } from "@prismshadow/penguin-server/api";
 import { ApiError } from "../../api/client";
 import {
-  Badge,
   Button,
   ConfirmModal,
   FieldLabel,
@@ -27,6 +26,7 @@ import {
   MenuLabel,
   MenuRadioItem,
   MenuSeparator,
+  Pill,
   Switch,
   ICON_SIZE,
   useGuardedClose,
@@ -317,7 +317,10 @@ export function RefSwitcher({
             title={words.menu}
             onClick={() => setMenuOpen(!menuOpen)}
           >
-            <span className="max-w-48 truncate">{label(activity)}</span>
+            {/* Stable is said once, by the pill beside the trigger, not again in its name. */}
+            <span className="max-w-48 truncate">
+              {words.option(activity.refNum, activity.displayName, false)}
+            </span>
             <ChevronDown className="text-gray-400" />
           </Button>
         }
@@ -353,7 +356,7 @@ export function RefSwitcher({
           )}
         </Menu>
       </Dropdown>
-      {activity.stable && <Badge tone="neutral">{words.stable}</Badge>}
+      {activity.stable && <Pill>{words.stable}</Pill>}
       <Modal
         open={renumbering}
         title={words.changeNumberTitle(activity.productCode, activity.refNum)}

@@ -3442,20 +3442,21 @@ test("the player draws the module's behavior map and follows the phase it report
   await panel.getByRole("button", { name: "Zoom in", exact: true }).click();
   await expect(panel.getByText("150%", { exact: true })).toBeVisible();
   expect((await drawing.boundingBox()).width).toBeGreaterThan(fitted * 1.4);
-  await panel.getByRole("button", { name: "Fit", exact: true }).click();
+  // The zoom level itself fits the map back to the column.
+  await panel.getByRole("button", { name: /^Fit · / }).click();
   await expect(panel.getByText("100%", { exact: true })).toBeVisible();
 
-  const toggle = panel.getByRole("button", { name: "Behavior map", exact: true });
-  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  const toggle = panel.getByRole("button", { name: "Hide the behavior map", exact: true });
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await toggle.click();
-  await expect(map).toHaveCount(0);
+  await expect(map).toBeHidden();
 
   // Another screen changes only the preview: the player is laid out at its size.
   const resolution = panel.getByRole("button", { name: "Preview resolution", exact: true });
-  await expect(resolution).toContainText("640×480 (the activity's own)");
+  await expect(resolution).toContainText("640×480 (own size)");
   await expect(panel.locator("iframe")).toHaveCSS("width", "640px");
   await resolution.click();
-  await page.getByRole("option", { name: "1920×1080 viewport", exact: true }).click();
+  await page.getByRole("option", { name: "1920×1080", exact: true }).click();
   await expect(panel.locator("iframe")).toHaveCSS("width", "1920px");
   expect(f.errors).toEqual([]);
 });
@@ -3529,10 +3530,9 @@ test("lists the live tap targets on the current state and keeps the map under th
   const play = () => openPanel(page, "Preview");
   await play();
 
-  // The live phase names how many targets it has and lists the first three.
+  // The live phase is marked on the map, and its targets are listed under it: the first three.
   const map = page.getByRole("group", { name: "Behavior of rocks", exact: true });
   await expect(map.locator('[aria-current="step"]')).toContainText("waiting");
-  await expect(map.locator('[aria-current="step"]')).toContainText("5 live");
   const live = page.getByRole("group", { name: "What can be tapped in waiting", exact: true });
   await expect(live.getByRole("button")).toHaveCount(3);
   await expect(live).toContainText("+2 more");
@@ -3557,14 +3557,14 @@ test("lists the live tap targets on the current state and keeps the map under th
   await expect(map).toBeVisible();
 
   // Hiding the map survives a reload.
-  const toggle = page.getByRole("button", { name: "Behavior map", exact: true });
-  await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", "false");
-  await expect(map).toHaveCount(0);
+  await page.getByRole("button", { name: "Hide the behavior map", exact: true }).click();
+  const show = page.getByRole("button", { name: "Show the behavior map", exact: true });
+  await expect(show).toHaveAttribute("aria-expanded", "false");
+  await expect(map).toBeHidden();
   await page.reload();
   await play();
-  await expect(toggle).toHaveAttribute("aria-pressed", "false");
-  await expect(map).toHaveCount(0);
+  await expect(show).toHaveAttribute("aria-expanded", "false");
+  await expect(map).toBeHidden();
   expect(f.errors).toEqual([]);
 });
 
@@ -3679,8 +3679,8 @@ test("Play mode lights the line the player is saying, and the script follows bot
   await expect(
     panel.getByRole("button", { name: "Play from Scene 1 · Rocks", exact: true }),
   ).toHaveAttribute("aria-current", "step");
-  // The machine's own name for the state is there for whoever reads it, under the words.
-  await expect(panel.getByText("scene-1.presenting", { exact: true })).toBeVisible();
+  // The machine's own name for the state is there for whoever reads it, as the status line's hint.
+  await expect(panel.locator('[role="status"][data-tooltip*="scene-1.presenting"]')).toHaveCount(1);
 
   // The line ends: nothing is lit, and the tap target is named.
   const player = () => page.frames().find((frame) => frame.url().includes("/sandbox/play"));
@@ -5558,7 +5558,7 @@ test("tags a product, filters the list by tag, and deletes an activity after con
   await page.getByRole("link", { name: "All activities" }).click();
   const filter = page.getByRole("group", { name: "Filter by tag" });
   await expect(filter.getByRole("button")).toHaveText([
-    "All · 2",
+    "All",
     "grade 1 · 1",
     "math · 1",
     "Phonics · 1",
@@ -5587,7 +5587,7 @@ test("tags a product, filters the list by tag, and deletes an activity after con
   await filter.getByRole("button", { name: "Phonics · 1", exact: true }).click();
   await expect(sight).toBeVisible();
   await page.getByRole("textbox", { name: "Search activities", exact: true }).fill("");
-  await filter.getByRole("button", { name: "All · 2", exact: true }).click();
+  await filter.getByRole("button", { name: "All", exact: true }).click();
   await expect(cards).toHaveCount(2);
 
   await sight.click();
@@ -5679,7 +5679,7 @@ test("the home page groups refs under their product code", async ({ page }) => {
   });
   await page.goto(`${origin}/activities`);
   const group = page.getByRole("region", { name: /ants/ });
-  const toggle = group.getByRole("button", { name: /^ants Standard/ });
+  const toggle = group.getByRole("button", { name: /^ants\b/ });
   await expect(group.getByRole("link", { name: /ants 1/ })).toBeVisible();
   await expect(group.getByText("Specification next").first()).toBeVisible();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");

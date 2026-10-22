@@ -13,10 +13,10 @@ import type {
   ActivityRun,
   ActivityRunSummary,
 } from "@prismshadow/penguin-server/api";
-import { Button } from "@prismshadow/penguin-ui";
+import { Button, Pill } from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
-import { toneInk, toneSurface, type Tone } from "../../lib/tone";
+import { toneInk, toneName, type Tone } from "../../lib/tone";
 import { runKindLabel, type Announcement } from "./run-toasts";
 import { ModuleBuildsView } from "./module-builds-view";
 import { RunTranscript } from "./run-transcript";
@@ -102,99 +102,104 @@ export function GenerationHistory({
           onDraft={(draft) => onDraft?.(draft)}
         />
       )}
-      <section className="space-y-3">
+      <section className="space-y-1">
         <h4 className="text-sm font-semibold">{S.activities.runs}</h4>
         {runs.length === 0 && <p className="text-xs text-gray-500">{S.activities.noRuns}</p>}
-        {runs.map((run) => {
-          const expanded = open === run.runId && !!run.sessionId;
-          const time = new Date(run.createdAt).toLocaleString();
-          const transcriptId = `run-transcript-${run.runId}`;
-          return (
-            <article
-              key={run.runId}
-              ref={(element) => {
-                if (element) cards.current.set(run.runId, element);
-                else cards.current.delete(run.runId);
-              }}
-              className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-800"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs">{runKindLabel(run)}</span>
-                <span className={`rounded px-2 py-0.5 text-xs ${toneSurface[runTone[run.status]]}`}>
-                  {run.kind === "module" && run.status === "succeeded"
-                    ? S.activities.moduleReady
-                    : run.kind === "audio" || run.kind === "image" || run.kind === "media-text"
-                      ? S.activities.speechStatus[run.status]
-                      : S.activities.status[run.status]}
-                </span>
-                <time className="text-xs text-gray-500" dateTime={run.createdAt}>
-                  {time}
-                </time>
-              </div>
-              {run.error && <p className="break-words text-xs">{run.error}</p>}
-              {run.status === "running" && (
-                <p className="text-xs text-gray-500">{S.activities.runningHelp}</p>
-              )}
-              <div className="flex flex-wrap items-center gap-3">
-                {run.kind === "module" && run.status === "succeeded" && run.sessionId && (
-                  <a
-                    className="text-xs underline"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    href={`/api/sessions/${encodeURIComponent(run.sessionId)}/files/preview-redirect?path=preview%2Findex.html`}
-                  >
-                    {S.activities.previewModule}
-                  </a>
-                )}
-                {run.sessionId && (
-                  <button
-                    type="button"
-                    aria-expanded={expanded}
-                    aria-controls={transcriptId}
-                    aria-label={words.toggle(
-                      expanded ? words.hide : words.show,
-                      runKindLabel(run),
-                      time,
-                    )}
-                    onClick={() => setOpen((current) => (current === run.runId ? null : run.runId))}
-                    className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-300"
-                  >
-                    {expanded ? words.hide : words.show}
-                  </button>
-                )}
-                {run.sessionId && (
-                  <Link
-                    className="text-xs underline"
-                    to={`/chat/${encodeURIComponent(run.sessionId)}`}
-                  >
-                    {S.activities.openSession}
-                  </Link>
-                )}
-                {editable && run.status === "running" && (
-                  <Button size="sm" disabled={busy} onClick={() => onCancel(run.runId)}>
-                    {S.activities.cancel}
-                  </Button>
-                )}
-              </div>
-              {expanded && (
-                <div
-                  id={transcriptId}
-                  className="overflow-hidden rounded-control border border-gray-200 dark:border-gray-800"
-                >
-                  <RunTranscript sessionId={run.sessionId!} running={run.status === "running"} />
+        {/* Rows on rules rather than a card each: the runs are one list, read top to bottom. */}
+        <div className="divide-y divide-gray-200 dark:divide-gray-800">
+          {runs.map((run) => {
+            const expanded = open === run.runId && !!run.sessionId;
+            const time = new Date(run.createdAt).toLocaleString();
+            const transcriptId = `run-transcript-${run.runId}`;
+            return (
+              <article
+                key={run.runId}
+                ref={(element) => {
+                  if (element) cards.current.set(run.runId, element);
+                  else cards.current.delete(run.runId);
+                }}
+                className="space-y-2 py-3"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium">{runKindLabel(run)}</span>
+                  <Pill tone={toneName[runTone[run.status]]}>
+                    {run.kind === "module" && run.status === "succeeded"
+                      ? S.activities.moduleReady
+                      : run.kind === "audio" || run.kind === "image" || run.kind === "media-text"
+                        ? S.activities.speechStatus[run.status]
+                        : S.activities.status[run.status]}
+                  </Pill>
+                  <time className="ml-auto text-xs text-gray-500" dateTime={run.createdAt}>
+                    {time}
+                  </time>
                 </div>
-              )}
-              {run.hasCandidate && (
-                <CandidateReview
-                  runId={run.runId}
-                  editable={editable && run.kind === "spec"}
-                  busy={busy}
-                  onUse={onUseCandidate}
-                />
-              )}
-            </article>
-          );
-        })}
+                {run.error && <p className="break-words text-xs">{run.error}</p>}
+                {run.status === "running" && (
+                  <p className="text-xs text-gray-500">{S.activities.runningHelp}</p>
+                )}
+                <div className="flex flex-wrap items-center gap-3">
+                  {run.kind === "module" && run.status === "succeeded" && run.sessionId && (
+                    <a
+                      className="text-xs underline"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      href={`/api/sessions/${encodeURIComponent(run.sessionId)}/files/preview-redirect?path=preview%2Findex.html`}
+                    >
+                      {S.activities.previewModule}
+                    </a>
+                  )}
+                  {run.sessionId && (
+                    <button
+                      type="button"
+                      aria-expanded={expanded}
+                      aria-controls={transcriptId}
+                      aria-label={words.toggle(
+                        expanded ? words.hide : words.show,
+                        runKindLabel(run),
+                        time,
+                      )}
+                      onClick={() =>
+                        setOpen((current) => (current === run.runId ? null : run.runId))
+                      }
+                      className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-300"
+                    >
+                      {expanded ? words.hide : words.show}
+                    </button>
+                  )}
+                  {run.sessionId && (
+                    <Link
+                      className="text-xs underline"
+                      to={`/chat/${encodeURIComponent(run.sessionId)}`}
+                    >
+                      {S.activities.openSession}
+                    </Link>
+                  )}
+                  {editable && run.status === "running" && (
+                    <Button size="sm" disabled={busy} onClick={() => onCancel(run.runId)}>
+                      {S.activities.cancel}
+                    </Button>
+                  )}
+                </div>
+                {expanded && (
+                  <div
+                    id={transcriptId}
+                    className="overflow-hidden rounded-control border border-gray-200 dark:border-gray-800"
+                  >
+                    <RunTranscript sessionId={run.sessionId!} running={run.status === "running"} />
+                  </div>
+                )}
+                {run.hasCandidate && (
+                  <CandidateReview
+                    runId={run.runId}
+                    editable={editable && run.kind === "spec"}
+                    busy={busy}
+                    onUse={onUseCandidate}
+                  />
+                )}
+              </article>
+            );
+          })}
+        </div>
       </section>
     </div>
   );

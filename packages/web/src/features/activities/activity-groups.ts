@@ -1,5 +1,5 @@
 /**
- * The Activities home's groups: one per product, its refs as cards. A product's refs
+ * The Activities home's groups: one per product, its refs as rows. A product's refs
  * belong together (one product has ten), and a product code is what authors search by.
  * A code is unique only within its collection, so a group is keyed by both.
  */
@@ -50,7 +50,6 @@ export interface ActivityGroup {
   canonicalId: string | null;
   /** The canonical ref can be a template: a legacy ref with no product row cannot. */
   canonicalHasProduct: boolean;
-  attention: number;
   latest: string;
 }
 
@@ -94,7 +93,6 @@ export function groupByProduct(
       items: ordered,
       canonicalId,
       canonicalHasProduct: canonical?.productId != null,
-      attention: refs.filter((entry) => summaries[entry.id]?.status?.kind === "stale").length,
       latest: refs.reduce((max, entry) => (entry.updatedAt > max ? entry.updatedAt : max), ""),
     };
   });

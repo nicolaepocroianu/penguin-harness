@@ -6,7 +6,7 @@
  * Choosing a line lights it here and in the Script, which scrolls to it; it never restarts
  * the activity. The timeline under the player is what plays a scene again.
  */
-import { Dot, GlyphIcon, ICON_SIZE, ICONS } from "@prismshadow/penguin-ui";
+import { Dot, GlyphIcon, ICON_SIZE, ICONS, InfoPopover } from "@prismshadow/penguin-ui";
 import { S } from "../../lib/strings";
 import { toneName } from "../../lib/tone";
 import { ClipWave } from "./clip-wave";
@@ -53,7 +53,10 @@ export function PlayNow({
     <section aria-label={words.now} className="space-y-2">
       <div className="flex min-w-0 items-center gap-2">
         {playing && <Dot tone={toneName.busy} pulse />}
-        <h3 className="min-w-0 truncate text-xs font-semibold">{name}</h3>
+        <h3 className="flex min-w-0 items-center gap-1.5 text-xs font-semibold">
+          {name}
+          {quiet && <InfoPopover label={name}>{words.quiet}</InfoPopover>}
+        </h3>
       </div>
       {scene && scene.lines.length > 0 ? (
         <ol aria-label={words.lines(name)} className="space-y-1">
@@ -129,20 +132,15 @@ export function PlayNow({
       <p
         role="status"
         aria-live="polite"
+        // The state as the module names it is for whoever reads machine ids: a marked hint,
+        // not a line of its own (the behavior map marks the same state where it is drawn).
+        data-tooltip={state ? words.state(state) : undefined}
+        data-tooltip-extra={state ? true : undefined}
         className="flex items-start gap-2 px-2 text-xs text-gray-600 dark:text-gray-300"
       >
         <GlyphIcon d={ICONS.target} size={ICON_SIZE.inlineGlyph} className="mt-0.5 text-gray-400" />
         <span className="min-w-0">{tapping ?? status}</span>
       </p>
-      {state && (
-        <p
-          data-tooltip={words.state(state)}
-          className="truncate px-2 font-mono text-xs text-gray-400 dark:text-gray-500"
-        >
-          {state}
-        </p>
-      )}
-      {quiet && <p className="px-2 text-xs text-gray-500 dark:text-gray-400">{words.quiet}</p>}
     </section>
   );
 }

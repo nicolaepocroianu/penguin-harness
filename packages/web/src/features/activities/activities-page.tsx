@@ -1201,7 +1201,7 @@ function ActivityEditor({
           label: S.activities.studioPanels.names.player,
           icon: "M8 5v14l11-7z",
           render: () => (
-            <div className="space-y-6 p-3">
+            <div className="p-3">
               <SandboxPanel
                 projectId={projectId}
                 activityId={detail.id}

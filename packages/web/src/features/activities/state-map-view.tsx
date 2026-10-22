@@ -8,7 +8,19 @@
  * a page chose to say.
  */
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
-import { Button, EmptyState, Select, SkeletonList } from "@prismshadow/penguin-ui";
+import {
+  Button,
+  Chevron,
+  CloseButton,
+  EmptyState,
+  GlyphIcon,
+  ICON_SIZE,
+  ICONS,
+  IconButton,
+  InfoPopover,
+  Select,
+  SkeletonList,
+} from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
@@ -160,9 +172,7 @@ function PhaseInspector({
     >
       <div className="flex items-center gap-2">
         <h5 className="min-w-0 flex-1 break-all font-semibold">{words.title(details.id)}</h5>
-        <Button size="sm" variant="ghost" onClick={onClose}>
-          {words.close}
-        </Button>
+        <CloseButton onClose={onClose} label={words.close} />
       </div>
       {(details.initial || details.final) && (
         <p className="text-gray-500">
@@ -379,17 +389,6 @@ function SceneGraph({
                 >
                   {node.id.length > 18 ? `${node.id.slice(0, 17)}…` : node.id}
                 </text>
-                {live && targets.length > 0 && (
-                  <text
-                    x={x + width / 2 - 2}
-                    y={y - NODE_HEIGHT / 2 - 3}
-                    fontSize="9"
-                    textAnchor="end"
-                    className="fill-brand-700 dark:fill-brand-200"
-                  >
-                    {words.liveCount(targets.length)}
-                  </text>
-                )}
               </g>
             );
           })}
@@ -404,7 +403,7 @@ function SceneGraph({
           onPin={onPin}
         />
       )}
-      {inspected ? (
+      {inspected && (
         <PhaseInspector
           machine={machine}
           sceneId={sceneId}
@@ -412,8 +411,6 @@ function SceneGraph({
           onChoose={setInspected}
           onClose={() => setInspected(null)}
         />
-      ) : (
-        <p className="text-xs text-gray-500">{words.inspect.hint}</p>
       )}
       {map.exits.length > 0 && (
         <div className="space-y-1 text-xs text-gray-500">
@@ -475,6 +472,7 @@ export function StateMapView({
   >({ state: "loading" });
   const [choice, setChoice] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
+  const bodyId = useId();
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -512,88 +510,100 @@ export function StateMapView({
   return (
     <div className="space-y-2">
       <div className="flex min-h-8 items-center gap-2">
-        <button
-          type="button"
-          aria-pressed={open}
-          onClick={onToggle}
-          className="min-w-0 flex-1 text-left text-xs text-brand-700 hover:underline dark:text-brand-300"
-        >
-          {words.toggle}
-        </button>
+        <h3 className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold">
+          {words.title}
+          <InfoPopover label={words.title}>{words.inspect.hint}</InfoPopover>
+        </h3>
         {onEdit && (
           <Button size="sm" variant="ghost" onClick={onEdit}>
             {words.edit}
           </Button>
         )}
-        {machine && scenes.length > 0 && (
-          <div role="group" aria-label={words.zoom} className="flex items-center">
-            <Button
+        <IconButton
+          size="sm"
+          variant="ghost"
+          label={open ? words.hide : words.show}
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={onToggle}
+        >
+          <Chevron open={open} size={ICON_SIZE.chevronDense} />
+        </IconButton>
+      </div>
+      {machine && scenes.length > 0 && (
+        <div className="flex items-center gap-2">
+          {scenes.length > 1 && (
+            <div className="w-40 min-w-0">
+              <Select
+                size="sm"
+                aria-label={words.scene}
+                value={shown}
+                onChange={(event) => setChoice(event.target.value)}
+              >
+                {scenes.map((id) => (
+                  <option key={id} value={id}>
+                    {id}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
+          <div role="group" aria-label={words.zoom} className="ml-auto flex items-center">
+            <IconButton
               size="sm"
               variant="ghost"
-              aria-label={words.zoomOut}
+              label={words.zoomOut}
               disabled={stepZoom(zoom, -1) === zoom}
               onClick={() => setZoom(stepZoom(zoom, -1))}
             >
-              −
-            </Button>
-            <span
-              aria-live="polite"
-              className="w-10 text-center text-xs tabular-nums text-gray-500"
+              <GlyphIcon d={ICONS.minus} size={ICON_SIZE.iconButton} />
+            </IconButton>
+            {/* The reading is the way back: it fits the drawing to the column. */}
+            <button
+              type="button"
+              aria-label={`${words.zoomFit} · ${words.zoomLevel(Math.round(zoom * 100))}`}
+              data-tooltip={words.zoomFit}
+              disabled={zoom === 1}
+              onClick={() => setZoom(1)}
+              className="min-w-11 rounded-md px-1 py-1 text-center text-xs text-gray-600 tabular-nums transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 disabled:hover:bg-transparent disabled:hover:text-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100 dark:disabled:hover:text-gray-300"
             >
               {words.zoomLevel(Math.round(zoom * 100))}
-            </span>
-            <Button
+            </button>
+            <IconButton
               size="sm"
               variant="ghost"
-              aria-label={words.zoomIn}
+              label={words.zoomIn}
               disabled={stepZoom(zoom, 1) === zoom}
               onClick={() => setZoom(stepZoom(zoom, 1))}
             >
-              +
-            </Button>
-            <Button size="sm" variant="ghost" disabled={zoom === 1} onClick={() => setZoom(1)}>
-              {words.zoomFit}
-            </Button>
+              <GlyphIcon d={ICONS.plus} size={ICON_SIZE.iconButton} />
+            </IconButton>
           </div>
-        )}
-        {scenes.length > 1 && (
-          <div className="w-40">
-            <Select
-              size="sm"
-              aria-label={words.scene}
-              value={shown}
-              onChange={(event) => setChoice(event.target.value)}
-            >
-              {scenes.map((id) => (
-                <option key={id} value={id}>
-                  {id}
-                </option>
-              ))}
-            </Select>
+        </div>
+      )}
+      <div id={bodyId} hidden={!open}>
+        {!open ? null : read.state === "loading" ? (
+          <div role="status" aria-label={words.loading}>
+            <SkeletonList rows={3} />
           </div>
+        ) : read.state === "error" ? (
+          <p className={`text-xs ${toneInk.attention}`}>{words.unreadable(read.message)}</p>
+        ) : !machine || !scenes.length ? (
+          <EmptyState title={words.none} />
+        ) : (
+          <SceneGraph
+            machine={machine}
+            sceneId={shown}
+            livePhase={shown === reportedScene ? reportedPhase : null}
+            zoom={zoom}
+            onZoom={(direction) => setZoom((current) => stepZoom(current, direction))}
+            interactables={interactables}
+            outlined={outlined}
+            onOutline={onOutline}
+            onPin={onPin}
+          />
         )}
       </div>
-      {!open ? null : read.state === "loading" ? (
-        <div role="status" aria-label={words.loading}>
-          <SkeletonList rows={3} />
-        </div>
-      ) : read.state === "error" ? (
-        <p className={`text-xs ${toneInk.attention}`}>{words.unreadable(read.message)}</p>
-      ) : !machine || !scenes.length ? (
-        <EmptyState title={words.none} />
-      ) : (
-        <SceneGraph
-          machine={machine}
-          sceneId={shown}
-          livePhase={shown === reportedScene ? reportedPhase : null}
-          zoom={zoom}
-          onZoom={(direction) => setZoom((current) => stepZoom(current, direction))}
-          interactables={interactables}
-          outlined={outlined}
-          onOutline={onOutline}
-          onPin={onPin}
-        />
-      )}
     </div>
   );
 }
