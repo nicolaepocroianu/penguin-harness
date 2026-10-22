@@ -42,6 +42,7 @@ import {
   statusLines,
   versionName,
   versionRows,
+  type VersionRow,
 } from "./versions-model";
 import {
   TABLE,
@@ -52,6 +53,10 @@ import {
   TH,
 } from "../../components/ui/table-classes";
 import { useActivityClient } from "./activity-client";
+import { useTableLayout } from "./narrow-table";
+
+/** The width the versions table needs before its actions slip behind a scroll. */
+const VERSIONS_TABLE_MIN = 520;
 
 /** A version being compared with the current draft, and what the compare found. */
 interface Comparison {
@@ -81,6 +86,7 @@ export function VersionsView({
 }) {
   const { api } = useActivityClient();
   const words = S.activities.versions;
+  const [box, layout] = useTableLayout<HTMLElement>(VERSIONS_TABLE_MIN);
   const [versions, setVersions] = useState<VersionSummary[] | null>(null);
   const [status, setStatus] = useState<VersionStatus | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -206,8 +212,40 @@ export function VersionsView({
   }
 
   const rows = versionRows(versions ?? []);
+  const nameOf = (row: VersionRow) =>
+    row.name ?? <span className="text-gray-500">{words.unnamed}</span>;
+  const deployedPills = (row: VersionRow) =>
+    row.deployed.map((badge) => (
+      <span key={badge.target} role="img" aria-label={badge.name} data-tooltip={badge.name}>
+        <Pill tone="info">{badge.label}</Pill>
+      </span>
+    ));
+  const actionsOf = (row: VersionRow) => (
+    <>
+      <Button
+        size="sm"
+        aria-label={words.compareVersion(row.seq)}
+        aria-pressed={comparison?.versionId === row.versionId}
+        onClick={() => void compare(row.versionId, row.seq)}
+      >
+        {words.compare}
+      </Button>
+      {editable && !row.current && (
+        <Button
+          size="sm"
+          aria-label={words.restoreVersion(row.seq)}
+          onClick={() => {
+            setRestoreError("");
+            setRestoring({ versionId: row.versionId, seq: row.seq });
+          }}
+        >
+          {words.restore}
+        </Button>
+      )}
+    </>
+  );
   return (
-    <section className="space-y-3" aria-labelledby="activity-versions-title">
+    <section ref={box} className="space-y-3" aria-labelledby="activity-versions-title">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 id="activity-versions-title" className="flex items-center gap-2 text-sm font-semibold">
           {words.title}
@@ -228,8 +266,9 @@ export function VersionsView({
           </Button>
         )}
       </div>
-      {status && (
-        <ul aria-label={words.status.label} className="space-y-1 text-xs">
+      {/* One line for both targets, and none while neither has had a deploy. */}
+      {status && (status.qa !== "never" || status.prod !== "never") && (
+        <ul aria-label={words.status.label} className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
           {statusLines(status).map((line) => (
             <li key={line.target}>
               <span
@@ -257,6 +296,29 @@ export function VersionsView({
         </p>
       ) : !rows.length ? (
         <p className="text-xs text-gray-500">{words.empty}</p>
+      ) : layout === "stacked" ? (
+        // Narrow: one entry per version, what the columns said as lines, its actions last.
+        <ul
+          aria-label={words.title}
+          className={`${TABLE_WRAP} divide-y divide-gray-200 dark:divide-gray-800`}
+        >
+          {rows.map((row) => (
+            <li key={row.versionId} className="space-y-1 px-3 py-2 text-sm">
+              <p className="flex flex-wrap items-center gap-1.5">
+                <span className="font-medium">{row.number}</span>
+                {deployedPills(row)}
+                <span className="min-w-0 break-words">{nameOf(row)}</span>
+                {row.current && <Pill>{words.current}</Pill>}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {[row.kind, new Date(row.createdAt).toLocaleString(), row.author, row.size].join(
+                  " · ",
+                )}
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">{actionsOf(row)}</div>
+            </li>
+          ))}
+        </ul>
       ) : (
         <div className={TABLE_WRAP}>
           <table className={TABLE}>
@@ -277,21 +339,12 @@ export function VersionsView({
                   <td className={`${TD} whitespace-nowrap font-medium`}>
                     <span className="flex items-center gap-1">
                       {row.number}
-                      {row.deployed.map((badge) => (
-                        <span
-                          key={badge.target}
-                          role="img"
-                          aria-label={badge.name}
-                          data-tooltip={badge.name}
-                        >
-                          <Pill tone="info">{badge.label}</Pill>
-                        </span>
-                      ))}
+                      {deployedPills(row)}
                     </span>
                   </td>
                   <td className={`${TD} break-words`}>
                     <span className="flex flex-wrap items-center gap-1.5">
-                      {row.name ?? <span className="text-gray-500">{words.unnamed}</span>}
+                      {nameOf(row)}
                       {/* The version the draft holds now, as a label rather than a column. */}
                       {row.current && <Pill>{words.current}</Pill>}
                     </span>
@@ -305,28 +358,7 @@ export function VersionsView({
                   </td>
                   <td className={`${TD} whitespace-nowrap text-xs`}>{row.size}</td>
                   <td className={`${TD} whitespace-nowrap`}>
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        aria-label={words.compareVersion(row.seq)}
-                        aria-pressed={comparison?.versionId === row.versionId}
-                        onClick={() => void compare(row.versionId, row.seq)}
-                      >
-                        {words.compare}
-                      </Button>
-                      {editable && !row.current && (
-                        <Button
-                          size="sm"
-                          aria-label={words.restoreVersion(row.seq)}
-                          onClick={() => {
-                            setRestoreError("");
-                            setRestoring({ versionId: row.versionId, seq: row.seq });
-                          }}
-                        >
-                          {words.restore}
-                        </Button>
-                      )}
-                    </div>
+                    <div className="flex justify-end gap-2">{actionsOf(row)}</div>
                   </td>
                 </tr>
               ))}

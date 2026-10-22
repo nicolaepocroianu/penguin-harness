@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { StateMachineCheck, StateMachineDocument } from "@prismshadow/penguin-server/api";
 import {
   checkable,
+  drawable,
   machineChanged,
   machineEditorView,
   machineOrigin,
@@ -238,5 +239,20 @@ describe("the state machine editor", () => {
     expect(checkable("{ broken")).toBeNull();
     expect(checkable("[]")).toBeNull();
     expect(checkable("null")).toBeNull();
+  });
+
+  it("draws the saved machine, an edit only once its check passes, and never text that does not parse", () => {
+    const passed = (savable: boolean): MachineCheckState => ({
+      state: "done",
+      text: typed,
+      check: { valid: savable, savable, issues: [] } as StateMachineCheck,
+    });
+    expect(drawable(saved, document(), idle)).toBe(true);
+    expect(drawable(typed, document(), idle)).toBe(false);
+    expect(drawable(typed, document(), { state: "checking", text: typed })).toBe(false);
+    expect(drawable(typed, document(), passed(true))).toBe(true);
+    expect(drawable(typed, document(), passed(false))).toBe(false);
+    expect(drawable(`${typed}x`, document(), passed(true))).toBe(false);
+    expect(drawable("{", document(), idle)).toBe(false);
   });
 });

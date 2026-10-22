@@ -689,6 +689,7 @@ function SandboxPlayer({
             view={view}
             tap={tapNow(report, clock)}
             state={report?.state.state ?? null}
+            phase={report?.state.phase ?? null}
             status={silent ? S.activities.studioPlayer.silent : S.activities.studioPlayer.waiting}
             quiet={
               !!report &&
@@ -697,6 +698,9 @@ function SandboxPlayer({
               play.scenes.some((entry) => entry.lines.length > 0)
             }
             onLine={play.onLine}
+            outlined={outlined}
+            onOutline={preview}
+            onPin={outline}
           />
           <StateMapView
             revision={revision}
@@ -707,10 +711,7 @@ function SandboxPlayer({
             reportedScene={report?.state.sceneId ?? null}
             reportedPhase={report?.state.phase ?? null}
             startScene={scene}
-            interactables={report?.interactables ?? []}
-            outlined={outlined}
-            onOutline={preview}
-            onPin={outline}
+            liveCount={report?.interactables.length ?? 0}
           />
         </div>
       </div>

@@ -9,7 +9,7 @@ import type {
   ModuleBuildDiff,
   ModuleBuildList,
 } from "@prismshadow/penguin-server/api";
-import { Badge, Button, InfoPopover, Select } from "@prismshadow/penguin-ui";
+import { Button, InfoPopover, Pill, Select } from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, toneStrip } from "../../lib/tone";
@@ -220,9 +220,6 @@ export function ModuleBuildsView({
                     <span className="sr-only">{words.columns.select}</span>
                   </th>
                   <th className={TH}>{words.columns.build}</th>
-                  <th className={TH}>{words.columns.built}</th>
-                  <th className={TH}>{words.columns.files}</th>
-                  <th className={TH}>{words.columns.preview}</th>
                   <th className={TH}>
                     <span className="sr-only">{words.columns.actions}</span>
                   </th>
@@ -240,16 +237,19 @@ export function ModuleBuildsView({
                         className="h-4 w-4 accent-brand-600"
                       />
                     </td>
-                    <td className={`${TD} whitespace-nowrap font-medium`}>{row.label}</td>
-                    <td className={`${TD} whitespace-nowrap text-xs text-gray-500`}>
-                      <time dateTime={row.createdAt}>{localTime(row.createdAt)}</time>
-                    </td>
-                    <td className={`${TD} whitespace-nowrap text-xs`}>{row.files}</td>
-                    <td className={`${TD} whitespace-nowrap`}>
-                      <div className="flex flex-wrap gap-1">
-                        {row.newest && <Badge tone="neutral">{words.newest}</Badge>}
-                        {row.playing && <Badge tone="info">{words.playing}</Badge>}
-                      </div>
+                    {/* One cell: the build, its labels, then when and how big, so a narrow
+                        History keeps every build whole without a sideways scroll. */}
+                    <td className={TD}>
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <span className="whitespace-nowrap font-medium">{row.label}</span>
+                        {row.newest && <Pill>{words.newest}</Pill>}
+                        {row.playing && <Pill tone="info">{words.playing}</Pill>}
+                      </span>
+                      <span className="block text-xs text-gray-500 dark:text-gray-400">
+                        <time dateTime={row.createdAt}>{localTime(row.createdAt)}</time>
+                        {" · "}
+                        {row.files}
+                      </span>
                     </td>
                     <td className={`${TD} whitespace-nowrap`}>
                       <div className="flex justify-end gap-2">

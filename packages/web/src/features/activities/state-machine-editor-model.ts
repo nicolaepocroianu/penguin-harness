@@ -150,3 +150,18 @@ export function checkable(text: string): Record<string, unknown> | null {
     return null;
   }
 }
+
+/**
+ * Whether the diagram may draw `text`: the machine as saved, which is what the module plays and
+ * whose own problems are already listed, or an edit that parses and that the check of this very
+ * text found nothing new wrong with. Anything else keeps the last drawing that passed.
+ */
+export function drawable(
+  text: string,
+  document: StateMachineDocument,
+  check: MachineCheckState,
+): boolean {
+  if (!checkable(text)) return false;
+  if (!machineChanged(text, document)) return document.definition !== null;
+  return check.state === "done" && check.text === text && check.check.savable;
+}

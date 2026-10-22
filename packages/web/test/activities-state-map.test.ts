@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAP_ZOOM,
+  fitZoom,
+  machineDefinition,
   machineOf,
   machineScenes,
   phaseDetails,
@@ -55,25 +58,25 @@ describe("the behavior map", () => {
     expect(machineScenes(machineOf(configuration)!)).toEqual(["intro", "rocks"]);
   });
 
-  it("lays a scene out from its first phase and marks the way back as a return", () => {
+  it("reads a scene's phases, the transitions between them and those that leave it", () => {
     const map = sceneMap(machineOf(configuration)!, "rocks")!;
-    expect(map.nodes.map((node) => [node.id, node.depth, node.column, node.columns])).toEqual([
-      ["idle", 0, 0, 1],
-      ["prompt", 1, 0, 1],
-      ["waiting", 2, 0, 1],
-      ["retry", 3, 0, 2],
-      ["correct", 3, 1, 2],
-      ["orphan", 4, 0, 1],
+    expect(map.nodes.map((node) => node.id)).toEqual([
+      "idle",
+      "prompt",
+      "waiting",
+      "retry",
+      "correct",
+      "orphan",
     ]);
     expect(map.nodes.find((node) => node.id === "idle")).toMatchObject({ initial: true });
     expect(map.nodes.find((node) => node.id === "orphan")).toMatchObject({ final: true });
     expect(map.edges).toEqual([
-      { from: "idle", to: "prompt", trigger: { kind: "after", ms: "500" }, back: false },
-      { from: "prompt", to: "waiting", trigger: { kind: "done" }, back: false },
-      { from: "prompt", to: "waiting", trigger: { kind: "error" }, back: false },
-      { from: "waiting", to: "correct", trigger: { kind: "event", name: "CORRECT" }, back: false },
-      { from: "waiting", to: "retry", trigger: { kind: "event", name: "WRONG" }, back: false },
-      { from: "retry", to: "waiting", trigger: { kind: "done" }, back: true },
+      { from: "idle", to: "prompt", trigger: { kind: "after", ms: "500" } },
+      { from: "prompt", to: "waiting", trigger: { kind: "done" } },
+      { from: "prompt", to: "waiting", trigger: { kind: "error" } },
+      { from: "waiting", to: "correct", trigger: { kind: "event", name: "CORRECT" } },
+      { from: "waiting", to: "retry", trigger: { kind: "event", name: "WRONG" } },
+      { from: "retry", to: "waiting", trigger: { kind: "done" } },
     ]);
     expect(map.exits).toEqual([{ from: "correct", to: "#next-round", trigger: { kind: "done" } }]);
   });
@@ -100,10 +103,48 @@ describe("inspecting a phase", () => {
     expect(phaseDetails(machine, "rocks", "missing")).toBeNull();
   });
 
-  it("zooms in steps and holds at either end", () => {
-    expect(stepZoom(1, 1)).toBe(1.25);
-    expect(stepZoom(1, -1)).toBe(0.75);
-    expect(stepZoom(3, 1)).toBe(3);
-    expect(stepZoom(0.5, -1)).toBe(0.5);
+  it("zooms in Loom's steps, holds at either end, and fits the column without passing 120%", () => {
+    expect(stepZoom(1, 1)).toBe(1.15);
+    expect(stepZoom(1, -1)).toBe(0.85);
+    expect(stepZoom(MAP_ZOOM.max, 1)).toBe(MAP_ZOOM.max);
+    expect(stepZoom(MAP_ZOOM.min, -1)).toBe(MAP_ZOOM.min);
+    expect(fitZoom(344, 688)).toBe(0.5);
+    expect(fitZoom(2000, 500)).toBe(1.2);
+    expect(fitZoom(10, 1000)).toBe(MAP_ZOOM.min);
+    expect(fitZoom(0, 500)).toBeNull();
+  });
+
+  it("hands the layout only what has the shape Loom's model describes", () => {
+    const definition = machineDefinition(
+      machineOf({
+        stateMachine: {
+          id: "letters",
+          initial: "rocks",
+          states: {
+            rocks: {
+              initial: "waiting",
+              states: {
+                waiting: {
+                  entry: ["highlight", { type: "listen" }, 3],
+                  on: { CORRECT: [{ target: "done", guard: { type: "isCorrect" } }, 7], HINT: {} },
+                  invoke: { src: { type: "say" }, onDone: "done" },
+                },
+                done: { type: "final" },
+                broken: "not a state",
+              },
+            },
+          },
+        },
+      })!,
+    );
+    expect(definition.id).toBe("letters");
+    const rocks = definition.states.rocks!.states!;
+    expect(Object.keys(rocks)).toEqual(["waiting", "done"]);
+    expect(rocks.waiting).toEqual({
+      entry: ["highlight", { type: "listen" }],
+      on: { CORRECT: [{ target: "done", guard: { type: "isCorrect" } }], HINT: [{}] },
+      invoke: { src: "say", onDone: ["done"] },
+    });
+    expect(rocks.done).toEqual({ type: "final" });
   });
 });

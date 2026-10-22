@@ -13,7 +13,7 @@ import type {
   ActivityRun,
   ActivityRunSummary,
 } from "@prismshadow/penguin-server/api";
-import { Button, Pill } from "@prismshadow/penguin-ui";
+import { Button, Pill, buttonClass } from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, toneName, type Tone } from "../../lib/tone";
@@ -73,6 +73,15 @@ export function GenerationHistory({
   const words = S.activities.runTranscript;
   // The run whose transcript is shown in place; one at a time.
   const [open, setOpen] = useState<string | null>(null);
+  // The runs whose candidate is shown; a candidate read once stays read while it is folded.
+  const [candidates, setCandidates] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleCandidate = (runId: string) =>
+    setCandidates((current) => {
+      const next = new Set(current);
+      if (next.has(runId)) next.delete(runId);
+      else next.add(runId);
+      return next;
+    });
   const cards = useRef(new Map<string, HTMLElement>());
   useEffect(() => {
     if (!focusRun) return;
@@ -133,14 +142,15 @@ export function GenerationHistory({
                     {time}
                   </time>
                 </div>
-                {run.error && <p className="break-words text-xs">{run.error}</p>}
+                {run.error && <RunError text={run.error} />}
                 {run.status === "running" && (
                   <p className="text-xs text-gray-500">{S.activities.runningHelp}</p>
                 )}
-                <div className="flex flex-wrap items-center gap-3">
+                {/* Every action of a run in one quiet shape, the way in to what it made first. */}
+                <div className="-ml-2.5 flex flex-wrap items-center gap-1">
                   {run.kind === "module" && run.status === "succeeded" && run.sessionId && (
                     <a
-                      className="text-xs underline"
+                      className={buttonClass("ghost", "sm")}
                       target="_blank"
                       rel="noopener noreferrer"
                       href={`/api/sessions/${encodeURIComponent(run.sessionId)}/files/preview-redirect?path=preview%2Findex.html`}
@@ -149,8 +159,9 @@ export function GenerationHistory({
                     </a>
                   )}
                   {run.sessionId && (
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       aria-expanded={expanded}
                       aria-controls={transcriptId}
                       aria-label={words.toggle(
@@ -161,18 +172,28 @@ export function GenerationHistory({
                       onClick={() =>
                         setOpen((current) => (current === run.runId ? null : run.runId))
                       }
-                      className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-300"
                     >
                       {expanded ? words.hide : words.show}
-                    </button>
+                    </Button>
                   )}
                   {run.sessionId && (
                     <Link
-                      className="text-xs underline"
+                      className={buttonClass("ghost", "sm")}
                       to={`/chat/${encodeURIComponent(run.sessionId)}`}
                     >
                       {S.activities.openSession}
                     </Link>
+                  )}
+                  {run.hasCandidate && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-expanded={candidates.has(run.runId)}
+                      aria-controls={`run-candidate-${run.runId}`}
+                      onClick={() => toggleCandidate(run.runId)}
+                    >
+                      {S.activities.candidate}
+                    </Button>
                   )}
                   {editable && run.status === "running" && (
                     <Button size="sm" disabled={busy} onClick={() => onCancel(run.runId)}>
@@ -190,6 +211,7 @@ export function GenerationHistory({
                 )}
                 {run.hasCandidate && (
                   <CandidateReview
+                    open={candidates.has(run.runId)}
                     runId={run.runId}
                     editable={editable && run.kind === "spec"}
                     busy={busy}
@@ -205,12 +227,58 @@ export function GenerationHistory({
   );
 }
 
+/**
+ * A failed run's reason in one readable line: the message a provider's JSON error carries, or
+ * the first line of the text. The text as it came stays one press away, never dropped.
+ */
+export function runErrorReason(raw: string): string {
+  const start = raw.indexOf("{");
+  if (start >= 0) {
+    try {
+      const body = JSON.parse(raw.slice(start)) as unknown;
+      const message = messageIn(body);
+      if (message) return message;
+    } catch {
+      // Not JSON after all: the first line below says it.
+    }
+  }
+  return raw.trim().split(/\r?\n/)[0] ?? raw;
+}
+
+function messageIn(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  if (typeof record.message === "string" && record.message.trim()) return record.message.trim();
+  return messageIn(record.error);
+}
+
+function RunError({ text }: { text: string }) {
+  const reason = runErrorReason(text);
+  return (
+    <div className="space-y-1 text-xs">
+      <p className={`break-words ${toneInk.danger}`}>{reason}</p>
+      {reason !== text.trim() && (
+        <details>
+          <summary className="cursor-pointer text-gray-500 dark:text-gray-400">
+            {S.activities.runErrorFull}
+          </summary>
+          <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-gray-50 p-2 dark:bg-gray-900">
+            {text}
+          </pre>
+        </details>
+      )}
+    </div>
+  );
+}
+
 function CandidateReview({
+  open,
   runId,
   editable,
   busy,
   onUse,
 }: {
+  open: boolean;
   runId: string;
   editable: boolean;
   busy: boolean;
@@ -240,14 +308,15 @@ function CandidateReview({
       pending.current = false;
     }
   }
+  useEffect(() => {
+    if (open) void load();
+    // Read once, on the first open; `load` itself refuses a second read.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+  // Folded, it stays mounted so what was read is kept.
+  if (!open) return null;
   return (
-    <details
-      className="text-xs"
-      onToggle={(event) => {
-        if (event.currentTarget.open) void load();
-      }}
-    >
-      <summary className="cursor-pointer">{S.activities.candidate}</summary>
+    <div id={`run-candidate-${runId}`} className="text-xs">
       {error ? (
         <div className="my-2 space-y-2">
           <p role="alert" className={toneInk.danger}>
@@ -267,6 +336,6 @@ function CandidateReview({
           {S.activities.useCandidate}
         </Button>
       )}
-    </details>
+    </div>
   );
 }

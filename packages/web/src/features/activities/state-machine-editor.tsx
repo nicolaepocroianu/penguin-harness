@@ -4,17 +4,32 @@
  * the header with where it is: the saved machine's while the text is unchanged, and the
  * server's check of the text as the author types. An edit is kept in the draft and written to
  * the module's file; the preview and every assembly use it until it is discarded.
+ *
+ * Its other reading is the diagram the Preview's map draws (machine-diagram.tsx, Loom's layout),
+ * of the text in the editor, unsaved edits included. Text that does not parse, or that the check
+ * finds something new wrong with, is not drawn: the last version that passed stays, and a note
+ * says so.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ActivityDraft, StateMachineDocument } from "@prismshadow/penguin-server/api";
-import { ConfirmModal, Button, InfoPopover, SkeletonList } from "@prismshadow/penguin-ui";
+import {
+  ConfirmModal,
+  Button,
+  EmptyState,
+  InfoPopover,
+  Segmented,
+  SkeletonList,
+} from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, toneStrip } from "../../lib/tone";
 import { JsonEditor } from "./json-editor";
 import { documentText } from "./module-document";
+import { MachineDiagram } from "./machine-diagram";
+import { machineOf, machineScenes, type StateMachine } from "./state-map";
 import {
   checkable,
+  drawable,
   machineChanged,
   machineEditorView,
   type MachineCheckState,
@@ -125,6 +140,24 @@ export function StateMachineEditor({
   }, [api, document, text]);
 
   const view = document ? machineEditorView(document, text, check, editable) : null;
+
+  // The diagram's machine: the text on screen when it may be drawn, else the last that could.
+  const [reading, setReading] = useState<"diagram" | "json">("diagram");
+  const [drawn, setDrawn] = useState<{ text: string; machine: StateMachine } | null>(null);
+  const current = document && drawable(text, document, check) ? text : null;
+  useEffect(() => {
+    if (current === null) return;
+    const machine = machineOf({ stateMachine: checkable(current) });
+    if (machine) setDrawn((last) => (last?.text === current ? last : { text: current, machine }));
+  }, [current]);
+  const scenes = useMemo(() => (drawn ? machineScenes(drawn.machine) : []), [drawn]);
+  const [scene, setScene] = useState<string | null>(null);
+  const shownScene =
+    scene && scenes.includes(scene)
+      ? scene
+      : drawn && scenes.includes(drawn.machine.initial)
+        ? drawn.machine.initial
+        : (scenes[0] ?? "");
   // The text is this editor's own, so closing its section throws it away: leaving asks first.
   useHeldWork(
     { label: "module document", section: "stateMachine" },
@@ -206,6 +239,43 @@ export function StateMachineEditor({
     <>
       <JsonEditor
         title={words.title}
+        leading={
+          <div role="group" aria-label={words.view}>
+            <Segmented
+              cols={2}
+              value={reading}
+              onChange={setReading}
+              options={[
+                { value: "diagram", label: words.diagram },
+                { value: "json", label: words.json },
+              ]}
+            />
+          </div>
+        }
+        alternate={{
+          shown: reading === "diagram",
+          leave: () => setReading("json"),
+          node: (
+            <div className="flex h-full min-h-0 flex-col gap-2 p-4 text-xs">
+              {drawn && drawn.text !== text && (
+                <p role="status" className={`rounded-md border p-3 ${toneStrip.attention}`}>
+                  {words.lastValid}
+                </p>
+              )}
+              {!drawn || !scenes.length ? (
+                <EmptyState title={drawn ? S.activities.studioPlayer.map.none : words.noDrawing} />
+              ) : (
+                <MachineDiagram
+                  machine={drawn.machine}
+                  sceneId={shownScene}
+                  scenes={scenes}
+                  onScene={setScene}
+                  fill
+                />
+              )}
+            </div>
+          ),
+        }}
         editorLabel={words.field}
         savedLabel={words.savedSide}
         saveLabel={words.saveLabel}

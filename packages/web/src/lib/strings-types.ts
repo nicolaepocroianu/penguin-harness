@@ -75,9 +75,7 @@ export type Strings = {
         loading: string;
         none: string;
         unreadable: (reason: string) => string;
-        leaves: string;
         trigger: { after: (ms: string) => string; done: string; error: string };
-        exit: (phase: string, event: string, target: string) => string;
         live: (phase: string) => string;
         graph: (scene: string) => string;
         liveCount: (count: number) => string;
@@ -91,6 +89,33 @@ export type Strings = {
         zoomOut: string;
         zoomFit: string;
         zoomLevel: (percent: number) => string;
+        /** How to move around the drawing, for a screen reader. */
+        canvasHelp: string;
+        /** A state's marks: where the scene starts, where it ends, a state outside it. */
+        badges: { start: string; final: string; external: string };
+        /** A state's hint: the action it runs on entry, or the service it invokes. */
+        actionTitle: (action: string) => string;
+        serviceTitle: (service: string) => string;
+        /** The words the layout writes (ported from Loom's state machine viewer). */
+        layout: {
+          lanes: { retry: string; flow: string; outcome: string };
+          otherwise: string;
+          completed: string;
+          promptCompleted: string;
+          choiceSelected: string;
+          incorrectFeedback: string;
+          guarded: (label: string) => string;
+          guards: {
+            incorrect: string;
+            correct: string;
+            hangUp: string;
+            disengaged: string;
+            guided: string;
+          };
+          scene: (number: string) => string;
+          /** A jump to a distant scene, drawn as a badge: the event, the scene, the state. */
+          stub: (event: string, scene: string, state: string) => string;
+        };
         inspect: {
           hint: string;
           title: (phase: string) => string;
@@ -139,7 +164,6 @@ export type Strings = {
         video: string;
         nothing: string;
         /** "Tap First rock or rock-c · Drag rock-b · 2 more". */
-        targets: (groups: { verb: string; names: string[] }[], more: number) => string;
         verbs: Record<"CLICK" | "SELECT" | "SELECT_CLICK" | "DRAG", string>;
       };
       /** A module that never reports its media: no line can be lit as it plays. */
@@ -327,9 +351,6 @@ export type Strings = {
       columns: {
         select: string;
         build: string;
-        built: string;
-        files: string;
-        preview: string;
         actions: string;
       };
       files: (count: number) => string;
@@ -1394,6 +1415,14 @@ export type Strings = {
       problems: (n: number, unsaved: boolean) => string;
       inherited: string;
       problemsLabel: string;
+      /** The section's two readings of the machine: its diagram, or its JSON. */
+      view: string;
+      diagram: string;
+      json: string;
+      /** Over the diagram while the text does not parse or does not validate. */
+      lastValid: string;
+      /** In the diagram's place when no version of the text has been valid yet. */
+      noDrawing: string;
       wholeFile: string;
       saved: string;
       discard: string;
@@ -2125,6 +2154,7 @@ export type Strings = {
     openSession: string;
     cancel: string;
     candidate: string;
+    runErrorFull: string;
     useCandidate: string;
     reload: string;
     loading: string;

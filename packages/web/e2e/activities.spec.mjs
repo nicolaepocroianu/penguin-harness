@@ -2173,10 +2173,7 @@ test("dirty drafts block sidebar, Session, browser back, and project switches", 
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Discard" }).click();
   await expect(page).toHaveURL(/\/activities$/);
-  await page
-    .getByRole("region", { name: /words/ })
-    .getByRole("link", { name: /Sight words/ })
-    .click();
+  await page.getByRole("link", { name: /Sight words/ }).click();
   await openSection(page, "Storyboard");
   await openSection(page, "Script");
   await replaceText(description, "Another edit");
@@ -2219,15 +2216,14 @@ test("idle history polls slowly and candidate text is fetched only on expansion"
   await candidates.nth(0).click();
   await candidates.nth(1).click();
   await expect(page.getByRole("alert")).toContainText("Candidate temporarily unavailable.");
-  const reviews = page
-    .locator("details")
-    .filter({ has: page.getByText("View candidate JSON", { exact: true }) });
+  // Each run's candidate opens in its own panel under the run's actions, in run order.
+  const reviews = page.locator('[id^="run-candidate-"]');
   await reviews.nth(1).getByRole("button", { name: "Retry", exact: true }).click();
   await expect(reviews.nth(1).locator("pre")).toContainText('"title":"Second candidate"');
-  await expect(reviews.nth(0).locator("pre")).toContainText("Loading");
+  await expect(reviews.nth(0)).toContainText("Loading");
   release();
-  await expect(page.locator("details pre").nth(0)).toContainText('"title":"Sight words"');
-  await expect(page.locator("details pre").nth(1)).toContainText('"title":"Second candidate"');
+  await expect(reviews.nth(0).locator("pre")).toContainText('"title":"Sight words"');
+  await expect(reviews.nth(1).locator("pre")).toContainText('"title":"Second candidate"');
   expect(f.candidateReads).toBe(3);
   await candidates.nth(0).click();
   await candidates.nth(0).click();
@@ -3420,11 +3416,12 @@ test("the player draws the module's behavior map and follows the phase it report
 
   const map = panel.getByRole("group", { name: "Behavior of rocks", exact: true });
   await expect(map).toBeVisible();
-  await expect(map.locator('[aria-current="step"]')).toContainText("waiting");
-  await expect(panel.getByText("correct, on done, to next", { exact: true })).toBeVisible();
+  await expect(map.locator('[aria-current="step"]')).toContainText("Waiting");
+  // A move out of the scene is drawn as a card of its own, named for where it leads.
+  await expect(map.getByRole("button", { name: /^Next/ })).toBeVisible();
 
   // A phase opens in the inspector, and its neighbours can be followed from there.
-  await map.getByRole("button", { name: "waiting, where the activity is now" }).click();
+  await map.getByRole("button", { name: "Waiting, where the activity is now" }).click();
   const inspector = panel.getByRole("region", { name: "Phase waiting", exact: true });
   await expect(inspector).toContainText("on CORRECT, to correct");
   await expect(inspector).toContainText("prompt, on done");
@@ -3440,11 +3437,11 @@ test("the player draws the module's behavior map and follows the phase it report
   const fitted = (await drawing.boundingBox()).width;
   await panel.getByRole("button", { name: "Zoom in", exact: true }).click();
   await panel.getByRole("button", { name: "Zoom in", exact: true }).click();
-  await expect(panel.getByText("150%", { exact: true })).toBeVisible();
-  expect((await drawing.boundingBox()).width).toBeGreaterThan(fitted * 1.4);
-  // The zoom level itself fits the map back to the column.
-  await panel.getByRole("button", { name: /^Fit · / }).click();
-  await expect(panel.getByText("100%", { exact: true })).toBeVisible();
+  expect((await drawing.boundingBox()).width).toBeGreaterThan(fitted * 1.2);
+  // The zoom level itself fits the map back to the column, and has nothing to do once it fits.
+  const fit = panel.getByRole("button", { name: /^Fit · / });
+  await fit.click();
+  await expect(fit).toBeDisabled();
 
   const toggle = panel.getByRole("button", { name: "Hide the behavior map", exact: true });
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -3532,7 +3529,7 @@ test("lists the live tap targets on the current state and keeps the map under th
 
   // The live phase is marked on the map, and its targets are listed under it: the first three.
   const map = page.getByRole("group", { name: "Behavior of rocks", exact: true });
-  await expect(map.locator('[aria-current="step"]')).toContainText("waiting");
+  await expect(map.locator('[aria-current="step"]')).toContainText("Waiting");
   const live = page.getByRole("group", { name: "What can be tapped in waiting", exact: true });
   await expect(live.getByRole("button")).toHaveCount(3);
   await expect(live).toContainText("+2 more");
@@ -3686,7 +3683,11 @@ test("Play mode lights the line the player is saying, and the script follows bot
   const player = () => page.frames().find((frame) => frame.url().includes("/sandbox/play"));
   await player().evaluate(() => window.postMessage("end", "*"));
   await expect(hello).not.toHaveAttribute("aria-current", "true");
-  await expect(panel.getByText("Tap Rock d", { exact: true })).toBeVisible();
+  await expect(
+    panel
+      .getByRole("group", { name: /^What can be tapped in / })
+      .getByRole("button", { name: "Rock d", exact: true }),
+  ).toBeVisible();
 
   // Beside the script, a line chosen in the player is lit in the script, and the other way.
   await panel
@@ -5618,7 +5619,9 @@ test("the home page refreshes a running card when the server says its run finish
   await create(page);
   f.setHomeStatus({ kind: "running", runKind: "spec" });
   await page.goto(`${origin}/activities`);
-  const card = page.getByRole("region", { name: /words/ });
+  const card = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("link", { name: /Sight words/ }) });
   await expect(card.getByText(/ running$/)).toBeVisible();
   // The run ends; nothing polls, so the card keeps its status until the server says so.
   f.setHomeStatus({ kind: "next", milestone: "mediaPlan" });
