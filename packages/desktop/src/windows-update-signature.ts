@@ -19,7 +19,7 @@ export type SignatureExecFile = (
 ) => void;
 
 const runSignatureCheck: SignatureExecFile = (file, args, options, callback) => {
-  childProcess.execFile(file, args, options, callback);
+  childProcess.execFile(file, args, { ...options, windowsHide: true }, callback);
 };
 
 const SIGNATURE_SCRIPT = `

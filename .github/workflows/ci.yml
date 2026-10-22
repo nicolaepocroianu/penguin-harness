@@ -363,10 +363,9 @@ jobs:
           ref: ${{ inputs.ref || '' }}
       - uses: ./.github/actions/setup
         with:
-          # Not `web...`: the web takes only types from the server, so the server's build
-          # (the slowest here) would buy this job nothing. The AMSP client is bundled from
-          # its dist, so it is built too.
-          build: "@prismshadow/penguin-core...,@prismshadow/amsp,@prismshadow/penguin-web"
+          # The web bundles the server's `./model-catalog` subpath from its dist, so the server
+          # is built too, and so is the AMSP client, which the web bundles from its dist as well.
+          build: "@prismshadow/penguin-server...,@prismshadow/amsp,@prismshadow/penguin-web"
       - uses: ./.github/actions/chromium
         with:
           package: "@prismshadow/penguin-web"
