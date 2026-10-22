@@ -1,8 +1,10 @@
 /**
  * The activity's saved versions: Save version (with an optional name), the table of every
- * version, newest first, naming the one the draft holds now and the ones that went to QA or
- * PROD, Compare (a version against the current draft, part by part and media file by media
- * file) and Restore. Under the heading, whether QA and PROD hold what the draft holds now.
+ * version, newest first, Compare (a version against the current draft, part by part and media
+ * file by media file) and Restore. The ones that went to QA or PROD are labelled beside the
+ * number and the one the draft holds now beside the name; kind and author sit under name and
+ * date rather than in columns of their own. Under the heading, whether QA and PROD hold what the
+ * draft holds now.
  */
 import { useEffect, useId, useRef, useState } from "react";
 import type {
@@ -14,12 +16,12 @@ import type {
 } from "@prismshadow/penguin-server/api";
 import { ApiError } from "../../api/client";
 import {
-  Badge,
   Button,
   ConfirmModal,
   InfoPopover,
   Input,
   Modal,
+  Pill,
   Tabs,
   useGuardedClose,
   useUnsavedChanges,
@@ -40,6 +42,7 @@ import {
   statusLines,
   versionName,
   versionRows,
+  type VersionRow,
 } from "./versions-model";
 import {
   TABLE,
@@ -50,6 +53,10 @@ import {
   TH,
 } from "../../components/ui/table-classes";
 import { useActivityClient } from "./activity-client";
+import { useTableLayout } from "./narrow-table";
+
+/** The width the versions table needs before its actions slip behind a scroll. */
+const VERSIONS_TABLE_MIN = 520;
 
 /** A version being compared with the current draft, and what the compare found. */
 interface Comparison {
@@ -79,6 +86,7 @@ export function VersionsView({
 }) {
   const { api } = useActivityClient();
   const words = S.activities.versions;
+  const [box, layout] = useTableLayout<HTMLElement>(VERSIONS_TABLE_MIN);
   const [versions, setVersions] = useState<VersionSummary[] | null>(null);
   const [status, setStatus] = useState<VersionStatus | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -204,8 +212,40 @@ export function VersionsView({
   }
 
   const rows = versionRows(versions ?? []);
+  const nameOf = (row: VersionRow) =>
+    row.name ?? <span className="text-gray-500">{words.unnamed}</span>;
+  const deployedPills = (row: VersionRow) =>
+    row.deployed.map((badge) => (
+      <span key={badge.target} role="img" aria-label={badge.name} data-tooltip={badge.name}>
+        <Pill tone="info">{badge.label}</Pill>
+      </span>
+    ));
+  const actionsOf = (row: VersionRow) => (
+    <>
+      <Button
+        size="sm"
+        aria-label={words.compareVersion(row.seq)}
+        aria-pressed={comparison?.versionId === row.versionId}
+        onClick={() => void compare(row.versionId, row.seq)}
+      >
+        {words.compare}
+      </Button>
+      {editable && !row.current && (
+        <Button
+          size="sm"
+          aria-label={words.restoreVersion(row.seq)}
+          onClick={() => {
+            setRestoreError("");
+            setRestoring({ versionId: row.versionId, seq: row.seq });
+          }}
+        >
+          {words.restore}
+        </Button>
+      )}
+    </>
+  );
   return (
-    <section className="space-y-3" aria-labelledby="activity-versions-title">
+    <section ref={box} className="space-y-3" aria-labelledby="activity-versions-title">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 id="activity-versions-title" className="flex items-center gap-2 text-sm font-semibold">
           {words.title}
@@ -226,8 +266,9 @@ export function VersionsView({
           </Button>
         )}
       </div>
-      {status && (
-        <ul aria-label={words.status.label} className="space-y-1 text-xs">
+      {/* One line for both targets, and none while neither has had a deploy. */}
+      {status && (status.qa !== "never" || status.prod !== "never") && (
+        <ul aria-label={words.status.label} className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
           {statusLines(status).map((line) => (
             <li key={line.target}>
               <span
@@ -255,6 +296,29 @@ export function VersionsView({
         </p>
       ) : !rows.length ? (
         <p className="text-xs text-gray-500">{words.empty}</p>
+      ) : layout === "stacked" ? (
+        // Narrow: one entry per version, what the columns said as lines, its actions last.
+        <ul
+          aria-label={words.title}
+          className={`${TABLE_WRAP} divide-y divide-gray-200 dark:divide-gray-800`}
+        >
+          {rows.map((row) => (
+            <li key={row.versionId} className="space-y-1 px-3 py-2 text-sm">
+              <p className="flex flex-wrap items-center gap-1.5">
+                <span className="font-medium">{row.number}</span>
+                {deployedPills(row)}
+                <span className="min-w-0 break-words">{nameOf(row)}</span>
+                {row.current && <Pill>{words.current}</Pill>}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {[row.kind, new Date(row.createdAt).toLocaleString(), row.author, row.size].join(
+                  " · ",
+                )}
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">{actionsOf(row)}</div>
+            </li>
+          ))}
+        </ul>
       ) : (
         <div className={TABLE_WRAP}>
           <table className={TABLE}>
@@ -262,11 +326,8 @@ export function VersionsView({
               <tr className={TABLE_HEAD_ROW}>
                 <th className={TH}>{words.columns.version}</th>
                 <th className={TH}>{words.columns.name}</th>
-                <th className={TH}>{words.columns.kind}</th>
                 <th className={TH}>{words.columns.created}</th>
-                <th className={TH}>{words.columns.author}</th>
                 <th className={TH}>{words.columns.media}</th>
-                <th className={TH}>{words.columns.current}</th>
                 <th className={TH}>
                   <span className="sr-only">{words.columns.actions}</span>
                 </th>
@@ -278,55 +339,26 @@ export function VersionsView({
                   <td className={`${TD} whitespace-nowrap font-medium`}>
                     <span className="flex items-center gap-1">
                       {row.number}
-                      {row.deployed.map((badge) => (
-                        <span
-                          key={badge.target}
-                          role="img"
-                          aria-label={badge.name}
-                          data-tooltip={badge.name}
-                        >
-                          <Badge tone="info">{badge.label}</Badge>
-                        </span>
-                      ))}
+                      {deployedPills(row)}
                     </span>
                   </td>
                   <td className={`${TD} break-words`}>
-                    {row.name ?? <span className="text-gray-500">{words.unnamed}</span>}
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      {nameOf(row)}
+                      {/* The version the draft holds now, as a label rather than a column. */}
+                      {row.current && <Pill>{words.current}</Pill>}
+                    </span>
+                    <span className="block text-xs text-gray-500 dark:text-gray-400">
+                      {row.kind}
+                    </span>
                   </td>
-                  <td className={`${TD} whitespace-nowrap`}>
-                    <Badge tone="neutral">{row.kind}</Badge>
-                  </td>
-                  <td className={`${TD} whitespace-nowrap text-xs text-gray-500`}>
+                  <td className={`${TD} whitespace-nowrap text-xs`}>
                     <time dateTime={row.createdAt}>{new Date(row.createdAt).toLocaleString()}</time>
+                    <span className="block text-gray-500 dark:text-gray-400">{row.author}</span>
                   </td>
-                  <td className={`${TD} whitespace-nowrap text-xs`}>{row.author}</td>
                   <td className={`${TD} whitespace-nowrap text-xs`}>{row.size}</td>
-                  <td className={`${TD} whitespace-nowrap text-xs font-medium`}>
-                    {row.current ? words.current : ""}
-                  </td>
                   <td className={`${TD} whitespace-nowrap`}>
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        aria-label={words.compareVersion(row.seq)}
-                        aria-pressed={comparison?.versionId === row.versionId}
-                        onClick={() => void compare(row.versionId, row.seq)}
-                      >
-                        {words.compare}
-                      </Button>
-                      {editable && !row.current && (
-                        <Button
-                          size="sm"
-                          aria-label={words.restoreVersion(row.seq)}
-                          onClick={() => {
-                            setRestoreError("");
-                            setRestoring({ versionId: row.versionId, seq: row.seq });
-                          }}
-                        >
-                          {words.restore}
-                        </Button>
-                      )}
-                    </div>
+                    <div className="flex justify-end gap-2">{actionsOf(row)}</div>
                   </td>
                 </tr>
               ))}

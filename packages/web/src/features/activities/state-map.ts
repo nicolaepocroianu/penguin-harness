@@ -1,7 +1,7 @@
 /**
- * The behavior map drawn under the player: one scene of the module's state machine, as
- * phases and the transitions between them, laid out top to bottom from the scene's first
- * phase.
+ * The behavior map's data: one scene of the module's state machine, its phases and the
+ * transitions between them, for the inspector, and the machine as the ported Loom layout
+ * (state-machine-graph.ts) reads it.
  *
  * The machine is the module's own, read from its configuration (`stateMachine`, or
  * `activityMachine` in older modules), in the shape Loom's `waf-state-machine` defines:
@@ -13,11 +13,21 @@
  * assumes a shape.
  */
 
+import type {
+  StateMachineDefinition,
+  StateMachineImplementationReference,
+  StateMachineStateNode,
+  StateMachineTransition,
+  StateMachineTransitions,
+} from "./state-machine-graph";
+
 type Json = Record<string, unknown>;
 const object = (value: unknown): Json | null =>
   value && typeof value === "object" && !Array.isArray(value) ? (value as Json) : null;
 
 export interface StateMachine {
+  /** The machine's own id, which a `#id.scene.phase` target names. */
+  id: string;
   initial: string;
   states: Json;
 }
@@ -39,7 +49,95 @@ export function machineOf(configuration: unknown): StateMachine | null {
   const machine = object(config?.stateMachine) ?? object(config?.activityMachine);
   const states = object(machine?.states);
   if (!machine || !states || typeof machine.initial !== "string") return null;
-  return { initial: machine.initial, states };
+  return { id: typeof machine.id === "string" ? machine.id : "", initial: machine.initial, states };
+}
+
+/** An implementation reference Loom's model takes: a name, or `{ type, params }`. */
+function implementation(value: unknown): StateMachineImplementationReference | null {
+  if (typeof value === "string") return value;
+  const type = object(value)?.type;
+  return typeof type === "string" ? { type } : null;
+}
+
+function implementations(value: unknown): StateMachineImplementationReference[] | undefined {
+  if (value === undefined) return undefined;
+  const list = (Array.isArray(value) ? value : [value]).map(implementation);
+  return list.filter((entry): entry is StateMachineImplementationReference => entry !== null);
+}
+
+function transitionsValue(value: unknown): StateMachineTransitions | undefined {
+  const list = (Array.isArray(value) ? value : [value]).flatMap(
+    (entry): StateMachineTransition[] => {
+      if (typeof entry === "string") return [entry];
+      const transition = object(entry);
+      if (!transition) return [];
+      const guard = implementation(transition.guard);
+      return [
+        {
+          ...(typeof transition.target === "string" ? { target: transition.target } : {}),
+          ...(guard ? { guard } : {}),
+        },
+      ];
+    },
+  );
+  return list.length ? list : undefined;
+}
+
+function transitionMap(value: unknown): Record<string, StateMachineTransitions> | undefined {
+  const source = object(value);
+  if (!source) return undefined;
+  const map: Record<string, StateMachineTransitions> = {};
+  for (const [key, entry] of Object.entries(source)) {
+    const transitions = transitionsValue(entry);
+    if (transitions) map[key] = transitions;
+  }
+  return map;
+}
+
+function stateNode(value: Json): StateMachineStateNode {
+  const node: StateMachineStateNode = {};
+  if (typeof value.description === "string") node.description = value.description;
+  if (value.type === "atomic" || value.type === "compound" || value.type === "final")
+    node.type = value.type;
+  if (typeof value.initial === "string") node.initial = value.initial;
+  const states = object(value.states);
+  if (states) node.states = stateNodes(states);
+  const entry = implementations(value.entry);
+  if (entry) node.entry = entry;
+  const exit = implementations(value.exit);
+  if (exit) node.exit = exit;
+  const after = transitionMap(value.after);
+  if (after) node.after = after;
+  const on = transitionMap(value.on);
+  if (on) node.on = on;
+  const invoke = object(value.invoke);
+  const src = implementation(invoke?.src);
+  if (invoke && src) {
+    node.invoke = { src: typeof src === "string" ? src : src.type };
+    const onDone = transitionsValue(invoke.onDone);
+    if (onDone) node.invoke.onDone = onDone;
+    const onError = transitionsValue(invoke.onError);
+    if (onError) node.invoke.onError = onError;
+  }
+  return node;
+}
+
+function stateNodes(states: Json): Record<string, StateMachineStateNode> {
+  const nodes: Record<string, StateMachineStateNode> = {};
+  for (const [id, value] of Object.entries(states)) {
+    const state = object(value);
+    if (state) nodes[id] = stateNode(state);
+  }
+  return nodes;
+}
+
+/**
+ * The machine in the shape Loom's model types describe, for the ported layout. The JSON is the
+ * module's own and unchecked, so only what has the expected shape is carried over: a transition
+ * that is neither a name nor an object, or a state that is not an object, is left out.
+ */
+export function machineDefinition(machine: StateMachine): StateMachineDefinition {
+  return { id: machine.id, initial: machine.initial, states: stateNodes(machine.states) };
 }
 
 /** The scenes the machine has, in its own order; `activity` is its frame, not a scene. */
@@ -51,11 +149,6 @@ export function machineScenes(machine: StateMachine): string[] {
 
 export interface MapNode {
   id: string;
-  /** Rows from the scene's first phase; unreachable phases sit on a row after the rest. */
-  depth: number;
-  /** Position within its row, and how many share the row. */
-  column: number;
-  columns: number;
   initial: boolean;
   final: boolean;
 }
@@ -71,11 +164,9 @@ export interface MapEdge {
   from: string;
   to: string;
   trigger: MapTrigger;
-  /** Goes back up the map or stays on its row: drawn dashed, the way a retry reads. */
-  back: boolean;
 }
 
-/** A transition that leaves the scene, for the list under the drawing. */
+/** A transition that leaves the scene. */
 export interface MapExit {
   from: string;
   to: string;
@@ -142,42 +233,15 @@ export function sceneMap(machine: StateMachine, sceneId: string): SceneMap | nul
   for (const id of ids)
     for (const { trigger, target } of transitionsOf(object(children[id]) ?? {})) {
       const to = localPhase(target, sceneId, phases);
-      if (to) edges.push({ from: id, to, trigger, back: false });
+      if (to) edges.push({ from: id, to, trigger });
       else exits.push({ from: id, to: target, trigger });
     }
 
-  // Rows by the shortest path from the first phase, so the map reads in the order a
-  // learner meets the phases.
-  const depth = new Map<string, number>();
-  if (initial) {
-    depth.set(initial, 0);
-    const queue = [initial];
-    while (queue.length) {
-      const at = queue.shift()!;
-      for (const edge of edges)
-        if (edge.from === at && !depth.has(edge.to)) {
-          depth.set(edge.to, depth.get(at)! + 1);
-          queue.push(edge.to);
-        }
-    }
-  }
-  const unreachable = Math.max(-1, ...depth.values()) + 1;
-  for (const id of ids) if (!depth.has(id)) depth.set(id, unreachable);
-  for (const edge of edges) edge.back = depth.get(edge.to)! <= depth.get(edge.from)!;
-
-  const rows = new Map<number, string[]>();
-  for (const id of ids) rows.set(depth.get(id)!, [...(rows.get(depth.get(id)!) ?? []), id]);
-  const nodes = ids.map((id) => {
-    const row = rows.get(depth.get(id)!)!;
-    return {
-      id,
-      depth: depth.get(id)!,
-      column: row.indexOf(id),
-      columns: row.length,
-      initial: id === initial,
-      final: object(children[id])?.type === "final",
-    };
-  });
+  const nodes = ids.map((id) => ({
+    id,
+    initial: id === initial,
+    final: object(children[id])?.type === "final",
+  }));
   return { nodes, edges, exits };
 }
 
@@ -246,11 +310,24 @@ export function phaseDetails(
   };
 }
 
-/** Zoom steps for the drawing, as fractions of its natural width. */
-export const MAP_ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3] as const;
+/**
+ * The drawing's zoom, as Loom's viewer has it in preview: a scale of the laid-out canvas
+ * between a quarter and one and a half, in steps of fifteen points, and a fit that fills the
+ * column's width without going past 120%.
+ */
+export const MAP_ZOOM = { min: 0.25, max: 1.5, step: 0.15, fitMax: 1.2 } as const;
 
-/** The next zoom step in a direction, holding at either end. */
+const round = (value: number) => Math.round(value * 100) / 100;
+
+/** The zoom after one step in a direction, holding at either end. */
 export function stepZoom(current: number, direction: 1 | -1): number {
-  if (direction > 0) return MAP_ZOOMS.find((zoom) => zoom > current + 1e-9) ?? current;
-  return [...MAP_ZOOMS].reverse().find((zoom) => zoom < current - 1e-9) ?? current;
+  return direction > 0
+    ? Math.min(MAP_ZOOM.max, round(current + MAP_ZOOM.step))
+    : Math.max(MAP_ZOOM.min, round(current - MAP_ZOOM.step));
+}
+
+/** The zoom that fits a canvas of `width` into `available` pixels; null when either is unknown. */
+export function fitZoom(available: number, width: number): number | null {
+  if (!(available > 0) || !(width > 0)) return null;
+  return round(Math.min(MAP_ZOOM.fitMax, Math.max(MAP_ZOOM.min, available / width)));
 }

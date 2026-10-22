@@ -13,10 +13,10 @@ import type {
   ActivityRun,
   ActivityRunSummary,
 } from "@prismshadow/penguin-server/api";
-import { Button } from "@prismshadow/penguin-ui";
+import { Button, Pill, buttonClass } from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
-import { toneInk, toneSurface, type Tone } from "../../lib/tone";
+import { toneInk, toneName, type Tone } from "../../lib/tone";
 import { runKindLabel, type Announcement } from "./run-toasts";
 import { ModuleBuildsView } from "./module-builds-view";
 import { RunTranscript } from "./run-transcript";
@@ -73,6 +73,15 @@ export function GenerationHistory({
   const words = S.activities.runTranscript;
   // The run whose transcript is shown in place; one at a time.
   const [open, setOpen] = useState<string | null>(null);
+  // The runs whose candidate is shown; a candidate read once stays read while it is folded.
+  const [candidates, setCandidates] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleCandidate = (runId: string) =>
+    setCandidates((current) => {
+      const next = new Set(current);
+      if (next.has(runId)) next.delete(runId);
+      else next.add(runId);
+      return next;
+    });
   const cards = useRef(new Map<string, HTMLElement>());
   useEffect(() => {
     if (!focusRun) return;
@@ -102,110 +111,174 @@ export function GenerationHistory({
           onDraft={(draft) => onDraft?.(draft)}
         />
       )}
-      <section className="space-y-3">
+      <section className="space-y-1">
         <h4 className="text-sm font-semibold">{S.activities.runs}</h4>
         {runs.length === 0 && <p className="text-xs text-gray-500">{S.activities.noRuns}</p>}
-        {runs.map((run) => {
-          const expanded = open === run.runId && !!run.sessionId;
-          const time = new Date(run.createdAt).toLocaleString();
-          const transcriptId = `run-transcript-${run.runId}`;
-          return (
-            <article
-              key={run.runId}
-              ref={(element) => {
-                if (element) cards.current.set(run.runId, element);
-                else cards.current.delete(run.runId);
-              }}
-              className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-800"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs">{runKindLabel(run)}</span>
-                <span className={`rounded px-2 py-0.5 text-xs ${toneSurface[runTone[run.status]]}`}>
-                  {run.kind === "module" && run.status === "succeeded"
-                    ? S.activities.moduleReady
-                    : run.kind === "audio" || run.kind === "image" || run.kind === "media-text"
-                      ? S.activities.speechStatus[run.status]
-                      : S.activities.status[run.status]}
-                </span>
-                <time className="text-xs text-gray-500" dateTime={run.createdAt}>
-                  {time}
-                </time>
-              </div>
-              {run.error && <p className="break-words text-xs">{run.error}</p>}
-              {run.status === "running" && (
-                <p className="text-xs text-gray-500">{S.activities.runningHelp}</p>
-              )}
-              <div className="flex flex-wrap items-center gap-3">
-                {run.kind === "module" && run.status === "succeeded" && run.sessionId && (
-                  <a
-                    className="text-xs underline"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    href={`/api/sessions/${encodeURIComponent(run.sessionId)}/files/preview-redirect?path=preview%2Findex.html`}
-                  >
-                    {S.activities.previewModule}
-                  </a>
-                )}
-                {run.sessionId && (
-                  <button
-                    type="button"
-                    aria-expanded={expanded}
-                    aria-controls={transcriptId}
-                    aria-label={words.toggle(
-                      expanded ? words.hide : words.show,
-                      runKindLabel(run),
-                      time,
-                    )}
-                    onClick={() => setOpen((current) => (current === run.runId ? null : run.runId))}
-                    className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-300"
-                  >
-                    {expanded ? words.hide : words.show}
-                  </button>
-                )}
-                {run.sessionId && (
-                  <Link
-                    className="text-xs underline"
-                    to={`/chat/${encodeURIComponent(run.sessionId)}`}
-                  >
-                    {S.activities.openSession}
-                  </Link>
-                )}
-                {editable && run.status === "running" && (
-                  <Button size="sm" disabled={busy} onClick={() => onCancel(run.runId)}>
-                    {S.activities.cancel}
-                  </Button>
-                )}
-              </div>
-              {expanded && (
-                <div
-                  id={transcriptId}
-                  className="overflow-hidden rounded-control border border-gray-200 dark:border-gray-800"
-                >
-                  <RunTranscript sessionId={run.sessionId!} running={run.status === "running"} />
+        {/* Rows on rules rather than a card each: the runs are one list, read top to bottom. */}
+        <div className="divide-y divide-gray-200 dark:divide-gray-800">
+          {runs.map((run) => {
+            const expanded = open === run.runId && !!run.sessionId;
+            const time = new Date(run.createdAt).toLocaleString();
+            const transcriptId = `run-transcript-${run.runId}`;
+            return (
+              <article
+                key={run.runId}
+                ref={(element) => {
+                  if (element) cards.current.set(run.runId, element);
+                  else cards.current.delete(run.runId);
+                }}
+                className="space-y-2 py-3"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium">{runKindLabel(run)}</span>
+                  <Pill tone={toneName[runTone[run.status]]}>
+                    {run.kind === "module" && run.status === "succeeded"
+                      ? S.activities.moduleReady
+                      : run.kind === "audio" || run.kind === "image" || run.kind === "media-text"
+                        ? S.activities.speechStatus[run.status]
+                        : S.activities.status[run.status]}
+                  </Pill>
+                  <time className="ml-auto text-xs text-gray-500" dateTime={run.createdAt}>
+                    {time}
+                  </time>
                 </div>
-              )}
-              {run.hasCandidate && (
-                <CandidateReview
-                  runId={run.runId}
-                  editable={editable && run.kind === "spec"}
-                  busy={busy}
-                  onUse={onUseCandidate}
-                />
-              )}
-            </article>
-          );
-        })}
+                {run.error && <RunError text={run.error} />}
+                {run.status === "running" && (
+                  <p className="text-xs text-gray-500">{S.activities.runningHelp}</p>
+                )}
+                {/* Every action of a run in one quiet shape, the way in to what it made first. */}
+                <div className="-ml-2.5 flex flex-wrap items-center gap-1">
+                  {run.kind === "module" && run.status === "succeeded" && run.sessionId && (
+                    <a
+                      className={buttonClass("ghost", "sm")}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      href={`/api/sessions/${encodeURIComponent(run.sessionId)}/files/preview-redirect?path=preview%2Findex.html`}
+                    >
+                      {S.activities.previewModule}
+                    </a>
+                  )}
+                  {run.sessionId && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-expanded={expanded}
+                      aria-controls={transcriptId}
+                      aria-label={words.toggle(
+                        expanded ? words.hide : words.show,
+                        runKindLabel(run),
+                        time,
+                      )}
+                      onClick={() =>
+                        setOpen((current) => (current === run.runId ? null : run.runId))
+                      }
+                    >
+                      {expanded ? words.hide : words.show}
+                    </Button>
+                  )}
+                  {run.sessionId && (
+                    <Link
+                      className={buttonClass("ghost", "sm")}
+                      to={`/chat/${encodeURIComponent(run.sessionId)}`}
+                    >
+                      {S.activities.openSession}
+                    </Link>
+                  )}
+                  {run.hasCandidate && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-expanded={candidates.has(run.runId)}
+                      aria-controls={`run-candidate-${run.runId}`}
+                      onClick={() => toggleCandidate(run.runId)}
+                    >
+                      {S.activities.candidate}
+                    </Button>
+                  )}
+                  {editable && run.status === "running" && (
+                    <Button size="sm" disabled={busy} onClick={() => onCancel(run.runId)}>
+                      {S.activities.cancel}
+                    </Button>
+                  )}
+                </div>
+                {expanded && (
+                  <div
+                    id={transcriptId}
+                    className="overflow-hidden rounded-control border border-gray-200 dark:border-gray-800"
+                  >
+                    <RunTranscript sessionId={run.sessionId!} running={run.status === "running"} />
+                  </div>
+                )}
+                {run.hasCandidate && (
+                  <CandidateReview
+                    open={candidates.has(run.runId)}
+                    runId={run.runId}
+                    editable={editable && run.kind === "spec"}
+                    busy={busy}
+                    onUse={onUseCandidate}
+                  />
+                )}
+              </article>
+            );
+          })}
+        </div>
       </section>
     </div>
   );
 }
 
+/**
+ * A failed run's reason in one readable line: the message a provider's JSON error carries, or
+ * the first line of the text. The text as it came stays one press away, never dropped.
+ */
+export function runErrorReason(raw: string): string {
+  const start = raw.indexOf("{");
+  if (start >= 0) {
+    try {
+      const body = JSON.parse(raw.slice(start)) as unknown;
+      const message = messageIn(body);
+      if (message) return message;
+    } catch {
+      // Not JSON after all: the first line below says it.
+    }
+  }
+  return raw.trim().split(/\r?\n/)[0] ?? raw;
+}
+
+function messageIn(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  if (typeof record.message === "string" && record.message.trim()) return record.message.trim();
+  return messageIn(record.error);
+}
+
+function RunError({ text }: { text: string }) {
+  const reason = runErrorReason(text);
+  return (
+    <div className="space-y-1 text-xs">
+      <p className={`break-words ${toneInk.danger}`}>{reason}</p>
+      {reason !== text.trim() && (
+        <details>
+          <summary className="cursor-pointer text-gray-500 dark:text-gray-400">
+            {S.activities.runErrorFull}
+          </summary>
+          <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-gray-50 p-2 dark:bg-gray-900">
+            {text}
+          </pre>
+        </details>
+      )}
+    </div>
+  );
+}
+
 function CandidateReview({
+  open,
   runId,
   editable,
   busy,
   onUse,
 }: {
+  open: boolean;
   runId: string;
   editable: boolean;
   busy: boolean;
@@ -235,14 +308,15 @@ function CandidateReview({
       pending.current = false;
     }
   }
+  useEffect(() => {
+    if (open) void load();
+    // Read once, on the first open; `load` itself refuses a second read.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+  // Folded, it stays mounted so what was read is kept.
+  if (!open) return null;
   return (
-    <details
-      className="text-xs"
-      onToggle={(event) => {
-        if (event.currentTarget.open) void load();
-      }}
-    >
-      <summary className="cursor-pointer">{S.activities.candidate}</summary>
+    <div id={`run-candidate-${runId}`} className="text-xs">
       {error ? (
         <div className="my-2 space-y-2">
           <p role="alert" className={toneInk.danger}>
@@ -262,6 +336,6 @@ function CandidateReview({
           {S.activities.useCandidate}
         </Button>
       )}
-    </details>
+    </div>
   );
 }

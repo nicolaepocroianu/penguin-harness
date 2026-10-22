@@ -251,7 +251,12 @@ export type TapNow =
   | {
       kind: "targets";
       /** Grouped by what a learner does with them, in the order the activity lists them. */
-      groups: { inputType: PlayerInteractable["inputType"]; names: string[] }[];
+      groups: {
+        inputType: PlayerInteractable["inputType"];
+        names: string[];
+        /** The targets' ids, beside their names, for outlining them in the player. */
+        ids: string[];
+      }[];
       /** Targets past the ones named. */
       more: number;
     };
@@ -265,12 +270,15 @@ export function tapNow(report: PlayerReport | null, clock: PlayClock, limit = 3)
       because: clock.audio ? "speaking" : clock.video ? "video" : "nothing",
     };
   const named = targets.slice(0, Math.max(1, Math.floor(limit)));
-  const groups: { inputType: PlayerInteractable["inputType"]; names: string[] }[] = [];
+  const groups: { inputType: PlayerInteractable["inputType"]; names: string[]; ids: string[] }[] =
+    [];
   for (const target of named) {
     const name = target.description?.trim() || target.id;
     const group = groups.find((entry) => entry.inputType === target.inputType);
-    if (group) group.names.push(name);
-    else groups.push({ inputType: target.inputType, names: [name] });
+    if (group) {
+      group.names.push(name);
+      group.ids.push(target.id);
+    } else groups.push({ inputType: target.inputType, names: [name], ids: [target.id] });
   }
   return { kind: "targets", groups, more: targets.length - named.length };
 }

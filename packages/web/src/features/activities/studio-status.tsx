@@ -4,8 +4,9 @@
  */
 import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
-import { toneDot, toneInk, toneName } from "../../lib/tone";
-import { Dot, LiveDuration } from "@prismshadow/penguin-ui";
+import { toneInk, toneName } from "../../lib/tone";
+import { Dot, GlyphIcon, ICON_SIZE, LiveDuration } from "@prismshadow/penguin-ui";
+import { MARK_PATH } from "./journey-header";
 import { runKindLabel } from "./run-toasts";
 import type { StudioPanel } from "./workspace-model";
 
@@ -52,7 +53,11 @@ export function RunningChip({ run, onFollow }: { run: ActivityRunSummary; onFoll
   );
 }
 
-/** The agent proposed a script that is still waiting on the author; it opens the review. */
+/**
+ * The agent proposed a script that is still waiting on the author; it opens the review. Its
+ * lead is the journey's alert mark rather than a dot, so on a narrow header, where the words go
+ * to a reader, its shape still says something waits.
+ */
 export function ProposalWaiting({ onReview }: { onReview: () => void }) {
   return (
     <button
@@ -61,7 +66,7 @@ export function ProposalWaiting({ onReview }: { onReview: () => void }) {
       onClick={onReview}
       className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border border-current/20 px-2 py-0.5 text-xs whitespace-nowrap hover:bg-gray-50 dark:hover:bg-gray-900 ${toneInk.attention}`}
     >
-      <span aria-hidden className={`size-1.5 rounded-full ${toneDot.attention}`} />
+      <GlyphIcon d={MARK_PATH.attention} size={ICON_SIZE.inlineGlyph} />
       <span className="@max-3xl:sr-only">{S.activities.journey.proposalWaiting}</span>
     </button>
   );

@@ -115,7 +115,7 @@ function PlayerCheckView({ version }: { version: string }) {
             {words.checkedAt(formatDateTime(report.checkedAt))}
           </p>
           {report.untrusted && <p className={`text-xs ${toneInk.attention}`}>{words.untrusted}</p>}
-          {failed.length > 0 && <ScenarioTable rows={failed} />}
+          {failed.length > 0 && <ScenarioTable rows={failed} status={false} />}
           {rows.length > failed.length && (
             <details className="text-xs">
               <summary className="cursor-pointer text-gray-600 dark:text-gray-300">
@@ -140,7 +140,11 @@ function playerCheckLine(failed: number, total: number): string {
   return words.skipped;
 }
 
-function ScenarioTable({ rows }: { rows: readonly ResultRow[] }) {
+/**
+ * The scenarios in a table. The failed ones alone need no status column: the line above says
+ * they failed, so every cell would repeat it.
+ */
+function ScenarioTable({ rows, status = true }: { rows: readonly ResultRow[]; status?: boolean }) {
   const words = S.activities.checks.player;
   const columns = S.activities.tests.columns;
   return (
@@ -149,7 +153,7 @@ function ScenarioTable({ rows }: { rows: readonly ResultRow[] }) {
         <thead>
           <tr className={TABLE_HEAD_ROW}>
             <th className={TH}>{words.scenario}</th>
-            <th className={TH}>{columns.status}</th>
+            {status && <th className={TH}>{columns.status}</th>}
             <th className={TH}>{columns.duration}</th>
             <th className={TH}>{columns.error}</th>
           </tr>
@@ -158,15 +162,17 @@ function ScenarioTable({ rows }: { rows: readonly ResultRow[] }) {
           {rows.map((row) => (
             <tr key={row.key}>
               <td className={`${TD} break-words`}>{row.criterion}</td>
-              <td className={`${TD} whitespace-nowrap`}>
-                <span className="flex items-center gap-1.5">
-                  <span
-                    aria-hidden="true"
-                    className={`size-1.5 shrink-0 rounded-full ${toneDot[TEST_TONE[row.status]]}`}
-                  />
-                  {row.statusText}
-                </span>
-              </td>
+              {status && (
+                <td className={`${TD} whitespace-nowrap`}>
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      aria-hidden="true"
+                      className={`size-1.5 shrink-0 rounded-full ${toneDot[TEST_TONE[row.status]]}`}
+                    />
+                    {row.statusText}
+                  </span>
+                </td>
+              )}
               <td className={`${TD} whitespace-nowrap text-xs`}>{row.duration}</td>
               <td className={`${TD} break-words text-xs`}>{row.error}</td>
             </tr>

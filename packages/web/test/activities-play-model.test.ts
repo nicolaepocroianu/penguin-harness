@@ -254,8 +254,8 @@ describe("tapNow", () => {
     expect(tapNow(targets, IDLE_CLOCK)).toEqual({
       kind: "targets",
       groups: [
-        { inputType: "CLICK", names: ["First rock", "rock-c"] },
-        { inputType: "DRAG", names: ["rock-b"] },
+        { inputType: "CLICK", names: ["First rock", "rock-c"], ids: ["rock-a", "rock-c"] },
+        { inputType: "DRAG", names: ["rock-b"], ids: ["rock-b"] },
       ],
       more: 2,
     });

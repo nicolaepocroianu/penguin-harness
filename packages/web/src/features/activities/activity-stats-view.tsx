@@ -7,6 +7,7 @@ import { Button, EmptyState, SkeletonList } from "@prismshadow/penguin-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
+import { TABLE, TABLE_HEAD_ROW, TABLE_WRAP, TBODY, TH } from "../../components/ui/table-classes";
 import { useActivityClient } from "./activity-client";
 import { statsTables, type StatsRow } from "./activity-stats";
 import { fileSizeText } from "./media-library";
@@ -25,26 +26,27 @@ function StatsTable({
 }) {
   const words = S.activities.activityStats;
   const cell = "whitespace-nowrap px-3 py-2";
+  const num = `${cell} text-right tabular-nums`;
   const row = (entry: StatsRow, strong = false) => (
     <tr key={entry.key} className={strong ? "font-medium" : undefined}>
       <td className={cell}>{label(entry)}</td>
-      <td className={`${cell} text-right tabular-nums`}>{entry.count}</td>
-      <td className={`${cell} text-right tabular-nums`}>{entry.bound}</td>
-      <td className={`${cell} text-right tabular-nums`}>{fileSizeText(entry.bytes)}</td>
+      <td className={num}>{entry.count}</td>
+      <td className={num}>{entry.bound}</td>
+      <td className={num}>{fileSizeText(entry.bytes)}</td>
     </tr>
   );
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-      <table className="w-full text-sm">
+    <div className={TABLE_WRAP}>
+      <table className={TABLE}>
         <thead>
-          <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-400">
-            <th className={`${cell} font-medium`}>{heading}</th>
-            <th className={`${cell} text-right font-medium`}>{words.count}</th>
-            <th className={`${cell} text-right font-medium`}>{words.bound}</th>
-            <th className={`${cell} text-right font-medium`}>{words.size}</th>
+          <tr className={TABLE_HEAD_ROW}>
+            <th className={TH}>{heading}</th>
+            <th className={`${TH} text-right`}>{words.count}</th>
+            <th className={`${TH} text-right`}>{words.bound}</th>
+            <th className={`${TH} text-right`}>{words.size}</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+        <tbody className={TBODY}>
           {rows.map((entry) => row(entry))}
           {total && row(total, true)}
         </tbody>

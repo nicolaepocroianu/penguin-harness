@@ -1,7 +1,8 @@
 /**
- * The Activities home: every activity of the project, a dense row each, grouped under a thin
- * header per product code, narrowed by a search, by one product tag at a time and by a lens
- * on what each one needs (in progress, needs the author, built), sorted by recency or by code.
+ * The Activities home: every activity of the project, a dense row each. A product of several
+ * refs sits under a thin header with its code; a product of one ref is just its row. The list
+ * is narrowed by a search, by one product tag at a time and by a lens on what each one needs
+ * (in progress, needs the author, built), sorted by recency or by code.
  *
  * A row leads with the activity's picture, the first scene's picture or video the server names
  * in its summary, decoded here from wherever the file plays as the studio's posters are;
@@ -21,7 +22,9 @@ import {
   Dropdown,
   GlyphIcon,
   EmptyState,
+  IconButton,
   Input,
+  Pill,
   SkeletonList,
   ICON_SIZE,
   ICONS,
@@ -50,9 +53,12 @@ import { MediaThumb } from "./media-thumb";
 import { NO_PLACEHOLDERS } from "./placeholder-media";
 import { runKindLabel } from "./run-toasts";
 
-/** The columns every row shares, from the picture to the menu, once there is room for them. */
+/**
+ * The columns every row shares, from the picture to the menu. Wide, the name and the status
+ * split what is left 3:2, so the status starts near the name instead of across the page.
+ */
 const ROW =
-  "grid grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,9rem)_2rem] items-center gap-3 @2xl:grid-cols-[3.5rem_minmax(0,1fr)_6rem_minmax(0,11rem)_5rem_2rem]";
+  "grid grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,9rem)_2rem] items-center gap-3 @2xl:grid-cols-[3.5rem_minmax(0,3fr)_minmax(0,2fr)_5rem_2rem]";
 
 export function ActivityList({
   items,
@@ -133,11 +139,21 @@ export function ActivityList({
     <div className="h-full overflow-auto">
       <div className="@container mx-auto max-w-6xl space-y-4 p-4 md:p-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">{S.activities.title}</h1>
-          <div className="flex items-center gap-2">
-            <Button size="sm" disabled={!available} onClick={onRefresh}>
-              {S.activities.refresh}
-            </Button>
+          {/* Reading the list again belongs to its title, not among the actions that go
+              somewhere: a glyph beside the heading, named on hover and to a reader. */}
+          <div className="flex items-center gap-1">
+            <h1 className="text-xl font-semibold">{S.activities.title}</h1>
+            <IconButton
+              size="sm"
+              variant="ghost"
+              label={S.activities.refresh}
+              disabled={!available}
+              onClick={onRefresh}
+            >
+              <GlyphIcon d={ICONS.refresh} size={ICON_SIZE.iconButton} />
+            </IconButton>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" disabled={!available} onClick={onMedia}>
               {S.activities.projectMedia.open}
             </Button>
@@ -192,12 +208,6 @@ export function ActivityList({
                   value,
                   label: (
                     <span className="inline-flex items-center gap-1.5">
-                      {value === "attention" && inLens.attention > 0 && (
-                        <span
-                          aria-hidden
-                          className={`size-1.5 rounded-full ${toneDot.attention}`}
-                        />
-                      )}
                       {home.lenses[value]}
                       <span className="tabular-nums opacity-70">{inLens[value]}</span>
                     </span>
@@ -220,8 +230,9 @@ export function ActivityList({
                 label={words.filter}
                 value={tagValue}
                 onChange={(v) => onTag(v === "" ? null : v)}
+                // "All" carries no count: the lens beside it already counts what is shown.
                 options={[
-                  { value: "", label: `${words.all} · ${items.length}` },
+                  { value: "", label: words.all },
                   ...counts.map((c) => ({ value: c.tag, label: `${c.tag} · ${c.count}` })),
                 ]}
               />
@@ -236,33 +247,78 @@ export function ActivityList({
           <EmptyState title={items.length === 0 ? S.activities.empty : S.activities.noMatches} />
         ) : (
           <div>
-            <div
-              aria-hidden
-              className={`${ROW} border-b border-gray-200 px-3 pb-1.5 text-xs text-gray-500 @max-2xl:hidden dark:border-gray-800 dark:text-gray-400`}
-            >
-              <span />
-              <span>{home.columns.activity}</span>
-              <span>{home.columns.milestones}</span>
-              <span>{home.columns.status}</span>
-              <span>{home.columns.edited}</span>
-              <span />
-            </div>
-            {groups.map((group) => (
-              <ProductGroup
-                key={group.key}
-                group={group}
-                projectId={projectId}
-                summaries={summaries}
-                collapsed={collapsed.has(group.key)}
-                onToggle={() => toggle(group.key)}
-                editable={editable && available}
-              />
-            ))}
+            {runs(groups).map((run) =>
+              run.kind === "group" ? (
+                <ProductGroup
+                  key={run.group.key}
+                  group={run.group}
+                  projectId={projectId}
+                  summaries={summaries}
+                  collapsed={collapsed.has(run.group.key)}
+                  onToggle={() => toggle(run.group.key)}
+                  editable={editable && available}
+                />
+              ) : (
+                // A product with one ref is just its row: a header over a single row would
+                // only say its product code twice. Neighbouring ones share one list.
+                <ul
+                  key={run.groups[0]!.key}
+                  className="divide-y divide-gray-100 border-y border-gray-100 dark:divide-gray-900 dark:border-gray-900"
+                >
+                  {run.groups.map((group) => (
+                    <li key={group.key}>
+                      <ActivityRow
+                        item={group.items[0]!}
+                        projectId={projectId}
+                        summary={summaries[group.items[0]!.id]}
+                        product={group}
+                        newRef={newRefOf(group, summaries, editable && available)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              ),
+            )}
           </div>
         )}
       </div>
     </div>
   );
+}
+
+type Run = { kind: "group"; group: ActivityGroup } | { kind: "singles"; groups: ActivityGroup[] };
+
+/** The groups in order: a product of several refs on its own, neighbouring single refs together. */
+function runs(groups: readonly ActivityGroup[]): Run[] {
+  const out: Run[] = [];
+  for (const group of groups) {
+    const last = out[out.length - 1];
+    if (group.items.length > 1) out.push({ kind: "group", group });
+    else if (last?.kind === "singles") last.groups.push(group);
+    else out.push({ kind: "singles", groups: [group] });
+  }
+  return out;
+}
+
+/** New ref of a product, for its rows' menus: where it is made, or null with why it cannot be. */
+function newRefOf(
+  group: ActivityGroup,
+  summaries: Readonly<Record<string, ActivitySummary>>,
+  editable: boolean,
+): { href: string | null; label: string } | null {
+  if (!editable) return null;
+  const canonical = group.canonicalId ? summaries[group.canonicalId] : undefined;
+  // A new ref copies the canonical ref's media plan, so it waits for one — the same gate as
+  // the studio's New ref section (`hasPlan`). A legacy canonical ref with no product row is
+  // refused as a template by the server, so it offers no New ref either.
+  const canAddRef = !!canonical?.hasPlan && group.canonicalId !== null && group.canonicalHasProduct;
+  return {
+    href:
+      canAddRef && group.canonicalId !== null
+        ? `/activities/${encodeURIComponent(group.canonicalId)}?section=newRef`
+        : null,
+    label: S.activities.home.newRefFrom(group.productCode),
+  };
 }
 
 function ProductGroup({
@@ -281,16 +337,7 @@ function ProductGroup({
   editable: boolean;
 }) {
   const home = S.activities.home;
-  const canonical = group.canonicalId ? summaries[group.canonicalId] : undefined;
-  // A new ref copies the canonical ref's media plan, so it waits for one — the same gate as
-  // the studio's New ref section (`hasPlan`). A legacy canonical ref with no product row is
-  // refused as a template by the server, so it offers no New ref either.
-  const canAddRef =
-    editable && !!canonical?.hasPlan && group.canonicalId !== null && group.canonicalHasProduct;
-  const newRef =
-    group.canonicalId !== null
-      ? `/activities/${encodeURIComponent(group.canonicalId)}?section=newRef`
-      : null;
+  const newRef = newRefOf(group, summaries, editable);
   const headingId = useId();
   return (
     <section aria-labelledby={headingId}>
@@ -303,12 +350,10 @@ function ProductGroup({
         >
           <Chevron open={!collapsed} />
           <span className="font-mono text-sm font-semibold">{group.productCode}</span>
-          <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-normal dark:bg-gray-800">
-            {group.activityType === "book" ? S.activities.book : S.activities.standard}
-          </span>
+          {/* Standard is what nearly every product is; only the exception is named. */}
+          {group.activityType === "book" && <Pill>{S.activities.book}</Pill>}
           <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
             {home.refs(group.items.length)}
-            {group.attention > 0 && ` · ${home.attention(group.attention)}`}
           </span>
         </button>
       </h2>
@@ -320,14 +365,7 @@ function ProductGroup({
                 item={item}
                 projectId={projectId}
                 summary={summaries[item.id]}
-                newRef={
-                  editable
-                    ? {
-                        href: canAddRef ? newRef : null,
-                        label: home.newRefFrom(group.productCode),
-                      }
-                    : null
-                }
+                newRef={newRef}
               />
             </li>
           ))}
@@ -357,16 +395,19 @@ function RowPicture({
   );
 }
 
-/** One activity ref as a row linking to it: picture, name, milestones, status, when, menu. */
+/** One activity ref as a row linking to it: picture, name, status, when, menu. */
 function ActivityRow({
   item,
   projectId,
   summary,
+  product,
   newRef,
 }: {
   item: ActivityRecord;
   projectId: string;
   summary?: ActivitySummary;
+  /** Set when the row stands without its product's header: the row says what that would. */
+  product?: ActivityGroup;
   /** New ref of this product: where it is made, or null with the reason it cannot be. */
   newRef: { href: string | null; label: string } | null;
 }) {
@@ -397,46 +438,24 @@ function ActivityRow({
               <GlyphIcon d={ICONS.star} size={ICON_SIZE.inlineGlyph} filled />
             </span>
           )}
+          {product?.activityType === "book" && <Pill>{S.activities.book}</Pill>}
         </span>
-        <span className="block text-xs text-gray-500 dark:text-gray-400">
+        <span className="block truncate text-xs text-gray-500 dark:text-gray-400">
+          {/* Without a header the product code leads the ref, unless the name already is it. */}
+          {product && product.productCode.toLowerCase() !== title.trim().toLowerCase() && (
+            <span className="font-mono">{`${product.productCode} · `}</span>
+          )}
           <span className="font-mono">{home.ref(item.refNum)}</span>
           {/* Narrow, the edited column folds into this line. */}
           <span className="@2xl:hidden">{` · ${formatRelativeShort(item.updatedAt, locale)}`}</span>
         </span>
       </div>
-      <span className="@max-2xl:hidden">{summary && <Milestones summary={summary} />}</span>
-      <span className="min-w-0">{summary && <SummaryStatus status={summary.status} />}</span>
+      <span className="min-w-0">{summary && <SummaryStatus summary={summary} />}</span>
       <span className="text-xs text-gray-500 tabular-nums @max-2xl:hidden dark:text-gray-400">
         {formatRelativeShort(item.updatedAt, locale)}
       </span>
       <RowMenu title={title} href={href} newRef={newRef} />
     </div>
-  );
-}
-
-/** The three milestones as a bar, each step named on hover and to a reader. */
-function Milestones({ summary }: { summary: ActivitySummary }) {
-  const home = S.activities.home;
-  const steps = (["spec", "mediaPlan", "module"] as const).slice(0, summary.total);
-  const named = steps.map((step, index) =>
-    home.milestone(home.milestones[step], index < summary.done),
-  );
-  return (
-    <span
-      className="flex w-24 gap-1"
-      role="img"
-      aria-label={`${home.progress(summary.done, summary.total)}: ${named.join(", ")}`}
-      data-tooltip={named.join("\n")}
-    >
-      {steps.map((step, index) => (
-        <i
-          key={step}
-          className={`h-1.5 flex-1 rounded-full ${
-            index < summary.done ? "bg-gray-500 dark:bg-gray-400" : "bg-gray-200 dark:bg-gray-800"
-          }`}
-        />
-      ))}
-    </span>
   );
 }
 
@@ -465,17 +484,16 @@ function RowMenu({
       menuClass="w-64 max-w-[calc(100vw-1.5rem)]"
       className="relative z-10"
       button={
-        <button
-          type="button"
+        <IconButton
+          size="sm"
+          variant="ghost"
           aria-haspopup="menu"
           aria-expanded={open}
-          aria-label={home.more(title)}
-          data-tooltip={home.more(title)}
+          label={home.more(title)}
           onClick={() => setOpen(!open)}
-          className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
         >
           <GlyphIcon d={ICONS.ellipsis} size={ICON_SIZE.iconButton} filled />
-        </button>
+        </IconButton>
       }
     >
       <Menu label={home.more(title)} density="md" className="py-1">
@@ -491,8 +509,15 @@ function RowMenu({
   );
 }
 
-function SummaryStatus({ status }: { status: ActivitySummary["status"] }) {
-  const words = S.activities.home.status;
+/**
+ * Where the activity stands, in words: a run under way, a plan to redo, built, or the milestone
+ * next. The next milestone already says how far it got, so the three milestones are not drawn
+ * again as a bar; they are named on hover and to a reader.
+ */
+function SummaryStatus({ summary }: { summary: ActivitySummary }) {
+  const home = S.activities.home;
+  const words = home.status;
+  const { status } = summary;
   const [tone, text] =
     status.kind === "running"
       ? (["busy", words.running(runKindLabel({ kind: status.runKind }))] as const)
@@ -501,16 +526,24 @@ function SummaryStatus({ status }: { status: ActivitySummary["status"] }) {
         : status.kind === "built"
           ? (["success", words.built] as const)
           : (["muted", words.next[status.milestone]] as const);
+  const steps = (["spec", "mediaPlan", "module"] as const)
+    .slice(0, summary.total)
+    .map((step, index) => home.milestone(home.milestones[step], index < summary.done));
+  const progress = `${home.progress(summary.done, summary.total)}: ${steps.join(", ")}`;
   return (
     <span
-      className={`inline-flex min-w-0 items-center gap-1.5 text-xs ${
+      className={`inline-flex max-w-full min-w-0 items-center gap-1.5 text-xs ${
         tone === "muted" ? "text-gray-500 dark:text-gray-400" : toneInk[tone]
       }`}
+      data-tooltip={[text, ...steps].join("\n")}
+      data-tooltip-extra
     >
-      {tone !== "muted" && (
-        <span aria-hidden className={`size-1.5 shrink-0 rounded-full ${toneDot[tone]}`} />
+      {/* Only a run gets a mark: it is the one state that is live. */}
+      {tone === "busy" && (
+        <span aria-hidden className={`size-1.5 shrink-0 rounded-full ${toneDot.busy}`} />
       )}
       <span className="truncate">{text}</span>
+      <span className="sr-only">{`, ${progress}`}</span>
     </span>
   );
 }

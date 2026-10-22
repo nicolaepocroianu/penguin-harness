@@ -64,16 +64,18 @@ export type Strings = {
       noMedia: string;
       silent: string;
       map: {
-        toggle: string;
+        /** The map's section title. */
+        title: string;
+        /** The fold button's name while the map is hidden, and while it is shown. */
+        show: string;
+        hide: string;
         /** Opens the state machine's editor from the map. */
         edit: string;
         scene: string;
         loading: string;
         none: string;
         unreadable: (reason: string) => string;
-        leaves: string;
         trigger: { after: (ms: string) => string; done: string; error: string };
-        exit: (phase: string, event: string, target: string) => string;
         live: (phase: string) => string;
         graph: (scene: string) => string;
         liveCount: (count: number) => string;
@@ -87,6 +89,33 @@ export type Strings = {
         zoomOut: string;
         zoomFit: string;
         zoomLevel: (percent: number) => string;
+        /** How to move around the drawing, for a screen reader. */
+        canvasHelp: string;
+        /** A state's marks: where the scene starts, where it ends, a state outside it. */
+        badges: { start: string; final: string; external: string };
+        /** A state's hint: the action it runs on entry, or the service it invokes. */
+        actionTitle: (action: string) => string;
+        serviceTitle: (service: string) => string;
+        /** The words the layout writes (ported from Loom's state machine viewer). */
+        layout: {
+          lanes: { retry: string; flow: string; outcome: string };
+          otherwise: string;
+          completed: string;
+          promptCompleted: string;
+          choiceSelected: string;
+          incorrectFeedback: string;
+          guarded: (label: string) => string;
+          guards: {
+            incorrect: string;
+            correct: string;
+            hangUp: string;
+            disengaged: string;
+            guided: string;
+          };
+          scene: (number: string) => string;
+          /** A jump to a distant scene, drawn as a badge: the event, the scene, the state. */
+          stub: (event: string, scene: string, state: string) => string;
+        };
         inspect: {
           hint: string;
           title: (phase: string) => string;
@@ -135,7 +164,6 @@ export type Strings = {
         video: string;
         nothing: string;
         /** "Tap First rock or rock-c · Drag rock-b · 2 more". */
-        targets: (groups: { verb: string; names: string[] }[], more: number) => string;
         verbs: Record<"CLICK" | "SELECT" | "SELECT_CLICK" | "DRAG", string>;
       };
       /** A module that never reports its media: no line can be lit as it plays. */
@@ -256,11 +284,8 @@ export type Strings = {
       columns: {
         version: string;
         name: string;
-        kind: string;
         created: string;
-        author: string;
         media: string;
-        current: string;
         actions: string;
       };
       kinds: { manual: string; auto: string; restore: string; deploy: string };
@@ -326,9 +351,6 @@ export type Strings = {
       columns: {
         select: string;
         build: string;
-        built: string;
-        files: string;
-        preview: string;
         actions: string;
       };
       files: (count: number) => string;
@@ -370,13 +392,12 @@ export type Strings = {
       refNum: string;
       refNumHint: string;
       name: string;
-      nameHint: string;
       language: string;
       voiceForAll: string;
       voiceUnchanged: string;
       keepAll: string;
       regenerateImages: string;
-      columns: { asset: string; type: string; current: string; action: string; details: string };
+      columns: { asset: string; current: string; action: string; details: string };
       actions: { keep: string; regenerate: string; upload: string; library: string };
       actionsFor: (key: string) => string;
       types: {
@@ -429,11 +450,8 @@ export type Strings = {
       sortLabel: string;
       sort: { recent: string; code: string };
       refs: (count: number) => string;
-      attention: (count: number) => string;
-      refLine: (refNum: number, when: string) => string;
       canonical: string;
       progress: (done: number, total: number) => string;
-      newRef: string;
       newRefUnavailable: string;
       status: {
         running: (what: string) => string;
@@ -444,9 +462,8 @@ export type Strings = {
       /** The list's lenses, by what an activity needs (activity-groups.ts). */
       lensLabel: string;
       lenses: { all: string; progress: string; attention: string; built: string };
-      columns: { activity: string; milestones: string; status: string; edited: string };
       ref: (refNum: number) => string;
-      /** The milestone bar's steps, named on hover and to a reader. */
+      /** The milestones, named in the status's hover and to a reader. */
       milestones: { spec: string; mediaPlan: string; module: string };
       milestone: (name: string, done: boolean) => string;
       /** A row's menu: open it, or make a new ref of its product. */
@@ -1398,6 +1415,14 @@ export type Strings = {
       problems: (n: number, unsaved: boolean) => string;
       inherited: string;
       problemsLabel: string;
+      /** The section's two readings of the machine: its diagram, or its JSON. */
+      view: string;
+      diagram: string;
+      json: string;
+      /** Over the diagram while the text does not parse or does not validate. */
+      lastValid: string;
+      /** In the diagram's place when no version of the text has been valid yet. */
+      noDrawing: string;
       wholeFile: string;
       saved: string;
       discard: string;
@@ -2129,6 +2154,7 @@ export type Strings = {
     openSession: string;
     cancel: string;
     candidate: string;
+    runErrorFull: string;
     useCandidate: string;
     reload: string;
     loading: string;
@@ -2284,7 +2310,6 @@ export type Strings = {
       /** The list the button opens. */
       readiness: {
         title: string;
-        summary: (blockers: number, recommendations: number) => string;
         blocker: string;
         recommendation: string;
         none: string;

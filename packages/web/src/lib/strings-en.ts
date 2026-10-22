@@ -62,23 +62,22 @@ export const en: Strings = {
     studioPlayer: {
       waiting: "The activity has not reported its state yet.",
       pick: "Pick",
-      picking: "Click something in the preview",
+      picking: "Click something in the preview to open it.",
       opened: (name: string) => `Opened ${name}.`,
       noMatch: (id: string) => `Nothing in this activity is named ${id}.`,
       noMedia: "Plan media first: picking opens an asset, and this activity has none yet.",
       silent:
         "This module does not report its state. Modules built on Loom's state machine do; older ones, like this one, don't.",
       map: {
-        toggle: "Behavior map",
+        title: "Behavior map",
+        show: "Show the behavior map",
+        hide: "Hide the behavior map",
         edit: "Edit machine",
         scene: "Scene",
         loading: "Reading the module's state machine…",
         none: "This module has no state machine, so there is no behavior map to draw.",
         unreadable: (reason: string) => `The behavior map could not be read: ${reason}`,
-        leaves: "Leaves the scene",
         trigger: { after: (ms: string) => `after ${ms} ms`, done: "done", error: "error" },
-        exit: (phase: string, event: string, target: string) =>
-          `${phase}, on ${event}, to ${target}`,
         live: (phase: string) => `${phase}, where the activity is now`,
         graph: (scene: string) => `Behavior of ${scene}`,
         liveCount: (count: number) => `${count} live`,
@@ -97,8 +96,32 @@ export const en: Strings = {
         zoomOut: "Zoom out",
         zoomFit: "Fit",
         zoomLevel: (percent: number) => `${percent}%`,
+        canvasHelp:
+          "Tab reaches the states. Enter or Space opens one in the inspector; the arrow keys move between them.",
+        badges: { start: "start", final: "final", external: "next" },
+        actionTitle: (action: string) => `Entry action: ${action}`,
+        serviceTitle: (service: string) => `Runs: ${service}`,
+        layout: {
+          lanes: { retry: "Recovery path", flow: "State flow", outcome: "Happy path" },
+          otherwise: "else",
+          completed: "Completed",
+          promptCompleted: "Prompt completed",
+          choiceSelected: "Choice selected",
+          incorrectFeedback: "Incorrect feedback",
+          guarded: (label: string) => `[${label}]`,
+          guards: {
+            incorrect: "incorrect",
+            correct: "correct",
+            hangUp: "hang up",
+            disengaged: "disengaged",
+            guided: "guided choice",
+          },
+          scene: (number: string) => `Scene ${number}`,
+          stub: (event: string, scene: string, state: string) =>
+            state ? `${event} → ${scene} · ${state}` : `${event} → ${scene}`,
+        },
         inspect: {
-          hint: "Choose a phase to see what it does. Hold Ctrl and scroll to zoom.",
+          hint: "Choose a state to see what it does. Hold Ctrl and scroll to zoom; the percentage fits the map to the column.",
           title: (phase: string) => `Phase ${phase}`,
           initial: "First phase",
           final: "Final phase",
@@ -133,16 +156,6 @@ export const en: Strings = {
         speaking: "Nothing to tap while the narrator speaks.",
         video: "Nothing to tap while a video plays.",
         nothing: "Nothing to tap here.",
-        targets: (groups, more) => {
-          const or = (names: string[]) =>
-            names.length < 2
-              ? (names[0] ?? "")
-              : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
-          return [
-            ...groups.map((group) => `${group.verb} ${or(group.names)}`),
-            ...(more ? [`${more} more`] : []),
-          ].join(" · ");
-        },
         verbs: { CLICK: "Tap", SELECT: "Select", SELECT_CLICK: "Select and tap", DRAG: "Drag" },
       },
       quiet:
@@ -210,7 +223,7 @@ export const en: Strings = {
       settings: "Ref settings",
       settingsTitle: (productCode: string, refNum: number) => `${productCode}, ref ${refNum}`,
       displayName: "Display name",
-      displayNameHint: "Up to 64 characters. Leave empty to show the ref's number.",
+      displayNameHint: "Leave empty to show the ref's number.",
       changeNumber: "Change number",
       changeNumberTitle: (productCode: string, refNum: number) =>
         `Change the number of ${productCode}, ref ${refNum}`,
@@ -269,11 +282,8 @@ export const en: Strings = {
       columns: {
         version: "Version",
         name: "Name",
-        kind: "Kind",
         created: "Created",
-        author: "By",
         media: "Media",
-        current: "Draft",
         actions: "Actions",
       },
       kinds: { manual: "Saved", auto: "Automatic", restore: "Restore", deploy: "Deploy" },
@@ -351,9 +361,6 @@ export const en: Strings = {
       columns: {
         select: "Compare",
         build: "Build",
-        built: "Built",
-        files: "Files",
-        preview: "Preview",
         actions: "Actions",
       },
       files: (count: number) => (count === 1 ? "1 file" : `${count} files`),
@@ -394,13 +401,12 @@ export const en: Strings = {
     createRef: {
       title: "New ref from this template",
       about:
-        "The new ref starts as a copy of this one: its script, specification, media plan, generated media, uploads and implementation features. Media in the WAF checkout stays shared rather than copied. Anything you mark to regenerate is generated after the ref is made, as a speech and images run you can follow in the new ref. The assessment is shared by every ref and is not copied.",
+        "The new ref starts as a copy of this one: its script, specification, media plan, generated media, uploads and implementation features. Media in the WAF checkout stays shared rather than copied. Anything you mark to regenerate is generated after the ref is made, as a speech and images run you can follow in the new ref.",
       newRef: "New ref",
       refNum: "Ref number",
       refNumHint:
         "A whole number no other ref of this product uses. The next free one is filled in.",
       name: "Name",
-      nameHint: "Up to 64 characters.",
       language: "Language",
       voiceForAll: "Voice for all narration",
       voiceUnchanged: "Each narration's own voice",
@@ -408,7 +414,6 @@ export const en: Strings = {
       regenerateImages: "Regenerate all images",
       columns: {
         asset: "Asset",
-        type: "Type",
         current: "Current",
         action: "Action",
         details: "Details",
@@ -470,11 +475,8 @@ export const en: Strings = {
       sortLabel: "Sort",
       sort: { recent: "Recent", code: "A–Z" },
       refs: (count: number) => (count === 1 ? "1 ref" : `${count} refs`),
-      attention: (count: number) => (count === 1 ? "1 needs attention" : `${count} need attention`),
-      refLine: (refNum: number, when: string) => `ref ${refNum} · ${when}`,
       canonical: "Canonical ref",
       progress: (done: number, total: number) => `${done} of ${total} milestones`,
-      newRef: "New ref",
       newRefUnavailable: "Plan the canonical ref's media first; a new ref copies its media plan.",
       status: {
         running: (what: string) => `${what} running`,
@@ -484,12 +486,6 @@ export const en: Strings = {
       },
       lensLabel: "Show",
       lenses: { all: "All", progress: "In progress", attention: "Needs you", built: "Built" },
-      columns: {
-        activity: "Activity",
-        milestones: "Milestones",
-        status: "Status",
-        edited: "Edited",
-      },
       ref: (refNum: number) => `ref ${refNum}`,
       milestones: { spec: "Specification", mediaPlan: "Media plan", module: "Module" },
       milestone: (name: string, done: boolean) => `${name}: ${done ? "done" : "not yet"}`,
@@ -1560,6 +1556,12 @@ export const en: Strings = {
         `${n} ${n === 1 ? "problem" : "problems"} ${unsaved ? "in your edit" : "in the saved machine"}`,
       inherited: "Already in the saved machine, so it does not stop a save.",
       problemsLabel: "State machine problems",
+      view: "How the machine is shown",
+      diagram: "Diagram",
+      json: "JSON",
+      lastValid:
+        "Showing the last valid version. The diagram follows your edit again once it parses and passes the check.",
+      noDrawing: "There is nothing to draw until the machine parses and passes the check.",
       wholeFile: "Whole file",
       saved: "Saved the state machine.",
       discard: "Discard edit",
@@ -2387,9 +2389,9 @@ export const en: Strings = {
     previewScene: "Start scene",
     previewSceneDefault: "Module default",
     previewLanguageDefault: "Default language",
-    previewResolution: (dimensions: string) => `${dimensions} viewport`,
+    previewResolution: (dimensions: string) => dimensions,
     previewResolutionLabel: "Preview resolution",
-    previewResolutionOwn: (dimensions: string) => `${dimensions} (the activity's own)`,
+    previewResolutionOwn: (dimensions: string) => `${dimensions} (own size)`,
     newActivity: "New activity",
     openFromModules: {
       title: "Open from modules",
@@ -2445,6 +2447,8 @@ export const en: Strings = {
     openSession: "Open Session",
     cancel: "Cancel generation",
     candidate: "View candidate JSON",
+    /** Unfolds a failed run's error exactly as it came, under its one-line reason. */
+    runErrorFull: "Full error",
     useCandidate: "Copy candidate into editor",
     reload: "Reload draft",
     loading: "Loading…",
@@ -2596,13 +2600,6 @@ export const en: Strings = {
       },
       readiness: {
         title: "Before QA",
-        summary: (blockers: number, recommendations: number) =>
-          [
-            blockers ? `${blockers} ${blockers === 1 ? "blocker" : "blockers"}` : "",
-            recommendations ? `${recommendations} recommended` : "",
-          ]
-            .filter(Boolean)
-            .join(", "),
         blocker: "Blocks the deploy",
         recommendation: "Recommended",
         none: "Nothing stands between this activity and QA.",

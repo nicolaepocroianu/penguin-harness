@@ -56,7 +56,6 @@ describe("groupByProduct", () => {
     expect(groups[0]!.items.map((entry) => entry.id)).toEqual(["a3", "a5"]);
     expect(groups[0]!).toMatchObject({
       canonicalId: "a3",
-      attention: 1,
       latest: "2026-09-27T00:00:00Z",
     });
     expect(groups[1]!.activityType).toBe("book");
@@ -125,9 +124,7 @@ describe("groupByProduct", () => {
   it("keeps an activity without a product or summary", () => {
     const orphan = item("o1", "legacy", 1, "2026-09-01T00:00:00Z", { productId: null });
     const groups = groupByProduct([orphan], {}, all);
-    expect(groups).toEqual([
-      expect.objectContaining({ productCode: "legacy", canonicalId: null, attention: 0 }),
-    ]);
+    expect(groups).toEqual([expect.objectContaining({ productCode: "legacy", canonicalId: null })]);
   });
 });
 

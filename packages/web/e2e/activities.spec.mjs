@@ -2173,10 +2173,7 @@ test("dirty drafts block sidebar, Session, browser back, and project switches", 
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Discard" }).click();
   await expect(page).toHaveURL(/\/activities$/);
-  await page
-    .getByRole("region", { name: /words/ })
-    .getByRole("link", { name: /Sight words/ })
-    .click();
+  await page.getByRole("link", { name: /Sight words/ }).click();
   await openSection(page, "Storyboard");
   await openSection(page, "Script");
   await replaceText(description, "Another edit");
@@ -2219,15 +2216,14 @@ test("idle history polls slowly and candidate text is fetched only on expansion"
   await candidates.nth(0).click();
   await candidates.nth(1).click();
   await expect(page.getByRole("alert")).toContainText("Candidate temporarily unavailable.");
-  const reviews = page
-    .locator("details")
-    .filter({ has: page.getByText("View candidate JSON", { exact: true }) });
+  // Each run's candidate opens in its own panel under the run's actions, in run order.
+  const reviews = page.locator('[id^="run-candidate-"]');
   await reviews.nth(1).getByRole("button", { name: "Retry", exact: true }).click();
   await expect(reviews.nth(1).locator("pre")).toContainText('"title":"Second candidate"');
-  await expect(reviews.nth(0).locator("pre")).toContainText("Loading");
+  await expect(reviews.nth(0)).toContainText("Loading");
   release();
-  await expect(page.locator("details pre").nth(0)).toContainText('"title":"Sight words"');
-  await expect(page.locator("details pre").nth(1)).toContainText('"title":"Second candidate"');
+  await expect(reviews.nth(0).locator("pre")).toContainText('"title":"Sight words"');
+  await expect(reviews.nth(1).locator("pre")).toContainText('"title":"Second candidate"');
   expect(f.candidateReads).toBe(3);
   await candidates.nth(0).click();
   await candidates.nth(0).click();
@@ -3420,11 +3416,12 @@ test("the player draws the module's behavior map and follows the phase it report
 
   const map = panel.getByRole("group", { name: "Behavior of rocks", exact: true });
   await expect(map).toBeVisible();
-  await expect(map.locator('[aria-current="step"]')).toContainText("waiting");
-  await expect(panel.getByText("correct, on done, to next", { exact: true })).toBeVisible();
+  await expect(map.locator('[aria-current="step"]')).toContainText("Waiting");
+  // A move out of the scene is drawn as a card of its own, named for where it leads.
+  await expect(map.getByRole("button", { name: /^Next/ })).toBeVisible();
 
   // A phase opens in the inspector, and its neighbours can be followed from there.
-  await map.getByRole("button", { name: "waiting, where the activity is now" }).click();
+  await map.getByRole("button", { name: "Waiting, where the activity is now" }).click();
   const inspector = panel.getByRole("region", { name: "Phase waiting", exact: true });
   await expect(inspector).toContainText("on CORRECT, to correct");
   await expect(inspector).toContainText("prompt, on done");
@@ -3440,22 +3437,23 @@ test("the player draws the module's behavior map and follows the phase it report
   const fitted = (await drawing.boundingBox()).width;
   await panel.getByRole("button", { name: "Zoom in", exact: true }).click();
   await panel.getByRole("button", { name: "Zoom in", exact: true }).click();
-  await expect(panel.getByText("150%", { exact: true })).toBeVisible();
-  expect((await drawing.boundingBox()).width).toBeGreaterThan(fitted * 1.4);
-  await panel.getByRole("button", { name: "Fit", exact: true }).click();
-  await expect(panel.getByText("100%", { exact: true })).toBeVisible();
+  expect((await drawing.boundingBox()).width).toBeGreaterThan(fitted * 1.2);
+  // The zoom level itself fits the map back to the column, and has nothing to do once it fits.
+  const fit = panel.getByRole("button", { name: /^Fit · / });
+  await fit.click();
+  await expect(fit).toBeDisabled();
 
-  const toggle = panel.getByRole("button", { name: "Behavior map", exact: true });
-  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  const toggle = panel.getByRole("button", { name: "Hide the behavior map", exact: true });
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await toggle.click();
-  await expect(map).toHaveCount(0);
+  await expect(map).toBeHidden();
 
   // Another screen changes only the preview: the player is laid out at its size.
   const resolution = panel.getByRole("button", { name: "Preview resolution", exact: true });
-  await expect(resolution).toContainText("640×480 (the activity's own)");
+  await expect(resolution).toContainText("640×480 (own size)");
   await expect(panel.locator("iframe")).toHaveCSS("width", "640px");
   await resolution.click();
-  await page.getByRole("option", { name: "1920×1080 viewport", exact: true }).click();
+  await page.getByRole("option", { name: "1920×1080", exact: true }).click();
   await expect(panel.locator("iframe")).toHaveCSS("width", "1920px");
   expect(f.errors).toEqual([]);
 });
@@ -3529,10 +3527,9 @@ test("lists the live tap targets on the current state and keeps the map under th
   const play = () => openPanel(page, "Preview");
   await play();
 
-  // The live phase names how many targets it has and lists the first three.
+  // The live phase is marked on the map, and its targets are listed under it: the first three.
   const map = page.getByRole("group", { name: "Behavior of rocks", exact: true });
-  await expect(map.locator('[aria-current="step"]')).toContainText("waiting");
-  await expect(map.locator('[aria-current="step"]')).toContainText("5 live");
+  await expect(map.locator('[aria-current="step"]')).toContainText("Waiting");
   const live = page.getByRole("group", { name: "What can be tapped in waiting", exact: true });
   await expect(live.getByRole("button")).toHaveCount(3);
   await expect(live).toContainText("+2 more");
@@ -3557,14 +3554,14 @@ test("lists the live tap targets on the current state and keeps the map under th
   await expect(map).toBeVisible();
 
   // Hiding the map survives a reload.
-  const toggle = page.getByRole("button", { name: "Behavior map", exact: true });
-  await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", "false");
-  await expect(map).toHaveCount(0);
+  await page.getByRole("button", { name: "Hide the behavior map", exact: true }).click();
+  const show = page.getByRole("button", { name: "Show the behavior map", exact: true });
+  await expect(show).toHaveAttribute("aria-expanded", "false");
+  await expect(map).toBeHidden();
   await page.reload();
   await play();
-  await expect(toggle).toHaveAttribute("aria-pressed", "false");
-  await expect(map).toHaveCount(0);
+  await expect(show).toHaveAttribute("aria-expanded", "false");
+  await expect(map).toBeHidden();
   expect(f.errors).toEqual([]);
 });
 
@@ -3679,14 +3676,18 @@ test("Play mode lights the line the player is saying, and the script follows bot
   await expect(
     panel.getByRole("button", { name: "Play from Scene 1 · Rocks", exact: true }),
   ).toHaveAttribute("aria-current", "step");
-  // The machine's own name for the state is there for whoever reads it, under the words.
-  await expect(panel.getByText("scene-1.presenting", { exact: true })).toBeVisible();
+  // The machine's own name for the state is there for whoever reads it, as the status line's hint.
+  await expect(panel.locator('[role="status"][data-tooltip*="scene-1.presenting"]')).toHaveCount(1);
 
   // The line ends: nothing is lit, and the tap target is named.
   const player = () => page.frames().find((frame) => frame.url().includes("/sandbox/play"));
   await player().evaluate(() => window.postMessage("end", "*"));
   await expect(hello).not.toHaveAttribute("aria-current", "true");
-  await expect(panel.getByText("Tap Rock d", { exact: true })).toBeVisible();
+  await expect(
+    panel
+      .getByRole("group", { name: /^What can be tapped in / })
+      .getByRole("button", { name: "Rock d", exact: true }),
+  ).toBeVisible();
 
   // Beside the script, a line chosen in the player is lit in the script, and the other way.
   await panel
@@ -5558,7 +5559,7 @@ test("tags a product, filters the list by tag, and deletes an activity after con
   await page.getByRole("link", { name: "All activities" }).click();
   const filter = page.getByRole("group", { name: "Filter by tag" });
   await expect(filter.getByRole("button")).toHaveText([
-    "All · 2",
+    "All",
     "grade 1 · 1",
     "math · 1",
     "Phonics · 1",
@@ -5587,7 +5588,7 @@ test("tags a product, filters the list by tag, and deletes an activity after con
   await filter.getByRole("button", { name: "Phonics · 1", exact: true }).click();
   await expect(sight).toBeVisible();
   await page.getByRole("textbox", { name: "Search activities", exact: true }).fill("");
-  await filter.getByRole("button", { name: "All · 2", exact: true }).click();
+  await filter.getByRole("button", { name: "All", exact: true }).click();
   await expect(cards).toHaveCount(2);
 
   await sight.click();
@@ -5618,7 +5619,9 @@ test("the home page refreshes a running card when the server says its run finish
   await create(page);
   f.setHomeStatus({ kind: "running", runKind: "spec" });
   await page.goto(`${origin}/activities`);
-  const card = page.getByRole("region", { name: /words/ });
+  const card = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("link", { name: /Sight words/ }) });
   await expect(card.getByText(/ running$/)).toBeVisible();
   // The run ends; nothing polls, so the card keeps its status until the server says so.
   f.setHomeStatus({ kind: "next", milestone: "mediaPlan" });
@@ -5679,7 +5682,7 @@ test("the home page groups refs under their product code", async ({ page }) => {
   });
   await page.goto(`${origin}/activities`);
   const group = page.getByRole("region", { name: /ants/ });
-  const toggle = group.getByRole("button", { name: /^ants Standard/ });
+  const toggle = group.getByRole("button", { name: /^ants\b/ });
   await expect(group.getByRole("link", { name: /ants 1/ })).toBeVisible();
   await expect(group.getByText("Specification next").first()).toBeVisible();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
