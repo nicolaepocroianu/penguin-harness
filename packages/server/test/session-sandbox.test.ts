@@ -7,7 +7,8 @@ import { describe, expect, it } from "vitest";
 import { wire } from "@prismshadow/penguin-core/kernel";
 import type { SandboxProvider, SandboxSettings } from "@prismshadow/penguin-core/plugin";
 import { openDatabase } from "../src/db/database.js";
-import { migrate } from "../src/db/migrations.js";
+import { migrate } from "../src/db/migrations/index.js";
+import { stampThrough } from "./db-migrations-fixtures.js";
 import { SCHEMA_SQL } from "../src/db/schema.js";
 import { SessionsRepo } from "../src/db/repos/sessions.js";
 import type { SessionRow } from "../src/db/repos/sessions.js";
@@ -154,9 +155,7 @@ describe("the snapshot on the Session's row", () => {
     try {
       db.exec(SCHEMA_SQL);
       db.exec("ALTER TABLE sessions DROP COLUMN sandbox");
-      // Stamped before sessions-sandbox (27): every migration ahead of it is swap-safe, which
-      // the activity ones from 12 to 17 are not, so a stamp before 25 could not swap at all.
-      db.exec("PRAGMA user_version = 25");
+      stampThrough(db, "2026-09-16-company-mode-desk-notices");
       migrate(db, { swapPath: true });
       const cols = db.prepare("PRAGMA table_info(sessions)").all() as { name: string }[];
       expect(cols.some((c) => c.name === "sandbox")).toBe(true);
