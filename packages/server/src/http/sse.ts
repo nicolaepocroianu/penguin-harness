@@ -212,7 +212,7 @@ export function sseEndpoint(
  */
 function channelAnswered(
   c: Context,
-  channel: Channel,
+  channel: ChannelApi,
   opts: SseEndpointOptions,
   answer: StreamAnswer,
 ): Response {

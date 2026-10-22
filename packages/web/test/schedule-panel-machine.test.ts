@@ -15,7 +15,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createElement as h } from "react";
 import type { ScheduleItem, SessionInfo } from "@prismshadow/penguin-server/api";
 import { SchedulePanel } from "../src/features/schedules/schedule-panel";
-import { setActiveStrings, zh } from "../src/lib/strings";
+import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import {
   AGENT_ID,
@@ -87,7 +87,7 @@ const toMachine = (path: string, server: ReturnType<typeof agentServer>) =>
 
 describe("the scheduled-tasks panel of a conversation on a machine", () => {
   beforeAll(() => setActiveStrings(en));
-  afterAll(() => setActiveStrings(zh));
+  afterAll(() => setActiveStrings(en));
   afterEach(async () => {
     await unmountAll();
   });

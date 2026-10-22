@@ -1,5 +1,5 @@
 /**
- * The terminal panel's body (「命令行终端」): the conversation's shells as a strip of tabs — the
+ * The terminal panel's body ("Command-line terminal"): the conversation's shells as a strip of tabs — the
  * shared panel strip the browser's pages use, so the dock's pills above and these tabs never
  * read as one strip — with a "+" for another shell and a × on each, and the shown shell's screen
  * below.

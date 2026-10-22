@@ -19,10 +19,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { MachineInfo, MachineSocketFact } from "@prismshadow/penguin-server/api";
 import { MachineSocketDetails as MachineRecord } from "../src/features/machines/machine-detail-dialog";
 import { formatDateTime, formatRelativeShort } from "../src/lib/format";
-import { setActiveStrings, zh } from "../src/lib/strings";
+import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 
-afterEach(() => setActiveStrings(zh));
+afterEach(() => setActiveStrings(en));
 
 const NAS = "2026-08-24T12:00:00.000Z";
 
@@ -39,9 +39,11 @@ const machine = (socket: MachineSocketFact | null): MachineInfo => ({
   status: { state: "running", checkedAt: NAS, port: 7364 },
 });
 
-const record = (socket: MachineSocketFact | null, locale: "zh" | "en" = "en"): string => {
-  setActiveStrings(locale === "en" ? en : zh);
-  return renderToStaticMarkup(createElement(MachineRecord, { machine: machine(socket), locale }));
+const record = (socket: MachineSocketFact | null): string => {
+  setActiveStrings(en);
+  return renderToStaticMarkup(
+    createElement(MachineRecord, { machine: machine(socket), locale: "en" }),
+  );
 };
 
 describe("the Machines record's socket line", () => {
@@ -77,12 +79,5 @@ describe("the Machines record's socket line", () => {
     // `local`, and every machine until a stream has asked: the line is absent rather than
     // reading "connected" off an absent fact.
     expect(record(null)).not.toContain("API socket");
-  });
-
-  it("reads in the active language, like the rest of the detail list", () => {
-    const socket: MachineSocketFact = { state: "dialling", since: NAS };
-    expect(record(socket, "zh")).toContain("API 套接字");
-    expect(record(socket, "zh")).toContain("拨号中");
-    expect(record(socket, "en")).toContain("Dialling");
   });
 });

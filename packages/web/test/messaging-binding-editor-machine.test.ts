@@ -33,7 +33,7 @@ import { rememberBinding } from "../src/features/messaging/messaging-binding-cac
 import { formatDateTime } from "../src/lib/format";
 import { rememberMachineSessions } from "../src/lib/machine-cache";
 import { forgetSessionMachines, machineForSession } from "../src/lib/session-machines";
-import { setActiveStrings, zh } from "../src/lib/strings";
+import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { publishMachinesChanged } from "../src/state/machines";
 import { AGENT_ID, PROJECT_ID, agentConfig, agentServer, mountAgentApp } from "./helpers/agent-app";
@@ -164,7 +164,7 @@ async function openPanel(
 
 describe("the messaging editor of a conversation on a machine", () => {
   beforeAll(() => setActiveStrings(en));
-  afterAll(() => setActiveStrings(zh));
+  afterAll(() => setActiveStrings(en));
   beforeEach(() => {
     stubLocalStorage();
     toastStore.setState({ items: [] });
@@ -278,7 +278,7 @@ describe("the messaging editor of a conversation on a machine", () => {
 
 describe("the messaging editor of this server's own conversation", () => {
   beforeAll(() => setActiveStrings(en));
-  afterAll(() => setActiveStrings(zh));
+  afterAll(() => setActiveStrings(en));
   beforeEach(() => {
     stubLocalStorage();
     toastStore.setState({ items: [] });

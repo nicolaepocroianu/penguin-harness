@@ -1,5 +1,5 @@
 /**
- * 重试: the one retry status every retrying surface shares — its four phases as a card's line and
+ * Retry: the one retry status every retrying surface shares — its four phases as a card's line and
  * as a dialog's block, inside a machine card beside a running one, the chat's reconnect notice
  * holding the same buttons, and the card at phone width. The wait counts down live, and a press
  * holds its buttons until the board starts the next attempt.

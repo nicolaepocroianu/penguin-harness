@@ -570,7 +570,7 @@ describe("socketReading", () => {
         }),
       ),
     ).toEqual({
-      label: "失败",
+      label: "Failed",
       tone: "danger",
       since: "2026-08-24T12:03:00.000Z",
       detail: "connect ECONNREFUSED 10.0.0.7:7364",
@@ -604,10 +604,10 @@ describe("socketReading", () => {
     const label = (state: MachineSocketFact["state"]): string | undefined =>
       socketReading(withSocket({ state, since: INSTALLED.at }))?.label;
     expect([label("connected"), label("dialling"), label("refused"), label("failed")]).toEqual([
-      "已连接",
-      "拨号中",
-      "被拒绝",
-      "失败",
+      "Connected",
+      "Dialling",
+      "Refused",
+      "Failed",
     ]);
   });
 });

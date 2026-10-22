@@ -3,7 +3,6 @@ import { AutoLLMClient } from "@prismshadow/agenthub";
 import { listEndpointModels } from "../src/llm/list-models.js";
 import { GenerativeModel } from "../src/llm/generative-model.js";
 import { userText, toolCallOutput } from "../src/omnimessage/index.js";
-import { providerClientType, resolveModelEnv } from "../src/state/model-catalog.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -200,8 +199,6 @@ describe("Copilot AgentHub boundary", () => {
   it("isolates routing and credentials from vendor environment variables", () => {
     vi.stubEnv("OPENAI_API_KEY", "unrelated-key");
     vi.stubEnv("GITHUB_COPILOT_API_KEY", "");
-    expect(providerClientType("github-copilot")).toBe("github-copilot");
-    expect(resolveModelEnv("gpt-5.6", "github-copilot")?.envKey).toBe("GITHUB_COPILOT_API_KEY");
     expect(() => new AutoLLMClient({ model: "gpt-5.6", clientType: "github-copilot" })).toThrow(
       "Connect",
     );

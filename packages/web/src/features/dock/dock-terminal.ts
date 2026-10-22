@@ -4,7 +4,7 @@
  * dock-state.ts so the store stays pure (unit-testable without fetch); this module owns every
  * server round-trip the terminal panel needs.
  *
- * The terminal is ONE dock panel per conversation (`terminal`, 「命令行终端」), and its body
+ * The terminal is ONE dock panel per conversation (`terminal`, "Command-line terminal"), and its body
  * draws the conversation's shells as a strip of tabs inside it, the way the browser panel draws
  * its pages. A shell belongs to the Session that created it (the server records `sessionId`): a
  * conversation creates its shells with its own id, and its panel lists exactly those, on its

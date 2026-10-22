@@ -24,6 +24,7 @@ import {
 import type { ModelEntry, ProviderConnection, ProviderTable } from "@prismshadow/penguin-core";
 import {
   CLIENT_PROTOCOLS,
+  clientEnvKey,
   DEEPSEEK_OFF_PEAK,
   MODEL_CATALOG,
   MODEL_PROVIDERS,
@@ -1341,11 +1342,10 @@ describe("model-catalog", () => {
         cache_write: 0,
         output: 0,
       });
-      // The ids reach the same unified GLM client as the direct group's, so the env pair is
-      // the same ZAI_* one and a credential set for either group serves both.
-      expect(resolveModelEnv(m.modelId, m.clientType)?.envKey, m.modelId).toBe("ZAI_API_KEY");
-      expect(resolveModelEnv(m.modelId, m.clientType)?.envBaseUrlKey, m.modelId).toBe(
-        "ZAI_BASE_URL",
+      // The ids reach the same unified GLM client as the direct group's, whose own variable is
+      // ZAI_API_KEY; the Coding Plan endpoint is not its default, so a row there carries its key.
+      expect(clientEnvKey(routedClientType(m.modelId, null)!, undefined), m.modelId).toBe(
+        "ZAI_API_KEY",
       );
     }
     expect(zcp.map((m) => [m.modelId, m.contextWindow, m.supportsVision])).toEqual([
