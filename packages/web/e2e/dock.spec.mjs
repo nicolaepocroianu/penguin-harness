@@ -107,7 +107,7 @@ const shellTabs = (page) => page.locator('[data-testid="terminal-tab"]');
 /** A shell tab's × asks first (an easy mis-click); confirm through the dialog. */
 async function killTabConfirmed(page, tabLocator) {
   await tabLocator.getByTestId("terminal-tab-close").click();
-  await page.getByRole("dialog").getByRole("button", { name: "关闭此终端" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Kill this terminal" }).click();
 }
 
 async function runInTerminal(page, command) {
@@ -145,7 +145,7 @@ test("Ctrl+` opens a shell in the bottom dock; hiding keeps it running, reopenin
 
   const sessionId = await createSession(page.request, projectId);
   await page.goto(`${BASE}/chat/${sessionId}`);
-  await page.getByPlaceholder(/输入消息/).waitFor();
+  await page.getByPlaceholder(/Type a message/).waitFor();
   // Open with the keyboard, like Codex/VS Code.
   await page.keyboard.press("Control+Backquote");
   await expect(dockAt(page, "bottom")).toBeVisible({ timeout: 10000 });
@@ -191,7 +191,7 @@ test("two toolbar toggles: an opened empty dock shows the picker; hiding keeps t
   await killAllTerminals(page.request);
   const sessionId = await createSession(page.request, projectId);
   await page.goto(`${BASE}/chat/${sessionId}`);
-  await page.getByPlaceholder(/输入消息/).waitFor();
+  await page.getByPlaceholder(/Type a message/).waitFor();
 
   // Exactly two dock buttons, both reading closed; no per-element toolbar icons.
   await expect(page.getByTestId("dock-toggle-bottom")).toHaveAttribute("aria-expanded", "false");
@@ -237,13 +237,13 @@ test("full screen is a dock at its largest below the toolbar — by its button o
   await killAllTerminals(page.request);
   const sessionId = await createSession(page.request, projectId);
   await page.goto(`${BASE}/chat/${sessionId}`);
-  await page.getByPlaceholder(/输入消息/).waitFor();
+  await page.getByPlaceholder(/Type a message/).waitFor();
 
   await openViaPicker(page, "right", "trace");
   const right = dockAt(page, "right");
   await expect(right.locator('[data-tab-id="trace"][data-active="true"]')).toBeVisible();
   // The composer measures the conversation column; wait out the dock's expand transition.
-  const composer = page.getByPlaceholder(/输入消息/);
+  const composer = page.getByPlaceholder(/Type a message/);
   let settled = null;
   await expect
     .poll(async () => {
@@ -322,7 +322,7 @@ test("tabs of every kind share a dock: switch, close a panel tab, terminals numb
   await killAllTerminals(page.request);
   const sessionId = await createSession(page.request, projectId);
   await page.goto(`${BASE}/chat/${sessionId}`);
-  await page.getByPlaceholder(/输入消息/).waitFor();
+  await page.getByPlaceholder(/Type a message/).waitFor();
 
   await openViaPicker(page, "right", "workspace");
   const right = dockAt(page, "right");
@@ -343,7 +343,7 @@ test("tabs of every kind share a dock: switch, close a panel tab, terminals numb
   // Tab click switches; the terminal's view survives being covered (still attached below).
   await right.locator('[data-tab-id="workspace"]').click();
   await expect(right.locator('[data-tab-id="workspace"][data-active="true"]')).toBeVisible();
-  await expect(right.getByRole("button", { name: "刷新" })).toBeVisible();
+  await expect(right.getByRole("button", { name: "Refresh" })).toBeVisible();
   await right.locator('[data-tab-id="terminal"]').click();
   await expect.poll(() => screenText(page), { timeout: 20000 }).toContain("MIXED_DOCK");
 
@@ -362,7 +362,7 @@ test("a whole dock moves to the other edge; a single tab moves by drag onto the 
   await killAllTerminals(page.request);
   const sessionId = await createSession(page.request, projectId);
   await page.goto(`${BASE}/chat/${sessionId}`);
-  await page.getByPlaceholder(/输入消息/).waitFor();
+  await page.getByPlaceholder(/Type a message/).waitFor();
 
   await openViaPicker(page, "right", "workspace");
   const right = dockAt(page, "right");
@@ -404,7 +404,7 @@ test("sizes and the arrangement survive a reload; hidden stays hidden", async ({
   await killAllTerminals(page.request);
   const sessionId = await createSession(page.request, projectId);
   await page.goto(`${BASE}/chat/${sessionId}`);
-  await page.getByPlaceholder(/输入消息/).waitFor();
+  await page.getByPlaceholder(/Type a message/).waitFor();
 
   await openViaPicker(page, "bottom", "trace");
   await openViaPicker(page, "right", "workspace");
@@ -440,7 +440,7 @@ test("sizes and the arrangement survive a reload; hidden stays hidden", async ({
   await page.getByTestId("dock-toggle-right").click();
   await expect(dockAt(page, "right")).toHaveCount(0);
   await page.reload();
-  await page.getByPlaceholder(/输入消息/).waitFor();
+  await page.getByPlaceholder(/Type a message/).waitFor();
   await expect(
     dockAt(page, "bottom").locator('[data-tab-id="trace"][data-active="true"]'),
   ).toBeVisible();
@@ -466,7 +466,7 @@ test("each conversation manages its own tabs: nothing leaks, and each side survi
   const sidB = await createSession(page.request, projectId);
 
   await page.goto(`${BASE}/chat/${sidA}`);
-  await page.getByPlaceholder(/输入消息/).waitFor();
+  await page.getByPlaceholder(/Type a message/).waitFor();
   await openViaPicker(page, "right", "workspace");
   await page.keyboard.press("Control+Backquote");
   await expect(dockAt(page, "bottom")).toBeVisible({ timeout: 20000 });
@@ -475,7 +475,7 @@ test("each conversation manages its own tabs: nothing leaks, and each side survi
 
   // B starts with no docks of its own — A's tabs (terminal included) never leak in.
   await page.goto(`${BASE}/chat/${sidB}`);
-  await page.getByPlaceholder(/输入消息/).waitFor();
+  await page.getByPlaceholder(/Type a message/).waitFor();
   await expect(anyDock(page)).toHaveCount(0);
   await openViaPicker(page, "bottom", "memory");
   await expect(
@@ -486,7 +486,7 @@ test("each conversation manages its own tabs: nothing leaks, and each side survi
   // (identity via the tab id plus a fresh probe; scrollback replay has a known
   // load-sensitive flake that predates the docks). B's memory tab did not follow.
   await page.goto(`${BASE}/chat/${sidA}`);
-  await page.getByPlaceholder(/输入消息/).waitFor();
+  await page.getByPlaceholder(/Type a message/).waitFor();
   await expect(dockAt(page, "right").locator('[data-tab-id="workspace"]')).toBeVisible();
   await expect(
     page.locator(`[data-testid="terminal-tab"][data-tab-id="${shellId}"][data-active="true"]`),
@@ -516,7 +516,7 @@ test("a shell belongs to its conversation: another's panel never lists it, the o
 
   // B: its terminal panel lists neither, and starts a shell of B's own.
   await page.goto(`${BASE}/chat/${sidB}`);
-  await page.getByPlaceholder(/输入消息/).waitFor();
+  await page.getByPlaceholder(/Type a message/).waitFor();
   await page.keyboard.press("Control+Backquote");
   await expect(shellTabs(page)).toHaveCount(1, { timeout: 20000 });
   const shellOfB = await shellTabs(page).getAttribute("data-tab-id");
@@ -526,7 +526,7 @@ test("a shell belongs to its conversation: another's panel never lists it, the o
 
   // A: its panel lists its shell from elsewhere, and only it — nothing new is started.
   await page.goto(`${BASE}/chat/${sidA}`);
-  await page.getByPlaceholder(/输入消息/).waitFor();
+  await page.getByPlaceholder(/Type a message/).waitFor();
   await page.keyboard.press("Control+Backquote");
   await expect(
     page.locator(`[data-testid="terminal-tab"][data-tab-id="${shellOfA}"][data-active="true"]`),
@@ -546,7 +546,7 @@ test("the terminal panel's + starts another shell and shows it; ending the last 
   await killAllTerminals(page.request);
   const sessionId = await createSession(page.request, projectId);
   await page.goto(`${BASE}/chat/${sessionId}`);
-  await page.getByPlaceholder(/输入消息/).waitFor();
+  await page.getByPlaceholder(/Type a message/).waitFor();
   await page.keyboard.press("Control+Backquote");
   await expect(shellTabs(page)).toHaveCount(1, { timeout: 20000 });
   await waitForShell(page, "FIRST_SHELL");
@@ -582,7 +582,7 @@ test("a new shell starts in the conversation's Workspace, not at home", async ({
   const dirName = session.workspace.split(/[/\\]/).filter(Boolean).pop();
 
   await page.goto(`${BASE}/chat/${session.sessionId}`);
-  await page.getByPlaceholder(/输入消息/).waitFor();
+  await page.getByPlaceholder(/Type a message/).waitFor();
   await page.keyboard.press("Control+Backquote");
   await expect(dockAt(page, "bottom")).toBeVisible({ timeout: 20000 });
   await waitForShell(page, "WS_CWD");
@@ -621,7 +621,7 @@ test("a failed shell create surfaces as a toast, and a later attempt recovers", 
   });
 
   await page.goto(`${BASE}/chat/${sessionId}`);
-  await page.getByPlaceholder(/输入消息/).waitFor();
+  await page.getByPlaceholder(/Type a message/).waitFor();
   await page.keyboard.press("Control+Backquote");
 
   // The failure says WHY instead of doing nothing — the server's message included.
