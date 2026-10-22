@@ -29,6 +29,12 @@ vi.mock("electron", () => ({
   shell: { openExternal: vi.fn() },
 }));
 
+// The fork's own builds publish no releases and stand the updater down (updater.ts); these
+// cases are about a build that does update itself.
+vi.mock("@prismshadow/penguin-core/release-identity", () => ({
+  RELEASE_IDENTITY: { repository: "Prism-Shadow/penguin-harness", publishesReleases: true },
+}));
+
 vi.mock("electron-updater", async (importOriginal) => {
   const { default: real } = await importOriginal<{ default: typeof import("electron-updater") }>();
   class NativeBoundary extends real.NsisUpdater {

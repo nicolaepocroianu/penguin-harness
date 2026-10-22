@@ -58,6 +58,35 @@ async function fixture(page) {
   let homeStatus = { kind: "next", milestone: "spec" };
   let liveEvents = false;
   const serverEvents = [];
+  /** The user events streams the page has open on its API socket: the socket and the call id. */
+  const userStreams = [];
+  const flushServerEvents = () => {
+    if (userStreams.length === 0) return;
+    for (const event of serverEvents.splice(0)) {
+      const data = JSON.stringify(event);
+      for (const { ws, id } of userStreams)
+        ws.send(JSON.stringify({ id, event: "server_event", data, eventId: null }));
+    }
+  };
+  // The page's API socket. `page.route` cannot see its frames, so it carries no calls here: a
+  // call is answered 421, which the API client takes as "ask over HTTP", where the routes below
+  // answer it. Only the user events stream rides it, fed from `serverEvents`; every other
+  // stream stays silent, as it would without a socket.
+  await page.routeWebSocket(/\/api\/terminals\/[^/]+\/stream$/, (ws) => {
+    ws.onMessage((raw) => {
+      const frame = JSON.parse(String(raw));
+      if (typeof frame.id !== "number" || frame.call === undefined) return;
+      const { id, call } = frame;
+      if (call.headers?.accept !== "text/event-stream") {
+        ws.send(JSON.stringify({ id, status: 421, headers: {}, body: null }));
+        return;
+      }
+      if (new URL(call.path, origin).pathname !== "/api/events") return;
+      ws.send(JSON.stringify({ id, stream: true }));
+      userStreams.push({ ws, id });
+      flushServerEvents();
+    });
+  });
   const errors = [];
   page.on("pageerror", (error) => {
     errors.push(error.message);
@@ -569,6 +598,7 @@ async function fixture(page) {
     sendServerEvent(event) {
       liveEvents = true;
       serverEvents.push(event);
+      flushServerEvents();
     },
     completeAudio() {
       runs[0].status = "succeeded";
