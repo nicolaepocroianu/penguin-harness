@@ -16,6 +16,7 @@ import { projectDir, tracesDir } from "../src/state/paths.js";
 import { findLatestTraceFile } from "../src/trace/resume.js";
 import { modelVisiblePath } from "../src/internal/model-visible-path.js";
 import { stubProviderKeys } from "./provider-keys.js";
+import { seedProject } from "./seeded-project.js";
 
 let tmpRoot: string;
 let prevHome: string | undefined;
@@ -26,6 +27,8 @@ beforeEach(async () => {
   tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-harness-lifecycle-"));
   process.env.PENGUIN_HOME = tmpRoot;
   restoreKeys = stubProviderKeys();
+  // The Project a host would have seeded: core itself carries no models.
+  await seedProject(tmpRoot);
 });
 
 afterEach(async () => {
@@ -153,12 +156,12 @@ describe("Agent.createSession rebuilding a Session under its existing id", () =>
     ).rejects.toThrow(/already has a Trace/);
   });
 
-  it("refuses an id of any other shape", async () => {
+  it("refuses an id that could name a path outside the Trace directory", async () => {
     const agent = await createAgent();
-    for (const sessionId of ["../escape", "session-2026-06-19", `${ID}x`, ""]) {
+    for (const sessionId of ["../escape", "a/b", "a.b", ""]) {
       await expect(
         agent.createSession({ workspaceDir: await workspaceDir(), sessionId }),
-      ).rejects.toThrow(/Not a Session id/);
+      ).rejects.toThrow(/an id may contain only letters, digits/);
     }
   });
 });

@@ -2548,14 +2548,9 @@ export type Strings = {
       held: { moving: string; unreachable: string; stopped: string; noImage: string };
       reconnect: {
         title: string;
-        trying: string;
         lasting: (span: string) => string;
-        attempt: (n: number) => string;
-        next: (span: string) => string;
-        now: string;
         lastError: string;
         checked: string;
-        stopped: string;
       };
     };
     card: {
@@ -2568,8 +2563,6 @@ export type Strings = {
       delete: string;
       localUndeletable: string;
       why: {
-        reconnecting: string;
-        reconnectingFor: (span: string) => string;
         stopped: string;
         notConnected: string;
         notInstalled: string;
@@ -2580,11 +2573,26 @@ export type Strings = {
     updateNotice: (count: number) => string;
     composer: {
       reconnecting: string;
+      reconnectStopped: string;
       stopped: string;
       notConnected: string;
       missing: string;
       signInRefused: string;
       failed: (message: string) => string;
+    };
+    detailSocket: string;
+    socket: { connected: string; dialling: string; refused: string; failed: string };
+    agentsUnreachable: string;
+    retry: {
+      trying: (n: number, m: number) => string;
+      lost: string;
+      failed: (n: number, m: number) => string;
+      countdown: (seconds: number) => string;
+      gaveUp: (m: number) => string;
+      stoppedSsh: string;
+      stoppedPassword: string;
+      retryNow: string;
+      retry: string;
     };
     refusedUnknown: (alias: string) => string;
     refusedSelf: (alias: string) => string;
@@ -2621,6 +2629,7 @@ export type Strings = {
       working: string;
       ready: string;
       reconnecting: string;
+      reconnectStopped: string;
       failed: string;
       installedOnly: string;
       behind: string;
@@ -2687,10 +2696,11 @@ export type Strings = {
   terminal: {
     title: string;
     newShell: string;
+    shellEntry: string;
+    tabsLabel: string;
     killShell: string;
     createFailed: string;
     noTerminalApi: string;
-    detach: string;
     status: { connecting: string; ready: string; exited: string; error: string };
     exitedWithCode: (code: string) => string;
     touchKeys: {
@@ -3918,6 +3928,7 @@ export type Strings = {
       apply_failed: string;
     };
     providerEnvNotes: Record<string, string | undefined>;
+    envBaseUrlNote: (envBaseUrlKey: string) => string;
     confirmVisionModelTitle: string;
     confirmVisionModel: (name: string) => string;
     confirmDefaultTitle: string;
@@ -4691,6 +4702,16 @@ export type Strings = {
     noSessions: string;
     emptyStream: string;
     historyLoadFailed: string;
+    machineAway: {
+      reconnecting: (alias: string) => string;
+      reconnectStopped: (alias: string) => string;
+      signInRefused: (alias: string) => string;
+      stopped: (alias: string) => string;
+      notConnected: (alias: string) => string;
+      missing: string;
+      hint: string;
+      details: string;
+    };
     statsLabel: string;
     removeImage: string;
     openAgents: string;
@@ -4846,6 +4867,8 @@ export type Strings = {
     goalBudgetInvalid: string;
     goalBudgetSave: string;
     goalRemove: string;
+    goalPluginMissing: string;
+    goalPluginInstall: string;
     harnessInjected: string;
     goalProgress: (rounds: number, tokens: string) => string;
     goalStatus: Record<string, string>;
@@ -5156,6 +5179,7 @@ export type Strings = {
     sendingTestMessage: string;
     testMessageSent: string;
     statusLabel: string;
+    statusLastKnown: string;
     status: { disconnected: string; connecting: string; connected: string; error: string };
     otherEnabledHint: (other: string) => string;
     credentialMissingHint: { feishu: string; telegram: string; qq: string; wechat: string };
@@ -5187,6 +5211,21 @@ export type Strings = {
     troubleWeChatDirect: string;
     troubleQQPassive: string;
     troubleNoGroupInbound: string;
+    runsOn: (alias: string) => string;
+    machineHelp: (alias: string) => string;
+    machineUnreachable: (
+      alias: string,
+      state: "reconnecting" | "reconnectStopped" | "signInRefused" | "stopped" | "notConnected",
+      asOf: string | null,
+    ) => string;
+    machineMissing: string;
+    accountHeldOn: (where: string | null) => string;
+    holdersUnchecked: (
+      machines: ReadonlyArray<{
+        alias: string;
+        reason: "not_connected" | "older_build" | "failed";
+      }>,
+    ) => string;
     /** WeChat's reply budget and window — the answer to "replies arrive combined, or late". */
     troubleWeChatReplyWindow: string;
     /**
@@ -6239,6 +6278,9 @@ export type Strings = {
       not_found: string;
       internal: string;
       agent_not_found: string;
+      job_running: string;
+      password_refused: string;
+      not_kept_connected: string;
       unknown_agent: string;
       agent_exists: string;
       agent_deleting: string;

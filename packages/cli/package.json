@@ -47,7 +47,7 @@
     "@penguinharness/use-claude-code": "workspace:*",
     "@penguinharness/use-codex": "workspace:*",
     "@prismshadow/agenthub": "^0.4.15",
-    "@prismshadow/mmsp": "^0.5.3",
+    "@prismshadow/mmsp": "^0.5.4",
     "@prismshadow/penguin-core": "workspace:*",
     "@prismshadow/penguin-server": "workspace:*",
     "commander": "^13.0.0",

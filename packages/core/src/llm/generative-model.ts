@@ -30,13 +30,14 @@
  * `context_engine` only consumes OmniMessage; all Uni* protocol details are encapsulated here.
  * Docs: /docs/interfaces § "The built-in implementation: GenerativeModel".
  */
-import { AutoLLMClient, ThinkingLevel, UnsupportedParameterError } from "@prismshadow/mmsp";
+import { ThinkingLevel, UnsupportedParameterError } from "@prismshadow/mmsp";
 import {
   AgentHubBridgeClient,
   isAgentHubClientType,
   type StatefulLLMClient,
 } from "./agenthub-bridge.js";
 import type {
+  AutoLLMClient,
   ContentItem,
   TextDoneItem,
   ThinkingDoneItem,
@@ -76,7 +77,9 @@ import type {
   ToolDefinition,
 } from "../interfaces/index.js";
 import { userAgent } from "../index.js";
-import { attributionHeaders } from "../state/model-catalog.js";
+import { attributionHeaders } from "./app-attribution.js";
+import { newAutoLLMClient } from "./model-client.js";
+import type { AutoLLMClientOptions } from "./model-client.js";
 import { ToolCallIdAllocator, stripToolCallIdSuffix } from "./tool-call-ids.js";
 import {
   approximateMessagesTokens,
@@ -666,10 +669,11 @@ export function isFatalProviderRejection(error: unknown): boolean {
  * AgentHub serves (GitHub Copilot, ChatGPT / Codex), which run behind the same surface.
  */
 function createStatefulClient(
-  options: ConstructorParameters<typeof AutoLLMClient>[0] & {
+  options: Omit<AutoLLMClientOptions, "apiKey"> & {
     chatgptCredentials?: GenerativeModelConfig["chatgptCredentials"];
   },
   apiKey: string | undefined,
+  model: string,
 ): StatefulLLMClient {
   const { chatgptCredentials, ...rest } = options;
   if (isAgentHubClientType(rest.clientType)) {
@@ -680,7 +684,7 @@ function createStatefulClient(
       ...(chatgptCredentials ? { chatgptCredentials } : {}),
     });
   }
-  return new AutoLLMClient({ ...rest, ...(apiKey !== undefined ? { apiKey } : {}) });
+  return newAutoLLMClient({ ...rest, ...(apiKey !== undefined ? { apiKey } : {}) }, model);
 }
 
 /**
@@ -691,7 +695,7 @@ function createStatefulClient(
  */
 export class GenerativeModel implements LLMInterface {
   private client: StatefulLLMClient;
-  private readonly clientOptions: Omit<ConstructorParameters<typeof AutoLLMClient>[0], "apiKey"> & {
+  private readonly clientOptions: Omit<AutoLLMClientOptions, "apiKey"> & {
     chatgptCredentials?: GenerativeModelConfig["chatgptCredentials"];
   };
   private currentApiKey: string | undefined;
@@ -764,7 +768,9 @@ export class GenerativeModel implements LLMInterface {
     };
     this.currentApiKey = config.apiKey;
     this.resolveApiKey = config.resolveApiKey;
-    this.client = createStatefulClient(this.clientOptions, this.currentApiKey);
+    // MMSP refuses a keyless base URL its client's environment key may not go to here, at
+    // construction; newAutoLLMClient words that refusal as a ModelCredentialError.
+    this.client = createStatefulClient(this.clientOptions, this.currentApiKey, config.modelId);
 
     this.uniConfig = buildUniConfig(config);
     this.defaultThinkingLevel = config.thinkingLevel;
@@ -784,7 +790,7 @@ export class GenerativeModel implements LLMInterface {
     const nextApiKey = await this.resolveApiKey();
     if (nextApiKey === undefined || nextApiKey === this.currentApiKey) return;
     const history = this.client.getHistory();
-    const next = createStatefulClient(this.clientOptions, nextApiKey);
+    const next = createStatefulClient(this.clientOptions, nextApiKey, this.clientOptions.model);
     if (history.length > 0) next.setHistory(history);
     this.client = next;
     this.currentApiKey = nextApiKey;

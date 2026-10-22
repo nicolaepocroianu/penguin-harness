@@ -838,6 +838,12 @@ export interface GalleryStrings {
       readerSample: string;
       compact: string;
       compactSample: string;
+      tables: string;
+      tablesHint: string;
+      tableWide: string;
+      tableWideSample: string;
+      tableShort: string;
+      tableShortSample: string;
       code: string;
       surface: string;
       diff: string;
@@ -958,6 +964,7 @@ export interface GalleryStrings {
         queued: string;
         working: string;
         reconnecting: string;
+        reconnectStopped: string;
         failed: string;
         signInRefused: string;
         installedOnly: string;
@@ -973,6 +980,7 @@ export interface GalleryStrings {
         unreachable: string;
         working: string;
         reconnecting: string;
+        reconnectStopped: string;
         behind: string;
       };
       cards: string;
@@ -990,11 +998,9 @@ export interface GalleryStrings {
         installing: string;
       };
       waits: {
-        reconnecting: string;
         stopped: string;
         notConnected: string;
         failed: string;
-        signInRefused: string;
         notInstalled: string;
         windows: string;
       };
@@ -1026,6 +1032,35 @@ export interface GalleryStrings {
       submitCount: (count: number) => string;
       exhaustedCaption: string;
       noHosts: string;
+    };
+    retry: {
+      phases: string;
+      phasesHint: string;
+      blocks: string;
+      blocksHint: string;
+      inCard: string;
+      inCardHint: string;
+      inChat: string;
+      inChatHint: string;
+      narrow: string;
+      narrowHint: string;
+      trying: (n: number, m: number) => string;
+      failed: (n: number, m: number) => string;
+      countdown: (s: number) => string;
+      gaveUp: (m: number) => string;
+      stoppedSsh: string;
+      stoppedPassword: string;
+      retryNow: string;
+      retry: string;
+      lasting: string;
+      refused: (alias: string) => string;
+      hostKey: string;
+      password: string;
+      states: { ready: string; reconnecting: string; reconnectStopped: string };
+      card: { checked: string; use: string; settings: string; remove: string };
+      chatRetryNow: string;
+      chatGiveUp: string;
+      chatLine: (n: number) => string;
     };
     attachments: {
       composer: string;

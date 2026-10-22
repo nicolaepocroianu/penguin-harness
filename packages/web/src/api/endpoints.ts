@@ -83,6 +83,7 @@ import type {
   MemoryScopeExport,
   MeResponse,
   MessagesResponse,
+  MessagingAccountHoldersResponse,
   MessagingBindingsResponse,
   MessagingChannel,
   MessagingTestMessageResponse,
@@ -1407,6 +1408,22 @@ export const sendMessagingTestMessage = (sessionId: string, channel: MessagingCh
     { method: "POST", body: {} },
   );
 
+/**
+ * Which servers this one can see have a bot's connection enabled — this server and the
+ * Project's machines, each asked by this server — and which machines could not be asked. Asked
+ * before turning a bot on, so it is never connected in two places; it names servers, never a
+ * conversation. Always this server's own answer: the path names no Session to route by.
+ */
+export const getMessagingAccountHolders = (
+  projectId: string,
+  channel: MessagingChannel,
+  accountId: string,
+) =>
+  apiFetch<MessagingAccountHoldersResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/messaging/account-holders`,
+    { query: { channel, accountId }, server: null },
+  );
+
 /** Windowed history request: the newest N units (tail), or the N units before a cursor. */
 export type MessagesPageQuery =
   { kind: "tail"; limit: number } | { kind: "before"; cursor: string; limit: number };
@@ -1974,8 +1991,10 @@ export const listSchedules = (
   );
 
 /** Every agent's scheduled tasks in the Project, each stamped with its agent: what the session list's marks read. */
-export const listProjectSchedules = (projectId: string) =>
-  apiFetch<ProjectSchedulesResponse>(`/api/projects/${encodeURIComponent(projectId)}/schedules`);
+export const listProjectSchedules = (projectId: string, machineId: string | null = null) =>
+  apiFetch<ProjectSchedulesResponse>(`/api/projects/${encodeURIComponent(projectId)}/schedules`, {
+    server: machineId,
+  });
 
 export const createSchedule = (
   projectId: string,
@@ -2418,6 +2437,16 @@ export const installOnMachine = (projectId: string, machineId: string, replacePr
 export const connectMachine = (projectId: string, machineId: string) =>
   apiFetch<MachinesResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/machines/${encodeURIComponent(machineId)}/connect`,
+    { method: "POST", body: {} },
+  );
+
+/**
+ * Retry while the server brings a machine back: its next attempt now, or a new streak after the
+ * automatic attempts stopped (200, the list — not a job).
+ */
+export const reconnectMachine = (projectId: string, machineId: string) =>
+  apiFetch<MachinesResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/machines/${encodeURIComponent(machineId)}/reconnect`,
     { method: "POST", body: {} },
   );
 

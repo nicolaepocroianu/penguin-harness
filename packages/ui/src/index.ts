@@ -148,6 +148,11 @@ export * from "./components/feedback/notice/notice";
 export * from "./components/feedback/todo-notice/todo-notice";
 export * from "./components/feedback/progress-bar/progress-bar";
 export * from "./components/feedback/duration-slot/duration-slot";
+// Retry — the retry and reconnect status every surface shares (trying, waiting with its countdown,
+// gave up, blocked), its one-press buttons, and the second-ticking countdown under them.
+export * from "./components/feedback/retry-status/countdown";
+export * from "./components/feedback/retry-status/use-countdown";
+export * from "./components/feedback/retry-status/retry-status";
 export * from "./components/feedback/beta-badge/beta-badge";
 export * from "./components/layout/disclosure-row/disclosure-row";
 export * from "./components/data/stat-tile/stat-tile";
@@ -243,9 +248,10 @@ export * from "./components/navigation/breadcrumbs/crumb-fit";
 export * from "./components/navigation/breadcrumbs/breadcrumbs";
 export * from "./components/content/prose/frontmatter";
 
-// W7-C — the dock: its tab strip, its frame and header buttons, the picker of an empty dock, the
-// toolbar's dock toggles, and the floating launcher's ball and fan.
+// W7-C — the dock: its tab strip and the strip inside a panel, its frame and header buttons, the
+// picker of an empty dock, the toolbar's dock toggles, and the floating launcher's ball and fan.
 export * from "./components/navigation/dock-tabs/dock-tabs";
+export * from "./components/navigation/panel-tabs/panel-tabs";
 export * from "./components/shell/dock-frame/dock-frame";
 export * from "./components/shell/dock-picker/dock-picker";
 export * from "./components/shell/panels-toolbar/panels-toolbar";

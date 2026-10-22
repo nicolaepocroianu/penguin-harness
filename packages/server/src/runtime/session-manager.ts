@@ -3,11 +3,12 @@
  *
  * Responsibilities:
  *   - get-or-resume-or-heal: use it directly on an active-table hit; with a Trace,
- *     recover via `agent.resumeSession`; a stale Session that was created but never run
- *     and survived a process restart (no Trace) **self-heals** — recreated via
- *     createSession under its own id, from the index row's workspace/model, so everything
- *     that names the Session (a bot binding, a schedule, a desk, an activity run) still
- *     finds it;
+ *     recover via `agent.resumeSession`; a Session that was created but never run and has
+ *     lost its runtime object since (a process restart, an idle eviction) has no Trace and
+ *     **self-heals** — recreated via createSession from the index row's workspace and model,
+ *     under the row's own session_id, so everything keyed by that id (a messaging binding, a
+ *     terminal, the client's route) stays attached to it; the Task response body returns the
+ *     id the Session runs under;
  *   - Credential effectiveness: a Project's models/credentials change bumps every affected
  *     Agent's config generation (invalidateProjectRuntimes); runtimes built earlier are
  *     discarded on their next idle access and re-resumed, so the next Task runs with the
@@ -84,6 +85,7 @@ import { HttpError, isMissingCredential, modelCredentialMissing } from "../http/
 import type { SessionRow } from "../db/repos/sessions.js";
 import { ApprovalRegistry, makeApprove } from "./approvals.js";
 import { goalOutcomeOf, goalProgressOf } from "./goal-events.js";
+import { goalPluginNotInstalled, hasGoalHookPackage } from "./goal-plugin.js";
 import type { Approvals, PendingApproval } from "./approvals.js";
 import type { ChannelHub } from "./channel.js";
 import type { ErrorSink } from "./error-recorder.js";
@@ -116,7 +118,7 @@ import type { Settings } from "../mechanisms/settings.js";
 import type { MessagingBindings } from "../mechanisms/messaging.js";
 import type { OrgCache } from "../mechanisms/organization.js";
 import { enabledMessagingChannel } from "./messaging/enabled-channel.js";
-import { MODELSCOPE_PROVIDER_ID } from "@prismshadow/penguin-core/model-catalog";
+import { MODELSCOPE_PROVIDER_ID } from "../model-catalog/catalog.js";
 
 /**
  * 409 for when there's nothing to compact: give the specific reason rather than a
@@ -309,7 +311,7 @@ export interface RuntimeSession {
 export interface SessionLoader {
   /**
    * Load a runtime Session from an index row: recover (with a Trace) or self-heal
-   * rebuild (no Trace, under the row's id). Throws HttpError(409) for unrecoverable
+   * rebuild (no Trace, under the row's session_id). Throws HttpError(409) for unrecoverable
    * cases such as a missing Workspace.
    */
   load(row: SessionRow): Promise<RuntimeSession>;
@@ -385,8 +387,10 @@ export function createCoreSessionLoader(
           throw toUnrecoverableError(err);
         }
       }
-      // No Trace (created but never run, and the process has restarted since): self-heal
-      // rebuild. A missing Workspace → 409.
+      // No Trace (created but never run, and the runtime object is gone since): self-heal
+      // rebuild under the row's own id — a new one would leave behind everything keyed by the
+      // old (a messaging binding whose replies would never go out, a terminal, the client's
+      // route). A missing Workspace → 409.
       try {
         const stat = await fs.stat(row.workspace);
         if (!stat.isDirectory()) throw new Error("not a directory");
@@ -403,7 +407,6 @@ export function createCoreSessionLoader(
       const knownSource = sources?.get(row.sessionId) ?? unrunSource(row.client);
       try {
         return await agent.createSession({
-          // Rebuilt under its own id: everything that names the Session keeps finding it.
           sessionId: row.sessionId,
           workspaceDir: row.workspace,
           modelId: row.modelId,
@@ -445,6 +448,12 @@ export interface SessionManagerDeps {
   /** Session-origin registry (session_meta is the single source of truth; subagent registration records the forwarded meta's source here). */
   sources: SessionOrigins;
   recorder: UsageRecorderLike;
+  /**
+   * The data root, for what is read off an Agent's state on disk before a Session is loaded
+   * (startGoal's goal-plugin check). Optional: a manager built without one — unit tests on a
+   * fake loader — skips those reads, and the loaded Session's own answer decides.
+   */
+  root?: string;
   /** Automatic Session title generation (optional: not injected in tests or when disabled). */
   titles?: TitleNotifier;
   /** Error persistence (optional: without it, only logs — same as before this was wired up). */
@@ -1226,7 +1235,9 @@ export class SessionManager {
    * `user_prompt` hook (hooks run in core and nowhere else — `Session.runUserPromptHook`)
    * writes the Session's goal file and answers the round-1 protocol message; it runs under
    * the session lock AFTER the idle check, since it overwrites the goal file a running goal
-   * is reading. Not installed (null) is the route's 409; an empty answer a 500. Round inputs
+   * is reading. An Agent without the goal plugin's hook package is refused with the route's
+   * 409 before the Session is even loaded (goal-plugin.ts); a loaded Session whose hook
+   * answers null is the same 409, and an empty answer a 500. Round inputs
    * are yielded by core and published like any streamed message; progress additionally goes
    * out as goal_* server events (the run state itself is the goal file the plugin maintains).
    */
@@ -1244,19 +1255,14 @@ export class SessionManager {
       this.assertOpen();
       this.assertAgentNotDeleting(sessionId);
       this.assertSessionNotDeleting(sessionId);
+      await this.assertGoalPluginInstalled(sessionId);
       const entry = await this.ensureEntry(sessionId);
       this.assertIdle(entry);
       const objective = args.objective;
       const started = await entry.session.runUserPromptHook?.("goal", objective, {
         budget: args.budget,
       });
-      if (!started) {
-        throw new HttpError(
-          409,
-          "goal_plugin_not_installed",
-          "Goal mode needs the goal plugin installed on this agent.",
-        );
-      }
+      if (!started) throw goalPluginNotInstalled();
       if (!started.context) {
         throw new HttpError(
           500,
@@ -2019,19 +2025,16 @@ export class SessionManager {
    * a Task arriving mid-load waits for this load instead of starting a second one.
    *
    * A Session that is gone or being deleted, alone or with its Agent, resolves quietly: there is
-   * nothing to warm and the caller has nothing to do about it. So does one with no Trace yet,
-   * because loading it is a self-heal REBUILD under a new session id — that would move the
-   * Session out from under the binding that asked, and earlier than any Task would. The row's
-   * `hasTrace` is a cache, so a row that has not caught up only misses the warm-up. Any other
-   * load failure rejects; the first Task meets the same failure and reports it where a person
-   * will see it.
+   * nothing to warm and the caller has nothing to do about it. One that never ran is rebuilt
+   * under its own id (see createCoreSessionLoader), so the binding that asked keeps its Session.
+   * Any other load failure rejects; the first Task meets the same failure and reports it where a
+   * person will see it.
    */
   async preload(sessionId: string): Promise<void> {
     await this.withLock(sessionId, async () => {
       if (this.closed || this.deletingSessions.has(sessionId)) return;
       const row = this.deps.sessions.findById(sessionId);
       if (!row || this.deletingAgents.has(agentKey(row.projectId, row.agentId))) return;
-      if (!this.entries.has(sessionId) && row.hasTrace !== true) return;
       try {
         await this.ensureEntry(sessionId);
       } catch (err) {
@@ -2109,6 +2112,17 @@ export class SessionManager {
       provider: row.provider,
     });
     if (refreshed?.changed) this.invalidateProjectRuntimes(row.projectId);
+  }
+
+  /** startGoal's check before the load (goal-plugin.ts); an unknown id is left to ensureEntry's 404. */
+  private async assertGoalPluginInstalled(sessionId: string): Promise<void> {
+    const root = this.deps.root;
+    if (root === undefined) return;
+    const row = this.deps.sessions.findById(sessionId);
+    if (row === null) return;
+    if (!(await hasGoalHookPackage(root, row.projectId, row.agentId))) {
+      throw goalPluginNotInstalled();
+    }
   }
 
   /** get-or-resume-or-heal: use directly on an active-table hit; otherwise load via the loader. */
@@ -2929,6 +2943,7 @@ export class SessionsModule {
       state: this.state,
       sessions: sessionsRepo,
       channels,
+      root: config.root,
       loader: withCodingAgents(
         this.sessionLoaders.create(config.root, sources, {
           proxyEnv: env.proxyEnv,

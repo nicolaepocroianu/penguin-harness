@@ -120,6 +120,7 @@ import {
 } from "./session-project";
 import { RouteProbe } from "./route-probe";
 import { machineForSession } from "../../lib/session-machines";
+import { HistoryLoadFailed } from "./history-load-failed";
 import { nameOnMachine } from "../../lib/workspace-machines";
 import { CHAT_DEFAULTS_CHANGED_EVENT, chatDefaultsChangedDetail } from "./chat-defaults-event";
 import { advanceCostStat, applyUsageFetch, createCostStatHold } from "./header-stats";
@@ -127,12 +128,14 @@ import type { CostStatDisplay } from "./header-stats";
 import { buildInputHistory } from "./input-history";
 import { buildOutline } from "./outline-model";
 import { GoalStatusBanner } from "./goal-banner";
+import { goalPluginGate } from "./goal-plugin-gate";
+import { discardUnstartedSession } from "./unstarted-session";
 import { handoffMessage, modelSwitchMessage } from "./agent-handoff";
 import { modelLabel } from "./model-select";
 import { sessionModelPickerDisabled, sessionRowStale, switchContextShape } from "./model-switch";
 import type { SwitchContextShape } from "./model-switch";
 import { hasConfiguredKey, sameModelRef, turnPricing } from "../models/model-grouping";
-import { providerInfo } from "@prismshadow/penguin-core/model-catalog";
+import { providerInfo } from "@prismshadow/penguin-server/model-catalog";
 import { useMemoryListing } from "./use-memory-listing";
 import { useMachineModels } from "../../lib/machine-models";
 import { agentSettingsPath } from "../../lib/agent-location";
@@ -147,7 +150,7 @@ import "./builtin-dock-panels";
 import { ChatDockProvider } from "./chat-dock-context";
 import type { ChatDockState } from "./chat-dock-context";
 // importing it also registers the global Ctrl+` hotkey with the app bundle
-import { setDockCwd } from "../dock/dock-terminal";
+import { reownTerminals, setDockConversation } from "../dock/dock-terminal";
 import {
   adoptDockScope,
   closedDockView,
@@ -341,6 +344,8 @@ export function ChatPage() {
   // stream. The tabs themselves deliberately survive the switch — the panels re-bind to
   // the conversation on screen.
   useSyncExternalStore(subscribeDock, dockVersion);
+  // Keeps the terminal list fresh while a conversation is on screen — which is also how the
+  // page learns whether this server serves terminals at all (the terminal panel's `offered`).
   useSyncExternalStore(subscribeTerminals, terminalApiSupported);
   /** Workspace tab: locate this file in the tree (a message file card's click, or a reply's link to a file). */
   const [fileOpenRequest, setFileOpenRequest] = useState<{ path: string } | null>(null);
@@ -537,20 +542,18 @@ export function ChatPage() {
       ? returnWorkbench.tabId
       : null,
   );
-  // New shells start in this conversation's Workspace — its files are what a terminal
-  // opened here is for. While drafting, the Workspace is the one picked in the draft and
-  // DraftView publishes it instead (a child effect runs before this one, so this must
-  // yield rather than clobber it with null). Leaving the chat for another page keeps the
-  // last conversation's Workspace: it is a better default than home for the hotkey,
-  // which stays live everywhere. With the machine that Workspace is on: the path only means
-  // anything on its own filesystem, and a shell for this conversation belongs beside the
-  // agent running it.
+  // The docks' terminals belong to this conversation: they are created under its Session id,
+  // start in its Workspace — its files are what a terminal opened here is for — on the machine
+  // it runs on, and only its own are listed. While drafting there is no Session and DraftView
+  // publishes the draft's Workspace instead (a child effect runs before this one, so this must
+  // yield rather than clobber it).
   useEffect(() => {
     if (draft) return;
-    setDockCwd(
-      selected?.workspace ?? null,
-      selected === null ? null : machineForSession(selected.sessionId),
-    );
+    setDockConversation({
+      sessionId: selected?.sessionId ?? null,
+      workspace: selected?.workspace ?? null,
+      machineId: selected === null ? null : machineForSession(selected.sessionId),
+    });
   }, [draft, selected]);
 
   // Currently effective model (session state, the model reference comes from the Session DTO): model selection in draft state is handled internally by DraftView.
@@ -691,6 +694,15 @@ export function ChatPage() {
    * written over there. The same id on this server is another Agent.
    */
   const selectedAgentMachine = selected === null ? null : machineForSession(selected.sessionId);
+  // Goal mode's plugin check, against the Session's Agent on the server that holds it
+  // (goal-plugin-gate.ts).
+  const goalPlugin = useMemo(
+    () =>
+      projectId && selectedAgentId
+        ? goalPluginGate(projectId, selectedAgentId, selectedAgentMachine)
+        : null,
+    [projectId, selectedAgentId, selectedAgentMachine],
+  );
   // The thinking level pinned on THIS Session, read straight off the Session row
   // (SessionInfo.thinkingLevel, written by the picker through PATCH — see
   // applyTurnThinkingLevel): "" = never pinned, and the picker then displays the Agent
@@ -1048,8 +1060,11 @@ export function ChatPage() {
       // one-off — so the Project's schedule directories are re-read on this same edge, the way
       // the Files and Trace panels re-read theirs. One store refresh serves both surfaces: the
       // store notifies its subscribers, so the dock's schedules panel and the sidebar row's
-      // alarm clock come from the same list and cannot disagree.
-      if (projectId !== null) noteScheduleEvent(projectId);
+      // alarm clock come from the same list and cannot disagree. The list re-read is the one on
+      // the server this conversation runs on: a turn on a machine wrote its task files there.
+      if (projectId !== null) {
+        noteScheduleEvent(projectId, machineForSession(selectedSessionId));
+      }
     }
   }, [stream.taskState, selectedSessionId, projectId, reloadSessions, reloadAgents]);
 
@@ -1337,8 +1352,9 @@ export function ChatPage() {
       if (respondedId === currentId) return;
       await reloadSessions();
       // Same conversation under a new id: its docks follow, or they are stranded under
-      // an id nothing routes to again.
+      // an id nothing routes to again — its shells first, so its tabs stay its own.
       await adoptBrowserSession(currentId, respondedId);
+      await reownTerminals(currentId, respondedId);
       adoptDockScope(respondedId);
       navigate(`/chat/${respondedId}`, { replace: true });
     },
@@ -1456,12 +1472,18 @@ export function ChatPage() {
         navigate(`/chat/${res.sessionId}`);
         return true;
       } catch (e) {
-        if (createdId) void api.deleteSession(createdId).catch(() => undefined);
+        // Out of the list first, then off the server (unstarted-session.ts).
+        if (createdId) {
+          void discardUnstartedSession(createdId, {
+            remove: removeSession,
+            deleteSession: api.deleteSession,
+          });
+        }
         toastError(apiErrorText(e, { modelId: ref.modelId }));
         return false;
       }
     },
-    [projectId, selected, addSession, discardSessionDraft, navigate, company],
+    [projectId, selected, addSession, removeSession, discardSessionDraft, navigate, company],
   );
 
   // /agent handoff: doesn't use the current Session — creates a new chat for the picked agent
@@ -1497,7 +1519,13 @@ export function ChatPage() {
         navigate(`/chat/${res.sessionId}`);
         return true;
       } catch (e) {
-        if (createdId) void api.deleteSession(createdId).catch(() => undefined);
+        // Out of the list first, then off the server (unstarted-session.ts).
+        if (createdId) {
+          void discardUnstartedSession(createdId, {
+            remove: removeSession,
+            deleteSession: api.deleteSession,
+          });
+        }
         // The new chat uses the project's default model (createSession doesn't specify a model reference), so the error copy's model context follows suit.
         toastError(
           apiErrorText(e, models?.defaultModel ? { modelId: models.defaultModel.modelId } : {}),
@@ -1505,7 +1533,16 @@ export function ChatPage() {
         return false;
       }
     },
-    [projectId, currentAgent, selected, addSession, discardSessionDraft, navigate, models],
+    [
+      projectId,
+      currentAgent,
+      selected,
+      addSession,
+      removeSession,
+      discardSessionDraft,
+      navigate,
+      models,
+    ],
   );
 
   const onStop = useCallback(async () => {
@@ -2090,7 +2127,6 @@ export function ChatPage() {
     views.find((view) => view.position === "bottom") ?? null,
     closedDockView("bottom"),
   );
-  const terminalSupported = terminalApiSupported();
 
   // The Memory panel's way to its management: add / edit / delete live on the Agent's
   // settings page, on the memory tab — the page of the Agent on the machine the conversation
@@ -2238,6 +2274,7 @@ export function ChatPage() {
       {...(sessionDraft.skills && sessionDraft.skills.length > 0
         ? { initialSkills: sessionDraft.skills }
         : {})}
+      goalPlugin={goalPlugin}
       onSkillsChange={onDraftSkillsChange}
       onHandoff={onHandoff}
       initialText={sessionDraft.text ?? ""}
@@ -2676,13 +2713,15 @@ export function ChatPage() {
                     />
                   ) : selected ? (
                     stream.error ? (
-                      // History failed to load: show a clear error and a retry entry point, instead of staying on a misleading empty state.
-                      <div className="flex h-full flex-col items-center justify-center gap-3 p-6">
-                        <p className="text-sm text-red-600 dark:text-red-400">
-                          {S.chat.historyLoadFailed}: {stream.error}
-                        </p>
-                        <Button onClick={stream.retry}>{S.common.retry}</Button>
-                      </div>
+                      // History failed to load: say why and offer the way on, instead of staying on
+                      // a misleading empty state — for a conversation on a machine out of reach,
+                      // the machine's state rather than the transport's error.
+                      <HistoryLoadFailed
+                        projectId={projectId}
+                        sessionId={selected.sessionId}
+                        error={stream.error}
+                        onRetry={stream.retry}
+                      />
                     ) : stream.loading ? (
                       <div className="space-y-3 p-6">
                         <Skeleton className="h-5 w-1/3" />
@@ -2803,7 +2842,6 @@ export function ChatPage() {
                 open={rightMount.open}
                 animateEntrance={rightMount.animateEntrance}
                 panelBadges={{ agents: anySubagentPending }}
-                terminalSupported={terminalSupported}
               />
             )}
           </div>
@@ -2814,7 +2852,6 @@ export function ChatPage() {
               open={bottomMount.open}
               animateEntrance={bottomMount.animateEntrance}
               panelBadges={{ agents: anySubagentPending }}
-              terminalSupported={terminalSupported}
             />
           )}
         </div>

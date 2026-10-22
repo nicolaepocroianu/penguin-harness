@@ -73,9 +73,11 @@ import { useProject } from "../../state/project";
 import { useSessions } from "../../state/sessions";
 import { ChatInput } from "./chat-input";
 import type { ComposerControl } from "./chat-input";
+import { goalPluginGate } from "./goal-plugin-gate";
+import { discardUnstartedSession } from "./unstarted-session";
 import { APPROVAL_MODES } from "./approval-mode";
 import { adoptDockScope } from "../dock/dock-state";
-import { setDockCwd } from "../dock/dock-terminal";
+import { setDockConversation } from "../dock/dock-terminal";
 import { StartDashboard } from "./start-dashboard";
 import { clearDraft, draftKey, loadDraft, saveDraft } from "./draft-cache";
 import type { DraftCache } from "./draft-cache";
@@ -166,7 +168,7 @@ export function DraftView({
   const [remoteAgents, setRemoteAgents] = useState<AgentSummary[]>([]);
   /** Why a connected machine's list may be empty: still asking, or its answer was a failure. */
   const [remoteAgentsFailure, setRemoteAgentsFailure] = useState<string | null>(null);
-  const { add } = useSessions();
+  const { add, remove } = useSessions();
   // The draft key includes a user dimension (#68 cross-account leakage). RequireAuth
   // guarantees the user is logged in here; on the off chance there's no user (the
   // type allows null), it's better to disable caching entirely than to read/write a
@@ -216,11 +218,15 @@ export function DraftView({
     workspaceMachine === null
       ? null
       : machineLink(machines.state, machines.settled, workspaceMachine);
-  // A terminal opened while drafting starts in the Workspace chosen here; "" is the
-  // temporary Workspace, whose directory the server only creates with the Session, so
-  // that case falls back to home (setDockCwd's null).
+  // The draft's docks belong to no Session yet, so they offer no terminal; the Workspace
+  // chosen here is still theirs (the Files panel, the sidebar's "browse files"). "" is the
+  // temporary Workspace, whose directory the server only creates with the Session.
   useEffect(() => {
-    setDockCwd(workspace || null, workspaceMachine);
+    setDockConversation({
+      sessionId: null,
+      workspace: workspace || null,
+      machineId: workspaceMachine,
+    });
     onWorkspaceChange?.(workspace, workspaceMachine);
   }, [workspace, workspaceMachine, onWorkspaceChange]);
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>(
@@ -857,12 +863,12 @@ export function DraftView({
         navigate(`/chat/${res.sessionId}`, { replace: true });
         return true;
       } catch (e) {
-        // The Session was created but the first message failed to send (postTask failed): delete
-        // this empty Session, otherwise every resend attempt would create another one, piling up
-        // empty sessions with no messages in the sidebar (best-effort cleanup).
+        // The Session was created but its first Task was refused or failed (postTask failed):
+        // discard it — out of the list first, then off the server (unstarted-session.ts says why
+        // in that order) — or every resend would pile up another empty Session in the sidebar.
         if (createdId) {
           await adoptBrowserSession(createdId, browserScope);
-          void api.deleteSession(createdId).catch(() => undefined);
+          void discardUnstartedSession(createdId, { remove, deleteSession: api.deleteSession });
         }
         toastError(apiErrorText(e, modelRef ? { modelId: modelRef.modelId } : {}));
         return false;
@@ -883,6 +889,7 @@ export function DraftView({
       // the Session on this server.
       workspaceMachine,
       add,
+      remove,
       discardDraft,
       navigate,
     ],
@@ -914,6 +921,12 @@ export function DraftView({
 
   // Capability info for the currently selected model (vision/context window) switches instantly with the selection (matched by paired reference).
   const modelInfo = models?.models.find((m) => sameModelRef(m, modelRef));
+  // Goal mode's plugin check, against the Agent the Session will be created for, on the server
+  // that holds it: nothing is created for a goal that cannot start (goal-plugin-gate.ts).
+  const goalPlugin = useMemo(
+    () => (resolvedAgentId ? goalPluginGate(projectId, resolvedAgentId, workspaceMachine) : null),
+    [projectId, resolvedAgentId, workspaceMachine],
+  );
   const contextWindow = modelInfo?.contextWindow;
   const vision = modelInfo?.vision !== false;
 
@@ -947,6 +960,7 @@ export function DraftView({
         skills={agentSkills}
         {...(cached.skills && cached.skills.length > 0 ? { initialSkills: cached.skills } : {})}
         {...(cached.goal === true ? { initialGoal: true } : {})}
+        goalPlugin={goalPlugin}
         onSkillsChange={onSkillsChange}
         initialText={cached.text ?? ""}
         onTextChange={onTextChange}
